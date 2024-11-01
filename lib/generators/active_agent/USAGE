@@ -9,9 +9,9 @@ Examples:
     `bin/rails generate agent inventory search`
 
     creates a sign up mailer class, views, and test:
-        Mailer:     app/agents/inventory_agent.rb
+        Agent:     app/agents/inventory_agent.rb
         Views:      app/views/inventory_agent/search.text.erb [...]
-        Test:       test/mailers/inventory_agent_test.rb
+        Test:       test/agents/inventory_agent_test.rb
 
     `bin/rails generate agent inventory search update report`
 

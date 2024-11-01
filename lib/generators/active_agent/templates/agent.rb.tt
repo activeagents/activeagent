@@ -1,0 +1,14 @@
+<% module_namespacing do -%>
+class <%= class_name %>Agent < ApplicationAgent
+<% actions.each_with_index do |action, index| -%>
+<% if index != 0 -%>
+
+<% end -%>
+  def <%= action %>
+    @message = "Cats go.."
+
+    prompt with: @message
+  end
+<% end -%>
+end
+<% end -%>
