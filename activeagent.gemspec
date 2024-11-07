@@ -13,11 +13,9 @@ Gem::Specification.new do |s|
   s.license = "MIT"
 
   # Add dependencies
-  s.add_dependency "ruby-openai", "~> 7.1.0"
-  s.add_dependency "anthropic", "~> 0.3.0"
-  s.add_dependency "actionpack", "~> 7.2"
-  s.add_dependency "actionview", "~> 7.2"
-  s.add_dependency "activesupport", "~> 7.2"
-  s.add_dependency "activemodel", "~> 7.2"
-  s.add_dependency "activejob", "~> 7.2"
+  s.add_dependency "actionpack", "=> 7.2"
+  s.add_dependency "actionview", "=> 7.2"
+  s.add_dependency "activesupport", "=> 7.2"
+  s.add_dependency "activemodel", "=> 7.2"
+  s.add_dependency "activejob", "=> 7.2"
 end
