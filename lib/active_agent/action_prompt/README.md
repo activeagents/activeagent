@@ -1,12 +1,24 @@
-# ActionPrompt
+# Active Agent: Action Prompt
 
-ActionPrompt is a module within the ActiveAgent framework that provides a structured way to create and manage prompts for AI interactions. It includes several support classes to handle different aspects of prompt creation and management.
+ActionPrompt provides a structured way to create and manage prompts and tools for AI interactions. It includes several support classes to handle different aspects of prompt creation and management. The Base class implements an AbstractController to perform actions that render prompts..
 
 ## Main Components
 
+Module - for including in your agent classes to provide prompt functionality.
+Base class - for creating and managing prompts in ActiveAgent.
+Tool class - for representing the tool object sent to the Agent's generation provider.
+Message - class for representing a single message within a prompt.
+Prompt - class for representing a the context of a prompt, including messages, actions, and other attributes.
+
 ### ActionPrompt::Base
 
-The main module that can be included in your agent classes. It provides the core functionality for creating and managing prompts.
+The base class is used to create and manage prompts in Active Agent. It provides the core functionality for creating and managing contexts woth prompts, tools, and messages.
+
+#### Core Methods
+`prompt` - Creates a new prompt object with the given attributes.
+
+
+### ActionPrompt::Tool
 
 ### ActionPrompt::Message
 
