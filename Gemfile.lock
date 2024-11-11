@@ -187,6 +187,7 @@ DEPENDENCIES
   activesupport (>= 7.2.1)
   anthropic (~> 0.3.0)
   maxitest
+  minitest (~> 5.14)
   mocha
   railties (>= 7.2.1)
   rake

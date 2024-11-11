@@ -7,9 +7,28 @@ require "active_support/core_ext/string/inflections"
 require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
 
-require "active_agent/log_subscriber"
+# require "active_agent/log_subscriber"
 require "active_agent/rescuable"
 
+# The ActiveAgent module provides a framework for creating agents that can generate content
+# and handle various actions. The Base class within this module extends AbstractController::Base
+# and includes several modules to provide additional functionality such as callbacks, generation
+# methods, and rescuable actions.
+#
+# The Base class defines several class methods for registering and unregistering observers and
+# interceptors, as well as methods for generating content with a specified provider and streaming
+# content. It also provides methods for setting default parameters and handling prompts.
+#
+# The instance methods in the Base class include methods for performing generation, processing
+# actions, and handling headers and attachments. The class also defines a NullPrompt class for
+# handling cases where no prompt is provided.
+#
+# The Base class uses ActiveSupport::Notifications for instrumentation and provides several
+# private methods for setting payloads, applying defaults, and collecting responses from blocks,
+# text, or templates.
+#
+# The class also includes several protected instance variables and defines hooks for loading
+# additional functionality.
 module ActiveAgent
   class Base < AbstractController::Base
     include Callbacks
@@ -146,9 +165,9 @@ module ActiveAgent
       # Wraps a prompt generation inside of ActiveSupport::Notifications instrumentation.
       #
       # This method is actually called by the +ActionPrompt::Prompt+ object itself
-      # through a callback when you call <tt>:deliver</tt> on the +ActionPrompt::Prompt+,
-      # calling +generate_prompt+ directly and passing a +ActionPrompt::Prompt+ will do
-      # nothing except tell the logger you sent the prompt.
+      # through a callback when you call <tt>:generate_prompt</tt> on the +ActionPrompt::Prompt+,
+      # calling +generate_prompt+ directly and passing an +ActionPrompt::Prompt+ will do
+      # nothing except tell the logger you generated the prompt.
       def generate_prompt(prompt) # :nodoc:
         ActiveSupport::Notifications.instrument("deliver.active_agent") do |payload|
           set_payload_for_prompt(payload, prompt)

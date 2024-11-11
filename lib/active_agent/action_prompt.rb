@@ -22,9 +22,12 @@ module ActiveAgent
       include AbstractController::Helpers
       include AbstractController::Translation
       include AbstractController::AssetPaths
+      include AbstractController::Callbacks
+      include AbstractController::Caching
 
-      helper ActiveAgent::ActionPrompt::PromptHelper
+      include ActionView::Layouts
 
+      helper ActiveAgent::PromptHelper
       # class_attribute :default_params, default: {
       #   content_type: "text/plain",
       #   parts_order: ["text/plain", "text/html", "application/json"]
