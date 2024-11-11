@@ -47,10 +47,13 @@ module ActiveAgent
 
       def handle_response(response)
         message_json = response.dig("choices", 0, "message")
-        message_content = message_json["content"]
-        message_role = message_json["role"]
-        message = ActiveAgent::Message.new(content: message_content, role: message_role)
-        ActiveAgent::GenerationProvider::Response.new(message:, raw_response: response)
+        message = ActiveAgent::ActionPrompt::Message.new(
+          content: message_json["content"],
+          role: message_json["role"],
+          action_reqested: message_json["function_call"],
+          requested_actions: message_json["tool_calls"]
+        )
+        ActiveAgent::GenerationProvider::Response.new(message: message, raw_response: response)
       end
     end
   end

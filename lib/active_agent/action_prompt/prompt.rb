@@ -9,6 +9,7 @@ module ActiveAgent
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})
         @actions = attributes.fetch(:actions, [])
+        @action_choice = attributes.fetch(:action_choice, "")
         @instructions = attributes.fetch(:instructions, "")
         @body = attributes.fetch(:body, "")
         @content_type = attributes.fetch(:content_type, "text/plain")
@@ -46,6 +47,7 @@ module ActiveAgent
       def to_h
         {
           actions: @actions,
+          action: @action_choice,
           instructions: @instructions,
           message: @message.to_h,
           messages: @messages.map(&:to_h),

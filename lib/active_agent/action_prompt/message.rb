@@ -1,34 +1,35 @@
 module ActiveAgent
   module ActionPrompt
     class Message
-      VALID_ROLES = %w[system assistant user].freeze
+      VALID_ROLES = %w[system assistant user tool function].freeze
 
-      attr_accessor :content, :requested_actions, :params, :role
+      attr_accessor :content, :role, :name, :action_requested, :requested_actions
 
       def initialize(attributes = {})
         @content = attributes[:content] || ""
-        @requested_actions = attributes[:requested_actions] || []
-        @params = attributes[:params] || {}
-        @role = attributes[:role] || "system"
+        @role = attributes[:role] || "user"
+        @name = attributes[:name]
+        @action_requested = attributes[:function_call]
+        @requested_actions = attributes[:tool_calls] || []
         validate_role
       end
 
-      def actions_requested?
-        requested_actions.any?
+      def to_h
+        hash = {role: role, content: content}
+        hash[:name] = name if name
+        hash[:function_call] = function_call if function_call
+        hash[:tool_calls] = tool_calls if tool_calls.any?
+        hash
       end
 
-      def call_actions
+      def perform_actions
         requested_actions.each do |action|
           action.call(self) if action.respond_to?(:call)
         end
       end
 
-      def to_s
-        content.to_s
-      end
-
-      def to_h
-        {content: content, role: role}
+      def action_requested?
+        action_requested.present? || requested_actions.any?
       end
 
       private
