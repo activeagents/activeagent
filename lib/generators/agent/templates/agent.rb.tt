@@ -7,7 +7,7 @@ class <%= class_name %>Agent < ApplicationAgent
   def <%= action %>
     @message = "Cats go.."
 
-    prompt with: @message
+    prompt message: @message
   end
 <% end -%>
 end
