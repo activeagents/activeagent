@@ -64,3 +64,54 @@ describe ActiveAgent::GenerationProvider::OpenAIProvider do
     end
   end
 end
+
+describe "#generate with streaming" do
+  let(:stream_proc) { proc { |message| puts message.content } }
+  let(:config_with_stream) do
+    config.merge("stream" => stream_proc)
+  end
+  let(:provider_with_stream) { ActiveAgent::GenerationProvider::OpenAIProvider.new(config_with_stream) }
+  let(:prompt_with_stream) do
+    OpenStruct.new(
+      messages: [OpenStruct.new(response_number: 0, content: "")],
+      config: {stream: stream_proc}
+    )
+  end
+  let(:response_stream) do
+    {
+      "choices" => [
+        {
+          "delta" => {"content" => "Hello"},
+          "index" => 0
+        },
+        {
+          "delta" => {"content" => " World"},
+          "index" => 0
+        }
+      ]
+    }
+  end
+
+  it "handles streaming responses" do
+    streamed_messages = []
+    test_stream_proc = proc { |message| streamed_messages << message.content }
+
+    client = Minitest::Mock.new
+    client.expect :chat, nil, [Hash]
+
+    OpenAI::Client.stub :new, client do
+      provider_with_stream.instance_variable_set(:@client, client)
+      provider_with_stream.instance_variable_set(:@prompt, prompt_with_stream)
+
+      client.expect :chat, nil, [Hash]
+
+      # Simulate streaming by calling the provider_stream proc manually
+      stream = provider_with_stream.send(:provider_stream)
+      response_stream["choices"].each do |chunk|
+        stream.call(chunk, chunk.to_json.bytesize)
+      end
+
+      assert_equal ["Hello", " World"], streamed_messages
+    end
+  end
+end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "active_agent/base"
+
 class ParamsAgent < ActiveAgent::Base
   # generate_with :openai
 

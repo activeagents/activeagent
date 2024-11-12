@@ -3,7 +3,7 @@
 require_relative "abstract_unit"
 require "active_job"
 require_relative "agents/params_agent"
-ActiveAgent.load_configuration(Rails.root + "/lib/active_agent/generation_provider/agents.yml")
+# ActiveAgent.load_configuration(Rails.root + "/lib/active_agent/generation_provider/agents.yml")
 class ParameterizedTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 

@@ -1,11 +1,3 @@
-# frozen_string_literal: true
-
-require_relative "gem_version"
-
 module ActiveAgent
-  # Returns the currently loaded version of Action Mailer as a
-  # +Gem::Version+.
-  def self.version
-    gem_version
-  end
+  VERSION = "0.1.0"
 end
