@@ -17,8 +17,8 @@ module ActiveAgent
       def to_h
         hash = {role: role, content: content}
         hash[:name] = name if name
-        hash[:action_requested] = function_call if function_call
-        hash[:requested_actions] = tool_calls if tool_calls.any?
+        hash[:action_requested] = action_requested if action_requested
+        hash[:requested_actions] = requested_actions if requested_actions.any?
         hash
       end
 

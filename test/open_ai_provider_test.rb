@@ -13,7 +13,7 @@ class OpenAIProviderTest < Minitest::Test
 
   def test_initialize
     assert_equal "test_api_key", @provider.instance_variable_get(:@api_key)
-    assert_equal "gpt-3.5-turbo", @provider.instance_variable_get(:@model_name)
+    assert_equal "gpt-4o-mini", @provider.instance_variable_get(:@model_name)
   end
 
   def test_generate_success

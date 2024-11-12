@@ -10,7 +10,7 @@ module ActiveAgent
       def initialize(config)
         super
         @api_key = config["api_key"]
-        @model_name = config["model"] || "gpt-3.5-turbo"
+        @model_name = config["model"] || "gpt-4o-mini"
         @client = OpenAI::Client.new(api_key: @api_key)
       end
 
