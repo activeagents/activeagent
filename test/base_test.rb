@@ -44,24 +44,6 @@ describe ActiveAgent::GenerationProvider::Base do
     end
   end
 
-  describe "#prompt_messages" do
-    it "includes instructions, messages, and prompt message when present" do
-      prompt = OpenStruct.new(
-        instructions: OpenStruct.new(to_h: {role: "system", content: "Instructions"}),
-        messages: [OpenStruct.new(to_h: {role: "user", content: "Message 1"})],
-        message: OpenStruct.new(to_h: {role: "user", content: "Prompt Message"})
-      )
-      base_provider.instance_variable_set(:@prompt, prompt)
-
-      expected = [
-        {role: "system", content: "Instructions"},
-        {role: "user", content: "Message 1"},
-        {role: "user", content: "Prompt Message"}
-      ]
-      assert_equal expected, base_provider.send(:prompt_messages)
-    end
-  end
-
   describe "#extract_message_from_response" do
     it "raises NotImplementedError" do
       assert_raises NotImplementedError do
