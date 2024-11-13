@@ -22,7 +22,7 @@ module ActiveAgent
         @headers = attributes.fetch(:headers, {})
         @parts = attributes.fetch(:parts, [])
 
-        set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message.content.blank?
+        set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message.content
         set_messages if @messages.any? || @instructions.present?
       end
 
@@ -35,7 +35,7 @@ module ActiveAgent
         message = Message.new(content: part[:body], role: :user)
         prompt_part = self.class.new(message: message, content: message.content, content_type: part[:content_type], chartset: part[:charset])
 
-        set_message if @content_type == part[:content_type] && @message.content.blank?
+        set_message if @content_type == part[:content_type] && @message.content
 
         @parts << prompt_part
       end
@@ -60,17 +60,19 @@ module ActiveAgent
         @headers.merge!(headers)
       end
 
+      private
+
       def set_messages
         @messages = [Message.new(content: @instructions, role: :system)] + @messages
       end
 
       def set_message
-        if @body.is_a?(String) && @message.content.blank?
+        if @body.is_a?(String) && !@message.content
           @message = Message.new(content: @body, role: :user)
         elsif @message.is_a? String
           @message = Message.new(content: @message, role: :user)
         end
-        @messages = [@message] + set_messages
+        @messages = [@message]
       end
     end
   end
