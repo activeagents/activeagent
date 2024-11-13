@@ -22,7 +22,7 @@ class PromptTest < Minitest::Test
     assert_equal "text/plain", @prompt.content_type
     assert_equal "These are the instructions", @prompt.instructions
     assert_equal "This is a message", @prompt.message.content
-    assert_equal @prompt.messages.size, 2
+    assert_equal 2, @prompt.messages.size
     assert_equal "value", @prompt.params[:key]
     assert_equal "1.0", @prompt.mime_version
     assert_equal "UTF-8", @prompt.charset

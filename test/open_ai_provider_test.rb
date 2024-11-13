@@ -4,7 +4,7 @@ require_relative "../lib/active_agent/generation_provider/open_ai_provider"
 
 class OpenAIProviderTest < Minitest::Test
   def setup
-    @config = {"api_key" => "test_api_key", "model" => "gpt-3.5-turbo"}
+    @config = {"api_key" => "test_api_key", "model" => "gpt-4o-mini"}
     @provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(@config)
     @prompt = mock("prompt")
     @prompt.stubs(:config).returns({})
