@@ -7,7 +7,7 @@ ActiveAgent is a Rails framework for creating and managing AI agents. It provide
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'active_agent'
+gem 'activeagent'
 ```
 
 And then execute:
@@ -56,56 +56,7 @@ class InventoryAgent < ActiveAgent::Base
 end
 ```
 
-### Interact with AI Services
 
-ActiveAgent allows you to interact with various AI services to generate text, images, speech-to-text, and text-to-speech.
-
-```ruby
-class SupportAgent < ActiveAgent::Base
-  generate_with :openai, model: 'gpt-4o-mini', instructions: :instructions
-
-  def perform(content, context)
-    @content = content
-    @context = context
-  end
-
-  def generate_message
-    provider_instance.generate(self)
-  end
-
-  private
-
-  def after_generate
-    broadcast_message
-  end
-
-  def broadcast_message
-    broadcast_append_later_to(
-      broadcast_stream,
-      target: broadcast_target,
-      partial: 'support_agent/message',
-      locals: { message: @message }
-    )
-  end
-
-  def broadcast_stream
-    "#{dom_id(@chat)}_messages"
-  end
-end
-```
-
-### Render Generative UI
-
-ActiveAgent uses Action Prompt both for rendering `instructions` prompt views as well as rendering action views. Prompts are Action Views that provide instructions for the agent to generate content.
-
-```erb
-<!-- 
-
-instructions.text.erb
-
- -->
-INSTRUCTIONS: You are an inventory manager for <%= @organization.name %>. You can search for inventory or reconcile inventory using <%= assigned_actions %>
-```
 
 ### Scale with Asynchronous Jobs and Streaming
 
@@ -150,4 +101,4 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/yourus
 ## License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
-```
+
