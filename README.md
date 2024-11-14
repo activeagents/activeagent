@@ -96,7 +96,7 @@ end
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/yourusername/active_agent.
+Bug reports and pull requests are welcome on GitHub at https://github.com/activeagents/activeagent.
 
 ## License
 
