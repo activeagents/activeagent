@@ -1,33 +1,14 @@
-json.schema do
-  json.type "object"
-  json.properties do
-    json.name do
-      json.type "string"
-      json.description "The name of the function or tool"
-    end
-    json.description do
-      json.type "string"
-      json.description "A brief description of what the function or tool does"
-    end
-    json.parameters do
-      json.type "object"
-      json.properties do
-        json.each do |parameter|
-          json.name do
-            json.type "string"
-            json.description "The name of the parameter"
-          end
-          json.type do
-            json.type "string"
-            json.description "The data type of the parameter"
-          end
-          json.required do
-            json.type "boolean"
-            json.description "Whether the parameter is required"
-          end
-        end
+json.type :function
+json.function do
+  json.name action_name
+  json.description "TODO: Write a description for this action"
+  json.parameters do
+    json.type :object
+    json.properties do
+      json.param_name do
+        json.type :string
+        json.description "The param_description"
       end
     end
   end
-  json.required ["name", "description", "parameters"]
 end
