@@ -206,7 +206,8 @@ module ActiveAgent
     attr_internal :context
 
     def perform_generation
-      generation_provider.generate(context.options.merge(options)) if context && generation_provider
+      context.options.merge(options)
+      generation_provider.generate(context) if context && generation_provider
     end
 
     def initialize
@@ -288,35 +289,28 @@ module ActiveAgent
     def prompt(headers = {}, &block)
       return context if @_prompt_was_called && headers.blank? && !block
 
-      # At the beginning, do not consider class default for content_type
       content_type = headers[:content_type]
 
       headers = apply_defaults(headers)
 
-      # Apply charset at the beginning so all fields are properly quoted
       context.charset = charset = headers[:charset]
 
-      # Set configure generation behavior
-      # wrap_generation_behavior!(headers[:generation_method], headers[:generation_method_options])
-
-      # assign_headers_to_context(context, headers)
-
-      # Render the templates and blocks
       responses = collect_responses(headers, &block)
       @_prompt_was_called = true
 
       create_parts_from_responses(context, responses)
 
-      # Set up content type, reapply charset and handle parts order
       context.content_type = set_content_type(context, content_type, headers[:content_type])
       context.charset = charset
-
-      if context.multipart?
-        # context.body.set_sort_order(headers[:parts_order])
-        # context.body.sort_parts!
-      end
-
+      context.actions = headers[:actions] || action_schemas
+      binding.irb
       context
+    end
+    
+    def action_schemas
+      action_methods.map do |action|
+        JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
+      end
     end
 
     private

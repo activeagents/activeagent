@@ -1,4 +1,3 @@
-# lib/active_agent.rb
 require "yaml"
 require "abstract_controller"
 require "active_agent/version"

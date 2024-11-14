@@ -1,83 +1,153 @@
-# Active Agent
-Generative AI powered Rails apps
+# ActiveAgent
 
-## What is Active Agent?
-Active Agent is a framework for interacting with generative AI services. ActiveAgent provides a simple and flexible service adapter interface to support various AI providers.
+ActiveAgent is a Rails framework for creating and managing AI agents. It provides a structured way to interact with AI services through agents that can generate text, images, speech-to-text, and text-to-speech. It includes modules for defining prompts, actions, and rendering generative UI, as well as scaling with asynchronous jobs and streaming.
 
-## How does Active Agent work?
-Active Agent provides an interface to define Agents that can load context take prompts then generate content or perform actions. Agents can receive text, image, audio prompts to generate content in the form of text, image, and audio.
+## Installation
 
-### Define Agents
-Agents are the core of Active Agent. An agent takes instructions and can perform actions augment responses by providing data used for generation. Agents are defined by a simple Ruby class that inherits from `ActiveAgent::base` located in the `app/agents` directory.
-
-
+Add this line to your application's Gemfile:
 
 ```ruby
-# app/agents/inventory_agent.rb
-class InventoryAgent < ActiveAgent::Base
-  generate_with :openai, model: :gpt4o, temperature: 0.5, max_tokens: 100, instructions: :inventory_operations
+gem 'active_agent'
+```
 
-  # Define the agent's default instructions to use the inventory_operations action
-  default instructions: :inventory_operations
+And then execute:
+
+```sh
+bundle install
+```
+## Getting Started
+
+## Usage
+
+### Generating an Agent
+```
+rails generate agent inventory search
+```
+
+This will generate the following files:
+```
+app/agents/application_agent.rb
+app/agents/inventory_agent.rb
+app/views/inventory_agent/search.text.erb
+app/views/inventory_agent/search.json.jbuilder
+```
+
+### Define Agents
+
+Agents are the core of ActiveAgent. An agent takes prompts and can perform actions to generate content. Agents are defined by a simple Ruby class that inherits from `ActiveAgent::Base` and are located in the `app/agents` directory.
+
+```ruby
+# 
+
+inventory_agent.rb
+
+
+class InventoryAgent < ActiveAgent::Base
+  generate_with :openai, model: 'gpt-4o-mini', temperature: 0.5, instructions: :inventory_operations
+
+  def search
+    @items = Item.search(params[:query])
+  end
 
   def inventory_operations
     @organization = Organization.find(params[:account_id])
-    message(:inventory_operation, role: :system)
+    prompt
   end
 end
 ```
 
-### Action Prompts
-Similarly to ActionController and ActionMailer, Active Agent uses Action Prompt both for rendering `instructions` prompt views as well as rendering action views. Action Prompt `instructions` in the form of a system message.
+### Interact with AI Services
+
+ActiveAgent allows you to interact with various AI services to generate text, images, speech-to-text, and text-to-speech.
 
 ```ruby
-# app/views/agents/inventory_operations.text.erb
-  INSTRUCTIONS: You are an inventory manager for <%= @organization.name %>. You can search for inventory or reconcile inventory using <%= assigned_actions %>
+class SupportAgent < ActiveAgent::Base
+  generate_with :openai, model: 'gpt-4o-mini', instructions: :instructions
+
+  def perform(content, context)
+    @content = content
+    @context = context
+  end
+
+  def generate_message
+    provider_instance.generate(self)
+  end
+
+  private
+
+  def after_generate
+    broadcast_message
+  end
+
+  def broadcast_message
+    broadcast_append_later_to(
+      broadcast_stream,
+      target: broadcast_target,
+      partial: 'support_agent/message',
+      locals: { message: @message }
+    )
+  end
+
+  def broadcast_stream
+    "#{dom_id(@chat)}_messages"
+  end
+end
 ```
 
-### What are Actions?
-Actions are just Ruby methods so they can do anything app can do already. Actions are commonly used retrieve data or interact with external services. The Actions are called when the agent generates an agent message with 
+### Render Generative UI
 
-### How do Agents call Actions?
-Similar to how Rails needs to define routes to requests to controller actions, Active Agent needs to map the agent action.
+ActiveAgent uses Action Prompt both for rendering `instructions` prompt views as well as rendering action views. Prompts are Action Views that provide instructions for the agent to generate content.
 
-# config/operations.rb
+```erb
+<!-- 
+
+instructions.text.erb
+
+ -->
+INSTRUCTIONS: You are an inventory manager for <%= @organization.name %>. You can search for inventory or reconcile inventory using <%= assigned_actions %>
+```
+
+### Scale with Asynchronous Jobs and Streaming
+
+ActiveAgent supports asynchronous job processing and streaming for scalable AI interactions.
+
+#### Asynchronous Jobs
+
+Use the `generate_later` method to enqueue a job for later processing.
+
 ```ruby
-Rails.application.agents.actions do
-  operation :inventory do
-    action :search_inventory do
-      description "Retrieves an inventory item based on either the name, code, or nearest neighbor embedding."
+InventoryAgent.with(query: query).search.generate_later
+```
 
-      parameter :name, type: "string", description: "The name of the inventory item to retrieve."
-      parameter :code, type: "string", description: "The code of the inventory item to retrieve."
-      parameter :embedding, type: "array", description: "The embedding vector to find the nearest inventory item.", items: { type: "number" }
+#### Streaming
+
+Use the `stream_with` method to handle streaming responses.
+
+```ruby
+class InventoryAgent < ActiveAgent::Base
+  generate_with :openai, model: 'gpt-4o-mini', stream: :broadcast_results
+
+  private
+
+  def broadcast_results
+    proc do |chunk, _bytesize|
+      @message.content = @message.content + chunk
+      broadcast_append_to(
+        "#{dom_id(chat)}_messages",
+        partial: "messages/message",
+        locals: { message: @message, scroll_to: true },
+        target: "#{dom_id(chat)}_messages"
+      )
     end
   end
 end
 ```
 
-```ruby
+## Contributing
 
-#### Actions have consequences (results)
+Bug reports and pull requests are welcome on GitHub at https://github.com/yourusername/active_agent.
 
-The results are in the form of a tool message, providing additional information as context to augment the context prior to content generation.
+## License
 
-#### Set the Agent's service configuration and options to use
-By default the agent uses the generation service provider set in the Rails application configuration. 
-
-```ruby
-class Application < Rails::Application
-  config.active_agent.generation_provider = :openai
-end
+The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
 ```
-
-#### Generation service provider configurations are defined in the `config/generation.yml` file
-```yaml
-openai:
-  access_token: <%= Rails.application.credentials.openai_access_token %>
-```
-# Options
-
-
-### How can agents be used?
-Agents can be used to perform actions 

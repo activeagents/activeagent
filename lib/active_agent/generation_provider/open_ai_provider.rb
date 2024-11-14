@@ -20,7 +20,7 @@ module ActiveAgent
 
         # parameters[:instructions] = prompt.instructions.content if prompt.instructions.present?
 
-        parameters[:stream] = provider_stream if prompt.config[:stream] || config["stream"]
+        parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
 
         response = @client.chat(parameters: parameters)
         handle_response(response)
@@ -45,6 +45,14 @@ module ActiveAgent
         end
       end
 
+      def prompt_parameters
+        {
+          messages: @prompt.messages,
+          temperature: @config["temperature"] || 0.7,
+          tools: @prompt.actions
+        }
+      end
+
       def handle_response(response)
         message_json = response.dig("choices", 0, "message")
         message = ActiveAgent::ActionPrompt::Message.new(
@@ -53,7 +61,7 @@ module ActiveAgent
           action_reqested: message_json["function_call"],
           requested_actions: message_json["tool_calls"]
         )
-        ActiveAgent::GenerationProvider::Response.new(message: message, raw_response: response)
+        ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
       end
     end
   end
