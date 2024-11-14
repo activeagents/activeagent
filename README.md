@@ -43,15 +43,10 @@ inventory_agent.rb
 
 
 class InventoryAgent < ActiveAgent::Base
-  generate_with :openai, model: 'gpt-4o-mini', temperature: 0.5, instructions: :inventory_operations
+  generate_with :openai, model: 'gpt-4o-mini', temperature: 0.5
 
   def search
     @items = Item.search(params[:query])
-  end
-
-  def inventory_operations
-    @organization = Organization.find(params[:account_id])
-    prompt
   end
 end
 ```

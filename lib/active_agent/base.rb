@@ -303,7 +303,6 @@ module ActiveAgent
       context.content_type = set_content_type(context, content_type, headers[:content_type])
       context.charset = charset
       context.actions = headers[:actions] || action_schemas
-      binding.irb
       context
     end
     
