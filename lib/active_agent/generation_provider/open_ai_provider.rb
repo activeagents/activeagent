@@ -16,7 +16,8 @@ module ActiveAgent
 
       def generate(prompt)
         @prompt = prompt
-        parameters = prompt_parameters.merge(model: @model_name)
+
+        parameters = prompt_parameters.merge(config)
 
         # parameters[:instructions] = prompt.instructions.content if prompt.instructions.present?
 
