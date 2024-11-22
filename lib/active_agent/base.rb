@@ -71,7 +71,7 @@ module ActiveAgent
         new.prompt(...)
       end
 
-      # Register one or more Observers which will be notified when mail is delivered.
+      # Register one or more Observers which will be notified when prompt is generated.
       def register_observers(*observers)
         observers.flatten.compact.each { |observer| register_observer(observer) }
       end
@@ -81,7 +81,7 @@ module ActiveAgent
         observers.flatten.compact.each { |observer| unregister_observer(observer) }
       end
 
-      # Register one or more Interceptors which will be called before mail is sent.
+      # Register one or more Interceptors which will be called before prompt is sent.
       def register_interceptors(*interceptors)
         interceptors.flatten.compact.each { |interceptor| register_interceptor(interceptor) }
       end
@@ -91,32 +91,32 @@ module ActiveAgent
         interceptors.flatten.compact.each { |interceptor| unregister_interceptor(interceptor) }
       end
 
-      # Register an Observer which will be notified when mail is delivered.
+      # Register an Observer which will be notified when prompt is generated.
       # Either a class, string, or symbol can be passed in as the Observer.
       # If a string or symbol is passed in it will be camelized and constantized.
       def register_observer(observer)
-        Mail.register_observer(observer_class_for(observer))
+        Prompt.register_observer(observer_class_for(observer))
       end
 
       # Unregister a previously registered Observer.
       # Either a class, string, or symbol can be passed in as the Observer.
       # If a string or symbol is passed in it will be camelized and constantized.
       def unregister_observer(observer)
-        Mail.unregister_observer(observer_class_for(observer))
+        Prompt.unregister_observer(observer_class_for(observer))
       end
 
-      # Register an Interceptor which will be called before mail is sent.
+      # Register an Interceptor which will be called before prompt is sent.
       # Either a class, string, or symbol can be passed in as the Interceptor.
       # If a string or symbol is passed in it will be camelized and constantized.
       def register_interceptor(interceptor)
-        Mail.register_interceptor(observer_class_for(interceptor))
+        Prompt.register_interceptor(observer_class_for(interceptor))
       end
 
       # Unregister a previously registered Interceptor.
       # Either a class, string, or symbol can be passed in as the Interceptor.
       # If a string or symbol is passed in it will be camelized and constantized.
       def unregister_interceptor(interceptor)
-        Mail.unregister_interceptor(observer_class_for(interceptor))
+        Prompt.unregister_interceptor(observer_class_for(interceptor))
       end
 
       def observer_class_for(value) # :nodoc:
@@ -133,6 +133,7 @@ module ActiveAgent
       def generate_with(provider, **options)
         self.generation_provider = provider
         self.options = (options || {}).merge(options)
+        self.generation_provider.config.merge!(options)
       end
 
       def stream_with(&stream)
