@@ -15,16 +15,19 @@ And then execute:
 ```sh
 bundle install
 ```
+
 ## Getting Started
 
 ## Usage
 
 ### Generating an Agent
+
 ```
 rails generate agent inventory search
 ```
 
 This will generate the following files:
+
 ```
 app/agents/application_agent.rb
 app/agents/inventory_agent.rb
@@ -37,7 +40,7 @@ app/views/inventory_agent/search.json.jbuilder
 Agents are the core of ActiveAgent. An agent takes prompts and can perform actions to generate content. Agents are defined by a simple Ruby class that inherits from `ActiveAgent::Base` and are located in the `app/agents` directory.
 
 ```ruby
-# 
+#
 
 inventory_agent.rb
 
@@ -50,8 +53,6 @@ class InventoryAgent < ActiveAgent::Base
   end
 end
 ```
-
-
 
 ### Scale with Asynchronous Jobs and Streaming
 
@@ -93,7 +94,11 @@ end
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/activeagents/activeagent.
 
+```
+bundle exec standard --fix # for linting
+bundle exec rake test # for testing
+```
+
 ## License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
-
