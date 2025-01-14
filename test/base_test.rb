@@ -10,7 +10,7 @@ describe ActiveAgent::GenerationProvider::Base do
   let(:base_provider) { ActiveAgent::GenerationProvider::Base.new(config) }
 
   before do
-    @logger = Logger.new(STDOUT)
+    @logger = Logger.new($stdout)
     ActiveAgent::GenerationProvider::Base.any_instance.stubs(:logger).returns(@logger)
   end
 

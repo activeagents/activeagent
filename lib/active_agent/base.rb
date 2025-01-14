@@ -213,7 +213,10 @@ module ActiveAgent
     def initialize
       super
       @_prompt_was_called = false
-      @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions])
+      @_context = ActiveAgent::ActionPrompt::Prompt.new(
+        instructions: params[:instructions],
+        context: params[:context]
+      )
     end
 
     def process(method_name, *args) # :nodoc:
@@ -243,8 +246,12 @@ module ActiveAgent
         true
       end
 
-      def method_missing(...)
+      def method_missing(method_name, ...)
         nil
+      end
+
+      def respond_to_missing?(method_name, include_private = false)
+        true
       end
     end
 
@@ -402,7 +409,7 @@ module ActiveAgent
     end
 
     def create_parts_from_responses(context, responses)
-      if responses.size > 1 && false
+      if responses.size > 1
         prompt_container = ActiveAgent::ActionPrompt::Prompt.new
         prompt_container.content_type = "multipart/alternative"
         responses.each { |r| insert_part(context, r, context.charset) }

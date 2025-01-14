@@ -31,13 +31,13 @@ module ActiveAgent
     # "Deserialize" the agent class name by hand in case another argument
     # (like a Global ID reference) raised DeserializationError.
     def agent_class
-      if agent = Array(@serialized_arguments).first || Array(arguments).first
+      if (agent = Array(@serialized_arguments).first || Array(arguments).first)
         agent.constantize
       end
     end
 
     def handle_exception_with_agent_class(exception)
-      if klass = agent_class
+      if (klass = agent_class)
         klass.handle_exception exception
       else
         raise exception

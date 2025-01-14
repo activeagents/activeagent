@@ -46,7 +46,7 @@ module ActiveAgent
         self.view_paths = ["#{Rails.root}/app/views"]
         self.preview_paths |= options[:preview_paths]
 
-        if delivery_job = options.delete(:delivery_job)
+        if (delivery_job = options.delete(:delivery_job))
           self.delivery_job = delivery_job.constantize
         end
 

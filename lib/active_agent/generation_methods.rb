@@ -39,7 +39,7 @@ module ActiveAgent
         when NilClass
           raise "Generation method cannot be nil"
         when Symbol
-          if klass = generation_methods[method]
+          if (klass = generation_methods[method])
             prompt.generation_method(klass, (send(:"#{method}_settings") || {}).merge(options || {}))
           else
             raise "Invalid generation method #{method.inspect}"
