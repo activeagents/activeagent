@@ -4,7 +4,7 @@ require_relative "message"
 module ActiveAgent
   module ActionPrompt
     class Prompt
-      attr_accessor :actions, :body, :content_type, :instructions, :message, :messages, :options, :mime_version, :charset, :context
+      attr_accessor :actions, :body, :content_type, :instructions, :message, :messages, :options, :mime_version, :charset, :context, :params
 
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})
