@@ -305,7 +305,7 @@ module ActiveAgent
       context.actions = headers[:actions] || action_schemas
       context
     end
-    
+
     def action_schemas
       action_methods.map do |action|
         JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
