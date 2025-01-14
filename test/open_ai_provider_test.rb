@@ -1,6 +1,8 @@
 require "minitest/autorun"
 require "mocha/minitest"
 require_relative "../lib/active_agent/generation_provider/open_ai_provider"
+require_relative "../lib/active_agent/action_prompt"
+require_relative "../lib/active_agent/generation_provider/base"
 
 class OpenAIProviderTest < Minitest::Test
   def setup
@@ -9,6 +11,8 @@ class OpenAIProviderTest < Minitest::Test
     @prompt = mock("prompt")
     @prompt.stubs(:config).returns({})
     @prompt.stubs(:messages).returns([])
+    @prompt.stubs(:parameters).returns({prompt: "Hello"})
+    @prompt.stubs(:options).returns({})
   end
 
   def test_initialize
@@ -31,7 +35,7 @@ class OpenAIProviderTest < Minitest::Test
     @provider.stubs(:prompt_parameters).returns({prompt: "Hello"})
     @provider.instance_variable_get(:@client).stubs(:chat).raises(StandardError.new("API error"))
 
-    assert_raises(ActiveAgent::GenerationProvider::GenerationProviderError) do
+    assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
       @provider.generate(@prompt)
     end
   end
