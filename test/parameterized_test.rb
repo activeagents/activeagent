@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "test_helper"
+
 require_relative "abstract_unit"
 require "active_job"
 require_relative "agents/params_agent"

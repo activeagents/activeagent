@@ -31,6 +31,21 @@ module ActiveAgent
           temperature: @config["temperature"] || 0.7
         }
       end
+
+      def logger
+        @logger ||= Logger.new($stdout)
+      end
+
+      private
+
+      def extract_message_from_response(response)
+        raise NotImplementedError, "Subclasses must implement the 'extract_message_from_response' method"
+      end
+
+      def handle_error(error)
+        logger.error("#{self.class.name} Error: #{error.message}")
+        raise error
+      end
     end
   end
 end

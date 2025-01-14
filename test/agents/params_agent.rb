@@ -12,6 +12,7 @@ class ParamsAgent < ActiveAgent::Base
   def welcome
     prompt(instructions: @instructions, context: @context, content: params[:content]) do |format|
       format.text { render plain: "Instructions: #{@instructions}" }
+      format.json { render json: {instructions: @instructions} }
     end
   end
 end

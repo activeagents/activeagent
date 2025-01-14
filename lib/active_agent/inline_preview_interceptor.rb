@@ -31,7 +31,7 @@ module ActiveAgent
       return context if html_part.blank?
 
       html_part.body = html_part.decoded.gsub(PATTERN) do |match|
-        if part = find_part(match[9..-2])
+        if (part = find_part(match[9..-2]))
           %(src="#{data_url(part)}")
         else
           match
@@ -54,7 +54,11 @@ module ActiveAgent
     end
 
     def find_part(cid)
-      context.all_parts.find { |p| p.attachment? && p.cid == cid }
+      if (part = context.all_parts.find { |p| p.attachment? && p.cid == cid })
+        %(src="#{data_url(part)}")
+      else
+        match
+      end
     end
   end
 end

@@ -36,28 +36,28 @@ module ActiveAgent
           template "action.html.#{template_engine}", @view_path
         end
       end
-      
 
       private
-        def test_framework
-          ::Rails.application.config.generators.options[:rails][:test_framework]
-        end
-        
-        def template_engine
-          ::Rails.application.config.generators.options[:rails][:template_engine]
-        end
-        
-        def file_name # :doc:
-          @_file_name ||= super + "_agent"
-        end
 
-        def application_agent_file_name
-          @_application_agent_file_name ||= if mountable_engine?
-            "app/agents/#{namespaced_path}/application_agent.rb"
-          else
-            "app/agents/application_agent.rb"
-          end
+      def test_framework
+        ::Rails.application.config.generators.options[:rails][:test_framework]
+      end
+
+      def template_engine
+        ::Rails.application.config.generators.options[:rails][:template_engine]
+      end
+
+      def file_name # :doc:
+        @_file_name ||= super + "_agent"
+      end
+
+      def application_agent_file_name
+        @_application_agent_file_name ||= if mountable_engine?
+          "app/agents/#{namespaced_path}/application_agent.rb"
+        else
+          "app/agents/application_agent.rb"
         end
+      end
     end
   end
 end
