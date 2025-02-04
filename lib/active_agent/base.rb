@@ -67,9 +67,9 @@ module ActiveAgent
     }.freeze
 
     class << self
-      def prompt(...)
-        new.prompt(...)
-      end
+      # def prompt(...)
+      #   new.prompt(...)
+      # end
 
       # Register one or more Observers which will be notified when prompt is generated.
       def register_observers(*observers)
@@ -133,7 +133,7 @@ module ActiveAgent
       def generate_with(provider, **options)
         self.generation_provider = provider
         self.options = (options || {}).merge(options)
-        self.generation_provider.config.merge!(options)
+        generation_provider.config.merge!(options)
       end
 
       def stream_with(&stream)
@@ -209,6 +209,35 @@ module ActiveAgent
     def perform_generation
       context.options.merge(options)
       generation_provider.generate(context) if context && generation_provider
+      handle_response(generation_provider.response)
+      # perform_actions(requested_actions: context.message.requested_actions)
+      # update_context(context)
+      # if context.requested_actions.present?
+      #   context.requested_actions.each do |action|
+      #     perform_action(action)
+      #   end
+      # end
+      generation_provider.response
+    end
+
+    def handle_response(response)
+      perform_actions(requested_actions: response.message.requested_actions) if response.message.requested_actions.present?
+      update_context(response)
+    end
+
+    def update_context(response)
+      context.message = response.message
+      context.messages << response.message
+    end
+
+    def perform_actions(requested_actions:)
+      requested_actions.each do |action|
+        perform_action(action)
+      end
+    end
+
+    def perform_action(action)
+      process(action.name, *action.params)
     end
 
     def initialize
@@ -287,6 +316,10 @@ module ActiveAgent
       end
     end
 
+    def prompt_with(*)
+      context.update_context(*)
+    end
+
     def prompt(headers = {}, &block)
       return context if @_prompt_was_called && headers.blank? && !block
 
@@ -295,7 +328,7 @@ module ActiveAgent
       headers = apply_defaults(headers)
 
       context.charset = charset = headers[:charset]
-
+      binding.irb
       responses = collect_responses(headers, &block)
       @_prompt_was_called = true
 
@@ -306,7 +339,7 @@ module ActiveAgent
       context.actions = headers[:actions] || action_schemas
       context
     end
-    
+
     def action_schemas
       action_methods.map do |action|
         JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
@@ -403,7 +436,7 @@ module ActiveAgent
     end
 
     def create_parts_from_responses(context, responses)
-      if responses.size > 1 && false
+      if responses.size > 1
         prompt_container = ActiveAgent::ActionPrompt::Prompt.new
         prompt_container.content_type = "multipart/alternative"
         responses.each { |r| insert_part(context, r, context.charset) }

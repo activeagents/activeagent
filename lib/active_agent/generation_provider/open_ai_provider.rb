@@ -1,8 +1,9 @@
 # lib/active_agent/generation_provider/open_ai_provider.rb
 
-require_relative "base"
 require "openai"
-require "active_agent/generation_provider/response"
+require "active_agent/action_prompt/action"
+require_relative "base"
+require_relative "response"
 
 module ActiveAgent
   module GenerationProvider
@@ -17,14 +18,13 @@ module ActiveAgent
       def generate(prompt)
         @prompt = prompt
 
-        parameters = prompt_parameters.merge(config)
+        parameters = prompt_parameters.merge(config.except("api_key", :instructions, "service"))
 
         # parameters[:instructions] = prompt.instructions.content if prompt.instructions.present?
 
         parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
 
-        response = @client.chat(parameters: parameters)
-        handle_response(response)
+        handle_response(@client.chat(parameters: parameters))
       rescue => e
         raise GenerationProviderError, e.message
       end
@@ -59,10 +59,25 @@ module ActiveAgent
         message = ActiveAgent::ActionPrompt::Message.new(
           content: message_json["content"],
           role: message_json["role"],
-          action_reqested: message_json["function_call"],
-          requested_actions: message_json["tool_calls"]
+          action_requested: message_json["finish_reason"] == "tool_calls",
+          requested_actions: handle_actions(message_json["tool_calls"])
         )
-        ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
+
+        update_context(prompt: prompt, message: message, response: response)
+
+        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
+      end
+
+      def handle_actions(tool_calls)
+        tool_calls.map do |tool_call|
+          ActiveAgent::ActionPrompt::Action.new(
+            name: tool_call.dig("function", "name"),
+            params: JSON.parse(
+              tool_call.dig("function", "arguments"),
+              {symbolize_names: true}
+            )
+          )
+        end
       end
     end
   end
