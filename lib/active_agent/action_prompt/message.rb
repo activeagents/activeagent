@@ -7,29 +7,20 @@ module ActiveAgent
 
       def initialize(attributes = {})
         @content = attributes[:content] || ""
-        @role = attributes[:role] || "user"
+        @role = attributes[:role] || :user
         @name = attributes[:name]
-        @action_requested = attributes[:function_call]
-        @requested_actions = attributes[:tool_calls] || []
+        @agent_class = attributes[:agent_class]
+        @requested_actions = attributes[:requested_actions] || []
+        @action_requested = @requested_actions.any?
         validate_role
       end
 
       def to_h
         hash = {role: role, content: content}
         hash[:name] = name if name
-        hash[:action_requested] = action_requested if action_requested
+        hash[:action_requested] = requested_actions.any?
         hash[:requested_actions] = requested_actions if requested_actions.any?
         hash
-      end
-
-      def perform_actions
-        requested_actions.each do |action|
-          action.call(self) if action.respond_to?(:call)
-        end
-      end
-
-      def action_requested?
-        action_requested.present? || requested_actions.any?
       end
 
       private

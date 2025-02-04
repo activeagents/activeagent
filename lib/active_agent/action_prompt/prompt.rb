@@ -31,13 +31,13 @@ module ActiveAgent
         @message.to_s
       end
 
-      def add_part(part)
-        message = Message.new(content: part[:body], role: :user)
-        prompt_part = self.class.new(message: message, content: message.content, content_type: part[:content_type], chartset: part[:charset])
+      def add_part(prompt_part)
+        @message = Message.new(content: prompt_part[:body], role: :user)
+        context_prompt = self.class.new(message: @message, content: @message.content, content_type: prompt_part[:content_type], chartset: prompt_part[:charset])
 
-        set_message if @content_type == part[:content_type] && @message.content
+        set_message if @content_type == context_prompt.content_type && @message.content
 
-        @parts << prompt_part
+        @parts << context_prompt
       end
 
       def multipart?
@@ -72,7 +72,7 @@ module ActiveAgent
         elsif @message.is_a? String
           @message = Message.new(content: @message, role: :user)
         end
-        @messages = [@message]
+        @messages << @message
       end
     end
   end
