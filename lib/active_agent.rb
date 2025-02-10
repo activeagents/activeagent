@@ -1,5 +1,7 @@
 require "yaml"
 require "abstract_controller"
+require "active_agent/action_prompt"
+require "active_agent/generation_provider"
 require "active_agent/version"
 require "active_agent/deprecator"
 require "active_agent/railtie" if defined?(Rails)
