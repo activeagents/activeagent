@@ -4,7 +4,7 @@ require_relative "message"
 module ActiveAgent
   module ActionPrompt
     class Prompt
-      attr_accessor :actions, :body, :content_type, :instructions, :message, :messages, :options, :mime_version, :charset, :context
+      attr_accessor :actions, :body, :content_type, :instructions, :message, :messages, :options, :mime_version, :charset, :context, :parts
 
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})
@@ -67,10 +67,10 @@ module ActiveAgent
       end
 
       def set_message
-        if @body.is_a?(String) && !@message.content
-          @message = Message.new(content: @body, role: :user)
-        elsif @message.is_a? String
+        if @message.is_a? String
           @message = Message.new(content: @message, role: :user)
+        elsif @body.is_a?(String) && @message.content.blank?
+          @message = Message.new(content: @body, role: :user)
         end
         @messages << @message
       end
