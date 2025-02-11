@@ -29,11 +29,19 @@ module ActiveAgent
         raise GenerationProviderError, e.message
       end
 
+      def generate_message(parameters: prompt_parameters)
+        handle_response(@client.chat(parameters: parameters))
+      end
+
+      def generate_embeddings(parameters: prompt_parameters)
+        handle_response(@client.chat(parameters: parameters))
+      end
+
       private
 
       def provider_stream
-        # prompt.config[:stream] will define a proc found in prompt at runtime
-        # config[:stream] will define a proc found in config stream would come from an Agent class's generate_with or stream_with method calls
+        # prompt.options[:stream] will define a proc found in prompt at runtime
+        # config[:stream] will define a proc found in config. stream would come from an Agent class's generate_with or stream_with method calls
         agent_stream = prompt.options[:stream] || config["stream"]
         proc do |chunk, bytesize|
           # Provider parsing logic here
@@ -46,12 +54,12 @@ module ActiveAgent
         end
       end
 
-      def prompt_parameters
+      def prompt_parameters(model: @model_name, messages: @prompt.messages, temperature: @config["temperature"] || 0.7, tools: @prompt.actions)
         {
-          model: @model_name,
-          messages: @prompt.messages,
-          temperature: @config["temperature"] || 0.7,
-          tools: @prompt.actions
+          model: model,
+          messages: messages,
+          temperature: temperature,
+          tools: tools
         }
       end
 
