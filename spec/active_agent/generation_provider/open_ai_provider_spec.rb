@@ -15,15 +15,19 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
     }
   end
 
+  let(:message) { instance_double(ActiveAgent::ActionPrompt::Message, content: "Hello", role: "user") }
   let(:messages) { [{role: "user", content: "Hello"}] }
   let(:actions) { [{name: "test_action", parameters: {}}] }
 
   let(:mock_prompt) do
-    double("Prompt",
+    instance_double("ActiveAgent::ActionPrompt::Prompt",
       messages: messages,
       actions: actions,
-      options: {},
-      config: {})
+      options: {stream: false},
+      message: message).tap do |prompt|
+      allow(prompt).to receive(:message=)
+      allow(prompt.messages).to receive(:<<)
+    end
   end
 
   let(:mock_client) { instance_double(OpenAI::Client) }

@@ -18,7 +18,7 @@ module ActiveAgent
       def generate(prompt)
         @prompt = prompt
 
-        parameters = prompt_parameters.merge(config.except("api_key", :instructions, "service"))
+        parameters = prompt_parameters
 
         # parameters[:instructions] = prompt.instructions.content if prompt.instructions.present?
 
@@ -34,7 +34,7 @@ module ActiveAgent
       def provider_stream
         # prompt.config[:stream] will define a proc found in prompt at runtime
         # config[:stream] will define a proc found in config stream would come from an Agent class's generate_with or stream_with method calls
-        agent_stream = prompt.config[:stream] || config["stream"]
+        agent_stream = prompt.options[:stream] || config["stream"]
         proc do |chunk, bytesize|
           # Provider parsing logic here
           new_content = chunk.dig("choices", 0, "delta", "content")
@@ -48,6 +48,7 @@ module ActiveAgent
 
       def prompt_parameters
         {
+          model: @model_name,
           messages: @prompt.messages,
           temperature: @config["temperature"] || 0.7,
           tools: @prompt.actions
@@ -69,14 +70,16 @@ module ActiveAgent
       end
 
       def handle_actions(tool_calls)
-        tool_calls.map do |tool_call|
-          ActiveAgent::ActionPrompt::Action.new(
-            name: tool_call.dig("function", "name"),
-            params: JSON.parse(
-              tool_call.dig("function", "arguments"),
-              {symbolize_names: true}
+        if tool_calls
+          tool_calls.map do |tool_call|
+            ActiveAgent::ActionPrompt::Action.new(
+              name: tool_call.dig("function", "name"),
+              params: JSON.parse(
+                tool_call.dig("function", "arguments"),
+                {symbolize_names: true}
+              )
             )
-          )
+          end
         end
       end
     end
