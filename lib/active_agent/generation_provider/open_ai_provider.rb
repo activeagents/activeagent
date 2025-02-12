@@ -15,6 +15,21 @@ module ActiveAgent
         @client = OpenAI::Client.new(api_key: @api_key)
       end
 
+      def chat_prompt(prompt, model)
+        @prompt = prompt
+        @client.chat(parameters: prompt_parameters)
+      end
+
+      def embeddings_prompt(prompt, model)
+        @prompt = prompt
+        @client.embeddings(client.embeddings(
+          parameters: {
+            model: "text-embedding-ada-002",
+            input: "The food was delicious and the waiter..."
+          }
+        ))
+      end
+
       def generate(prompt)
         @prompt = prompt
 

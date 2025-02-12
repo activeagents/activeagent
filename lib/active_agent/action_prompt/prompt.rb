@@ -1,4 +1,3 @@
-# lib/active_agent/action_prompt/prompt.rb
 require_relative "message"
 
 module ActiveAgent
