@@ -16,11 +16,11 @@ Gem::Specification.new do |spec|
     Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.md"]
   end
   # Add dependencies
-  spec.add_dependency "actionpack", "~> 7.2"
-  spec.add_dependency "actionview", "~> 7.2"
-  spec.add_dependency "activesupport", "~> 7.2"
-  spec.add_dependency "activemodel", "~> 7.2"
-  spec.add_dependency "activejob", "~> 7.2"
+  spec.add_dependency "actionpack", ">= 7.2", "< 9.0"
+  spec.add_dependency "actionview", ">= 7.2", "< 9.0"
+  spec.add_dependency "activesupport", ">= 7.2", "< 9.0"
+  spec.add_dependency "activemodel", ">= 7.2", "< 9.0"
+  spec.add_dependency "activejob", ">= 7.2", "< 9.0"
 
-  spec.add_dependency "rails", "~> 7.2"
+  spec.add_dependency "rails", ">= 7.2", "< 9.0"
 end
