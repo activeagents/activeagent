@@ -67,10 +67,6 @@ module ActiveAgent
     }.freeze
 
     class << self
-      # def prompt(...)
-      #   new.prompt(...)
-      # end
-
       # Register one or more Observers which will be notified when prompt is generated.
       def register_observers(*observers)
         observers.flatten.compact.each { |observer| register_observer(observer) }
@@ -328,8 +324,9 @@ module ActiveAgent
       headers = apply_defaults(headers)
 
       context.charset = charset = headers[:charset]
-      binding.irb
+
       responses = collect_responses(headers, &block)
+
       @_prompt_was_called = true
 
       create_parts_from_responses(context, responses)
@@ -342,8 +339,10 @@ module ActiveAgent
 
     def action_schemas
       action_methods.map do |action|
-        JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
-      end
+        if action != "prompt"
+          JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
+        end
+      end.compact
     end
 
     private
@@ -418,12 +417,14 @@ module ActiveAgent
       templates_name = headers[:template_name] || action_name
 
       each_template(Array(templates_path), templates_name).map do |template|
+        next if template.format == :json
+
         format = template.format || formats.first
         {
           body: render(template: template, formats: [format]),
           content_type: Mime[format].to_s
         }
-      end
+      end.compact
     end
 
     def each_template(paths, name, &)
@@ -448,7 +449,8 @@ module ActiveAgent
 
     def insert_part(container, response, charset)
       response[:charset] ||= charset
-      container.add_part(response)
+      prompt = ActiveAgent::ActionPrompt::Prompt.new(response)
+      container.add_part(prompt)
     end
 
     # This and #instrument_name is for caching instrument
