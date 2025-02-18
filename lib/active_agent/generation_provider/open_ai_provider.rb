@@ -15,41 +15,47 @@ module ActiveAgent
         @client = OpenAI::Client.new(api_key: @api_key)
       end
 
-      def chat_prompt(prompt, model)
-        @prompt = prompt
-        @client.chat(parameters: prompt_parameters)
-      end
-
-      def embeddings_prompt(prompt, model)
-        @prompt = prompt
-        @client.embeddings(client.embeddings(
-          parameters: {
-            model: "text-embedding-ada-002",
-            input: "The food was delicious and the waiter..."
-          }
-        ))
-      end
-
       def generate(prompt)
         @prompt = prompt
 
-        parameters = prompt_parameters
-
         # parameters[:instructions] = prompt.instructions.content if prompt.instructions.present?
 
-        parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
-
-        handle_response(@client.chat(parameters: parameters))
+        chat_prompt(parameters: prompt_parameters)
       rescue => e
         raise GenerationProviderError, e.message
       end
 
-      def generate_message(parameters: prompt_parameters)
-        handle_response(@client.chat(parameters: parameters))
+      def chat_prompt(parameters: prompt_parameters)
+        parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
+        chat_response(@client.chat(parameters: parameters))
       end
 
-      def generate_embeddings(parameters: prompt_parameters)
-        handle_response(@client.chat(parameters: parameters))
+      def embed(prompt)
+        @prompt = prompt
+
+        embeddings_prompt(parameters: embeddings_parameters)
+      rescue => e
+        raise GenerationProviderError, e.message  
+      end
+
+      def embeddings_parameters(input: prompt.message.content, model: "text-embedding-ada-002")
+        {
+          model: model,
+          input: input
+        }
+      end
+
+      def embeddings_response(response)
+        message = Message.new(content:response.dig("data", 0, "embedding"), role: "assistant")
+
+        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
+      end
+      def embeddings_prompt(parameters: )
+        binding.irb
+        
+
+
+        embeddings_response(@client.embeddings(parameters: embeddings_parameters))
       end
 
       private
@@ -78,7 +84,7 @@ module ActiveAgent
         }
       end
 
-      def handle_response(response)
+      def chat_response(response)
         message_json = response.dig("choices", 0, "message")
         message = ActiveAgent::ActionPrompt::Message.new(
           content: message_json["content"],

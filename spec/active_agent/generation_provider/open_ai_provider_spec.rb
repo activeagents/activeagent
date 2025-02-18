@@ -137,4 +137,88 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
       expect(provider.send(:prompt_parameters)[:tools]).to eq(actions)
     end
   end
+  describe "#embed" do
+    let(:provider) { described_class.new(config) }
+    let(:embedding_response) do
+      {
+        "data" => [{
+          "embedding" => [0.1, 0.2, 0.3]
+        }]
+      }
+    end
+
+    before do
+      allow(mock_client).to receive(:embeddings).and_return(embedding_response)
+    end
+
+    it "calls embeddings with correct parameters" do
+      expected_params = {
+        model: "text-embedding-ada-002",
+        input: "Hello"
+      }
+      expect(mock_client).to receive(:embeddings).with(parameters: expected_params)
+      provider.embed(mock_prompt)
+    end
+
+    it "wraps response in Response object with embedding data" do
+      response = provider.embed(mock_prompt)
+      expect(response).to be_a(ActiveAgent::GenerationProvider::Response)
+      expect(response.message.content).to eq([0.1, 0.2, 0.3])
+    end
+
+    it "handles errors appropriately" do
+      allow(mock_client).to receive(:embeddings).and_raise(StandardError, "API Error")
+      expect {
+        provider.embed(mock_prompt)
+      }.to raise_error(ActiveAgent::GenerationProvider::Base::GenerationProviderError, "API Error")
+    end
+  end
+
+  describe "#embeddings_parameters" do
+    let(:provider) { described_class.new(config) }
+
+    before do
+      provider.instance_variable_set(:@prompt, mock_prompt)
+    end
+
+    it "returns correct parameters structure" do
+      params = provider.embeddings_parameters
+      expect(params).to eq({
+        model: "text-embedding-ada-002",
+        input: "Hello"
+      })
+    end
+
+    it "allows custom model override" do
+      params = provider.embeddings_parameters(model: "custom-model")
+      expect(params[:model]).to eq("custom-model")
+    end
+
+    it "allows custom input override" do
+      params = provider.embeddings_parameters(input: "Custom input")
+      expect(params[:input]).to eq("Custom input")
+    end
+  end
+
+  describe "#embeddings_response" do
+    let(:provider) { described_class.new(config) }
+    let(:embedding_data) do
+      {
+        "data" => [{
+          "embedding" => [0.1, 0.2, 0.3]
+        }]
+      }
+    end
+
+    before do
+      provider.instance_variable_set(:@prompt, mock_prompt)
+    end
+
+    it "creates response with embedding data" do
+      response = provider.embeddings_response(embedding_data)
+      expect(response).to be_a(ActiveAgent::GenerationProvider::Response)
+      expect(response.message.content).to eq([0.1, 0.2, 0.3])
+      expect(response.message.role).to eq("assistant")
+    end
+  end
 end
