@@ -1,4 +1,5 @@
 <% module_namespacing do -%>
 class ApplicationAgent < ActiveAgent::Base
+  layout 'agent'
 end
 <% end %>

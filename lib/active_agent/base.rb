@@ -67,11 +67,7 @@ module ActiveAgent
     }.freeze
 
     class << self
-      def prompt(...)
-        new.prompt(...)
-      end
-
-      # Register one or more Observers which will be notified when mail is delivered.
+      # Register one or more Observers which will be notified when prompt is generated.
       def register_observers(*observers)
         observers.flatten.compact.each { |observer| register_observer(observer) }
       end
@@ -81,7 +77,7 @@ module ActiveAgent
         observers.flatten.compact.each { |observer| unregister_observer(observer) }
       end
 
-      # Register one or more Interceptors which will be called before mail is sent.
+      # Register one or more Interceptors which will be called before prompt is sent.
       def register_interceptors(*interceptors)
         interceptors.flatten.compact.each { |interceptor| register_interceptor(interceptor) }
       end
@@ -91,32 +87,32 @@ module ActiveAgent
         interceptors.flatten.compact.each { |interceptor| unregister_interceptor(interceptor) }
       end
 
-      # Register an Observer which will be notified when mail is delivered.
+      # Register an Observer which will be notified when prompt is generated.
       # Either a class, string, or symbol can be passed in as the Observer.
       # If a string or symbol is passed in it will be camelized and constantized.
       def register_observer(observer)
-        Mail.register_observer(observer_class_for(observer))
+        Prompt.register_observer(observer_class_for(observer))
       end
 
       # Unregister a previously registered Observer.
       # Either a class, string, or symbol can be passed in as the Observer.
       # If a string or symbol is passed in it will be camelized and constantized.
       def unregister_observer(observer)
-        Mail.unregister_observer(observer_class_for(observer))
+        Prompt.unregister_observer(observer_class_for(observer))
       end
 
-      # Register an Interceptor which will be called before mail is sent.
+      # Register an Interceptor which will be called before prompt is sent.
       # Either a class, string, or symbol can be passed in as the Interceptor.
       # If a string or symbol is passed in it will be camelized and constantized.
       def register_interceptor(interceptor)
-        Mail.register_interceptor(observer_class_for(interceptor))
+        Prompt.register_interceptor(observer_class_for(interceptor))
       end
 
       # Unregister a previously registered Interceptor.
       # Either a class, string, or symbol can be passed in as the Interceptor.
       # If a string or symbol is passed in it will be camelized and constantized.
       def unregister_interceptor(interceptor)
-        Mail.unregister_interceptor(observer_class_for(interceptor))
+        Prompt.unregister_interceptor(observer_class_for(interceptor))
       end
 
       def observer_class_for(value) # :nodoc:
@@ -133,6 +129,7 @@ module ActiveAgent
       def generate_with(provider, **options)
         self.generation_provider = provider
         self.options = (options || {}).merge(options)
+        generation_provider.config.merge!(options)
       end
 
       def stream_with(&stream)
@@ -208,6 +205,35 @@ module ActiveAgent
     def perform_generation
       context.options.merge(options)
       generation_provider.generate(context) if context && generation_provider
+      handle_response(generation_provider.response)
+      # perform_actions(requested_actions: context.message.requested_actions)
+      # update_context(context)
+      # if context.requested_actions.present?
+      #   context.requested_actions.each do |action|
+      #     perform_action(action)
+      #   end
+      # end
+      generation_provider.response
+    end
+
+    def handle_response(response)
+      perform_actions(requested_actions: response.message.requested_actions) if response.message.requested_actions.present?
+      update_context(response)
+    end
+
+    def update_context(response)
+      context.message = response.message
+      context.messages << response.message
+    end
+
+    def perform_actions(requested_actions:)
+      requested_actions.each do |action|
+        perform_action(action)
+      end
+    end
+
+    def perform_action(action)
+      process(action.name, *action.params)
     end
 
     def initialize
@@ -286,6 +312,10 @@ module ActiveAgent
       end
     end
 
+    def prompt_with(*)
+      context.update_context(*)
+    end
+
     def prompt(headers = {}, &block)
       return context if @_prompt_was_called && headers.blank? && !block
 
@@ -296,6 +326,7 @@ module ActiveAgent
       context.charset = charset = headers[:charset]
 
       responses = collect_responses(headers, &block)
+
       @_prompt_was_called = true
 
       create_parts_from_responses(context, responses)
@@ -305,11 +336,13 @@ module ActiveAgent
       context.actions = headers[:actions] || action_schemas
       context
     end
-    
+
     def action_schemas
       action_methods.map do |action|
-        JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
-      end
+        if action != "prompt"
+          JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
+        end
+      end.compact
     end
 
     private
@@ -384,12 +417,14 @@ module ActiveAgent
       templates_name = headers[:template_name] || action_name
 
       each_template(Array(templates_path), templates_name).map do |template|
+        next if template.format == :json
+
         format = template.format || formats.first
         {
           body: render(template: template, formats: [format]),
           content_type: Mime[format].to_s
         }
-      end
+      end.compact
     end
 
     def each_template(paths, name, &)
@@ -402,7 +437,7 @@ module ActiveAgent
     end
 
     def create_parts_from_responses(context, responses)
-      if responses.size > 1 && false
+      if responses.size > 1
         prompt_container = ActiveAgent::ActionPrompt::Prompt.new
         prompt_container.content_type = "multipart/alternative"
         responses.each { |r| insert_part(context, r, context.charset) }
@@ -414,7 +449,8 @@ module ActiveAgent
 
     def insert_part(container, response, charset)
       response[:charset] ||= charset
-      container.add_part(response)
+      prompt = ActiveAgent::ActionPrompt::Prompt.new(response)
+      container.add_part(prompt)
     end
 
     # This and #instrument_name is for caching instrument

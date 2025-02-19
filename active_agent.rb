@@ -1,7 +1,9 @@
-require "yaml"
-require "active_agent/version"
 require "active_support"
-require "active_agent/action_prompt/prompt_helper"
+require "yaml"
+require_relative "active_agent/action_prompt"
+require_relative "active_agent/generation_provider"
+
+require_relative "active_agent/version"
 
 module ActiveAgent
   extend ActiveSupport::Autoload

@@ -1,5 +1,5 @@
 <% module_namespacing do -%>
-class <%= class_name %>Agent < ApplicationAgent
+class <%= class_name %> < ApplicationAgent
 <% actions.each_with_index do |action, index| -%>
 <% if index != 0 -%>
 

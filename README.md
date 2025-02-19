@@ -1,99 +1,89 @@
-# ActiveAgent
+# Active Agent: README.md
 
-ActiveAgent is a Rails framework for creating and managing AI agents. It provides a structured way to interact with AI services through agents that can generate text, images, speech-to-text, and text-to-speech. It includes modules for defining prompts, actions, and rendering generative UI, as well as scaling with asynchronous jobs and streaming.
+# Active Agent
 
-## Installation
+## Agent
 
-Add this line to your application's Gemfile:
+Create agents that take instructions, prompts, and perform actions
 
-```ruby
-gem 'activeagent'
+### Generation Provider
+
+```ruby  
+class SupportAgent < ActiveAgent::Base  
+  generate_with :openai, model: ‘gpt-o3-mini’,  temperature: 0.7  
+end  
 ```
 
-And then execute:
+`generate_with` sets the generation provider’s completion generation model and parameters.
 
-```sh
-bundle install
-```
-## Getting Started
+`completion_response = SupportAgent.prompt(‘Help me!’).generate_now`
 
-## Usage
-
-### Generating an Agent
-```
-rails generate agent inventory search
+```ruby  
+class SupportAgent < ActiveAgent::Base  
+  generate_with :openai, model: ‘gpt-o3-mini’,  temperature: 0.7  
+  embed_with :openai, model: ‘text-embedding-3-small’  
+end  
 ```
 
-This will generate the following files:
-```
-app/agents/application_agent.rb
-app/agents/inventory_agent.rb
-app/views/inventory_agent/search.text.erb
-app/views/inventory_agent/search.json.jbuilder
-```
+`embed_with` sets the generation provider’s embedding generation model and parameters.
 
-### Define Agents
+`embedding_response = SupportAgent.prompt(‘Help me!’).embed_now`
 
-Agents are the core of ActiveAgent. An agent takes prompts and can perform actions to generate content. Agents are defined by a simple Ruby class that inherits from `ActiveAgent::Base` and are located in the `app/agents` directory.
+### Instructions
 
-```ruby
-# 
+Instructions are system prompts that predefine the agent’s intention.
 
-inventory_agent.rb
+### Prompt
 
+Action Prompt allows Active Agents to render plain text and HTML prompt templates. Calling generate on a prompt will send the prompt to the agent’s Generation Provider.
 
-class InventoryAgent < ActiveAgent::Base
-  generate_with :openai, model: 'gpt-4o-mini', temperature: 0.5
+`SupportAgent.prompt(“What does CRUD and REST mean?”)`
 
-  def search
-    @items = Item.search(params[:query])
-  end
+### Queue Generation
+
+Active Agent also supports queued generation with Active Job using a common Generation Job interface.
+
+### Perform actions
+
+Active Agents can define methods that are autoloaded as callable tools. These actions’ default schema will be provided to the agent’s context as part of the prompt request to the Generation Provider.
+
+## Actions
+
+```  
+def get_cat_image_base64  
+  uri = URI("https://cataas.com/cat")  
+  response = Net::HTTP.get_response(uri)
+
+  if response.is_a?(Net::HTTPSuccess)  
+    image_data = response.body  
+    Base64.strict_encode64(image_data)  
+  else  
+    raise "Failed to fetch cat image. Status code: #{response.code}"  
+  end  
 end
+
+class SupportAgent < ActiveAgent  
+  generate_with :openai,  
+    model: "gpt-4o",  
+    instructions: "Help people with their problems",  
+    temperature: 0.7
+
+   def get_cat_image  
+    prompt { |format| format.text { render plain: get_cat_image_base64 } }  
+  end  
+end  
 ```
 
+## Prompts
 
+### Basic 
 
-### Scale with Asynchronous Jobs and Streaming
+#### Plain text prompt and response templates
 
-ActiveAgent supports asynchronous job processing and streaming for scalable AI interactions.
+### HTML
 
-#### Asynchronous Jobs
+### Action Schema JSON
 
-Use the `generate_later` method to enqueue a job for later processing.
+response = SupportAgent.prompt(‘show me a picture of a cat’).generate_now
 
-```ruby
-InventoryAgent.with(query: query).search.generate_later
-```
-
-#### Streaming
-
-Use the `stream_with` method to handle streaming responses.
-
-```ruby
-class InventoryAgent < ActiveAgent::Base
-  generate_with :openai, model: 'gpt-4o-mini', stream: :broadcast_results
-
-  private
-
-  def broadcast_results
-    proc do |chunk, _bytesize|
-      @message.content = @message.content + chunk
-      broadcast_append_to(
-        "#{dom_id(chat)}_messages",
-        partial: "messages/message",
-        locals: { message: @message, scroll_to: true },
-        target: "#{dom_id(chat)}_messages"
-      )
-    end
-  end
-end
-```
-
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/activeagents/activeagent.
-
-## License
-
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
-
+response.message

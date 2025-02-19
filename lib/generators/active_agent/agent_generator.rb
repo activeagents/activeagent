@@ -7,10 +7,10 @@ module ActiveAgent
 
       argument :actions, type: :array, default: [], banner: "method method"
 
-      check_class_collision suffix: "Agent"
+      check_class_collision
 
       def create_agent_file
-        template "agent.rb", File.join("app/agents", class_path, "#{file_name}_agent.rb")
+        template "agent.rb", File.join("app/agents", class_path, "#{file_name}.rb")
 
         in_root do
           if behavior == :invoke && !File.exist?(application_agent_file_name)

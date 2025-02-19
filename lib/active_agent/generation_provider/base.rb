@@ -4,7 +4,7 @@ module ActiveAgent
   module GenerationProvider
     class Base
       class GenerationProviderError < StandardError; end
-      attr_reader :client, :config, :prompt
+      attr_reader :client, :config, :prompt, :response
 
       def initialize(config)
         @config = config
@@ -19,8 +19,13 @@ module ActiveAgent
       private
 
       def handle_response(response)
-        ActiveAgent::GenerationProvider::Response.new(message:, raw_response: response)
+        @response = ActiveAgent::GenerationProvider::Response.new(message:, raw_response: response)
         raise NotImplementedError, "Subclasses must implement the 'handle_response' method"
+      end
+
+      def update_context(prompt:, message:, response:)
+        prompt.message = message
+        prompt.messages << message
       end
 
       protected

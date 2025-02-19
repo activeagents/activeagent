@@ -1,10 +1,9 @@
-# lib/active_agent/action_prompt/prompt.rb
 require_relative "message"
 
 module ActiveAgent
   module ActionPrompt
     class Prompt
-      attr_accessor :actions, :body, :content_type, :instructions, :message, :messages, :options, :mime_version, :charset, :context
+      attr_accessor :actions, :body, :content_type, :instructions, :message, :messages, :options, :mime_version, :charset, :context, :parts
 
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})
@@ -31,11 +30,10 @@ module ActiveAgent
         @message.to_s
       end
 
-      def add_part(part)
-        message = Message.new(content: part[:body], role: :user)
-        prompt_part = self.class.new(message: message, content: message.content, content_type: part[:content_type], chartset: part[:charset])
+      def add_part(prompt_part)
+        @message = prompt_part.message
 
-        set_message if @content_type == part[:content_type] && @message.content
+        set_message if @content_type == prompt_part.content_type && @message.content.present?
 
         @parts << prompt_part
       end
@@ -67,12 +65,12 @@ module ActiveAgent
       end
 
       def set_message
-        if @body.is_a?(String) && !@message.content
-          @message = Message.new(content: @body, role: :user)
-        elsif @message.is_a? String
+        if @message.is_a? String
           @message = Message.new(content: @message, role: :user)
+        elsif @body.is_a?(String) && @message.content.blank?
+          @message = Message.new(content: @body, role: :user)
         end
-        @messages = [@message]
+        @messages << @message
       end
     end
   end

@@ -8,9 +8,8 @@ gem "ruby-openai", "~> 7.1.0"
 gem "anthropic", "~> 0.3.0"
 
 group :test do
-  gem "maxitest"
-  gem "minitest"
-  gem "mocha"
+  gem "rspec"
+  
 end
 
 group :development, :test do
