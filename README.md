@@ -1,6 +1,12 @@
-# Active Agent: README.md
-
 # Active Agent
+
+## Install
+
+### Gemfile
+`gem 'activeagent'`
+
+### CLI
+`gem install activeagent`
 
 ## Agent
 
