@@ -8,10 +8,71 @@
 ### CLI
 `gem install activeagent`
 
-## Agent
+### Rails Generator
+After installing the gem, run the installation generator:
 
+```bash
+$ rails generate active_agent:install
+```
+
+This will create:
+```
+create  config/initializers/active_agent.rb
+create  config/active_agent.yml
+create  app/agents/application_agent.rb
+create  app/agents
+```
+
+The generator sets up:
+- An initializer that uses default configurations 
+- A YAML configuration file for provider settings
+- A base application agent class
+- The agents directory structure
+
+Your `config/active_agent.yml` will include environment-specific configurations:
+
+```yaml
+default: &default
+  openai:
+    access_token: <%= ENV['OPENAI_ACCESS_TOKEN'] %>
+    default_model: gpt-4
+    default_embedding_model: text-embedding-3-small
+    default_temperature: 0.7
+    # ...other default settings...
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+  test_mode: true
+
+production:
+  <<: *default
+  # ...production overrides...
+```
+
+## Agent
 Create agents that take instructions, prompts, and perform actions
 
+### Rails Generator
+To use the Rails Active Agent generator to create a new agent and the associated views for the requested action prompts:
+
+```bash
+$ rails generate active_agent:agent travel search book plans 
+```
+This will create:
+```
+create  app/agents/travel_agent.rb
+create  app/views/agents/travel/search.text.erb
+create  app/views/agents/travel/book.text.erb
+create  app/views/agents/travel/plans.text.erb
+```
+
+The generator creates:
+- An agent class inheriting from ApplicationAgent
+- Text template views for each action
+- Action methods in the agent class for processing prompts
 ### Generation Provider
 
 ```ruby  
@@ -55,7 +116,7 @@ Active Agents can define methods that are autoloaded as callable tools. These ac
 
 ## Actions
 
-```  
+```ruby
 def get_cat_image_base64  
   uri = URI("https://cataas.com/cat")  
   response = Net::HTTP.get_response(uri)
