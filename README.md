@@ -3,7 +3,7 @@
 ## Install
 
 ### Gemfile
-`gem 'activeagent'`
+`gem 'activeagent', require: 'active_agent'`
 
 ### CLI
 `gem install activeagent`
