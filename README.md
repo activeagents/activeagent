@@ -23,34 +23,42 @@ create  app/agents/application_agent.rb
 create  app/agents
 ```
 
-The generator sets up:
 - An initializer that uses default configurations 
-- A YAML configuration file for provider settings
-- A base application agent class
-- The agents directory structure
-
-Your `config/active_agent.yml` will include environment-specific configurations:
-
+```ruby
+# config/initializers/active_agent.rb
+ActiveAgent.load_configuration(Rails.root.join('config', 'active_agent.yml'))
+```
+- A YAML configuration file for provider settings, such as OpenAI and might include environment-specific configurations:
 ```yaml
-default: &default
-  openai:
-    access_token: <%= ENV['OPENAI_ACCESS_TOKEN'] %>
-    default_model: gpt-4
-    default_embedding_model: text-embedding-3-small
-    default_temperature: 0.7
-    # ...other default settings...
-
+# config/active_agent.yml
 development:
-  <<: *default
-
-test:
-  <<: *default
-  test_mode: true
+  openai:
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-3.5-turbo"
+    temperature: 0.7
 
 production:
-  <<: *default
-  # ...production overrides...
+  openai:
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-3.5-turbo"
+    temperature: 0.7
+
 ```
+- A base application agent class
+```ruby
+# app/agents/application_agent.rb
+class ApplicationAgent < ActiveAgent::Base
+  layout 'agent'
+
+  def prompt
+    super { |format| format.text { render plain: params[:message] } }
+  end
+```
+- The agents directory structure
+
+
 
 ## Agent
 Create agents that take instructions, prompts, and perform actions
