@@ -9,7 +9,7 @@ Active Agent is a Rails framework for creating and managing AI agents. It provid
 ## Main Components
 
 - Base class - for creating and configuring agents.
-- Queued Generation - module for managing queued generation requests and responses. Using the Generation Job class to perform asynchronous generation requests, it  provides a way to **stream generation** requests back to the Job, Agent, or User.
+- Queued Generation - module for managing queued generation requests and responses. Using the Generation Job class to perform asynchronous generation requests, it provides a way to **stream generation** requests back to the Job, Agent, or User.
 
 ### ActiveAgent::Base
 

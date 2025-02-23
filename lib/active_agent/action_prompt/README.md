@@ -8,11 +8,11 @@ Module - for including in your agent classes to provide prompt functionality.
 Base class - for creating and managing prompts in ActiveAgent.
 Tool class - for representing the tool object sent to the Agent's generation provider.
 Message - class for representing a single message within a prompt.
-Prompt - class for representing a the context of a prompt, including messages, actions, and other attributes.
+Prompt - class for representing the context of a prompt, including messages, actions, and other attributes.
 
 ### ActionPrompt::Base
 
-The base class is used to create and manage prompts in Active Agent. It provides the core functionality for creating and managing contexts woth prompts, tools, and messages.
+The base class is used to create and manage prompts in Active Agent. It provides the core functionality for creating and managing contexts with prompts, tools, and messages.
 
 #### Core Methods
 `prompt` - Creates a new prompt object with the given attributes.
