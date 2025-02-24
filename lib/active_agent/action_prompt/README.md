@@ -1,44 +1,111 @@
 # Active Agent: Action Prompt
 
-ActionPrompt provides a structured way to create and manage prompts and tools for AI interactions. It includes several support classes to handle different aspects of prompt creation and management. The Base class implements an AbstractController to perform actions that render prompts..
+Action Prompt provides a structured way to create and manage prompts for AI interactions. It enables composing messages, handling actions/tools, and managing conversation context through several key components.
 
-## Main Components
+Action Prompt manages the overall prompt structure including:
 
-Module - for including in your agent classes to provide prompt functionality.
-Base class - for creating and managing prompts in ActiveAgent.
-Tool class - for representing the tool object sent to the Agent's generation provider.
-Message - class for representing a single message within a prompt.
-Prompt - class for representing a the context of a prompt, including messages, actions, and other attributes.
+- Messages list with system/user/assistant roles
+- Action/tool definitions
+- Headers and context tracking
+- Content type and encoding 
+- Multipart message handling
 
-### ActionPrompt::Base
+```ruby
+prompt = ActionPrompt::Prompt.new(
+  instructions: "System guidance",
+  message: "User input",
+  actions: [tool_definition, action_schema],
+  context: messages
+)
+```
 
-The base class is used to create and manage prompts in Active Agent. It provides the core functionality for creating and managing contexts woth prompts, tools, and messages.
+## ActionPrompt::Message 
 
-#### Core Methods
-`prompt` - Creates a new prompt object with the given attributes.
+Represents individual messages with:
 
+### Content and Role
+```ruby
+message = ActionPrompt::Message.new(
+  content: "Search for a hotel",
+  role: :user
+)
+```
 
-### ActionPrompt::Tool
+- Content stores the actual message text
+- Role defines the message sender type (system/user/assistant/function/tool)
+- Messages form interactions between roles in a Context
 
-### ActionPrompt::Message
+### Action Requests and Responses
+```ruby
+message = ActionPrompt::Message.new(
+  content: "Search for a hotel",
+  role: :tool,
+  requested_actions: [{name: "search", params: {query: "hotel"}}]
+)
+```
 
-Represents a single message within a prompt.
+- Tracks if message requests actions/tools
+- Maintains list of requested_actions
+- Action responses include function call results
+- Handles tool execution state
 
-### ActionPrompt::Prompt
+### Content Type and Encoding
+- Default content_type is "text/plain"
+- Supports multiple content types for rich messages
+- Default charset is UTF-8
+- Handles content encoding/decoding
 
-Manages the overall structure of a prompt, including multiple messages, actions, and other attributes.
+### Role Validation
+- Enforces valid roles via VALID_ROLES constant
+- Validates on message creation
+- Raises ArgumentError for invalid roles
+- Supported roles: system, assistant, user, tool, function
+
+```ruby
+message = ActionPrompt::Message.new(
+  content: "Hello",
+  role: :user,
+  content_type: "text/plain",
+  charset: "UTF-8"
+)
+```
 
 ### ActionPrompt::Action
 
-Represents an action that represents the tool object sent to the Agent's generation provider can be associated with a prompt or message.
+Defines callable tools/functions:
 
-## Usage
+- Name and parameters schema
+- Validation and type checking
+- Response handling
+- Action execution
 
-To use ActionPrompt in your agent, include the module in your agent class:
+## Usage with Base Agents
 
 ```ruby
-class MyAgent
-  include ActiveAgent::ActionPrompt
-  
-  # Your agent code here
+class MyAgent < ActiveAgent::Base
+  # Define available actions
+  def action_schemas
+    [
+      {name: "search", params: {query: :string}}
+    ]
+  end
+
+  # Handle action responses
+  def perform_action(action) 
+    case action.name
+    when "search"
+      search_service.query(action.params[:query])
+    end
+  end
 end
+```
+
+The Base agent integrates with ActionPrompt to:
+
+1. Create prompts with context
+2. Register available actions
+3. Process action requests
+4. Handle responses and update context
+5. Manage the conversation flow
+
+See Base.rb for full agent integration details.

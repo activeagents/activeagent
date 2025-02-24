@@ -1,5 +1,9 @@
 <% module_namespacing do -%>
 class ApplicationAgent < ActiveAgent::Base
   layout 'agent'
+
+  def prompt
+    super { |format| format.text { render plain: params[:message] } }
+  end
 end
 <% end %>

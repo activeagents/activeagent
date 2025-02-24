@@ -8,42 +8,135 @@
 ### CLI
 `gem install activeagent`
 
-## Agent
+### Rails Generator
+After installing the gem, run the Rails installation generator:
 
+```bash
+$ rails generate active_agent:install
+```
+
+This will create:
+```
+create  config/initializers/active_agent.rb
+create  config/active_agent.yml
+create  app/agents/application_agent.rb
+create  app/agents
+```
+
+- An initializer that uses default configurations 
+```ruby
+# config/initializers/active_agent.rb
+ActiveAgent.load_configuration(Rails.root.join('config', 'active_agent.yml'))
+```
+- A YAML configuration file for provider settings, such as OpenAI and might include environment-specific configurations:
+```yaml
+# config/active_agent.yml
+development:
+  openai:
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-3.5-turbo"
+    temperature: 0.7
+
+production:
+  openai:
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-3.5-turbo"
+    temperature: 0.7
+
+```
+- A base application agent class
+```ruby
+# app/agents/application_agent.rb
+class ApplicationAgent < ActiveAgent::Base
+  layout 'agent'
+
+  def prompt
+    super { |format| format.text { render plain: params[:message] } }
+  end
+```
+- The agents directory structure
+
+## Agent
 Create agents that take instructions, prompts, and perform actions
 
-### Generation Provider
+### Rails Generator
+To use the Rails Active Agent generator to create a new agent and the associated views for the requested action prompts:
 
-```ruby  
-class SupportAgent < ActiveAgent::Base  
-  generate_with :openai, model: ‘gpt-o3-mini’,  temperature: 0.7  
-end  
+```bash
+$ rails generate active_agent:agent travel search book plans 
+```
+This will create:
+```
+create  app/agents/travel_agent.rb
+create  app/views/agents/travel/search.text.erb
+create  app/views/agents/travel/book.text.erb
+create  app/views/agents/travel/plans.text.erb
 ```
 
-`generate_with` sets the generation provider’s completion generation model and parameters.
+The generator creates:
+- An agent class inheriting from ApplicationAgent
+- Text template views for each action
+- Action methods in the agent class for processing prompts
 
-`completion_response = SupportAgent.prompt(‘Help me!’).generate_now`
+### Agent Actions
+```ruby
+class TravelAgent < ApplicationAgent
+  def search
+    
+    prompt { |format| format.text { render plain: "Searching for travel options" } }
+  end
 
-```ruby  
-class SupportAgent < ActiveAgent::Base  
-  generate_with :openai, model: ‘gpt-o3-mini’,  temperature: 0.7  
-  embed_with :openai, model: ‘text-embedding-3-small’  
-end  
+  def book
+    prompt { |format| format.text { render plain: "Booking travel plans" } }
+  end
+
+  def plans
+    prompt { |format| format.text { render plain: "Making travel plans" } }
+  end
+end
 ```
 
-`embed_with` sets the generation provider’s embedding generation model and parameters.
+## Action Prompt
 
-`embedding_response = SupportAgent.prompt(‘Help me!’).embed_now`
+Action Prompt provides the structured interface for composing AI interactions through messages, actions/tools, and conversation context. [Read more about Action Prompt](lib/active_agent/action_prompt/README.md)
 
-### Instructions
+```ruby
+agent.prompt(message: "Find hotels in Paris", 
+      actions: [{name: "search", params: {query: "hotels paris"}}])
+```
 
-Instructions are system prompts that predefine the agent’s intention.
+The prompt interface manages:
+- Message content and roles (system/user/assistant)
+- Action/tool definitions and requests
+- Headers and context tracking
+- Content types and multipart handling
 
-### Prompt
+### Generation Provider 
 
-Action Prompt allows Active Agents to render plain text and HTML prompt templates. Calling generate on a prompt will send the prompt to the agent’s Generation Provider.
+Generation Provider defines how prompts are sent to AI services for completion and embedding generation. [Read more about Generation Providers](lib/active_agent/generation_provider/README.md)
 
-`SupportAgent.prompt(“What does CRUD and REST mean?”)`
+```ruby
+class VacationAgent < ActiveAgent::Base
+  # Try not to get too model-rous with the parameters!
+  generate_with :openai, 
+  model: "gpt-4",
+  temperature: 0.7
+
+  # Embed yourself in the joy of vector search
+  embed_with :openai,
+  model: "text-embedding-ada-002" 
+end
+```
+
+Providers handle:
+- API client configuration
+- Prompt/completion generation
+- Stream processing
+- Embedding generation  
+- Context management
+- Error handling
 
 ### Queue Generation
 
@@ -55,7 +148,7 @@ Active Agents can define methods that are autoloaded as callable tools. These ac
 
 ## Actions
 
-```  
+```ruby
 def get_cat_image_base64  
   uri = URI("https://cataas.com/cat")  
   response = Net::HTTP.get_response(uri)

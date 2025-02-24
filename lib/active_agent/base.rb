@@ -448,11 +448,15 @@ module ActiveAgent
     end
 
     def insert_part(container, response, charset)
-      response[:charset] ||= charset
-      prompt = ActiveAgent::ActionPrompt::Prompt.new(response)
+      prompt = ActiveAgent::ActionPrompt::Prompt.new
+      message = ActiveAgent::ActionPrompt::Message.new(
+        content: response[:body],
+        content_type: response[:content_type],
+        charset: charset
+      )
+      prompt.message = message
       container.add_part(prompt)
     end
-
     # This and #instrument_name is for caching instrument
     def instrument_payload(key)
       {
