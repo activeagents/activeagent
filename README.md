@@ -9,7 +9,7 @@
 `gem install activeagent`
 
 ### Rails Generator
-After installing the gem, run the installation generator:
+After installing the gem, run the Rails installation generator:
 
 ```bash
 $ rails generate active_agent:install
@@ -58,8 +58,6 @@ class ApplicationAgent < ActiveAgent::Base
 ```
 - The agents directory structure
 
-
-
 ## Agent
 Create agents that take instructions, prompts, and perform actions
 
@@ -81,38 +79,64 @@ The generator creates:
 - An agent class inheriting from ApplicationAgent
 - Text template views for each action
 - Action methods in the agent class for processing prompts
-### Generation Provider
 
-```ruby  
-class SupportAgent < ActiveAgent::Base  
-  generate_with :openai, model: ‘gpt-o3-mini’,  temperature: 0.7  
-end  
+### Agent Actions
+```ruby
+class TravelAgent < ApplicationAgent
+  def search
+    
+    prompt { |format| format.text { render plain: "Searching for travel options" } }
+  end
+
+  def book
+    prompt { |format| format.text { render plain: "Booking travel plans" } }
+  end
+
+  def plans
+    prompt { |format| format.text { render plain: "Making travel plans" } }
+  end
+end
 ```
 
-`generate_with` sets the generation provider’s completion generation model and parameters.
+## Action Prompt
 
-`completion_response = SupportAgent.prompt(‘Help me!’).generate_now`
+Action Prompt provides the structured interface for composing AI interactions through messages, actions/tools, and conversation context. [Read more about Action Prompt](lib/active_agent/action_prompt/README.md)
 
-```ruby  
-class SupportAgent < ActiveAgent::Base  
-  generate_with :openai, model: ‘gpt-o3-mini’,  temperature: 0.7  
-  embed_with :openai, model: ‘text-embedding-3-small’  
-end  
+```ruby
+agent.prompt(message: "Find hotels in Paris", 
+      actions: [{name: "search", params: {query: "hotels paris"}}])
 ```
 
-`embed_with` sets the generation provider’s embedding generation model and parameters.
+The prompt interface manages:
+- Message content and roles (system/user/assistant)
+- Action/tool definitions and requests
+- Headers and context tracking
+- Content types and multipart handling
 
-`embedding_response = SupportAgent.prompt(‘Help me!’).embed_now`
+### Generation Provider 
 
-### Instructions
+Generation Provider defines how prompts are sent to AI services for completion and embedding generation. [Read more about Generation Providers](lib/active_agent/generation_provider/README.md)
 
-Instructions are system prompts that predefine the agent’s intention.
+```ruby
+class VacationAgent < ActiveAgent::Base
+  # Try not to get too model-rous with the parameters!
+  generate_with :openai, 
+  model: "gpt-4",
+  temperature: 0.7
 
-### Prompt
+  # Embed yourself in the joy of vector search
+  embed_with :openai,
+  model: "text-embedding-ada-002" 
+end
+```
 
-Action Prompt allows Active Agents to render plain text and HTML prompt templates. Calling generate on a prompt will send the prompt to the agent’s Generation Provider.
-
-`SupportAgent.prompt(“What does CRUD and REST mean?”)`
+Providers handle:
+- API client configuration
+- Prompt/completion generation
+- Stream processing
+- Embedding generation  
+- Context management
+- Error handling
 
 ### Queue Generation
 
