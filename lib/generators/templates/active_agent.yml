@@ -1,34 +1,6 @@
-default: &default
-  openai: &openai_default
-    access_token: <%= ENV['OPENAI_ACCESS_TOKEN'] %>
-    organization_id: <%= ENV['OPENAI_ORGANIZATION_ID'] %>
-    default_model: gpt-4
-    default_embedding_model: text-embedding-3-small
-    default_temperature: 0.7
-    request_timeout: 60
-    
-  anthropic: &anthropic_default
-    access_token: <%= ENV['ANTHROPIC_ACCESS_TOKEN'] %>
-    default_model: claude-3-sonnet
-    default_temperature: 0.7
-    request_timeout: 60
-
 development:
-  <<: *default
-
-test:
-  <<: *default
-  test_mode: true
-  mock_responses: true
-
-production:
-  <<: *default
   openai:
-    <<: *openai_default
-    request_timeout: 120
-  anthropic:
-    <<: *anthropic_default
-    request_timeout: 120
-
-staging:
-  <<: *production
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-3.5-turbo"
+    temperature: 0.7
