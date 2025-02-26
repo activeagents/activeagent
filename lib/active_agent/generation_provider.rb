@@ -13,7 +13,7 @@ module ActiveAgent
 
     module ClassMethods
       def configuration(provider_name, **options)
-        config = ActiveAgent.config[provider_name.to_s] || ActiveAgent.config[ENV["RAILS_ENV"]][provider_name.to_s]
+        config = ActiveAgent.config[provider_name.to_s] || ActiveAgent.config.dig(ENV["RAILS_ENV"], provider_name.to_s)
 
         raise "Configuration not found for provider: #{provider_name}" unless config
         config.merge!(options)
