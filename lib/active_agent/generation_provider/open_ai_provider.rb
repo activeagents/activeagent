@@ -51,10 +51,6 @@ module ActiveAgent
         @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
       end
       def embeddings_prompt(parameters: )
-        binding.irb
-        
-
-
         embeddings_response(@client.embeddings(parameters: embeddings_parameters))
       end
 
