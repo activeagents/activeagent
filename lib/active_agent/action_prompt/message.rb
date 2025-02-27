@@ -6,7 +6,6 @@ module ActiveAgent
       attr_accessor :content, :role, :name, :action_requested, :requested_actions, :content_type, :charset
 
       def initialize(attributes = {})
-        @action_requested = @requested_actions.any?  
         @agent_class = attributes[:agent_class]       
         @charset = attributes[:charset] || "UTF-8"
         @content = attributes[:content] || ""
@@ -14,6 +13,7 @@ module ActiveAgent
         @name = attributes[:name]
         @role = attributes[:role] || :user
         @requested_actions = attributes[:requested_actions] || []
+        @action_requested = @requested_actions.any?
         validate_role
       end
 
