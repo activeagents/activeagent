@@ -203,16 +203,9 @@ module ActiveAgent
     attr_internal :context
 
     def perform_generation
-      context.options.merge(options)
+      context.options.merge(options)      
       generation_provider.generate(context) if context && generation_provider
-      handle_response(generation_provider.response)
-      # perform_actions(requested_actions: context.message.requested_actions)
-      # update_context(context)
-      # if context.requested_actions.present?
-      #   context.requested_actions.each do |action|
-      #     perform_action(action)
-      #   end
-      # end
+      handle_response(generation_provider.response)      
       generation_provider.response
     end
 
