@@ -16,14 +16,6 @@ module ActiveAgent
       def create_application_agent
         template "application_agent.rb", "app/agents/application_agent.rb"
       end
-
-      def create_agents_directory
-        empty_directory "app/agents"
-      end
-
-      def show_readme
-        readme "README" if behavior == :invoke
-      end
     end
   end
 end
