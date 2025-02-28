@@ -12,7 +12,9 @@ module ActiveAgent
         super
         @api_key = config["api_key"]
         @model_name = config["model"] || "gpt-4o-mini"
-        @client = OpenAI::Client.new(api_key: @api_key)
+        binding.irb
+        
+        @client = OpenAI::Client.new(access_token: @api_key, log_errors: true)
       end
 
       def generate(prompt)
@@ -50,6 +52,7 @@ module ActiveAgent
 
         @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
       end
+      
       def embeddings_prompt(parameters: )
         embeddings_response(@client.embeddings(parameters: embeddings_parameters))
       end

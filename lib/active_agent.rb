@@ -49,7 +49,7 @@ module ActiveAgent
     end
 
     def load_configuration(file)
-      config_file = YAML.load_file(file, aliases: true)
+      config_file = YAML.load(ERB.new(File.read(file)).result)
       env = ENV["RAILS_ENV"] || ENV["ENV"] || "development"
       @config = config_file[env] || config_file
     end
