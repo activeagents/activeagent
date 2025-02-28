@@ -11,9 +11,7 @@ module ActiveAgent
       def initialize(config)
         super
         @api_key = config["api_key"]
-        @model_name = config["model"] || "gpt-4o-mini"
-        binding.irb
-        
+        @model_name = config["model"] || "gpt-4o-mini"        
         @client = OpenAI::Client.new(access_token: @api_key, log_errors: true)
       end
 
