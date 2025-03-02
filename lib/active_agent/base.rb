@@ -231,7 +231,7 @@ module ActiveAgent
     def initialize
       super
       @_prompt_was_called = false
-      @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions])
+      @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions], options: options)
     end
 
     def process(method_name, *args) # :nodoc:
