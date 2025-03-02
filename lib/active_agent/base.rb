@@ -216,7 +216,6 @@ module ActiveAgent
 
     def update_context(response)
       context.message = response.message
-      context.messages << response.message
     end
 
     def perform_actions(requested_actions:)
@@ -431,24 +430,22 @@ module ActiveAgent
 
     def create_parts_from_responses(context, responses)
       if responses.size > 1
-        prompt_container = ActiveAgent::ActionPrompt::Prompt.new
-        prompt_container.content_type = "multipart/alternative"
+        # prompt_container = ActiveAgent::ActionPrompt::Prompt.new
+        # prompt_container.content_type = "multipart/alternative"
         responses.each { |r| insert_part(context, r, context.charset) }
-        context.add_part(prompt_container)
+        # context.add_part(prompt_container)
       else
         responses.each { |r| insert_part(context, r, context.charset) }
       end
     end
 
-    def insert_part(container, response, charset)
-      prompt = ActiveAgent::ActionPrompt::Prompt.new
+    def insert_part(context, response, charset)
       message = ActiveAgent::ActionPrompt::Message.new(
         content: response[:body],
         content_type: response[:content_type],
         charset: charset
       )
-      prompt.message = message
-      container.add_part(prompt)
+      context.add_part(message)
     end
     # This and #instrument_name is for caching instrument
     def instrument_payload(key)
