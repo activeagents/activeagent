@@ -128,8 +128,8 @@ module ActiveAgent
       # Define how the agent should generate content
       def generate_with(provider, **options)
         self.generation_provider = provider
-        self.options = (options || {}).merge(options)
-        generation_provider.config.merge!(options)
+        self.options = (options || {}).merge(options)        
+        generation_provider.config.merge!(self.options)
       end
 
       def stream_with(&stream)
@@ -203,19 +203,27 @@ module ActiveAgent
     attr_internal :context
 
     def perform_generation
-      context.options.merge(options)      
+      context.options.merge(options)
       generation_provider.generate(context) if context && generation_provider
-      handle_response(generation_provider.response)      
-      generation_provider.response
+      handle_response(generation_provider.response)
     end
 
     def handle_response(response)
       perform_actions(requested_actions: response.message.requested_actions) if response.message.requested_actions.present?
-      update_context(response)
+      
+      update_context(response)      
     end
 
     def update_context(response)
+      if response.prompt.message != response.prompt.messages.last
+        response = ActiveAgent::GenerationProvider::Response.new(
+          prompt: response.prompt, 
+          message: response.prompt.messages.last, 
+          raw_response: response.raw_response
+        )
+      end
       context.message = response.message
+      response
     end
 
     def perform_actions(requested_actions:)
@@ -331,7 +339,7 @@ module ActiveAgent
 
     def action_schemas
       action_methods.map do |action|
-        if action != "prompt"
+        if action != "text_prompt"
           JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
         end
       end.compact
