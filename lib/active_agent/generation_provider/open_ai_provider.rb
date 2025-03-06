@@ -17,7 +17,8 @@ module ActiveAgent
 
       def generate(prompt)
         @prompt = prompt
-
+        
+        # prompt_parameters(model: @model_name, messages: prompt.messages, tools: prompt.actions)
         # parameters[:instructions] = prompt.instructions.content if prompt.instructions.present?
 
         chat_prompt(parameters: prompt_parameters)
@@ -72,7 +73,7 @@ module ActiveAgent
         end
       end
 
-      def prompt_parameters(model: @model_name, messages: @prompt.messages, temperature: @config["temperature"] || 0.7, tools: @prompt.actions)
+      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @config["temperature"] || 0.7, tools: @prompt.actions)
         {
           model: model,
           messages: messages,
