@@ -12,7 +12,7 @@ module ActiveAgent
         @instructions = attributes.fetch(:instructions, "")
         @body = attributes.fetch(:body, "")
         @content_type = attributes.fetch(:content_type, "text/plain")
-        @message = attributes.fetch(:message, Message.new)
+        @message = attributes.fetch(:message, nil)
         @messages = attributes.fetch(:messages, [])
         @params = attributes.fetch(:params, {})
         @mime_version = attributes.fetch(:mime_version, "1.0")
@@ -21,7 +21,7 @@ module ActiveAgent
         @headers = attributes.fetch(:headers, {})
         @parts = attributes.fetch(:parts, [])
 
-        set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message.content
+        set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message&.content
         set_messages if @messages.any? || @instructions.present?
       end
 
@@ -30,12 +30,11 @@ module ActiveAgent
         @message.to_s
       end
 
-      def add_part(prompt_part)
-        @message = prompt_part.message
+      def add_part(message)
+        @message = message
+        set_message if @content_type == message.content_type && @message.content.present?
 
-        set_message if @content_type == prompt_part.content_type && @message.content.present?
-
-        @parts << prompt_part
+        @parts << context
       end
 
       def multipart?

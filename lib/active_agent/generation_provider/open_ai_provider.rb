@@ -17,7 +17,8 @@ module ActiveAgent
 
       def generate(prompt)
         @prompt = prompt
-
+        
+        # prompt_parameters(model: @model_name, messages: prompt.messages, tools: prompt.actions)
         # parameters[:instructions] = prompt.instructions.content if prompt.instructions.present?
 
         chat_prompt(parameters: prompt_parameters)
@@ -60,19 +61,19 @@ module ActiveAgent
       def provider_stream
         # prompt.options[:stream] will define a proc found in prompt at runtime
         # config[:stream] will define a proc found in config. stream would come from an Agent class's generate_with or stream_with method calls
-        agent_stream = prompt.options[:stream] || config["stream"]
+        agent_stream = prompt.options[:stream]
+        message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
+        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: ) 
+        
         proc do |chunk, bytesize|
-          # Provider parsing logic here
-          new_content = chunk.dig("choices", 0, "delta", "content")
-          message = @prompt.messages.find { |message| message.response_number == chunk.dig("choices", 0, "index") }
-          message.update(content: message.content + new_content) if new_content
-
-          # Call the custom stream_proc if provided
-          agent_stream.call(message) if agent_stream.respond_to?(:call)
+          if new_content = chunk.dig("choices", 0, "delta", "content")
+            message.content += new_content
+            agent_stream.call(message) if agent_stream.respond_to?(:call)
+          end          
         end
       end
 
-      def prompt_parameters(model: @model_name, messages: @prompt.messages, temperature: @config["temperature"] || 0.7, tools: @prompt.actions)
+      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @config["temperature"] || 0.7, tools: @prompt.actions)
         {
           model: model,
           messages: messages,
@@ -82,7 +83,10 @@ module ActiveAgent
       end
 
       def chat_response(response)
+        return @response if prompt.options[:stream]
+
         message_json = response.dig("choices", 0, "message")
+
         message = ActiveAgent::ActionPrompt::Message.new(
           content: message_json["content"],
           role: message_json["role"],
