@@ -215,13 +215,6 @@ module ActiveAgent
     end
 
     def update_context(response)
-      if response.prompt.message != response.prompt.messages.last
-        response = ActiveAgent::GenerationProvider::Response.new(
-          prompt: response.prompt, 
-          message: response.prompt.messages.last, 
-          raw_response: response.raw_response
-        )
-      end
       context.message = response.message
       response
     end
@@ -248,7 +241,7 @@ module ActiveAgent
         action: method_name,
         args: args
       }
-
+      
       ActiveSupport::Notifications.instrument("process.active_agent", payload) do
         super
         @_context = ActiveAgent::ActionPrompt::Prompt.new unless @_prompt_was_called
