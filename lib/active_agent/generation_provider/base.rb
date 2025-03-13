@@ -25,6 +25,7 @@ module ActiveAgent
 
       def update_context(prompt:, message:, response:)
         prompt.message = message
+        prompt.messages << message
       end
 
       protected

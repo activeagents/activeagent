@@ -93,7 +93,6 @@ module ActiveAgent
           action_requested: message_json["finish_reason"] == "tool_calls",
           requested_actions: handle_actions(message_json["tool_calls"])
         )
-
         update_context(prompt: prompt, message: message, response: response)
 
         @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
