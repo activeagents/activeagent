@@ -17,9 +17,6 @@ module ActiveAgent
 
       def generate(prompt)
         @prompt = prompt
-        
-        # prompt_parameters(model: @model_name, messages: prompt.messages, tools: prompt.actions)
-        # parameters[:instructions] = prompt.instructions.content if prompt.instructions.present?
 
         chat_prompt(parameters: prompt_parameters)
       rescue => e
@@ -28,6 +25,7 @@ module ActiveAgent
 
       def chat_prompt(parameters: prompt_parameters)
         parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
+        
         chat_response(@client.chat(parameters: parameters))
       end
 
@@ -39,7 +37,7 @@ module ActiveAgent
         raise GenerationProviderError, e.message  
       end
 
-      def embeddings_parameters(input: prompt.message.content, model: "text-embedding-ada-002")
+      def embeddings_parameters(input: prompt.message.content, model: "text-embedding-3-large")
         {
           model: model,
           input: input
@@ -76,17 +74,29 @@ module ActiveAgent
       def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @config["temperature"] || 0.7, tools: @prompt.actions)
         {
           model: model,
-          messages: messages,
+          messages: provider_messages(messages),
           temperature: temperature,
           tools: tools.presence
         }
+      end
+
+      def provider_messages(messages)
+        messages.map do |message|
+          {
+            role: message.role, 
+            tool_call_id: message.action_id.presence,
+            content: message.content,
+            type: message.content_type,
+            charset: message.charset
+        }.compact
+        end
       end
 
       def chat_response(response)
         return @response if prompt.options[:stream]
 
         message_json = response.dig("choices", 0, "message")
-
+        
         message = ActiveAgent::ActionPrompt::Message.new(
           content: message_json["content"],
           role: message_json["role"],
@@ -102,6 +112,7 @@ module ActiveAgent
         if tool_calls
           tool_calls.map do |tool_call|
             ActiveAgent::ActionPrompt::Action.new(
+              id: tool_call["id"],
               name: tool_call.dig("function", "name"),
               params: JSON.parse(
                 tool_call.dig("function", "arguments"),
