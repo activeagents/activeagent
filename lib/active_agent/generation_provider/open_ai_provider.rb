@@ -11,7 +11,7 @@ module ActiveAgent
       def initialize(config)
         super
         @api_key = config["api_key"]
-        @model_name = config["model"] || "gpt-4o-mini"        
+        @model_name = config["model"] || "gpt-4o-mini"
         @client = OpenAI::Client.new(access_token: @api_key, log_errors: true)
       end
 
@@ -25,7 +25,7 @@ module ActiveAgent
 
       def chat_prompt(parameters: prompt_parameters)
         parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
-        
+
         chat_response(@client.chat(parameters: parameters))
       end
 
@@ -34,7 +34,7 @@ module ActiveAgent
 
         embeddings_prompt(parameters: embeddings_parameters)
       rescue => e
-        raise GenerationProviderError, e.message  
+        raise GenerationProviderError, e.message
       end
 
       def embeddings_parameters(input: prompt.message.content, model: "text-embedding-3-large")
@@ -45,12 +45,12 @@ module ActiveAgent
       end
 
       def embeddings_response(response)
-        message = Message.new(content:response.dig("data", 0, "embedding"), role: "assistant")
+        message = Message.new(content: response.dig("data", 0, "embedding"), role: "assistant")
 
         @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
       end
-      
-      def embeddings_prompt(parameters: )
+
+      def embeddings_prompt(parameters:)
         embeddings_response(@client.embeddings(parameters: embeddings_parameters))
       end
 
@@ -61,13 +61,13 @@ module ActiveAgent
         # config[:stream] will define a proc found in config. stream would come from an Agent class's generate_with or stream_with method calls
         agent_stream = prompt.options[:stream]
         message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
-        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: ) 
-        
+        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message:)
+
         proc do |chunk, bytesize|
           if new_content = chunk.dig("choices", 0, "delta", "content")
             message.content += new_content
             agent_stream.call(message) if agent_stream.respond_to?(:call)
-          end          
+          end
         end
       end
 
@@ -82,17 +82,17 @@ module ActiveAgent
 
       def provider_messages(messages)
         messages.map do |message|
-          provider_message {
-            role: message.role, 
+          provider_message = {
+            role: message.role,
             tool_call_id: message.action_id.presence,
             content: message.content,
             type: message.content_type,
             charset: message.charset
-        }.compact
+          }.compact
 
-        if content_type == "image_url"
-          provider_message[:image_url] = { url: content }
-        end        
+          if content_type == "image_url"
+            provider_message[:image_url] = {url: content}
+          end
         end
       end
 
@@ -100,7 +100,7 @@ module ActiveAgent
         return @response if prompt.options[:stream]
 
         message_json = response.dig("choices", 0, "message")
-        
+
         message = ActiveAgent::ActionPrompt::Message.new(
           content: message_json["content"],
           role: message_json["role"],
