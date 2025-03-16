@@ -34,7 +34,7 @@ module ActiveAgent
       # make sure readers methods get compiled
       options.asset_host ||= app.config.asset_host
       options.relative_url_root ||= app.config.relative_url_root
-      binding.irb
+      
       ActiveAgent.load_configuration(Rails.root.join('config', 'active_agent.yml')) if File.exist?(Rails.root.join('config', 'active_agent.yml')) 
 
       ActiveSupport.on_load(:active_agent) do
