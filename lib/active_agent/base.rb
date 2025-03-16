@@ -124,12 +124,6 @@ module ActiveAgent
         end
       end
       private :observer_class_for
-      
-      def embed
-        context.options.merge(options)
-        generation_provider.embed(context) if context && generation_provider
-        handle_response(generation_provider.response)
-      end
 
       # Define how the agent should generate content
       def generate_with(provider, **options)
@@ -207,6 +201,12 @@ module ActiveAgent
     end
 
     attr_internal :context
+
+    def embed
+      context.options.merge(options)
+      generation_provider.embed(context) if context && generation_provider
+      handle_response(generation_provider.response) 
+    end
 
     def perform_generation
       context.options.merge(options)
