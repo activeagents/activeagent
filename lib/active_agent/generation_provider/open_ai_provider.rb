@@ -82,13 +82,17 @@ module ActiveAgent
 
       def provider_messages(messages)
         messages.map do |message|
-          {
+          provider_message {
             role: message.role, 
             tool_call_id: message.action_id.presence,
             content: message.content,
             type: message.content_type,
             charset: message.charset
         }.compact
+
+        if content_type == "image_url"
+          provider_message[:image_url] = { url: content }
+        end        
         end
       end
 

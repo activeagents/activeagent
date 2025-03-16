@@ -25,6 +25,7 @@ module ActiveAgent
           type: content_type,
           charset: charset
         }
+
         hash[:name] = name if name
         hash[:action_requested] = requested_actions.any?
         hash[:requested_actions] = requested_actions if requested_actions.any?
