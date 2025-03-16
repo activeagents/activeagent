@@ -3,10 +3,10 @@ module ActiveAgent
     class Message
       VALID_ROLES = %w[system assistant user tool function].freeze
 
-      attr_accessor :content, :role, :name, :action_requested, :requested_actions, :content_type, :charset
+      attr_accessor :action_id, :content, :role, :name, :action_requested, :requested_actions, :content_type, :charset
 
-      def initialize(attributes = {})
-        @agent_class = attributes[:agent_class]       
+      def initialize(attributes = {})        
+        @action_id = attributes[:action_id]
         @charset = attributes[:charset] || "UTF-8"
         @content = attributes[:content] || ""
         @content_type = attributes[:content_type] || "text/plain"
@@ -20,14 +20,19 @@ module ActiveAgent
       def to_h
         hash = {
           role: role, 
+          action_id: action_id,
           content: content,
-          content_type: content_type,
+          type: content_type,
           charset: charset
         }
         hash[:name] = name if name
         hash[:action_requested] = requested_actions.any?
         hash[:requested_actions] = requested_actions if requested_actions.any?
         hash
+      end
+
+      def embed
+        @agent_class.embed(@content)
       end
 
       private

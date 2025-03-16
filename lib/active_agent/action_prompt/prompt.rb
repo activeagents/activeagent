@@ -22,7 +22,7 @@ module ActiveAgent
         @parts = attributes.fetch(:parts, [])
 
         set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message&.content
-        set_messages if @messages.any? || @instructions.present?
+        set_messages
       end
 
       # Generate the prompt as a string (for debugging or sending to the provider)

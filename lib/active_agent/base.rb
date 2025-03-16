@@ -124,6 +124,12 @@ module ActiveAgent
         end
       end
       private :observer_class_for
+      
+      def embed
+        context.options.merge(options)
+        generation_provider.embed(context) if context && generation_provider
+        handle_response(generation_provider.response)
+      end
 
       # Define how the agent should generate content
       def generate_with(provider, **options)
@@ -215,13 +221,15 @@ module ActiveAgent
     end
 
     def update_context(response)
-      context.message = response.message
+      context = response.prompt
       response
     end
 
     def perform_actions(requested_actions:)
       requested_actions.each do |action|
         perform_action(action)
+        prompt.messages.last.role = :tool
+        prompt.messages.last.action_id = action.id
       end
     end
 
