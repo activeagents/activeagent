@@ -23,7 +23,7 @@ module ActiveAgent
       agent = agent_class.new
       agent.params = params if params
       agent.process(action_name, *args)
-      agent.generate
+      agent.perform_generation
     end
 
     private

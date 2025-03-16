@@ -2,7 +2,7 @@
 
 require "active_job/railtie"
 require "active_agent"
-require "active_agent/engine"
+# require "active_agent/engine"
 require "rails"
 require "abstract_controller/railties/routes_helpers"
 
@@ -10,7 +10,7 @@ module ActiveAgent
   class Railtie < Rails::Railtie # :nodoc:
     config.active_agent = ActiveSupport::OrderedOptions.new
     config.active_agent.preview_paths = []
-    config.eager_load_namespaces << ::ActiveAgent
+    config.eager_load_namespaces << ActiveAgent
 
     initializer "active_agent.deprecator", before: :load_environment_config do |app|
       app.deprecators[:active_agent] = ActiveAgent.deprecator
@@ -34,6 +34,8 @@ module ActiveAgent
       # make sure readers methods get compiled
       options.asset_host ||= app.config.asset_host
       options.relative_url_root ||= app.config.relative_url_root
+      
+      ActiveAgent.load_configuration(Rails.root.join('config', 'active_agent.yml'))
 
       ActiveSupport.on_load(:active_agent) do
         include AbstractController::UrlFor
@@ -46,20 +48,16 @@ module ActiveAgent
         self.view_paths = ["#{Rails.root}/app/views"]
         self.preview_paths |= options[:preview_paths]
 
-        if delivery_job = options.delete(:delivery_job)
-          self.delivery_job = delivery_job.constantize
-        end
-
-        if options.smtp_settings
-          self.smtp_settings = options.smtp_settings
+        if generation_job = options.delete(:generation_job)
+          self.generation_job = generation_job.constantize
         end
 
         options.each { |k, v| send(:"#{k}=", v) }
       end
 
       ActiveSupport.on_load(:action_dispatch_integration_test) do
-        include ActiveAgent::TestHelper
-        include ActiveAgent::TestCase::ClearTestDeliveries
+        # include ActiveAgent::TestHelper
+        # include ActiveAgent::TestCase::ClearTestDeliveries
       end
     end
 

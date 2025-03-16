@@ -128,8 +128,8 @@ module ActiveAgent
       # Define how the agent should generate content
       def generate_with(provider, **options)
         self.generation_provider = provider
-        self.options = (options || {}).merge(options)
-        generation_provider.config.merge!(options)
+        self.options = (options || {}).merge(options)        
+        generation_provider.config.merge!(self.options)
       end
 
       def stream_with(&stream)
@@ -202,26 +202,34 @@ module ActiveAgent
 
     attr_internal :context
 
+    def embed
+      context.options.merge(options)
+      generation_provider.embed(context) if context && generation_provider
+      handle_response(generation_provider.response) 
+    end
+
     def perform_generation
-      context.options.merge(options)      
+      context.options.merge(options)
       generation_provider.generate(context) if context && generation_provider
-      handle_response(generation_provider.response)      
-      generation_provider.response
+      handle_response(generation_provider.response)
     end
 
     def handle_response(response)
       perform_actions(requested_actions: response.message.requested_actions) if response.message.requested_actions.present?
-      update_context(response)
+      
+      update_context(response)      
     end
 
     def update_context(response)
-      context.message = response.message
-      context.messages << response.message
+      context = response.prompt
+      response
     end
 
     def perform_actions(requested_actions:)
       requested_actions.each do |action|
         perform_action(action)
+        prompt.messages.last.role = :tool
+        prompt.messages.last.action_id = action.id
       end
     end
 
@@ -232,7 +240,7 @@ module ActiveAgent
     def initialize
       super
       @_prompt_was_called = false
-      @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions])
+      @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions], options: options)
     end
 
     def process(method_name, *args) # :nodoc:
@@ -241,7 +249,7 @@ module ActiveAgent
         action: method_name,
         args: args
       }
-
+      
       ActiveSupport::Notifications.instrument("process.active_agent", payload) do
         super
         @_context = ActiveAgent::ActionPrompt::Prompt.new unless @_prompt_was_called
@@ -332,7 +340,7 @@ module ActiveAgent
 
     def action_schemas
       action_methods.map do |action|
-        if action != "prompt"
+        if action != "text_prompt"
           JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
         end
       end.compact
@@ -431,24 +439,22 @@ module ActiveAgent
 
     def create_parts_from_responses(context, responses)
       if responses.size > 1
-        prompt_container = ActiveAgent::ActionPrompt::Prompt.new
-        prompt_container.content_type = "multipart/alternative"
+        # prompt_container = ActiveAgent::ActionPrompt::Prompt.new
+        # prompt_container.content_type = "multipart/alternative"
         responses.each { |r| insert_part(context, r, context.charset) }
-        context.add_part(prompt_container)
+        # context.add_part(prompt_container)
       else
         responses.each { |r| insert_part(context, r, context.charset) }
       end
     end
 
-    def insert_part(container, response, charset)
-      prompt = ActiveAgent::ActionPrompt::Prompt.new
+    def insert_part(context, response, charset)
       message = ActiveAgent::ActionPrompt::Message.new(
         content: response[:body],
         content_type: response[:content_type],
         charset: charset
       )
-      prompt.message = message
-      container.add_part(prompt)
+      context.add_part(message)
     end
     # This and #instrument_name is for caching instrument
     def instrument_payload(key)
