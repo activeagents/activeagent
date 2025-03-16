@@ -5,7 +5,7 @@ module ActiveAgent
 
       attr_accessor :action_id, :content, :role, :name, :action_requested, :requested_actions, :content_type, :charset
 
-      def initialize(attributes = {})        
+      def initialize(attributes = {})
         @action_id = attributes[:action_id]
         @charset = attributes[:charset] || "UTF-8"
         @content = attributes[:content] || ""
@@ -19,7 +19,7 @@ module ActiveAgent
 
       def to_h
         hash = {
-          role: role, 
+          role: role,
           action_id: action_id,
           content: content,
           type: content_type,

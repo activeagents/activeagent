@@ -9,7 +9,6 @@ gem "anthropic", "~> 0.3.0"
 
 group :test do
   gem "rspec"
-  
 end
 
 group :development, :test do

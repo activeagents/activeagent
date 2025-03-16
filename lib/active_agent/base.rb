@@ -128,7 +128,7 @@ module ActiveAgent
       # Define how the agent should generate content
       def generate_with(provider, **options)
         self.generation_provider = provider
-        self.options = (options || {}).merge(options)        
+        self.options = (options || {}).merge(options)
         generation_provider.config.merge!(self.options)
       end
 
@@ -205,7 +205,7 @@ module ActiveAgent
     def embed
       context.options.merge(options)
       generation_provider.embed(context) if context && generation_provider
-      handle_response(generation_provider.response) 
+      handle_response(generation_provider.response)
     end
 
     def perform_generation
@@ -216,12 +216,12 @@ module ActiveAgent
 
     def handle_response(response)
       perform_actions(requested_actions: response.message.requested_actions) if response.message.requested_actions.present?
-      
-      update_context(response)      
+
+      update_context(response)
     end
 
     def update_context(response)
-      context = response.prompt
+      response.prompt
       response
     end
 
@@ -249,7 +249,7 @@ module ActiveAgent
         action: method_name,
         args: args
       }
-      
+
       ActiveSupport::Notifications.instrument("process.active_agent", payload) do
         super
         @_context = ActiveAgent::ActionPrompt::Prompt.new unless @_prompt_was_called
@@ -456,6 +456,7 @@ module ActiveAgent
       )
       context.add_part(message)
     end
+
     # This and #instrument_name is for caching instrument
     def instrument_payload(key)
       {

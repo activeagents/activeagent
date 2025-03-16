@@ -27,13 +27,13 @@ module ActiveAgent
       def around_generate(*filters, &)
         set_callback(:generate, :around, *filters, &)
       end
-      
+
       # Defines a callback for handling streaming responses during generation
       def on_stream(*filters, &)
         set_callback(:stream, :before, *filters, &)
       end
     end
-    
+
     # Helper method to run stream callbacks
     def run_stream_callbacks(message, delta = nil, stop = false)
       run_callbacks(:stream) do

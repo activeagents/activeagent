@@ -34,8 +34,8 @@ module ActiveAgent
       # make sure readers methods get compiled
       options.asset_host ||= app.config.asset_host
       options.relative_url_root ||= app.config.relative_url_root
-      
-      ActiveAgent.load_configuration(Rails.root.join('config', 'active_agent.yml')) if File.exist?(Rails.root.join('config', 'active_agent.yml')) 
+
+      ActiveAgent.load_configuration(Rails.root.join("config", "active_agent.yml")) if File.exist?(Rails.root.join("config", "active_agent.yml"))
 
       ActiveSupport.on_load(:active_agent) do
         include AbstractController::UrlFor
@@ -48,7 +48,7 @@ module ActiveAgent
         self.view_paths = ["#{Rails.root}/app/views"]
         self.preview_paths |= options[:preview_paths]
 
-        if generation_job = options.delete(:generation_job)
+        if (generation_job = options.delete(:generation_job))
           self.generation_job = generation_job.constantize
         end
 
@@ -62,7 +62,7 @@ module ActiveAgent
     end
 
     initializer "active_agent.set_autoload_paths", before: :set_autoload_paths do |app|
-      options = app.config.active_agent
+      # options = app.config.active_agent
       # app.config.paths["test/agents/previews"].concat(options.preview_paths)
     end
 

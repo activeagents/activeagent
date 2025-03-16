@@ -6,17 +6,17 @@ Gem::Specification.new do |spec|
   spec.summary = "Rails AI Agents Framework"
   spec.description = "A simple way to perform long running LLM background jobs and streaming responses"
   spec.authors = ["Justin Bowen"]
-  spec.email = "jusbowen@gmail.com"  
-  spec.files        = Dir["CHANGELOG.md", "README.rdoc", "MIT-LICENSE", "lib/**/*"]
+  spec.email = "jusbowen@gmail.com"
+  spec.files = Dir["CHANGELOG.md", "README.rdoc", "MIT-LICENSE", "lib/**/*"]
   spec.require_paths = "lib"
   spec.homepage = "https://activeagents.ai"
   spec.license = "MIT"
 
   spec.metadata = {
-    "bug_tracker_uri"   => "https://github.com/activeagents/activeagent/issues",
+    "bug_tracker_uri" => "https://github.com/activeagents/activeagent/issues",
     "documentation_uri" => "https://github.com/activeagents/activeagent",
-    "source_code_uri"   => "https://github.com/activeagents/activeagent",
-    "rubygems_mfa_required" => "true",
+    "source_code_uri" => "https://github.com/activeagents/activeagent",
+    "rubygems_mfa_required" => "true"
   }
   # Add dependencies
   spec.add_dependency "actionpack", ">= 7.2", "< 9.0"
