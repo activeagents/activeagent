@@ -31,9 +31,9 @@ module ActiveAgent
         actions.each do |action|
           @action = action
           @schema_path = File.join("app/views", class_path, file_name, "#{action}.json.jbuilder")
-          @view_path = File.join("app/views", class_path, file_name, "#{action}.html.#{template_engine}")
+          @view_path = File.join("app/views", class_path, file_name, "#{action}.html.erb")
           template "action.json.jbuilder", @schema_path
-          template "action.html.#{template_engine}", @view_path
+          template "action.html.erb", @view_path
         end
       end
 
