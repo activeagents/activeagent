@@ -64,9 +64,16 @@ module ActiveAgent
         @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message:)
 
         proc do |chunk, bytesize|
-          if new_content = chunk.dig("choices", 0, "delta", "content")
+          if (new_content = chunk.dig("choices", 0, "delta", "content"))
             message.content += new_content
-            agent_stream.call(message) if agent_stream.respond_to?(:call)
+
+            agent_stream.call(message, new_content, false) do |message, new_content|
+              yield message, new_content if block_given?
+            end
+          end
+
+          agent_stream.call(message, nil, true) do |message|
+            yield message, nil if block_given?
           end
         end
       end
@@ -93,6 +100,7 @@ module ActiveAgent
           if message.content_type == "image_url"
             provider_message[:image_url] = {url: message.content}
           end
+          provider_message
         end
       end
 

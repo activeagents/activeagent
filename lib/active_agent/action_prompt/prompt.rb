@@ -3,10 +3,11 @@ require_relative "message"
 module ActiveAgent
   module ActionPrompt
     class Prompt
-      attr_accessor :actions, :body, :content_type, :instructions, :message, :messages, :options, :mime_version, :charset, :context, :parts
+      attr_accessor :actions, :body, :content_type, :context_id, :instructions, :message, :messages, :options, :mime_version, :charset, :context, :parts
 
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})
+        @agent_class = attributes.fetch(:agent_class, ApplicationAgent)
         @actions = attributes.fetch(:actions, [])
         @action_choice = attributes.fetch(:action_choice, "")
         @instructions = attributes.fetch(:instructions, "")
@@ -18,6 +19,7 @@ module ActiveAgent
         @mime_version = attributes.fetch(:mime_version, "1.0")
         @charset = attributes.fetch(:charset, "UTF-8")
         @context = attributes.fetch(:context, [])
+        @context_id = attributes.fetch(:context_id, nil)
         @headers = attributes.fetch(:headers, {})
         @parts = attributes.fetch(:parts, [])
 

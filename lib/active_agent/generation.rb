@@ -11,14 +11,14 @@ module ActiveAgent
     ruby2_keywords(:initialize)
 
     def __getobj__
-      @prompt_context ||= processed_agent.context
+      @prompt_context ||= processed_agent.prompt_context
     end
 
     def __setobj__(prompt_context)
       @prompt_context = prompt_context
     end
 
-    def context
+    def prompt_context
       __getobj__
     end
 
