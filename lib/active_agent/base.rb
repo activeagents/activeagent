@@ -293,23 +293,6 @@ module ActiveAgent
       end
     end
 
-    class LateAttachmentsProxy < SimpleDelegator
-      def inline
-        self
-      end
-
-      def []=(_name, _content)
-        _raise_error
-      end
-
-      private
-
-      def _raise_error
-        raise "Can't add attachments after `prompt` was called.\n" \
-                              "Make sure to use `attachments[]=` before calling `prompt`."
-      end
-    end
-
     def prompt_with(*)
       prompt_context.update_prompt_context(*)
     end
@@ -322,6 +305,8 @@ module ActiveAgent
       headers = apply_defaults(headers)
 
       prompt_context.context_id = headers[:context_id]
+
+      prompt_context.options = options.merge(headers[:options] || {})
 
       prompt_context.charset = charset = headers[:charset]
 

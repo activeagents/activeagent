@@ -105,6 +105,7 @@ module ActiveAgent
       end
 
       def chat_response(response)
+        binding.irb
         return @response if prompt.options[:stream]
 
         message_json = response.dig("choices", 0, "message")
