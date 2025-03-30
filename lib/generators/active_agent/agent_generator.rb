@@ -30,11 +30,23 @@ module ActiveAgent
       def create_view_files
         actions.each do |action|
           @action = action
-          @schema_path = File.join("app/views", class_path, file_name, "#{action}.json.jbuilder")
-          @view_path = File.join("app/views", class_path, file_name, "#{action}.html.erb")
-          template "action.json.jbuilder", @schema_path
-          template "action.html.erb", @view_path
+          
+          # Use configured template engines or fall back to defaults
+          json_template_engine = json_template_engine_for_views || "jbuilder"
+          html_template_engine = html_template_engine_for_views || "erb"
+          
+          @schema_path = File.join("app/views", class_path, file_name, "#{action}.json.#{json_template_engine}")
+          @view_path = File.join("app/views", class_path, file_name, "#{action}.html.#{html_template_engine}")
+          
+          template "action.json.#{json_template_engine}", @schema_path
+          template "action.html.#{html_template_engine}", @view_path
         end
+      end
+
+      def create_layout_files
+        # Create the application agent layouts
+        template "layout.text.erb", "app/views/layouts/agent.text.erb"
+        template "layout.html.erb", "app/views/layouts/agent.html.erb"
       end
 
       private
@@ -45,6 +57,17 @@ module ActiveAgent
 
       def template_engine
         ::Rails.application.config.generators.options[:rails][:template_engine]
+      end
+
+      def json_template_engine_for_views
+        # Check if there's a specific JSON template engine configured
+        json_engine = ::Rails.application.config.generators.options[:rails][:json_template_engine]
+        json_engine || "jbuilder" # Default to jbuilder if not specified
+      end
+      
+      def html_template_engine_for_views
+        # Use the configured template engine or default to erb
+        template_engine || "erb"
       end
 
       def file_name # :doc:
