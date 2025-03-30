@@ -171,6 +171,8 @@ GEM
     psych (5.2.3)
       date
       stringio
+    puma (6.6.0)
+      nio4r (~> 2.0)
     racc (1.8.1)
     rack (3.1.12)
     rack-session (2.1.0)
@@ -246,6 +248,16 @@ GEM
       lint_roller (~> 1.1)
       rubocop (>= 1.72.1, < 2.0)
       rubocop-ast (>= 1.38.0, < 2.0)
+    rubocop-rails (2.30.3)
+      activesupport (>= 4.2.0)
+      lint_roller (~> 1.1)
+      rack (>= 1.1)
+      rubocop (>= 1.72.1, < 2.0)
+      rubocop-ast (>= 1.38.0, < 2.0)
+    rubocop-rails-omakase (1.1.0)
+      rubocop (>= 1.72)
+      rubocop-performance (>= 1.24)
+      rubocop-rails (>= 2.30)
     ruby-openai (7.1.0)
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
@@ -301,7 +313,9 @@ PLATFORMS
 DEPENDENCIES
   activeagent!
   anthropic (~> 0.3.0)
+  puma
   rspec
+  rubocop-rails-omakase
   ruby-openai (~> 7.1.0)
   sqlite3
   standard
