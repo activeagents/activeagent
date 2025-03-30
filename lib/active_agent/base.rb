@@ -323,6 +323,8 @@ module ActiveAgent
 
       prompt_context.context_id = headers[:context_id]
 
+      prompt_context.options = options.merge(headers[:options] || {})
+
       prompt_context.charset = charset = headers[:charset]
 
       responses = collect_responses(headers, &block)
