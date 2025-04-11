@@ -219,15 +219,14 @@ module ActiveAgent
     end
 
     def handle_response(response)
-      perform_actions(requested_actions: response.message.requested_actions) if response.message.requested_actions.present?
-
+      return response unless response.message.requested_actions.present?
+      perform_actions(requested_actions: response.message.requested_actions)
       update_prompt_context(response)
     end
 
     def update_prompt_context(response)
-      # response.prompt = prompt_context
-      # response.message = response.messages.last
-      response
+      prompt_context.message = prompt_context.messages.last
+      ActiveAgent::GenerationProvider::Response.new(prompt: prompt_context)
     end
 
     def perform_actions(requested_actions:)
@@ -237,9 +236,12 @@ module ActiveAgent
     end
 
     def perform_action(action)
+      current_context = prompt_context.clone
       process(action.name, *action.params)
       prompt_context.messages.last.role = :tool
       prompt_context.messages.last.action_id = action.id
+      current_context.messages << prompt_context.messages.last
+      self.prompt_context = current_context
     end
 
     def initialize
@@ -299,14 +301,10 @@ module ActiveAgent
 
     def prompt(headers = {}, &block)
       return prompt_context if @_prompt_was_called && headers.blank? && !block
-
       content_type = headers[:content_type]
-
       headers = apply_defaults(headers)
-
+      prompt_context.messages = headers[:messages] || []
       prompt_context.context_id = headers[:context_id]
-
-      prompt_context.options = options.merge(headers[:options] || {})
 
       prompt_context.charset = charset = headers[:charset]
 
@@ -319,6 +317,7 @@ module ActiveAgent
       prompt_context.content_type = set_content_type(prompt_context, content_type, headers[:content_type])
       prompt_context.charset = charset
       prompt_context.actions = headers[:actions] || action_schemas
+
       prompt_context
     end
 

@@ -1,0 +1,16 @@
+<%= {
+  type: :function,
+  function: {
+    name: action_name,
+    description: "This action takes no params and gets a random cat image and returns it as a base64 string.",
+    parameters: {
+      type: :object,
+      properties: {
+        param_name: {
+          type: :string,
+          description: "The param_description"
+        }
+      }
+    }
+  }
+}.to_json.html_safe %>
