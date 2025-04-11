@@ -23,7 +23,6 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-
     # services:
     #  redis:
     #    image: redis
@@ -43,16 +42,10 @@ jobs:
           ruby-version: ruby-3.3.0
           bundler-cache: true
 
-      - name: Debug environment
-        run: |
-          pwd
-          ls -la
-          echo $LOAD_PATH
-          ruby -e "puts \$LOAD_PATH"
-          
       - name: Run tests
         env:
           RAILS_ENV: test
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
           # REDIS_URL: redis://localhost:6379/0
         run: bin/test
 

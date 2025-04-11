@@ -10,4 +10,3 @@
 /test/dummy/tmp/
 **/.DS_Store
 test/dummy/config/master.key
-test/dummy/config/credentials.yml.enc
