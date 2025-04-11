@@ -85,10 +85,10 @@ module ActiveAgent
     end
 
     def collect_responses_from_text(headers)
-      [{
+      [ {
         body: headers.delete(:body),
         content_type: headers[:content_type] || "text/plain"
-      }]
+      } ]
     end
 
     def collect_responses_from_templates(headers)
@@ -97,7 +97,7 @@ module ActiveAgent
       each_template(Array(templates_path), templates_name).map do |template|
         format = template.format || formats.first
         {
-          body: render(template: template, formats: [format]),
+          body: render(template: template, formats: [ format ]),
           content_type: Mime[format].to_s
         }
       end

@@ -52,13 +52,13 @@ RSpec.describe ActiveAgent::ActionPrompt::Message do
       message = described_class.new(
         role: "user",
         content: "hello",
-        requested_actions: ["action1", "action2"]
+        requested_actions: [ "action1", "action2" ]
       )
       expect(message.to_h).to eq({
         role: "user",
         content: "hello",
         action_requested: true,
-        requested_actions: ["action1", "action2"]
+        requested_actions: [ "action1", "action2" ]
       })
     end
   end

@@ -1,7 +1,7 @@
 require "active_agent/generation_provider/base"
 
 RSpec.describe ActiveAgent::GenerationProvider::Base do
-  let(:messages) { [{role: "user", content: "test message"}] }
+  let(:messages) { [ { role: "user", content: "test message" } ] }
   let(:mock_prompt) { double("Prompt", messages: messages) }
 
   describe "#prompt_parameters" do
@@ -31,7 +31,7 @@ RSpec.describe ActiveAgent::GenerationProvider::Base do
     end
 
     context "with custom temperature" do
-      let(:config) { {"temperature" => 0.9} }
+      let(:config) { { "temperature" => 0.9 } }
       let(:base) { described_class.new(config) }
 
       before do

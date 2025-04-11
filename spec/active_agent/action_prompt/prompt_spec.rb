@@ -24,8 +24,8 @@ RSpec.describe ActiveAgent::ActionPrompt::Prompt do
     context "with custom attributes" do
       let(:attributes) do
         {
-          options: {foo: "bar"},
-          actions: ["action1"],
+          options: { foo: "bar" },
+          actions: [ "action1" ],
           body: "test body",
           content_type: "text/markdown",
           instructions: "test instructions",
@@ -36,8 +36,8 @@ RSpec.describe ActiveAgent::ActionPrompt::Prompt do
       subject(:prompt) { described_class.new(attributes) }
 
       it "sets custom values" do
-        expect(prompt.options).to eq({foo: "bar"})
-        expect(prompt.actions).to eq(["action1"])
+        expect(prompt.options).to eq({ foo: "bar" })
+        expect(prompt.actions).to eq([ "action1" ])
         expect(prompt.body).to eq("test body")
         expect(prompt.content_type).to eq("text/markdown")
         expect(prompt.charset).to eq("ASCII")
@@ -49,11 +49,11 @@ RSpec.describe ActiveAgent::ActionPrompt::Prompt do
     let(:message) { ActiveAgent::ActionPrompt::Message.new(content: "test content", role: :user) }
     let(:attributes) do
       {
-        actions: ["action1"],
+        actions: [ "action1" ],
         action_choice: "choice1",
         instructions: "test instructions",
         message: message,
-        context: ["context1"]
+        context: [ "context1" ]
       }
     end
 
@@ -61,13 +61,13 @@ RSpec.describe ActiveAgent::ActionPrompt::Prompt do
 
     it "returns correct hash representation" do
       expect(prompt.to_h).to eq({
-        actions: ["action1"],
+        actions: [ "action1" ],
         action: "choice1",
         instructions: attributes[:instructions],
         message: message.to_h,
-        messages: [ActiveAgent::ActionPrompt::Message.new(role: :system, content: attributes[:instructions]).to_h, message.to_h],
+        messages: [ ActiveAgent::ActionPrompt::Message.new(role: :system, content: attributes[:instructions]).to_h, message.to_h ],
         headers: {},
-        context: ["context1"]
+        context: [ "context1" ]
       })
     end
   end

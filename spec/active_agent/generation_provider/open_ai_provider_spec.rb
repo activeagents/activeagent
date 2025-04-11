@@ -16,14 +16,14 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
   end
 
   let(:message) { instance_double(ActiveAgent::ActionPrompt::Message, content: "Hello", role: "user") }
-  let(:messages) { [{role: "user", content: "Hello"}] }
-  let(:actions) { [{name: "test_action", parameters: {}}] }
+  let(:messages) { [ { role: "user", content: "Hello" } ] }
+  let(:actions) { [ { name: "test_action", parameters: {} } ] }
 
   let(:mock_prompt) do
     instance_double("ActiveAgent::ActionPrompt::Prompt",
       messages: messages,
       actions: actions,
-      options: {stream: false},
+      options: { stream: false },
       message: message).tap do |prompt|
       allow(prompt).to receive(:message=)
       allow(prompt.messages).to receive(:<<)
@@ -67,13 +67,13 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
 
     let(:mock_response) do
       {
-        "choices" => [{
+        "choices" => [ {
           "message" => {
             "content" => "Test response",
             "role" => "assistant",
             "finish_reason" => "stop"
           }
-        }]
+        } ]
       }
     end
 
@@ -97,7 +97,7 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
       let(:stream_proc) { proc { |chunk| } }
 
       before do
-        allow(mock_prompt).to receive(:options).and_return({stream: true})
+        allow(mock_prompt).to receive(:options).and_return({ stream: true })
       end
 
       it "includes stream parameter when streaming is enabled" do
@@ -141,9 +141,9 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
     let(:provider) { described_class.new(config) }
     let(:embedding_response) do
       {
-        "data" => [{
-          "embedding" => [0.1, 0.2, 0.3]
-        }]
+        "data" => [ {
+          "embedding" => [ 0.1, 0.2, 0.3 ]
+        } ]
       }
     end
 
@@ -163,7 +163,7 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
     it "wraps response in Response object with embedding data" do
       response = provider.embed(mock_prompt)
       expect(response).to be_a(ActiveAgent::GenerationProvider::Response)
-      expect(response.message.content).to eq([0.1, 0.2, 0.3])
+      expect(response.message.content).to eq([ 0.1, 0.2, 0.3 ])
     end
 
     it "handles errors appropriately" do
@@ -204,9 +204,9 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
     let(:provider) { described_class.new(config) }
     let(:embedding_data) do
       {
-        "data" => [{
-          "embedding" => [0.1, 0.2, 0.3]
-        }]
+        "data" => [ {
+          "embedding" => [ 0.1, 0.2, 0.3 ]
+        } ]
       }
     end
 
@@ -217,7 +217,7 @@ RSpec.describe ActiveAgent::GenerationProvider::OpenAIProvider do
     it "creates response with embedding data" do
       response = provider.embeddings_response(embedding_data)
       expect(response).to be_a(ActiveAgent::GenerationProvider::Response)
-      expect(response.message.content).to eq([0.1, 0.2, 0.3])
+      expect(response.message.content).to eq([ 0.1, 0.2, 0.3 ])
       expect(response.message.role).to eq("assistant")
     end
   end

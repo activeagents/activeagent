@@ -78,7 +78,7 @@ module ActiveAgent
           }.compact
 
           if message.content_type == "image_url"
-            provider_message[:image_url] = {url: message.content}
+            provider_message[:image_url] = { url: message.content }
           end
           provider_message
         end
@@ -110,7 +110,7 @@ module ActiveAgent
 
         tool_calls.map do |tool_call|
           next if tool_call["function"].nil? || tool_call["function"]["name"].blank?
-          args = tool_call["function"]["arguments"].blank? ? nil : JSON.parse(tool_call["function"]["arguments"], {symbolize_names: true})
+          args = tool_call["function"]["arguments"].blank? ? nil : JSON.parse(tool_call["function"]["arguments"], { symbolize_names: true })
 
           ActiveAgent::ActionPrompt::Action.new(
             id: tool_call["id"],
