@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    activeagent (0.3)
+    activeagent (0.3.1)
       actionpack (>= 7.2, < 9.0)
       actionview (>= 7.2, < 9.0)
       activejob (>= 7.2, < 9.0)

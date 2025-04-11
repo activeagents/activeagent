@@ -7,7 +7,6 @@ class ApplicationAgentTest < ActiveSupport::TestCase
   end
 
   test "it renders a prompt with an plain text message" do
-    message = "Test Application Agent"
     assert_equal "Test Application Agent", ApplicationAgent.with(message: "Test Application Agent").text_prompt.message.content
   end
 end
