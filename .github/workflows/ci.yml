@@ -32,7 +32,7 @@ jobs:
     #    options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config google-chrome-stable
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config 
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,6 +43,13 @@ jobs:
           ruby-version: ruby-3.3.0
           bundler-cache: true
 
+      - name: Debug environment
+        run: |
+          pwd
+          ls -la
+          echo $LOAD_PATH
+          ruby -e "puts \$LOAD_PATH"
+          
       - name: Run tests
         env:
           RAILS_ENV: test
