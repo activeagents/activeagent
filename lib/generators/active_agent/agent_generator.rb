@@ -19,33 +19,7 @@ module ActiveAgent
         end
       end
 
-      def create_test_file
-        if test_framework == :rspec
-          template "agent_spec.rb", File.join("spec/agents", class_path, "#{file_name}_agent_spec.rb")
-        else
-          template "agent_test.rb", File.join("test/agents", class_path, "#{file_name}_agent_test.rb")
-        end
-      end
-
-      def create_view_files
-        actions.each do |action|
-          @action = action
-          @schema_path = File.join("app/views", class_path, file_name, "#{action}.json.jbuilder")
-          @view_path = File.join("app/views", class_path, file_name, "#{action}.html.erb")
-          template "action.json.jbuilder", @schema_path
-          template "action.html.erb", @view_path
-        end
-      end
-
       private
-
-      def test_framework
-        ::Rails.application.config.generators.options[:rails][:test_framework]
-      end
-
-      def template_engine
-        ::Rails.application.config.generators.options[:rails][:template_engine]
-      end
 
       def file_name # :doc:
         @_file_name ||= super + "_agent"

@@ -1,3 +1,3 @@
 module ActiveAgent
-  VERSION = "0.2.6.9"
+  VERSION = "0.3"
 end

@@ -1,0 +1,12 @@
+development:
+  openai:
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-4o-mini"
+    temperature: 0.7
+test:
+  openai:
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-o3-mini"
+    temperature: 0.7
