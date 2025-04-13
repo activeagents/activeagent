@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    activeagent (0.3)
+    activeagent (0.3.1)
       actionpack (>= 7.2, < 9.0)
       actionview (>= 7.2, < 9.0)
       activejob (>= 7.2, < 9.0)
@@ -83,7 +83,7 @@ GEM
       securerandom (>= 0.3)
       tzinfo (~> 2.0, >= 2.0.5)
       uri (>= 0.13.1)
-    anthropic (0.3.2)
+    anthropic (0.4.1)
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
       faraday-multipart (>= 1)
@@ -312,7 +312,7 @@ PLATFORMS
 
 DEPENDENCIES
   activeagent!
-  anthropic (~> 0.3.0)
+  anthropic (~> 0.4.1)
   puma
   rspec
   rubocop-rails-omakase

@@ -68,7 +68,7 @@ module ActiveAgent
       private
 
       def set_messages
-        @messages = [Message.new(content: @instructions, role: :system)] + @messages if @instructions.present?
+        @messages = [ Message.new(content: @instructions, role: :system) ] + @messages if @instructions.present?
       end
 
       def set_message

@@ -9,7 +9,10 @@
 #   inflect.irregular "person", "people"
 #   inflect.uncountable %w( fish sheep )
 # end
-
+# Ensure OpenAI acronym is preserved correctly
+ActiveSupport::Inflector.inflections(:en) do |inflect|
+  inflect.acronym "AI"
+end
 # These inflection rules are supported but not enabled by default:
 # ActiveSupport::Inflector.inflections(:en) do |inflect|
 #   inflect.acronym "RESTful"

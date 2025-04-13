@@ -11,7 +11,7 @@ module ActiveAgent
 
       mattr_accessor :show_previews, instance_writer: false
 
-      mattr_accessor :preview_interceptors, instance_writer: false, default: [ActiveAgent::InlinePreviewInterceptor]
+      mattr_accessor :preview_interceptors, instance_writer: false, default: [ ActiveAgent::InlinePreviewInterceptor ]
     end
 
     module ClassMethods

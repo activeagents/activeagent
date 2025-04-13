@@ -24,7 +24,7 @@ module ActiveAgent
         require "active_agent/generation_provider/#{config["service"].underscore}_provider"
         ActiveAgent::GenerationProvider.const_get("#{config["service"].camelize}Provider").new(config)
       rescue LoadError
-        raise "Missing generation provider for #{config["service"].inspect}"
+        raise "Missing generation provider configuration for #{config["service"].inspect}"
       end
 
       def generation_provider
