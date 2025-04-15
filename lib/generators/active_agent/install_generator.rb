@@ -12,6 +12,11 @@ module ActiveAgent
       def create_application_agent
         template "application_agent.rb", "app/agents/application_agent.rb"
       end
+
+      def create_agent_layouts
+        template "agent.html.erb", "app/views/layouts/agent.html.erb"
+        template "agent.text.erb", "app/views/layouts/agent.text.erb"
+      end
     end
   end
 end

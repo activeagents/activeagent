@@ -16,6 +16,10 @@ module ActiveAgent
         validate_role
       end
 
+      def to_s
+        @content.to_s
+      end
+
       def to_h
         hash = {
           role: role,
