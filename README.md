@@ -33,6 +33,10 @@ development:
     api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
     model: "gpt-3.5-turbo"
     temperature: 0.7
+  ollama:
+    service: "Local Ollama"
+    model: "llama3.2"
+    temperature: 0.7
 
 production:
   openai:
