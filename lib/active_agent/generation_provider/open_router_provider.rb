@@ -1,5 +1,3 @@
-# lib/active_agent/generation_provider/openrouter_provider.rb
-
 require "openai"
 require_relative "open_ai_provider"
 
