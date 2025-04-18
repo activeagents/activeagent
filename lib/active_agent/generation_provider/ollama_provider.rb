@@ -1,5 +1,3 @@
-# lib/active_agent/generation_provider/ollama_provider.rb
-
 require "openai"
 require_relative "open_ai_provider"
 
