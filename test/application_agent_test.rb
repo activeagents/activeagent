@@ -12,23 +12,27 @@ class ApplicationAgentTest < ActiveSupport::TestCase
   end
 
   test "embed generates vector for message content" do
-    message = ActiveAgent::ActionPrompt::Message.new(content: "Test content for embedding")
-    response = message.embed
+    VCR.use_cassette("application_agent_message_embedding") do
+      message = ActiveAgent::ActionPrompt::Message.new(content: "Test content for embedding")
+      response = message.embed
 
-    assert_not_nil response
-    assert_equal message, response
-    # Assuming your provider returns a vector when embed is called
-    assert_not_nil response.content
+      assert_not_nil response
+      assert_equal message, response
+      # Assuming your provider returns a vector when embed is called
+      assert_not_nil response.content
+    end
   end
 
   test "embed can be called directly on an agent instance" do
-    agent = ApplicationAgent.new
-    agent.prompt_context = ActiveAgent::ActionPrompt::Prompt.new(
-      message: ActiveAgent::ActionPrompt::Message.new(content: "Test direct embedding")
-    )
-    response = agent.embed
+    VCR.use_cassette("application_agent_embeddings") do
+      agent = ApplicationAgent.new
+      agent.prompt_context = ActiveAgent::ActionPrompt::Prompt.new(
+        message: ActiveAgent::ActionPrompt::Message.new(content: "Test direct embedding")
+      )
+      response = agent.embed
 
-    assert_not_nil response
-    assert_instance_of ActiveAgent::GenerationProvider::Response, response
+      assert_not_nil response
+      assert_instance_of ActiveAgent::GenerationProvider::Response, response
+    end
   end
 end

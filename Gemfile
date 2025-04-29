@@ -11,4 +11,6 @@ group :development, :test do
   gem "puma"
 
   gem "sqlite3"
+  gem "vcr"
+  gem "webmock"
 end

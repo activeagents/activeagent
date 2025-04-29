@@ -1,0 +1,80 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You''re
+        a basic OpenAI agent.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Show
+        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":null}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 29 Apr 2025 07:12:23 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1958'
+      Openai-Version:
+      - '2020-10-01'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199986'
+      X-Ratelimit-Reset-Requests:
+      - 9.268s
+      X-Ratelimit-Reset-Tokens:
+      - 4ms
+      X-Request-Id:
+      - req_0de0ac689fdad9f239eade97c20dc2ec
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=1XVyhD89Hou7QBFwKbxPD.PnGq_upC_p.sucP41655A-1745910743-1.0.1.1-9MPpSWG2l2aJZZkle6QuKkmHPjOXpPtVBw3M35fSKhcgfevI5xaZ7YF4YtwfNH3C_CQDh0x3c751ZC4m6qtaeS0.Ag.onyIdnsVneFGNr.E;
+        path=/; expires=Tue, 29-Apr-25 07:42:23 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=t.5WVSSFIDl5AsikKx9nAzwtNH5WdOIaSELrCgi13Wo-1745910743619-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 937cfd963a5c8311-KIX
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        ewogICJpZCI6ICJjaGF0Y21wbC1CUlpRYmFDSVFyS241Qmp6ZjNRSmtWZFZ6dkhXTyIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc0NTkxMDc0MSwKICAibW9kZWwiOiAiZ3B0LTRvLW1pbmktMjAyNC0wNy0xOCIsCiAgImNob2ljZXMiOiBbCiAgICB7CiAgICAgICJpbmRleCI6IDAsCiAgICAgICJtZXNzYWdlIjogewogICAgICAgICJyb2xlIjogImFzc2lzdGFudCIsCiAgICAgICAgImNvbnRlbnQiOiAiSSBjYW4ndCBkaXNwbGF5IGltYWdlcyBkaXJlY3RseSwgYnV0IEkgY2FuIGRlc2NyaWJlIGEgY2F0IGZvciB5b3UhIFxuXG5JbWFnaW5lIGEgZmx1ZmZ5IGNhdCB3aXRoIHNvZnQgZnVyLCBicmlnaHQgZ3JlZW4gZXllcywgYW5kIGEgcGxheWZ1bCBkZW1lYW5vci4gSXRzIHdoaXNrZXJzIHR3aXRjaCBhcyBpdCBjdXJpb3VzbHkgZXhwbG9yZXMgaXRzIHN1cnJvdW5kaW5ncy4gSXQgbWlnaHQgYmUgY3VybGVkIHVwIGluIGEgc3Vubnkgc3BvdCwgcHVycmluZyBjb250ZW50ZWRseSwgb3IgcGxheWZ1bGx5IGNoYXNpbmcgYSB0b3kgbW91c2UuIElmIHlvdeKAmWQgbGlrZSwgSSBjYW4gYWxzbyBwcm92aWRlIGluZm9ybWF0aW9uIGFib3V0IGRpZmZlcmVudCBjYXQgYnJlZWRzIG9yIHRpcHMgb24gY2F0IGNhcmUhIiwKICAgICAgICAicmVmdXNhbCI6IG51bGwsCiAgICAgICAgImFubm90YXRpb25zIjogW10KICAgICAgfSwKICAgICAgImxvZ3Byb2JzIjogbnVsbCwKICAgICAgImZpbmlzaF9yZWFzb24iOiAic3RvcCIKICAgIH0KICBdLAogICJ1c2FnZSI6IHsKICAgICJwcm9tcHRfdG9rZW5zIjogMjIsCiAgICAiY29tcGxldGlvbl90b2tlbnMiOiA4OSwKICAgICJ0b3RhbF90b2tlbnMiOiAxMTEsCiAgICAicHJvbXB0X3Rva2Vuc19kZXRhaWxzIjogewogICAgICAiY2FjaGVkX3Rva2VucyI6IDAsCiAgICAgICJhdWRpb190b2tlbnMiOiAwCiAgICB9LAogICAgImNvbXBsZXRpb25fdG9rZW5zX2RldGFpbHMiOiB7CiAgICAgICJyZWFzb25pbmdfdG9rZW5zIjogMCwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAsCiAgICAgICJhY2NlcHRlZF9wcmVkaWN0aW9uX3Rva2VucyI6IDAsCiAgICAgICJyZWplY3RlZF9wcmVkaWN0aW9uX3Rva2VucyI6IDAKICAgIH0KICB9LAogICJzZXJ2aWNlX3RpZXIiOiAiZGVmYXVsdCIsCiAgInN5c3RlbV9maW5nZXJwcmludCI6ICJmcF8xMjlhMzYzNTJhIgp9Cg==
+  recorded_at: Tue, 29 Apr 2025 07:12:23 GMT
+recorded_with: VCR 6.3.1
