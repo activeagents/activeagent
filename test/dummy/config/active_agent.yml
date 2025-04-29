@@ -9,6 +9,11 @@ development:
     api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
     model: "qwen/qwen3-30b-a3b:free"
     temperature: 0.7
+  ollama:
+    service: "Ollama"
+    api_key: ""
+    model: "gemma3:latest"
+    temperature: 0.7
 test:
   openai:
     service: "OpenAI"
@@ -19,4 +24,9 @@ test:
     service: "OpenRouter"
     api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
     model: "qwen/qwen3-30b-a3b:free"
+    temperature: 0.7
+  ollama:
+    service: "Ollama"
+    api_key: ""
+    model: "gemma3:latest"
     temperature: 0.7

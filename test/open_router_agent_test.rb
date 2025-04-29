@@ -24,6 +24,6 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
   test "it sets the correct system instructions" do
     prompt = OpenRouterAgent.new.text_prompt
     system_message = prompt.messages.find { |m| m.role == :system }
-    assert_equal "You're a basic OpenAI agent.", system_message.content
+    assert_equal "You're a basic Open Router agent.", system_message.content
   end
 end
