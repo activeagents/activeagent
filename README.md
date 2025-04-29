@@ -17,7 +17,6 @@ $ rails generate active_agent:install
 
 This will create:
 ```
-create  config/initializers/active_agent.rb
 create  config/active_agent.yml
 create  app/agents/application_agent.rb
 create  app/agents
