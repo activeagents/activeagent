@@ -5,21 +5,6 @@ import {
   groupIconVitePlugin,
 } from "vitepress-plugin-group-icons"
 
-const markdown = {
-  config(md) {
-    md.use(groupIconMdPlugin)
-  },
-  codeTransformers: [transformerTwoslash()],
-  // Explicitly load these languages for types hightlighting
-  languages: ["js", "jsx", "ts", "tsx", "bash", "shell", "ruby", "html", "erb"],
-}
-
-// https://vp.yuy1n.io/features.html
-// https://github.com/vscode-icons/vscode-icons/wiki/ListOfFiles
-const groupIconPlugin = groupIconVitePlugin({
-  customIcon: {
-  },
-})
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   markdown: {
@@ -30,14 +15,13 @@ export default defineConfig({
   vite: {
     plugins: [
       groupIconVitePlugin({
-        defaultLabels: [
-          'npm',
-          'yarn',
-          'pnpm',
-          'bun',
-          'deno',
-        ],
-      })
+        customIcon: {
+          openai: 'logos:openai-icon',
+          anthropic: 'logos:anthropic-icon',
+          google: 'logos:google-icon',
+          ollama: 'simple-icons:ollama',
+        }
+      }),
     ],
   },
   title: "Active Agent",
@@ -55,6 +39,9 @@ export default defineConfig({
   ],
   cleanUrls: true,
   themeConfig: {
+    search: {
+      provider: 'local',
+    },
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
@@ -76,6 +63,7 @@ export default defineConfig({
           { text: 'Actions', link: '/docs/framework/actions' },
           { text: 'Prompts', link: '/docs/framework/prompts' },
           { text: 'Callbacks', link: '/docs/framework/callbacks' },
+          { text: 'Generation Providers', link: '/docs/framework/generation-providers' },
         ]
       }
     ],

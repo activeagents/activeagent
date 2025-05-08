@@ -3,8 +3,8 @@
 Agents are the core of the Active Agent framework. They act as controllers for AI-driven interactions, managing prompts, actions, and responses.
 
 ## Key Features
-- **Prompt Management**: Handle structured prompts with messages, actions, and context.
-- **Action Execution**: Define and execute callable tools or functions.
+- **Prompt Management**: Handle prompt-response cycles with structured prompts, messages, actions, and context.
+- **Action Execution**: Define action methods that become callable tools or functions for the Agent.
 - **Generation Providers**: Integrate with AI services like OpenAI or Anthropic.
 
 ## Example
