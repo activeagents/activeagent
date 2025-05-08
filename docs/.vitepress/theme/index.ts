@@ -3,7 +3,8 @@ import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 import './style.css'
-import GitHubStars from './components/GitHubStars.vue'
+import 'virtual:group-icons.css'
+// import GitHubStars from './components/GitHubStars.vue'
 
 export default {
   extends: DefaultTheme,

@@ -19,6 +19,7 @@ hero:
 
 features:
   - title: Agents
+    link: /docs/framework/agents
     icon: <img src="/activeagent.png" />
     details: Agents are Controllers with a common Generation API with enhanced memory and tooling.
   - title: Actions 
