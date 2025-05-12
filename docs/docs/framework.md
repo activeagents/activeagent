@@ -16,6 +16,10 @@ ActiveAgent provides a structured approach to building AI-powered applications.
 
 ## Core Concepts
 
+- **Agent**: An agent is an abstract controller that handles the generation of content using a specified generation provider.
+- **Action Prompt**: An action prompt is a template that defines how to generate content using Action View.
+- **Generation Provider**: A generation provider is a service that generates content based on the input provided by the agent.
+
 ## Architecture
 
 ## Installation
