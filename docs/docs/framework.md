@@ -14,8 +14,8 @@ ActiveAgent provides a structured approach to building AI-powered applications.
 ## Core Concepts
 <FeatureCards :cards="$frontmatter.cards" />
 - **Agents** are abstract controllers that handles AI interactions using a specified generation provider.
-- **Prompts** are the core data model that contains the runtime context messages, variables, and configuration for the prompt.
-- **Action Prompt**: Action Prompt provides basic functionality for rendering content using Action View for Prompt and View templates. 
+- **Prompts** are the core data model that contains the runtime context, messages, variables, and configuration for the prompt.
+- **Actions**: are the agent's interface to perform tasks and render Action Views for templated agent prompts and user interfaces.
 - **Generation Provider**: A generation provider is the backend interface to AI services that enable agents to generate content, embeddings, and request actions.
 
 ## Architecture
