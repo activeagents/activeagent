@@ -18,12 +18,14 @@ module ActiveAgent
 
     rescue_from StandardError, with: :handle_exception_with_agent_class
 
-    def perform(agent_class_name, action_name, args:, params: nil)
-      agent_class = agent_class_name.constantize
-      agent = agent_class.new
-      agent.params = params if params
-      agent.process(action_name, *args)
-      agent.perform_generation
+    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil)
+      agent_class = params ? agent.constantize.with(params) : agent.constantize
+      prompt = if kwargs
+        agent_class.public_send(agent_method, *args, **kwargs)
+      else
+        agent_class.public_send(agent_method, *args)
+      end
+      prompt.send(generation_method)
     end
 
     private

@@ -57,7 +57,7 @@ module ActiveAgent
           super
         else
           @agent_class.generation_job.set(options).perform_later(
-            @agent_class.name, @action.to_s, params: @params, args: @args
+            @agent_class.name, @action.to_s, generation_method.to_s, params: @params, args: @args
           )
         end
       end
