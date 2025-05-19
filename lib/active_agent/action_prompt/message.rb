@@ -1,7 +1,7 @@
 module ActiveAgent
   module ActionPrompt
     class Message
-      VALID_ROLES = %w[system assistant user tool function].freeze
+      VALID_ROLES = %w[system assistant user tool].freeze
 
       attr_accessor :action_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset
 

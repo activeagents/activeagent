@@ -38,13 +38,13 @@ module ActiveAgent
         @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
         proc do |chunk, bytesize|
           new_content = chunk.dig("choices", 0, "delta", "content")
-          if new_content && !new_content.blank
+          if new_content && !new_content.blank?
             message.content += new_content
 
             agent_stream.call(message, new_content, false) do |message, new_content|
               yield message, new_content if block_given?
             end
-          elsif chunk.dig("choices", 0, "delta", "tool_calls") && !chunk.dig("choices", 0, "delta", "tool_calls").empty?
+          elsif chunk.dig("choices", 0, "delta", "tool_calls") && chunk.dig("choices", 0, "delta", "tool_calls", 0, "id")
             message = handle_message(chunk.dig("choices", 0, "delta"))
             prompt.messages << message
             @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
@@ -76,7 +76,7 @@ module ActiveAgent
           }.compact
 
           if message.content_type == "image_url"
-            provider_message[:image_url] = { url: message.content }
+            provider_message[:image_url] = {url: message.content}
           end
           provider_message
         end
@@ -108,7 +108,7 @@ module ActiveAgent
 
         tool_calls.map do |tool_call|
           next if tool_call["function"].nil? || tool_call["function"]["name"].blank?
-          args = tool_call["function"]["arguments"].blank? ? nil : JSON.parse(tool_call["function"]["arguments"], { symbolize_names: true })
+          args = tool_call["function"]["arguments"].blank? ? nil : JSON.parse(tool_call["function"]["arguments"], {symbolize_names: true})
 
           ActiveAgent::ActionPrompt::Action.new(
             id: tool_call["id"],
