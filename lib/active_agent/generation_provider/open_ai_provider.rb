@@ -70,6 +70,7 @@ module ActiveAgent
           provider_message = {
             role: message.role,
             tool_call_id: message.action_id.presence,
+            tool_calls: message.requested_actions.map { |action| {name: action.name, arguments: action.params.to_json} },
             content: message.content,
             type: message.content_type,
             charset: message.charset
