@@ -1,85 +1,31 @@
-# Markdown Extension Examples
+---
+title: Overview
+cards:
+  - title: Agents
+    link: /docs/framework/active-agent
+    icon: <img src="/activeagent.png" />
+    details: Agents are Controllers with a common Generation API with enhanced memory and tooling.
+  - title: Actions 
+    icon: 🦾
+    link: /docs/action-prompt/actions
+    details: Actions are tools for Agents to interact with systems and code.
+  - title: Prompts
+    icon: 📝
+    link: /docs/action-prompt/prompts
+    details: Prompts are rendered with Action View. Agents can generate content using Action View.
+  - title: Generation Providers
+    icon: 🏭
+    link: /docs/framework/generation-provider
+    details: Generation Providers establish a common interface for different AI service providers.
+  - title: Queued Generation
+    icon: ⏳
+    details: Queued Generation manages asynchronous prompt generation and response cycles with Active Job.
+  - title: Streaming
+    icon: 📡
+    details: Streaming allows for real-time dynamic UI updates based on user & agent interactions, enhancing user experience and responsiveness in AI-driven applications.
+  - title: Callbacks
+    icon: 🔄
+    details: Callbacks enable contextual prompting using retrieval before_action or persistence after_generation.
+---
 
-This page demonstrates some of the built-in markdown extensions provided by VitePress.
-
-## Syntax Highlighting
-
-VitePress provides Syntax Highlighting powered by [Shiki](https://github.com/shikijs/shiki), with additional features like line-highlighting:
-
-**Input**
-
-````md
-```js{4}
-export default {
-  data () {
-    return {
-      msg: 'Highlighted!'
-    }
-  }
-}
-```
-````
-
-**Output**
-
-```js{4}
-export default {
-  data () {
-    return {
-      msg: 'Highlighted!'
-    }
-  }
-}
-```
-
-## Custom Containers
-
-**Input**
-
-```md
-::: info
-This is an info box.
-:::
-
-::: tip
-This is a tip.
-:::
-
-::: warning
-This is a warning.
-:::
-
-::: danger
-This is a dangerous warning.
-:::
-
-::: details
-This is a details block.
-:::
-```
-
-**Output**
-
-::: info
-This is an info box.
-:::
-
-::: tip
-This is a tip.
-:::
-
-::: warning
-This is a warning.
-:::
-
-::: danger
-This is a dangerous warning.
-:::
-
-::: details
-This is a details block.
-:::
-
-## More
-
-Check out the documentation for the [full list of markdown extensions](https://vitepress.dev/guide/markdown).
+<FeatureCards :cards="$frontmatter.cards" />

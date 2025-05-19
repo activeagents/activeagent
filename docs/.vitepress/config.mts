@@ -46,26 +46,38 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Docs', link: '/docs' },
-
     ],
     sidebar: [
       {
-        text: 'Documentation',
-        items: [
-          { text: 'Framework', link: '/docs/framework' },
-          { text: 'Getting Started', link: '/docs/getting-started' }
-        ]
+        text: 'Rails AI Framework',
+        link: '/docs/intro',
       },
       {
         text: 'Framework',
+        link: '/docs/framework',
         items: [
-          { text: 'Agents', link: '/docs/framework/agents' },
-          { text: 'Actions', link: '/docs/framework/actions' },
-          { text: 'Prompts', link: '/docs/framework/prompts' },
-          { text: 'Callbacks', link: '/docs/framework/callbacks' },
-          { text: 'Generation Providers', link: '/docs/framework/generation-providers' },
+          { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
+          { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
+          { text: 'Active Agent', link: '/docs/framework/active-agent' },
         ]
-      }
+      },
+      {
+        text: 'Action Prompt',
+        link: '/docs/action-prompt',
+        items: [
+          { text: 'Messages', link: '/docs/action-prompt/messages' },
+          { text: 'Actions', link: '/docs/action-prompt/actions' },
+          { text: 'Prompts', link: '/docs/action-prompt/prompts' },
+        ]
+      },
+      // {
+      //   text: 'Framework',
+      //   link: '/docs/framework',
+      //   items: [
+      //     { text: 'Agents', link: '/docs/framework/agents' },
+      //     { text: 'Callbacks', link: '/docs/framework/callbacks' },
+      //   ]
+      // }
     ],
 
     socialLinks: [

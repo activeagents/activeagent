@@ -1,4 +1,4 @@
-# Generation Providers
+# Generation Provider
 
 Generation Providers are the backbone of the Active Agent framework, allowing seamless integration with various AI services. They provide a consistent interface for prompting and generating responses, making it easy to switch between different providers without changing the core logic of your application.
 

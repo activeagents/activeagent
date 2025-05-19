@@ -1,6 +1,6 @@
 # Agents
 
-Agents are the core of the Active Agent framework. They act as controllers for AI-driven interactions, managing prompts, actions, and responses.
+Agents are Controllers that act as the core of the Active Agent framework. They manage AI-driven interactions, prompts, actions, and generative responses.
 
 ## Key Features
 - **Prompt Management**: Handle prompt-response cycles with structured prompts, messages, actions, and context.
@@ -11,13 +11,8 @@ Agents are the core of the Active Agent framework. They act as controllers for A
 ```ruby
 class TravelAgent < ActiveAgent::Base
   def search
-    prompt { |format| format.text { render plain: "Searching for travel options" } }
+    prompt()
   end
 end
 ```
-
-## Features
-- Automatically included in the agent's context.
-- Schema generation for tool definitions.
-- Seamless integration with prompts.
 
