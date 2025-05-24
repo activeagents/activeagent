@@ -10,7 +10,7 @@ module ActiveAgent
         super
         @api_key = config["api_key"]
         @model_name = config["model"] || "gpt-4o-mini"
-        @client = OpenAI::Client.new(access_token: @api_key, log_errors: true)
+        @client = OpenAI::Client.new(api_key: @api_key)
       end
 
       def generate(prompt)
