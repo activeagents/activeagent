@@ -38,9 +38,11 @@ features:
     icon: ⏳
     details: Queued Generation manages asynchronous prompt generation and response cycles with Active Job.
   - title: Streaming
+    link: /docs/active-agent/callbacks#on-stream-callbacks
     icon: 📡
     details: Streaming allows for real-time dynamic UI updates based on user & agent interactions, enhancing user experience and responsiveness in AI-driven applications.
   - title: Callbacks
+    link: /docs/active-agent/callbacks
     icon: 🔄
     details: Callbacks enable contextual prompting using retrieval before_action or persistence after_generation.
   # - title: RAG 

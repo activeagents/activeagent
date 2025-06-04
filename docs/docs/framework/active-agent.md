@@ -11,7 +11,15 @@ Agents are Controllers that act as the core of the Active Agent framework. They 
 ```ruby
 class TravelAgent < ActiveAgent::Base
   def search
-    prompt()
+    prompt(message: params[:message], content_type: :html)
+  end
+
+  def book
+    prompt(message: params[:message], content_type: :json)
+  end
+
+  def confirm
+    prompt(message: params[:message], content_type: :text)
   end
 end
 ```

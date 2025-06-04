@@ -70,6 +70,14 @@ export default defineConfig({
           { text: 'Prompts', link: '/docs/action-prompt/prompts' },
         ]
       },
+      { text: 'Active Agent', link: '/docs/active-agent',
+        items: [
+          { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
+          { text: 'Generation', link: '/docs/active-agent/generation' },
+          { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },
+          { text: 'Error Handling', link: '/docs/active-agent/error-handling' },
+        ]
+       },
       // {
       //   text: 'Framework',
       //   link: '/docs/framework',

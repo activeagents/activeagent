@@ -36,3 +36,14 @@ Active Agent provides a built-in job queue for generating content asynchronously
 
 ### Generation Providers are the AI Service Backends
 Generation providers are the backend interfaces to AI services that enable agents to generate content, embeddings, and request actions. They provide a common interface for different AI providers, allowing developers to easily switch between them without changing the core application logic. Using `generate_with` method, you can easily switch between different providers, configurations, instructions, models, and other parameters to optimize the agentic processes.
+
+
+## Key Features
+- **Unified Interface**: All generation providers implement a common interface, making it easy to switch between them.
+- **Customizable**: You can create your own generation providers to suit your specific needs.
+- **Built-in Providers**: Active Agent comes with built-in providers for popular AI services like OpenAI and Anthropic.
+- **Easy Integration**: Integrate with your existing Rails application with minimal setup.
+- **Asynchronous Support**: Generation Jobs use Active Job to handle long-running background task processing with ease.
+- **Error Handling**: Built-in error handling and retry mechanisms for robust applications.
+- **Logging and Monitoring**: Track the performance and usage of your generation providers.
+- **Testing Support**: Mock and stub generation providers for unit testing.

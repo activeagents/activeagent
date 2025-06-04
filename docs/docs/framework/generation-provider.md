@@ -27,15 +27,3 @@ end
 <<< @/../test/dummy/app/agents/ollama_agent.rb#snippet{ruby:line-numbers} [ollama]
 
 :::
-
-## Key Features
-- **Unified Interface**: All generation providers implement a common interface, making it easy to switch between them.
-- **Customizable**: You can create your own generation providers to suit your specific needs.
-- **Built-in Providers**: Active Agent comes with built-in providers for popular AI services like OpenAI and Anthropic.
-- **Easy Integration**: Integrate with your existing Rails application with minimal setup.
-- **Asynchronous Support**: Generation Jobs use Active Job to handle long-running background task processing with ease.
-- **Error Handling**: Built-in error handling and retry mechanisms for robust applications.
-- **Logging and Monitoring**: Track the performance and usage of your generation providers.
-- **Testing Support**: Mock and stub generation providers for unit testing.
-
-
