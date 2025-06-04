@@ -231,6 +231,8 @@ module ActiveAgent
         process(action.name, *action.params)
         prompt_context.messages.last.role = :tool
         prompt_context.messages.last.action_id = action.id
+        prompt_context.messages.last.action_name = action.name
+        prompt_context.messages.last.generation_id = action.id
         current_context.messages << prompt_context.messages.last
         self.prompt_context = current_context
       end

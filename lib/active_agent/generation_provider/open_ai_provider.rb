@@ -33,12 +33,14 @@ module ActiveAgent
 
       def provider_stream
         agent_stream = prompt.options[:stream]
+
         message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
 
         @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
         proc do |chunk, bytesize|
           new_content = chunk.dig("choices", 0, "delta", "content")
           if new_content && !new_content.blank?
+            message.generation_id = chunk.dig("id")
             message.content += new_content
 
             agent_stream.call(message, new_content, false) do |message, new_content|
@@ -70,6 +72,7 @@ module ActiveAgent
           provider_message = {
             role: message.role,
             tool_call_id: message.action_id.presence,
+            name: message.action_name.presence,
             tool_calls: (message.requested_actions.map { |action| {name: action.name, arguments: action.params.to_json} } if message.action_requested),
             content: message.content,
             type: message.content_type,
@@ -85,9 +88,8 @@ module ActiveAgent
 
       def chat_response(response)
         return @response if prompt.options[:stream]
-
         message_json = response.dig("choices", 0, "message")
-
+        message_json["id"] = response.dig("id") if message_json["id"].blank?
         message = handle_message(message_json)
 
         update_context(prompt: prompt, message: message, response: response)
@@ -97,6 +99,7 @@ module ActiveAgent
 
       def handle_message(message_json)
         ActiveAgent::ActionPrompt::Message.new(
+          generation_id: message_json["id"],
           content: message_json["content"],
           role: message_json["role"].intern,
           action_requested: message_json["finish_reason"] == "tool_calls",

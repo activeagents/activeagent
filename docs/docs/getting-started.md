@@ -53,5 +53,76 @@ end
 ```
 
 ## Your First Agent
+You can generate your first agent using the Rails generator. This will create a new agent class in the `app/agents` directory. It will also create a corresponding view template for the agent's actions as well as an Application Agent if you don't already have one. 
+
+```bash
+$ rails generate active_agent:agent TravelAgent search book confirm
+```
+The `ApplicationAgent` is the base class for all agents in your application, similar to how ApplicationController is the base class for all controllers.
+
+```ruby [app/agents/application_agent.rb]
+class ApplicationAgent < ActiveAgent::Base
+  # This is the base class for all agents in your application.
+  # You can define common methods and configurations here.
+end
+```
+The `TravelAgent` class will be generated with the specified actions: `search`, `book`, and `confirm`. Each action will be defined as a public instance method in the agent class. The generator will also create a corresponding view template for each action in the `app/views/agents/travel_agent` directory.
+
+The JSON view is used to specify the tool schema for the action it can also be used to allow the agent to return structured data that can be used by other agents or applications. The HTML view is used to render the action's content in a web-friendly format, while the text view is used for plain text responses.
+
+```json [app/views/agents/travel_agent/search.json.erb]
+{
+  "tool": {
+    "name": "search",
+    "description": "Search for travel options",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "type": "string",
+          "description": "The location to search for travel options"
+        }
+      },
+      "required": ["location"]
+    }
+  }
+}
+```
+
+```erb [app/views/agents/travel_agent/search.html.erb]
+
+```
+
+The generated agent will look like this:
+
+```ruby
+class TravelAgent < ActiveAgent::Base
+  def search
+    # Your search logic here
+    prompt
+  end
+
+  def book
+    # Your booking logic here
+    prompt
+  end
+
+  def confirm
+    # Your confirmation logic here
+    prompt
+  end
+end
+```
 
 ## Basic Usage
+When interfacing with an agent, you typically start by providing a prompt context to the agent. This context can include instructions, user messages, and any other relevant information that the agent needs to generate a response. The agent will then process this context and return a response based on its defined actions.
+
+```ruby
+TravelAgent.with(
+  instructions: "Help users with travel-related queries, using the search, book, and confirm actions.",
+  messages: [
+    { role: 'user', content: 'I need a hotel in Paris' }
+  ]
+).generate_later
+```
+This code snippet initializes the `TravelAgent` with a set of instructions and a user message. The agent will then process this context and generate a response based on its defined actions.

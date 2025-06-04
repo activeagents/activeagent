@@ -28,9 +28,9 @@ module ActiveAgent
     # It is built on top of ActionPrompt which provides methods for generating content, handling actions, and managing prompts.
     # ActiveAgent::Base is designed to be extended by specific agent implementations.
     # It provides a common set of agent actions for self-contained agents that can determine their own actions using all available actions.
-    # Base actions include: continue, reasoning, reconclude
+    # Base actions include: text_prompt, continue, reasoning, reiterate, and conclude
     def text_prompt
-      prompt(stream: params[:stream], message: params[:message], context_id: params[:context_id]) { |format| format.text { render plain: params[:message] } }
+      prompt(stream: params[:stream], messages: params[:messages], message: params[:message], context_id: params[:context_id]) { |format| format.text { render plain: params[:message] } }
     end
   end
 end
