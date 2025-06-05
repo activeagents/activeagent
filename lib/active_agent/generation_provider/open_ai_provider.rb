@@ -73,13 +73,15 @@ module ActiveAgent
             role: message.role,
             tool_call_id: message.action_id.presence,
             name: message.action_name.presence,
-            tool_calls: (message.requested_actions.map { |action| {name: action.name, arguments: action.params.to_json} } if message.action_requested),
+            tool_calls: message.raw_actions.present? ? message.raw_actions[:tool_calls] : (message.requested_actions.map { |action| {type: "function", name: action.name, arguments: action.params.to_json} } if message.action_requested),
+            generation_id: message.generation_id,
             content: message.content,
             type: message.content_type,
             charset: message.charset
           }.compact
 
-          if message.content_type == "image_url"
+          if message.content_type == "image_url" || message.content[0..4] == "data:"
+            provider_message[:type] = "image_url"
             provider_message[:image_url] = {url: message.content}
           end
           provider_message
@@ -103,6 +105,7 @@ module ActiveAgent
           content: message_json["content"],
           role: message_json["role"].intern,
           action_requested: message_json["finish_reason"] == "tool_calls",
+          raw_actions: message_json["tool_calls"] || [],
           requested_actions: handle_actions(message_json["tool_calls"])
         )
       end

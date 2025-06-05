@@ -3,7 +3,7 @@ module ActiveAgent
     class Message
       VALID_ROLES = %w[system assistant user tool].freeze
 
-      attr_accessor :action_id, :action_name, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset
+      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset
 
       def initialize(attributes = {})
         @action_id = attributes[:action_id]
@@ -13,6 +13,7 @@ module ActiveAgent
         @content = attributes[:content] || ""
         @content_type = attributes[:content_type] || "text/plain"
         @role = attributes[:role] || :user
+        @raw_actions = attributes[:raw_actions]
         @requested_actions = attributes[:requested_actions] || []
         @action_requested = @requested_actions.any?
         validate_role
