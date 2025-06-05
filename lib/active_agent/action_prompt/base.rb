@@ -205,6 +205,10 @@ module ActiveAgent
 
       def perform_generation
         prompt_context.options.merge(options)
+        if prompt_context.message.content_type == "application/json" && prompt_context.message.role == :user
+          prompt_context.message = prompt_context.messages.last
+          prompt_context.actions = []
+        end
         generation_provider.generate(prompt_context) if prompt_context && generation_provider
         handle_response(generation_provider.response)
       end
