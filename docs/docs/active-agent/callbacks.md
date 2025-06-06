@@ -46,6 +46,7 @@ class ApplicationAgent < ActiveAgent::Base
   generate_with :openai
 
   before_action :set_context
+  
   private
   def set_context
     # Logic to set the context for the action, e.g., setting a user ID or session data
@@ -62,7 +63,8 @@ Generation callbacks are executed during the generation process of an agent. Thi
 class ApplicationAgent < ActiveAgent::Base
   generate_with :openai
 
-  after_generate :process_response
+  after_generation :process_response
+
   private
   def process_response 
     generation_provider.response

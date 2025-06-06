@@ -9,7 +9,7 @@ Agents are Controllers that act as the core of the Active Agent framework. They 
 
 ## Example
 ```ruby
-class TravelAgent < ActiveAgent::Base
+class TravelAgent < ApplicationAgent
   def search
     prompt(message: params[:message], content_type: :html)
   end

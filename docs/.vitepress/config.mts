@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 import {
   groupIconMdPlugin,
   groupIconVitePlugin,
+  localIconLoader,
 } from "vitepress-plugin-group-icons"
 
 // https://vitepress.dev/reference/site-config
@@ -20,6 +21,7 @@ export default defineConfig({
           anthropic: 'logos:anthropic-icon',
           google: 'logos:google-icon',
           ollama: 'simple-icons:ollama',
+          openrouter: localIconLoader(import.meta.url, './assets/icons/openrouter.svg'),
         }
       }),
     ],
