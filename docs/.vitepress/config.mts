@@ -13,6 +13,7 @@ export default defineConfig({
       md.use(groupIconMdPlugin)
     },
   },
+  base: '/activeagent/',
   vite: {
     plugins: [
       groupIconVitePlugin({
