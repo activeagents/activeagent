@@ -13,7 +13,6 @@ export default defineConfig({
       md.use(groupIconMdPlugin)
     },
   },
-  base: '/docs/',
   vite: {
     plugins: [
       groupIconVitePlugin({
