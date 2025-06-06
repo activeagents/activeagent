@@ -8,5 +8,8 @@
 /test/dummy/log/*.log
 /test/dummy/storage/
 /test/dummy/tmp/
+/node_modules/
 **/.DS_Store
 test/dummy/config/master.key
+docs/.vitepress/dist
+docs/.vitepress/cache
