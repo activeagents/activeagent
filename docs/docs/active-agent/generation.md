@@ -17,6 +17,8 @@ The prompt generation cycle is similar to the request-response cycle of Action C
 6. **Updated Context**: The context is updated with the new messages, actions, and parameters, and the cycle continues.
 ## Prompt Context
 Action Prompt renders prompt context objects that represent the contextual data and runtime parameters for the generation process. Prompt context objects contain messages, actions, and params that are passed in the request to the agent's generation provider. The context object is responsible for managing the contextual history and providing the necessary information for prompt and response cycles.
+
+
 ## Example Prompt Generation
 
 ```ruby
@@ -33,6 +35,7 @@ response = ApplicationAgent.text_prompt(messages: response.prompt.messages).gene
 Generation can be performed using Active Job to handle the prompt-generation and perform actions asynchronously. This is the most common way to handle generation in production applications, as it allows for better scalability and responsiveness.
 
 To perform queued generation, you can use the `generate_later` method, which enqueues the generation job to be processed later by Active Job. 
+
 ```ruby
 response = ApplicationAgent.text_prompt(message: params[:message], messages: response.prompt.messages).generate_later
 ```

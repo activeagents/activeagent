@@ -4,11 +4,7 @@ Generation Providers are the backbone of the Active Agent framework, allowing se
 
 ::: code-group
 
-```ruby [OpenAI]
-class ApplicationAgent < ActiveAgent::Base
-  generate_with :openai
-end
-```
+<<< @/../test/dummy/app/agents/open_ai_agent.rb#snippet{ruby:line-numbers} [OpenAI]
 
 ```ruby [Anthropic]
 class ApplicationAgent < ActiveAgent::Base
@@ -22,8 +18,8 @@ class ApplicationAgent < ActiveAgent::Base
 end
 ```
 
-<<< @/../test/dummy/app/agents/open_router_agent.rb#snippet{ruby:line-numbers} [openrouter]
+<<< @/../test/dummy/app/agents/open_router_agent.rb#snippet{ruby:line-numbers} [OpenRouter]
 
-<<< @/../test/dummy/app/agents/ollama_agent.rb#snippet{ruby:line-numbers} [ollama]
+<<< @/../test/dummy/app/agents/ollama_agent.rb#snippet{ruby:line-numbers} [Ollama]
 
 :::
