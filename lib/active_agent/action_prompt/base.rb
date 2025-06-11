@@ -205,7 +205,7 @@ module ActiveAgent
 
       def perform_generation
         prompt_context.options.merge(options)
-        if prompt_context.message.content_type == "application/json" && prompt_context.message.role == :user
+        if (action_methods - ActiveAgent::Base.descendants.first.action_methods).include? action_name
           prompt_context.message = prompt_context.messages.last
           prompt_context.actions = []
         end
