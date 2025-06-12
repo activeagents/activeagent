@@ -1,6 +1,21 @@
 module ActiveAgent
   module ActionPrompt
     class Message
+      class << self
+        def from_messages(messages)
+          return messages if messages.empty? || messages.first.is_a?(Message)
+
+          messages.map do |message|
+            if message.is_a?(Hash)
+              new(message)
+            elsif message.is_a?(Message)
+              message
+            else
+              raise ArgumentError, "Messages must be Hash or Message objects"
+            end
+          end
+        end
+      end
       VALID_ROLES = %w[system assistant user tool].freeze
 
       attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset
