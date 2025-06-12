@@ -81,7 +81,7 @@ export default defineConfig({
       },
       { text: 'Active Agent', link: '/docs/active-agent',
         items: [
-          { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
+          // { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
           { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
           { text: 'Generation', link: '/docs/active-agent/generation' },
           { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },
