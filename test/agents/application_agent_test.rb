@@ -11,6 +11,14 @@ class ApplicationAgentTest < ActiveSupport::TestCase
     assert_equal "Test Application Agent", ApplicationAgent.with(message: "Test Application Agent").text_prompt.message.content
   end
 
+  test "it renders a prompt with an plain text message and generates a response" do
+    VCR.use_cassette("application_agent_text_prompt_message_generation") do
+      test_response_message_content = "It looks like you're interested in testing an application agent. How can I assist you with that? Are you looking for information on how to test an application, specific testing strategies, or something else?"
+      response = ApplicationAgent.with(message: "Test Application Agent").text_prompt.generate_now
+      assert_equal test_response_message_content, response.message.content
+    end
+  end
+
   test "embed generates vector for message content" do
     VCR.use_cassette("application_agent_message_embedding") do
       message = ActiveAgent::ActionPrompt::Message.new(content: "Test content for embedding")
