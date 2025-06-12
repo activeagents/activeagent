@@ -8,6 +8,6 @@ Generation can be performed using Active Job to handle the prompt-generation and
 To perform queued generation, you can use the `generate_later` method, which enqueues the generation job to be processed later by Active Job. 
 
 ```ruby
-response = ApplicationAgent.text_prompt(message: params[:message], messages: response.prompt.messages).generate_later
+ApplicationAgent.text_prompt(message: params[:message], messages: response.prompt.messages).generate_later
 ```
 
