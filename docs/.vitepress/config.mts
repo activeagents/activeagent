@@ -85,17 +85,9 @@ export default defineConfig({
           { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
           { text: 'Generation', link: '/docs/active-agent/generation' },
           { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },
-          { text: 'Error Handling', link: '/docs/active-agent/error-handling' },
+          // { text: 'Error Handling', link: '/docs/active-agent/error-handling' },
         ]
        },
-      // {
-      //   text: 'Framework',
-      //   link: '/docs/framework',
-      //   items: [
-      //     { text: 'Agents', link: '/docs/framework/agents' },
-      //     { text: 'Callbacks', link: '/docs/framework/callbacks' },
-      //   ]
-      // }
     ],
 
     socialLinks: [
