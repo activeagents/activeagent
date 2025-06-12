@@ -17,7 +17,44 @@ Or install it yourself as:
 ```bash
 $ gem install activeagent
 ```
+### Active Agent install generator
+To set up Active Agent in your Rails application, you can use the install generator. This will create the necessary configuration files and directories for Active Agent.
 
+```bash
+$ rails generate active_agent:install
+```
+This command will create the following files and directories:
+- `config/initializers/active_agent.rb`: The initializer file for Active Agent.
+- `config/active_agent.yml`: The configuration file for Active Agent, where you can specify your generation providers and their settings.
+- `app/agents`: The directory where your agent classes will be stored.
+- `app/views/agents`: The directory where your agent view templates will be stored.
+
+## Usage
+Active Agent is designed to work seamlessly with Rails applications. It can be easily integrated into your existing Rails app without any additional configuration. The framework automatically detects the Rails environment and configures itself accordingly.
+
+You can start by defining an `ApplicationAgent` class that inherits from `ActiveAgent::Base`. This class will define the actions and behaviors of your application's base agent. You can then use the `generate_with` method to specify the generation provider for your agent.
+
+```ruby
+class ApplicationAgent < ActiveAgent::Base
+  generate_with :openai, instructions: "You are a helpful assistant.",
+    model: "gpt-4o-mini",
+    temperature: 0.7
+end
+```
+This code snippet sets up the `ApplicationAgent` to use OpenAI as the generation provider. You can replace `:openai` with any other supported provider, such as `:anthropic`, `:google`, or `:ollama`.
+
+Now, you can interact with your application agent:
+```ruby
+ApplicationAgent.with(
+  instructions: "Help users with their queries.",
+  messages: [
+    { role: 'user', content: 'What is the weather like today?' }
+  ]
+).text_prompt.generate_now
+```
+This code parameterizes the `ApplicationAgent` `with` a set of `params`.
+
+## Configuration
 ### Generation Provider Configuration
 Active Agent supports multiple generation providers, including OpenAI, Anthropic, and Ollama. You can configure these providers in your Rails application using the `config/active_agent.yml` file. This file allows you to specify the API keys, models, and other settings for each provider. This is similar to Active Storage service configurations.
 

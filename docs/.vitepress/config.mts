@@ -58,6 +58,10 @@ export default defineConfig({
         link: '/docs',
       },
       {
+        text: 'Getting Started',
+        link: '/docs/getting-started',
+      },
+      {
         text: 'Framework',
         link: '/docs/framework',
         items: [
