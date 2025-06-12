@@ -30,7 +30,7 @@ You can also define actions in a separate concern module and include them in you
 ## Action params
 Agent Actions can accept parameters, which are passed as a hash to the action method. You can access parameters using the `params` method, just like Controller or Mailer Actions.
 
-## Prompt Method
+## Prompt method
 The `prompt` method is used to render the action's content in the prompt. The `prompt()` method is similar to `mail()` in Action Mailer or `render()` in Action Controller, it allows you to specify the content type and view template for the action's response.
 
 The `prompt` takes the following options:
@@ -57,6 +57,7 @@ class TravelAgent < ActiveAgent::Agent
   end
 end
 ```
+
 ### Runtime options
 - `content_type`: Specifies the type of content to be rendered (e.g., `:text`, `:json`, `:html`).
 - `view`: Specifies the view template to be used for rendering the action's response. This can be a string representing the view file name or a symbol representing a predefined view.
