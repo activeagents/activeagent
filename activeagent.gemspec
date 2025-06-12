@@ -5,7 +5,7 @@ Gem::Specification.new do |spec|
   spec.version = ActiveAgent::VERSION
   spec.summary = "Rails AI Agents Framework"
   spec.description = "The only agent-oriented AI framework designed for Rails, where Agents are Controllers. Build AI features with less complexity using the MVC conventions you love."
-  spec.authors = ["Justin Bowen"]
+  spec.authors = [ "Justin Bowen" ]
   spec.email = "jusbowen@gmail.com"
   spec.files = Dir["CHANGELOG.md", "README.rdoc", "MIT-LICENSE", "lib/**/*"]
   spec.require_paths = "lib"
