@@ -45,7 +45,11 @@ features:
     link: /docs/active-agent/callbacks
     icon: 🔄
     details: Callbacks enable contextual prompting using retrieval before_action or persistence after_generation.
-  # - title: RAG 
+  - title: Generative UI
+    link: /docs/active-agent/generative-ui
+    icon: 🖼️
+    details: Generative UI allows for dynamic and interactive user interfaces that adapt based on AI-generated interactions and content, enhancing user engagement and experience.
+  # - title: RAG
   #   icon: 📚
   #   details: Retrieval Augmented Generation enables agents to access external data sources, enhancing their capabilities and providing more accurate and contextually relevant responses. While RAG has become synonymous with vector databases, it can also be used with traditional databases.
   # - title: Memory

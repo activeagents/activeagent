@@ -3,56 +3,57 @@ Actions are the tools that agents can use to interact with tools through text an
 Actions are functionally tools that agents can use to perform specific tasks.
 
 ## Features
-- Automatically included in the agent's context.
-- Schema generation for tool definitions.
-- Seamless integration with prompts.
-- Support for multiple action content types (e.g., text, JSON, HTML).
+- Automatically included in the agent's context as tools.
+- Schema rendering for tool definitions.
+- Support for multiple Action View template content types (e.g., text, JSON, HTML).
 - Customizable actions with dynamic view templates for Retrieval Augmented Generation (RAG).
-- Prompt method to render the action's content in the prompt.
+- Prompt method to render the action's content in the prompt context.
 
 ## Defining Actions
-By default, public instance methods defined in the agent class are considered actions. You can also define actions in a separate concern module and include them in your agent class.
+By default, public instance methods defined in the agent class are included in the context as available actions. 
 
-```ruby [app/agents/travel_agent.rb]
-class TravelAgent < ActiveAgent::Agent
-  def search
-    Place.search(params[:location])
-    prompt
-  end
+::: code-group
+<<< @/../test/dummy/app/agents/translation_agent.rb{ruby:line-numbers} [translation_agent.rb]
+<<< @/../test/dummy/app/views/translation_agent/translate.json.jbuilder{ruby:line-numbers} [translate.json.jbuilder]
+<<< @/../test/dummy/app/views/translation_agent/translate.text.erb{erb:line-numbers} [translate.text.erb]
+:::
 
-  def book
-    Place.book(hotel_id: params[:hotel_id], user_id: params[:user_id])
-    prompt
-  end
+## Direct invocation
+You can invoke these actions to render a prompt to the agent directly to generate the requested object.
 
-  def confirm
-    Place.confirm(params[:booking_id])
-    prompt
-  end
-end
+```ruby
+TranslationAgent.with(message: "Hi, I'm Justin", locale: 'japanese').translate.generate_now
 ```
 
-## Parameters
+You can also define actions in a separate concern module and include them in your agent class.
+
+## Action params
 Agent Actions can accept parameters, which are passed as a hash to the action method. You can access parameters using the `params` method, just like Controller or Mailer Actions.
 
 ## Prompt Method
 The `prompt` method is used to render the action's content in the prompt. The `prompt()` method is similar to `mail()` in Action Mailer or `render()` in Action Controller, it allows you to specify the content type and view template for the action's response.
 
+The `prompt` takes the following options:
+- `content_type`: Specifies the type of content to be rendered (e.g., `:text`, `:json`, `:html`).
+- `message`: The `message.content` to be displayed in the prompt.
+- `messages`: An array of messages objects to be included in the prompt's context.
+- `template_name`: Specifies the name of the template to be used for rendering the action's response.
+
 ```ruby [app/agents/travel_agent.rb]
 class TravelAgent < ActiveAgent::Agent
   def search
     Place.search(params[:location])
-    prompt(content_type: :text, view: 'search_results')
+    prompt(content_type: :text, template_name: 'search_results')
   end
 
   def book
     Place.book(hotel_id: params[:hotel_id], user_id: params[:user_id])
-    prompt(content_type: :json, view: 'booking_confirmation')
+    prompt(content_type: :json, template_name: 'booking_confirmation')
   end
 
   def confirm
     Place.confirm(params[:booking_id])
-    prompt(content_type: :html, view: 'confirmation_page')
+    prompt(content_type: :html, template_name: 'confirmation_page')
   end
 end
 ```
