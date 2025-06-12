@@ -21,11 +21,19 @@ controller:
 
 Agents are Controllers that act as the core of the Active Agent framework. Active Agent manages AI-driven interactions, prompts, actions, and generative responses.
 
-## Key Features
-- **Prompt management**: Handle prompt-generation request-response cycles with structured prompts, messages, actions, and context.
-- **Action methods**: Define public methods that become callable tools or functions for the Agent.
-- **Generation providers**: Integrate with AI services like OpenAI or Anthropic.
 
+::: code-group
+<<< @/../test/dummy/app/agents/translation_agent.rb{ruby:line-numbers} [translation_agent.rb]
+<<< @/../test/dummy/app/views/translation_agent/translate.json.jbuilder{ruby:line-numbers} [translate.json.jbuilder]
+<<< @/../test/dummy/app/views/translation_agent/translate.text.erb{erb:line-numbers} [translate.text.erb]
+:::
+
+## Key Features
+- **Prompt management**: Handle prompt-generation request-response cycles with actions that render templated prompts with messages, context, and params.
+- **[Action methods](/docs/action-prompt/actions)**: Define public methods that become callable tools or functions for the Agent to perform actions that can render prompts to the agent or generative views to the user.
+- **[Queued Generation](/docs/active-agent/queued-generation)**: Manage asynchronous prompt generation and response cycles with Active Job, allowing for efficient processing of requests.
+- **[Callbacks](/docs/active-agent/callbacks)**: Use `before_action`, `after_action`, `before_generation`, `after_generation` callbacks to manage prompt context and handle generated responses.
+- **[Streaming](/docs/active-agent/callbacks#on-stream-callbacks)**: Support real-time updates with the `on_stream` callback to the user interface based on agent interactions.
 ## Example
 ```ruby
 class TravelAgent < ApplicationAgent

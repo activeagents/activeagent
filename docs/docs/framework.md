@@ -9,7 +9,7 @@ view:
   - title: Prompt (View)
     link: /docs/framework/action-prompt
     icon: 🖼️
-    details: Action View templates are responsible for rendering the prompts to agents and UI to users.
+    details: Actions return prompt objects containing messages rendered from Action View templates.
 controller:
   - title: Agents (Controller)
     link: /docs/framework/active-agent
