@@ -18,7 +18,7 @@ test:
   openai:
     service: "OpenAI"
     api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
-    model: "gpt-o3-mini"
+    model: "gpt-4o-mini"
     temperature: 0.7
   open_router:
     service: "OpenRouter"
