@@ -3,17 +3,11 @@
 The Prompt is the core data model that contains the runtime context messages, variables, and configuration for the prompt. It is responsible for managing the contextual history and providing the necessary information to the generation provider for a meaningful prompt and response cycles.
 ## Example Prompt
 ```ruby
-prompt = ActiveAgent::Prompt.new(
+prompt = ActiveAgent::ActionPrompt::Prompt.new(
   messages: [
     { content: "Hello, how can I assist you today?", role: "assistant" },
     { content: "I need help with my account.", role: "user" }
-  ],
-  variables: { user_id: 123, session_id: "abc-123" },
-  context: { user_preferences: { language: "en", timezone: "UTC" } },
-  configuration: {
-    generation_provider: :openai,
-    response_format: :text
-  }
+  ]
 )
 ```
 

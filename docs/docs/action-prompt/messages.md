@@ -16,6 +16,7 @@ requirements:
 - The agent should use the `:book` action to book a hotel for the user.
 - The agent should use the `:confirm` action to confirm the booking with the user.
 ```
+
 ## User's send :user messages to the agent
 A `:user` message is used to represent the user's input to the agent. These messages are commonly seen as plain text chat messages, but should be thought of as an Action View that could be of any type you choose to support, just like Action Mailer can send 'plain/text' or 'html/text' emails, Action Prompt render formatted messages to the agents.
 
