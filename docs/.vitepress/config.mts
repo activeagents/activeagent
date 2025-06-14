@@ -19,7 +19,8 @@ export default defineConfig({
         customIcon: {
           ruby: "vscode-icons:file-type-ruby",
           ".rb": "vscode-icons:file-type-ruby",
-          ".erb": "https://raw.githubusercontent.com/marcoroth/herb/refs/heads/main/docs/.vitepress/assets/herb.svg",
+          ".erb": "vscode-icons:file-type-ruby",
+          ".html.erb": "https://raw.githubusercontent.com/marcoroth/herb/refs/heads/main/docs/.vitepress/assets/herb.svg",
           openai: 'logos:openai-icon',
           anthropic: 'logos:anthropic-icon',
           google: 'logos:google-icon',
