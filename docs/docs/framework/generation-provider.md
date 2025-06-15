@@ -33,16 +33,16 @@ The `ActiveAgent::GenerationProvider::Response` class encapsulates the result of
 
 #### Attributes
 
-- **`message`** - The processed response message from the AI provider
+- **`message`** - The generated response message from the AI provider
 - **`prompt`** - The complete prompt object used for generation, including updated context, messages, and parameters
 - **`raw_response`** - The unprocessed response data from the AI provider, useful for debugging and accessing provider-specific metadata
 
 #### Example Usage
+::: code-group
 
-```ruby
-# After calling generate on an agent
-response = ApplicationAgent.text_prompt(message: "Hello, how are you?").generate_now
+<<<@/../test/dummy/app/agents/application_agent.rb#application_agent_text_prompt_message_generation{ruby:line-numbers} [application_agent.rb]
 
+```ruby [irb]{ruby:line-numbers}
 # Access the response message
 puts response.message
 
@@ -55,5 +55,5 @@ puts response.prompt.messages.inspect
 # Debug with raw response data
 puts response.raw_response.inspect
 ```
-
+:::
 The response object ensures you have full visibility into both the input prompt context and the raw provider response, making it easy to debug generation issues or access provider-specific response metadata.
