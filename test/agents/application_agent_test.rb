@@ -14,7 +14,9 @@ class ApplicationAgentTest < ActiveSupport::TestCase
   test "it renders a prompt with an plain text message and generates a response" do
     VCR.use_cassette("application_agent_text_prompt_message_generation") do
       test_response_message_content = "It looks like you're interested in testing an application agent. How can I assist you with that? Are you looking for information on how to test an application, specific testing strategies, or something else?"
+      # region application_agent_text_prompt_message_generation
       response = ApplicationAgent.with(message: "Test Application Agent").text_prompt.generate_now
+      # endregion application_agent_text_prompt_message_generation
       assert_equal test_response_message_content, response.message.content
     end
   end

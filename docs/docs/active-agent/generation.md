@@ -6,13 +6,13 @@ Prompt Generation is a core feature of the Active Agent framework, enabling the 
 To generate a prompt immediately, you can use the `generate_now` method. This method processes the prompt context and returns the generated response synchronously.
 
 ```ruby
-ApplicationAgent.text_prompt(message: 'This is a new context').generate_now
+ApplicationAgent.with(message: 'This is a new context').text_prompt.generate_now
 ```
 
 ### Generation with Context
 Loading a context from an existing prompt context:
 ```ruby
-ApplicationAgent.text_prompt(messages: response.prompt.messages).generate_now
+ApplicationAgent.with(messages: prompt_context.messages).text_prompt.generate_now
 ```
 
 ## Key Features
