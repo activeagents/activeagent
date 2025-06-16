@@ -11,6 +11,7 @@ open_router: &open_router
 ollama: &ollama
   service: "Ollama"
   api_key: ""
+  host: "http://localhost:11434"
   model: "gemma3:latest"
   temperature: 0.7
 

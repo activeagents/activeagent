@@ -6,6 +6,8 @@ This guide will help you set up and create your first ActiveAgent application.
 ```bash
 # Add this line to your application's Gemfile
 gem 'activeagent'
+# Add the generation provider gem you want to use, e.g.:
+gem 'ruby-openai'
 ```
 
 Then execute:
@@ -59,6 +61,16 @@ This code parameterizes the `ApplicationAgent` `with` a set of `params`.
 Active Agent supports multiple generation providers, including OpenAI, Anthropic, and Ollama. You can configure these providers in your Rails application using the `config/active_agent.yml` file. This file allows you to specify the API keys, models, and other settings for each provider. This is similar to Active Storage service configurations.
 
 <<< @/../test/dummy/config/active_agent.yml{yaml:line-numbers}
+
+### Configuring custom hosts
+You can also set the host and port for the generation provider if needed. For example, if you are using a local instance of Ollama or a cloud provider's hosted instance of OpenAI, you can set the host and port as follows:
+
+```yaml
+opnai: &openai
+  service: "OpenAI"
+  api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+  host: "https://your-azure-openai-resource.openai.azure.com"
+```
 
 <!-- ### Initializer
 Active Agent is designed to work seamlessly with Rails applications. It can be easily integrated into your existing Rails app without any additional configuration. The framework automatically detects the Rails environment and configures itself accordingly. While its not necessary to include in your Rails app, Active Agent can be configured in the `config/initializers/active_agent.rb` file. You can set default generation providers, models, and other configurations here.
