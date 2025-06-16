@@ -39,7 +39,7 @@ end
 ## On Stream Callbacks
 On stream callbacks are triggered during the streaming of responses from an agent. This allows you to handle real-time updates, such as displaying partial responses in a user interface or logging the progress of the response generation. 
 
-Below is a verbose example to demonstrate how to handle streaming responses and broadcast updates to a chat interface. The shows the Agent's runtime instance `generation_provider` and its [`response`](/docs/framework/generation-provider#response) object. This example assumes you have a `Chat` model with associated messages, and you want to update the chat in real-time as the agent generates a response.
+Below is a verbose example to demonstrate how to handle streaming responses and broadcast updates to a chat interface. The shows the runtime instance of the Agent's [`generation_provider`](/docs/framework/generation-provider) and its [`response`](/docs/framework/generation-provider#response) object. This example assumes you have a `Chat` model with associated messages, and you want to update the chat in real-time as the agent generates a response.
 
 ```ruby
 class ApplicationAgent < ActiveAgent::Base
