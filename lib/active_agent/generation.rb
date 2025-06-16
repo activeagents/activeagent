@@ -36,7 +36,7 @@ module ActiveAgent
 
     def generate_now!
       processed_agent.handle_exceptions do
-        processed_agent.run_callbacks(:generate) do
+        processed_agent.run_callbacks(:generation) do
           processed_agent.perform_generation!
         end
       end
@@ -44,7 +44,7 @@ module ActiveAgent
 
     def generate_now
       processed_agent.handle_exceptions do
-        processed_agent.run_callbacks(:generate) do
+        processed_agent.run_callbacks(:generation) do
           processed_agent.perform_generation
         end
       end
@@ -70,7 +70,7 @@ module ActiveAgent
           "method*, or 3. use a custom Active Job instead of #generate_later."
       else
         @agent_class.generation_job.set(options).perform_later(
-          @agent_class.name, @action.to_s, args: @args
+          @agent_class.name, @action.to_s, generation_method.to_s, args: @args
         )
       end
     end

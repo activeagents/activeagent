@@ -10,7 +10,12 @@ module ActiveAgent
         super
         @api_key = config["api_key"]
         @model_name = config["model"] || "gpt-4o-mini"
-        @client = OpenAI::Client.new(access_token: @api_key, log_errors: true)
+
+        @client = if (@host = config["host"])
+          OpenAI::Client.new(uri_base: @host, access_token: @api_key)
+        else
+          OpenAI::Client.new(access_token: @api_key)
+        end
       end
 
       def generate(prompt)
@@ -33,18 +38,20 @@ module ActiveAgent
 
       def provider_stream
         agent_stream = prompt.options[:stream]
+
         message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
 
         @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
         proc do |chunk, bytesize|
           new_content = chunk.dig("choices", 0, "delta", "content")
-          if new_content && !new_content.blank
+          if new_content && !new_content.blank?
+            message.generation_id = chunk.dig("id")
             message.content += new_content
 
             agent_stream.call(message, new_content, false) do |message, new_content|
               yield message, new_content if block_given?
             end
-          elsif chunk.dig("choices", 0, "delta", "tool_calls") && !chunk.dig("choices", 0, "delta", "tool_calls").empty?
+          elsif chunk.dig("choices", 0, "delta", "tool_calls") && chunk.dig("choices", 0, "delta", "role")
             message = handle_message(chunk.dig("choices", 0, "delta"))
             prompt.messages << message
             @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
@@ -70,12 +77,16 @@ module ActiveAgent
           provider_message = {
             role: message.role,
             tool_call_id: message.action_id.presence,
+            name: message.action_name.presence,
+            tool_calls: message.raw_actions.present? ? message.raw_actions[:tool_calls] : (message.requested_actions.map { |action| { type: "function", name: action.name, arguments: action.params.to_json } } if message.action_requested),
+            generation_id: message.generation_id,
             content: message.content,
             type: message.content_type,
             charset: message.charset
           }.compact
 
-          if message.content_type == "image_url"
+          if message.content_type == "image_url" || message.content[0..4] == "data:"
+            provider_message[:type] = "image_url"
             provider_message[:image_url] = { url: message.content }
           end
           provider_message
@@ -84,9 +95,8 @@ module ActiveAgent
 
       def chat_response(response)
         return @response if prompt.options[:stream]
-
         message_json = response.dig("choices", 0, "message")
-
+        message_json["id"] = response.dig("id") if message_json["id"].blank?
         message = handle_message(message_json)
 
         update_context(prompt: prompt, message: message, response: response)
@@ -96,9 +106,11 @@ module ActiveAgent
 
       def handle_message(message_json)
         ActiveAgent::ActionPrompt::Message.new(
+          generation_id: message_json["id"],
           content: message_json["content"],
           role: message_json["role"].intern,
           action_requested: message_json["finish_reason"] == "tool_calls",
+          raw_actions: message_json["tool_calls"] || [],
           requested_actions: handle_actions(message_json["tool_calls"])
         )
       end

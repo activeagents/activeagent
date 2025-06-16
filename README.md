@@ -2,11 +2,11 @@
 
 ## Install
 
-### Gemfile
-`gem 'activeagent'`
-
-### CLI
-`gem install activeagent`
+### Add activeagent to your Gemfile
+```bash
+bundle add activeagent
+bundle install
+```
 
 ### Rails Generator
 After installing the gem, run the Rails installation generator:
@@ -21,7 +21,14 @@ create  config/active_agent.yml
 create  app/agents/application_agent.rb
 create  app/agents
 ```
-
+```bash
+bin/rails credentials:edit
+```
+Then add the following to `config/credentials.yml.enc`:
+```yaml
+openai:
+  api_key: sk-your_api_key_here
+```
 - A YAML configuration file for provider settings, such as OpenAI and might include environment-specific configurations:
 
 ```yaml

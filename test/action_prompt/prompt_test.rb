@@ -1,5 +1,3 @@
-# filepath: lib/active_agent/action_prompt/prompt_test.rb
-
 require "test_helper"
 
 module ActiveAgent
@@ -69,6 +67,39 @@ module ActiveAgent
       test "to_s returns message content as string" do
         prompt = Prompt.new(message: "Test message")
         assert_equal "Test message", prompt.to_s
+      end
+
+      test "from_messages initializes messages from an array of Message objects" do
+        prompt = Prompt.new(
+          messages: [
+            { content: "Hello, how can I assist you today?", role: :assistant },
+            { content: "I need help with my account.", role: :user }
+          ]
+        )
+
+        assert_equal 2, prompt.messages.size
+        assert_equal "Hello, how can I assist you today?", prompt.messages.first.content
+        assert_equal :assistant, prompt.messages.first.role
+        assert_equal "I need help with my account.", prompt.messages.last.content
+        assert_equal :user, prompt.messages.last.role
+      end
+
+      test "from_messages initializes messages from an array of Message objects with instructions" do
+        prompt = Prompt.new(
+          messages: [
+            { content: "Hello, how can I assist you today?", role: :assistant },
+            { content: "I need help with my account.", role: :user }
+          ],
+          instructions: "System instructions"
+        )
+
+        assert_equal 3, prompt.messages.size
+        assert_equal "System instructions", prompt.messages.first.content
+        assert_equal :system, prompt.messages.first.role
+        assert_equal "Hello, how can I assist you today?", prompt.messages.second.content
+        assert_equal :assistant, prompt.messages.second.role
+        assert_equal "I need help with my account.", prompt.messages.last.content
+        assert_equal :user, prompt.messages.last.role
       end
 
       test "to_h returns hash representation of prompt" do

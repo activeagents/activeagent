@@ -17,12 +17,12 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
   end
 
   test "it uses the correct model" do
-    prompt = OpenRouterAgent.new.text_prompt
+    prompt = OpenRouterAgent.with(message: "Test").text_prompt
     assert_equal "qwen/qwen3-30b-a3b:free", prompt.options[:model]
   end
 
   test "it sets the correct system instructions" do
-    prompt = OpenRouterAgent.new.text_prompt
+    prompt = OpenRouterAgent.with(message: "Test").text_prompt
     system_message = prompt.messages.find { |m| m.role == :system }
     assert_equal "You're a basic Open Router agent.", system_message.content
   end

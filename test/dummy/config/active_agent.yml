@@ -1,32 +1,39 @@
+# This file is used to configure the Active Agent Generation Providers for different environments.
+# Each provider can have its own settings, such as API keys and model configurations.
+# Make sure to set the API keys in your Rails credentials for each generation provider before using them
+# in your agent's `generate_with` config.
+openai: &openai
+  service: "OpenAI"
+  api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+open_router: &open_router
+  service: "OpenRouter"
+  api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
+ollama: &ollama
+  service: "Ollama"
+  api_key: ""
+  host: "http://localhost:11434"
+  model: "gemma3:latest"
+  temperature: 0.7
+
 development:
   openai:
-    service: "OpenAI"
-    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    <<: *openai
     model: "gpt-4o-mini"
     temperature: 0.7
   open_router:
-    service: "OpenRouter"
-    api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
+    <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
     temperature: 0.7
   ollama:
-    service: "Ollama"
-    api_key: ""
-    model: "gemma3:latest"
-    temperature: 0.7
+    <<: *ollama
 test:
   openai:
-    service: "OpenAI"
-    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
-    model: "gpt-o3-mini"
+    <<: *openai
+    model: "gpt-4o-mini"
     temperature: 0.7
   open_router:
-    service: "OpenRouter"
-    api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
+    <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
     temperature: 0.7
   ollama:
-    service: "Ollama"
-    api_key: ""
-    model: "gemma3:latest"
-    temperature: 0.7
+    <<: *ollama
