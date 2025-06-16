@@ -42,3 +42,4 @@ Message templates are responsible for presenting the prompt context and its asso
 Agents are the core of the Active Agent framework and control the prompt and response cycle. Agents are controllers for AI-driven interactions, managing prompts, actions, and responses. Agents are responsible for managing context, handling user input, generating content, and interacting with generation providers.
 
 <FeatureCards :cards="$frontmatter.controller" />
+

@@ -26,7 +26,6 @@ To set up Active Agent in your Rails application, you can use the install genera
 $ rails generate active_agent:install
 ```
 This command will create the following files and directories:
-- `config/initializers/active_agent.rb`: The initializer file for Active Agent.
 - `config/active_agent.yml`: The configuration file for Active Agent, where you can specify your generation providers and their settings.
 - `app/agents`: The directory where your agent classes will be stored.
 - `app/views/agents`: The directory where your agent view templates will be stored.

@@ -2,8 +2,8 @@
 require "test_helper"
 
 class SupportAgentTest < ActiveSupport::TestCase
-  test "it renders a prompt with an empty message using the Application Agent's text_prompt" do
-    assert_equal "", SupportAgent.text_prompt.message.content
+  test "it renders a prompt with an 'Test' message using the Application Agent's text_prompt" do
+    assert_equal "Test", SupportAgent.with(message: "Test").text_prompt.message.content
   end
 
   test "it renders a text_prompt generates a response with a tool call and performs the requested actions" do

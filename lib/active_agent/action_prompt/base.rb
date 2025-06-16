@@ -305,6 +305,16 @@ module ActiveAgent
 
         prompt_context.charset = charset = headers[:charset]
 
+        if headers[:message].present? && headers[:message].is_a?(ActiveAgent::ActionPrompt::Message)
+          headers[:body] = headers[:message].content
+          headers[:role] = headers[:message].role
+        elsif headers[:message].present? && headers[:message].is_a?(String)
+          headers[:body] = headers[:message]
+          headers[:role] = :user
+        end
+
+        # wrap_generation_behavior!(headers[:generation_method], headers[:generation_method_options])
+        # assign_headers_to_prompt_context(prompt_context, headers)
         responses = collect_responses(headers, &block)
 
         @_prompt_was_called = true
@@ -364,9 +374,10 @@ module ActiveAgent
       end
 
       def assign_headers_to_prompt_context(prompt_context, headers)
-        assignable = headers.except(:parts_order, :content_type, :body, :template_name,
+        assignable = headers.except(:parts_order, :content_type, :body, :role, :template_name,
           :template_path, :delivery_method, :delivery_method_options)
-        assignable.each { |k, v| prompt_context[k] = v }
+
+        assignable.each { |k, v| prompt_context.send(k, v) if prompt_context.respond_to?(k) }
       end
 
       def collect_responses(headers, &)

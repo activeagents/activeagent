@@ -17,12 +17,12 @@ class OllamaAgentTest < ActiveSupport::TestCase
   end
 
   test "it uses the correct model" do
-    prompt = OllamaAgent.new.text_prompt
+    prompt = OllamaAgent.with(message: "Test").text_prompt
     assert_equal "gemma3:latest", prompt.options[:model]
   end
 
   test "it sets the correct system instructions" do
-    prompt = OllamaAgent.new.text_prompt
+    prompt = OllamaAgent.with(message: "Test").text_prompt
     system_message = prompt.messages.find { |m| m.role == :system }
     assert_equal "You're a basic Ollama agent.", system_message.content
   end

@@ -13,6 +13,9 @@ hero:
     - theme: alt
       text: Getting Started
       link: /docs/getting-started
+    - theme: alt
+      text: GitHub
+      link: https://github.com/activeagents/activeagent
   image:
     src: /activeagent.png
     alt: VitePress

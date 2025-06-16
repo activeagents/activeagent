@@ -3,8 +3,8 @@
 require "test_helper"
 
 class ApplicationAgentTest < ActiveSupport::TestCase
-  test "it renders a prompt with an empty message" do
-    assert_equal "", ApplicationAgent.text_prompt.message.content
+  test "it renders a prompt with an 'Test' message" do
+    assert_equal "Test", ApplicationAgent.with(message: "Test").text_prompt.message.content
   end
 
   test "it renders a prompt with an plain text message" do
