@@ -65,7 +65,7 @@ Active Agent supports multiple generation providers, including OpenAI, Anthropic
 You can also set the host and port for the generation provider if needed. For example, if you are using a local instance of Ollama or a cloud provider's hosted instance of OpenAI, you can set the host and port as follows:
 
 ```yaml
-opnai: &openai
+openai: &openai
   service: "OpenAI"
   api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
   host: "https://your-azure-openai-resource.openai.azure.com"
