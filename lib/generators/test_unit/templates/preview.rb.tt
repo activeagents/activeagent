@@ -1,0 +1,14 @@
+<% module_namespacing do -%>
+# Preview all agent views/prompts templates at http://localhost:3000/active_agent/agents/<%= file_path %>_agent
+class <%= class_name %>AgentPreview < ActiveAgent::Preview
+<% actions.each_with_index do |action, index| -%>
+<% if index != 0 -%>
+
+<% end -%>
+  # Preview this email at http://localhost:3000/active_agent/agents/<%= file_path %>_agent/<%= action %>
+  def <%= action %>
+    <%= class_name %>Agent.<%= action %>
+  end
+<% end -%>
+end
+<% end -%>

@@ -1,0 +1,20 @@
+require "test_helper"
+
+<% module_namespacing do -%>
+class <%= class_name %>AgentTest < ActiveAgent::TestCase
+<% actions.each_with_index do |action, index| -%>
+<% if index != 0 -%>
+
+<% end -%>
+  test "<%= action %>" do
+    agent = <%= class_name %>Agent.<%= action %>
+    assert_equal <%= action.to_s.humanize.inspect %>, agent.prompt_context
+  end
+<% end -%>
+<% if actions.blank? -%>
+  # test "the truth" do
+  #   assert true
+  # end
+<% end -%>
+end
+<% end -%>
