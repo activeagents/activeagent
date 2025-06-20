@@ -5,14 +5,14 @@ import DefaultTheme from 'vitepress/theme'
 import './style.css'
 import 'virtual:group-icons.css'
 import FeatureCards from './components/FeatureCards.vue'
-// import GitHubStars from './components/GitHubStars.vue'
+import GitHubStars from './components/GitHubStars.vue'
 
 export default {
   extends: DefaultTheme,
   Layout: () => {
     return h(DefaultTheme.Layout, null, {
       // https://vitepress.dev/guide/extending-default-theme#layout-slots
-      // 'nav-bar-content-after': () => h(GitHubStars)
+      'nav-bar-content-after': () => h(GitHubStars)
     })
   },
   enhanceApp({ app, router, siteData }) {

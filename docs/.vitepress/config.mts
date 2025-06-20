@@ -42,6 +42,7 @@ export default defineConfig({
     ['meta', { property: 'og:description', content: 'The AI framework for Rails with less code & more fun.' }],
     ['meta', { property: 'og:url', content: 'https://activeagents.ai' }],
     ['meta', { property: 'og:type', content: 'website' }],
+    ['script', { async: '', defer: '', src: 'https://buttons.github.io/buttons.js' }]
   ],
   cleanUrls: true,
   themeConfig: {
@@ -98,7 +99,7 @@ export default defineConfig({
       { icon: 'discord', link: 'https://discord.gg/JRUxkkHKmh' },
       { icon: 'linkedin', link: 'https://www.linkedin.com/in/tonsoffun111/' },
       { icon: 'twitch', link: 'https://www.twitch.tv/tonsoffun111' },
-      { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
+      // { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
     ],
   }
 })

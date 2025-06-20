@@ -21,7 +21,7 @@ controller:
     details: Agents are Controllers with a common Generation API with enhanced memory and tooling.
 
 ---
-# Active Agent
+# {{ $frontmatter.title }}
 
 Active Agent provides a structured approach to building AI-powered applications through Agent Oriented Programming. Designing applications using agents allows developers to create modular, reusable components that can be easily integrated into existing systems. This approach promotes code reusability, maintainability, and scalability, making it easier to build complex AI-driven applications with the Object Oriented Ruby code you already use today.
 

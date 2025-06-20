@@ -1,32 +1,13 @@
-<script setup>
-import { ref, onMounted } from 'vue'
-
-const stars = ref(null)
-const repo = 'activeagents/activeagent' // Your GitHub repo
-
-onMounted(async () => {
-  try {
-    const response = await fetch(`https://api.github.com/repos/${repo}`)
-    const data = await response.json()
-    stars.value = data.stargazers_count
-  } catch (error) {
-    console.error('Error fetching GitHub stars:', error)
-  }
-})
-</script>
-
 <template>
   <div class="github-stars">
-    <a 
-      :href="`https://github.com/${repo}`"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="github-stars-link"
-    >
-      <span class="github-stars-icon">★</span>
-      <span v-if="stars !== null" class="github-stars-count">{{ stars }}</span>
-      <span v-else>...</span>
-      <span class="github-stars-text">Star</span>
+    <a class="github-button"
+      href="https://github.com/activeagents/activeagent"
+      data-color-scheme="no-preference: light; light: light; dark: dark;"
+      data-icon="octicon-star"
+      data-size="large"
+      data-show-count="true"
+      aria-label="Star activeagents/activeagent on GitHub">
+      Star
     </a>
   </div>
 </template>
@@ -34,6 +15,7 @@ onMounted(async () => {
 <style scoped>
 .github-stars {
   display: inline-flex;
+  margin-top: 0.25rem;
   margin-left: 0.5rem;
 }
 
@@ -73,3 +55,4 @@ onMounted(async () => {
   }
 }
 </style>
+
