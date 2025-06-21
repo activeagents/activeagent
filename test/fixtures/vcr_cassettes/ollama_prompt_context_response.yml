@@ -1,0 +1,38 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://localhost:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gemma3:latest","messages":[{"role":"system","content":"You''re
+        a basic Ollama agent.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Show
+        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":null}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 20 Jun 2025 20:25:43 GMT
+      Content-Length:
+      - '493'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTM4NSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NTA0NTExNDMsIm1vZGVsIjoiZ2VtbWEzOmxhdGVzdCIsInN5c3RlbV9maW5nZXJwcmludCI6ImZwX29sbGFtYSIsImNob2ljZXMiOlt7ImluZGV4IjowLCJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiT2theSEgSGVyZSdzIGEgcGljdHVyZSBvZiBhIGN1dGUgY2F0OlxuXG5bSW1hZ2Ugb2YgYSBmbHVmZnkgZ2luZ2VyIGNhdCBzbGVlcGluZyBpbiBhIHN1bmJlYW1dXG5cbk1lb3chIPCfkL5cblxuSG93J3MgdGhhdCBmb3IgYSBzdGFydD8gV291bGQgeW91IGxpa2UgdG8gc2VlIGFub3RoZXIgY2F0LCBvciBwZXJoYXBzIHNvbWV0aGluZyBlbHNlIGVudGlyZWx5PyJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MjcsImNvbXBsZXRpb25fdG9rZW5zIjo1NiwidG90YWxfdG9rZW5zIjo4M319Cg==
+  recorded_at: Fri, 20 Jun 2025 20:25:43 GMT
+recorded_with: VCR 6.3.1

@@ -1,0 +1,55 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen/qwen3-30b-a3b:free","messages":[{"role":"system","content":"You''re
+        a basic Open Router agent.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Show
+        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":null}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPEN_ROUTER_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 20 Jun 2025 19:55:24 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Clerk-Auth-Message:
+      - Invalid JWT form. A JWT consists of three parts separated by dots. (reason=token-invalid,
+        token-carrier=header)
+      X-Clerk-Auth-Reason:
+      - token-invalid
+      X-Clerk-Auth-Status:
+      - signed-out
+      Vary:
+      - Accept-Encoding
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 952dd2c98fd416a6-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        CiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCnsiaWQiOiJnZW4tMTc1MDQ0OTMyMi1EbGdQV3FmVzhFMVI3TVFYOGlGbCIsInByb3ZpZGVyIjoiQ2h1dGVzIiwibW9kZWwiOiJxd2VuL3F3ZW4zLTMwYi1hM2I6ZnJlZSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NTA0NDkzMjMsImNob2ljZXMiOlt7ImxvZ3Byb2JzIjpudWxsLCJmaW5pc2hfcmVhc29uIjoic3RvcCIsIm5hdGl2ZV9maW5pc2hfcmVhc29uIjoic3RvcCIsImluZGV4IjowLCJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiSSBjYW4ndCBkaXNwbGF5IGltYWdlcyBkaXJlY3RseSwgYnV0IEkgY2FuIGRlc2NyaWJlIGEgY2F0IGZvciB5b3UhIPCfkLEgSGVyZSdzIGEgdml2aWQgaW1hZ2U6ICBcblxuQSBzbGVlaywgZmx1ZmZ5IHRhYmJ5IGNhdCBzaXRzIG9uIGEgd2luZG93c2lsbCwgaXRzIGZ1ciBhIG1peCBvZiB3YXJtIGFtYmVyIGFuZCBzb2Z0IGdyYXkuIEl0cyBsYXJnZSwgZW1lcmFsZC1ncmVlbiBleWVzIGdsZWFtIHdpdGggY3VyaW9zaXR5LCBhbmQgdGlueSB3aGlza2VycyB0d2l0Y2ggYXMgaXQgd2F0Y2hlcyBhIGJ1dHRlcmZseSBvdXRzaWRlLiBFYXJzIHBlcmtlZCB1cCwgaXQgdGlsdHMgaXRzIGhlYWQsIHJldmVhbGluZyBhIHBsYXlmdWwsIG1pc2NoaWV2b3VzIGV4cHJlc3Npb24uIFRoZSBzdW5saWdodCBoaWdobGlnaHRzIGl0cyBzaWxreSBjb2F0LCBtYWtpbmcgaXQgbG9vayBsaWtlIGEgbGl2aW5nIHNoYWRvdyBvZiBhIHN1bnNldC4gIFxuXG5JZiB5b3UnZCBsaWtlLCBJIGNhbiBndWlkZSB5b3UgdG8gc2VhcmNoIGZvciBcImN1dGUgY2F0IHBob3Rvc1wiIG9uIGEgYnJvd3NlciBvciBzdWdnZXN0IGEgcGV0LXJlbGF0ZWQgd2Vic2l0ZSEg8J+MkCIsInJlZnVzYWwiOm51bGwsInJlYXNvbmluZyI6IlxuT2theSwgdGhlIHVzZXIgYXNrZWQgdG8gc2VlIGEgY2F0LiBTaW5jZSBJIGNhbid0IGRpc3BsYXkgaW1hZ2VzIGRpcmVjdGx5LCBJIG5lZWQgdG8gdGhpbmsgb2YgYSB3YXkgdG8gaGVscCB0aGVtLiBNYXliZSBJIGNhbiBkZXNjcmliZSBhIGNhdCBpbiBkZXRhaWwgc28gdGhleSBjYW4gdmlzdWFsaXplIGl0LiBMZXQgbWUgc3RhcnQgd2l0aCB0aGUgYmFzaWMgZmVhdHVyZXM6IGZ1ciwgd2hpc2tlcnMsIGV5ZXMsIGVhcnMuIEkgc2hvdWxkIG1lbnRpb24gZGlmZmVyZW50IGJyZWVkcyB0byBhZGQgdmFyaWV0eS4gTWF5YmUgdGFsayBhYm91dCBjb2xvcnMgYW5kIHBhdHRlcm5zIHRvby4gQWxzbywgc3VnZ2VzdCB0aGV5IGxvb2sgdXAgaW1hZ2VzIG9ubGluZSBvciBjaGVjayBhIHBldCB3ZWJzaXRlLiBLZWVwIHRoZSB0b25lIGZyaWVuZGx5IGFuZCBoZWxwZnVsLiBNYWtlIHN1cmUgbm90IHRvIHVzZSBhbnkgbWFya2Rvd24gYW5kIGtlZXAgaXQgbmF0dXJhbC4gQWxyaWdodCwgbGV0J3MgcHV0IHRoYXQgdG9nZXRoZXIuXG4ifX1dLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjoyNiwiY29tcGxldGlvbl90b2tlbnMiOjI2NywidG90YWxfdG9rZW5zIjoyOTN9fQ==
+  recorded_at: Fri, 20 Jun 2025 19:55:29 GMT
+recorded_with: VCR 6.3.1
