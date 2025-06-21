@@ -4,19 +4,19 @@ require "test_helper"
 
 class ApplicationAgentTest < ActiveSupport::TestCase
   test "it renders a prompt with an 'Test' message" do
-    assert_equal "Test", ApplicationAgent.with(message: "Test").text_prompt.message.content
+    assert_equal "Test", ApplicationAgent.with(message: "Test").prompt_context.message.content
   end
 
   test "it renders a prompt with an plain text message" do
-    assert_equal "Test Application Agent", ApplicationAgent.with(message: "Test Application Agent").text_prompt.message.content
+    assert_equal "Test Application Agent", ApplicationAgent.with(message: "Test Application Agent").prompt_context.message.content
   end
 
   test "it renders a prompt with an plain text message and generates a response" do
-    VCR.use_cassette("application_agent_text_prompt_message_generation") do
-      test_response_message_content = "It looks like you're interested in testing an application agent. How can I assist you with that? Are you looking for information on how to test an application, specific testing strategies, or something else?"
-      # region application_agent_text_prompt_message_generation
-      response = ApplicationAgent.with(message: "Test Application Agent").text_prompt.generate_now
-      # endregion application_agent_text_prompt_message_generation
+    VCR.use_cassette("application_agent_prompt_context_message_generation") do
+      test_response_message_content = "Hello! How can I assist you today with your test application?"
+      # region application_agent_prompt_context_message_generation
+      response = ApplicationAgent.with(message: "Test Application Agent").prompt_context.generate_now
+      # endregion application_agent_prompt_context_message_generation
       assert_equal test_response_message_content, response.message.content
     end
   end
@@ -36,7 +36,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
   test "embed can be called directly on an agent instance" do
     VCR.use_cassette("application_agent_embeddings") do
       agent = ApplicationAgent.new
-      agent.prompt_context = ActiveAgent::ActionPrompt::Prompt.new(
+      agent.context = ActiveAgent::ActionPrompt::Prompt.new(
         message: ActiveAgent::ActionPrompt::Message.new(content: "Test direct embedding")
       )
       response = agent.embed

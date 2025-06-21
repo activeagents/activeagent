@@ -30,7 +30,7 @@ module ActiveAgent
 
       include ActionView::Layouts
 
-      PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
+      PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [:@_action_has_layout]
 
       helper ActiveAgent::PromptHelper
 
@@ -40,7 +40,7 @@ module ActiveAgent
         mime_version: "1.0",
         charset: "UTF-8",
         content_type: "text/plain",
-        parts_order: [ "text/plain", "text/enriched", "text/html" ]
+        parts_order: ["text/plain", "text/enriched", "text/html"]
       }.freeze
 
       class << self
@@ -173,7 +173,7 @@ module ActiveAgent
         end
       end
 
-      attr_internal :prompt_context
+      attr_internal :context
 
       def agent_stream
         proc do |message, delta, stop|
@@ -184,8 +184,8 @@ module ActiveAgent
       end
 
       def embed
-        prompt_context.options.merge(options)
-        generation_provider.embed(prompt_context) if prompt_context && generation_provider
+        context.options.merge(options)
+        generation_provider.embed(context) if context && generation_provider
         handle_response(generation_provider.response)
       end
 
@@ -194,34 +194,34 @@ module ActiveAgent
         def embed
           agent_class = ActiveAgent::Base.descendants.first
           agent = agent_class.new
-          agent.prompt_context = ActiveAgent::ActionPrompt::Prompt.new(message: self)
+          agent.context = ActiveAgent::ActionPrompt::Prompt.new(message: self)
           agent.embed
           self
         end
       end
 
-      # Make prompt_context accessible for chaining
-      # attr_accessor :prompt_context
+      # Make context accessible for chaining
+      # attr_accessor :context
 
       def perform_generation
-        prompt_context.options.merge(options)
+        context.options.merge(options)
         if (action_methods - ActiveAgent::Base.descendants.first.action_methods).include? action_name
-          prompt_context.message = prompt_context.messages.last
-          prompt_context.actions = []
+          context.message = context.messages.last
+          context.actions = []
         end
-        generation_provider.generate(prompt_context) if prompt_context && generation_provider
+        generation_provider.generate(context) if context && generation_provider
         handle_response(generation_provider.response)
       end
 
       def handle_response(response)
         return response unless response.message.requested_actions.present?
         perform_actions(requested_actions: response.message.requested_actions)
-        update_prompt_context(response)
+        update_context(response)
       end
 
-      def update_prompt_context(response)
-        prompt_context.message = prompt_context.messages.last
-        ActiveAgent::GenerationProvider::Response.new(prompt: prompt_context)
+      def update_context(response)
+        context.message = context.messages.last
+        ActiveAgent::GenerationProvider::Response.new(prompt: context)
       end
 
       def perform_actions(requested_actions:)
@@ -231,20 +231,20 @@ module ActiveAgent
       end
 
       def perform_action(action)
-        current_context = prompt_context.clone
+        current_context = context.clone
         process(action.name, *action.params)
-        prompt_context.messages.last.role = :tool
-        prompt_context.messages.last.action_id = action.id
-        prompt_context.messages.last.action_name = action.name
-        prompt_context.messages.last.generation_id = action.id
-        current_context.messages << prompt_context.messages.last
-        self.prompt_context = current_context
+        context.messages.last.role = :tool
+        context.messages.last.action_id = action.id
+        context.messages.last.action_name = action.name
+        context.messages.last.generation_id = action.id
+        current_context.messages << context.messages.last
+        self.context = current_context
       end
 
       def initialize
         super
         @_prompt_was_called = false
-        @_prompt_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions], options: options)
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions], options: options)
       end
 
       def process(method_name, *args) # :nodoc:
@@ -256,7 +256,7 @@ module ActiveAgent
 
         ActiveSupport::Notifications.instrument("process.active_agent", payload) do
           super
-          @_prompt_context = ActiveAgent::ActionPrompt::Prompt.new unless @_prompt_was_called
+          @_context = ActiveAgent::ActionPrompt::Prompt.new unless @_prompt_was_called
         end
       end
       ruby2_keywords(:process)
@@ -286,24 +286,24 @@ module ActiveAgent
 
       def headers(args = nil)
         if args
-          @_prompt_context.headers(args)
+          @_context.headers(args)
         else
-          @_prompt_context
+          @_context
         end
       end
 
       def prompt_with(*)
-        prompt_context.update_prompt_context(*)
+        context.update_context(*)
       end
 
       def prompt(headers = {}, &block)
-        return prompt_context if @_prompt_was_called && headers.blank? && !block
+        return context if @_prompt_was_called && headers.blank? && !block
         content_type = headers[:content_type]
         headers = apply_defaults(headers)
-        prompt_context.messages = headers[:messages] || []
-        prompt_context.context_id = headers[:context_id]
+        context.messages = headers[:messages] || []
+        context.context_id = headers[:context_id]
 
-        prompt_context.charset = charset = headers[:charset]
+        context.charset = charset = headers[:charset]
 
         if headers[:message].present? && headers[:message].is_a?(ActiveAgent::ActionPrompt::Message)
           headers[:body] = headers[:message].content
@@ -314,25 +314,27 @@ module ActiveAgent
         end
 
         # wrap_generation_behavior!(headers[:generation_method], headers[:generation_method_options])
-        # assign_headers_to_prompt_context(prompt_context, headers)
+        # assign_headers_to_context(context, headers)
         responses = collect_responses(headers, &block)
 
         @_prompt_was_called = true
 
-        create_parts_from_responses(prompt_context, responses)
+        create_parts_from_responses(context, responses)
 
-        prompt_context.content_type = set_content_type(prompt_context, content_type, headers[:content_type])
-        prompt_context.charset = charset
-        prompt_context.actions = headers[:actions] || action_schemas
+        context.content_type = set_content_type(context, content_type, headers[:content_type])
+        context.charset = charset
+        context.actions = headers[:actions] || action_schemas
 
-        prompt_context
+        context
+      end
+
+      def action_methods
+        super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s)
       end
 
       def action_schemas
         action_methods.map do |action|
-          if action != "text_prompt"
-            JSON.parse render_to_string(locals: { action_name: action }, action: action, formats: :json)
-          end
+          JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
         end.compact
       end
 
@@ -342,7 +344,7 @@ module ActiveAgent
         if user_content_type.present?
           user_content_type
         else
-          prompt_context.content_type || class_default
+          context.content_type || class_default
         end
       end
 
@@ -352,7 +354,7 @@ module ActiveAgent
       # If the subject has interpolations, you can pass them through the +interpolations+ parameter.
       def default_i18n_subject(interpolations = {}) # :doc:
         agent_scope = self.class.agent_name.tr("/", ".")
-        I18n.t(:subject, **interpolations.merge(scope: [ agent_scope, action_name ], default: action_name.humanize))
+        I18n.t(:subject, **interpolations.merge(scope: [agent_scope, action_name], default: action_name.humanize))
       end
 
       def apply_defaults(headers)
@@ -373,11 +375,11 @@ module ActiveAgent
         end
       end
 
-      def assign_headers_to_prompt_context(prompt_context, headers)
+      def assign_headers_to_context(context, headers)
         assignable = headers.except(:parts_order, :content_type, :body, :role, :template_name,
           :template_path, :delivery_method, :delivery_method_options)
 
-        assignable.each { |k, v| prompt_context.send(k, v) if prompt_context.respond_to?(k) }
+        assignable.each { |k, v| context.send(k, v) if context.respond_to?(k) }
       end
 
       def collect_responses(headers, &)
@@ -398,10 +400,10 @@ module ActiveAgent
       end
 
       def collect_responses_from_text(headers)
-        [ {
+        [{
           body: headers.delete(:body),
           content_type: headers[:content_type] || "text/plain"
-        } ]
+        }]
       end
 
       def collect_responses_from_templates(headers)
@@ -411,7 +413,7 @@ module ActiveAgent
         each_template(Array(templates_path), templates_name).map do |template|
           format = template.format || formats.first
           {
-            body: render(template: template, formats: [ format ]),
+            body: render(template: template, formats: [format]),
             content_type: Mime[format].to_s
           }
         end.compact
@@ -426,24 +428,24 @@ module ActiveAgent
         end
       end
 
-      def create_parts_from_responses(prompt_context, responses)
+      def create_parts_from_responses(context, responses)
         if responses.size > 1
           # prompt_container = ActiveAgent::ActionPrompt::Prompt.new
           # prompt_container.content_type = "multipart/alternative"
-          responses.each { |r| insert_part(prompt_context, r, prompt_context.charset) }
-          # prompt_context.add_part(prompt_container)
+          responses.each { |r| insert_part(context, r, context.charset) }
+          # context.add_part(prompt_container)
         else
-          responses.each { |r| insert_part(prompt_context, r, prompt_context.charset) }
+          responses.each { |r| insert_part(context, r, context.charset) }
         end
       end
 
-      def insert_part(prompt_context, response, charset)
+      def insert_part(context, response, charset)
         message = ActiveAgent::ActionPrompt::Message.new(
           content: response[:body],
           content_type: response[:content_type],
           charset: charset
         )
-        prompt_context.add_part(message)
+        context.add_part(message)
       end
 
       # This and #instrument_name is for caching instrument
