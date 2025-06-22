@@ -51,6 +51,7 @@ Now, you can interact with your application agent:
 ```ruby
 ApplicationAgent.with(
   instructions: "Help users with their queries.",
+  actions: [:weather],
   messages: [
     { role: 'user', content: 'What is the weather like today?' }
   ]

@@ -26,15 +26,17 @@ controller:
 Active Agent provides a structured approach to building AI-powered applications through Agent Oriented Programming. Designing applications using agents allows developers to create modular, reusable components that can be easily integrated into existing systems. This approach promotes code reusability, maintainability, and scalability, making it easier to build complex AI-driven applications with the Object Oriented Ruby code you already use today.
 
 ## MVC Architecture
-Active Agent is built around a few core components that work together to provide a seamless experience for developers and users. Using familiar concepts from Rails that made it the MVC framework of choice for web applications, Active Agent extends these concepts to the world of AI and generative models.
+Active Agent is built around a few core components that work together to provide a seamless experience for developers and users. Using familiar concepts from Rails that made it the MVC framework of choice for web applications, Active Agent extends these concepts to the world of AI and generative models. At the core of Active Agent is Action Prompt, which provides a structured way to manage prompts, actions, and responses. The framework is designed to be modular and extensible, allowing developers to create custom agents with actions that render prompts to generate responses.
 
 ## Model: Prompt Context
-The Prompt is the core data model that contains the runtime context messages, variables, and configuration for the prompt. It is responsible for managing the contextual history and providing the necessary information for prompt and response cycles.
+Action Prompt allows Agent classes to define actions the return prompt context's with formatted messages.
+
+The Prompt obejct is the core data model that contains the runtime context messages, actions (tools), and configuration for the prompt. It is responsible for managing the contextual history and providing the necessary information for prompt and response cycles.
 
 <FeatureCards :cards="$frontmatter.model" />
 
 ## View: Message templates
-Message templates are responsible for presenting the prompt context and its associated data to the agent and user. They define the structure and layout of the messages that are displayed in the user interface. Message templates can be customized to fit the specific needs of your application and can include dynamic content based on the prompt context.
+Messages are rendered by the Agent's actions when `prompt` is called. This `prompt` method triggers Action Prompt to render Action View templates into the formatted prompt's messages.  are responsible for presenting the prompt context and its associated data to the agent and user. They define the structure and layout of the messages that are displayed in the user interface. Message templates can be customized to fit the specific needs of your application and can include dynamic content based on the prompt context.
 
 <FeatureCards :cards="$frontmatter.view" />
 

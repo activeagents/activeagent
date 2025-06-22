@@ -68,10 +68,11 @@ production:
 # app/agents/application_agent.rb
 class ApplicationAgent < ActiveAgent::Base
   layout 'agent'
-
-  def prompt
-    super { |format| format.text { render plain: params[:message] } }
-  end
+  generate_with :openai, 
+    instructions: "You are a helpful assistant.",
+    model: "gpt-4o-mini",
+    temperature: 0.7
+end
 ```
 - The agents directory structure
 

@@ -1,8 +1,16 @@
 # frozen_string_literal: true
 
-require "rails/generators/erb"
+require "rails/generators"
 
 module Erb # :nodoc:
   module Generators # :nodoc:
-    class AgentGenerator < Base # :nodoc:
-      hook_for :template_engine, :test_framework
+    class InstallGenerator < ::Rails::Generators::Base # :nodoc:
+      source_root File.expand_path("templates", __dir__)
+
+      def create_agent_layouts
+        template "layout.html.erb.tt", "app/views/layouts/agent.html.erb"
+        template "layout.text.erb.tt", "app/views/layouts/agent.text.erb"
+      end
+    end
+  end
+end
