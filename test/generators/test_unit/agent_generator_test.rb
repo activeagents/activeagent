@@ -7,7 +7,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   setup :prepare_destination
 
   test "generates test files" do
-    run_generator ["user", "create", "update"]
+    run_generator [ "user", "create", "update" ]
 
     assert_file "test/agents/user_agent_test.rb" do |content|
       assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)
@@ -17,7 +17,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "generates preview files" do
-    run_generator ["user", "create", "update"]
+    run_generator [ "user", "create", "update" ]
 
     assert_file "test/agents/previews/user_agent_preview.rb" do |content|
       assert_match(/class UserAgentPreview < ActiveAgent::Preview/, content)
@@ -27,7 +27,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "generates files with namespace" do
-    run_generator ["admin/user", "create"]
+    run_generator [ "admin/user", "create" ]
 
     assert_file "test/agents/admin/user_agent_test.rb" do |content|
       assert_match(/class Admin::UserAgentTest < ActiveAgent::TestCase/, content)
@@ -40,11 +40,11 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
 
   test "handles class collision check" do
     # The generator should check for class collisions
-    assert_respond_to TestUnit::Generators::AgentGenerator.new(["user"]), :check_class_collision
+    assert_respond_to TestUnit::Generators::AgentGenerator.new([ "user" ]), :check_class_collision
   end
 
   test "strips agent suffix from file name" do
-    run_generator ["user_agent", "create"]
+    run_generator [ "user_agent", "create" ]
 
     assert_file "test/agents/user_agent_test.rb" do |content|
       assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)
@@ -52,7 +52,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "generates test without actions" do
-    run_generator ["user"]
+    run_generator [ "user" ]
 
     assert_file "test/agents/user_agent_test.rb" do |content|
       assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)

@@ -7,7 +7,7 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   setup :prepare_destination
 
   test "generates view files for actions" do
-    run_generator ["user", "create", "update"]
+    run_generator [ "user", "create", "update" ]
 
     assert_file "app/views/user_agent/create.html.erb"
     assert_file "app/views/user_agent/create.text.erb"
@@ -16,7 +16,7 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "generates view files with correct content" do
-    run_generator ["user", "create"]
+    run_generator [ "user", "create" ]
 
     assert_file "app/views/user_agent/create.html.erb" do |content|
       assert_match(/User#create/, content)
@@ -29,14 +29,14 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "generates nested view files" do
-    run_generator ["admin/user", "create"]
+    run_generator [ "admin/user", "create" ]
 
     assert_file "app/views/admin/user_agent/create.html.erb"
     assert_file "app/views/admin/user_agent/create.text.erb"
   end
 
   test "does not generate view files without actions" do
-    run_generator ["user"]
+    run_generator [ "user" ]
 
     # Directory is created but should be empty
     assert_file "app/views/user_agent"

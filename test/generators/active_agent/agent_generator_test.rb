@@ -7,7 +7,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   setup :prepare_destination
 
   test "generates agent file" do
-    run_generator ["user"]
+    run_generator [ "user" ]
 
     assert_file "app/agents/user_agent.rb" do |content|
       assert_match(/class UserAgent < ApplicationAgent/, content)
@@ -15,7 +15,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "generates agent file with actions" do
-    run_generator ["user", "create", "update"]
+    run_generator [ "user", "create", "update" ]
 
     assert_file "app/agents/user_agent.rb" do |content|
       assert_match(/class UserAgent < ApplicationAgent/, content)
@@ -25,7 +25,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "creates application agent if not exists" do
-    run_generator ["user"]
+    run_generator [ "user" ]
 
     assert_file "app/agents/application_agent.rb" do |content|
       assert_match(/class ApplicationAgent < ActiveAgent::Base/, content)
@@ -36,13 +36,13 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "does not overwrite existing application agent" do
     create_file "app/agents/application_agent.rb", "# existing file"
 
-    run_generator ["user"]
+    run_generator [ "user" ]
 
     assert_file "app/agents/application_agent.rb", "# existing file"
   end
 
   test "generates agent with namespace" do
-    run_generator ["admin/user"]
+    run_generator [ "admin/user" ]
 
     assert_file "app/agents/admin/user_agent.rb" do |content|
       assert_match(/class Admin::UserAgent < ApplicationAgent/, content)
@@ -50,7 +50,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "invokes template engine hook" do
-    run_generator ["user", "create", "--template-engine=erb"]
+    run_generator [ "user", "create", "--template-engine=erb" ]
 
     assert_file "app/agents/user_agent.rb"
     assert_file "app/views/user_agent/create.html.erb"
@@ -58,7 +58,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "invokes test framework hook" do
-    run_generator ["user", "create", "--test-framework=test_unit"]
+    run_generator [ "user", "create", "--test-framework=test_unit" ]
 
     assert_file "app/agents/user_agent.rb"
     assert_file "test/agents/user_agent_test.rb"
@@ -68,7 +68,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "handles class collision checking" do
     # This test verifies that class collision checking is available
     # The actual collision behavior depends on Rails internals
-    generator = ActiveAgent::Generators::AgentGenerator.new(["user"])
+    generator = ActiveAgent::Generators::AgentGenerator.new([ "user" ])
     assert_respond_to generator, :check_class_collision
   end
 
