@@ -7,7 +7,7 @@ class TestUnit::Generators::InstallGeneratorTest < Rails::Generators::TestCase
   setup :prepare_destination
 
   test "runs without error" do
-    run_generator
+    run_generator [ "user" ]
 
     # Currently no files are created by the TestUnit install generator
     # This test ensures it runs without error
