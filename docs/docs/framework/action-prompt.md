@@ -2,7 +2,7 @@
 
 Action Prompt provides the interface for Active Agent to render prompt contexts using Action View templates. Similarly to Action Mailers that render mail messages that are delivered through configured delivery methods, Action Prompt integrates with Generation Providers through the generation module. This allows for dynamic content generation and the ability to use Rails helpers and partials within the prompt templates as well as rendering content from performed actions. Empowering developers with a powerful way to create interactive and engaging user experiences.
 
-## Prompt-generation equest-Response Cycle
+## Prompt-generation Request-Response Cycle
 The prompt-generation cycle is similar to the request-response cycle of Action Controller and is at the core of the Active Agent framework. It involves the following steps:
 1. **Prompt Context**: The Prompt object is created with the necessary context, including messages, actions, and parameters.
 2. **Generation Request**: The agent sends a request to the generation provider with the prompt context, including the messages and actions.
