@@ -57,7 +57,7 @@ export default defineConfig({
     ],
     sidebar: [
       {
-        text: 'Rails AI Framework',
+        text: 'Overview',
         link: '/docs',
       },
       {
@@ -82,7 +82,7 @@ export default defineConfig({
           { text: 'Prompts', link: '/docs/action-prompt/prompts' },
         ]
       },
-      { text: 'Active Agent', link: '/docs/active-agent',
+      { text: 'Active Agent',
         items: [
           // { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
           { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
