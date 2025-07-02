@@ -30,7 +30,7 @@ module ActiveAgent
 
       include ActionView::Layouts
 
-      PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [:@_action_has_layout]
+      PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
 
       helper ActiveAgent::PromptHelper
 
@@ -40,7 +40,7 @@ module ActiveAgent
         mime_version: "1.0",
         charset: "UTF-8",
         content_type: "text/plain",
-        parts_order: ["text/plain", "text/enriched", "text/html"]
+        parts_order: [ "text/plain", "text/enriched", "text/html" ]
       }.freeze
 
       class << self
@@ -324,7 +324,7 @@ module ActiveAgent
         context.actions = headers[:actions] || action_schemas
 
         if (action_methods - ActiveAgent::Base.descendants.first.action_methods).include? action_name
-          context.actions = (action_methods - [action_name])
+          context.actions = (action_methods - [ action_name ])
         end
 
         context
@@ -336,7 +336,7 @@ module ActiveAgent
 
       def action_schemas
         action_methods.map do |action|
-          JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
+          JSON.parse render_to_string(locals: { action_name: action }, action: action, formats: :json)
         end.compact
       end
 
@@ -356,7 +356,7 @@ module ActiveAgent
       # If the subject has interpolations, you can pass them through the +interpolations+ parameter.
       def default_i18n_subject(interpolations = {}) # :doc:
         agent_scope = self.class.agent_name.tr("/", ".")
-        I18n.t(:subject, **interpolations.merge(scope: [agent_scope, action_name], default: action_name.humanize))
+        I18n.t(:subject, **interpolations.merge(scope: [ agent_scope, action_name ], default: action_name.humanize))
       end
 
       def apply_defaults(headers)
@@ -402,10 +402,10 @@ module ActiveAgent
       end
 
       def collect_responses_from_text(headers)
-        [{
+        [ {
           body: headers.delete(:body),
           content_type: headers[:content_type] || "text/plain"
-        }]
+        } ]
       end
 
       def collect_responses_from_templates(headers)
@@ -415,7 +415,7 @@ module ActiveAgent
         each_template(Array(templates_path), templates_name).map do |template|
           format = template.format || formats.first
           {
-            body: render(template: template, formats: [format]),
+            body: render(template: template, formats: [ format ]),
             content_type: Mime[format].to_s
           }
         end.compact

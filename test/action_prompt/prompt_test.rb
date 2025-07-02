@@ -26,22 +26,22 @@ module ActiveAgent
 
       test "initializes with custom attributes" do
         attributes = {
-          options: {key: "value"},
+          options: { key: "value" },
           agent_class: ApplicationAgent,
-          actions: ["action1"],
+          actions: [ "action1" ],
           action_choice: "action1",
           instructions: "Test instructions",
           body: "Test body",
           content_type: "application/json",
           message: "Test message",
-          messages: [Message.new(content: "Existing message")],
-          params: {param1: "value1"},
+          messages: [ Message.new(content: "Existing message") ],
+          params: { param1: "value1" },
           mime_version: "2.0",
           charset: "ISO-8859-1",
-          context: ["context1"],
+          context: [ "context1" ],
           context_id: "123",
-          headers: {"Header-Key" => "Header-Value"},
-          parts: ["part1"]
+          headers: { "Header-Key" => "Header-Value" },
+          parts: [ "part1" ]
         }
 
         prompt = Prompt.new(attributes)
@@ -54,7 +54,7 @@ module ActiveAgent
         assert_equal attributes[:body], prompt.body
         assert_equal attributes[:content_type], prompt.content_type
         assert_equal attributes[:message], prompt.message.content
-        assert_equal ([Message.new(content: "Test instructions", role: :system)] + attributes[:messages]).map(&:to_h), prompt.messages.map(&:to_h)
+        assert_equal ([ Message.new(content: "Test instructions", role: :system) ] + attributes[:messages]).map(&:to_h), prompt.messages.map(&:to_h)
         assert_equal attributes[:params], prompt.params
         assert_equal attributes[:mime_version], prompt.mime_version
         assert_equal attributes[:charset], prompt.charset
@@ -72,8 +72,8 @@ module ActiveAgent
       test "from_messages initializes messages from an array of Message objects" do
         prompt = Prompt.new(
           messages: [
-            {content: "Hello, how can I assist you today?", role: :assistant},
-            {content: "I need help with my account.", role: :user}
+            { content: "Hello, how can I assist you today?", role: :assistant },
+            { content: "I need help with my account.", role: :user }
           ]
         )
 
@@ -87,8 +87,8 @@ module ActiveAgent
       test "from_messages initializes messages from an array of Message objects with instructions" do
         prompt = Prompt.new(
           messages: [
-            {content: "Hello, how can I assist you today?", role: :assistant},
-            {content: "I need help with my account.", role: :user}
+            { content: "Hello, how can I assist you today?", role: :assistant },
+            { content: "I need help with my account.", role: :user }
           ],
           instructions: "System instructions"
         )
@@ -106,22 +106,22 @@ module ActiveAgent
         instructions = Message.new(content: "Test instructions", role: :system)
         message = Message.new(content: "Test message")
         prompt = Prompt.new(
-          actions: ["action1"],
+          actions: [ "action1" ],
           action_choice: "action1",
           instructions: instructions.content,
           message: message,
           messages: [],
-          headers: {"Header-Key" => "Header-Value"},
-          context: ["context1"]
+          headers: { "Header-Key" => "Header-Value" },
+          context: [ "context1" ]
         )
         expected_hash = {
-          actions: ["action1"],
+          actions: [ "action1" ],
           action: "action1",
           instructions: instructions.content,
           message: message.to_h,
-          messages: [instructions.to_h, message.to_h],
-          headers: {"Header-Key" => "Header-Value"},
-          context: ["context1"]
+          messages: [ instructions.to_h, message.to_h ],
+          headers: { "Header-Key" => "Header-Value" },
+          context: [ "context1" ]
         }
 
         assert_equal expected_hash, prompt.to_h
@@ -146,10 +146,10 @@ module ActiveAgent
       end
 
       test "headers method merges new headers" do
-        prompt = Prompt.new(headers: {"Existing-Key" => "Existing-Value"})
+        prompt = Prompt.new(headers: { "Existing-Key" => "Existing-Value" })
         prompt.headers("New-Key" => "New-Value")
 
-        expected_headers = {"Existing-Key" => "Existing-Value", "New-Key" => "New-Value"}
+        expected_headers = { "Existing-Key" => "Existing-Value", "New-Key" => "New-Value" }
         assert_equal expected_headers, prompt.instance_variable_get(:@headers)
       end
 
@@ -178,7 +178,7 @@ module ActiveAgent
           actions: SupportAgent.new.action_schemas,
           message: "I need help with my account.",
           messages: [
-            {content: "Hello, how can I assist you today?", role: :assistant}
+            { content: "Hello, how can I assist you today?", role: :assistant }
           ]
         )
         # endregion support_agent_prompt_initialization
