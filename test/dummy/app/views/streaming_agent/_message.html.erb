@@ -1,0 +1,33 @@
+<div id="<%= dom_id(message) %>_messages">
+  <% if message.user? %>
+    <div class="p-4 m-8 text-white rounded-lg bg-sky-400">
+      <% if message.content.length > 5000 %>
+        <%= image_tag message.content.to_s %>
+      <% else %>
+        <%= message.content %>
+      <% end %>
+    </div>
+  <% elsif message.tool? %>    
+    <div class="p-4 m-8 bg-green-200 rounded-lg">
+      <% if message.content.length > 5000 %>
+        <%= image_tag message.content.to_s %>
+      <% else %>
+        <%= message.content %>
+      <% end %>
+    </div>
+  <% elsif message.assistant? && message.content.length > 0 %>
+    <div class="p-4 m-8 bg-gray-200 rounded-lg">
+      <% if message.content.length > 5000 %>
+        <%= image_tag message.content.to_s %>
+      <% else %>
+        <%= message.content %>
+      <% end %>
+      <div class="mt-2">
+        <%= button_to "Translate", translations_path, params: { message_id: message.id }, 
+            method: :post, 
+            class: "px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600",
+            remote: true %>
+      </div>
+    </div>
+  <% end %>
+</div>
