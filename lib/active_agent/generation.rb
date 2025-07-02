@@ -6,24 +6,24 @@ module ActiveAgent
     def initialize(agent_class, action, *args)
       @agent_class, @action, @args = agent_class, action, args
       @processed_agent = nil
-      @prompt_context = nil
+      @context = nil
     end
     ruby2_keywords(:initialize)
 
     def __getobj__
-      @prompt_context ||= processed_agent.prompt_context
+      @context ||= processed_agent.context
     end
 
-    def __setobj__(prompt_context)
-      @prompt_context = prompt_context
+    def __setobj__(context)
+      @context = context
     end
 
-    def prompt_context
+    def context
       __getobj__
     end
 
     def processed?
-      @processed_agent || @prompt_context
+      @processed_agent || @context
     end
 
     def generate_later!(options = {})
