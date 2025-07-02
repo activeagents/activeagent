@@ -15,8 +15,25 @@ class ApplicationAgentTest < ActiveSupport::TestCase
     VCR.use_cassette("application_agent_prompt_context_message_generation") do
       test_response_message_content = "Hello! How can I assist you today with your test application?"
       # region application_agent_prompt_context_message_generation
-      response = ApplicationAgent.with(message: "Test Application Agent").prompt_context.generate_now
+      message = "Test Application Agent"
+      response = ApplicationAgent.with(message: message).prompt_context.generate_now
       # endregion application_agent_prompt_context_message_generation
+      assert_equal test_response_message_content, response.message.content
+    end
+  end
+
+  test "it renders a prompt with an plain text message with previous messages and generates a response" do
+    VCR.use_cassette("application_agent_loaded_context_message_generation") do
+      test_response_message_content = "Sure! What specific issues are you experiencing with your account?"
+      # region application_agent_loaded_context_message_generation
+      message = "I need help with my account"
+      context = ActiveAgent::ActionPrompt::Prompt.new(
+        message: message,
+        instructions: "You're an application agent"
+      )
+      binding.irb
+      response = ApplicationAgent.with(messages: context.messages).prompt_context.generate_now
+      # endregion application_agent_loaded_context_message_generation
       assert_equal test_response_message_content, response.message.content
     end
   end
