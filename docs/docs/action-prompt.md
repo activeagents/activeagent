@@ -2,11 +2,9 @@
 title: Action Prompt
 ---
 # {{ $frontmatter.title }}
-Action Prompt is a core component of Active Agent that provides a structured way to manage prompt's, render formatted message content through actions and view, and handle responses.
+Action Prompt is a core component of Active Agent that provides a structured way to manage prompts, render formatted message content through action views, and handle responses.
 
 Active Agent implements base actions that can be used by any agent that inherits from `ActiveAgent::Base`. 
-
-
 
 The primary action is the `prompt_context` which provides a common interface to render prompts with context messages.
 

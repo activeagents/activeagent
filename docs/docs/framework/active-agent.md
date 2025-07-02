@@ -19,7 +19,12 @@ controller:
 ---
 # Active Agent
 
-Agents are Controllers that act as the core of the Active Agent framework. Active Agent manages AI-driven interactions, prompts, actions, and generative responses.
+Agents are Controllers that act as the core of the Active Agent framework. Active Agent manages AI-driven interactions, prompts, actions, and generative responses using Action Prompt. Action Prompt is a structured way to manage prompts, render formatted message content through action views, and handle responses.
+
+Active Agent implements base actions that can be used by any agent that inherits from `ActiveAgent::Base`. 
+
+
+The primary action is the `prompt_context` which provides a common interface to render prompts with context messages.
 
 ::: code-group
 <<< @/../test/dummy/app/agents/translation_agent.rb{ruby:line-numbers} [translation_agent.rb]

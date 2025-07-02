@@ -1,8 +1,15 @@
 # Actions
-Actions are the tools that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views. Actions can be used to render `:assistant` messages back to a user or `:tool` messages to provide the result of an action back to the Agent. 
+Active Agent Actions render views, just like Action Controller or Action Mailer. Similar to Action Mailer that renders Mail objects with Messages, Active Agent renders Prompt objects with Messages. 
+
+## Prompt 
+The `prompt` method is used to render the action's content in the prompt. The `prompt()` method is similar to `mail()` in Action Mailer or `render()` in Action Controller, it allows you to specify the content type and view template for the action's response.
+
+These Prompt objects contain the context Messages and available Actions. These actions are the interface that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views. 
+
+Actions can be used to render Prompt objects with `:assistant` Messages back to a user or `:tool` Messages to provide the result of an action back to the Agent. 
 
 ## Defining Actions
-You can define actions in your agent class that can be used to interact with the agent. These actions can be invoked by the agent to perform specific tasks or in your code to prompt the agent for generation with a templated message. By default, public instance methods defined in the agent class are included in the context as available actions. You can also define actions in a separate concern module and include them in your agent class.
+You can define actions in your agent class that can be used to interact with the agent. 
 
 ::: code-group
 <<< @/../test/dummy/app/agents/translation_agent.rb{ruby:line-numbers} [translation_agent.rb]
@@ -10,28 +17,32 @@ You can define actions in your agent class that can be used to interact with the
 <<< @/../test/dummy/app/views/translation_agent/translate.text.erb{erb:line-numbers} [translate.text.erb]
 :::
 
+
+## Call to Actions
+These actions can be invoked by the agent to perform specific tasks and receive the results or in your Rails app's controllers, models, or jobs to prompt the agent for generation with a templated prompt message. By default, public instance methods defined in the agent class are included in the context as available actions. You can also define actions in a separate concern module and include them in your agent class.
+
+## Action params
+Agent Actions can accept parameters, which are passed as a hash to the action method. You pass arguments to agent's using the `with` method and access parameters using the `params` method, just like Mailer Actions.
+
 ## Using Actions to prompt the Agent with a templated message
 You can call these actions directly to render a prompt to the agent directly to generate the requested object.
 
 ```ruby
-TranslationAgent.with(message: "Hi, I'm Justin", locale: 'japanese').translate.generate_now
+translate_prompt_context = TranslationAgent.with(message: "Hi, I'm Justin", locale: 'japanese').translate
+response = translate_prompt_context.generate_now
 ```
 
 ## Using Agents to call Actions
 You can also provide an Agent with a prompt context that includes actions and messages. The agent can then use these actions to perform tasks and generate responses based on the provided context.
 
 ```ruby
-agent = TravelAgent.with(message: "I want to book a hotel in Paris")
-agent.text_prompt.generate_now
+parameterized_agent = TravelAgent.with(message: "I want to book a hotel in Paris")
+agent_text_prompt_context = parameterized_agent.text_prompt
+
+agent_text_prompt_context.generate_now
 ```
 
 In this example, the `TravelAgent` will use the provided message as context to determine which actions to use during generation. The agent can then call the `search` action to find hotels, `book` action to initialize a hotel booking, or `confirm` action to finalize a booking, as needed based on the prompt context.
-
-## Action params
-Agent Actions can accept parameters, which are passed as a hash to the action method. You can access parameters using the `params` method, just like Controller or Mailer Actions.
-
-## Prompt method
-The `prompt` method is used to render the action's content in the prompt. The `prompt()` method is similar to `mail()` in Action Mailer or `render()` in Action Controller, it allows you to specify the content type and view template for the action's response.
 
 The `prompt` takes the following options:
 - `content_type`: Specifies the type of content to be rendered (e.g., `:text`, `:json`, `:html`).
@@ -57,6 +68,9 @@ class TravelAgent < ActiveAgent::Agent
   end
 end
 ```
+
+## Action View Templates & Partials
+While partials can be used in the JSON views the action's json view should primarily define the tool schema, then secondarily define the tool's output using a partial to render results of the tool call all in a single JSON action view template. Use the JSON action views for tool schema definitions and results, and use the text or HTML action views for rendering the action's response to the user.
 
 ### Runtime options
 - `content_type`: Specifies the type of content to be rendered (e.g., `:text`, `:json`, `:html`).

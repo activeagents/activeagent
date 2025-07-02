@@ -1,5 +1,7 @@
 # Messages
-Messages are the core data structure of a prompt's context. Each message represents and interaction from an object with a specific role, such as `:user`, `:system`, `:assistant`, or `:tool`. Messages are used to provide context for the generation process and can be used to store additional information about the interaction. The messages are passed to the generation provider as part of the prompt request.
+Messages are the core data structure of a prompt's context. Each message represents an interaction as a Message object with a specific role, such as `:user`, `:system`, `:assistant`, or `:tool`.
+
+Message `content` represents the rendered view from an Active Agent action. Messages are used to provide context for the generation process, with the last message's content containing the view rendered by an action prompt and can be used to store additional information about the interaction. The messages are passed to the generation provider as part of the prompt request.
 
 ## Message structure
 Messages can be structured as a Message object or hash with the following attributes:
