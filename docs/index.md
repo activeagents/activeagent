@@ -38,6 +38,7 @@ features:
     link: /docs/framework/generation-provider
     details: Generation Providers establish a common interface for different AI service providers.
   - title: Queued Generation
+    link: /docs/active-agent/queued-generation
     icon: ⏳
     details: Queued Generation manages asynchronous prompt generation and response cycles with Active Job.
   - title: Streaming

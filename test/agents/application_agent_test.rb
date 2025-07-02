@@ -31,7 +31,6 @@ class ApplicationAgentTest < ActiveSupport::TestCase
         message: message,
         instructions: "You're an application agent"
       )
-      binding.irb
       response = ApplicationAgent.with(messages: context.messages).prompt_context.generate_now
       # endregion application_agent_loaded_context_message_generation
       assert_equal test_response_message_content, response.message.content

@@ -66,7 +66,6 @@ export default defineConfig({
       },
       {
         text: 'Framework',
-        link: '/docs/framework',
         items: [
           { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
           { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
@@ -75,7 +74,6 @@ export default defineConfig({
       },
       {
         text: 'Action Prompt',
-        link: '/docs/action-prompt',
         items: [
           { text: 'Messages', link: '/docs/action-prompt/messages' },
           { text: 'Actions', link: '/docs/action-prompt/actions' },
