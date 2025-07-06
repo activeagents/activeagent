@@ -2,7 +2,7 @@
 Active Agent Actions render views, just like Action Controller or Action Mailer. Similar to Action Mailer that renders Mail objects with Messages, Active Agent renders Prompt objects with Messages. 
 
 ## Prompt 
-The `prompt` method is used to render the action's content in the prompt. The `prompt()` method is similar to `mail()` in Action Mailer or `render()` in Action Controller, it allows you to specify the content type and view template for the action's response.
+The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller, it allows you to specify the content type and view template for the action's response.
 
 These Prompt objects contain the context Messages and available Actions. These actions are the interface that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views. 
 
@@ -21,16 +21,19 @@ You can define actions in your agent class that can be used to interact with the
 ## Call to Actions
 These actions can be invoked by the agent to perform specific tasks and receive the results or in your Rails app's controllers, models, or jobs to prompt the agent for generation with a templated prompt message. By default, public instance methods defined in the agent class are included in the context as available actions. You can also define actions in a separate concern module and include them in your agent class.
 
+::: code-group
+<<< @/../test/agents/translation_agent_test.rb#translation_agent_render_translate_prompt{ruby} [test/agents/translation_agent_test.rb:6..8]
+:::
+
 ## Action params
 Agent Actions can accept parameters, which are passed as a hash to the action method. You pass arguments to agent's using the `with` method and access parameters using the `params` method, just like Mailer Actions.
 
 ## Using Actions to prompt the Agent with a templated message
 You can call these actions directly to render a prompt to the agent directly to generate the requested object.
 
-```ruby
-translate_prompt_context = TranslationAgent.with(message: "Hi, I'm Justin", locale: 'japanese').translate
-response = translate_prompt_context.generate_now
-```
+::: code-group
+<<< @/../test/agents/translation_agent_test.rb#translation_agent_translate_prompt_generation{ruby} [test/agents/translation_agent_test.rb:15..16]
+:::
 
 ## Using Agents to call Actions
 You can also provide an Agent with a prompt context that includes actions and messages. The agent can then use these actions to perform tasks and generate responses based on the provided context.

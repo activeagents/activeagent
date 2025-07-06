@@ -202,3 +202,10 @@ end
 response = SupportAgent.prompt(‘show me a picture of a cat’).generate_now
 
 response.message
+
+## Serving Docs
+To serve the documentation locally, run:
+
+```bash
+bin/docs
+```

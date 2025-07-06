@@ -18,13 +18,15 @@ Prompts are built and rendered in the agent's action methods, typically using th
 
 
 ## Rendering Prompts
-Prompts can be rendered using the `prompt` method, which generates the structured prompt object with the provided context.
+Prompts can be rendered using the `prompt` method inside an Agent's action method, which generates the structured prompt object with the provided context. In this example the `translate` action renders the translate.text.erb template with the provided message and locale parameters, and returns a prompt context that can be used to generate a response.
+
 
 ::: code-group
-
 <<< @/../test/dummy/app/agents/translation_agent.rb{5 ruby:line-numbers} [app/agents/translation_agent.rb]
+
+<<< @/../test/dummy/app/views/translation_agent/translate.text.erb{5 erb:line-numbers} [translate.text.erb]
 :::
 
 ::: code-group
-<<< @/../test/agents/translation_agent_test.rb#translation_agent_render_translate_prompt{ruby:line-numbers} [test/agents/translation_agent_test.rb:6..8]
+<<< @/../test/agents/translation_agent_test.rb#translation_agent_render_translate_prompt{ruby} [test/agents/translation_agent_test.rb:6..8]
 :::
