@@ -23,8 +23,8 @@ module ActiveAgent
   autoload :InlinePreviewInterceptor
   autoload :PromptHelper
   autoload :Generation
-  autoload :GenerationMethods
   autoload :GenerationProvider
+  autoload :GenerationProviders
   autoload :QueuedGeneration
   autoload :Parameterized
   autoload :Preview

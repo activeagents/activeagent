@@ -54,10 +54,6 @@ module ActiveAgent
         hash
       end
 
-      def embed
-        @agent_class.embed(@content)
-      end
-
       private
 
       def validate_role
