@@ -6,13 +6,13 @@ Description:
     engine and test framework generators.
 
 Examples:
-    `bin/rails generate agent inventory search`
+    `bin/rails generate active_agent:agent inventory search`
 
     creates a sign up mailer class, views, and test:
         Agent:     app/agents/inventory_agent.rb
         Views:      app/views/inventory_agent/search.text.erb [...]
         Test:       test/agents/inventory_agent_test.rb
 
-    `bin/rails generate agent inventory search update report`
+    `bin/rails generate active_agent:agent inventory search update report`
 
     creates an inventory agent with search, update, and report actions.
