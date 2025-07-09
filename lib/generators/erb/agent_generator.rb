@@ -32,7 +32,7 @@ module Erb # :nodoc:
       private
 
       def formats
-        [ :text, :html ]
+        [ :text, :html, :json ]
       end
 
       def file_name
