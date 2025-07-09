@@ -48,15 +48,9 @@ end
 This code snippet sets up the `ApplicationAgent` to use OpenAI as the generation provider. You can replace `:openai` with any other supported provider, such as `:anthropic`, `:google`, or `:ollama`.
 
 Now, you can interact with your application agent:
-```ruby
-ApplicationAgent.with(
-  instructions: "Help users with their queries.",
-  actions: [:weather],
-  messages: [
-    { role: 'user', content: 'What is the weather like today?' }
-  ]
-).text_prompt.generate_now
-```
+
+<<< @/../test/agents/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby}
+
 This code parameterizes the `ApplicationAgent` `with` a set of `params`.
 
 ## Configuration

@@ -12,22 +12,21 @@ The Prompt is structured to include the following components:
 - **Actions**:  An array of actions that the agent can perform in response to user input. By default, the prompt will use the agent's action methods, but you can also specify custom actions.
 
 ## Example Prompt
-Prompts are built and rendered in the agent's action methods, typically using the `prompt` method. This is an example of creating a prompt by manually building the context; assigning `actions`, `message` and `messages`.
-```ruby
-prompt = ActiveAgent::ActionPrompt::Prompt.new(
-  actions: SupportAgent.new.action_schemas, 
-  message: "I need help with my account.",
-  messages: [
-    { content: "Hello, how can I assist you today?", role: "assistant" },
-  ]
-)
-```
+Prompts are built and rendered in the agent's action methods, typically using the `prompt` method. This is an example of creating a prompt by manually building the context; assigning `actions`, the prompt `message` and context `messages`.
+
+<<< @/../test/action_prompt/prompt_test.rb#support_agent_prompt_initialization{ruby:line-numbers} [support_agent.rb]
+
 
 ## Rendering Prompts
-Prompts can be rendered using the `prompt` method, which generates the structured prompt object with the provided context.
+Prompts can be rendered using the `prompt` method inside an Agent's action method, which generates the structured prompt object with the provided context. In this example the `translate` action renders the translate.text.erb template with the provided message and locale parameters, and returns a prompt context that can be used to generate a response.
 
-```ruby
-agent_prompt_context = SupportAgent.with(message: "I need help with my account.", messages: [
-  { content: "Hello, how can I assist you today?", role: :assistant },
-]).prompt_context
-```
+
+::: code-group
+<<< @/../test/dummy/app/agents/translation_agent.rb{5 ruby:line-numbers} [app/agents/translation_agent.rb]
+
+<<< @/../test/dummy/app/views/translation_agent/translate.text.erb{5 erb:line-numbers} [translate.text.erb]
+:::
+
+::: code-group
+<<< @/../test/agents/translation_agent_test.rb#translation_agent_render_translate_prompt{ruby} [test/agents/translation_agent_test.rb:6..8]
+:::

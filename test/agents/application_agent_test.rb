@@ -27,11 +27,11 @@ class ApplicationAgentTest < ActiveSupport::TestCase
       test_response_message_content = "Sure! What specific issues are you experiencing with your account?"
       # region application_agent_loaded_context_message_generation
       message = "I need help with my account"
-      context = ActiveAgent::ActionPrompt::Prompt.new(
-        message: message,
+      previous_context = ActiveAgent::ActionPrompt::Prompt.new(
+        messages: [ { content: "Hello, how can I assist you today?", role: :assistant } ],
         instructions: "You're an application agent"
       )
-      response = ApplicationAgent.with(messages: context.messages).prompt_context.generate_now
+      response = ApplicationAgent.with(message: message, messages: previous_context.messages).prompt_context.generate_now
       # endregion application_agent_loaded_context_message_generation
       assert_equal test_response_message_content, response.message.content
     end

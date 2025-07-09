@@ -41,35 +41,4 @@ On stream callbacks are triggered during the streaming of responses from an agen
 
 Below is a verbose example to demonstrate how to handle streaming responses and broadcast updates to a chat interface. The shows the runtime instance of the Agent's [`generation_provider`](/docs/framework/generation-provider) and its [`response`](/docs/framework/generation-provider#response) object. This example assumes you have a `Chat` model with associated messages, and you want to update the chat in real-time as the agent generates a response.
 
-```ruby
-class ApplicationAgent < ActiveAgent::Base
-  generate_with :openai
-
-  on_stream :broadcast_message
-
-  private
-  def broadcast_message
-    @chat ||= Chat.find(generation_provider.prompt.context_id)
-    
-    # Create or find the assistant message
-    @message ||= @chat.messages.create(content: "", role: 'assistant')
-    
-    # Update the message content with the streaming content
-    @message.update(content: generation_provider.response.message.content)
-    
-    puts "Broadcasting message... #{generation_provider.response.message.content}"
-    
-    # Handle broadcasting directly here instead of relying on model callbacks
-    if @message.persisted?
-      if @message.content.present?
-        # Broadcast the updated message during streaming
-        @message.broadcast_append_to(
-          "#{ActionView::RecordIdentifier.dom_id(@chat)}_messages",
-          partial: "messages/message",
-          locals: { message: @message, scroll_to: true },
-          target: "#{ActionView::RecordIdentifier.dom_id(@chat)}_messages"
-        )
-      end
-    end
-end
-```
+<<< @/../test/dummy/app/agents/streaming_agent.rb{ruby:line-numbers} [streaming_agent.rb]

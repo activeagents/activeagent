@@ -204,11 +204,6 @@ module ActiveAgent
       # attr_accessor :context
 
       def perform_generation
-        context.options.merge(options)
-        if (action_methods - ActiveAgent::Base.descendants.first.action_methods).include? action_name
-          context.message = context.messages.last
-          context.actions = []
-        end
         generation_provider.generate(context) if context && generation_provider
         handle_response(generation_provider.response)
       end
@@ -298,13 +293,16 @@ module ActiveAgent
 
       def prompt(headers = {}, &block)
         return context if @_prompt_was_called && headers.blank? && !block
+
+        context.options.merge!(options)
         content_type = headers[:content_type]
         headers = apply_defaults(headers)
         context.messages = headers[:messages] || []
         context.context_id = headers[:context_id]
+        context.params = params
 
         context.charset = charset = headers[:charset]
-        headers[:message] ||= context.messages.last
+
         if headers[:message].present? && headers[:message].is_a?(ActiveAgent::ActionPrompt::Message)
           headers[:body] = headers[:message].content
           headers[:role] = headers[:message].role
@@ -317,7 +315,6 @@ module ActiveAgent
         # assign_headers_to_context(context, headers)
         responses = collect_responses(headers, &block)
 
-        context.params = params
         @_prompt_was_called = true
 
         create_parts_from_responses(context, responses)
@@ -325,6 +322,10 @@ module ActiveAgent
         context.content_type = set_content_type(context, content_type, headers[:content_type])
         context.charset = charset
         context.actions = headers[:actions] || action_schemas
+
+        if (action_methods - ActiveAgent::Base.descendants.first.action_methods).include? action_name
+          context.actions = (action_methods - [ action_name ])
+        end
 
         context
       end

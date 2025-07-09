@@ -134,7 +134,7 @@ module ActiveAgent
         prompt.add_part(message)
 
         assert_equal message, prompt.message
-        assert_includes prompt.parts, prompt.context
+        assert_includes prompt.parts, message
       end
 
       test "multipart? returns true if parts are present" do
@@ -170,6 +170,27 @@ module ActiveAgent
         prompt = Prompt.new(body: "Body content", message: Message.new(content: ""))
         assert_equal "Body content", prompt.message.content
         assert_equal :user, prompt.message.role
+      end
+
+      test "initializes with actions, message, and messages example" do
+        # region support_agent_prompt_initialization
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          actions: SupportAgent.new.action_schemas,
+          message: "I need help with my account.",
+          messages: [
+            { content: "Hello, how can I assist you today?", role: :assistant }
+          ]
+        )
+        # endregion support_agent_prompt_initialization
+
+        assert_equal "get_cat_image", prompt.actions.first["function"]["name"]
+        assert_equal "I need help with my account.", prompt.message.content
+        assert_equal :user, prompt.message.role
+        assert_equal 2, prompt.messages.size
+        assert_equal "Hello, how can I assist you today?", prompt.messages.first.content
+        assert_equal :assistant, prompt.messages.first.role
+        assert_equal "I need help with my account.", prompt.messages.last.content
+        assert_equal :user, prompt.messages.last.role
       end
     end
   end
