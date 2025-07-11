@@ -10,7 +10,7 @@ module Erb # :nodoc:
       def create_agent_layouts
         template "layout.html.erb.tt", "app/views/layouts/agent.html.erb"
         template "layout.text.erb.tt", "app/views/layouts/agent.text.erb"
-        template "layout.html.erb.tt", "app/views/layouts/agent.json.erb"
+        template "layout.json.erb.tt", "app/views/layouts/agent.json.erb"
       end
     end
   end
