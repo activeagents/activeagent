@@ -3,7 +3,7 @@ source "https://rubygems.org"
 gemspec
 
 gem "ruby-openai", "~> 8.1.0"
-gem "anthropic", "~> 0.4.1"
+gem "anthropic", "~> 1.1.1"
 
 group :development, :test do
   gem "standard", require: false
