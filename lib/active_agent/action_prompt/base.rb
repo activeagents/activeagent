@@ -239,7 +239,9 @@ module ActiveAgent
       def initialize
         super
         @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions], options: options)
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(
+          instructions: prepare_instructions(options[:instructions]), options: options
+        )
       end
 
       def process(method_name, *args) # :nodoc:
@@ -294,6 +296,7 @@ module ActiveAgent
       def prompt(headers = {}, &block)
         return context if @_prompt_was_called && headers.blank? && !block
 
+        context.instructions = prepare_instructions(headers[:instructions]) if headers.has_key?(:instructions)
         context.options.merge!(options)
         content_type = headers[:content_type]
         headers = apply_defaults(headers)
@@ -448,6 +451,27 @@ module ActiveAgent
           charset: charset
         )
         context.add_part(message)
+      end
+
+      def prepare_instructions(instructions)
+        case instructions
+        when Hash
+          raise ArgumentError, "Expected `:template` key in instructions hash" unless instructions[:template]
+          return unless lookup_context.exists?(instructions[:template], agent_name, false, [], formats: [ :text ])
+
+          template = lookup_context.find_template(instructions[:template], agent_name, false, [], formats: [ :text ])
+          render_to_string(template: template.virtual_path, locals: instructions[:locals] || {}, layout: false)
+        when String
+          instructions
+        when NilClass
+          default_template_name = "instructions"
+          return unless lookup_context.exists?(default_template_name, agent_name, false, [], formats: [ :text ])
+
+          template = lookup_context.find_template(default_template_name, agent_name, false, [], formats: [ :text ])
+          render_to_string(template: template.virtual_path, layout: false)
+        else
+          raise ArgumentError, "Instructions must be Hash, String or NilClass objects"
+        end
       end
 
       # This and #instrument_name is for caching instrument
