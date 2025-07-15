@@ -192,6 +192,22 @@ module ActiveAgent
         assert_equal "I need help with my account.", prompt.messages.last.content
         assert_equal :user, prompt.messages.last.role
       end
+
+      test "initializes with erb instructions" do
+        # region support_agent_prompt_initialization_with_erb
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          instructions: "support_agent_instructions",
+          agent_class: SupportAgent,
+          actions: SupportAgent.new.action_schemas,
+          message: "I need help with my account.",
+          messages: [
+            { content: "Hello, how can I assist you today?", role: :assistant }
+          ]
+        )
+        # endregion support_agent_prompt_initialization_with_erb
+
+        assert_equal "You are a support agent. That is all.", prompt.instructions
+      end
     end
   end
 end

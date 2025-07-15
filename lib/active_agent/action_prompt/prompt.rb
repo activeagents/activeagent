@@ -11,7 +11,7 @@ module ActiveAgent
         @agent_class = attributes.fetch(:agent_class, ApplicationAgent)
         @actions = attributes.fetch(:actions, [])
         @action_choice = attributes.fetch(:action_choice, "")
-        @instructions = attributes.fetch(:instructions, "")
+        @instructions = load_instructions(attributes.fetch(:instructions, ""))
         @body = attributes.fetch(:body, "")
         @content_type = attributes.fetch(:content_type, "text/plain")
         @message = attributes.fetch(:message, nil)
@@ -81,6 +81,16 @@ module ActiveAgent
         end
 
         @messages << @message
+      end
+
+      def load_instructions(instructions)
+        file_path = Rails.root.join("app", "views", @agent_class.name.underscore, "#{instructions}.text.erb")
+        if File.exist?(file_path)
+          template = ERB.new(File.read(file_path))
+          template.result(binding)
+        else
+          instructions.to_s
+        end
       end
     end
   end
