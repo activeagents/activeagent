@@ -84,7 +84,10 @@ module ActiveAgent
       end
 
       def load_instructions(instructions)
-        file_path = Rails.root.join("app", "views", @agent_class.name.underscore, "#{instructions}.text.erb")
+        filename = instructions.to_s
+        filename = "instructions" if filename == ""
+
+        file_path = Rails.root.join("app", "views", @agent_class.name.underscore, "#{filename}.text.erb")
         if File.exist?(file_path)
           template = ERB.new(File.read(file_path))
           template.result(binding)

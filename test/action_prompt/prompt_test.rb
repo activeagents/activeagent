@@ -208,6 +208,21 @@ module ActiveAgent
 
         assert_equal "You are a support agent. That is all.", prompt.instructions
       end
+
+      test "initializes with erb default path instructions" do
+        # region support_agent_prompt_initialization_with_erb
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          agent_class: SupportAgent,
+          actions: SupportAgent.new.action_schemas,
+          message: "I need help with my account.",
+          messages: [
+            { content: "Hello, how can I assist you today?", role: :assistant }
+          ]
+        )
+        # endregion support_agent_prompt_initialization_with_erb
+
+        assert_equal "Default instructions for support agents.", prompt.instructions
+      end
     end
   end
 end
