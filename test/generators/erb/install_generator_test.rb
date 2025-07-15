@@ -16,6 +16,10 @@ class Erb::Generators::InstallGeneratorTest < Rails::Generators::TestCase
     assert_file "app/views/layouts/agent.text.erb" do |content|
       assert_match(/<%= yield %>/, content)
     end
+
+    assert_file "app/views/layouts/agent.json.erb" do |content|
+      assert_match(/<%= yield %>/, content)
+    end
   end
 
   test "creates layout files with correct ERB syntax" do
