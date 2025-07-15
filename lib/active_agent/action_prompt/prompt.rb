@@ -3,8 +3,8 @@ require_relative "message"
 module ActiveAgent
   module ActionPrompt
     class Prompt
-      attr_reader :messages
-      attr_accessor :actions, :body, :content_type, :context_id, :instructions, :message, :options, :mime_version, :charset, :context, :parts, :params, :action_choice, :agent_class
+      attr_reader :messages, :instructions
+      attr_accessor :actions, :body, :content_type, :context_id, :message, :options, :mime_version, :charset, :context, :parts, :params, :action_choice, :agent_class
 
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})
@@ -25,12 +25,21 @@ module ActiveAgent
         @parts = attributes.fetch(:parts, [])
         @messages = Message.from_messages(@messages)
         set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message&.content
-        set_messages
+        set_messages if @instructions.present?
       end
 
       def messages=(messages)
         @messages = messages
         set_messages
+      end
+
+      def instructions=(instructions)
+        @instructions = instructions
+        if @messages[0].present? && @messages[0].role == :system
+          @messages[0] = instructions_message
+        else
+          set_messages
+        end
       end
 
       # Generate the prompt as a string (for debugging or sending to the provider)
@@ -69,8 +78,12 @@ module ActiveAgent
 
       private
 
+      def instructions_message
+        Message.new(content: @instructions, role: :system)
+      end
+
       def set_messages
-        @messages = [ Message.new(content: @instructions, role: :system) ] + Message.from_messages(@messages) if @instructions.present?
+        @messages = [ instructions_message ] + @messages
       end
 
       def set_message
@@ -80,7 +93,7 @@ module ActiveAgent
           @message = Message.new(content: @body, role: :user)
         end
 
-        @messages << @message
+        @messages = @messages + [ @message ]
       end
     end
   end

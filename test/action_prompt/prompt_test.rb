@@ -54,7 +54,7 @@ module ActiveAgent
         assert_equal attributes[:body], prompt.body
         assert_equal attributes[:content_type], prompt.content_type
         assert_equal attributes[:message], prompt.message.content
-        assert_equal ([ Message.new(content: "Test instructions", role: :system) ] + attributes[:messages]).map(&:to_h), prompt.messages.map(&:to_h)
+        assert_equal ([ Message.new(content: "Test instructions", role: :system) ] + attributes[:messages] + [ Message.new(content: attributes[:message], role: :user) ]).map(&:to_h), prompt.messages.map(&:to_h)
         assert_equal attributes[:params], prompt.params
         assert_equal attributes[:mime_version], prompt.mime_version
         assert_equal attributes[:charset], prompt.charset

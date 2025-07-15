@@ -18,6 +18,38 @@ You can define actions in your agent class that can be used to interact with the
 :::
 
 
+
+## Set up instructions
+
+You can configure instructions in several ways when using `generate_with`. Here are the supported options:
+
+#### 1. Use the default instructions template
+If you don’t pass anything for instructions, it will automatically try to use the default instructions template: `instructions.text.erb`
+
+::: code-group
+<<< @/../test/dummy/app/agents/scoped_agents/translation_agent_with_default_instructions_template.rb{ruby:line-numbers} [translation_agent_with_default_instructions_template.rb]
+<<< @/../test/dummy/app/views/scoped_agents/translation_agent_with_default_instructions_template/instructions.text.erb{erb:line-numbers} [instructions.text.erb]
+:::
+
+#### 2. Use a custom instructions template (global or per action)
+You can provide custom instructions using a template. This can be done in two ways:
+  * **Globally**, by setting an instructions template for the whole agent.
+  * **Per action**, by specifying a different template for a specific prompt call.
+To do this, pass a `Hash` with a `template` key to the `instructions` option:
+
+::: code-group
+<<< @/../test/dummy/app/agents/scoped_agents/translation_agent_with_custom_instructions_template.rb{ruby:line-numbers} [translation_agent_with_custom_instructions_template.rb]
+<<< @/../test/dummy/app/views/scoped_agents/translation_agent_with_custom_instructions_template/custom_instructions.text.erb{erb:line-numbers} [custom_instructions.text.erb]
+<<< @/../test/dummy/app/views/scoped_agents/translation_agent_with_custom_instructions_template/overridden_instructions.text.erb{erb:line-numbers} [overridden_instructions.text.erb]
+:::
+
+#### 3. Use plain text instructions
+You can also directly pass a string of instructions
+
+::: code-group
+<<< @/../test/dummy/app/agents/translation_agent.rb{ruby:line-numbers} [translation_agent.rb]
+:::
+
 ## Call to Actions
 These actions can be invoked by the agent to perform specific tasks and receive the results or in your Rails app's controllers, models, or jobs to prompt the agent for generation with a templated prompt message. By default, public instance methods defined in the agent class are included in the context as available actions. You can also define actions in a separate concern module and include them in your agent class.
 
@@ -52,17 +84,20 @@ The `prompt` takes the following options:
 - `message`: The `message.content` to be displayed in the prompt.
 - `messages`: An array of messages objects to be included in the prompt's context.
 - `template_name`: Specifies the name of the template to be used for rendering the action's response.
+- `instructions`: Additional guidance for the prompt generation. This can be:
+  * A string with custom instructions (e.g., "Help the user find a hotel");
+  * A hash referencing a template (e.g., { template: :custom_template });
 
 ```ruby [app/agents/travel_agent.rb]
 class TravelAgent < ActiveAgent::Agent
   def search
     Place.search(params[:location])
-    prompt(content_type: :text, template_name: 'search_results')
+    prompt(content_type: :text, template_name: 'search_results', instructions: 'Help the user find a hotel')
   end
 
   def book
     Place.book(hotel_id: params[:hotel_id], user_id: params[:user_id])
-    prompt(content_type: :json, template_name: 'booking_confirmation')
+    prompt(content_type: :json, template_name: 'booking_confirmation', instructions: { template: 'book_instructions' })
   end
 
   def confirm
