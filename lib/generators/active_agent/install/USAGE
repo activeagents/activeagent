@@ -1,0 +1,25 @@
+Description:
+    Sets up ActiveAgent in your Rails application by creating the necessary
+    configuration files and application agent class.
+
+    This generator creates:
+    - Configuration file (config/active_agent.yml)
+    - Application agent base class (app/agents/application_agent.rb)
+    - Layout templates for agent views (via template engine hooks)
+
+Examples:
+    `bin/rails generate active_agent:install`
+
+    creates the basic ActiveAgent setup:
+        Config:     config/active_agent.yml
+        Base Agent: app/agents/application_agent.rb
+        Layouts:    app/views/layouts/agent.html.erb
+                    app/views/layouts/agent.text.erb
+                    app/views/layouts/agent.json.erb
+
+    `bin/rails generate active_agent:install --template-engine=haml`
+
+    creates ActiveAgent setup with Haml layouts instead of ERB.
+
+    After running this generator, you can create individual agents with:
+    `bin/rails generate active_agent:agent AGENT_NAME ACTION_NAME`

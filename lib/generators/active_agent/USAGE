@@ -1,18 +1,30 @@
 Description:
     Generates a new agent and its views. Passes the agent name, either
-    CamelCased or under_scored, and an optional list of prompts as arguments.
+    CamelCased or under_scored, and an optional list of actions as arguments.
 
-    This generates a agent class in app/agents and invokes your template
-    engine and test framework generators.
+    This generates an agent class in app/agents and invokes your template
+    engine and test framework generators. If no ApplicationAgent exists,
+    it will be created automatically.
+
+    Views are created for each action in three formats:
+    - HTML (.html.erb) - for rich text responses
+    - Text (.text.erb) - for plain text responses  
+    - JSON (.json.erb) - for structured function calling responses
 
 Examples:
     `bin/rails generate active_agent:agent inventory search`
 
     creates an inventory agent class, views, and test:
-        Agent:     app/agents/inventory_agent.rb
-        Views:      app/views/inventory_agent/search.text.erb [...]
+        Agent:      app/agents/inventory_agent.rb
+        Views:      app/views/inventory_agent/search.html.erb
+                    app/views/inventory_agent/search.text.erb
+                    app/views/inventory_agent/search.json.erb
         Test:       test/agents/inventory_agent_test.rb
 
     `bin/rails generate active_agent:agent inventory search update report`
 
     creates an inventory agent with search, update, and report actions.
+
+    `bin/rails generate active_agent:agent admin/user create --template-engine=haml`
+
+    creates a namespaced admin/user agent with Haml templates.
