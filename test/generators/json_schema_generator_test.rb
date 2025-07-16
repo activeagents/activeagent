@@ -3,7 +3,7 @@ require "generators/active_agent/json_schema/json_schema_generator"
 
 class JsonSchemaGeneratorTest < Rails::Generators::TestCase
   tests ActiveAgent::Generators::JsonSchemaGenerator
-  destination File.expand_path("../tmp", __dir__)
+  destination File.expand_path("../../tmp/json_schema_generator", __dir__)
   setup :prepare_destination
 
   def test_creates_json_view_template
