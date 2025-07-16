@@ -336,7 +336,7 @@ module ActiveAgent
 
       def action_schemas
         action_methods.map do |action|
-          next unless lookup_context.exists?(action, self.class.agent_name, true, formats: [:json])
+          next unless lookup_context.exists?(action, self.class.agent_name, true, formats: [ :json ])
 
           JSON.parse render_to_string(locals: { action_name: action }, action: action, formats: :json)
         end.compact
