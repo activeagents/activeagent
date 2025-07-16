@@ -13,10 +13,12 @@ class StreamingAgent < ApplicationAgent
     response = generation_provider.response
 
     # Broadcast the message to the specified channel
+    # Or pass the content to a Message model and use
+    # Active Record callbacks to handle the broadcasting
     ActionCable.server.broadcast(
       "#{response.message.generation_id}_messages",
       partial: "streaming_agent/message",
-      locals: { message: response.message.content, scroll_to: true }
+      locals: {message: response.message.content, scroll_to: true}
     )
   end
 end

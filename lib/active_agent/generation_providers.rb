@@ -17,9 +17,9 @@ module ActiveAgent
       cattr_accessor :perform_generations, default: true
 
       class_attribute :generation_providers, default: {}.freeze
-      class_attribute :generation_provider, default: :smtp
+      class_attribute :generation_provider, default: :test
 
-      add_generation_method :test, ActiveAgent::GenerationProvider::TestProvider
+      add_generation_provider :test, ActiveAgent::GenerationProvider::TestProvider
     end
 
     module ClassMethods
@@ -39,7 +39,7 @@ module ActiveAgent
         when NilClass
           raise "Generation provider cannot be nil"
         when Symbol
-          if klass = generation_providers[provider]
+          if (klass = generation_providers[provider])
             prompt.generation_provider(klass, (send(:"#{provider}_settings") || {}).merge(options || {}))
           else
             raise "Invalid generation provider #{provider.inspect}"
