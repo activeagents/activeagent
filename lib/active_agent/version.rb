@@ -1,3 +1,3 @@
 module ActiveAgent
-  VERSION = "0.4.2.rc1"
+  VERSION = "0.4.2.rc2"
 end
