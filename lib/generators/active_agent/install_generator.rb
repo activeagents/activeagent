@@ -3,6 +3,9 @@
 module ActiveAgent
   module Generators
     class InstallGenerator < ::Rails::Generators::Base
+      def self.usage_path
+        @usage_path ||= File.expand_path("../USAGE", __dir__)
+      end
       source_root File.expand_path("templates", __dir__)
 
       hook_for :template_engine, :test_framework

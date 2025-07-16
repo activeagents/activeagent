@@ -13,7 +13,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
 
   test "it renders a prompt with an plain text message and generates a response" do
     VCR.use_cassette("application_agent_prompt_context_message_generation") do
-      test_response_message_content = "Hello! How can I assist you today with your test application?"
+      test_response_message_content = "It seems like you're looking for information or assistance regarding a \"Test Application Agent.\" Could you please provide more context or specify what exactly you need help with? Are you referring to a software testing agent, a specific tool, or something else? Your clarification will help me assist you better!"
       # region application_agent_prompt_context_message_generation
       message = "Test Application Agent"
       response = ApplicationAgent.with(message: message).prompt_context.generate_now
@@ -24,11 +24,11 @@ class ApplicationAgentTest < ActiveSupport::TestCase
 
   test "it renders a prompt with an plain text message with previous messages and generates a response" do
     VCR.use_cassette("application_agent_loaded_context_message_generation") do
-      test_response_message_content = "Sure! What specific issues are you experiencing with your account?"
+      test_response_message_content = "Sure! I can help you with that. Could you please provide more details about the issue you're experiencing with your account?"
       # region application_agent_loaded_context_message_generation
       message = "I need help with my account"
       previous_context = ActiveAgent::ActionPrompt::Prompt.new(
-        messages: [ { content: "Hello, how can I assist you today?", role: :assistant } ],
+        messages: [{content: "Hello, how can I assist you today?", role: :assistant}],
         instructions: "You're an application agent"
       )
       response = ApplicationAgent.with(message: message, messages: previous_context.messages).prompt_context.generate_now

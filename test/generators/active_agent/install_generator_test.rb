@@ -1,5 +1,5 @@
 require "test_helper"
-require "generators/active_agent/install/install_generator"
+require "generators/active_agent/install_generator"
 
 class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCase
   tests ActiveAgent::Generators::InstallGenerator
