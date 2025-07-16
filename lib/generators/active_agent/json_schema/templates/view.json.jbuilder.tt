@@ -1,0 +1,15 @@
+json.type :function
+json.function do
+  json.name "<%= class_name %>Agent#<%= @action %>"
+  json.description ""
+
+  json.parameters do
+    json.type :object
+    json.properties do
+      json.message do
+        json.type :string
+        json.description "Find me in <%= @path %>"
+      end
+    end
+  end
+end

@@ -16,3 +16,8 @@ Examples:
     `bin/rails generate active_agent:agent inventory search update report`
 
     creates an inventory agent with search, update, and report actions.
+
+    `bin/rails generate active_agent:json_schema inventory search`
+
+    creates a JSON schema template for the `search` action:
+        Schema:  app/views/inventory_agent/search.json.jbuilder

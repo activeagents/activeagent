@@ -7,6 +7,7 @@ PATH
       activejob (>= 7.2, < 9.0)
       activemodel (>= 7.2, < 9.0)
       activesupport (>= 7.2, < 9.0)
+      jbuilder
       rails (>= 7.2, < 9.0)
 
 GEM
