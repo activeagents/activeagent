@@ -85,10 +85,6 @@ GEM
       uri (>= 0.13.1)
     addressable (2.8.7)
       public_suffix (>= 2.0.2, < 7.0)
-    anthropic (0.4.1)
-      event_stream_parser (>= 0.3.0, < 2.0.0)
-      faraday (>= 1)
-      faraday-multipart (>= 1)
     ast (2.4.3)
     base64 (0.2.0)
     benchmark (0.4.0)
@@ -245,6 +241,10 @@ GEM
       rubocop (>= 1.72)
       rubocop-performance (>= 1.24)
       rubocop-rails (>= 2.30)
+    ruby-anthropic (0.4.2)
+      event_stream_parser (>= 0.3.0, < 2.0.0)
+      faraday (>= 1)
+      faraday-multipart (>= 1)
     ruby-openai (8.1.0)
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
@@ -293,10 +293,10 @@ PLATFORMS
 
 DEPENDENCIES
   activeagent!
-  anthropic (~> 0.4.1)
   jbuilder
   puma
   rubocop-rails-omakase
+  ruby-anthropic (~> 0.4.2)
   ruby-openai (~> 8.1.0)
   sqlite3
   standard

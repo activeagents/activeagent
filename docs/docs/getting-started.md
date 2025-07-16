@@ -6,27 +6,49 @@ title: Getting Started
 This guide will help you set up and create your first ActiveAgent application.
 
 ## Installation
+
+Use builder to add activeagent to your Gemfile and install:
 ```bash
-# Add this line to your application's Gemfile
+bundle add activeagent
+```
+
+Add the generation provider gem you want to use:
+::: code-group
+
+```bash [OpenAI]
+bundle add ruby-openai
+```
+
+```bash [Anthropic]
+bundle add ruby-anthropic
+```
+```bash [Ollama]
+bundle add ruby-openai
+# Ollama follows the same API spec as OpenAI, so you can use the same gem.
+```
+
+```bash [OpenRouter]
+bundle add ruby-openai
+# OpenRouter follows the same API spec as OpenAI, so you can use the same gem.
+```
+:::
+
+Or do it manually by adding the gems to your Gemfile:
+```bash
 gem 'activeagent'
 # Add the generation provider gem you want to use, e.g.:
 gem 'ruby-openai'
 ```
 
-Then execute:
+Then install the gems by running:
 ```bash
-$ bundle install
-```
-Or install it yourself as:
-
-```bash
-$ gem install activeagent
+bundle install
 ```
 ### Active Agent install generator
 To set up Active Agent in your Rails application, you can use the install generator. This will create the necessary configuration files and directories for Active Agent.
 
 ```bash
-$ rails generate active_agent:install
+rails generate active_agent:install
 ```
 This command will create the following files and directories:
 - `config/active_agent.yml`: The configuration file for Active Agent, where you can specify your generation providers and their settings.
