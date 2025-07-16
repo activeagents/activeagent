@@ -10,9 +10,9 @@ To generate a prompt immediately, you can use the `generate_now` method. This me
 
 ### Generation with Context
 Loading a context from an existing prompt context:
-```ruby
+
 <<< @/../test/agents/application_agent_test.rb#application_agent_loaded_context_message_generation{ruby} 
-```
+
 
 ## Key Features
 - **Dynamic Prompt Generation**: Create prompts that adapt based on user input and context.
