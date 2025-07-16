@@ -69,7 +69,7 @@ end
 ```
 This code snippet sets up the `ApplicationAgent` to use OpenAI as the generation provider. You can replace `:openai` with any other supported provider, such as `:anthropic`, `:google`, or `:ollama`.
 
-Now, you can interact with your application agent:
+Now, you can interact with your application agent using the default `prompt_context` method. This method allows you to provide a context for the agent to generate a response based on the defined actions and behaviors.:
 
 <<< @/../test/agents/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby}
 
@@ -120,6 +120,7 @@ class ApplicationAgent < ActiveAgent::Base
   # You can define common methods and configurations here.
 end
 ```
+
 The `TravelAgent` class will be generated with the specified actions: `search`, `book`, and `confirm`. Each action will be defined as a public instance method in the agent class. The generator will also create a corresponding view template for each action in the `app/views/agents/travel_agent` directory.
 
 The JSON view is used to specify the tool schema for the action it can also be used to allow the agent to return structured data that can be used by other agents or applications. The HTML view is used to render the action's content in a web-friendly format, while the text view is used for plain text responses.
@@ -146,7 +147,7 @@ class TravelAgent < ActiveAgent::Base
   end
 end
 ```
-
+<!-- 
 ```json [app/views/agents/travel_agent/search.json.erb]
 {
   "tool": {
@@ -187,6 +188,6 @@ TravelAgent.with(
   messages: [
     { role: 'user', content: 'I need a hotel in Paris' }
   ]
-).generate_later
+).prompt_context.generate_later
 ```
-This code snippet initializes the `TravelAgent` with a set of instructions and a user message. The agent will then process this context and generate a response based on its defined actions.
+This code snippet initializes the `TravelAgent` with a set of instructions and a user message. The agent will then process this context and generate a response based on its defined actions. -->
