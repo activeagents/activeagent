@@ -5,6 +5,7 @@ module ScopedAgents
     }
 
     def translate
+      @additional_instruction = "translation additional instruction"
       prompt
     end
 

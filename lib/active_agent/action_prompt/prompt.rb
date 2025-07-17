@@ -34,6 +34,8 @@ module ActiveAgent
       end
 
       def instructions=(instructions)
+        return if instructions.blank?
+
         @instructions = instructions
         if @messages[0].present? && @messages[0].role == :system
           @messages[0] = instructions_message
