@@ -28,6 +28,8 @@ Active Agent provides a structured approach to building AI-powered applications 
 ## MVC Architecture
 Active Agent is built around a few core components that work together to provide a seamless experience for developers and users. Using familiar concepts from Rails that made it the MVC framework of choice for web applications, Active Agent extends these concepts to the world of AI and generative models. At the core of Active Agent is Action Prompt, which provides a structured way to manage prompts, actions, and responses. The framework is designed to be modular and extensible, allowing developers to create custom agents with actions that render prompts to generate responses.
 
+![ActiveAgent-Controllers](https://github.com/user-attachments/assets/70d90cd1-607b-40ab-9acf-c48cc72af65e)
+
 ## Model: Prompt Context
 Action Prompt allows Agent classes to define actions the return prompt context's with formatted messages.
 
