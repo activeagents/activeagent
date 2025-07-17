@@ -172,6 +172,28 @@ module ActiveAgent
         assert_equal :user, prompt.message.role
       end
 
+      test "instructions setter adds instruction to messages" do
+        prompt = Prompt.new
+        prompt.instructions = "System instructions"
+        assert_equal 1, prompt.messages.size
+        assert_equal "System instructions", prompt.messages.first.content
+        assert_equal :system, prompt.messages.first.role
+      end
+
+      test "instructions setter replace instruction if it already exists in messages" do
+        prompt = Prompt.new(instructions: "System instructions")
+        prompt.instructions = "New system instructions"
+        assert_equal 1, prompt.messages.size
+        assert_equal "New system instructions", prompt.messages.first.content
+        assert_equal :system, prompt.messages.first.role
+      end
+
+      test "instructions setter does not add empty instruction to messages" do
+        prompt = Prompt.new
+        prompt.instructions = ""
+        assert_equal 0, prompt.messages.size
+      end
+
       test "initializes with actions, message, and messages example" do
         # region support_agent_prompt_initialization
         prompt = ActiveAgent::ActionPrompt::Prompt.new(

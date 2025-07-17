@@ -239,9 +239,7 @@ module ActiveAgent
       def initialize
         super
         @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(
-          instructions: prepare_instructions(options[:instructions]), options: options
-        )
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: options)
       end
 
       def process(method_name, *args) # :nodoc:
@@ -296,7 +294,8 @@ module ActiveAgent
       def prompt(headers = {}, &block)
         return context if @_prompt_was_called && headers.blank? && !block
 
-        context.instructions = prepare_instructions(headers[:instructions]) if headers.has_key?(:instructions)
+        raw_instructions = headers.has_key?(:instructions) ? headers[:instructions] : context.options[:instructions]
+        context.instructions = prepare_instructions(raw_instructions)
         context.options.merge!(options)
         content_type = headers[:content_type]
         headers = apply_defaults(headers)
