@@ -22,9 +22,10 @@ bundle add ruby-openai
 ```bash [Anthropic]
 bundle add ruby-anthropic
 ```
+
 ```bash [Ollama]
-bundle add ruby-openai
 # Ollama follows the same API spec as OpenAI, so you can use the same gem.
+bundle add ruby-openai
 ```
 
 ```bash [OpenRouter]
