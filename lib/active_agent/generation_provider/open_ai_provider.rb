@@ -1,4 +1,10 @@
-require "openai"
+begin
+  gem "ruby-openai", "~> 8.1.0"
+  require "openai"
+rescue LoadError
+  raise LoadError, "The 'ruby-openai' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
+end
+
 require "active_agent/action_prompt/action"
 require_relative "base"
 require_relative "response"
