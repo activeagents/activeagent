@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "active_job"
+# ActiveJob is required lazily via Railtie to avoid loading it when not needed
 
 module ActiveAgent
   # = Active Agent \GenerationJob
@@ -11,6 +11,12 @@ module ActiveAgent
   #
   # Exceptions are rescued and handled by the agent class.
   class GenerationJob < ActiveJob::Base # :nodoc:
+    def self.require_active_job!
+      unless defined?(ActiveJob)
+        raise LoadError, "ActiveJob is required for ActiveAgent::GenerationJob. Please add 'gem \"active_job\"' to your Gemfile."
+      end
+    end
+
     queue_as do
       agent_class = arguments.first.constantize
       agent_class.generate_later_queue_name

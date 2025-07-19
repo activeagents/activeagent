@@ -29,7 +29,6 @@ module ActiveAgent
   autoload :Parameterized
   autoload :Preview
   autoload :Previews, "active_agent/preview"
-  autoload :GenerationJob
 
   class << self
     attr_accessor :config
