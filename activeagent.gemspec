@@ -25,6 +25,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "activemodel", ">= 7.2", "< 9.0"
   spec.add_dependency "activejob", ">= 7.2", "< 9.0"
 
-  spec.add_dependency "rails", ">= 7.2", "< 9.0"
   spec.add_development_dependency "jbuilder"
+  spec.add_development_dependency "rails"
 end
