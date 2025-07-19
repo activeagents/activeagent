@@ -156,7 +156,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
           temperature: 0.8
     YAML
 
-    temp_file = Tempfile.new(["active_agent", ".yml"])
+    temp_file = Tempfile.new([ "active_agent", ".yml" ])
     temp_file.write(temp_config_content)
     temp_file.close
 
@@ -199,7 +199,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
           temperature: <%= 0.5 + 0.2 %>
     YAML
 
-    temp_file = Tempfile.new(["active_agent", ".yml"])
+    temp_file = Tempfile.new([ "active_agent", ".yml" ])
     temp_file.write(temp_config_content)
     temp_file.close
 
