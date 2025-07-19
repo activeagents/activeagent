@@ -57,7 +57,7 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
           custom_setting: <%= Rails.env %>
     YAML
 
-    temp_file = Tempfile.new(["active_agent_erb", ".yml"])
+    temp_file = Tempfile.new([ "active_agent_erb", ".yml" ])
     temp_file.write(erb_config)
     temp_file.close
 
@@ -93,7 +93,7 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
           model: "gpt-4"
     YAML
 
-    temp_file = Tempfile.new(["active_agent_multi_env", ".yml"])
+    temp_file = Tempfile.new([ "active_agent_multi_env", ".yml" ])
     temp_file.write(multi_env_config)
     temp_file.close
 
@@ -132,7 +132,7 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
           model: "gpt-4o-mini"
     YAML
 
-    temp_file = Tempfile.new(["active_agent_fallback", ".yml"])
+    temp_file = Tempfile.new([ "active_agent_fallback", ".yml" ])
     temp_file.write(fallback_config)
     temp_file.close
 

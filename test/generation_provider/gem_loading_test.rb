@@ -58,7 +58,7 @@ class OpenAIProviderGemLoadTest < ActiveSupport::TestCase
       end
     RUBY
 
-    temp_file = Tempfile.new(["test_provider", ".rb"])
+    temp_file = Tempfile.new([ "test_provider", ".rb" ])
     temp_file.write(temp_provider_content)
     temp_file.close
 
