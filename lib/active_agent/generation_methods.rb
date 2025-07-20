@@ -4,7 +4,7 @@ require "tmpdir"
 require_relative "action_prompt"
 
 module ActiveAgent
-  # = Active Agent \GenerationM74ethods
+  # = Active Agent \GenerationMethods
   #
   # This module handles everything related to prompt generation, from registering
   # new generation methods to configuring the prompt object to be sent.
