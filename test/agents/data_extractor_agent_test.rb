@@ -97,12 +97,12 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     # Mock a structured response
     mock_response = {
       "id" => "test-response-id",
-      "choices" => [{
+      "choices" => [ {
         "message" => {
           "role" => "assistant",
           "content" => '{"personal_info": {"name": "John Smith", "email": "john.smith@email.com"}, "skills": {"programming_languages": ["Ruby", "JavaScript"]}}'
         }
-      }]
+      } ]
     }
 
     # Test that the provider correctly parses the JSON response
@@ -112,7 +112,7 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert result.message.content.is_a?(Hash)
     assert_equal "John Smith", result.message.content[:personal_info][:name]
     assert_equal "john.smith@email.com", result.message.content[:personal_info][:email]
-    assert_equal ["Ruby", "JavaScript"], result.message.content[:skills][:programming_languages]
+    assert_equal [ "Ruby", "JavaScript" ], result.message.content[:skills][:programming_languages]
   end
 
   test "data extractor agent handles different text inputs" do

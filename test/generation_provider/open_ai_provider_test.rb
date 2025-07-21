@@ -10,13 +10,13 @@ class OpenAIProviderTest < ActiveSupport::TestCase
       "json_schema" => {
         "type" => "object",
         "properties" => {
-          "foo" => {"type" => "string"}
+          "foo" => { "type" => "string" }
         },
-        "required" => ["foo"]
+        "required" => [ "foo" ]
       }
     }
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {json_schema: config["json_schema"]},
+      options: { json_schema: config["json_schema"] },
       messages: [],
       actions: []
     )
@@ -34,14 +34,14 @@ class OpenAIProviderTest < ActiveSupport::TestCase
       "json_schema" => {
         "type" => "object",
         "properties" => {
-          "foo" => {"type" => "string"}
+          "foo" => { "type" => "string" }
         },
-        "required" => ["foo"]
+        "required" => [ "foo" ]
       }
     }
     provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {json_schema: config["json_schema"]},
+      options: { json_schema: config["json_schema"] },
       messages: [],
       actions: []
     )
@@ -60,7 +60,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
       "id" => "abc123"
     }
     result = provider.send(:chat_response, response)
-    assert_equal({foo: "bar"}, result.message.content)
+    assert_equal({ foo: "bar" }, result.message.content)
   end
   def setup
     # Store original configuration to restore later
@@ -166,16 +166,16 @@ class OpenAIProviderTest < ActiveSupport::TestCase
       schema: {
         type: "object",
         properties: {
-          name: {type: "string"},
-          age: {type: "integer"}
+          name: { type: "string" },
+          age: { type: "integer" }
         },
-        required: ["name", "age"]
+        required: [ "name", "age" ]
       },
       strict: true
     }
 
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {json_schema: json_schema},
+      options: { json_schema: json_schema },
       messages: [],
       actions: []
     )
@@ -197,9 +197,9 @@ class OpenAIProviderTest < ActiveSupport::TestCase
       "schema" => {
         "type" => "object",
         "properties" => {
-          "status" => {"type" => "string"}
+          "status" => { "type" => "string" }
         },
-        "required" => ["status"]
+        "required" => [ "status" ]
       }
     }
 
@@ -240,7 +240,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
       options: {
         json_schema: {
           type: "object",
-          properties: {message: {type: "string"}}
+          properties: { message: { type: "string" } }
         }
       },
       messages: [],
@@ -269,7 +269,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
       options: {
         json_schema: {
-          schema: {type: "object"},
+          schema: { type: "object" },
           strict: false
         }
       },
@@ -293,7 +293,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
 
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {response_format: {type: "json_object"}},
+      options: { response_format: { type: "json_object" } },
       messages: [],
       actions: []
     )
@@ -301,7 +301,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
 
     params = provider.send(:prompt_parameters)
 
-    assert_equal({type: "json_object"}, params[:response_format])
+    assert_equal({ type: "json_object" }, params[:response_format])
   end
 
   test "OpenAI provider detects structured output correctly" do
@@ -315,7 +315,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
 
     # Test with json_schema
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {json_schema: {type: "object"}},
+      options: { json_schema: { type: "object" } },
       messages: [],
       actions: []
     )
@@ -324,7 +324,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
 
     # Test with json_object response_format
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {response_format: {type: "json_object"}},
+      options: { response_format: { type: "json_object" } },
       messages: [],
       actions: []
     )
@@ -333,7 +333,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
 
     # Test with json_schema response_format
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {response_format: {type: "json_schema"}},
+      options: { response_format: { type: "json_schema" } },
       messages: [],
       actions: []
     )
@@ -361,7 +361,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
 
     # Mock prompt with json_schema
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {json_schema: {type: "object"}},
+      options: { json_schema: { type: "object" } },
       messages: [],
       actions: []
     )
@@ -370,19 +370,19 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     # Mock response with JSON content
     response = {
       "id" => "test-id",
-      "choices" => [{
+      "choices" => [ {
         "message" => {
           "role" => "assistant",
           "content" => '{"name": "John", "age": 30}'
         }
-      }]
+      } ]
     }
 
     # Call chat_response
     result = provider.send(:chat_response, response)
 
     # Verify the content was parsed as JSON
-    assert_equal({name: "John", age: 30}, result.message.content)
+    assert_equal({ name: "John", age: 30 }, result.message.content)
   end
 
   test "OpenAI provider handles invalid JSON gracefully for structured outputs" do
@@ -396,7 +396,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
 
     # Mock prompt with json_schema
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {json_schema: {type: "object"}},
+      options: { json_schema: { type: "object" } },
       messages: [],
       actions: []
     )
@@ -405,12 +405,12 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     # Mock response with invalid JSON content
     response = {
       "id" => "test-id",
-      "choices" => [{
+      "choices" => [ {
         "message" => {
           "role" => "assistant",
           "content" => "invalid json content"
         }
-      }]
+      } ]
     }
 
     # Call chat_response
@@ -425,14 +425,14 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     json_schema = {
       type: "object",
       properties: {
-        response: {type: "string"},
-        confidence: {type: "number"}
+        response: { type: "string" },
+        confidence: { type: "number" }
       },
-      required: ["response"]
+      required: [ "response" ]
     }
 
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {json_schema: json_schema},
+      options: { json_schema: json_schema },
       messages: [
         ActiveAgent::ActionPrompt::Message.new(content: "Hello", role: :user)
       ],
@@ -458,12 +458,12 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     # Test that prompt-level options take precedence over config-level options
     config_schema = {
       "type" => "object",
-      "properties" => {"config_field" => {"type" => "string"}}
+      "properties" => { "config_field" => { "type" => "string" } }
     }
 
     prompt_schema = {
       type: "object",
-      properties: {prompt_field: {type: "string"}}
+      properties: { prompt_field: { type: "string" } }
     }
 
     config = {
@@ -474,7 +474,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     }
 
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
-      options: {json_schema: prompt_schema},
+      options: { json_schema: prompt_schema },
       messages: [],
       actions: []
     )
@@ -511,10 +511,10 @@ class OpenAIProviderTest < ActiveSupport::TestCase
       options: {
         json_schema: {
           type: "object",
-          properties: {weather: {type: "string"}}
+          properties: { weather: { type: "string" } }
         }
       },
-      messages: [system_message, user_message],
+      messages: [ system_message, user_message ],
       actions: []
     )
 
@@ -542,19 +542,19 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     # Create actions using the framework's Action class
     action = ActiveAgent::ActionPrompt::Action.new(
       name: "get_weather",
-      params: {location: "San Francisco"}
+      params: { location: "San Francisco" }
     )
 
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
       options: {},
       messages: [],
-      actions: [action]
+      actions: [ action ]
     )
 
     provider.instance_variable_set(:@prompt, prompt)
 
     # Test that prompt_parameters includes tools
     params = provider.send(:prompt_parameters)
-    assert_equal [action], params[:tools]
+    assert_equal [ action ], params[:tools]
   end
 end
