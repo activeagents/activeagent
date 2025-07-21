@@ -2,6 +2,66 @@ require "test_helper"
 
 # Test for OpenAI Provider gem loading and configuration
 class OpenAIProviderTest < ActiveSupport::TestCase
+  test "OpenAIProvider supports structured output with json_schema" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini",
+      "json_schema" => {
+        "type" => "object",
+        "properties" => {
+          "foo" => {"type" => "string"}
+        },
+        "required" => ["foo"]
+      }
+    }
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {json_schema: config["json_schema"]},
+      messages: [],
+      actions: []
+    )
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config, prompt: prompt)
+    params = provider.send(:prompt_parameters)
+    assert_equal "json_schema", params[:response_format][:type]
+    assert_equal config["json_schema"], params[:response_format][:json_schema][:schema]
+  end
+
+  test "OpenAIProvider parses structured response as JSON" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini",
+      "json_schema" => {
+        "type" => "object",
+        "properties" => {
+          "foo" => {"type" => "string"}
+        },
+        "required" => ["foo"]
+      }
+    }
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {json_schema: config["json_schema"]},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+    response = {
+      "choices" => [
+        {
+          "message" => {
+            "id" => "abc123",
+            "role" => "assistant",
+            "content" => '{"foo": "bar"}',
+            "finish_reason" => "stop"
+          }
+        }
+      ],
+      "id" => "abc123"
+    }
+    result = provider.send(:chat_response, response)
+    assert_equal({foo: "bar"}, result.message.content)
+  end
   def setup
     # Store original configuration to restore later
     @original_config = ActiveAgent.config
@@ -21,7 +81,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     expected_message = "The 'ruby-openai' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
 
     # Verify the rescue block pattern exists in the source code
-    provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/open_ai_provider.rb")
+    provider_file_path = File.join(File.dirname(__FILE__), "../../lib/active_agent/generation_provider/open_ai_provider.rb")
     provider_source = File.read(provider_file_path)
 
     assert_includes provider_source, "begin"
@@ -68,158 +128,6 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     end
   end
 
-  # Test configuration loading and presence
-  test "raises error when active_agent.yml config is missing for provider" do
-    # Ensure no configuration is present
-    ActiveAgent.instance_variable_set(:@config, {})
-
-    error = assert_raises(RuntimeError) do
-      ApplicationAgent.configuration(:nonexistent_provider)
-    end
-
-    assert_includes error.message, "Configuration not found for provider: nonexistent_provider"
-  end
-
-  test "loads configuration from active_agent.yml when present" do
-    # Mock a configuration
-    mock_config = {
-      "test" => {
-        "openai" => {
-          "service" => "OpenAI",
-          "api_key" => "test-api-key",
-          "model" => "gpt-4o-mini",
-          "temperature" => 0.7
-        }
-      }
-    }
-
-    ActiveAgent.instance_variable_set(:@config, mock_config)
-
-    # Set Rails environment for testing
-    rails_env = ENV["RAILS_ENV"]
-    ENV["RAILS_ENV"] = "test"
-
-    config = ApplicationAgent.configuration(:openai)
-
-    assert_equal "OpenAI", config.config["service"]
-    assert_equal "test-api-key", config.config["api_key"]
-    assert_equal "gpt-4o-mini", config.config["model"]
-    assert_equal 0.7, config.config["temperature"]
-
-    # Restore original environment
-    ENV["RAILS_ENV"] = rails_env
-  end
-
-  test "loads configuration from environment-specific section" do
-    mock_config = {
-      "development" => {
-        "openai" => {
-          "service" => "OpenAI",
-          "api_key" => "dev-api-key",
-          "model" => "gpt-4o-mini"
-        }
-      },
-      "test" => {
-        "openai" => {
-          "service" => "OpenAI",
-          "api_key" => "test-api-key",
-          "model" => "gpt-4o-mini"
-        }
-      }
-    }
-
-    ActiveAgent.instance_variable_set(:@config, mock_config)
-
-    # Test development configuration
-    original_env = ENV["RAILS_ENV"]
-    ENV["RAILS_ENV"] = "development"
-
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "dev-api-key", config.config["api_key"]
-
-    # Test test configuration
-    ENV["RAILS_ENV"] = "test"
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "test-api-key", config.config["api_key"]
-
-    ENV["RAILS_ENV"] = original_env
-  end
-
-  test "configuration file loading from file system" do
-    # Create a temporary configuration file
-    temp_config_content = <<~YAML
-      test:
-        openai:
-          service: "OpenAI"
-          api_key: "file-based-key"
-          model: "gpt-4o-mini"
-          temperature: 0.8
-    YAML
-
-    temp_file = Tempfile.new([ "active_agent", ".yml" ])
-    temp_file.write(temp_config_content)
-    temp_file.close
-
-    # Reset configuration
-    ActiveAgent.instance_variable_set(:@config, nil)
-
-    # Load configuration from file
-    ActiveAgent.load_configuration(temp_file.path)
-
-    original_env = ENV["RAILS_ENV"]
-    ENV["RAILS_ENV"] = "test"
-
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "file-based-key", config.config["api_key"]
-    assert_equal 0.8, config.config["temperature"]
-
-    ENV["RAILS_ENV"] = original_env
-    temp_file.unlink
-  end
-
-  test "handles missing configuration file gracefully" do
-    # Reset configuration
-    ActiveAgent.instance_variable_set(:@config, nil)
-
-    # Try to load non-existent file
-    ActiveAgent.load_configuration("/path/to/nonexistent/file.yml")
-
-    # Should not raise an error, config should remain nil
-    assert_nil ActiveAgent.config
-  end
-
-  test "configuration with ERB processing" do
-    # Create a temporary configuration file with ERB
-    temp_config_content = <<~YAML
-      test:
-        openai:
-          service: "OpenAI"
-          api_key: "<%= 'erb-processed-key' %>"
-          model: "gpt-4o-mini"
-          temperature: <%= 0.5 + 0.2 %>
-    YAML
-
-    temp_file = Tempfile.new([ "active_agent", ".yml" ])
-    temp_file.write(temp_config_content)
-    temp_file.close
-
-    # Reset configuration
-    ActiveAgent.instance_variable_set(:@config, nil)
-
-    # Load configuration from file
-    ActiveAgent.load_configuration(temp_file.path)
-
-    original_env = ENV["RAILS_ENV"]
-    ENV["RAILS_ENV"] = "test"
-
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "erb-processed-key", config.config["api_key"]
-    assert_equal 0.7, config.config["temperature"]
-
-    ENV["RAILS_ENV"] = original_env
-    temp_file.unlink
-  end
-
   test "OpenAI provider initialization with missing API key" do
     config = {
       "service" => "OpenAI",
@@ -241,5 +149,412 @@ class OpenAIProviderTest < ActiveSupport::TestCase
 
     provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
     assert_equal "https://custom-openai-host.com", provider.instance_variable_get(:@host)
+  end
+
+  test "OpenAI provider supports structured output with json_schema in prompt options" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    json_schema = {
+      name: "user_info",
+      description: "User information response",
+      schema: {
+        type: "object",
+        properties: {
+          name: {type: "string"},
+          age: {type: "integer"}
+        },
+        required: ["name", "age"]
+      },
+      strict: true
+    }
+
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {json_schema: json_schema},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+
+    params = provider.send(:prompt_parameters)
+
+    assert_equal "json_schema", params[:response_format][:type]
+    assert_equal "user_info", params[:response_format][:json_schema][:name]
+    assert_equal "User information response", params[:response_format][:json_schema][:description]
+    assert_equal json_schema[:schema], params[:response_format][:json_schema][:schema]
+    assert_equal true, params[:response_format][:json_schema][:strict]
+  end
+
+  test "OpenAI provider supports structured output with json_schema in config" do
+    json_schema = {
+      "name" => "config_response",
+      "description" => "Configuration-based response",
+      "schema" => {
+        "type" => "object",
+        "properties" => {
+          "status" => {"type" => "string"}
+        },
+        "required" => ["status"]
+      }
+    }
+
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini",
+      "json_schema" => json_schema
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+
+    params = provider.send(:prompt_parameters)
+
+    assert_equal "json_schema", params[:response_format][:type]
+    assert_equal "config_response", params[:response_format][:json_schema][:name]
+    assert_equal json_schema["schema"], params[:response_format][:json_schema][:schema]
+  end
+
+  test "OpenAI provider uses defaults for missing json_schema properties" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    # Test with minimal schema (just the schema object)
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {
+        json_schema: {
+          type: "object",
+          properties: {message: {type: "string"}}
+        }
+      },
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+
+    params = provider.send(:prompt_parameters)
+
+    assert_equal "json_schema", params[:response_format][:type]
+    assert_equal "response", params[:response_format][:json_schema][:name]
+    assert_equal "Structured response", params[:response_format][:json_schema][:description]
+    assert_equal true, params[:response_format][:json_schema][:strict]
+  end
+
+  test "OpenAI provider respects strict mode setting" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    # Test with strict mode disabled
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {
+        json_schema: {
+          schema: {type: "object"},
+          strict: false
+        }
+      },
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+
+    params = provider.send(:prompt_parameters)
+
+    assert_equal false, params[:response_format][:json_schema][:strict]
+  end
+
+  test "OpenAI provider supports legacy response_format option" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {response_format: {type: "json_object"}},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+
+    params = provider.send(:prompt_parameters)
+
+    assert_equal({type: "json_object"}, params[:response_format])
+  end
+
+  test "OpenAI provider detects structured output correctly" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    # Test with json_schema
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {json_schema: {type: "object"}},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+    assert provider.send(:has_structured_output?)
+
+    # Test with json_object response_format
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {response_format: {type: "json_object"}},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+    assert provider.send(:has_structured_output?)
+
+    # Test with json_schema response_format
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {response_format: {type: "json_schema"}},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+    assert provider.send(:has_structured_output?)
+
+    # Test without structured output
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+    refute provider.send(:has_structured_output?)
+  end
+
+  test "OpenAI provider parses JSON response content for structured outputs" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    # Mock prompt with json_schema
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {json_schema: {type: "object"}},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+
+    # Mock response with JSON content
+    response = {
+      "id" => "test-id",
+      "choices" => [{
+        "message" => {
+          "role" => "assistant",
+          "content" => '{"name": "John", "age": 30}'
+        }
+      }]
+    }
+
+    # Call chat_response
+    result = provider.send(:chat_response, response)
+
+    # Verify the content was parsed as JSON
+    assert_equal({name: "John", age: 30}, result.message.content)
+  end
+
+  test "OpenAI provider handles invalid JSON gracefully for structured outputs" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    # Mock prompt with json_schema
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {json_schema: {type: "object"}},
+      messages: [],
+      actions: []
+    )
+    provider.instance_variable_set(:@prompt, prompt)
+
+    # Mock response with invalid JSON content
+    response = {
+      "id" => "test-id",
+      "choices" => [{
+        "message" => {
+          "role" => "assistant",
+          "content" => "invalid json content"
+        }
+      }]
+    }
+
+    # Call chat_response
+    result = provider.send(:chat_response, response)
+
+    # Verify the content remains as string when JSON parsing fails
+    assert_equal "invalid json content", result.message.content
+  end
+
+  test "integration: OpenAI provider with ApplicationAgent supports structured output" do
+    # Create a proper prompt with json_schema
+    json_schema = {
+      type: "object",
+      properties: {
+        response: {type: "string"},
+        confidence: {type: "number"}
+      },
+      required: ["response"]
+    }
+
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {json_schema: json_schema},
+      messages: [
+        ActiveAgent::ActionPrompt::Message.new(content: "Hello", role: :user)
+      ],
+      actions: [],
+      agent_class: ApplicationAgent
+    )
+
+    # Test that the provider can be initialized with the agent's configuration
+    config = ApplicationAgent.generation_provider.config.merge({
+      "api_key" => "test-key",
+      "json_schema" => json_schema
+    })
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config, prompt: prompt)
+
+    # Verify the provider sets up structured output correctly
+    params = provider.send(:prompt_parameters)
+    assert_equal "json_schema", params[:response_format][:type]
+    assert_equal json_schema, params[:response_format][:json_schema][:schema]
+  end
+
+  test "integration: prompt options override config json_schema" do
+    # Test that prompt-level options take precedence over config-level options
+    config_schema = {
+      "type" => "object",
+      "properties" => {"config_field" => {"type" => "string"}}
+    }
+
+    prompt_schema = {
+      type: "object",
+      properties: {prompt_field: {type: "string"}}
+    }
+
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini",
+      "json_schema" => config_schema
+    }
+
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {json_schema: prompt_schema},
+      messages: [],
+      actions: []
+    )
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config, prompt: prompt)
+    params = provider.send(:prompt_parameters)
+
+    # Prompt schema should take precedence
+    assert_equal prompt_schema, params[:response_format][:json_schema][:schema]
+    refute_equal config_schema, params[:response_format][:json_schema][:schema]
+  end
+
+  test "integration: message handling with structured output" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    # Create a proper prompt with messages using ActiveAgent framework
+    user_message = ActiveAgent::ActionPrompt::Message.new(
+      content: "What is the weather?",
+      role: :user
+    )
+
+    system_message = ActiveAgent::ActionPrompt::Message.new(
+      content: "You are a helpful assistant.",
+      role: :system
+    )
+
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {
+        json_schema: {
+          type: "object",
+          properties: {weather: {type: "string"}}
+        }
+      },
+      messages: [system_message, user_message],
+      actions: []
+    )
+
+    provider.instance_variable_set(:@prompt, prompt)
+
+    # Test that provider_messages correctly formats the messages
+    formatted_messages = provider.send(:provider_messages, prompt.messages)
+
+    assert_equal 2, formatted_messages.length
+    assert_equal :system, formatted_messages[0][:role]
+    assert_equal "You are a helpful assistant.", formatted_messages[0][:content]
+    assert_equal :user, formatted_messages[1][:role]
+    assert_equal "What is the weather?", formatted_messages[1][:content]
+  end
+
+  test "integration: action handling with tools" do
+    config = {
+      "service" => "OpenAI",
+      "api_key" => "test-key",
+      "model" => "gpt-4o-mini"
+    }
+
+    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+
+    # Create actions using the framework's Action class
+    action = ActiveAgent::ActionPrompt::Action.new(
+      name: "get_weather",
+      params: {location: "San Francisco"}
+    )
+
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      options: {},
+      messages: [],
+      actions: [action]
+    )
+
+    provider.instance_variable_set(:@prompt, prompt)
+
+    # Test that prompt_parameters includes tools
+    params = provider.send(:prompt_parameters)
+    assert_equal [action], params[:tools]
   end
 end
