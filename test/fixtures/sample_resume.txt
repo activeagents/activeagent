@@ -1,0 +1,27 @@
+John Smith
+Senior Software Engineer
+Email: john.smith@email.com
+Phone: (555) 123-4567
+Location: San Francisco, CA
+
+EXPERIENCE:
+- Software Engineer at Tech Corp (2020-2024)
+  * Developed web applications using Ruby on Rails
+  * Led a team of 5 developers
+  * Increased system performance by 40%
+
+- Junior Developer at StartupXYZ (2018-2020)
+  * Built REST APIs using Node.js
+  * Worked with React frontend development
+  * Collaborated with cross-functional teams
+
+EDUCATION:
+Bachelor of Science in Computer Science
+University of California, Berkeley (2014-2018)
+GPA: 3.8/4.0
+
+SKILLS:
+Programming Languages: Ruby, JavaScript, Python, Java
+Frameworks: Rails, React, Node.js, Express
+Databases: PostgreSQL, MongoDB, Redis
+Tools: Git, Docker, AWS, Jenkins

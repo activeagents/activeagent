@@ -6,9 +6,9 @@ module ActiveAgent
       class GenerationProviderError < StandardError; end
       attr_reader :client, :config, :prompt, :response
 
-      def initialize(config)
+      def initialize(config, prompt: nil)
         @config = config
-        @prompt = nil
+        @prompt = prompt
         @response = nil
       end
 
@@ -31,10 +31,19 @@ module ActiveAgent
       protected
 
       def prompt_parameters
-        {
+        params = {
           messages: @prompt.messages,
           temperature: @config["temperature"] || 0.7
         }
+
+        # Basic response format support (provider-specific implementations should override)
+        if @prompt.options[:response_format]
+          params[:response_format] = @prompt.options[:response_format]
+        elsif @config["response_format"]
+          params[:response_format] = @config["response_format"]
+        end
+
+        params
       end
     end
   end

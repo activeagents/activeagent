@@ -12,7 +12,7 @@ require_relative "response"
 module ActiveAgent
   module GenerationProvider
     class OpenAIProvider < Base
-      def initialize(config)
+      def initialize(config, prompt: nil)
         super
         @api_key = config["api_key"]
         @model_name = config["model"] || "gpt-4o-mini"
@@ -79,6 +79,35 @@ module ActiveAgent
           max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"],
           tools: tools.presence
         }.compact
+
+        # Structured output support using OpenAI's structured outputs feature
+        if @prompt.options[:json_schema]
+          params[:response_format] = {
+            type: "json_schema",
+            json_schema: {
+              name: @prompt.options[:json_schema][:name] || "response",
+              description: @prompt.options[:json_schema][:description] || "Structured response",
+              schema: @prompt.options[:json_schema][:schema] || @prompt.options[:json_schema],
+              strict: @prompt.options[:json_schema][:strict] != false
+            }
+          }
+        elsif @config["json_schema"]
+          params[:response_format] = {
+            type: "json_schema",
+            json_schema: {
+              name: @config["json_schema"]["name"] || "response",
+              description: @config["json_schema"]["description"] || "Structured response",
+              schema: @config["json_schema"]["schema"] || @config["json_schema"],
+              strict: @config["json_schema"]["strict"] != false
+            }
+          }
+        elsif @prompt.options[:response_format]
+          params[:response_format] = @prompt.options[:response_format]
+        elsif @config["response_format"]
+          params[:response_format] = @config["response_format"]
+        end
+
+        params
       end
 
       def provider_messages(messages)
@@ -87,7 +116,7 @@ module ActiveAgent
             role: message.role,
             tool_call_id: message.action_id.presence,
             name: message.action_name.presence,
-            tool_calls: message.raw_actions.present? ? message.raw_actions[:tool_calls] : (message.requested_actions.map { |action| { type: "function", name: action.name, arguments: action.params.to_json } } if message.action_requested),
+            tool_calls: message.raw_actions.present? ? message.raw_actions[:tool_calls] : (message.requested_actions.map { |action| {type: "function", name: action.name, arguments: action.params.to_json} } if message.action_requested),
             generation_id: message.generation_id,
             content: message.content,
             type: message.content_type,
@@ -96,7 +125,7 @@ module ActiveAgent
 
           if message.content_type == "image_url" || message.content[0..4] == "data:"
             provider_message[:type] = "image_url"
-            provider_message[:image_url] = { url: message.content }
+            provider_message[:image_url] = {url: message.content}
           end
           provider_message
         end
@@ -106,6 +135,17 @@ module ActiveAgent
         return @response if prompt.options[:stream]
         message_json = response.dig("choices", 0, "message")
         message_json["id"] = response.dig("id") if message_json["id"].blank?
+
+        # Handle structured outputs by parsing JSON content
+        if has_structured_output? && message_json["content"].is_a?(String)
+          begin
+            parsed_content = JSON.parse(message_json["content"], symbolize_names: true)
+            message_json["content"] = parsed_content
+          rescue JSON::ParserError
+            # If JSON parsing fails, leave content as string for debugging
+          end
+        end
+
         message = handle_message(message_json)
 
         update_context(prompt: prompt, message: message, response: response)
@@ -129,7 +169,7 @@ module ActiveAgent
 
         tool_calls.map do |tool_call|
           next if tool_call["function"].nil? || tool_call["function"]["name"].blank?
-          args = tool_call["function"]["arguments"].blank? ? nil : JSON.parse(tool_call["function"]["arguments"], { symbolize_names: true })
+          args = tool_call["function"]["arguments"].blank? ? nil : JSON.parse(tool_call["function"]["arguments"], {symbolize_names: true})
 
           ActiveAgent::ActionPrompt::Action.new(
             id: tool_call["id"],
@@ -137,6 +177,20 @@ module ActiveAgent
             params: args
           )
         end.compact
+      end
+
+      # Check if structured output is being used
+      def has_structured_output?
+        structured_formats = ["json_schema", "json_object"]
+
+        # Check if response_format indicates structured output
+        response_format = prompt.options[:response_format] || config["response_format"]
+        if response_format.is_a?(Hash) && structured_formats.include?(response_format[:type] || response_format["type"])
+          return true
+        end
+
+        # Check if json_schema is specified
+        prompt.options[:json_schema] || config["json_schema"]
       end
 
       def chat_prompt(parameters: prompt_parameters)

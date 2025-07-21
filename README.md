@@ -10,3 +10,15 @@ Active Agent provides that missing AI layer in the Rails framework, offering a s
 
 ## Documentation
 [docs.activeagents.ai](https://docs.activeagents.ai) - The official documentation site for Active Agent.
+
+### Run the documentation locally
+To run the documentation for installed gem locally, you can use the following command from the activeagent gem's root directory:
+```bash
+bin/docs
+```
+
+### Run the tests
+To run the tests for the Active Agent gem, you can use the following command from the activeagent gem's root directory:
+```bash
+bin/test
+```
