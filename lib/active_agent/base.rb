@@ -29,8 +29,16 @@ module ActiveAgent
     # ActiveAgent::Base is designed to be extended by specific agent implementations.
     # It provides a common set of agent actions for self-contained agents that can determine their own actions using all available actions.
     # Base actions include: prompt_context, continue, reasoning, reiterate, and conclude
-    def prompt_context
-      prompt(stream: params[:stream], messages: params[:messages], message: params[:message], context_id: params[:context_id])
+    def prompt_context(additional_options = {})
+      prompt(
+        {
+          stream: params[:stream], 
+          messages: params[:messages], 
+          message: params[:message], 
+          context_id: params[:context_id],
+          options: params[:options]
+        }.merge(additional_options)
+      )
     end
   end
 end
