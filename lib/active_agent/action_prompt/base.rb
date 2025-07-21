@@ -30,7 +30,7 @@ module ActiveAgent
 
       include ActionView::Layouts
 
-      PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
+      PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [:@_action_has_layout]
 
       helper ActiveAgent::PromptHelper
 
@@ -40,7 +40,7 @@ module ActiveAgent
         mime_version: "1.0",
         charset: "UTF-8",
         content_type: "text/plain",
-        parts_order: [ "text/plain", "text/enriched", "text/html" ]
+        parts_order: ["text/plain", "text/enriched", "text/html"]
       }.freeze
 
       class << self
@@ -105,9 +105,19 @@ module ActiveAgent
         # Define how the agent should generate content
         def generate_with(provider, **options)
           self.generation_provider = provider
-          self.options = (options || {}).merge(options)
+
+          # Store agent-level options that can be overridden at runtime
+          # Only merge inherited options with explicitly provided options
+          if options.has_key?(:instructions) || (self.options || {}).empty?
+            # Either instructions explicitly provided, or no inherited options exist
+            self.options = (self.options || {}).merge(options)
+          else
+            # Don't inherit instructions from parent if not explicitly set
+            inherited_options = (self.options || {}).except(:instructions)
+            self.options = inherited_options.merge(options)
+          end
           self.options[:stream] = new.agent_stream if self.options[:stream]
-          generation_provider.config.merge!(self.options)
+          # Don't modify the provider config directly, let the merge_option_hierarchy handle it at runtime
         end
 
         def stream_with(&stream)
@@ -239,7 +249,7 @@ module ActiveAgent
       def initialize
         super
         @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: options)
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options || {})
       end
 
       def process(method_name, *args) # :nodoc:
@@ -294,9 +304,14 @@ module ActiveAgent
       def prompt(headers = {}, &block)
         return context if @_prompt_was_called && headers.blank? && !block
 
+        # Apply option hierarchy: prompt options > agent options > config options
+        merged_options = merge_option_hierarchy(headers)
         raw_instructions = headers.has_key?(:instructions) ? headers[:instructions] : context.options[:instructions]
+
         context.instructions = prepare_instructions(raw_instructions)
-        context.options.merge!(options)
+
+        context.options.merge!(merged_options)
+
         content_type = headers[:content_type]
         headers = apply_defaults(headers)
         context.messages = headers[:messages] || []
@@ -326,7 +341,7 @@ module ActiveAgent
         context.actions = headers[:actions] || action_schemas
 
         if (action_methods - ActiveAgent::Base.descendants.first.action_methods).include? action_name
-          context.actions = (action_methods - [ action_name ])
+          context.actions = (action_methods - [action_name])
         end
 
         context
@@ -337,16 +352,72 @@ module ActiveAgent
       end
 
       def action_schemas
-        prefixes = lookup_context.prefixes | [ self.class.agent_name ]
+        prefixes = lookup_context.prefixes | [self.class.agent_name]
 
         action_methods.map do |action|
-          next unless lookup_context.template_exists?(action, prefixes, false, formats: [ :json ])
+          next unless lookup_context.template_exists?(action, prefixes, false, formats: [:json])
 
-          JSON.parse render_to_string(locals: { action_name: action }, action: action, formats: :json)
+          JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
         end.compact
       end
 
       private
+
+      def merge_option_hierarchy(prompt_options)
+        # Option hierarchy (highest to lowest priority):
+        # 1. Prompt-level options (passed to prompt method)
+        # 2. Agent-level options (set via generate_with or class options)
+        # 3. Config-level options (from configuration files)
+
+        config_options = generation_provider&.config || {}
+        agent_options = (self.class.options || {}).deep_dup  # Defensive copy to prevent mutation
+
+        # Check if this specific agent class has its own options (not inherited)
+        # We need to check if this class has called generate_with itself
+        parent_options = self.class.superclass.respond_to?(:options) ? (self.class.superclass.options || {}) : {}
+        own_agent_options = agent_options.reject { |k, v| parent_options[k] == v }
+
+        # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
+        runtime_options = prompt_options.slice(
+          :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
+          :presence_penalty, :response_format, :seed, :stop, :tools_choice, :user
+        )
+
+        # Handle explicit options parameter
+        explicit_options = prompt_options[:options] || {}
+
+        # Merge with proper precedence: config < agent < explicit_options
+        # Don't include instructions in automatic merging as it has special template fallback logic
+        config_options_filtered = config_options.except(:instructions)
+        agent_options_filtered = agent_options.except(:instructions)
+        explicit_options_filtered = explicit_options.except(:instructions)
+
+        merged = config_options_filtered.merge(agent_options_filtered).merge(explicit_options_filtered)
+
+        # Only merge runtime options that are actually present (not nil)
+        runtime_options.each do |key, value|
+          next if value.nil?
+          # Special handling for stream option: preserve agent_stream proc if it exists
+          if key == :stream && agent_options[:stream].is_a?(Proc) && !value.is_a?(Proc)
+            # Don't override the agent's stream proc with a boolean
+            next
+          end
+          merged[key] = value
+        end
+
+        # # Handle instructions separately: only include if explicitly provided by this agent (not inherited)
+        # if prompt_options.has_key?(:instructions)
+        #   merged[:instructions] = prompt_options[:instructions]
+        # elsif explicit_options.has_key?(:instructions)
+        #   merged[:instructions] = explicit_options[:instructions]
+        # elsif own_agent_options.has_key?(:instructions)
+        #   merged[:instructions] = own_agent_options[:instructions]
+        # elsif config_options.has_key?(:instructions)
+        #   merged[:instructions] = config_options[:instructions]
+        # end
+
+        merged
+      end
 
       def set_content_type(m, user_content_type, class_default) # :doc:
         if user_content_type.present?
@@ -362,7 +433,7 @@ module ActiveAgent
       # If the subject has interpolations, you can pass them through the +interpolations+ parameter.
       def default_i18n_subject(interpolations = {}) # :doc:
         agent_scope = self.class.agent_name.tr("/", ".")
-        I18n.t(:subject, **interpolations.merge(scope: [ agent_scope, action_name ], default: action_name.humanize))
+        I18n.t(:subject, **interpolations.merge(scope: [agent_scope, action_name], default: action_name.humanize))
       end
 
       def apply_defaults(headers)
@@ -408,10 +479,10 @@ module ActiveAgent
       end
 
       def collect_responses_from_text(headers)
-        [ {
+        [{
           body: headers.delete(:body),
           content_type: headers[:content_type] || "text/plain"
-        } ]
+        }]
       end
 
       def collect_responses_from_templates(headers)
@@ -421,7 +492,7 @@ module ActiveAgent
         each_template(Array(templates_path), templates_name).map do |template|
           format = template.format || formats.first
           {
-            body: render(template: template, formats: [ format ]),
+            body: render(template: template, formats: [format]),
             content_type: Mime[format].to_s
           }
         end.compact
@@ -460,17 +531,17 @@ module ActiveAgent
         case instructions
         when Hash
           raise ArgumentError, "Expected `:template` key in instructions hash" unless instructions[:template]
-          return unless lookup_context.exists?(instructions[:template], agent_name, false, [], formats: [ :text ])
+          return unless lookup_context.exists?(instructions[:template], agent_name, false, [], formats: [:text])
 
-          template = lookup_context.find_template(instructions[:template], agent_name, false, [], formats: [ :text ])
+          template = lookup_context.find_template(instructions[:template], agent_name, false, [], formats: [:text])
           render_to_string(template: template.virtual_path, locals: instructions[:locals] || {}, layout: false)
         when String
           instructions
         when NilClass
           default_template_name = "instructions"
-          return unless lookup_context.exists?(default_template_name, agent_name, false, [], formats: [ :text ])
+          return unless lookup_context.exists?(default_template_name, agent_name, false, [], formats: [:text])
 
-          template = lookup_context.find_template(default_template_name, agent_name, false, [], formats: [ :text ])
+          template = lookup_context.find_template(default_template_name, agent_name, false, [], formats: [:text])
           render_to_string(template: template.virtual_path, layout: false)
         else
           raise ArgumentError, "Instructions must be Hash, String or NilClass objects"
