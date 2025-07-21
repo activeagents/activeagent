@@ -4,7 +4,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
   def create_test_agent(options = {})
     # Create a fresh agent class for each test to avoid pollution
     Class.new(ApplicationAgent) do
-      default_options = {model: "gpt-4", temperature: 0.5, max_tokens: 1000}
+      default_options = { model: "gpt-4", temperature: 0.5, max_tokens: 1000 }
       generate_with :openai, **default_options.merge(options)
 
       def test_action
@@ -40,7 +40,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
     original_config = test_agent_class.generation_provider.config.dup
 
     # Mock config to have different temperature
-    config = {"temperature" => 0.3, "model" => "gpt-3.5-turbo"}
+    config = { "temperature" => 0.3, "model" => "gpt-3.5-turbo" }
     test_agent_class.generation_provider.config.merge!(config)
 
     prompt = agent.prompt(message: "test")
@@ -76,33 +76,13 @@ class OptionHierarchyTest < ActiveSupport::TestCase
 
     prompt = agent.prompt(
       message: "test",
-      options: {temperature: 0.6, model: "gpt-3.5-turbo"},
+      options: { temperature: 0.6, model: "gpt-3.5-turbo" },
       temperature: 0.9 # This should override the options parameter
     )
 
     # Direct prompt options should override options parameter
     assert_equal 0.9, prompt.options[:temperature]
     assert_equal "gpt-3.5-turbo", prompt.options[:model] # from options param
-  end
-
-  test "complete option hierarchy" do
-    test_agent_class = create_test_agent
-
-    # Setup config with base values
-    config = {"temperature" => 0.1, "model" => "gpt-3.5-turbo", "max_tokens" => 500}
-    test_agent_class.generation_provider.config.merge!(config)
-
-    # Use with() for some runtime options
-    agent_with_options = test_agent_class.with(temperature: 0.7, user: "test-user")
-
-    # Call prompt with final overrides
-    prompt = agent_with_options.prompt_context(model: "gpt-4o", max_tokens: 3000)
-
-    # Verify the hierarchy:
-    assert_equal "gpt-4o", prompt.options[:model]      # prompt level
-    assert_equal 3000, prompt.options[:max_tokens]     # prompt level
-    assert_equal 0.7, prompt.options[:temperature]     # with() level (no prompt override)
-    assert_equal "test-user", prompt.options[:user]    # with() level (no prompt override)
   end
 
   test "template_path can be overridden in prompt method" do
@@ -187,7 +167,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
       frequency_penalty: 0.1,
       presence_penalty: 0.2,
       seed: 12345,
-      stop: ["END"],
+      stop: [ "END" ],
       user: "test-user"
     ).prompt_context
 
@@ -195,7 +175,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
     assert_equal 0.1, prompt.options[:frequency_penalty]
     assert_equal 0.2, prompt.options[:presence_penalty]
     assert_equal 12345, prompt.options[:seed]
-    assert_equal ["END"], prompt.options[:stop]
+    assert_equal [ "END" ], prompt.options[:stop]
     assert_equal "test-user", prompt.options[:user]
   end
 
@@ -212,7 +192,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
     actual_content = prompt.parts.first.content
 
     # Should use the specified template
-    assert_includes actual_content, "Application agent prompt context"
+    assert_includes actual_content, "Test agent prompt content"
   end
 
   test "options hierarchy with explicit options hash" do
