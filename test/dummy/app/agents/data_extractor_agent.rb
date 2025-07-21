@@ -11,37 +11,37 @@ class DataExtractorAgent < ApplicationAgent
         personal_info: {
           type: "object",
           properties: {
-            name: {type: "string"},
-            title: {type: "string"},
-            email: {type: "string"},
-            phone: {type: "string"},
-            location: {type: "string"}
+            name: { type: "string" },
+            title: { type: "string" },
+            email: { type: "string" },
+            phone: { type: "string" },
+            location: { type: "string" }
           },
-          required: ["name"]
+          required: [ "name" ]
         },
         experience: {
           type: "array",
           items: {
             type: "object",
             properties: {
-              company: {type: "string"},
-              position: {type: "string"},
-              duration: {type: "string"},
+              company: { type: "string" },
+              position: { type: "string" },
+              duration: { type: "string" },
               achievements: {
                 type: "array",
-                items: {type: "string"}
+                items: { type: "string" }
               }
             },
-            required: ["company", "position"]
+            required: [ "company", "position" ]
           }
         },
         education: {
           type: "object",
           properties: {
-            degree: {type: "string"},
-            institution: {type: "string"},
-            duration: {type: "string"},
-            gpa: {type: "string"}
+            degree: { type: "string" },
+            institution: { type: "string" },
+            duration: { type: "string" },
+            gpa: { type: "string" }
           }
         },
         skills: {
@@ -49,24 +49,24 @@ class DataExtractorAgent < ApplicationAgent
           properties: {
             programming_languages: {
               type: "array",
-              items: {type: "string"}
+              items: { type: "string" }
             },
             frameworks: {
               type: "array",
-              items: {type: "string"}
+              items: { type: "string" }
             },
             databases: {
               type: "array",
-              items: {type: "string"}
+              items: { type: "string" }
             },
             tools: {
               type: "array",
-              items: {type: "string"}
+              items: { type: "string" }
             }
           }
         }
       },
-      required: ["personal_info"]
+      required: [ "personal_info" ]
     }
 
     context = prompt(message: params[:text])
@@ -79,12 +79,12 @@ class DataExtractorAgent < ApplicationAgent
     json_schema = {
       type: "object",
       properties: {
-        name: {type: "string"},
-        email: {type: "string"},
-        phone: {type: "string"},
-        location: {type: "string"}
+        name: { type: "string" },
+        email: { type: "string" },
+        phone: { type: "string" },
+        location: { type: "string" }
       },
-      required: ["name"]
+      required: [ "name" ]
     }
 
     context = prompt(message: params[:text])
@@ -99,15 +99,15 @@ class DataExtractorAgent < ApplicationAgent
       properties: {
         technical_skills: {
           type: "array",
-          items: {type: "string"}
+          items: { type: "string" }
         },
         soft_skills: {
           type: "array",
-          items: {type: "string"}
+          items: { type: "string" }
         },
         certifications: {
           type: "array",
-          items: {type: "string"}
+          items: { type: "string" }
         }
       }
     }
