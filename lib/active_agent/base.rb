@@ -32,9 +32,9 @@ module ActiveAgent
     def prompt_context(additional_options = {})
       prompt(
         {
-          stream: params[:stream], 
-          messages: params[:messages], 
-          message: params[:message], 
+          stream: params[:stream],
+          messages: params[:messages],
+          message: params[:message],
           context_id: params[:context_id],
           options: params[:options]
         }.merge(additional_options)
