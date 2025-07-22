@@ -16,7 +16,7 @@ json.properties do
     json.properties do
       json.overall do
         json.type "string"
-        json.enum ["positive", "negative", "neutral"]
+        json.enum [ "positive", "negative", "neutral" ]
       end
       json.confidence do
         json.type "number"
@@ -24,11 +24,11 @@ json.properties do
         json.maximum 1
       end
     end
-    json.required ["overall", "confidence"]
+    json.required [ "overall", "confidence" ]
   end
   json.document_type do
     json.type "string"
-    json.enum ["resume", "article", "report", "email", "legal", "technical", "other"]
+    json.enum [ "resume", "article", "report", "email", "legal", "technical", "other" ]
     json.description "The identified type of document"
   end
   json.key_entities do
@@ -41,10 +41,10 @@ json.properties do
         end
         json.type do
           json.type "string"
-          json.enum ["person", "organization", "location", "date", "skill", "other"]
+          json.enum [ "person", "organization", "location", "date", "skill", "other" ]
         end
       end
-      json.required ["entity", "type"]
+      json.required [ "entity", "type" ]
     end
   end
   json.readability_score do
@@ -54,4 +54,4 @@ json.properties do
     json.description "Estimated readability score (0-100, higher is more readable)"
   end
 end
-json.required ["summary", "key_topics", "sentiment", "document_type"]
+json.required [ "summary", "key_topics", "sentiment", "document_type" ]

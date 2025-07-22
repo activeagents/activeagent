@@ -11,7 +11,7 @@ json.function do
       end
       json.analysis_type do
         json.type :string
-        json.enum ["summary", "key_points", "sentiment", "full"]
+        json.enum [ "summary", "key_points", "sentiment", "full" ]
         json.description "The type of analysis to perform on the document."
       end
       json.use_structured_output do
@@ -20,6 +20,6 @@ json.function do
         json.default false
       end
     end
-    json.required ["text"]
+    json.required [ "text" ]
   end
 end

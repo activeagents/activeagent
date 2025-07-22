@@ -9,12 +9,12 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     # Test that the agent can load schemas from JSON views
     agent = DataExtractorAgent.new
     agent.params = { text: @sample_text }
-    
+
     # Test each action can load its schema from view using the new prompt parameter
     %w[extract_resume_data_schema extract_contact_info_schema extract_skills_schema].each do |template_name|
       # Test the load_structured_output_schema_from_view method directly
       schema = agent.send(:load_structured_output_schema_from_view, template_name)
-      
+
       assert schema.present?, "Schema should be loaded for template #{template_name}"
       assert_equal "object", schema["type"], "Schema should be an object for template #{template_name}"
       assert schema["properties"].present?, "Schema should have properties for template #{template_name}"
@@ -30,11 +30,10 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     schema1 = agent.send(:load_structured_output_schema_from_view, { template: "extract_resume_data_schema" })
     assert schema1.present?
 
-    
+
     schema2 = agent.send(:load_structured_output_schema_from_view, "extract_resume_data_schema")
     assert schema2.present?
     assert_equal schema1, schema2
-
   end
 
   test "data extractor agent demonstrates usage patterns" do
@@ -73,16 +72,16 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     generation1 = agent.analyze_document
     prompt1 = generation1.context
     assert_equal "Analyze this document: #{@sample_text}", prompt1.message.content
-    
+
     agent_instance = DataExtractorAgent.new
     agent_instance.action_name = "analyze_document"
     all_schemas = agent_instance.send(:action_schemas)
-    
+
     agent2 = DataExtractorAgent.with(text: @sample_text, use_structured_output: true)
     generation2 = agent2.analyze_document
     prompt2 = generation2.context
     assert_equal "Analyze this document: #{@sample_text}", prompt2.message.content
-    
+
     schema2 = prompt2.options[:json_schema]
     assert schema2.present?
     assert_equal "object", schema2["type"], "Should have object type for structured output"
@@ -91,15 +90,15 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
 
   test "data extractor agent demonstrates complete refactoring" do
     agent = DataExtractorAgent.with(text: "Test document")
-  
+
     result = agent.extract_resume_data
     assert result.context.options[:json_schema].present?
     assert_equal "object", result.context.options[:json_schema]["type"]
-  
+
     tool_result = agent.analyze_document
     structured_result = DataExtractorAgent.with(text: "Test document", use_structured_output: true).analyze_document
-  
-    assert structured_result.context.options[:json_schema].present?  
+
+    assert structured_result.context.options[:json_schema].present?
     assert_equal "object", structured_result.context.options[:json_schema]["type"]
   end
 

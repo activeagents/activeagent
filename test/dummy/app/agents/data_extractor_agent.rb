@@ -22,11 +22,11 @@ class DataExtractorAgent < ApplicationAgent
     # This action can serve both as:
     # 1. A tool that other agents can call (tool schema in analyze_document.json.jbuilder)
     # 2. An action with structured output (output schema in analyze_document_output.json.jbuilder)
-    
+
     if params[:use_structured_output]
       # Use structured output for analysis results
       prompt(
-        message: "Analyze this document: #{params[:text]}", 
+        message: "Analyze this document: #{params[:text]}",
         structured_output: { template: "analyze_document_output" }
       )
     else
