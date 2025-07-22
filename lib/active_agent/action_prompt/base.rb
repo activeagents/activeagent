@@ -30,7 +30,7 @@ module ActiveAgent
 
       include ActionView::Layouts
 
-      PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
+      PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [:@_action_has_layout]
 
       helper ActiveAgent::PromptHelper
 
@@ -40,7 +40,7 @@ module ActiveAgent
         mime_version: "1.0",
         charset: "UTF-8",
         content_type: "text/plain",
-        parts_order: [ "text/plain", "text/enriched", "text/html" ]
+        parts_order: ["text/plain", "text/enriched", "text/html"]
       }.freeze
 
       class << self
@@ -337,6 +337,11 @@ module ActiveAgent
         context.charset = charset
         context.actions = headers[:actions] || action_schemas
 
+        # Handle JSON schema loading from views
+        if headers[:json_schema]
+          context.options[:json_schema] = load_json_schema_from_view(headers[:json_schema])
+        end
+
         context
       end
 
@@ -345,12 +350,12 @@ module ActiveAgent
       end
 
       def action_schemas
-        prefixes = lookup_context.prefixes | [ self.class.agent_name ]
+        prefixes = lookup_context.prefixes | [self.class.agent_name]
 
         action_methods.map do |action|
-          next unless lookup_context.template_exists?(action, prefixes, false, formats: [ :json ])
+          next unless lookup_context.template_exists?(action, prefixes, false, formats: [:json])
 
-          JSON.parse render_to_string(locals: { action_name: action }, action: action, formats: :json)
+          JSON.parse render_to_string(locals: {action_name: action}, action: action, formats: :json)
         end.compact
       end
 
@@ -406,7 +411,7 @@ module ActiveAgent
       # If the subject has interpolations, you can pass them through the +interpolations+ parameter.
       def default_i18n_subject(interpolations = {}) # :doc:
         agent_scope = self.class.agent_name.tr("/", ".")
-        I18n.t(:subject, **interpolations.merge(scope: [ agent_scope, action_name ], default: action_name.humanize))
+        I18n.t(:subject, **interpolations.merge(scope: [agent_scope, action_name], default: action_name.humanize))
       end
 
       def apply_defaults(headers)
@@ -452,10 +457,10 @@ module ActiveAgent
       end
 
       def collect_responses_from_text(headers)
-        [ {
+        [{
           body: headers.delete(:body),
           content_type: headers[:content_type] || "text/plain"
-        } ]
+        }]
       end
 
       def collect_responses_from_templates(headers)
@@ -465,7 +470,7 @@ module ActiveAgent
         each_template(Array(templates_path), templates_name).map do |template|
           format = template.format || formats.first
           {
-            body: render(template: template, formats: [ format ]),
+            body: render(template: template, formats: [format]),
             content_type: Mime[format].to_s
           }
         end.compact
@@ -504,20 +509,45 @@ module ActiveAgent
         case instructions
         when Hash
           raise ArgumentError, "Expected `:template` key in instructions hash" unless instructions[:template]
-          return unless lookup_context.exists?(instructions[:template], agent_name, false, [], formats: [ :text ])
+          return unless lookup_context.exists?(instructions[:template], agent_name, false, [], formats: [:text])
 
-          template = lookup_context.find_template(instructions[:template], agent_name, false, [], formats: [ :text ])
+          template = lookup_context.find_template(instructions[:template], agent_name, false, [], formats: [:text])
           render_to_string(template: template.virtual_path, locals: instructions[:locals] || {}, layout: false)
         when String
           instructions
         when NilClass
           default_template_name = "instructions"
-          return unless lookup_context.exists?(default_template_name, agent_name, false, [], formats: [ :text ])
+          return unless lookup_context.exists?(default_template_name, agent_name, false, [], formats: [:text])
 
-          template = lookup_context.find_template(default_template_name, agent_name, false, [], formats: [ :text ])
+          template = lookup_context.find_template(default_template_name, agent_name, false, [], formats: [:text])
           render_to_string(template: template.virtual_path, layout: false)
         else
           raise ArgumentError, "Instructions must be Hash, String or NilClass objects"
+        end
+      end
+
+      # Load JSON schema from view templates based on the json_schema parameter
+      def load_json_schema_from_view(json_schema_option)
+        case json_schema_option
+        when true
+          # Load schema from action_name.json.erb or action_name.json.jbuilder
+          template_name = action_name
+        when Hash
+          # Load schema from specified template
+          template_name = json_schema_option[:template]&.sub(/\.json\.(erb|jbuilder)$/, "") || action_name
+        when String
+          # Load schema from specified template name
+          template_name = json_schema_option.sub(/\.json\.(erb|jbuilder)$/, "")
+        else
+          raise ArgumentError, "json_schema must be true, String, or Hash with :template key"
+        end
+
+        prefixes = lookup_context.prefixes | [self.class.agent_name]
+
+        if lookup_context.template_exists?(template_name, prefixes, false, formats: [:json])
+          JSON.parse(render_to_string(action: template_name, formats: :json))
+        else
+          raise ActionView::MissingTemplate, "Could not find JSON schema template #{template_name}.json.erb or #{template_name}.json.jbuilder"
         end
       end
 
