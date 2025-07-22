@@ -1,3 +1,5 @@
+require "securerandom"
+
 module ActiveAgent
   module ActionPrompt
     class Message
@@ -18,7 +20,7 @@ module ActiveAgent
       end
       VALID_ROLES = %w[system assistant user tool].freeze
 
-      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset
+      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset, :message_id, :to
 
       def initialize(attributes = {})
         @action_id = attributes[:action_id]
@@ -31,6 +33,8 @@ module ActiveAgent
         @raw_actions = attributes[:raw_actions]
         @requested_actions = attributes[:requested_actions] || []
         @action_requested = @requested_actions.any?
+        @message_id = attributes[:message_id] || SecureRandom.uuid
+        @to = attributes[:to] || ["test-receiver@test.com"]
         validate_role
       end
 
