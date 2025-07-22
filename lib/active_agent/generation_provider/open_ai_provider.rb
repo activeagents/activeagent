@@ -94,7 +94,9 @@ module ActiveAgent
       end
 
       def chat_response(response)
-        return @response if prompt.options[:stream]
+        if (prompt.options[:stream] || config["stream"]) && @response
+          return @response 
+        end
         message_json = response.dig("choices", 0, "message")
         message_json["id"] = response.dig("id") if message_json["id"].blank?
         message = handle_message(message_json)

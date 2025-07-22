@@ -9,7 +9,6 @@ module ActiveAgent
   module ActionPrompt
     class Base < AbstractController::Base
       include Callbacks
-      include GenerationProvider
       include GenerationProviders
       include QueuedGeneration
       include Rescuable
@@ -105,13 +104,17 @@ module ActiveAgent
         # Define how the agent should generate content
         def generate_with(provider, **options)
           self.generation_provider = provider
-          self.options = (options || {}).merge(options)
-          self.options[:stream] = new.agent_stream if self.options[:stream]
-          if generation_provider.is_a?(Symbol)
-            self.generation_provider = generation_providers[generation_provider]
+          # Store provider-specific settings
+          provider_settings_method = :"#{provider}_settings"
+          if respond_to?(provider_settings_method)
+            current_settings = public_send(provider_settings_method) || {}
+            public_send(:"#{provider_settings_method}=", current_settings.merge(options))
           else
-            generation_provider.config.merge!(self.options)
+            class_attribute(provider_settings_method) unless respond_to?(provider_settings_method)
+            public_send(:"#{provider_settings_method}=", options)
           end
+          self.options = (self.options || {}).merge(options)
+          self.options[:stream] = new.agent_stream if self.options[:stream]
         end
 
         def stream_with(&stream)
@@ -242,9 +245,9 @@ module ActiveAgent
 
       def initialize
         super
-        options ||= {}
+        self.options ||= {}
         @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: options[:instructions], options: options)
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(instructions: self.options[:instructions], options: self.options)
       end
 
       def process(method_name, *args) # :nodoc:
@@ -292,14 +295,17 @@ module ActiveAgent
         end
       end
 
+      def message
+        @_context&.message
+      end
+
       def prompt_with(*)
         context.update_context(*)
       end
 
       def prompt(headers = {}, &block)
         return context if @_prompt_was_called && headers.blank? && !block
-        options ||= {}
-        context.options.merge!(options)
+        context.options.merge!(self.options || {})
         content_type = headers[:content_type]
         headers = apply_defaults(headers)
         context.messages = headers[:messages] || []

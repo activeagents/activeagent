@@ -1,3 +1,5 @@
+require_relative "response"
+
 module ActiveAgent
   module GenerationProvider
     class TestProvider
@@ -24,26 +26,46 @@ module ActiveAgent
       def self.generate(context)
         "TestProvider is not a real generation provider, it is only used for testing purposes."
       end
-      attr_accessor :options
+      
+      attr_accessor :options, :response
 
       def initialize(options = {})
         @options = options.dup
+        @response = nil
       end
 
-      def response
-        ActiveAgent::GenerationProvider::Response.new(
-          prompt: ActiveAgent::ActionPrompt::Prompt.new("Test response"),
-          message: ActiveAgent::ActionPrompt::Message.new(
-            content: "Test response content",
-            role: :assistant
-          ),
+      def generate(context)
+        assistant_message = ActiveAgent::ActionPrompt::Message.new(
+          content: "Test response content",
+          role: :assistant
+        )
+        
+        # Add the assistant message to the existing context
+        context.messages << assistant_message
+        
+        @response = ActiveAgent::GenerationProvider::Response.new(
+          prompt: context,
+          message: assistant_message,
           raw_response: "Test response content"
         )
+        ActiveAgent::GenerationProvider::TestProvider.generations << context
+        @response
+      end
+
+      def embed(context)
+        @response = ActiveAgent::GenerationProvider::Response.new(
+          prompt: context,
+          message: ActiveAgent::ActionPrompt::Message.new(
+            content: "Test embedding response",
+            role: :assistant
+          ),
+          raw_response: [0.1, 0.2, 0.3] # Mock embedding vector
+        )
+        @response
       end
 
       def generate!(prompt)
         ActiveAgent::ActionPrompt::Prompt.new(prompt)
-
         ActiveAgent::GenerationProvider::TestProvider.generations << prompt
       end
     end

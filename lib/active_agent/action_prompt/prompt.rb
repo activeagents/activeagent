@@ -67,6 +67,10 @@ module ActiveAgent
         @headers.merge!(headers)
       end
 
+      def message_id
+        @message&.message_id
+      end
+
       private
 
       def set_messages
