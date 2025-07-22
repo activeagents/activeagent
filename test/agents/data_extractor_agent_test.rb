@@ -8,7 +8,7 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
   test "data extractor agent loads JSON schema from views" do
     # Test that the agent can load schemas from JSON views
     agent = DataExtractorAgent.new
-    agent.params = {text: @sample_text}
+    agent.params = { text: @sample_text }
 
     # Test each action can load its schema from view using the new prompt parameter
     %w[extract_resume_data extract_contact_info extract_skills].each do |action|
@@ -28,7 +28,7 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
   test "data extractor agent supports different json_schema parameter formats" do
     # Test different ways to specify json_schema parameter
     agent = DataExtractorAgent.new
-    agent.params = {text: @sample_text}
+    agent.params = { text: @sample_text }
     agent.action_name = "extract_resume_data"
 
     # Test json_schema: true
@@ -36,7 +36,7 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert schema1.present?
 
     # Test json_schema: { template: "extract_resume_data" }
-    schema2 = agent.send(:load_json_schema_from_view, {template: "extract_resume_data"})
+    schema2 = agent.send(:load_json_schema_from_view, { template: "extract_resume_data" })
     assert schema2.present?
     assert_equal schema1, schema2
 
@@ -184,12 +184,12 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     # Mock a structured response
     mock_response = {
       "id" => "test-response-id",
-      "choices" => [{
+      "choices" => [ {
         "message" => {
           "role" => "assistant",
           "content" => '{"personal_info": {"name": "John Smith", "email": "john.smith@email.com"}, "skills": {"programming_languages": ["Ruby", "JavaScript"]}}'
         }
-      }]
+      } ]
     }
 
     # Test that the provider correctly parses the JSON response
@@ -199,7 +199,7 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert result.message.content.is_a?(Hash)
     assert_equal "John Smith", result.message.content[:personal_info][:name]
     assert_equal "john.smith@email.com", result.message.content[:personal_info][:email]
-    assert_equal ["Ruby", "JavaScript"], result.message.content[:skills][:programming_languages]
+    assert_equal [ "Ruby", "JavaScript" ], result.message.content[:skills][:programming_languages]
   end
 
   test "data extractor agent handles different text inputs" do

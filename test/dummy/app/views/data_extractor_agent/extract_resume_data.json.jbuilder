@@ -19,7 +19,7 @@ json.properties do
         json.type "string"
       end
     end
-    json.required ["name"]
+    json.required [ "name" ]
   end
   json.experience do
     json.type "array"
@@ -42,7 +42,7 @@ json.properties do
           end
         end
       end
-      json.required ["company", "position"]
+      json.required [ "company", "position" ]
     end
   end
   json.education do
@@ -92,4 +92,4 @@ json.properties do
     end
   end
 end
-json.required ["personal_info"]
+json.required [ "personal_info" ]
