@@ -5,77 +5,107 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     @sample_text = File.read(File.join(File.dirname(__FILE__), "../fixtures/sample_resume.txt"))
   end
 
-  test "data extractor agent loads JSON schema from views" do
+  test "data extractor agent loads structured output schema from views" do
     # Test that the agent can load schemas from JSON views
     agent = DataExtractorAgent.new
     agent.params = { text: @sample_text }
-
+    
     # Test each action can load its schema from view using the new prompt parameter
-    %w[extract_resume_data extract_contact_info extract_skills].each do |action|
-      agent.action_name = action
-
-      # Test the load_json_schema_from_view method directly
-      schema = agent.send(:load_json_schema_from_view, true)
-
-      assert schema.present?, "Schema should be loaded for action #{action}"
-      assert_equal "object", schema["type"], "Schema should be an object for action #{action}"
-      assert schema["properties"].present?, "Schema should have properties for action #{action}"
-
-      # puts "✓ Schema loaded for #{action}: #{schema.keys}"
+    %w[extract_resume_data_schema extract_contact_info_schema extract_skills_schema].each do |template_name|
+      # Test the load_structured_output_schema_from_view method directly
+      schema = agent.send(:load_structured_output_schema_from_view, template_name)
+      
+      assert schema.present?, "Schema should be loaded for template #{template_name}"
+      assert_equal "object", schema["type"], "Schema should be an object for template #{template_name}"
+      assert schema["properties"].present?, "Schema should have properties for template #{template_name}"
     end
   end
 
-  test "data extractor agent supports different json_schema parameter formats" do
-    # Test different ways to specify json_schema parameter
+  test "data extractor agent supports different structured_output parameter formats" do
     agent = DataExtractorAgent.new
     agent.params = { text: @sample_text }
     agent.action_name = "extract_resume_data"
 
-    # Test json_schema: true
-    schema1 = agent.send(:load_json_schema_from_view, true)
+
+    schema1 = agent.send(:load_structured_output_schema_from_view, { template: "extract_resume_data_schema" })
     assert schema1.present?
 
-    # Test json_schema: { template: "extract_resume_data" }
-    schema2 = agent.send(:load_json_schema_from_view, { template: "extract_resume_data" })
+    
+    schema2 = agent.send(:load_structured_output_schema_from_view, "extract_resume_data_schema")
     assert schema2.present?
     assert_equal schema1, schema2
 
-    # Test json_schema: "extract_resume_data"
-    schema3 = agent.send(:load_json_schema_from_view, "extract_resume_data")
-    assert schema3.present?
-    assert_equal schema1, schema3
-
-    # puts "✓ All json_schema parameter formats work correctly"
   end
 
   test "data extractor agent demonstrates usage patterns" do
-    # Demonstrate different usage patterns for the json_schema parameter
     agent = DataExtractorAgent.with(text: @sample_text)
 
-    # Pattern 1: json_schema: true (loads action_name.json.erb/jbuilder)
-    generation1 = agent.extract_resume_data  # Uses json_schema: true internally
+    generation1 = agent.extract_resume_data
     schema1 = generation1.context.options[:json_schema]
     assert schema1.present?
+  end
 
-    # Could also be written as:
-    # prompt(message: params[:text], json_schema: true)
+  test "data extractor agent action can serve both as tool and structured output" do
+    agent = DataExtractorAgent.new
+    agent.params = { text: @sample_text }
+    agent.action_name = "analyze_document"
 
-    # Pattern 2: json_schema: { template: "custom_schema" }
-    # This would load custom_schema.json.erb/jbuilder instead
-    # generation2 = prompt(message: params[:text], json_schema: { template: "extract_contact_info" })
+    tool_schema = agent.send(:load_structured_output_schema_from_view, "analyze_document")
+    assert tool_schema.present?
+    assert_equal "function", tool_schema["type"]
+    assert tool_schema["function"]["name"].present?
+    assert tool_schema["function"]["description"].present?
+    assert tool_schema["function"]["parameters"]["properties"]["text"].present?
+    assert_includes tool_schema["function"]["parameters"]["required"], "text"
 
-    # Pattern 3: json_schema: "template_name"
-    # This would load template_name.json.erb/jbuilder
-    # generation3 = prompt(message: params[:text], json_schema: "extract_skills")
+    output_schema = agent.send(:load_structured_output_schema_from_view, "analyze_document_output")
+    assert output_schema.present?
+    assert_equal "object", output_schema["type"]
+    assert output_schema["properties"]["summary"].present?
+    assert output_schema["properties"]["key_topics"].present?
+    assert output_schema["properties"]["sentiment"].present?
+    assert_includes output_schema["required"], "summary"
+  end
 
-    # puts "✓ All usage patterns demonstrated successfully"
+  test "data extractor agent analyze_document action works in both modes" do
+    agent = DataExtractorAgent.with(text: @sample_text, analysis_type: "full")
+
+    generation1 = agent.analyze_document
+    prompt1 = generation1.context
+    assert_equal "Analyze this document: #{@sample_text}", prompt1.message.content
+    
+    agent_instance = DataExtractorAgent.new
+    agent_instance.action_name = "analyze_document"
+    all_schemas = agent_instance.send(:action_schemas)
+    
+    agent2 = DataExtractorAgent.with(text: @sample_text, use_structured_output: true)
+    generation2 = agent2.analyze_document
+    prompt2 = generation2.context
+    assert_equal "Analyze this document: #{@sample_text}", prompt2.message.content
+    
+    schema2 = prompt2.options[:json_schema]
+    assert schema2.present?
+    assert_equal "object", schema2["type"], "Should have object type for structured output"
+    assert schema2["properties"]["summary"].present?
+  end
+
+  test "data extractor agent demonstrates complete refactoring" do
+    agent = DataExtractorAgent.with(text: "Test document")
+  
+    result = agent.extract_resume_data
+    assert result.context.options[:json_schema].present?
+    assert_equal "object", result.context.options[:json_schema]["type"]
+  
+    tool_result = agent.analyze_document
+    structured_result = DataExtractorAgent.with(text: "Test document", use_structured_output: true).analyze_document
+  
+    assert structured_result.context.options[:json_schema].present?  
+    assert_equal "object", structured_result.context.options[:json_schema]["type"]
   end
 
   test "data extractor agent properly sets JSON schema from views in actions" do
-    # Test the integration of schema loading within actual agent actions
     agent = DataExtractorAgent.with(text: @sample_text)
 
-    # Test extract_resume_data
     generation = agent.extract_resume_data
     prompt = generation.context
 
@@ -88,21 +118,16 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert schema["properties"]["education"].present?
     assert schema["properties"]["skills"].present?
     assert_includes schema["required"], "personal_info"
-
-    # puts "✓ extract_resume_data schema loaded with keys: #{schema["properties"].keys}"
   end
 
   test "data extractor agent can extract full resume data with structured output" do
-    # Test that the agent creates the correct prompt structure
     agent = DataExtractorAgent.with(text: @sample_text)
     generation = agent.extract_resume_data
     prompt = generation.context
 
-    # Verify the prompt has the right message
     assert_equal @sample_text, prompt.message.content
     assert prompt.options.present?
 
-    # Verify the JSON schema structure is in options
     schema = prompt.options[:json_schema]
     assert schema.present?, "JSON schema should be present in options"
     assert_equal "object", schema["type"]
@@ -112,7 +137,6 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert schema["properties"]["skills"].present?
     assert_includes schema["required"], "personal_info"
 
-    # Test that the provider correctly sets up structured output
     provider = DataExtractorAgent.generation_provider
     provider_instance = provider.class.new(provider.config)
     provider_instance.instance_variable_set(:@prompt, prompt)
@@ -123,15 +147,12 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
   end
 
   test "data extractor agent can extract contact info with simple schema" do
-    # Test with a simpler extraction schema
     agent = DataExtractorAgent.with(text: @sample_text)
     generation = agent.extract_contact_info
     prompt = generation.context
 
-    # Verify the prompt structure
     assert_equal @sample_text, prompt.message.content
 
-    # Verify the simpler JSON schema
     schema = prompt.options[:json_schema]
     assert schema.present?, "JSON schema should be present in options"
     assert_equal "object", schema["type"]
@@ -141,7 +162,6 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert schema["properties"]["location"].present?
     assert_includes schema["required"], "name"
 
-    # Ensure it doesn't include the complex nested structures
     refute schema["properties"]["experience"]
     refute schema["properties"]["education"]
   end
@@ -151,10 +171,8 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     generation = agent.extract_skills
     prompt = generation.context
 
-    # Verify the prompt structure
     assert_equal @sample_text, prompt.message.content
 
-    # Verify the skills-focused JSON schema
     schema = prompt.options[:json_schema]
     assert schema.present?, "JSON schema should be present in options"
     assert_equal "object", schema["type"]
@@ -162,18 +180,15 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert schema["properties"]["soft_skills"].present?
     assert schema["properties"]["certifications"].present?
 
-    # Verify array types for skill categories
     assert_equal "array", schema["properties"]["technical_skills"]["type"]
     assert_equal "string", schema["properties"]["technical_skills"]["items"]["type"]
   end
 
   test "data extractor agent integrates properly with OpenAI provider" do
-    # Test full integration with the provider
     agent = DataExtractorAgent.with(text: @sample_text)
     generation = agent.extract_resume_data
     prompt = generation.context
 
-    # Create a mock response that should be parsed as JSON
     config = DataExtractorAgent.generation_provider.config.merge({
       "api_key" => "test-key"
     })
@@ -181,7 +196,6 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
     provider.instance_variable_set(:@prompt, prompt)
 
-    # Mock a structured response
     mock_response = {
       "id" => "test-response-id",
       "choices" => [ {
@@ -192,10 +206,8 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
       } ]
     }
 
-    # Test that the provider correctly parses the JSON response
     result = provider.send(:chat_response, mock_response)
 
-    # Verify the content was parsed as structured data
     assert result.message.content.is_a?(Hash)
     assert_equal "John Smith", result.message.content[:personal_info][:name]
     assert_equal "john.smith@email.com", result.message.content[:personal_info][:email]
@@ -203,7 +215,6 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
   end
 
   test "data extractor agent handles different text inputs" do
-    # Test with different input text
     simple_text = "Jane Doe, Software Developer at ABC Company. Email: jane@abc.com, Phone: 555-9876"
 
     agent = DataExtractorAgent.with(text: simple_text)
@@ -213,7 +224,6 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert_equal simple_text, prompt.message.content
     assert prompt.options[:json_schema].present?
 
-    # Verify the schema is still properly structured
     schema = prompt.options[:json_schema]
     assert_equal "object", schema["type"]
     assert_includes schema["required"], "name"
@@ -224,20 +234,16 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     generation = agent.extract_resume_data
     prompt = generation.context
 
-    # Check that the agent class has the right instructions
     assert_includes DataExtractorAgent.options[:instructions], "Extract structured data"
     assert_includes DataExtractorAgent.options[:instructions], "JSON format specified"
 
-    # Verify the prompt has messages (including system instructions)
     assert prompt.messages.any? { |msg| msg.role == :system }
     system_message = prompt.messages.find { |msg| msg.role == :system }
     assert_includes system_message.content, "Extract structured data"
   end
 
   test "data extractor agent uses correct model configuration" do
-    # Verify the agent is configured with the right model
     assert_equal "gpt-4o-mini", DataExtractorAgent.options[:model]
-    # Check the actual provider class name
     provider_name = DataExtractorAgent.generation_provider.class.name.demodulize.underscore
     assert_equal "open_ai_provider", provider_name
   end
@@ -249,13 +255,11 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
 
     schema = prompt.options[:json_schema]
 
-    # Validate required nested schema properties
     personal_info_props = schema["properties"]["personal_info"]["properties"]
     assert personal_info_props["name"].present?
     assert personal_info_props["email"].present?
     assert personal_info_props["phone"].present?
 
-    # Validate experience array structure
     experience_schema = schema["properties"]["experience"]
     assert_equal "array", experience_schema["type"]
     experience_item = experience_schema["items"]
@@ -264,7 +268,6 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert experience_item["properties"]["achievements"].present?
     assert_equal "array", experience_item["properties"]["achievements"]["type"]
 
-    # Validate skills structure
     skills_props = schema["properties"]["skills"]["properties"]
     assert skills_props["programming_languages"].present?
     assert skills_props["frameworks"].present?

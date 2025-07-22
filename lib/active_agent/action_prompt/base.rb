@@ -337,9 +337,9 @@ module ActiveAgent
         context.charset = charset
         context.actions = headers[:actions] || action_schemas
 
-        # Handle JSON schema loading from views
-        if headers[:json_schema]
-          context.options[:json_schema] = load_json_schema_from_view(headers[:json_schema])
+        # Handle structured output schema loading from views
+        if headers[:structured_output]
+          context.options[:json_schema] = load_structured_output_schema_from_view(headers[:structured_output])
         end
 
         context
@@ -526,20 +526,20 @@ module ActiveAgent
         end
       end
 
-      # Load JSON schema from view templates based on the json_schema parameter
-      def load_json_schema_from_view(json_schema_option)
-        case json_schema_option
+      # Load structured output schema from view templates based on the structured_output parameter
+      def load_structured_output_schema_from_view(structured_output_option)
+        case structured_output_option
         when true
           # Load schema from action_name.json.erb or action_name.json.jbuilder
           template_name = action_name
         when Hash
           # Load schema from specified template
-          template_name = json_schema_option[:template]&.sub(/\.json\.(erb|jbuilder)$/, "") || action_name
+          template_name = structured_output_option[:template]&.sub(/\.json\.(erb|jbuilder)$/, "") || action_name
         when String
           # Load schema from specified template name
-          template_name = json_schema_option.sub(/\.json\.(erb|jbuilder)$/, "")
+          template_name = structured_output_option.sub(/\.json\.(erb|jbuilder)$/, "")
         else
-          raise ArgumentError, "json_schema must be true, String, or Hash with :template key"
+          raise ArgumentError, "structured_output must be true, String, or Hash with :template key"
         end
 
         prefixes = lookup_context.prefixes | [ self.class.agent_name ]
@@ -547,7 +547,13 @@ module ActiveAgent
         if lookup_context.template_exists?(template_name, prefixes, false, formats: [ :json ])
           JSON.parse(render_to_string(action: template_name, formats: :json))
         else
-          raise ActionView::MissingTemplate, "Could not find JSON schema template #{template_name}.json.erb or #{template_name}.json.jbuilder"
+          raise ActionView::MissingTemplate.new(
+            "Could not find structured output schema template #{template_name}.json.erb or #{template_name}.json.jbuilder",
+            [ template_name ],
+            prefixes,
+            false,
+            { formats: [ :json ] }
+          )
         end
       end
 
