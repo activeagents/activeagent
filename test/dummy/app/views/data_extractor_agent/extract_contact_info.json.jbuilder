@@ -13,4 +13,4 @@ json.properties do
     json.type "string"
   end
 end
-json.required ["name"]
+json.required [ "name" ]
