@@ -325,15 +325,11 @@ module ActiveAgent
         context.charset = charset
         context.actions = headers[:actions] || action_schemas
 
-        if (action_methods - ActiveAgent::Base.descendants.first.action_methods).include? action_name
-          context.actions = (action_methods - [ action_name ])
-        end
-
         context
       end
 
       def action_methods
-        super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s)
+        super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s) - [ action_name ]
       end
 
       def action_schemas
