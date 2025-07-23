@@ -1,7 +1,9 @@
 json.type "object"
+json.additionalProperties false
 json.properties do
   json.personal_info do
     json.type "object"
+    json.additionalProperties false
     json.properties do
       json.name do
         json.type "string"
@@ -19,12 +21,13 @@ json.properties do
         json.type "string"
       end
     end
-    json.required [ "name" ]
+    json.required [ "name", "title", "email", "phone", "location" ]
   end
   json.experience do
     json.type "array"
     json.items do
       json.type "object"
+      json.additionalProperties false
       json.properties do
         json.company do
           json.type "string"
@@ -42,11 +45,12 @@ json.properties do
           end
         end
       end
-      json.required [ "company", "position" ]
+      json.required [ "company", "position", "duration", "achievements" ]
     end
   end
   json.education do
     json.type "object"
+    json.additionalProperties false
     json.properties do
       json.degree do
         json.type "string"
@@ -61,9 +65,11 @@ json.properties do
         json.type "string"
       end
     end
+    json.required [ "degree", "institution", "duration", "gpa" ]
   end
   json.skills do
     json.type "object"
+    json.additionalProperties false
     json.properties do
       json.programming_languages do
         json.type "array"
@@ -90,6 +96,7 @@ json.properties do
         end
       end
     end
+    json.required [ "programming_languages", "frameworks", "databases", "tools" ]
   end
 end
-json.required [ "personal_info" ]
+json.required [ "personal_info", "experience", "education", "skills" ]

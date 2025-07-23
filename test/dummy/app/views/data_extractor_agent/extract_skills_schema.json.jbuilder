@@ -1,4 +1,5 @@
 json.type "object"
+json.additionalProperties false
 json.properties do
   json.technical_skills do
     json.type "array"
@@ -19,3 +20,4 @@ json.properties do
     end
   end
 end
+json.required [ "technical_skills", "soft_skills", "certifications" ]

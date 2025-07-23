@@ -1,0 +1,134 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"Extract
+        structured data from the provided text. Return the data in the exact JSON
+        format specified by the schema.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Analyze
+        this document: John Smith\nSenior Software Engineer\nEmail: john.smith@email.com\nPhone:
+        (555) 123-4567\nLocation: San Francisco, CA\n\nEXPERIENCE:\n- Software Engineer
+        at Tech Corp (2020-2024)\n  * Developed web applications using Ruby on Rails\n  *
+        Led a team of 5 developers\n  * Increased system performance by 40%\n\n- Junior
+        Developer at StartupXYZ (2018-2020)\n  * Built REST APIs using Node.js\n  *
+        Worked with React frontend development\n  * Collaborated with cross-functional
+        teams\n\nEDUCATION:\nBachelor of Science in Computer Science\nUniversity of
+        California, Berkeley (2014-2018)\nGPA: 3.8/4.0\n\nSKILLS:\nProgramming Languages:
+        Ruby, JavaScript, Python, Java\nFrameworks: Rails, React, Node.js, Express\nDatabases:
+        PostgreSQL, MongoDB, Redis\nTools: Git, Docker, AWS, Jenkins\n","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"response","description":"Structured
+        response","schema":{"type":"object","additionalProperties":false,"properties":{"summary":{"type":"string","description":"A
+        concise summary of the document content"},"key_topics":{"type":"array","items":{"type":"string"},"description":"Main
+        topics or themes identified in the document"},"sentiment":{"type":"object","additionalProperties":false,"properties":{"overall":{"type":"string","enum":["positive","negative","neutral"]},"confidence":{"type":"number","minimum":0,"maximum":1}},"required":["overall","confidence"]},"document_type":{"type":"string","enum":["resume","article","report","email","legal","technical","other"],"description":"The
+        identified type of document"},"key_entities":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"entity":{"type":"string"},"type":{"type":"string","enum":["person","organization","location","date","skill","other"]}},"required":["entity","type"]}},"readability_score":{"type":"number","minimum":0,"maximum":100,"description":"Estimated
+        readability score (0-100, higher is more readable)"}},"required":["summary","key_topics","sentiment","document_type","key_entities","readability_score"]},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 23 Jul 2025 21:15:32 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '4308'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '4332'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199775'
+      X-Ratelimit-Reset-Requests:
+      - 9.654s
+      X-Ratelimit-Reset-Tokens:
+      - 67ms
+      X-Request-Id:
+      - req_a00bcc2d43529815f11d0e9730a60968
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=wgV8pq52M_WbDETl_GuV6PILMf5iGLQIMvfs_fL0Yx0-1753305332-1.0.1.1-QVaaavdSLX5yYm0N4b4Yiq7A_Y5c1zd0pJToBS2nJc5RGnNcXKxOCUS3pilno5hLYTha8ix9ajBkgqXgWyKS_99lt.IFfzx4Nx3QxJRUhbk;
+        path=/; expires=Wed, 23-Jul-25 21:45:32 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=G869b3fczyPgveCJ2MbN8DIjsVP2oKUZgehNSZ.g.V8-1753305332172-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 963e317a78b79444-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-Bwb67nB5DYBrDfB6xDgGy8LenRM0A",
+          "object": "chat.completion",
+          "created": 1753305327,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"summary\":\"John Smith is a Senior Software Engineer with experience in software development, team leadership, and a strong educational background in computer science. He has worked with various technologies and tools relevant to web development.\",\"key_topics\":[\"Software Engineering\",\"Team Leadership\",\"Web Development\",\"Programming Languages\",\"Education\"],\"sentiment\":{\"overall\":\"positive\",\"confidence\":0.95},\"document_type\":\"resume\",\"key_entities\":[{\"entity\":\"John Smith\",\"type\":\"person\"},{\"entity\":\"Tech Corp\",\"type\":\"organization\"},{\"entity\":\"StartupXYZ\",\"type\":\"organization\"},{\"entity\":\"San Francisco, CA\",\"type\":\"location\"},{\"entity\":\"University of California, Berkeley\",\"type\":\"organization\"},{\"entity\":\"Bachelor of Science in Computer Science\",\"type\":\"other\"},{\"entity\":\"2014-2018\",\"type\":\"date\"},{\"entity\":\"2020-2024\",\"type\":\"date\"},{\"entity\":\"2018-2020\",\"type\":\"date\"}],\"readability_score\":70}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 436,
+            "completion_tokens": 187,
+            "total_tokens": 623,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Wed, 23 Jul 2025 21:15:32 GMT
+recorded_with: VCR 6.3.1

@@ -1,4 +1,5 @@
 json.type "object"
+json.additionalProperties false
 json.properties do
   json.summary do
     json.type "string"
@@ -13,6 +14,7 @@ json.properties do
   end
   json.sentiment do
     json.type "object"
+    json.additionalProperties false
     json.properties do
       json.overall do
         json.type "string"
@@ -35,6 +37,7 @@ json.properties do
     json.type "array"
     json.items do
       json.type "object"
+      json.additionalProperties false
       json.properties do
         json.entity do
           json.type "string"
@@ -54,4 +57,4 @@ json.properties do
     json.description "Estimated readability score (0-100, higher is more readable)"
   end
 end
-json.required [ "summary", "key_topics", "sentiment", "document_type" ]
+json.required [ "summary", "key_topics", "sentiment", "document_type", "key_entities", "readability_score" ]

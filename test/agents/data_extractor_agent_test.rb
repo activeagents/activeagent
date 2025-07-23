@@ -67,25 +67,24 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
   end
 
   test "data extractor agent analyze_document action works in both modes" do
-    agent = DataExtractorAgent.with(text: @sample_text, analysis_type: "full")
+    VCR.use_cassette("data_extractor_agent_analyze_document_regular") do
+      agent = DataExtractorAgent.with(text: @sample_text, analysis_type: "full")
+      generation1 = agent.analyze_document
+      response1 = generation1.generate_now
+      
+      assert response1.message.content.is_a?(String)
+      assert response1.message.content.length > 0
+    end
 
-    generation1 = agent.analyze_document
-    prompt1 = generation1.context
-    assert_equal "Analyze this document: #{@sample_text}", prompt1.message.content
+    VCR.use_cassette("data_extractor_agent_analyze_document_structured") do
+      agent2 = DataExtractorAgent.with(text: @sample_text, use_structured_output: true)
+      generation2 = agent2.analyze_document
+      response2 = generation2.generate_now
 
-    agent_instance = DataExtractorAgent.new
-    agent_instance.action_name = "analyze_document"
-    all_schemas = agent_instance.send(:action_schemas)
-
-    agent2 = DataExtractorAgent.with(text: @sample_text, use_structured_output: true)
-    generation2 = agent2.analyze_document
-    prompt2 = generation2.context
-    assert_equal "Analyze this document: #{@sample_text}", prompt2.message.content
-
-    schema2 = prompt2.options[:json_schema]
-    assert schema2.present?
-    assert_equal "object", schema2["type"], "Should have object type for structured output"
-    assert schema2["properties"]["summary"].present?
+      assert response2.message.content.is_a?(Hash)
+      assert response2.message.content[:summary].present?
+      assert response2.message.content[:key_topics].present?
+    end
   end
 
   test "data extractor agent demonstrates complete refactoring" do
@@ -120,112 +119,110 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
   end
 
   test "data extractor agent can extract full resume data with structured output" do
-    agent = DataExtractorAgent.with(text: @sample_text)
-    generation = agent.extract_resume_data
-    prompt = generation.context
+    VCR.use_cassette("data_extractor_agent_full_resume_extraction") do
+      agent = DataExtractorAgent.with(text: @sample_text)
+      generation = agent.extract_resume_data
+      response = generation.generate_now
 
-    assert_equal @sample_text, prompt.message.content
-    assert prompt.options.present?
-
-    schema = prompt.options[:json_schema]
-    assert schema.present?, "JSON schema should be present in options"
-    assert_equal "object", schema["type"]
-    assert schema["properties"]["personal_info"].present?
-    assert schema["properties"]["experience"].present?
-    assert schema["properties"]["education"].present?
-    assert schema["properties"]["skills"].present?
-    assert_includes schema["required"], "personal_info"
-
-    provider = DataExtractorAgent.generation_provider
-    provider_instance = provider.class.new(provider.config)
-    provider_instance.instance_variable_set(:@prompt, prompt)
-
-    params = provider_instance.send(:prompt_parameters)
-    assert_equal "json_schema", params[:response_format][:type]
-    assert_equal schema, params[:response_format][:json_schema][:schema]
+      assert response.message.content.is_a?(Hash)
+      
+      # Test personal info extraction
+      personal_info = response.message.content[:personal_info]
+      assert personal_info.present?
+      assert_includes personal_info[:name], "John"
+      assert_includes personal_info[:email], "john.smith@email.com"
+      assert_includes personal_info[:phone], "555"
+      
+      # Test experience extraction
+      experience = response.message.content[:experience]
+      assert experience.present?
+      assert experience.is_a?(Array)
+      assert experience.length > 0
+      
+      # Test skills extraction
+      skills = response.message.content[:skills]
+      assert skills.present?
+      assert skills[:programming_languages].present? if skills[:programming_languages]
+    end
   end
 
   test "data extractor agent can extract contact info with simple schema" do
-    agent = DataExtractorAgent.with(text: @sample_text)
-    generation = agent.extract_contact_info
-    prompt = generation.context
+    VCR.use_cassette("data_extractor_agent_contact_info_extraction") do
+      agent = DataExtractorAgent.with(text: @sample_text)
+      generation = agent.extract_contact_info
+      response = generation.generate_now
 
-    assert_equal @sample_text, prompt.message.content
-
-    schema = prompt.options[:json_schema]
-    assert schema.present?, "JSON schema should be present in options"
-    assert_equal "object", schema["type"]
-    assert schema["properties"]["name"].present?
-    assert schema["properties"]["email"].present?
-    assert schema["properties"]["phone"].present?
-    assert schema["properties"]["location"].present?
-    assert_includes schema["required"], "name"
-
-    refute schema["properties"]["experience"]
-    refute schema["properties"]["education"]
+      assert response.message.content.is_a?(Hash)
+      
+      contact_info = response.message.content
+      assert contact_info[:name].present?
+      assert contact_info[:email].present?
+      assert contact_info[:phone].present?
+      assert contact_info[:location].present?
+      
+      # Verify extracted values match the sample resume
+      assert_includes contact_info[:name], "John"
+      assert_includes contact_info[:email], "john.smith@email.com"
+      assert_includes contact_info[:phone], "555"
+      assert_includes contact_info[:location], "San Francisco"
+    end
   end
 
   test "data extractor agent can extract skills with categorization" do
-    agent = DataExtractorAgent.with(text: @sample_text)
-    generation = agent.extract_skills
-    prompt = generation.context
+    VCR.use_cassette("data_extractor_agent_skills_extraction") do
+      agent = DataExtractorAgent.with(text: @sample_text)
+      generation = agent.extract_skills
+      response = generation.generate_now
 
-    assert_equal @sample_text, prompt.message.content
-
-    schema = prompt.options[:json_schema]
-    assert schema.present?, "JSON schema should be present in options"
-    assert_equal "object", schema["type"]
-    assert schema["properties"]["technical_skills"].present?
-    assert schema["properties"]["soft_skills"].present?
-    assert schema["properties"]["certifications"].present?
-
-    assert_equal "array", schema["properties"]["technical_skills"]["type"]
-    assert_equal "string", schema["properties"]["technical_skills"]["items"]["type"]
+      assert response.message.content.is_a?(Hash)
+      
+      skills = response.message.content
+      assert skills[:technical_skills].present?
+      assert skills[:technical_skills].is_a?(Array)
+      
+      # Check that technical skills include programming languages from the resume
+      technical_skills = skills[:technical_skills]
+      has_relevant_skills = technical_skills.any? { |skill| 
+        skill.downcase.include?("ruby") || 
+        skill.downcase.include?("rails") || 
+        skill.downcase.include?("javascript") ||
+        skill.downcase.include?("node")
+      }
+      assert has_relevant_skills, "Should extract relevant technical skills from resume"
+    end
   end
 
   test "data extractor agent integrates properly with OpenAI provider" do
-    agent = DataExtractorAgent.with(text: @sample_text)
-    generation = agent.extract_resume_data
-    prompt = generation.context
+    VCR.use_cassette("data_extractor_agent_resume_extraction") do
+      agent = DataExtractorAgent.with(text: @sample_text)
+      generation = agent.extract_resume_data
+      response = generation.generate_now
 
-    config = DataExtractorAgent.generation_provider.config.merge({
-      "api_key" => "test-key"
-    })
-
-    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
-    provider.instance_variable_set(:@prompt, prompt)
-
-    mock_response = {
-      "id" => "test-response-id",
-      "choices" => [ {
-        "message" => {
-          "role" => "assistant",
-          "content" => '{"personal_info": {"name": "John Smith", "email": "john.smith@email.com"}, "skills": {"programming_languages": ["Ruby", "JavaScript"]}}'
-        }
-      } ]
-    }
-
-    result = provider.send(:chat_response, mock_response)
-
-    assert result.message.content.is_a?(Hash)
-    assert_equal "John Smith", result.message.content[:personal_info][:name]
-    assert_equal "john.smith@email.com", result.message.content[:personal_info][:email]
-    assert_equal [ "Ruby", "JavaScript" ], result.message.content[:skills][:programming_languages]
+      assert response.message.content.is_a?(Hash)
+      assert response.message.content[:personal_info].present?
+      assert response.message.content[:personal_info][:name].present?
+      assert response.message.content[:personal_info][:email].present?
+      assert response.message.content[:experience].present?
+      assert response.message.content[:skills].present?
+    end
   end
 
   test "data extractor agent handles different text inputs" do
-    simple_text = "Jane Doe, Software Developer at ABC Company. Email: jane@abc.com, Phone: 555-9876"
+    VCR.use_cassette("data_extractor_agent_contact_extraction") do
+      simple_text = "Jane Doe, Software Developer at ABC Company. Email: jane@abc.com, Phone: 555-9876"
 
-    agent = DataExtractorAgent.with(text: simple_text)
-    generation = agent.extract_contact_info
-    prompt = generation.context
+      agent = DataExtractorAgent.with(text: simple_text)
+      generation = agent.extract_contact_info
+      response = generation.generate_now
 
-    assert_equal simple_text, prompt.message.content
-    assert prompt.options[:json_schema].present?
-
-    schema = prompt.options[:json_schema]
-    assert_equal "object", schema["type"]
-    assert_includes schema["required"], "name"
+      assert response.message.content.is_a?(Hash)
+      assert response.message.content[:name].present?
+      assert response.message.content[:email].present?
+      
+      # Verify the actual extracted content
+      assert_includes response.message.content[:name], "Jane"
+      assert_includes response.message.content[:email], "jane@abc.com"
+    end
   end
 
   test "data extractor agent prompt includes proper instructions" do
@@ -247,29 +244,67 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     assert_equal "open_ai_provider", provider_name
   end
 
-  test "data extractor agent validates schema structure" do
-    agent = DataExtractorAgent.with(text: @sample_text)
-    generation = agent.extract_resume_data
-    prompt = generation.context
+  test "data extractor agent end-to-end structured output integration" do
+    VCR.use_cassette("data_extractor_agent_end_to_end") do
+      # Test multiple extraction types in sequence
+      agent = DataExtractorAgent.with(text: @sample_text)
+      
+      # Test resume data extraction
+      resume_response = agent.extract_resume_data.generate_now
+      assert resume_response.message.content.is_a?(Hash)
+      assert resume_response.message.content[:personal_info].present?
+      assert resume_response.message.content[:experience].present?
+      
+      # Test contact info extraction  
+      contact_response = agent.extract_contact_info.generate_now
+      assert contact_response.message.content.is_a?(Hash)
+      assert contact_response.message.content[:name].present?
+      assert contact_response.message.content[:email].present?
+      
+      # Test skills extraction
+      skills_response = agent.extract_skills.generate_now
+      assert skills_response.message.content.is_a?(Hash)
+      assert skills_response.message.content[:technical_skills].present?
+      
+      # Verify all responses contain structured data, not plain text
+      [resume_response, contact_response, skills_response].each do |response|
+        refute response.message.content.is_a?(String), "Response should be structured JSON, not plain text"
+      end
+    end
+  end
 
-    schema = prompt.options[:json_schema]
+  test "data extractor agent validates schema structure and API integration" do
+    VCR.use_cassette("data_extractor_agent_schema_validation") do
+      agent = DataExtractorAgent.with(text: @sample_text)
+      generation = agent.extract_resume_data
+      prompt = generation.context
 
-    personal_info_props = schema["properties"]["personal_info"]["properties"]
-    assert personal_info_props["name"].present?
-    assert personal_info_props["email"].present?
-    assert personal_info_props["phone"].present?
+      # Test schema structure
+      schema = prompt.options[:json_schema]
+      personal_info_props = schema["properties"]["personal_info"]["properties"]
+      assert personal_info_props["name"].present?
+      assert personal_info_props["email"].present?
+      assert personal_info_props["phone"].present?
 
-    experience_schema = schema["properties"]["experience"]
-    assert_equal "array", experience_schema["type"]
-    experience_item = experience_schema["items"]
-    assert_equal "object", experience_item["type"]
-    assert experience_item["properties"]["company"].present?
-    assert experience_item["properties"]["achievements"].present?
-    assert_equal "array", experience_item["properties"]["achievements"]["type"]
+      experience_schema = schema["properties"]["experience"]
+      assert_equal "array", experience_schema["type"]
+      experience_item = experience_schema["items"]
+      assert_equal "object", experience_item["type"]
+      assert experience_item["properties"]["company"].present?
+      assert experience_item["properties"]["achievements"].present?
+      assert_equal "array", experience_item["properties"]["achievements"]["type"]
 
-    skills_props = schema["properties"]["skills"]["properties"]
-    assert skills_props["programming_languages"].present?
-    assert skills_props["frameworks"].present?
-    assert_equal "array", skills_props["programming_languages"]["type"]
+      skills_props = schema["properties"]["skills"]["properties"]
+      assert skills_props["programming_languages"].present?
+      assert skills_props["frameworks"].present?
+      assert_equal "array", skills_props["programming_languages"]["type"]
+
+      # Test actual API integration
+      response = generation.generate_now
+      assert response.message.content.is_a?(Hash)
+      assert response.message.content[:personal_info].present?
+      assert response.message.content[:experience].present?
+      assert response.message.content[:skills].present?
+    end
   end
 end

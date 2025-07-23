@@ -1,0 +1,130 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"Extract
+        structured data from the provided text. Return the data in the exact JSON
+        format specified by the schema.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"John
+        Smith\nSenior Software Engineer\nEmail: john.smith@email.com\nPhone: (555)
+        123-4567\nLocation: San Francisco, CA\n\nEXPERIENCE:\n- Software Engineer
+        at Tech Corp (2020-2024)\n  * Developed web applications using Ruby on Rails\n  *
+        Led a team of 5 developers\n  * Increased system performance by 40%\n\n- Junior
+        Developer at StartupXYZ (2018-2020)\n  * Built REST APIs using Node.js\n  *
+        Worked with React frontend development\n  * Collaborated with cross-functional
+        teams\n\nEDUCATION:\nBachelor of Science in Computer Science\nUniversity of
+        California, Berkeley (2014-2018)\nGPA: 3.8/4.0\n\nSKILLS:\nProgramming Languages:
+        Ruby, JavaScript, Python, Java\nFrameworks: Rails, React, Node.js, Express\nDatabases:
+        PostgreSQL, MongoDB, Redis\nTools: Git, Docker, AWS, Jenkins\n","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"response","description":"Structured
+        response","schema":{"type":"object","additionalProperties":false,"properties":{"name":{"type":"string"},"email":{"type":"string"},"phone":{"type":"string"},"location":{"type":"string"}},"required":["name","email","phone","location"]},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 23 Jul 2025 21:13:52 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '846'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '849'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199781'
+      X-Ratelimit-Reset-Requests:
+      - 17.072s
+      X-Ratelimit-Reset-Tokens:
+      - 65ms
+      X-Request-Id:
+      - 334353bc-97fc-4056-ace9-27c1ce0d0a8c
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=nehzz3o8fDyY0RUqSflKjQiWuad7d45Pf2NPI42MRvE-1753305232-1.0.1.1-QRWRwm3BYcos9yRl5_LP0h8blKvD5NETFUDQ3DaBg8ee9l875zBaPwQtV7s__Imaql_p1U7k6nwjm7W3tRZmix3hqoZOIO7EzcwMoWs10YI;
+        path=/; expires=Wed, 23-Jul-25 21:43:52 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=Bc.e8HPSosNeH98wPUhx7n0HvW_6gqvPVk8cDcAFBo0-1753305232550-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 963e2f21ba60fb44-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-Bwb4Zw52tVI7lw3DdEasuAqZmNSo4",
+          "object": "chat.completion",
+          "created": 1753305231,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"name\":\"John Smith\",\"email\":\"john.smith@email.com\",\"phone\":\"(555) 123-4567\",\"location\":\"San Francisco, CA\"}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 283,
+            "completion_tokens": 32,
+            "total_tokens": 315,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Wed, 23 Jul 2025 21:13:52 GMT
+recorded_with: VCR 6.3.1

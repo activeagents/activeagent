@@ -1,0 +1,384 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"Extract
+        structured data from the provided text. Return the data in the exact JSON
+        format specified by the schema.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"John
+        Smith\nSenior Software Engineer\nEmail: john.smith@email.com\nPhone: (555)
+        123-4567\nLocation: San Francisco, CA\n\nEXPERIENCE:\n- Software Engineer
+        at Tech Corp (2020-2024)\n  * Developed web applications using Ruby on Rails\n  *
+        Led a team of 5 developers\n  * Increased system performance by 40%\n\n- Junior
+        Developer at StartupXYZ (2018-2020)\n  * Built REST APIs using Node.js\n  *
+        Worked with React frontend development\n  * Collaborated with cross-functional
+        teams\n\nEDUCATION:\nBachelor of Science in Computer Science\nUniversity of
+        California, Berkeley (2014-2018)\nGPA: 3.8/4.0\n\nSKILLS:\nProgramming Languages:
+        Ruby, JavaScript, Python, Java\nFrameworks: Rails, React, Node.js, Express\nDatabases:
+        PostgreSQL, MongoDB, Redis\nTools: Git, Docker, AWS, Jenkins\n","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"response","description":"Structured
+        response","schema":{"type":"object","additionalProperties":false,"properties":{"personal_info":{"type":"object","additionalProperties":false,"properties":{"name":{"type":"string"},"title":{"type":"string"},"email":{"type":"string"},"phone":{"type":"string"},"location":{"type":"string"}},"required":["name","title","email","phone","location"]},"experience":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"company":{"type":"string"},"position":{"type":"string"},"duration":{"type":"string"},"achievements":{"type":"array","items":{"type":"string"}}},"required":["company","position","duration","achievements"]}},"education":{"type":"object","additionalProperties":false,"properties":{"degree":{"type":"string"},"institution":{"type":"string"},"duration":{"type":"string"},"gpa":{"type":"string"}},"required":["degree","institution","duration","gpa"]},"skills":{"type":"object","additionalProperties":false,"properties":{"programming_languages":{"type":"array","items":{"type":"string"}},"frameworks":{"type":"array","items":{"type":"string"}},"databases":{"type":"array","items":{"type":"string"}},"tools":{"type":"array","items":{"type":"string"}}},"required":["programming_languages","frameworks","databases","tools"]}},"required":["personal_info","experience","education","skills"]},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 23 Jul 2025 21:14:11 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '5112'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '5117'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9995'
+      X-Ratelimit-Remaining-Tokens:
+      - '199781'
+      X-Ratelimit-Reset-Requests:
+      - 36.569s
+      X-Ratelimit-Reset-Tokens:
+      - 65ms
+      X-Request-Id:
+      - req_8ec56a4734d98c60812088c32a7fd60c
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=LPtk8288YZVYOo5FbbepFBE4fpdEqXsj2DxDXpSzmqM-1753305251-1.0.1.1-Sz7cKVAwv579dwvSc8KosJZZ8lmUwfJMYqApNLd66ybrUtJj8F8At7MBBrefUNK.KOsaZYl8eOnyaY4KERjy4F2V0adPAJCbnCnWnnhocXk;
+        path=/; expires=Wed, 23-Jul-25 21:44:11 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=zaTzEu4BOLf4gq40BS_h0BMKSKS8SmipNQy6wtQYJy4-1753305251894-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 963e2f7fbc9c1694-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-Bwb4odfuWxmoOIqzdDgruY4svW2Vm",
+          "object": "chat.completion",
+          "created": 1753305246,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"personal_info\":{\"name\":\"John Smith\",\"title\":\"Senior Software Engineer\",\"email\":\"john.smith@email.com\",\"phone\":\"(555) 123-4567\",\"location\":\"San Francisco, CA\"},\"experience\":[{\"company\":\"Tech Corp\",\"position\":\"Software Engineer\",\"duration\":\"2020-2024\",\"achievements\":[\"Developed web applications using Ruby on Rails\",\"Led a team of 5 developers\",\"Increased system performance by 40%\"]},{\"company\":\"StartupXYZ\",\"position\":\"Junior Developer\",\"duration\":\"2018-2020\",\"achievements\":[\"Built REST APIs using Node.js\",\"Worked with React frontend development\",\"Collaborated with cross-functional teams\"]}],\"education\":{\"degree\":\"Bachelor of Science in Computer Science\",\"institution\":\"University of California, Berkeley\",\"duration\":\"2014-2018\",\"gpa\":\"3.8/4.0\"},\"skills\":{\"programming_languages\":[\"Ruby\",\"JavaScript\",\"Python\",\"Java\"],\"frameworks\":[\"Rails\",\"React\",\"Node.js\",\"Express\"],\"databases\":[\"PostgreSQL\",\"MongoDB\",\"Redis\"],\"tools\":[\"Git\",\"Docker\",\"AWS\",\"Jenkins\"]}}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 451,
+            "completion_tokens": 229,
+            "total_tokens": 680,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Wed, 23 Jul 2025 21:14:11 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"Extract
+        structured data from the provided text. Return the data in the exact JSON
+        format specified by the schema.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"John
+        Smith\nSenior Software Engineer\nEmail: john.smith@email.com\nPhone: (555)
+        123-4567\nLocation: San Francisco, CA\n\nEXPERIENCE:\n- Software Engineer
+        at Tech Corp (2020-2024)\n  * Developed web applications using Ruby on Rails\n  *
+        Led a team of 5 developers\n  * Increased system performance by 40%\n\n- Junior
+        Developer at StartupXYZ (2018-2020)\n  * Built REST APIs using Node.js\n  *
+        Worked with React frontend development\n  * Collaborated with cross-functional
+        teams\n\nEDUCATION:\nBachelor of Science in Computer Science\nUniversity of
+        California, Berkeley (2014-2018)\nGPA: 3.8/4.0\n\nSKILLS:\nProgramming Languages:
+        Ruby, JavaScript, Python, Java\nFrameworks: Rails, React, Node.js, Express\nDatabases:
+        PostgreSQL, MongoDB, Redis\nTools: Git, Docker, AWS, Jenkins\n","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"response","description":"Structured
+        response","schema":{"type":"object","additionalProperties":false,"properties":{"name":{"type":"string"},"email":{"type":"string"},"phone":{"type":"string"},"location":{"type":"string"}},"required":["name","email","phone","location"]},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 23 Jul 2025 21:14:13 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1213'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '1221'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9995'
+      X-Ratelimit-Remaining-Tokens:
+      - '199781'
+      X-Ratelimit-Reset-Requests:
+      - 39.942s
+      X-Ratelimit-Reset-Tokens:
+      - 65ms
+      X-Request-Id:
+      - req_a6b3894c1e29852ac8852f4b9e5011a0
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=hBGSAsggmOrJOBjLqK3oD_H0MvaACrK7ryUOjtmX7mI-1753305253-1.0.1.1-wpd5XSfR1LYP3Fw39Io1ScdV0z_tihsSWxrW45.36AxCsGUbAvo7tbX6mOPpPFmBvV77DFy.V7Qh447n882pa9_NbX2iRlpuA.lO2GylnoI;
+        path=/; expires=Wed, 23-Jul-25 21:44:13 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=JNf1PH8goyXkB06AFla17MTP45QYtbo8Od9ISQwWpKA-1753305253260-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 963e2fa0bbad171e-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-Bwb4uE7ixbPcHDVMDAtMqNSRl0Hhj",
+          "object": "chat.completion",
+          "created": 1753305252,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"name\":\"John Smith\",\"email\":\"john.smith@email.com\",\"phone\":\"(555) 123-4567\",\"location\":\"San Francisco, CA\"}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 283,
+            "completion_tokens": 32,
+            "total_tokens": 315,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Wed, 23 Jul 2025 21:14:13 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"Extract
+        structured data from the provided text. Return the data in the exact JSON
+        format specified by the schema.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"John
+        Smith\nSenior Software Engineer\nEmail: john.smith@email.com\nPhone: (555)
+        123-4567\nLocation: San Francisco, CA\n\nEXPERIENCE:\n- Software Engineer
+        at Tech Corp (2020-2024)\n  * Developed web applications using Ruby on Rails\n  *
+        Led a team of 5 developers\n  * Increased system performance by 40%\n\n- Junior
+        Developer at StartupXYZ (2018-2020)\n  * Built REST APIs using Node.js\n  *
+        Worked with React frontend development\n  * Collaborated with cross-functional
+        teams\n\nEDUCATION:\nBachelor of Science in Computer Science\nUniversity of
+        California, Berkeley (2014-2018)\nGPA: 3.8/4.0\n\nSKILLS:\nProgramming Languages:
+        Ruby, JavaScript, Python, Java\nFrameworks: Rails, React, Node.js, Express\nDatabases:
+        PostgreSQL, MongoDB, Redis\nTools: Git, Docker, AWS, Jenkins\n","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"response","description":"Structured
+        response","schema":{"type":"object","additionalProperties":false,"properties":{"technical_skills":{"type":"array","items":{"type":"string"}},"soft_skills":{"type":"array","items":{"type":"string"}},"certifications":{"type":"array","items":{"type":"string"}}},"required":["technical_skills","soft_skills","certifications"]},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 23 Jul 2025 21:14:14 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1214'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '1217'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9994'
+      X-Ratelimit-Remaining-Tokens:
+      - '199781'
+      X-Ratelimit-Reset-Requests:
+      - 47.226s
+      X-Ratelimit-Reset-Tokens:
+      - 65ms
+      X-Request-Id:
+      - 88a1f7f2-033d-4003-8b40-daf75b1042b8
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=kF2cPMjIQnZk0cWZ44xU2aur_pV0zltaziAKvL3Lc24-1753305254-1.0.1.1-s92GMp.fX2EOO0G3MOwNdoatWBeP7nNhgwXUjmZQHJcmwo95nhrWwES3RQd_e.GfE8DAT23q_htt.LYNlRqRPr1k1iKN2GSx0PT15lLmogg;
+        path=/; expires=Wed, 23-Jul-25 21:44:14 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=GcSSzxW9iFlPePueM5tBruV9GUUwF.5cEi8Hz_iodSo-1753305254768-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 963e2fa94c93ebed-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-Bwb4vaaVXz9RondC6mZzaIrZoHKAA",
+          "object": "chat.completion",
+          "created": 1753305253,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"technical_skills\":[\"Ruby\",\"JavaScript\",\"Python\",\"Java\",\"Rails\",\"React\",\"Node.js\",\"Express\",\"PostgreSQL\",\"MongoDB\",\"Redis\",\"Git\",\"Docker\",\"AWS\",\"Jenkins\"],\"soft_skills\":[\"Leadership\",\"Team Collaboration\",\"Performance Optimization\"],\"certifications\":[]}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 299,
+            "completion_tokens": 59,
+            "total_tokens": 358,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Wed, 23 Jul 2025 21:14:14 GMT
+recorded_with: VCR 6.3.1

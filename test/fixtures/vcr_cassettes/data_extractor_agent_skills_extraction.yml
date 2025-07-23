@@ -1,0 +1,130 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"Extract
+        structured data from the provided text. Return the data in the exact JSON
+        format specified by the schema.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"John
+        Smith\nSenior Software Engineer\nEmail: john.smith@email.com\nPhone: (555)
+        123-4567\nLocation: San Francisco, CA\n\nEXPERIENCE:\n- Software Engineer
+        at Tech Corp (2020-2024)\n  * Developed web applications using Ruby on Rails\n  *
+        Led a team of 5 developers\n  * Increased system performance by 40%\n\n- Junior
+        Developer at StartupXYZ (2018-2020)\n  * Built REST APIs using Node.js\n  *
+        Worked with React frontend development\n  * Collaborated with cross-functional
+        teams\n\nEDUCATION:\nBachelor of Science in Computer Science\nUniversity of
+        California, Berkeley (2014-2018)\nGPA: 3.8/4.0\n\nSKILLS:\nProgramming Languages:
+        Ruby, JavaScript, Python, Java\nFrameworks: Rails, React, Node.js, Express\nDatabases:
+        PostgreSQL, MongoDB, Redis\nTools: Git, Docker, AWS, Jenkins\n","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"response","description":"Structured
+        response","schema":{"type":"object","additionalProperties":false,"properties":{"technical_skills":{"type":"array","items":{"type":"string"}},"soft_skills":{"type":"array","items":{"type":"string"}},"certifications":{"type":"array","items":{"type":"string"}}},"required":["technical_skills","soft_skills","certifications"]},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 23 Jul 2025 21:14:16 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1636'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '1662'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9993'
+      X-Ratelimit-Remaining-Tokens:
+      - '199781'
+      X-Ratelimit-Reset-Requests:
+      - 54.332s
+      X-Ratelimit-Reset-Tokens:
+      - 65ms
+      X-Request-Id:
+      - req_26a27a976579208049bfbd270eaae2b3
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=S8qDQwugEPcH_tp3MUwPG8c3EqVy4Bo06C82AHW4qBc-1753305256-1.0.1.1-hmI8CQb4gd3nmiAsn96bIiEv.9wy8QtT8IKV9vOvjsJEsXzSFmnn.bWgrIuIl7gyAORzv4fOiU22jPqnGHySObisFzfM9QiZJOyBmfjO4mk;
+        path=/; expires=Wed, 23-Jul-25 21:44:16 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=OGRp.IkonfHQltXLYk6KjD7KYzM6VIvD0ixPHgkI3E8-1753305256584-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 963e2fb2c9417ac1-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-Bwb4xjmRG0DB1pAva12Q1fITgUi41",
+          "object": "chat.completion",
+          "created": 1753305255,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"technical_skills\":[\"Ruby\",\"JavaScript\",\"Python\",\"Java\",\"Rails\",\"React\",\"Node.js\",\"Express\",\"PostgreSQL\",\"MongoDB\",\"Redis\",\"Git\",\"Docker\",\"AWS\",\"Jenkins\"],\"soft_skills\":[],\"certifications\":[]}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 299,
+            "completion_tokens": 51,
+            "total_tokens": 350,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Wed, 23 Jul 2025 21:14:16 GMT
+recorded_with: VCR 6.3.1

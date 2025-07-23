@@ -1,4 +1,5 @@
 json.type "object"
+json.additionalProperties false
 json.properties do
   json.name do
     json.type "string"
@@ -13,4 +14,4 @@ json.properties do
     json.type "string"
   end
 end
-json.required [ "name" ]
+json.required [ "name", "email", "phone", "location" ]
