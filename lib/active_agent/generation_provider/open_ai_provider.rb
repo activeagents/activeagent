@@ -29,7 +29,8 @@ module ActiveAgent
 
         chat_prompt(parameters: prompt_parameters)
       rescue => e
-        raise GenerationProviderError, e.message
+        error_message = e.respond_to?(:message) ? e.message : e.to_s
+        raise GenerationProviderError, error_message
       end
 
       def embed(prompt)
@@ -37,7 +38,8 @@ module ActiveAgent
 
         embeddings_prompt(parameters: embeddings_parameters)
       rescue => e
-        raise GenerationProviderError, e.message
+        error_message = e.respond_to?(:message) ? e.message : e.to_s
+        raise GenerationProviderError, error_message
       end
 
       private
@@ -69,13 +71,14 @@ module ActiveAgent
         end
       end
 
-      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @config["temperature"] || 0.7, tools: @prompt.actions)
+      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
         {
           model: model,
           messages: provider_messages(messages),
           temperature: temperature,
+          max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"],
           tools: tools.presence
-        }
+        }.compact
       end
 
       def provider_messages(messages)

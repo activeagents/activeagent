@@ -105,9 +105,16 @@ module ActiveAgent
         # Define how the agent should generate content
         def generate_with(provider, **options)
           self.generation_provider = provider
-          self.options = (options || {}).merge(options)
+
+          if options.has_key?(:instructions) || (self.options || {}).empty?
+            # Either instructions explicitly provided, or no inherited options exist
+            self.options = (self.options || {}).merge(options)
+          else
+            # Don't inherit instructions from parent if not explicitly set
+            inherited_options = (self.options || {}).except(:instructions)
+            self.options = inherited_options.merge(options)
+          end
           self.options[:stream] = new.agent_stream if self.options[:stream]
-          generation_provider.config.merge!(self.options)
         end
 
         def stream_with(&stream)
@@ -239,7 +246,7 @@ module ActiveAgent
       def initialize
         super
         @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: options)
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options || {})
       end
 
       def process(method_name, *args) # :nodoc:
@@ -294,9 +301,14 @@ module ActiveAgent
       def prompt(headers = {}, &block)
         return context if @_prompt_was_called && headers.blank? && !block
 
+        # Apply option hierarchy: prompt options > agent options > config options
+        merged_options = merge_options(headers)
         raw_instructions = headers.has_key?(:instructions) ? headers[:instructions] : context.options[:instructions]
+
         context.instructions = prepare_instructions(raw_instructions)
-        context.options.merge!(options)
+
+        context.options.merge!(merged_options)
+
         content_type = headers[:content_type]
         headers = apply_defaults(headers)
         context.messages = headers[:messages] || []
@@ -347,6 +359,42 @@ module ActiveAgent
       end
 
       private
+
+      def merge_options(prompt_options)
+        config_options = generation_provider&.config || {}
+        agent_options = (self.class.options || {}).deep_dup  # Defensive copy to prevent mutation
+
+        parent_options = self.class.superclass.respond_to?(:options) ? (self.class.superclass.options || {}) : {}
+
+        # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
+        runtime_options = prompt_options.slice(
+          :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
+          :presence_penalty, :response_format, :seed, :stop, :tools_choice, :user
+        )
+
+        # Handle explicit options parameter
+        explicit_options = prompt_options[:options] || {}
+
+        # Merge with proper precedence: config < agent < explicit_options
+        # Don't include instructions in automatic merging as it has special template fallback logic
+        config_options_filtered = config_options.except(:instructions)
+        agent_options_filtered = agent_options.except(:instructions)
+        explicit_options_filtered = explicit_options.except(:instructions)
+
+        merged = config_options_filtered.merge(agent_options_filtered).merge(explicit_options_filtered)
+
+        # Only merge runtime options that are actually present (not nil)
+        runtime_options.each do |key, value|
+          next if value.nil?
+          # Special handling for stream option: preserve agent_stream proc if it exists
+          if key == :stream && agent_options[:stream].is_a?(Proc) && !value.is_a?(Proc)
+            next
+          end
+          merged[key] = value
+        end
+
+        merged
+      end
 
       def set_content_type(m, user_content_type, class_default) # :doc:
         if user_content_type.present?

@@ -20,7 +20,8 @@ module ActiveAgent
 
         chat_prompt(parameters: prompt_parameters)
       rescue => e
-        raise GenerationProviderError, e.message
+        error_message = e.respond_to?(:message) ? e.message : e.to_s
+        raise GenerationProviderError, error_message
       end
 
       def chat_prompt(parameters: prompt_parameters)
@@ -44,12 +45,12 @@ module ActiveAgent
         end
       end
 
-      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @config["temperature"] || 0.7, tools: @prompt.actions)
+      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
         params = {
           model: model,
           messages: provider_messages(messages),
           temperature: temperature,
-          max_tokens: 4096
+          max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"] || 4096
         }
 
         if tools&.present?
