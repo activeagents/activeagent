@@ -387,7 +387,7 @@ module ActiveAgent
         runtime_options.each do |key, value|
           next if value.nil?
           # Special handling for stream option: preserve agent_stream proc if it exists
-          if key == :stream && agent_options[:stream].is_a?(Proc) && !value.is_a?(Proc)            
+          if key == :stream && agent_options[:stream].is_a?(Proc) && !value.is_a?(Proc)
             next
           end
           merged[key] = value
