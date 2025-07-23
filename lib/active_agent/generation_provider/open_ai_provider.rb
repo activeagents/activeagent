@@ -80,6 +80,15 @@ module ActiveAgent
           tools: tools.presence
         }.compact
 
+        # Only include tools if we're not using structured output and tools are properly formatted
+        # Structured output mode should focus solely on generating the structured response
+        unless @prompt.options[:json_schema] || @config["json_schema"]
+          # Only include tools if they are properly formatted objects (not just strings)
+          if tools.present? && tools.all? { |tool| tool.is_a?(Hash) && tool.key?("type") }
+            params[:tools] = tools
+          end
+        end
+
         # Structured output support using OpenAI's structured outputs feature
         if @prompt.options[:json_schema]
           params[:response_format] = {

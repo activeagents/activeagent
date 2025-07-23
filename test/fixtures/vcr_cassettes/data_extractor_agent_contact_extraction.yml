@@ -1,0 +1,121 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"Extract
+        structured data from the provided text. Return the data in the exact JSON
+        format specified by the schema.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Jane
+        Doe, Software Developer at ABC Company. Email: jane@abc.com, Phone: 555-9876","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"response","description":"Structured
+        response","schema":{"type":"object","additionalProperties":false,"properties":{"name":{"type":"string"},"email":{"type":"string"},"phone":{"type":"string"},"location":{"type":"string"}},"required":["name","email","phone","location"]},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 23 Jul 2025 21:13:55 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '2869'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '2874'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9997'
+      X-Ratelimit-Remaining-Tokens:
+      - '199948'
+      X-Ratelimit-Reset-Requests:
+      - 24.748s
+      X-Ratelimit-Reset-Tokens:
+      - 15ms
+      X-Request-Id:
+      - 2cbb58c2-e08a-4fbd-bdb2-8f4beb9c25e6
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=mKHYOcdcYFCyTVXhkJjtpPm2ddn0V73tPPnODfMpZr4-1753305235-1.0.1.1-XzAA3w12pWesX67YGbc0.jnnePxu0j8xpGesmh9yAZSeSuVzp3fjKll68uaI261i24P2q_HtzA8j6rV0Qr6I2wbptxnT6H2gzbDZeExo6VA;
+        path=/; expires=Wed, 23-Jul-25 21:43:55 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=vueLYgxNcmIp8RZpvZne4bPOKvFkJ.Adrey3kCkb_Nc-1753305235551-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 963e2f27ba4ffad2-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-Bwb4ar52l1O84EThPIEFi6A9xY4Ut",
+          "object": "chat.completion",
+          "created": 1753305232,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"name\":\"Jane Doe\",\"email\":\"jane@abc.com\",\"phone\":\"555-9876\",\"location\":\"ABC Company\"}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 104,
+            "completion_tokens": 26,
+            "total_tokens": 130,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Wed, 23 Jul 2025 21:13:55 GMT
+recorded_with: VCR 6.3.1
