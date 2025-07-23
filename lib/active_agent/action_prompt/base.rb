@@ -106,8 +106,6 @@ module ActiveAgent
         def generate_with(provider, **options)
           self.generation_provider = provider
 
-          # Store agent-level options that can be overridden at runtime
-          # Only merge inherited options with explicitly provided options
           if options.has_key?(:instructions) || (self.options || {}).empty?
             # Either instructions explicitly provided, or no inherited options exist
             self.options = (self.options || {}).merge(options)
@@ -117,7 +115,6 @@ module ActiveAgent
             self.options = inherited_options.merge(options)
           end
           self.options[:stream] = new.agent_stream if self.options[:stream]
-          # Don't modify the provider config directly, let the merge_option_hierarchy handle it at runtime
         end
 
         def stream_with(&stream)
@@ -305,7 +302,7 @@ module ActiveAgent
         return context if @_prompt_was_called && headers.blank? && !block
 
         # Apply option hierarchy: prompt options > agent options > config options
-        merged_options = merge_option_hierarchy(headers)
+        merged_options = merge_options(headers)
         raw_instructions = headers.has_key?(:instructions) ? headers[:instructions] : context.options[:instructions]
 
         context.instructions = prepare_instructions(raw_instructions)
@@ -363,19 +360,11 @@ module ActiveAgent
 
       private
 
-      def merge_option_hierarchy(prompt_options)
-        # Option hierarchy (highest to lowest priority):
-        # 1. Prompt-level options (passed to prompt method)
-        # 2. Agent-level options (set via generate_with or class options)
-        # 3. Config-level options (from configuration files)
-
+      def merge_options(prompt_options)
         config_options = generation_provider&.config || {}
         agent_options = (self.class.options || {}).deep_dup  # Defensive copy to prevent mutation
 
-        # Check if this specific agent class has its own options (not inherited)
-        # We need to check if this class has called generate_with itself
         parent_options = self.class.superclass.respond_to?(:options) ? (self.class.superclass.options || {}) : {}
-        own_agent_options = agent_options.reject { |k, v| parent_options[k] == v }
 
         # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
         runtime_options = prompt_options.slice(
@@ -398,23 +387,11 @@ module ActiveAgent
         runtime_options.each do |key, value|
           next if value.nil?
           # Special handling for stream option: preserve agent_stream proc if it exists
-          if key == :stream && agent_options[:stream].is_a?(Proc) && !value.is_a?(Proc)
-            # Don't override the agent's stream proc with a boolean
+          if key == :stream && agent_options[:stream].is_a?(Proc) && !value.is_a?(Proc)            
             next
           end
           merged[key] = value
         end
-
-        # # Handle instructions separately: only include if explicitly provided by this agent (not inherited)
-        # if prompt_options.has_key?(:instructions)
-        #   merged[:instructions] = prompt_options[:instructions]
-        # elsif explicit_options.has_key?(:instructions)
-        #   merged[:instructions] = explicit_options[:instructions]
-        # elsif own_agent_options.has_key?(:instructions)
-        #   merged[:instructions] = own_agent_options[:instructions]
-        # elsif config_options.has_key?(:instructions)
-        #   merged[:instructions] = config_options[:instructions]
-        # end
 
         merged
       end
