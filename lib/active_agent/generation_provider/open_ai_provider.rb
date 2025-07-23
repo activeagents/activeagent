@@ -72,7 +72,7 @@ module ActiveAgent
       end
 
       def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
-        {
+        params = {
           model: model,
           messages: provider_messages(messages),
           temperature: temperature,

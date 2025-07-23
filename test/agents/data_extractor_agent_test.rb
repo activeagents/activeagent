@@ -71,7 +71,7 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
       agent = DataExtractorAgent.with(text: @sample_text, analysis_type: "full")
       generation1 = agent.analyze_document
       response1 = generation1.generate_now
-      
+
       assert response1.message.content.is_a?(String)
       assert response1.message.content.length > 0
     end
@@ -125,20 +125,20 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
       response = generation.generate_now
 
       assert response.message.content.is_a?(Hash)
-      
+
       # Test personal info extraction
       personal_info = response.message.content[:personal_info]
       assert personal_info.present?
       assert_includes personal_info[:name], "John"
       assert_includes personal_info[:email], "john.smith@email.com"
       assert_includes personal_info[:phone], "555"
-      
+
       # Test experience extraction
       experience = response.message.content[:experience]
       assert experience.present?
       assert experience.is_a?(Array)
       assert experience.length > 0
-      
+
       # Test skills extraction
       skills = response.message.content[:skills]
       assert skills.present?
@@ -153,13 +153,13 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
       response = generation.generate_now
 
       assert response.message.content.is_a?(Hash)
-      
+
       contact_info = response.message.content
       assert contact_info[:name].present?
       assert contact_info[:email].present?
       assert contact_info[:phone].present?
       assert contact_info[:location].present?
-      
+
       # Verify extracted values match the sample resume
       assert_includes contact_info[:name], "John"
       assert_includes contact_info[:email], "john.smith@email.com"
@@ -175,16 +175,16 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
       response = generation.generate_now
 
       assert response.message.content.is_a?(Hash)
-      
+
       skills = response.message.content
       assert skills[:technical_skills].present?
       assert skills[:technical_skills].is_a?(Array)
-      
+
       # Check that technical skills include programming languages from the resume
       technical_skills = skills[:technical_skills]
-      has_relevant_skills = technical_skills.any? { |skill| 
-        skill.downcase.include?("ruby") || 
-        skill.downcase.include?("rails") || 
+      has_relevant_skills = technical_skills.any? { |skill|
+        skill.downcase.include?("ruby") ||
+        skill.downcase.include?("rails") ||
         skill.downcase.include?("javascript") ||
         skill.downcase.include?("node")
       }
@@ -218,7 +218,7 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
       assert response.message.content.is_a?(Hash)
       assert response.message.content[:name].present?
       assert response.message.content[:email].present?
-      
+
       # Verify the actual extracted content
       assert_includes response.message.content[:name], "Jane"
       assert_includes response.message.content[:email], "jane@abc.com"
@@ -248,26 +248,26 @@ class DataExtractorAgentTest < ActiveSupport::TestCase
     VCR.use_cassette("data_extractor_agent_end_to_end") do
       # Test multiple extraction types in sequence
       agent = DataExtractorAgent.with(text: @sample_text)
-      
+
       # Test resume data extraction
       resume_response = agent.extract_resume_data.generate_now
       assert resume_response.message.content.is_a?(Hash)
       assert resume_response.message.content[:personal_info].present?
       assert resume_response.message.content[:experience].present?
-      
-      # Test contact info extraction  
+
+      # Test contact info extraction
       contact_response = agent.extract_contact_info.generate_now
       assert contact_response.message.content.is_a?(Hash)
       assert contact_response.message.content[:name].present?
       assert contact_response.message.content[:email].present?
-      
+
       # Test skills extraction
       skills_response = agent.extract_skills.generate_now
       assert skills_response.message.content.is_a?(Hash)
       assert skills_response.message.content[:technical_skills].present?
-      
+
       # Verify all responses contain structured data, not plain text
-      [resume_response, contact_response, skills_response].each do |response|
+      [ resume_response, contact_response, skills_response ].each do |response|
         refute response.message.content.is_a?(String), "Response should be structured JSON, not plain text"
       end
     end
