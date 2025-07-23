@@ -184,13 +184,13 @@ module ActiveAgent
         structured_formats = [ "json_schema", "json_object" ]
 
         # Check if response_format indicates structured output
-        response_format = prompt.options[:response_format] || config["response_format"]
+        response_format = @prompt.options[:response_format] || config["response_format"]
         if response_format.is_a?(Hash) && structured_formats.include?(response_format[:type] || response_format["type"])
           return true
         end
 
         # Check if json_schema is specified
-        prompt.options[:json_schema] || config["json_schema"]
+        @prompt.options[:json_schema] || config["json_schema"]
       end
 
       def chat_prompt(parameters: prompt_parameters)
