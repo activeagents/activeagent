@@ -11,26 +11,21 @@ module ActiveAgent
     end
 
     module ClassMethods
-      # Defines a callback that will get called right before the
-      # prompt is sent to the generation provider method.
-      def before_generation(*filters, &blk)
-        set_callback(:generation, :before, *filters, &blk)
-      end
-
-      # Defines a callback that will get called right after the
-      # prompt's generation method is finished.
-      def after_generation(*filters, &blk)
-        set_callback(:generation, :after, *filters, &blk)
-      end
-
-      # Defines a callback that will get called around the prompt's generation method.
-      def around_generation(*filters, &blk)
-        set_callback(:generation, :around, *filters, &blk)
+      # # Defines a callback that will get called right before/after/around the
+      # # generation provider method.
+      [ :before, :after, :around ].each do |callback|
+        define_method "#{callback}_generation" do |*names, &blk|
+          _insert_callbacks(names, blk) do |name, options|
+            set_callback(:generation, callback, name, options)
+          end
+        end
       end
 
       # Defines a callback for handling streaming responses during generation
-      def on_stream(*filters, &blk)
-        set_callback(:stream, :before, *filters, &blk)
+      def on_stream(*names, &blk)
+        _insert_callbacks(names, blk) do |name, options|
+          set_callback(:stream, :before, name, options)
+        end
       end
     end
 

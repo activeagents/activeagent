@@ -61,7 +61,7 @@ module ActiveAgent
             message.generation_id = chunk.dig("id")
             message.content += new_content
 
-            agent_stream.call(message, new_content, false) do |message, new_content|
+            agent_stream.call(message, new_content, false, prompt.action_name) do |message, new_content|
               yield message, new_content if block_given?
             end
           elsif chunk.dig("choices", 0, "delta", "tool_calls") && chunk.dig("choices", 0, "delta", "role")
@@ -70,7 +70,7 @@ module ActiveAgent
             @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
           end
 
-          agent_stream.call(message, nil, true) do |message|
+          agent_stream.call(message, nil, true, prompt.action_name) do |message|
             yield message, nil if block_given?
           end
         end

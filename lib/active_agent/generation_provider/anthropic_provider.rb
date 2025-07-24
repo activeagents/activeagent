@@ -40,7 +40,7 @@ module ActiveAgent
         proc do |chunk|
           if new_content = chunk.dig(:delta, :text)
             message.content += new_content
-            agent_stream.call(message) if agent_stream.respond_to?(:call)
+            agent_stream.call(message, nil, false, prompt.action_name) if agent_stream.respond_to?(:call)
           end
         end
       end
