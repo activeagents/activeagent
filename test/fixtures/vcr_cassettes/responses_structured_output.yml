@@ -1,0 +1,163 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o","temperature":0.7,"input":[{"role":"user","content":"Generate
+        a JSON object with name and age"}],"text":{"format":{"type":"json_schema","name":"structured_output","schema":{"type":"object","properties":{"name":{"type":"string","description":"Person''s
+        name"},"age":{"type":"number","description":"Person''s age"}},"required":["name","age"],"additionalProperties":false},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 24 Jul 2025 20:46:16 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '500'
+      X-Ratelimit-Limit-Tokens:
+      - '30000'
+      X-Ratelimit-Remaining-Requests:
+      - '499'
+      X-Ratelimit-Remaining-Tokens:
+      - '29924'
+      X-Ratelimit-Reset-Requests:
+      - 120ms
+      X-Ratelimit-Reset-Tokens:
+      - 152ms
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      X-Request-Id:
+      - req_bf7c01456f4d9db825d851b1869d349a
+      Openai-Processing-Ms:
+      - '1032'
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=ujflmUc3yeeAobBYmKPjxkFvoA94iDodH9vsvk56rRw-1753389976-1.0.1.1-3nbKxmr01HJIbOj9W9IfiIgssaHHLVXzeY6B7Wq1W.coWiE54rXm4yvNcKhuEcpLDpRjrkQFfBrlgQRSGL3CMJytVz1JWaZyzcqv84LqcPA;
+        path=/; expires=Thu, 24-Jul-25 21:16:16 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=b1jHV4QASE_9VAwLgCl8H23PeKqA0KTtofuD6BQnYhs-1753389976725-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 964644136b217aee-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_68829b97a884819f952885656a3fa650032016ade399d93f",
+          "object": "response",
+          "created_at": 1753389975,
+          "status": "completed",
+          "background": false,
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "msg_68829b982fa8819fa909a37df46e1708032016ade399d93f",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "{\"name\":\"John Doe\",\"age\":30}"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "auto",
+          "store": true,
+          "temperature": 0.7,
+          "text": {
+            "format": {
+              "type": "json_schema",
+              "description": null,
+              "name": "structured_output",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Person's name"
+                  },
+                  "age": {
+                    "type": "number",
+                    "description": "Person's age"
+                  }
+                },
+                "required": [
+                  "name",
+                  "age"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            }
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 57,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 11,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 68
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Thu, 24 Jul 2025 20:46:16 GMT
+recorded_with: VCR 6.3.1

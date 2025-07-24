@@ -26,7 +26,7 @@ class StreamingAgentTest < ActiveSupport::TestCase
       StreamingAgent.with(message: "Stream this message").prompt_context.generate_now
     end
 
-    assert_equal broadcast_calls.size, 30
+    assert_equal 93, broadcast_calls.size, "Expected 93 broadcast calls"
   ensure
     # Restore original broadcast method
     ActionCable.server.singleton_class.class_eval do

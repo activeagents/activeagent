@@ -36,9 +36,19 @@ module ActiveAgent
 
     # Helper method to run stream callbacks
     def run_stream_callbacks(message, delta = nil, stop = false)
+      # Store the parameters in instance variables so callbacks can access them
+      @_stream_message = message
+      @_stream_delta = delta
+      @_stream_stop = stop
+      
       run_callbacks(:stream) do
         yield(message, delta, stop) if block_given?
       end
+    ensure
+      # Clean up the instance variables
+      @_stream_message = nil
+      @_stream_delta = nil
+      @_stream_stop = nil
     end
   end
 end
