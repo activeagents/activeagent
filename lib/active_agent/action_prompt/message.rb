@@ -18,7 +18,7 @@ module ActiveAgent
       end
       VALID_ROLES = %w[system assistant user tool].freeze
 
-      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset
+      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset, :file_name
 
       def initialize(attributes = {})
         @action_id = attributes[:action_id]
@@ -31,6 +31,7 @@ module ActiveAgent
         @raw_actions = attributes[:raw_actions]
         @requested_actions = attributes[:requested_actions] || []
         @action_requested = @requested_actions.any?
+        @file_name = attributes[:file_name]
         validate_role
       end
 
@@ -46,7 +47,8 @@ module ActiveAgent
           generation_id: generation_id,
           content: content,
           type: content_type,
-          charset: charset
+          charset: charset,
+          file_name: file_name
         }
 
         hash[:action_requested] = requested_actions.any?

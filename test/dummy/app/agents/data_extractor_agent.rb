@@ -34,4 +34,10 @@ class DataExtractorAgent < ApplicationAgent
       prompt(message: "Analyze this document: #{params[:text]}")
     end
   end
+
+  def encode_pdf
+    File.open(params[:file_path], "rb") do |file|
+      
+    end
+  end
 end
