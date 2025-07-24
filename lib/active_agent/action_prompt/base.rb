@@ -330,6 +330,22 @@ module ActiveAgent
         if headers[:message].present? && headers[:message].is_a?(ActiveAgent::ActionPrompt::Message)
           headers[:body] = headers[:message].content
           headers[:role] = headers[:message].role
+        elsif headers[:message].present? && headers[:message].is_a?(Hash)
+          # Handle multipart message content
+          if headers[:message][:content].is_a?(Array)
+            # Create a Message object with multipart content
+            message = ActiveAgent::ActionPrompt::Message.new(
+              content: headers[:message][:content],
+              role: headers[:message][:role] || :user
+            )
+            context.messages << message
+            # Set a placeholder body to prevent template rendering
+            headers[:body] = ""
+            headers[:content_type] = "multipart/mixed"
+          else
+            headers[:body] = headers[:message][:content] || headers[:message].to_s
+            headers[:role] = headers[:message][:role] || :user
+          end
         elsif headers[:message].present? && headers[:message].is_a?(String)
           headers[:body] = headers[:message]
           headers[:role] = :user

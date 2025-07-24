@@ -1,0 +1,135 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o","temperature":0.7,"input":[{"role":"user","content":[{"type":"input_text","text":"Extract
+        all text and information from this image"},{"type":"input_image","image_url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}]}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 24 Jul 2025 23:49:37 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '500'
+      X-Ratelimit-Remaining-Requests:
+      - '499'
+      X-Ratelimit-Reset-Requests:
+      - 120ms
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      X-Request-Id:
+      - req_0da714ca63d3b110c37b316de3333efe
+      Openai-Processing-Ms:
+      - '1756'
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=XZCYlthFTn_EMqgDLXQ9i0n66eb9WTCbcRbQ4tJgG.A-1753400977-1.0.1.1-F6sU_tQwkCgfJuSdzk8zJDfWDg9C0wmq1MJwGRptKFvp9GGFwwNjHEFnEkAffma_i3rVAhBKUliKg__CQh89apFkKTw2jOl3FRheUNujHBs;
+        path=/; expires=Fri, 25-Jul-25 00:19:37 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=Q7J3TYs1eO2PXxkR8HchgzQg1FWwFRlVcOi6GmnwTMk-1753400977273-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 964750a06ee7cf22-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_6882c68f7da4819faebb3dc5236dbaa10ef752b28dd3a916",
+          "object": "response",
+          "created_at": 1753400975,
+          "status": "completed",
+          "background": false,
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "msg_6882c690cd58819fa79a65ea3c63b9110ef752b28dd3a916",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "The image is solid green and contains no text or additional information."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 0.7,
+          "text": {
+            "format": {
+              "type": "text"
+            }
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 270,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 14,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 284
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Thu, 24 Jul 2025 23:49:37 GMT
+recorded_with: VCR 6.3.1
