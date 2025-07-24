@@ -9,6 +9,10 @@ require "securerandom"
 require "active_agent/action_prompt/action"
 require_relative "base"
 require_relative "response"
+require_relative "open_ai_provider/base_adapter"
+require_relative "open_ai_provider/chat_adapter"
+require_relative "open_ai_provider/responses_adapter"
+require_relative "open_ai_provider/embeddings_adapter"
 
 module ActiveAgent
   module GenerationProvider
