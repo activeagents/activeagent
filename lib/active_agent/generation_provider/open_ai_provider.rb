@@ -71,6 +71,10 @@ module ActiveAgent
         end
       end
 
+      def responses_parameters(prompt_parameters)
+        prompt_parameters[:input] = prompt_parameters[:messages]
+      end
+      
       def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
         params = {
           model: model,
@@ -135,6 +139,17 @@ module ActiveAgent
           if message.content_type == "image_url" || message.content[0..4] == "data:"
             provider_message[:type] = "image_url"
             provider_message[:image_url] = { url: message.content }
+          end
+          
+          if message.content_type == "input_image" || message.content[0..4] == "data:"
+            provider_message[:type] = "input_image"
+            provider_message[:image_url] = { message.content }
+          end
+
+          if message.content_type == "input_file" && message.content[0..4] == "data:"
+            provider_message[:type] = "input_file"
+            provider_message[:file_data] = message.content
+            provider_message[:file_name] = message.file_name if message.file_name.present?
           end
           provider_message
         end
@@ -205,6 +220,11 @@ module ActiveAgent
       def chat_prompt(parameters: prompt_parameters)
         parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
         chat_response(@client.chat(parameters: parameters))
+      end
+
+      def responses_prompt(parameters: prompt_parameters)
+        parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
+        responses_response(@client.responses(parameters: parameters))
       end
 
       def embeddings_parameters(input: prompt.message.content, model: "text-embedding-3-large")
