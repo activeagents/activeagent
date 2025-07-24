@@ -216,14 +216,24 @@ module ActiveAgent
       end
 
       def handle_response(response)
-        return response unless response.message.requested_actions.present?
-        perform_actions(requested_actions: response.message.requested_actions)
+        # Always update context with the assistant's response first
         update_context(response)
+        
+        # If there are requested actions, perform them after adding assistant message
+        if response.message.requested_actions.present?
+          perform_actions(requested_actions: response.message.requested_actions)
+        end
+        
+        # Update the response to reflect the final context state
+        response.instance_variable_set(:@prompt, context)
+        
+        response
       end
 
       def update_context(response)
-        context.message = context.messages.last
-        ActiveAgent::GenerationProvider::Response.new(prompt: context)
+        # Add the assistant's response message to the context
+        context.messages << response.message
+        context.message = response.message
       end
 
       def perform_actions(requested_actions:)

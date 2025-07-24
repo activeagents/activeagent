@@ -5,12 +5,10 @@ http_interactions:
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You''re
-        a support agent. Your job is to help users with their questions.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Show
-        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_cat_image","description":"This
-        action takes no params and gets a random cat image and returns it as a base64
-        string.","parameters":{"type":"object","properties":{"param_name":{"type":"string","description":"The
-        param_description"}}}}}]}'
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"What''s
+        the weather like in New York?","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city name"}},"required":["location"]}}}]}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +26,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Thu, 24 Jul 2025 20:48:13 GMT
+      - Thu, 24 Jul 2025 20:26:30 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,13 +38,13 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '564'
+      - '480'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '566'
+      - '483'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -54,38 +52,38 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '9998'
       X-Ratelimit-Remaining-Tokens:
-      - '199976'
+      - '199988'
       X-Ratelimit-Reset-Requests:
-      - 14.275s
+      - 16.255s
       X-Ratelimit-Reset-Tokens:
-      - 7ms
+      - 3ms
       X-Request-Id:
-      - req_3fb4228dc35d7a1eda4c75698cd3534a
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
+      - e26abc94-b583-4cc5-b7cb-80852329e81a
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=8pSBkkkp_pTtp3F1tAC5mbz_z3gU.usCXAkOWAbcMIY-1753390093-1.0.1.1-BqUh5553TI8u6FOqdBgdd3M5I6uKWaUy2qef9fXNUnygJk9Z4u7esevCBKuMB9654dOLdxGmYb1jaHkKQgTxb7AGOgDYFetrHeY2cz2I2H8;
-        path=/; expires=Thu, 24-Jul-25 21:18:13 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=R8kIT172BcQpBhqi8FYTFneNDR_XuKHpuLaES5zmVhY-1753388790-1.0.1.1-6nQf0Hp5G8Ee4leRMw31KLJKZlRwei1_80GpSbAnhZZglUqA1dLdoxKL4Tpv5F1qYejyVDUHJJc01d1_IQf8HLUFrC8_mqCe0rEGZVrIg5s;
+        path=/; expires=Thu, 24-Jul-25 20:56:30 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=tK9UupqRRfMMc4cwpJERB.VgoXnP4xCpeDcbuMePw5Y-1753390093919-0.0.1.1-604800000;
+      - _cfuvid=UZgab5jx.d1EUVZNl3KSFxY25qbcWJppdnf26YDtIvY-1753388790684-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 964646f20a13ed41-SJC
+      - 964627219a0bfa9a-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-Bwx9JB0m59cL7OBVa9SCDl9hiaUcd",
+          "id": "chatcmpl-BwwoIA1X26cKNQOeFX7DtbNT27Pu1",
           "object": "chat.completion",
-          "created": 1753390093,
+          "created": 1753388790,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -95,11 +93,11 @@ http_interactions:
                 "content": null,
                 "tool_calls": [
                   {
-                    "id": "call_RX5Xed9YUTOW3fcBkaopQUIV",
+                    "id": "call_scrTKX6BJHwIQv85dr9GqeMM",
                     "type": "function",
                     "function": {
-                      "name": "get_cat_image",
-                      "arguments": "{}"
+                      "name": "get_weather",
+                      "arguments": "{\"location\":\"New York\"}"
                     }
                   }
                 ],
@@ -111,9 +109,9 @@ http_interactions:
             }
           ],
           "usage": {
-            "prompt_tokens": 83,
-            "completion_tokens": 11,
-            "total_tokens": 94,
+            "prompt_tokens": 55,
+            "completion_tokens": 15,
+            "total_tokens": 70,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -128,5 +126,5 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": null
         }
-  recorded_at: Thu, 24 Jul 2025 20:48:13 GMT
+  recorded_at: Thu, 24 Jul 2025 20:26:30 GMT
 recorded_with: VCR 6.3.1

@@ -7,7 +7,7 @@ http_interactions:
       encoding: UTF-8
       string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You''re
         a basic OpenAI agent.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Show
-        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":null}'
+        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7}'
     headers:
       Content-Type:
       - application/json
@@ -25,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 20 Jun 2025 19:55:21 GMT
+      - Thu, 24 Jul 2025 20:48:11 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -37,11 +37,13 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '1474'
+      - '1357'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '1476'
+      - '1360'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -55,39 +57,39 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 4ms
       X-Request-Id:
-      - req_a48284d15e0c2093084dc96fd178fc09
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
+      - 592b14ac-6405-4dd8-afcf-86f32e5aa537
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=.zGpGubYSi4ovCLnv.JzqQw4M1ieTrOX7et59BUs_Pg-1750449321-1.0.1.1-uxLyjAchdLwtn0J_Y2dESbSVpZmkvAfpiC94gFU2_I0RgXYrcHS4Zx2Zq3a6Ag1DRgn0O77QctwbWY2KIM8WqXyAQ7xGiwFDVIgoPExNlCs;
-        path=/; expires=Fri, 20-Jun-25 20:25:21 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=matQZCRBamM0wvfhFTzA1vtQ_ehnlDan0HWsvSoBN24-1753390091-1.0.1.1-9nBkso1qVhRUQ6K9vWTbE8x.j1cENS0rDfKq_IIb1iiHyHcMV67RGBjJP0kTYecbn1rR.ZTM1iGAdewav6bi7UpgZV3rb37fE1zm7_h790o;
+        path=/; expires=Thu, 24-Jul-25 21:18:11 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=5pMjJQgWoMScQP84jzpEUzv3t22VR4Bqkhslme0odf4-1750449321322-0.0.1.1-604800000;
+      - _cfuvid=DvLWvEtDMUez1zwTU3BF_FtD0KfI5XjX.l6JekKMAq8-1753390091678-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 952dd2b65a6f229f-SJC
+      - 964646dfbcc267eb-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-Bkc7TDG6pDUilu1fxsGmED27Di8Q1",
+          "id": "chatcmpl-Bwx9GpVhYNdQQ47rqm3t8idt35QCi",
           "object": "chat.completion",
-          "created": 1750449319,
+          "created": 1753390090,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "I can't show images directly, but I can describe a cat for you! Cats are typically small, furry animals with whiskers, sharp claws, and a long tail. They come in various colors and patterns, such as tabby, calico, or solid black. They are known for their playful behavior, agility, and curiosity. If you want to see a cat, you can easily find pictures by searching online!",
+                "content": "I can't display images, but I can describe a cat for you! Imagine a small, fluffy creature with soft fur, pointed ears, and bright, curious eyes. They often have playful personalities and enjoy chasing toys or lounging in sunny spots. If you're looking for pictures, you can easily find many adorable cat photos online!",
                 "refusal": null,
                 "annotations": []
               },
@@ -97,8 +99,8 @@ http_interactions:
           ],
           "usage": {
             "prompt_tokens": 22,
-            "completion_tokens": 84,
-            "total_tokens": 106,
+            "completion_tokens": 64,
+            "total_tokens": 86,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -111,7 +113,7 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_34a54ae93c"
+          "system_fingerprint": null
         }
-  recorded_at: Fri, 20 Jun 2025 19:55:21 GMT
+  recorded_at: Thu, 24 Jul 2025 20:48:11 GMT
 recorded_with: VCR 6.3.1

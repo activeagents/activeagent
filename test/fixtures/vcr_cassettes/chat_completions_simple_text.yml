@@ -5,12 +5,8 @@ http_interactions:
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You''re
-        a support agent. Your job is to help users with their questions.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Show
-        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_cat_image","description":"This
-        action takes no params and gets a random cat image and returns it as a base64
-        string.","parameters":{"type":"object","properties":{"param_name":{"type":"string","description":"The
-        param_description"}}}}}]}'
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hello
+        world","type":"text/plain","charset":"UTF-8"}],"temperature":0.7}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +24,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Thu, 24 Jul 2025 20:48:13 GMT
+      - Thu, 24 Jul 2025 20:23:59 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,13 +36,13 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '564'
+      - '288'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '566'
+      - '295'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -54,66 +50,56 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '9998'
       X-Ratelimit-Remaining-Tokens:
-      - '199976'
+      - '199993'
       X-Ratelimit-Reset-Requests:
-      - 14.275s
+      - 16.613s
       X-Ratelimit-Reset-Tokens:
-      - 7ms
+      - 1ms
       X-Request-Id:
-      - req_3fb4228dc35d7a1eda4c75698cd3534a
+      - req_ea978cb3c821c34c41d6552dfff9d4fc
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=8pSBkkkp_pTtp3F1tAC5mbz_z3gU.usCXAkOWAbcMIY-1753390093-1.0.1.1-BqUh5553TI8u6FOqdBgdd3M5I6uKWaUy2qef9fXNUnygJk9Z4u7esevCBKuMB9654dOLdxGmYb1jaHkKQgTxb7AGOgDYFetrHeY2cz2I2H8;
-        path=/; expires=Thu, 24-Jul-25 21:18:13 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=Pa47SVwM56.yepobVtohClypcrqUSEFrPcTcYWcLOCg-1753388639-1.0.1.1-Bv22GeLuYjI1m1hbE_4umY9p4O0FywKVjQqVVVw1kuFzZTpIeQq5WyWHdZ7ld1_13_TjwthXBK6e4MhREfIWsiHhMqq1c3bT3anNQ9.XckQ;
+        path=/; expires=Thu, 24-Jul-25 20:53:59 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=tK9UupqRRfMMc4cwpJERB.VgoXnP4xCpeDcbuMePw5Y-1753390093919-0.0.1.1-604800000;
+      - _cfuvid=ztw3sy5J8rPjD8jqp5waD0BHktTcwH4SvmG6Gx0C_Go-1753388639011-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 964646f20a13ed41-SJC
+      - 9646236e9e28aab5-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-Bwx9JB0m59cL7OBVa9SCDl9hiaUcd",
+          "id": "chatcmpl-BwwlqfQK9QnhKoeFp8c7zeFu1HYh0",
           "object": "chat.completion",
-          "created": 1753390093,
+          "created": 1753388638,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": null,
-                "tool_calls": [
-                  {
-                    "id": "call_RX5Xed9YUTOW3fcBkaopQUIV",
-                    "type": "function",
-                    "function": {
-                      "name": "get_cat_image",
-                      "arguments": "{}"
-                    }
-                  }
-                ],
+                "content": "Hello, World!",
                 "refusal": null,
                 "annotations": []
               },
               "logprobs": null,
-              "finish_reason": "tool_calls"
+              "finish_reason": "stop"
             }
           ],
           "usage": {
-            "prompt_tokens": 83,
-            "completion_tokens": 11,
-            "total_tokens": 94,
+            "prompt_tokens": 10,
+            "completion_tokens": 4,
+            "total_tokens": 14,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -128,5 +114,5 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": null
         }
-  recorded_at: Thu, 24 Jul 2025 20:48:13 GMT
+  recorded_at: Thu, 24 Jul 2025 20:23:59 GMT
 recorded_with: VCR 6.3.1

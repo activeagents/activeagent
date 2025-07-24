@@ -5,18 +5,21 @@ class StreamingAgent < ApplicationAgent
     instructions: "You're a chat agent. Your job is to help users with their questions.",
     stream: true
 
-  on_stream :broadcast_message
+  on_stream do
+    # Only broadcast if we have a message with generation_id and content
+    if @_stream_message&.generation_id && @_stream_message&.content&.present?
+      broadcast_message(@_stream_message)
+    end
+  end
 
   private
 
-  def broadcast_message
-    response = generation_provider.response
-
+  def broadcast_message(message)
     # Broadcast the message to the specified channel
     ActionCable.server.broadcast(
-      "#{response.message.generation_id}_messages",
+      "#{message.generation_id}_messages",
       partial: "streaming_agent/message",
-      locals: { message: response.message.content, scroll_to: true }
+      locals: { message: message.content, scroll_to: true }
     )
   end
 end

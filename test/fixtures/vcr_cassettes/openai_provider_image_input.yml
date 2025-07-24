@@ -1,0 +1,73 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","temperature":0.7,"input":[{"type":"image","url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 400
+      message: Bad Request
+    headers:
+      Date:
+      - Thu, 24 Jul 2025 20:26:28 GMT
+      Content-Type:
+      - application/json
+      Content-Length:
+      - '438'
+      Connection:
+      - keep-alive
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      X-Request-Id:
+      - req_dea6a5c246ec20e3cf6b5f2f1a9690cb
+      Openai-Processing-Ms:
+      - '13'
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=ZeRPxb8Mm5bue87FXrc2AF0sEnEpKG6PlaXdVsZfYi4-1753388788-1.0.1.1-ABasXx7WPSHp4F5B.ITqYp4V9G6RCbKhzAAv.CgVMyqhE_70AmUInYCA82r5MeEvMUit5bINAinGnpVzpXVYqP.AG5_pCTxozKSlvAT.3YE;
+        path=/; expires=Thu, 24-Jul-25 20:56:28 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=ZTfQclJZvf71BhSJYwrXFErTZUPzaLN0wDRTjkcWTWs-1753388788605-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 964627180b88f9e0-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |-
+        {
+          "error": {
+            "message": "Invalid value: 'image'. Supported values are: 'code_interpreter_call', 'computer_call', 'computer_call_output', 'file_search_call', 'function_call', 'function_call_output', 'image_generation_call', 'item_reference', 'local_shell_call', 'local_shell_call_output', 'message', 'reasoning', and 'web_search_call'.",
+            "type": "invalid_request_error",
+            "param": "input[0]",
+            "code": "invalid_value"
+          }
+        }
+  recorded_at: Thu, 24 Jul 2025 20:26:28 GMT
+recorded_with: VCR 6.3.1

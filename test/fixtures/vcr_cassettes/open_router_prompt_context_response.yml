@@ -7,7 +7,7 @@ http_interactions:
       encoding: UTF-8
       string: '{"model":"qwen/qwen3-30b-a3b:free","messages":[{"role":"system","content":"You''re
         a basic Open Router agent.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Show
-        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":null}'
+        me a cat","type":"text/plain","charset":"UTF-8"}],"temperature":0.7}'
     headers:
       Content-Type:
       - application/json
@@ -25,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 20 Jun 2025 19:55:24 GMT
+      - Thu, 24 Jul 2025 20:50:01 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -34,22 +34,22 @@ http_interactions:
       - keep-alive
       Access-Control-Allow-Origin:
       - "*"
-      X-Clerk-Auth-Message:
-      - Invalid JWT form. A JWT consists of three parts separated by dots. (reason=token-invalid,
-        token-carrier=header)
-      X-Clerk-Auth-Reason:
-      - token-invalid
-      X-Clerk-Auth-Status:
-      - signed-out
       Vary:
       - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 952dd2c98fd416a6-SJC
+      - 9646498f9819ed3a-SJC
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        CiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCnsiaWQiOiJnZW4tMTc1MDQ0OTMyMi1EbGdQV3FmVzhFMVI3TVFYOGlGbCIsInByb3ZpZGVyIjoiQ2h1dGVzIiwibW9kZWwiOiJxd2VuL3F3ZW4zLTMwYi1hM2I6ZnJlZSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NTA0NDkzMjMsImNob2ljZXMiOlt7ImxvZ3Byb2JzIjpudWxsLCJmaW5pc2hfcmVhc29uIjoic3RvcCIsIm5hdGl2ZV9maW5pc2hfcmVhc29uIjoic3RvcCIsImluZGV4IjowLCJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiSSBjYW4ndCBkaXNwbGF5IGltYWdlcyBkaXJlY3RseSwgYnV0IEkgY2FuIGRlc2NyaWJlIGEgY2F0IGZvciB5b3UhIPCfkLEgSGVyZSdzIGEgdml2aWQgaW1hZ2U6ICBcblxuQSBzbGVlaywgZmx1ZmZ5IHRhYmJ5IGNhdCBzaXRzIG9uIGEgd2luZG93c2lsbCwgaXRzIGZ1ciBhIG1peCBvZiB3YXJtIGFtYmVyIGFuZCBzb2Z0IGdyYXkuIEl0cyBsYXJnZSwgZW1lcmFsZC1ncmVlbiBleWVzIGdsZWFtIHdpdGggY3VyaW9zaXR5LCBhbmQgdGlueSB3aGlza2VycyB0d2l0Y2ggYXMgaXQgd2F0Y2hlcyBhIGJ1dHRlcmZseSBvdXRzaWRlLiBFYXJzIHBlcmtlZCB1cCwgaXQgdGlsdHMgaXRzIGhlYWQsIHJldmVhbGluZyBhIHBsYXlmdWwsIG1pc2NoaWV2b3VzIGV4cHJlc3Npb24uIFRoZSBzdW5saWdodCBoaWdobGlnaHRzIGl0cyBzaWxreSBjb2F0LCBtYWtpbmcgaXQgbG9vayBsaWtlIGEgbGl2aW5nIHNoYWRvdyBvZiBhIHN1bnNldC4gIFxuXG5JZiB5b3UnZCBsaWtlLCBJIGNhbiBndWlkZSB5b3UgdG8gc2VhcmNoIGZvciBcImN1dGUgY2F0IHBob3Rvc1wiIG9uIGEgYnJvd3NlciBvciBzdWdnZXN0IGEgcGV0LXJlbGF0ZWQgd2Vic2l0ZSEg8J+MkCIsInJlZnVzYWwiOm51bGwsInJlYXNvbmluZyI6IlxuT2theSwgdGhlIHVzZXIgYXNrZWQgdG8gc2VlIGEgY2F0LiBTaW5jZSBJIGNhbid0IGRpc3BsYXkgaW1hZ2VzIGRpcmVjdGx5LCBJIG5lZWQgdG8gdGhpbmsgb2YgYSB3YXkgdG8gaGVscCB0aGVtLiBNYXliZSBJIGNhbiBkZXNjcmliZSBhIGNhdCBpbiBkZXRhaWwgc28gdGhleSBjYW4gdmlzdWFsaXplIGl0LiBMZXQgbWUgc3RhcnQgd2l0aCB0aGUgYmFzaWMgZmVhdHVyZXM6IGZ1ciwgd2hpc2tlcnMsIGV5ZXMsIGVhcnMuIEkgc2hvdWxkIG1lbnRpb24gZGlmZmVyZW50IGJyZWVkcyB0byBhZGQgdmFyaWV0eS4gTWF5YmUgdGFsayBhYm91dCBjb2xvcnMgYW5kIHBhdHRlcm5zIHRvby4gQWxzbywgc3VnZ2VzdCB0aGV5IGxvb2sgdXAgaW1hZ2VzIG9ubGluZSBvciBjaGVjayBhIHBldCB3ZWJzaXRlLiBLZWVwIHRoZSB0b25lIGZyaWVuZGx5IGFuZCBoZWxwZnVsLiBNYWtlIHN1cmUgbm90IHRvIHVzZSBhbnkgbWFya2Rvd24gYW5kIGtlZXAgaXQgbmF0dXJhbC4gQWxyaWdodCwgbGV0J3MgcHV0IHRoYXQgdG9nZXRoZXIuXG4ifX1dLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjoyNiwiY29tcGxldGlvbl90b2tlbnMiOjI2NywidG90YWxfdG9rZW5zIjoyOTN9fQ==
-  recorded_at: Fri, 20 Jun 2025 19:55:29 GMT
+        CiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKeyJpZCI6Imdlbi0xNzUzMzkwMjAwLUpXMXpVTEs5bTUwc0EydGpCSzgxIiwicHJvdmlkZXIiOiJDaHV0ZXMiLCJtb2RlbCI6InF3ZW4vcXdlbjMtMzBiLWEzYjpmcmVlIiwib2JqZWN0IjoiY2hhdC5jb21wbGV0aW9uIiwiY3JlYXRlZCI6MTc1MzM5MDIwMCwiY2hvaWNlcyI6W3sibG9ncHJvYnMiOm51bGwsImZpbmlzaF9yZWFzb24iOiJzdG9wIiwibmF0aXZlX2ZpbmlzaF9yZWFzb24iOiJzdG9wIiwiaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJJIGNhbid0IGRpc3BsYXkgaW1hZ2VzIGRpcmVjdGx5LCBidXQgSSBjYW4gZGVzY3JpYmUgYSBjYXQgZm9yIHlvdSEg8J+QsSBIZXJlJ3MgYSBmcmllbmRseSBmZWxpbmU6ICBcblxuQSBzbGVlaywgZmx1ZmZ5IGNhdCB3aXRoIHNvZnQgZ3JheSBmdXIsIHdpZGUgYW1iZXIgZXllcyB0aGF0IGdsZWFtIHdpdGggY3VyaW9zaXR5LCBhbmQgdGlueSBwYXdzIHRoYXQgcGFkIHNpbGVudGx5IGFjcm9zcyB0aGUgZmxvb3IuIEl0IGhhcyBhIGxvbmcgdGFpbCB0aGF0IHN3aXNoZXMgd2hlbiBpdCdzIGhhcHB5LCBhbmQgZGVsaWNhdGUgd2hpc2tlcnMgdGhhdCB0d2l0Y2ggYXMgaXQgZXhwbG9yZXMgaXRzIHN1cnJvdW5kaW5ncy4gIFxuXG5Xb3VsZCB5b3UgbGlrZSBtZSB0byBhZGQgbW9yZSBkZXRhaWxzIChsaWtlIGNvbG9yLCBicmVlZCwgb3IgYmVoYXZpb3IpPyDwn5iKIiwicmVmdXNhbCI6bnVsbCwicmVhc29uaW5nIjoiXG5Pa2F5LCB0aGUgdXNlciBhc2tlZCB0byBzZWUgYSBjYXQuIEkgbmVlZCB0byBmaWd1cmUgb3V0IGhvdyB0byByZXNwb25kLiBTaW5jZSBJJ20gYW4gQUksIEkgY2FuJ3QgYWN0dWFsbHkgc2hvdyBpbWFnZXMsIGJ1dCBtYXliZSBJIGNhbiBkZXNjcmliZSBvbmUuIExldCBtZSB0aGluayBhYm91dCB0aGUgY2hhcmFjdGVyaXN0aWNzIG9mIGEgY2F0LiBUaGV5IGhhdmUgZnVyLCB3aGlza2VycywgcGF3cywgYW5kIHRhaWxzLiBNYXliZSBtZW50aW9uIGRpZmZlcmVudCBjb2xvcnMgb3IgYnJlZWRzPyBPaCwgYnV0IHRoZSB1c2VyIG1pZ2h0IGp1c3Qgd2FudCBhIHNpbXBsZSBkZXNjcmlwdGlvbi4gSSBzaG91bGQga2VlcCBpdCBmcmllbmRseSBhbmQgb2ZmZXIgdG8gaGVscCB3aXRoIG1vcmUgZGV0YWlscyBpZiBuZWVkZWQuIEFsc28sIG1ha2Ugc3VyZSB0byBzdGF5IHdpdGhpbiB0aGUgdGV4dC1iYXNlZCBsaW1pdGF0aW9ucy4gQWxyaWdodCwgSSdsbCBkZXNjcmliZSBhIGNhdCBhbmQgYXNrIGlmIHRoZXkgd2FudCBtb3JlIGluZm9ybWF0aW9uLlxuIn19XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MjYsImNvbXBsZXRpb25fdG9rZW5zIjoyMjksInRvdGFsX3Rva2VucyI6MjU1fX0=
+  recorded_at: Thu, 24 Jul 2025 20:50:03 GMT
 recorded_with: VCR 6.3.1
