@@ -155,7 +155,7 @@ module ActiveAgent
                   "content" => [
                     {
                       "type" => "input_image",
-                      "input_image" => { "data" => image_data }
+                      "image_url" => image_data
                     }
                   ]
                 }
@@ -168,7 +168,7 @@ module ActiveAgent
                   "content" => [
                     {
                       "type" => "input_image",
-                      "input_image" => { "url" => image_data }
+                      "image_url" => image_data
                     }
                   ]
                 }
@@ -207,7 +207,7 @@ module ActiveAgent
             if message.content_type == "image_url" || (message.content.is_a?(String) && message.content.start_with?("data:"))
               current_message["content"] << {
                 "type" => "input_image",
-                "input_image" => { "data" => message.content }
+                "image_url" => message.content
               }
             elsif message.input_file_id.present?
               current_message["content"] << {
@@ -218,27 +218,47 @@ module ActiveAgent
               # Handle multipart content
               message.content.each do |part|
                 case part["type"]
-                when "text"
+                when "text", "input_text"
                   current_message["content"] << {
                     "type" => "input_text",
                     "text" => part["text"]
                   }
-                when "image_url"
-                  current_message["content"] << {
-                    "type" => "input_image", 
-                    "input_image" => { "url" => part["image_url"]["url"] }
-                  }
-                when "file"
-                  current_message["content"] << {
-                    "type" => "input_file",
-                    "input_file" => { "file_id" => part["file_id"] }
-                  }
+                when "image_url", "input_image"
+                  if part["image_url"]
+                    current_message["content"] << {
+                      "type" => "input_image", 
+                      "image_url" => part["image_url"]["url"] || part["image_url"]
+                    }
+                  elsif part["input_image"]
+                    # Handle nested input_image format - extract the data/url
+                    image_data = part["input_image"]["data"] || part["input_image"]["url"] || part["input_image"]
+                    current_message["content"] << {
+                      "type" => "input_image",
+                      "image_url" => image_data
+                    }
+                  end
+                when "file", "input_file"
+                  if part["file_id"]
+                    current_message["content"] << {
+                      "type" => "input_file",
+                      "input_file" => { "file_id" => part["file_id"] }
+                    }
+                  elsif part["filename"] && part["file_data"]
+                    # Handle file data directly (would typically need upload first)
+                    current_message["content"] << {
+                      "type" => "input_file",
+                      "input_file" => {
+                        "filename" => part["filename"],
+                        "data" => part["file_data"]
+                      }
+                    }
+                  end
                 end
               end
             else
               current_message["content"] << {
                 "type" => "input_text",
-                "input_text" => message.content
+                "text" => message.content
               }
             end
           end
