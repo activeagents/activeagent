@@ -9,7 +9,6 @@ module ActiveAgent
   module ActionPrompt
     class Base < AbstractController::Base
       include Callbacks
-      include GenerationMethods
       include GenerationProvider
       include QueuedGeneration
       include Rescuable
@@ -316,14 +315,8 @@ module ActiveAgent
         context.params = params
 
         context.charset = charset = headers[:charset]
-
-        if headers[:message].present? && headers[:message].is_a?(ActiveAgent::ActionPrompt::Message)
-          headers[:body] = headers[:message].content
-          headers[:role] = headers[:message].role
-        elsif headers[:message].present? && headers[:message].is_a?(String)
-          headers[:body] = headers[:message]
-          headers[:role] = :user
-        end
+        
+        headers = prepare_message(headers)
 
         # wrap_generation_behavior!(headers[:generation_method], headers[:generation_method_options])
         # assign_headers_to_context(context, headers)
@@ -345,16 +338,52 @@ module ActiveAgent
       end
 
       def action_schemas
-        prefixes = lookup_context.prefixes | [ self.class.agent_name ]
+        prefixes = set_prefixes(action_name, lookup_context.prefixes)
 
         action_methods.map do |action|
-          next unless lookup_context.template_exists?(action, prefixes, false, formats: [ :json ])
-
-          JSON.parse render_to_string(locals: { action_name: action }, action: action, formats: :json)
+          load_schema(action, prefixes)
         end.compact
       end
 
       private
+      def prepare_message(headers)
+        if headers[:message].present? && headers[:message].is_a?(ActiveAgent::ActionPrompt::Message)
+          headers[:body] = headers[:message].content
+          headers[:role] = headers[:message].role
+        elsif headers[:message].present? && headers[:message].is_a?(String)
+          headers[:body] = headers[:message]
+          headers[:role] = :user
+        end
+        load_input_data(headers)
+
+        headers
+      end
+
+      def load_input_data(headers)
+        if headers[:image_data].present?
+          headers[:body] = [
+            ActiveAgent::ActionPrompt::Message.new(content: headers[:image_data], content_type: "image_data"),
+            ActiveAgent::ActionPrompt::Message.new(content: headers[:body], content_type: "input_text")
+          ]
+        elsif headers[:file_data].present?
+          headers[:body] = [
+            ActiveAgent::ActionPrompt::Message.new(content: headers[:file_data], content_type: "file_data"),
+            ActiveAgent::ActionPrompt::Message.new(content: headers[:body], content_type: "input_text")
+          ]
+        end
+        
+        headers
+      end
+
+      def set_prefixes(action, prefixes)
+        prefixes = lookup_context.prefixes | [ self.class.agent_name ]
+      end
+
+      def load_schema(action_name, prefixes)
+        return unless lookup_context.template_exists?(action_name, prefixes, false, formats: [ :json ])
+
+        JSON.parse render_to_string(locals: { action_name: action_name }, action: action_name, formats: :json)
+      end
 
       def merge_options(prompt_options)
         config_options = generation_provider&.config || {}
@@ -392,11 +421,13 @@ module ActiveAgent
         merged
       end
 
-      def set_content_type(m, user_content_type, class_default) # :doc:
+      def set_content_type(prompt_context, user_content_type, class_default) # :doc:
         if user_content_type.present?
           user_content_type
-        else
-          context.content_type || class_default
+        elsif context.multimodal?
+          "multipart/mixed"
+        elsif prompt_context.body.is_a?(Array)
+          prompt_context.content_type || class_default
         end
       end
 
@@ -482,10 +513,7 @@ module ActiveAgent
 
       def create_parts_from_responses(context, responses)
         if responses.size > 1
-          # prompt_container = ActiveAgent::ActionPrompt::Prompt.new
-          # prompt_container.content_type = "multipart/alternative"
           responses.each { |r| insert_part(context, r, context.charset) }
-          # context.add_part(prompt_container)
         else
           responses.each { |r| insert_part(context, r, context.charset) }
         end
