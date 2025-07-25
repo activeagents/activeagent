@@ -27,7 +27,12 @@ module ActiveAgent
       def generate(prompt)
         @prompt = prompt
 
-        chat_prompt(parameters: prompt_parameters)
+        if @prompt.multimodal? || @prompt.content_type == "multipart/mixed"
+          binding.irb
+          responses_prompt(parameters: responses_parameters)
+        else
+          chat_prompt(parameters: prompt_parameters)
+        end
       rescue => e
         error_message = e.respond_to?(:message) ? e.message : e.to_s
         raise GenerationProviderError, error_message
@@ -113,6 +118,11 @@ module ActiveAgent
         @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
       end
 
+      def responses_response(response)
+        binding.irb
+        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
+      end
+
       def handle_message(message_json)
         ActiveAgent::ActionPrompt::Message.new(
           generation_id: message_json["id"],
@@ -142,6 +152,20 @@ module ActiveAgent
       def chat_prompt(parameters: prompt_parameters)
         parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
         chat_response(@client.chat(parameters: parameters))
+      end
+
+      def responses_prompt(parameters: responses_parameters)
+        # parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
+        responses_response(@client.responses.create(parameters: parameters))
+      end
+
+      def responses_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, structured_output: @prompt.output_schema)
+        {
+          model: model,
+          input: ActiveAgent::GenerationProvider::OpenAIAdapters::ResponsesAdapter.new(@prompt).input,
+          tools: tools.presence,
+          text: structured_output
+        }.compact
       end
 
       def embeddings_parameters(input: prompt.message.content, model: "text-embedding-3-large")

@@ -69,6 +69,16 @@ module ActiveAgent
         assert_equal "Test message", prompt.to_s
       end
 
+      test "multimodal? returns true if message content is an array" do
+        prompt = Prompt.new(message: Message.new(content: ["image1.png", "image2.png"]))
+        assert prompt.multimodal?
+      end
+
+      test "multimodal? returns true if any message content is an array" do
+        prompt = Prompt.new(messages: [ Message.new(content: "text"), Message.new(content:["image1.png", "image2.png"]) ])
+        assert prompt.multimodal?
+      end
+
       test "from_messages initializes messages from an array of Message objects" do
         prompt = Prompt.new(
           messages: [

@@ -18,12 +18,13 @@ module ActiveAgent
       end
       VALID_ROLES = %w[system assistant user tool].freeze
 
-      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset
+      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset, :metadata
 
       def initialize(attributes = {})
         @action_id = attributes[:action_id]
         @action_name = attributes[:action_name]
         @generation_id = attributes[:generation_id]
+        @metadata = attributes[:metadata] || {}
         @charset = attributes[:charset] || "UTF-8"
         @content = attributes[:content] || ""
         @content_type = attributes[:content_type] || "text/plain"

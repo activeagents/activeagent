@@ -1,13 +1,12 @@
 PATH
   remote: ../../..
   specs:
-    activeagent (0.4.2)
+    activeagent (0.4.3)
       actionpack (>= 7.2, < 9.0)
       actionview (>= 7.2, < 9.0)
       activejob (>= 7.2, < 9.0)
       activemodel (>= 7.2, < 9.0)
       activesupport (>= 7.2, < 9.0)
-      rails (>= 7.2, < 9.0)
 
 GEM
   remote: https://rubygems.org/
