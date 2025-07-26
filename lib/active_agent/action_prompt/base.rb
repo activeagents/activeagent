@@ -309,16 +309,16 @@ module ActiveAgent
         context.options.merge!(merged_options)
 
         content_type = headers[:content_type]
-        
+
         headers = apply_defaults(headers)
         context.messages = headers[:messages] || []
         context.context_id = headers[:context_id]
         context.params = params
-        
+
         context.output_schema = load_schema(headers[:output_schema], set_prefixes(headers[:output_schema], lookup_context.prefixes))
-        
+
         context.charset = charset = headers[:charset]
-        
+
         headers = prepare_message(headers)
         # wrap_generation_behavior!(headers[:generation_method], headers[:generation_method_options])
         # assign_headers_to_context(context, headers)
@@ -329,7 +329,7 @@ module ActiveAgent
         create_parts_from_responses(context, responses)
 
         context.content_type = set_content_type(context, content_type, headers[:content_type])
-        
+
         context.charset = charset
         context.actions = headers[:actions] || action_schemas
 

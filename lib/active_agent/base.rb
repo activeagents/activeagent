@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require "active_agent/action_prompt"
 require "active_agent/prompt_helper"
 require "active_agent/action_prompt/base"

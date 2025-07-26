@@ -70,12 +70,12 @@ module ActiveAgent
       end
 
       test "multimodal? returns true if message content is an array" do
-        prompt = Prompt.new(message: Message.new(content: ["image1.png", "image2.png"]))
+        prompt = Prompt.new(message: Message.new(content: [ "image1.png", "image2.png" ]))
         assert prompt.multimodal?
       end
 
       test "multimodal? returns true if any message content is an array" do
-        prompt = Prompt.new(messages: [ Message.new(content: "text"), Message.new(content:["image1.png", "image2.png"]) ])
+        prompt = Prompt.new(messages: [ Message.new(content: "text"), Message.new(content: [ "image1.png", "image2.png" ]) ])
         assert prompt.multimodal?
       end
 
