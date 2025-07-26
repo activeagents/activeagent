@@ -8,6 +8,7 @@ end
 require "active_agent/action_prompt/action"
 require_relative "base"
 require_relative "response"
+require_relative "responses_adapter"
 
 module ActiveAgent
   module GenerationProvider
@@ -127,7 +128,7 @@ module ActiveAgent
           role: message_json["role"].intern,
           action_requested: message_json["finish_reason"] == "tool_calls",
           raw_actions: message_json["tool_calls"] || [],
-          requested_actions: handle_actions(message_json["tool_calls"])
+          content_type: prompt.output_schema.present? ? "application/json" : "text/plain",
         )
 
         @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
@@ -172,7 +173,7 @@ module ActiveAgent
       def responses_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, structured_output: @prompt.output_schema)
         {
           model: model,
-          input: ActiveAgent::GenerationProvider::OpenAIAdapters::ResponsesAdapter.new(@prompt).input,
+          input: ActiveAgent::GenerationProvider::ResponsesAdapter.new(@prompt).input,
           tools: tools.presence,
           text: structured_output
         }.compact
