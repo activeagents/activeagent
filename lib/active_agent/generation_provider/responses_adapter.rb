@@ -15,7 +15,6 @@ module ActiveAgent
               {
                 role: message.role,
                 content: message.content.map do |content_part|
-                  # binding.irb
                   if content_part.is_a?(String)
                     { type: "input_text", text: content_part }
                   elsif content_part.is_a?(ActiveAgent::ActionPrompt::Message) && content_part.content_type == "input_text"

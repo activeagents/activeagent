@@ -28,7 +28,6 @@ module ActiveAgent
         @prompt = prompt
 
         if @prompt.multimodal? || @prompt.content_type == "multipart/mixed"
-          binding.irb
           responses_prompt(parameters: responses_parameters)
         else
           chat_prompt(parameters: prompt_parameters)
@@ -119,7 +118,18 @@ module ActiveAgent
       end
 
       def responses_response(response)
-        binding.irb
+        message_json = response.dig("output", 0)
+        message_json["id"] = response.dig("id") if message_json["id"].blank?
+
+        message = ActiveAgent::ActionPrompt::Message.new(
+          generate_id: message_json["id"],
+          content: message_json["content"].first["text"],
+          role: message_json["role"].intern,
+          action_requested: message_json["finish_reason"] == "tool_calls",
+          raw_actions: message_json["tool_calls"] || [],
+          requested_actions: handle_actions(message_json["tool_calls"])
+        )
+
         @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
       end
 
