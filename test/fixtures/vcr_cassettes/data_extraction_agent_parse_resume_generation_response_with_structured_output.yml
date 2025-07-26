@@ -1,0 +1,240 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","input":[{"role":"system","content":"You are
+        a helpful assistant."},{"role":"user","content":[{"type":"input_file","filename":"resume.pdf","file_data":"data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAw\nIFIKPj4KZW5kb2JqCgoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBb\nMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagoKMyAwIG9iago8PAovVHlwZSAv\nUGFnZQovUGFyZW50IDIgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9S\nZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDQgMCBSCj4+Cj4+Ci9Db250ZW50\ncyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1\nYnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagoK\nNSAwIG9iago8PAovTGVuZ3RoIDMwMAo+PgpzdHJlYW0KQlQKL0YxIDE2IFRm\nCjUwIDc1MCBUZAooSm9obiBEb2UgLSBTb2Z0d2FyZSBFbmdpbmVlcikgVGoK\nMCAtMzAgVGQKL0YxIDEyIFRmCihFbWFpbDogam9obi5kb2VAZXhhbXBsZS5j\nb20pIFRqCjAgLTIwIFRkCihQaG9uZTogKDU1NSkgMTIzLTQ1NjcpIFRqCjAg\nLTIwIFRkCihMb2NhdGlvbjogU2FuIEZyYW5jaXNjbywgQ0EpIFRqCjAgLTQw\nIFRkCi9GMSAxNCBUZgooRXhwZXJpZW5jZTopIFRqCjAgLTI1IFRkCi9GMSAx\nMiBUZgooU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyIGF0IFRlY2hDb3JwICgy\nMDIwLTIwMjQpKSBUagowIC0yMCBUZAooLSBEZXZlbG9wZWQgd2ViIGFwcGxp\nY2F0aW9ucyB1c2luZyBSdWJ5IG9uIFJhaWxzKSBUagowIC0yMCBUZAooLSBM\nZWQgdGVhbSBvZiA1IGRldmVsb3BlcnMpIFRqCjAgLTIwIFRkCigtIEltcGxl\nbWVudGVkIENJL0NEIHBpcGVsaW5lcykgVGoKMCAtNDAgVGQKL0YxIDE0IFRm\nCihTa2lsbHM6KSBUagowIC0yNSBUZAovRjEgMTIgVGYKKFJ1YnksIFJhaWxz\nLCBKYXZhU2NyaXB0LCBQeXRob24sIEFXUywgRG9ja2VyKSBUagowIC00MCBU\nZAovRjEgMTQgVGYKKEVkdWNhdGlvbjopIFRqCjAgLTI1IFRkCi9GMSAxMiBU\nZgooQlMgQ29tcHV0ZXIgU2NpZW5jZSwgU3RhbmZvcmQgVW5pdmVyc2l0eSAo\nMjAxNi0yMDIwKSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYK\nMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAw\nMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjY5\nIDAwMDAwIG4gCjAwMDAwMDAzMzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6\nZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo2ODcKJSVFT0YK\n"},{"type":"input_text","text":"Parse
+        the resume"}]}],"text":{"format":{"type":"json_schema","name":"resume_schema","schema":{"type":"object","properties":{"name":{"type":"string","description":"The
+        full name of the individual."},"email":{"type":"string","format":"email","description":"The
+        email address of the individual."},"phone":{"type":"string","description":"The
+        phone number of the individual."},"education":{"type":"array","items":{"$ref":"#/$defs/education"}},"experience":{"type":"array","items":{"$ref":"#/$defs/experience"}}},"required":["name","email","phone","education","experience"],"additionalProperties":false,"$defs":{"education":{"type":"object","properties":{"degree":{"type":"string","description":"The
+        degree obtained."},"institution":{"type":"string","description":"The institution
+        where the degree was obtained."},"year":{"type":"integer","description":"The
+        year of graduation."}},"required":["degree","institution","year"],"additionalProperties":false},"experience":{"type":"object","properties":{"job_title":{"type":"string","description":"The
+        job title held."},"company":{"type":"string","description":"The company where
+        the individual worked."},"duration":{"type":"string","description":"The duration
+        of employment."}},"required":["job_title","company","duration"],"additionalProperties":false}}},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_API_KEY>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 26 Jul 2025 01:14:29 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199645'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 106ms
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      X-Request-Id:
+      - req_1d688ae05526536c759dc24dd1766f21
+      Openai-Processing-Ms:
+      - '1667'
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=GloksRq5y_PRW_T.6mM5nHxx1HX6BQo8EMqtQJUDigg-1753492469-1.0.1.1-7RV2BEXnm.6fymD8pD2H3jZFv51.djCv5Wn3V07WU3SGJwaNhwDvAlCyu7HNwBFFBfl6v32EOBD3McMM.XBbCypzq4vghsfkNEHmIYQMGKs;
+        path=/; expires=Sat, 26-Jul-25 01:44:29 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=46yBrVZ6Kc0H1Kkcp7n.nutIy5GN97Fz0EZAjXgQN0g-1753492469326-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96500a518fa4cefe-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_68842bf3a224819e9d8bc0800fff834e062fd5c6491554ce",
+          "object": "response",
+          "created_at": 1753492467,
+          "status": "completed",
+          "background": false,
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-mini-2024-07-18",
+          "output": [
+            {
+              "id": "msg_68842bf41474819e9e19c8cea0cef4d3062fd5c6491554ce",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "{\"name\":\"John Doe\",\"email\":\"john.doe@example.com\",\"phone\":\"(555) 123-4567\",\"education\":[{\"degree\":\"BS Computer Science\",\"institution\":\"Stanford University\",\"year\":2020}],\"experience\":[{\"job_title\":\"Senior Software Engineer\",\"company\":\"TechCorp\",\"duration\":\"2020-2024\"}]}"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "json_schema",
+              "description": null,
+              "name": "resume_schema",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The full name of the individual."
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "The email address of the individual."
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "The phone number of the individual."
+                  },
+                  "education": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/education"
+                    }
+                  },
+                  "experience": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/experience"
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "email",
+                  "phone",
+                  "education",
+                  "experience"
+                ],
+                "additionalProperties": false,
+                "$defs": {
+                  "education": {
+                    "type": "object",
+                    "properties": {
+                      "degree": {
+                        "type": "string",
+                        "description": "The degree obtained."
+                      },
+                      "institution": {
+                        "type": "string",
+                        "description": "The institution where the degree was obtained."
+                      },
+                      "year": {
+                        "type": "integer",
+                        "description": "The year of graduation."
+                      }
+                    },
+                    "required": [
+                      "degree",
+                      "institution",
+                      "year"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "experience": {
+                    "type": "object",
+                    "properties": {
+                      "job_title": {
+                        "type": "string",
+                        "description": "The job title held."
+                      },
+                      "company": {
+                        "type": "string",
+                        "description": "The company where the individual worked."
+                      },
+                      "duration": {
+                        "type": "string",
+                        "description": "The duration of employment."
+                      }
+                    },
+                    "required": [
+                      "job_title",
+                      "company",
+                      "duration"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "strict": true
+            }
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 336,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 71,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 407
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 26 Jul 2025 01:14:29 GMT
+recorded_with: VCR 6.3.1
