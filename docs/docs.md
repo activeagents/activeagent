@@ -33,7 +33,7 @@ Active Agent is built around a few core components that work together to provide
 ## Model: Prompt Context
 Action Prompt allows Agent classes to define actions the return prompt context's with formatted messages.
 
-The Prompt obejct is the core data model that contains the runtime context messages, actions (tools), and configuration for the prompt. It is responsible for managing the contextual history and providing the necessary information for prompt and response cycles.
+The Prompt object is the core data model that contains the runtime context messages, actions (tools), and configuration for the prompt. It is responsible for managing the contextual history and providing the necessary information for prompt and response cycles.
 
 <FeatureCards :cards="$frontmatter.model" />
 
