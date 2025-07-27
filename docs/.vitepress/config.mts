@@ -72,6 +72,11 @@ export default defineConfig({
           { text: 'Active Agent', link: '/docs/framework/active-agent' },
         ]
       },
+      { text: 'Agents',
+        items: [
+          { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
+        ]
+      },
       {
         text: 'Action Prompt',
         items: [
