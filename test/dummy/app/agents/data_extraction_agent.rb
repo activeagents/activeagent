@@ -6,7 +6,10 @@ class DataExtractionAgent < ApplicationAgent
   end
 
   def parse_content
-    prompt(message: "Parse the resume", image_data: @image_data, file_data: @file_data, output_schema: params[:output_schema])
+    prompt(message: params[:message] || "Parse the content of the file or image",
+      image_data: @image_data,
+      file_data: @file_data,
+      output_schema: params[:output_schema])
   end
 
   private
