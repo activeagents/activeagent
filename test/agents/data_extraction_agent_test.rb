@@ -84,7 +84,12 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "parse_chart content from image data with structured output schema" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_parse_chart_with_structured_output") do
-      prompt = DataExtractionAgent.with(output_schema: :chart_schema, image_path: Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")).parse_content
+      # region data_extraction_agent_parse_chart_with_structured_output
+      prompt = DataExtractionAgent.with(
+        output_schema: :chart_schema,
+        image_path: Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")
+      ).parse_content
+      # endregion data_extraction_agent_parse_chart_with_structured_output
 
       assert_equal "multipart/mixed", prompt.content_type
       assert prompt.multimodal?, "Prompt should be multimodal with image data"
