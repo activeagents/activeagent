@@ -17,7 +17,7 @@ class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCas
 
     assert_file "app/agents/application_agent.rb" do |content|
       assert_match(/class ApplicationAgent < ActiveAgent::Base/, content)
-      assert_match(/layout 'agent'/, content)
+      assert_match(/layout "agent"/, content)
       assert_match(/generate_with :openai/, content)
     end
   end

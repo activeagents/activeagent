@@ -29,7 +29,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
 
     assert_file "app/agents/application_agent.rb" do |content|
       assert_match(/class ApplicationAgent < ActiveAgent::Base/, content)
-      assert_match(/layout 'agent'/, content)
+      assert_match(/layout "agent"/, content)
     end
   end
 
