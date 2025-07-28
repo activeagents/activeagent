@@ -17,15 +17,16 @@ hero:
       text: GitHub
       link: https://github.com/activeagents/activeagent
   image:
-    src: /activeagent.png
-    alt: VitePress
+    light: /activeagent.png
+    dark: /activeagent-dark.png
+    alt: ActiveAgent
 
 features:
   - title: Agents
     link: /docs/framework/active-agent
     icon: <img src="/activeagent.png" />
     details: Agents are Controllers with a common Generation API with enhanced memory and tooling.
-  - title: Actions 
+  - title: Actions
     icon: 🦾
     link: /docs/action-prompt/actions
     details: Actions are tools for Agents to interact with systems and code.
@@ -69,4 +70,3 @@ features:
   #   icon: 🧩
   #   details: Active Agent works seamlessly with tools like LangChain Ruby, pgvector, and the neighbors gem. Its agent-based architecture handles tool calls, renders prompts, and generates vector embeddings for pgvector with ease.
 ---
-
