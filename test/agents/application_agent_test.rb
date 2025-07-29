@@ -16,7 +16,8 @@ class ApplicationAgentTest < ActiveSupport::TestCase
       test_response_message_content = "It seems like you're looking for information or assistance regarding a \"Test Application Agent.\" Could you please provide more context or specify what exactly you need help with? Are you referring to a software testing agent, a specific tool, or something else? Your clarification will help me assist you better!"
       # region application_agent_prompt_context_message_generation
       message = "Test Application Agent"
-      response = ApplicationAgent.with(message: message).prompt_context.generate_now
+      prompt = ApplicationAgent.with(message: message).prompt_context
+      response = prompt.generate_now
       # endregion application_agent_prompt_context_message_generation
       assert_equal test_response_message_content, response.message.content
     end
