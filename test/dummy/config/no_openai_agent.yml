@@ -1,0 +1,33 @@
+# This file is used to configure the Active Agent Generation Providers for different environments.
+# Each provider can have its own settings, such as API keys and model configurations.
+# Make sure to set the API keys in your Rails credentials for each generation provider before using them
+# in your agent's `generate_with` config.
+open_router: &open_router
+  service: "OpenRouter"
+  access_token: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
+ollama: &ollama
+  service: "Ollama"
+  access_token: ""
+  host: "http://localhost:11434"
+  model: "gemma3:latest"
+  temperature: 0.7
+
+development:
+  open_router:
+    <<: *open_router
+    model: "qwen/qwen3-30b-a3b:free"
+    temperature: 0.7
+  ollama:
+    <<: *ollama
+test:
+  open_router:
+    <<: *open_router
+    model: "qwen/qwen3-30b-a3b:free"
+    temperature: 0.7
+  ollama:
+    <<: *ollama
+  anthropic:
+    service: "Anthropic"
+    access_token: "<%= 'erb-processed-key' %>"
+    model: "claude-3-sonnet-20240229"
+    temperature: <%= 0.5 + 0.2 %>

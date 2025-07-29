@@ -12,12 +12,15 @@ module ActiveAgent
     end
 
     module ClassMethods
-      def configuration(provider_name, **options)
-        config = ActiveAgent.config[provider_name.to_s] || ActiveAgent.config.dig(ENV["RAILS_ENV"], provider_name.to_s)
+      def configuration(name_or_provider, **options)
+        config = ActiveAgent.config[name_or_provider.to_s] || ActiveAgent.config.dig(ENV["RAILS_ENV"], name_or_provider.to_s) || {}        
 
-        raise "Configuration not found for provider: #{provider_name}" unless config
+        config = {"service" => "OpenAI"} if config.empty? && name_or_provider == :openai
         config.merge!(options)
+      raise "Failed to load provider #{name_or_provider}: configuration not found for provider"  if config["service"].nil?
         configure_provider(config)
+      rescue LoadError => e
+        raise RuntimeError, "Failed to load provider #{name_or_provider}: #{e.message}"
       end
 
       def configure_provider(config)
@@ -40,6 +43,9 @@ module ActiveAgent
         when Symbol, String
           provider = configuration(name_or_provider)
           assign_provider(name_or_provider.to_s, provider)
+        when OpenAI::Client
+          name = :openai
+          assign_provider(name, name_or_provider)
         else
           raise ArgumentError
         end

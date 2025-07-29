@@ -1,6 +1,12 @@
 # lib/active_agent/generation_provider/anthropic_provider.rb
 
-require "anthropic"
+begin
+  gem "ruby-anthropic", "~> 0.4.2"
+  require "anthropic"
+rescue LoadError
+  raise LoadError, "The 'ruby-anthropic' gem is required for AnthropicProvider. Please add it to your Gemfile and run `bundle install`."
+end
+
 require "active_agent/action_prompt/action"
 require_relative "base"
 require_relative "response"
@@ -10,9 +16,8 @@ module ActiveAgent
     class AnthropicProvider < Base
       def initialize(config)
         super
-        @api_key = config["api_key"]
-        @model_name = config["model"] || "claude-3-5-sonnet-20240620"
-        @client = Anthropic::Client.new(access_token: @api_key)
+        @access_token ||= config["api_key"] || config["access_token"] || Anthropic.configuration.access_token || ENV["ANTHROPIC_ACCESS_TOKEN"]
+        @client = Anthropic::Client.new(access_token: @access_token)
       end
 
       def generate(prompt)
