@@ -9,7 +9,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
 
   def teardown
     ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
-    ENV["RAILS_ENV"] = 'test'
+    ENV["RAILS_ENV"] = "test"
     ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
   end
 
@@ -176,7 +176,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     temp_file.unlink
   end
 
-  test "handles missing configuration file gracefully" do    
+  test "handles missing configuration file gracefully" do
     real_config = ActiveAgent.config
     ActiveAgent.instance_variable_set(:@config, nil)
 

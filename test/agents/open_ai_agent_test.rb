@@ -16,15 +16,15 @@ class OpenAIAgentTest < ActiveSupport::TestCase
 end
 
 OpenAI.configure do |config|
-  config.access_token = 'test-api-key'
-  config.organization_id = 'test-organization-id'
+  config.access_token = "test-api-key"
+  config.organization_id = "test-organization-id"
   config.log_errors = Rails.env.development?
   config.request_timeout = 600
 end
 
 class OpenAIClientTest < ActiveSupport::TestCase
   real_config = ActiveAgent.config
-  ActiveAgent.load_configuration('')
+  ActiveAgent.load_configuration("")
   class OpenAIClientAgent < ApplicationAgent
     layout "agent"
     generate_with :openai
@@ -36,5 +36,3 @@ class OpenAIClientTest < ActiveSupport::TestCase
     ActiveAgent.instance_variable_set(:@config, real_config)
   end
 end
-
-

@@ -9,7 +9,7 @@ class AnthropicProviderTest < ActiveSupport::TestCase
 
   def teardown
     ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
-    ENV["RAILS_ENV"] = 'test'
+    ENV["RAILS_ENV"] = "test"
     ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
   end
 
