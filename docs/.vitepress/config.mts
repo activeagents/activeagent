@@ -1,4 +1,6 @@
 import { defineConfig } from 'vitepress'
+import { codeGroupWithOutputPlugin } from './theme/plugins/codeGroupWithOutput'
+import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 
 import {
   groupIconMdPlugin,
@@ -10,7 +12,9 @@ import {
 export default defineConfig({
   markdown: {
     config(md) {
-      md.use(groupIconMdPlugin)
+      md.use(groupIconMdPlugin),
+      md.use(codeGroupWithOutputPlugin),
+      md.use(tabsMarkdownPlugin)
     },
   },
   vite: {
@@ -102,7 +106,7 @@ export default defineConfig({
       { icon: 'discord', link: 'https://discord.gg/JRUxkkHKmh' },
       { icon: 'linkedin', link: 'https://www.linkedin.com/in/tonsoffun111/' },
       { icon: 'twitch', link: 'https://www.twitch.tv/tonsoffun111' },
-      // { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
+      { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
     ],
   }
 })
