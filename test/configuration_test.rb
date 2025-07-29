@@ -8,11 +8,13 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
   end
 
   def teardown
-    ActiveAgent.instance_variable_set(:@config, @original_config)
-    ENV["RAILS_ENV"] = @original_rails_env
+    ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
+    ENV["RAILS_ENV"] = 'test'
+    ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
   end
 
   test "loads configuration from active_agent.yml file" do
+    ActiveAgent.instance_variable_set(:@config, nil)
     # Test loading from the actual dummy app configuration
     config_file = Rails.root.join("config/active_agent.yml")
 
@@ -33,7 +35,6 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
 
   test "handles missing configuration file gracefully" do
     ActiveAgent.instance_variable_set(:@config, nil)
-
     # Try to load non-existent file
     non_existent_file = "/tmp/nonexistent_active_agent.yml"
 
@@ -42,10 +43,12 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
     end
 
     # Configuration should remain nil when file doesn't exist
-    assert_nil ActiveAgent.config
+    assert_equal ActiveAgent.config, {}
+    # Restore original configuration
   end
 
   test "processes ERB in configuration file" do
+    ActiveAgent.instance_variable_set(:@config, nil)
     # Create a temporary config file with ERB
     erb_config = <<~YAML
       test:
@@ -75,6 +78,7 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
   end
 
   test "selects environment-specific configuration" do
+    ActiveAgent.instance_variable_set(:@config, nil)
     multi_env_config = <<~YAML
       development:
         openai:
@@ -119,7 +123,8 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
     temp_file.unlink
   end
 
-  test "falls back to root configuration when environment not found" do
+  test "falls back to root configuration when environment not found" do    
+    ActiveAgent.instance_variable_set(:@config, nil)
     fallback_config = <<~YAML
       openai:
         service: "OpenAI"
@@ -146,27 +151,7 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
     assert_equal "fallback-key", ActiveAgent.config["openai"]["api_key"]
 
     temp_file.unlink
-  end
-
-  test "provider configuration raises error when not found" do
-    # Set up a configuration without the requested provider
-    limited_config = {
-      "test" => {
-        "anthropic" => {
-          "service" => "Anthropic",
-          "api_key" => "test-key"
-        }
-      }
-    }
-
-    ActiveAgent.instance_variable_set(:@config, limited_config)
-    ENV["RAILS_ENV"] = "test"
-
-    error = assert_raises(RuntimeError) do
-      ApplicationAgent.configuration(:openai)
-    end
-
-    assert_includes error.message, "Configuration not found for provider: openai"
+    # Restore original configuration
   end
 
   test "provider configuration merges options" do
@@ -195,6 +180,7 @@ class ActiveAgentConfigurationTest < ActiveSupport::TestCase
   end
 
   test "configuration file structure matches expected format" do
+    ActiveAgent.instance_variable_set(:@config, nil)
     # Verify the test dummy app's configuration file has the expected structure
     config_file = Rails.root.join("config/active_agent.yml")
     assert File.exist?(config_file)

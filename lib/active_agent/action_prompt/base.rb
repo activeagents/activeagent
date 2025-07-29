@@ -242,7 +242,7 @@ module ActiveAgent
         self.context = current_context
       end
 
-      def initialize
+      def initialize # :nodoc:
         super
         @_prompt_was_called = false
         @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options || {})

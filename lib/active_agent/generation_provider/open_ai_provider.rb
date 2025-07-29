@@ -15,14 +15,13 @@ module ActiveAgent
     class OpenAIProvider < Base
       def initialize(config)
         super
-        @api_key = config["api_key"]
-        @model_name = config["model"] || "gpt-4o-mini"
+        @host = config["host"] || nil
+        @access_token ||= config["api_key"] || config["access_token"] || OpenAI.configuration.access_token || ENV["OPENAI_ACCESS_TOKEN"]
+        @organization_id = config["organization_id"] || OpenAI.configuration.organization_id || ENV["OPENAI_ORGANIZATION_ID"]
+        @admin_token = config["admin_token"] || OpenAI.configuration.admin_token || ENV["OPENAI_ADMIN_TOKEN"]
+        @client = OpenAI::Client.new(access_token: @access_token, uri_base: @host, organization_id: @organization_id)
 
-        @client = if (@host = config["host"])
-          OpenAI::Client.new(uri_base: @host, access_token: @api_key)
-        else
-          OpenAI::Client.new(access_token: @api_key)
-        end
+        @model_name = config["model"] || "gpt-4o-mini"
       end
 
       def generate(prompt)

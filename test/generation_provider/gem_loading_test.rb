@@ -31,7 +31,7 @@ class OpenAIProviderGemLoadTest < ActiveSupport::TestCase
     # Test that we can create an instance
     config = {
       "service" => "OpenAI",
-      "api_key" => "test-key",
+      "access_token" => "test-key",
       "model" => "gpt-4o-mini"
     }
 
@@ -41,7 +41,7 @@ class OpenAIProviderGemLoadTest < ActiveSupport::TestCase
     end
 
     assert_instance_of ActiveAgent::GenerationProvider::OpenAIProvider, provider
-    assert_equal "test-key", provider.instance_variable_get(:@api_key)
+    assert_equal "test-key", provider.instance_variable_get(:@access_token)
     assert_equal "gpt-4o-mini", provider.instance_variable_get(:@model_name)
   end
 

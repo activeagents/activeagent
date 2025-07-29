@@ -6,9 +6,9 @@ module ActiveAgent
     class OpenRouterProvider < OpenAIProvider
       def initialize(config)
         @config = config
-        @api_key = config["api_key"]
+        @access_token ||= config["api_key"] || config["access_token"] || ENV["OPENROUTER_API_KEY"] || ENV["OPENROUTER_ACCESS_TOKEN"]
         @model_name = config["model"]
-        @client = OpenAI::Client.new(uri_base: "https://openrouter.ai/api/v1", access_token: @api_key, log_errors: true)
+        @client = OpenAI::Client.new(uri_base: "https://openrouter.ai/api/v1", access_token: @access_token, log_errors: true)
       end
     end
   end

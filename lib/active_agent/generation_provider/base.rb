@@ -4,7 +4,7 @@ module ActiveAgent
   module GenerationProvider
     class Base
       class GenerationProviderError < StandardError; end
-      attr_reader :client, :config, :prompt, :response
+      attr_reader :client, :config, :prompt, :response, :access_token, :model_name
 
       def initialize(config)
         @config = config

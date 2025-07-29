@@ -1,7 +1,7 @@
 require "test_helper"
 
-# Test for OpenAI Provider gem loading and configuration
-class OpenAIProviderTest < ActiveSupport::TestCase
+# Test for Anthropic Provider gem loading and configuration
+class AnthropicProviderTest < ActiveSupport::TestCase
   def setup
     @original_config = ActiveAgent.config
     @original_rails_env = ENV["RAILS_ENV"]
@@ -17,23 +17,23 @@ class OpenAIProviderTest < ActiveSupport::TestCase
   test "gem load rescue block provides correct error message" do
     # Since we can't easily simulate the gem not being available without complex mocking,
     # we'll test that the error message is correct by creating a minimal reproduction
-    expected_message = "The 'ruby-openai' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
+    expected_message = "The 'ruby-anthropic' gem is required for AnthropicProvider. Please add it to your Gemfile and run `bundle install`."
 
     # Verify the rescue block pattern exists in the source code
-    provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/open_ai_provider.rb")
+    provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/anthropic_provider.rb")
     provider_source = File.read(provider_file_path)
 
     assert_includes provider_source, "begin"
-    assert_includes provider_source, 'gem "ruby-openai"'
-    assert_includes provider_source, 'require "openai"'
+    assert_includes provider_source, 'gem "ruby-anthropic"'
+    assert_includes provider_source, 'require "anthropic"'
     assert_includes provider_source, "rescue LoadError"
     assert_includes provider_source, expected_message
 
     # Test the actual error by creating a minimal scenario
     test_code = <<~RUBY
       begin
-        gem "nonexistent-openai-gem"
-        require "nonexistent-openai-gem"
+        gem "nonexistent-anthropic-gem"
+        require "nonexistent-anthropic-gem"
       rescue LoadError
         raise LoadError, "#{expected_message}"
       end
@@ -46,24 +46,24 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     assert_equal expected_message, error.message
   end
 
-  test "loads successfully when ruby-openai gem is available" do
+  test "loads successfully when ruby-anthropic gem is available" do
     # This test ensures the provider loads correctly when the gem is present
     # Since the gem is already loaded in our test environment, this should work
     assert_nothing_raised do
-      require "active_agent/generation_provider/open_ai_provider"
+      require "active_agent/generation_provider/anthropic_provider"
     end
 
     # Verify the class exists and can be instantiated with valid config
-    assert defined?(ActiveAgent::GenerationProvider::OpenAIProvider)
+    assert defined?(ActiveAgent::GenerationProvider::AnthropicProvider)
 
     config = {
-      "service" => "OpenAI",
-      "api_key" => "test-key",
-      "model" => "gpt-4o-mini"
+      "service" => "Anthropic",
+      "access_token" => "test-key",
+      "model" => "claude-3-sonnet-20240229"
     }
 
     assert_nothing_raised do
-      ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+      ActiveAgent::GenerationProvider::AnthropicProvider.new(config)
     end
   end
 
@@ -83,10 +83,10 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     # Mock a configuration
     mock_config = {
       "test" => {
-        "openai" => {
-          "service" => "OpenAI",
-          "api_key" => "test-api-key",
-          "model" => "gpt-4o-mini",
+        "anthropic" => {
+          "service" => "Anthropic",
+          "access_token" => "test-api-key",
+          "model" => "claude-3-sonnet-20240229",
           "temperature" => 0.7
         }
       }
@@ -98,11 +98,11 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     rails_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "test"
 
-    config = ApplicationAgent.configuration(:openai)
+    config = ApplicationAgent.configuration(:anthropic)
 
-    assert_equal "OpenAI", config.config["service"]
-    assert_equal "test-api-key", config.config["api_key"]
-    assert_equal "gpt-4o-mini", config.config["model"]
+    assert_equal "Anthropic", config.config["service"]
+    assert_equal "test-api-key", config.config["access_token"]
+    assert_equal "claude-3-sonnet-20240229", config.config["model"]
     assert_equal 0.7, config.config["temperature"]
 
     # Restore original environment
@@ -112,17 +112,17 @@ class OpenAIProviderTest < ActiveSupport::TestCase
   test "loads configuration from environment-specific section" do
     mock_config = {
       "development" => {
-        "openai" => {
-          "service" => "OpenAI",
-          "api_key" => "dev-api-key",
-          "model" => "gpt-4o-mini"
+        "anthropic" => {
+          "service" => "Anthropic",
+          "access_token" => "dev-api-key",
+          "model" => "claude-3-sonnet-20240229"
         }
       },
       "test" => {
-        "openai" => {
-          "service" => "OpenAI",
-          "api_key" => "test-api-key",
-          "model" => "gpt-4o-mini"
+        "anthropic" => {
+          "service" => "Anthropic",
+          "access_token" => "test-api-key",
+          "model" => "claude-3-sonnet-20240229"
         }
       }
     }
@@ -133,13 +133,13 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     original_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "development"
 
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "dev-api-key", config.config["api_key"]
+    config = ApplicationAgent.configuration(:anthropic)
+    assert_equal "dev-api-key", config.config["access_token"]
 
     # Test test configuration
     ENV["RAILS_ENV"] = "test"
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "test-api-key", config.config["api_key"]
+    config = ApplicationAgent.configuration(:anthropic)
+    assert_equal "test-api-key", config.config["access_token"]
 
     ENV["RAILS_ENV"] = original_env
   end
@@ -148,10 +148,10 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     # Create a temporary configuration file
     temp_config_content = <<~YAML
       test:
-        openai:
-          service: "OpenAI"
-          api_key: "file-based-key"
-          model: "gpt-4o-mini"
+        anthropic:
+          service: "Anthropic"
+          access_token: "file-based-key"
+          model: "claude-3-sonnet-20240229"
           temperature: 0.8
     YAML
 
@@ -168,15 +168,16 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     original_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "test"
 
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "file-based-key", config.config["api_key"]
+    config = ApplicationAgent.configuration(:anthropic)
+    assert_equal "file-based-key", config.config["access_token"]
     assert_equal 0.8, config.config["temperature"]
 
     ENV["RAILS_ENV"] = original_env
     temp_file.unlink
   end
 
-  test "handles missing configuration file gracefully" do    
+  test "handles missing configuration file gracefully" do
+    # Reset configuration
     real_config = ActiveAgent.config
     ActiveAgent.instance_variable_set(:@config, nil)
 
@@ -194,10 +195,10 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     # Create a temporary configuration file with ERB
     temp_config_content = <<~YAML
       test:
-        openai:
-          service: "OpenAI"
-          api_key: "<%= 'erb-processed-key' %>"
-          model: "gpt-4o-mini"
+        anthropic:
+          service: "Anthropic"
+          access_token: "<%= 'erb-processed-key' %>"
+          model: "claude-3-sonnet-20240229"
           temperature: <%= 0.5 + 0.2 %>
     YAML
 
@@ -214,34 +215,24 @@ class OpenAIProviderTest < ActiveSupport::TestCase
     original_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "test"
 
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "erb-processed-key", config.config["api_key"]
+    config = ApplicationAgent.configuration(:anthropic)
+    assert_equal "erb-processed-key", config.config["access_token"]
     assert_equal 0.7, config.config["temperature"]
 
     ENV["RAILS_ENV"] = original_env
     temp_file.unlink
   end
 
-  test "OpenAI provider initialization with missing API key" do
+  test "Anthropic provider initialization with missing access token" do
     config = {
-      "service" => "OpenAI",
-      "model" => "gpt-4o-mini"
-      # Missing api_key
+      "service" => "Anthropic"
+      # Missing access_token
     }
 
-    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
-    assert_nil provider.instance_variable_get(:@api_key)
-  end
-
-  test "OpenAI provider initialization with custom host" do
-    config = {
-      "service" => "OpenAI",
-      "api_key" => "test-key",
-      "model" => "gpt-4o-mini",
-      "host" => "https://custom-openai-host.com"
-    }
-
-    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
-    assert_equal "https://custom-openai-host.com", provider.instance_variable_get(:@host)
+    require "active_agent/generation_provider/anthropic_provider"
+    assert_raises(Anthropic::ConfigurationError) do
+      provider = ActiveAgent::GenerationProvider::AnthropicProvider.new(config)
+      assert_nil provider.instance_variable_get(:@access_token)
+    end
   end
 end
