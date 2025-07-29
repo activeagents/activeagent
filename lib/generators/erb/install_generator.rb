@@ -1,9 +1,10 @@
 # frozen_string_literal: true
+
 module Erb # :nodoc:
   module Generators # :nodoc:
     class InstallGenerator < ::Rails::Generators::Base # :nodoc:
       source_root File.expand_path("templates", __dir__)
-      class_option :formats, type: :array, default: ['text'], desc: 'Specify formats to generate (text, html, json)'
+      class_option :formats, type: :array, default: [ "text" ], desc: "Specify formats to generate (text, html, json)"
 
       def create_agent_layouts
         if behavior == :invoke
@@ -25,7 +26,7 @@ module Erb # :nodoc:
       end
 
       def filename_with_extensions(name, file_format = format)
-        [name, file_format, handler].compact.join(".")
+        [ name, file_format, handler ].compact.join(".")
       end
 
       def handler

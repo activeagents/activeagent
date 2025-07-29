@@ -80,9 +80,9 @@ class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCas
     assert_file "app/agents/application_agent.rb"
     assert_file "app/views/layouts/agent.text.erb"
   end
-  
+
   test "respects formats option for generating specific layouts only" do
-    run_generator %w(--formats=html json)
+    run_generator %w[--formats=html json]
 
     assert_file "app/views/layouts/agent.html.erb"
     assert_file "app/views/layouts/agent.json.erb"
@@ -90,7 +90,7 @@ class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCas
   end
 
   test "respects formats option for single format" do
-    run_generator %w(--formats=html)
+    run_generator %w[--formats=html]
 
     assert_file "app/views/layouts/agent.html.erb"
     assert_no_file "app/views/layouts/agent.text.erb"
