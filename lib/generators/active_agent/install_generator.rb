@@ -1,10 +1,11 @@
 # frozen_string_literal: true
+
 module ActiveAgent
   module Generators
     class InstallGenerator < ::Rails::Generators::Base
       class_option :skip_config, type: :boolean, default: false, desc: "Skip configuration file generation"
-      class_option :formats, type: :array, default: ['text'], desc: 'Specify formats to generate (text, html, json)'
-      
+      class_option :formats, type: :array, default: [ "text" ], desc: "Specify formats to generate (text, html, json)"
+
       def self.usage_path
         @usage_path ||= File.expand_path("../USAGE", __dir__)
       end

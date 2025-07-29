@@ -50,7 +50,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "invokes template engine hook" do
-    run_generator %w(user create)
+    run_generator %w[user create]
 
     assert_file "app/agents/user_agent.rb"
     assert_file "app/views/user_agent/create.text.erb"
@@ -64,7 +64,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "respects formats option" do
-    run_generator %w(user create --formats=html json)
+    run_generator %w[user create --formats=html json]
 
     assert_file "app/agents/user_agent.rb"
     # This test ensures the formats option is passed to template engine hooks
@@ -79,7 +79,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "passes formats option with text and html" do
-    run_generator %w(user create --formats=html text)
+    run_generator %w[user create --formats=html text]
 
     assert_file "app/agents/user_agent.rb"
     assert_file "app/views/user_agent/create.html.erb"
@@ -89,7 +89,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "respects formats option for generating specific formats only" do
-    run_generator %w(user create --formats=html text)
+    run_generator %w[user create --formats=html text]
 
     assert_file "app/views/user_agent/create.html.erb"
     assert_file "app/views/user_agent/create.text.erb"
@@ -97,7 +97,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "respects formats option for single format" do
-    run_generator %w(user create --formats=json)
+    run_generator %w[user create --formats=json]
 
     assert_no_file "app/views/user_agent/create.html.erb"
     assert_no_file "app/views/user_agent/create.text.erb"
@@ -113,7 +113,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "handles multiple actions with custom formats" do
-    run_generator %w(user create update --formats=html json)
+    run_generator %w[user create update --formats=html json]
 
     assert_file "app/views/user_agent/create.html.erb"
     assert_file "app/views/user_agent/create.json.erb"
@@ -124,7 +124,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   end
 
   test "generates view files with correct content in the specified formats" do
-    run_generator %w(user create --formats=html json)
+    run_generator %w[user create --formats=html json]
 
     assert_file "app/views/user_agent/create.html.erb" do |content|
       assert_match(/User#create/, content)
@@ -137,9 +137,9 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
       assert_match(/\.to_json\.html_safe/, content)
     end
   end
-  
+
   test "formats option works with nested generators" do
-    run_generator %w(admin/user create --formats=html)
+    run_generator %w[admin/user create --formats=html]
 
     assert_file "app/views/admin/user_agent/create.html.erb"
     assert_no_file "app/views/admin/user_agent/create.text.erb"
