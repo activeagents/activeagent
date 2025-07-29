@@ -4,8 +4,8 @@ module ActiveAgent
   module Generators
     class AgentGenerator < ::Rails::Generators::NamedBase
       source_root File.expand_path("templates", __dir__)
-
       argument :actions, type: :array, default: [], banner: "method method"
+      class_option :formats, type: :array, default: ['text'], desc: 'Specify formats to generate (text, html, json)'
 
       check_class_collision suffix: "Agent"
 
@@ -22,6 +22,10 @@ module ActiveAgent
       hook_for :template_engine, :test_framework
 
       private
+      
+      def formats
+        options[:formats].map(&:to_sym)
+      end
 
       def file_name # :doc:
         @_file_name ||= super.sub(/_agent\z/i, "")

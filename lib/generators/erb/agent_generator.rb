@@ -7,6 +7,7 @@ module Erb # :nodoc:
     class AgentGenerator < Base # :nodoc:
       source_root File.expand_path("templates", __dir__)
       argument :actions, type: :array, default: [], banner: "method method"
+      class_option :formats, type: :array, default: ['text'], desc: 'Specify formats to generate (text, html, json)'
 
       def copy_view_files
         view_base_path = File.join("app/views", class_path, file_name + "_agent")
@@ -30,9 +31,8 @@ module Erb # :nodoc:
       end
 
       private
-
       def formats
-        [ :text, :html, :json ]
+        options[:formats].map(&:to_sym)
       end
 
       def file_name
