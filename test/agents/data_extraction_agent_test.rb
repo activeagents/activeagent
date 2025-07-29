@@ -99,6 +99,9 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("data_extraction_agent_parse_chart_generation_response_with_structured_output") do
       response = prompt.generate_now
+      binding.irb
+      puts caller.find { |line| line.include?(__FILE__) }
+      doc_example_output(response)
       json_response = JSON.parse(response.message.content)
       assert_equal "application/json", response.message.content_type
 
