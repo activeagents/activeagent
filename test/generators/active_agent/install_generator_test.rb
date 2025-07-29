@@ -23,7 +23,6 @@ class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCas
   end
 
   test "does not overwrite existing application agent" do
-    # Create the directory first
     FileUtils.mkdir_p(File.join(destination_root, "app/agents"))
     File.write(File.join(destination_root, "app/agents/application_agent.rb"), "# existing content")
 
@@ -40,7 +39,6 @@ class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCas
 
     assert_file "config/active_agent.yml"
     assert_file "app/agents/application_agent.rb"
-    assert_file "app/views/layouts/agent.html.erb"
     assert_file "app/views/layouts/agent.text.erb"
   end
 
@@ -58,8 +56,52 @@ class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCas
 
     assert_file "config/active_agent.yml"
     assert_file "app/agents/application_agent.rb"
-    # With default ERB template engine, layouts should be created
-    assert_file "app/views/layouts/agent.html.erb"
     assert_file "app/views/layouts/agent.text.erb"
+  end
+
+  test "skips configuration file when skip_config option is provided" do
+    run_generator [ "--skip-config" ]
+
+    assert_no_file "config/active_agent.yml"
+    assert_file "app/agents/application_agent.rb"
+  end
+
+  test "creates configuration file by default" do
+    run_generator
+
+    assert_file "config/active_agent.yml"
+    assert_file "app/agents/application_agent.rb"
+  end
+
+  test "skip_config option does not affect other files" do
+    run_generator [ "--skip-config" ]
+
+    assert_no_file "config/active_agent.yml"
+    assert_file "app/agents/application_agent.rb"
+    assert_file "app/views/layouts/agent.text.erb"
+  end
+  
+  test "respects formats option for generating specific layouts only" do
+    run_generator %w(--formats=html json)
+
+    assert_file "app/views/layouts/agent.html.erb"
+    assert_file "app/views/layouts/agent.json.erb"
+    assert_no_file "app/views/layouts/agent.text.erb"
+  end
+
+  test "respects formats option for single format" do
+    run_generator %w(--formats=html)
+
+    assert_file "app/views/layouts/agent.html.erb"
+    assert_no_file "app/views/layouts/agent.text.erb"
+    assert_no_file "app/views/layouts/agent.json.erb"
+  end
+
+  test "uses default text format when no formats specified" do
+    run_generator
+
+    assert_file "app/views/layouts/agent.text.erb"
+    assert_no_file "app/views/layouts/agent.html.erb"
+    assert_no_file "app/views/layouts/agent.json.erb"
   end
 end
