@@ -61,26 +61,26 @@ module ActiveAgent
 
       def inspect
         truncated_content = if @content.is_a?(String) && @content.length > 256
-                             @content[0, 256] + "..."
+          @content[0, 256] + "..."
         elsif @content.is_a?(Array)
-                             @content.map do |item|
-                               if item.is_a?(String) && item.length > 256
-                                 item[0, 256] + "..."
-                               else
-                                 item
-                               end
-                             end
+          @content.map do |item|
+            if item.is_a?(String) && item.length > 256
+              item[0, 256] + "..."
+            else
+              item
+            end
+          end
         else
-                             @content
+          @content
         end
 
-        "#<#{self.class}:0x#{object_id.to_s(16)} " +
-        "@action_id=#{@action_id.inspect}, " +
-        "@action_name=#{@action_name.inspect}, " +
-        "@action_requested=#{@action_requested.inspect}, " +
-        "@charset=#{@charset.inspect}, " +
-        "@content=#{truncated_content.inspect}, " +
-        "@role=#{@role.inspect}>"
+        "#<#{self.class}:0x#{object_id.to_s(16)}\n" +
+        "    @action_id=#{@action_id.inspect},\n" +
+        "    @action_name=#{@action_name.inspect},\n" +
+        "    @action_requested=#{@action_requested.inspect},\n" +
+        "    @charset=#{@charset.inspect},\n" +
+        "    @content=#{truncated_content.inspect},\n" +
+        "    @role=#{@role.inspect}>"
       end
 
       private
