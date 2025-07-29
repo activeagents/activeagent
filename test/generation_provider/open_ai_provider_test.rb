@@ -3,15 +3,14 @@ require "test_helper"
 # Test for OpenAI Provider gem loading and configuration
 class OpenAIProviderTest < ActiveSupport::TestCase
   def setup
-    # Store original configuration to restore later
     @original_config = ActiveAgent.config
+    @original_rails_env = ENV["RAILS_ENV"]
   end
 
   def teardown
-    # Clean up any modified state
-    if @original_config
-      ActiveAgent.instance_variable_set(:@config, @original_config)
-    end
+    ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
+    ENV["RAILS_ENV"] = "test"
+    ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
   end
 
   # Test the gem load rescue block
@@ -77,7 +76,7 @@ class OpenAIProviderTest < ActiveSupport::TestCase
       ApplicationAgent.configuration(:nonexistent_provider)
     end
 
-    assert_includes error.message, "Configuration not found for provider: nonexistent_provider"
+    assert_includes error.message, "Failed to load provider nonexistent_provider:"
   end
 
   test "loads configuration from active_agent.yml when present" do
@@ -178,14 +177,17 @@ class OpenAIProviderTest < ActiveSupport::TestCase
   end
 
   test "handles missing configuration file gracefully" do
-    # Reset configuration
+    real_config = ActiveAgent.config
     ActiveAgent.instance_variable_set(:@config, nil)
 
     # Try to load non-existent file
     ActiveAgent.load_configuration("/path/to/nonexistent/file.yml")
 
     # Should not raise an error, config should remain nil
-    assert_nil ActiveAgent.config
+    assert_equal ActiveAgent.config, {}
+
+    # Restore original configuration
+    ActiveAgent.instance_variable_set(:@config, real_config)
   end
 
   test "configuration with ERB processing" do

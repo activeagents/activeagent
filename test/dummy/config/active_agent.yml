@@ -4,13 +4,13 @@
 # in your agent's `generate_with` config.
 openai: &openai
   service: "OpenAI"
-  api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+  access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
 open_router: &open_router
   service: "OpenRouter"
-  api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
+  access_token: <%= Rails.application.credentials.dig(:open_router, :access_token) %>
 ollama: &ollama
   service: "Ollama"
-  api_key: ""
+  access_token: ""
   host: "http://localhost:11434"
   model: "gemma3:latest"
   temperature: 0.7
@@ -37,3 +37,6 @@ test:
     temperature: 0.7
   ollama:
     <<: *ollama
+  anthropic:
+    service: "Anthropic"
+    access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>

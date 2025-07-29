@@ -34,6 +34,11 @@ module ActiveAgent
   class << self
     attr_accessor :config
 
+    def filter_credential_keys(example)
+      example.gsub(Rails.application.credentials.dig(:openai, :api_key), "<OPENAI_API_KEY>")
+        .gsub(Rails.application.credentials.dig(:open_router, :api_key), "<OPEN_ROUTER_API_KEY>")
+    end
+
     def eager_load!
       super
 
@@ -51,6 +56,8 @@ module ActiveAgent
         config_file = YAML.load(ERB.new(File.read(file)).result, aliases: true)
         env = ENV["RAILS_ENV"] || ENV["ENV"] || "development"
         @config = config_file[env] || config_file
+      else
+        @config = {}
       end
     end
   end
