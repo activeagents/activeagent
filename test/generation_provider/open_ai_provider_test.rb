@@ -3,13 +3,18 @@ require "test_helper"
 # Test for OpenAI Provider gem loading and configuration
 class OpenAIProviderTest < ActiveSupport::TestCase
   def setup
-    @original_config = ActiveAgent.config
+    # Deep clone the original config to avoid reference issues
+    @original_config = ActiveAgent.config.deep_dup
     @original_rails_env = ENV["RAILS_ENV"]
+    # Ensure we start with a clean state
+    ENV["RAILS_ENV"] = "test"
   end
 
   def teardown
-    ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
-    ENV["RAILS_ENV"] = "test"
+    # Always restore to the original state
+    ENV["RAILS_ENV"] = @original_rails_env || "test"
+    # Force reload the configuration from the yml file
+    ActiveAgent.instance_variable_set(:@config, nil)
     ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
   end
 
@@ -177,17 +182,19 @@ class OpenAIProviderTest < ActiveSupport::TestCase
   end
 
   test "handles missing configuration file gracefully" do
-    real_config = ActiveAgent.config
+    # Save current config
+    original_config = ActiveAgent.config.deep_dup
     ActiveAgent.instance_variable_set(:@config, nil)
 
     # Try to load non-existent file
     ActiveAgent.load_configuration("/path/to/nonexistent/file.yml")
 
-    # Should not raise an error, config should remain nil
+    # Should not raise an error, config should be empty hash
     assert_equal ActiveAgent.config, {}
 
     # Restore original configuration
-    ActiveAgent.instance_variable_set(:@config, real_config)
+    ActiveAgent.instance_variable_set(:@config, nil)
+    ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
   end
 
   test "configuration with ERB processing" do
