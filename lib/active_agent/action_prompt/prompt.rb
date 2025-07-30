@@ -56,10 +56,8 @@ module ActiveAgent
       end
 
       def add_part(message)
-        if @content_type == message.content_type && message.content.present?
-          @message = message
-          set_message
-        end
+        @message = message
+        set_message
 
         @parts << message
       end

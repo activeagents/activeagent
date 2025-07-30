@@ -221,7 +221,6 @@ module ActiveAgent
       end
 
       def update_context(response)
-        context.message = context.messages.last
         ActiveAgent::GenerationProvider::Response.new(prompt: context)
       end
 
@@ -234,11 +233,12 @@ module ActiveAgent
       def perform_action(action)
         current_context = context.clone
         process(action.name, *action.params)
-        context.messages.last.role = :tool
-        context.messages.last.action_id = action.id
-        context.messages.last.action_name = action.name
-        context.messages.last.generation_id = action.id
-        current_context.messages << context.messages.last
+        context.message.role = :tool
+        context.message.action_id = action.id
+        context.message.action_name = action.name
+        context.message.generation_id = action.id
+        current_context.message = context.message
+        current_context.messages << context.message
         self.context = current_context
       end
 
@@ -495,7 +495,6 @@ module ActiveAgent
       def collect_responses_from_templates(headers)
         templates_path = headers[:template_path] || self.class.agent_name
         templates_name = headers[:template_name] || action_name
-
         each_template(Array(templates_path), templates_name).map do |template|
           format = template.format || formats.first
           {

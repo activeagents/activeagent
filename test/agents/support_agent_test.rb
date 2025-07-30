@@ -10,13 +10,15 @@ class SupportAgentTest < ActiveSupport::TestCase
     VCR.use_cassette("support_agent_prompt_context_tool_call_response") do
       message = "Show me a cat"
       prompt = SupportAgent.with(message: message).prompt_context
+      assert_equal message, prompt.message.content
       response = prompt.generate_now
-      assert_equal message, SupportAgent.with(message: message).prompt_context.message.content
       assert_equal 4, response.prompt.messages.size
       assert_equal :system, response.prompt.messages[0].role
       assert_equal :user, response.prompt.messages[1].role
       assert_equal :assistant, response.prompt.messages[2].role
       assert_equal :tool, response.prompt.messages[3].role
+      assert_equal response.message, response.prompt.messages.last
+      assert_includes response.message.content, "data:image/jpeg;base64,/9j/2wBDAAYEBQYFBAY"
     end
   end
 
