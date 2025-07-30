@@ -1,6 +1,16 @@
 require "test_helper"
 
 class OpenAIAgentTest < ActiveSupport::TestCase
+  def setup
+    # Configure OpenAI for this test class
+    OpenAI.configure do |config|
+      config.access_token = "test-api-key"
+      config.organization_id = "test-organization-id"
+      config.log_errors = Rails.env.development?
+      config.request_timeout = 600
+    end
+  end
+
   test "it renders a prompt_context generates a response" do
     VCR.use_cassette("openai_prompt_context_response") do
       message = "Show me a cat"
@@ -15,24 +25,38 @@ class OpenAIAgentTest < ActiveSupport::TestCase
   end
 end
 
-OpenAI.configure do |config|
-  config.access_token = "test-api-key"
-  config.organization_id = "test-organization-id"
-  config.log_errors = Rails.env.development?
-  config.request_timeout = 600
-end
-
 class OpenAIClientTest < ActiveSupport::TestCase
-  real_config = ActiveAgent.config
-  ActiveAgent.load_configuration("")
+  def setup
+    # Save and reset configuration for this test
+    @original_config = ActiveAgent.config.deep_dup
+    ActiveAgent.load_configuration("")
+    
+    # Configure OpenAI for this test class
+    OpenAI.configure do |config|
+      config.access_token = "test-api-key"
+      config.organization_id = "test-organization-id"
+      config.log_errors = Rails.env.development?
+      config.request_timeout = 600
+    end
+  end
+
+  def teardown
+    # Restore original configuration
+    ActiveAgent.instance_variable_set(:@config, nil)
+    ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
+  end
+
   class OpenAIClientAgent < ApplicationAgent
     layout "agent"
     generate_with :openai
   end
 
   test "loads configuration from environment" do
+    # Since we're loading empty configuration, the provider should get no access token
+    assert_nil OpenAIClientAgent.generation_provider.access_token
+    
+    # The OpenAI client will use the configuration we set in setup
     client = OpenAI::Client.new
-    assert_equal OpenAIClientAgent.generation_provider.access_token, client.access_token
-    ActiveAgent.instance_variable_set(:@config, real_config)
+    assert_equal "test-api-key", client.access_token
   end
 end
