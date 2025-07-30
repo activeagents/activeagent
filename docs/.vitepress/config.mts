@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitepress'
-import { codeGroupWithOutputPlugin } from './theme/plugins/codeGroupWithOutput'
 import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 
 import {
@@ -13,7 +12,6 @@ export default defineConfig({
   markdown: {
     config(md) {
       md.use(groupIconMdPlugin),
-      md.use(codeGroupWithOutputPlugin),
       md.use(tabsMarkdownPlugin)
     },
   },
