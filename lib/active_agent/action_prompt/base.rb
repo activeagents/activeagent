@@ -113,7 +113,6 @@ module ActiveAgent
             inherited_options = (self.options || {}).except(:instructions)
             self.options = inherited_options.merge(options)
           end
-          self.options[:stream] = new.agent_stream if self.options[:stream]
         end
 
         def stream_with(&stream)
@@ -182,7 +181,9 @@ module ActiveAgent
       attr_internal :context
 
       def agent_stream
-        proc do |message, delta, stop|
+        proc do |message, delta, stop, action_name|
+          @_action_name = action_name
+
           run_stream_callbacks(message, delta, stop) do |message, delta, stop|
             yield message, delta, stop if block_given?
           end
@@ -307,13 +308,14 @@ module ActiveAgent
         context.instructions = prepare_instructions(raw_instructions)
 
         context.options.merge!(merged_options)
-
+        context.options[:stream] = agent_stream if context.options[:stream]
         content_type = headers[:content_type]
 
         headers = apply_defaults(headers)
         context.messages = headers[:messages] || []
         context.context_id = headers[:context_id]
         context.params = params
+        context.action_name = action_name
 
         context.output_schema = load_schema(headers[:output_schema], set_prefixes(headers[:output_schema], lookup_context.prefixes))
 
@@ -414,10 +416,7 @@ module ActiveAgent
         # Only merge runtime options that are actually present (not nil)
         runtime_options.each do |key, value|
           next if value.nil?
-          # Special handling for stream option: preserve agent_stream proc if it exists
-          if key == :stream && agent_options[:stream].is_a?(Proc) && !value.is_a?(Proc)
-            next
-          end
+
           merged[key] = value
         end
 
