@@ -137,3 +137,48 @@
   --docsearch-primary-color: var(--vp-c-brand-1) !important;
 }
 
+.plugin-tabs--tab [data-title]::before{
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.5em;
+  margin-bottom: -0.2em;
+  background: var(--icon) no-repeat center / contain;
+}
+
+.vp-code-block-title-bar {
+  position: relative;
+  margin: 16px -24px 0 -24px;
+  background-color: var(--vp-code-block-bg);
+  overflow-x: auto;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vp-code-tab-text-color);
+  white-space: nowrap;
+  transition: background-color 0.5s;
+  border-radius: 8px 8px 0 0;
+  padding:0 12px;
+  box-shadow: inset 0 -1px var(--vp-code-tab-divider);
+}
+
+.custom-block .vp-code-block-title-bar {
+  margin: 16px 0 0 0;
+}
+
+@media (min-width: 640px) {
+  .vp-code-block-title-bar {
+    margin: 16px 0 0 0;
+  }
+}
+
+.vp-code-block-title-text {
+  padding: 0 12px;
+  line-height: 48px;
+}
+
+
+.vp-code-block-title div[class*=language-] {
+  margin-top: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
