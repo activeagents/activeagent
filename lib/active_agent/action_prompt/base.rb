@@ -495,6 +495,7 @@ module ActiveAgent
         templates_path = headers[:template_path] || self.class.agent_name
         templates_name = headers[:template_name] || action_name
         each_template(Array(templates_path), templates_name).map do |template|
+          next if template.format == :json && headers[:format] != :json
           format = template.format || formats.first
           {
             body: render(template: template, formats: [ format ]),
