@@ -14,11 +14,11 @@ module ActiveAgent
       # Extract usage statistics from the raw response
       def usage
         return nil unless @raw_response
-        
+
         # OpenAI/OpenRouter format
         if @raw_response.is_a?(Hash) && @raw_response["usage"]
           @raw_response["usage"]
-        # Anthropic format  
+        # Anthropic format
         elsif @raw_response.is_a?(Hash) && @raw_response["usage"]
           @raw_response["usage"]
         else
