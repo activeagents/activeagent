@@ -1,7 +1,77 @@
 require "test_helper"
 
-class TravelAgentTest < ActiveSupport::TestCase
-  test "travel agent search action with HTML format" do
+class TravelAgentTest < ActiveAgentTestCase
+  test "travel agent search action with LLM interaction" do
+    VCR.use_cassette("travel_agent_search_llm") do
+      # region travel_agent_search_llm
+      message = "Find flights from NYC to LAX"
+      prompt = TravelAgent.with(message: message).prompt_context
+      response = prompt.generate_now
+
+      # The LLM should call the search tool and return results
+      assert_not_nil response
+      assert_not_nil response.message
+      assert response.prompt.messages.size >= 2  # At least system and user messages
+      # endregion travel_agent_search_llm
+
+      doc_example_output(response)
+    end
+  end
+
+  test "travel agent book action with LLM interaction" do
+    VCR.use_cassette("travel_agent_book_llm") do
+      # region travel_agent_book_llm
+      message = "Book flight AA123 for John Doe"
+      prompt = TravelAgent.with(message: message).prompt_context
+      response = prompt.generate_now
+      
+      # The LLM should call the book tool
+      assert_not_nil response
+      assert_not_nil response.message
+      assert response.prompt.messages.size >= 2
+      # endregion travel_agent_book_llm
+
+      doc_example_output(response, "travel_agent_book_llm")
+    end
+  end
+
+  test "travel agent confirm action with LLM interaction" do
+    VCR.use_cassette("travel_agent_confirm_llm") do
+      # region travel_agent_confirm_llm
+      message = "Confirm booking TRV789012 for Jane Smith"
+      prompt = TravelAgent.with(message: message).prompt_context
+      response = prompt.generate_now
+
+      # The LLM should call the confirm tool
+      assert_not_nil response
+      assert_not_nil response.message
+      assert response.prompt.messages.size >= 2
+      # endregion travel_agent_confirm_llm
+
+      doc_example_output(response)
+    end
+  end
+
+  test "travel agent full conversation flow with LLM" do
+    VCR.use_cassette("travel_agent_conversation_flow") do
+      # region travel_agent_conversation_flow
+      # Test a full conversation flow with the LLM
+      message = "I need to search for flights from NYC to LAX, then book one and confirm it"
+      prompt = TravelAgent.with(message: message).prompt_context
+      response = prompt.generate_now
+
+      # The LLM should understand the request and potentially call multiple tools
+      assert_not_nil response
+      assert_not_nil response.message
+      assert response.prompt.messages.size >= 2  # At least system and user messages
+      # endregion travel_agent_conversation_flow
+
+      doc_example_output(response)
+    end
+  end
+
+  # Keep the original tests to ensure the views still work correctly
+  test "travel agent search view renders HTML format" do
     # region travel_agent_search_html
     response = TravelAgent.with(
       message: "Find flights from NYC to LAX",
@@ -22,7 +92,7 @@ class TravelAgentTest < ActiveSupport::TestCase
     doc_example_output(response)
   end
 
-  test "travel agent book action with text format" do
+  test "travel agent book view renders text format" do
     # region travel_agent_book_text
     response = TravelAgent.with(
       message: "Book flight AA123",
@@ -41,7 +111,7 @@ class TravelAgentTest < ActiveSupport::TestCase
     doc_example_output(response, "travel_agent_book_text")
   end
 
-  test "travel agent confirm action with text format" do
+  test "travel agent confirm view renders text format" do
     # region travel_agent_confirm_text
     response = TravelAgent.with(
       message: "Confirm booking",
