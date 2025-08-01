@@ -117,12 +117,12 @@ module ActiveAgent
       def chat_response(response)
         return @response if prompt.options[:stream]
 
-        content = response['content'].first['text']
+        content = response["content"].first["text"]
 
         message = ActiveAgent::ActionPrompt::Message.new(
           content: content,
           role: "assistant",
-          action_requested: response['stop_reason'] == "tool_use",
+          action_requested: response["stop_reason"] == "tool_use",
           requested_actions: handle_actions(response["tool_use"])
         )
 
