@@ -13,7 +13,7 @@ def doc_example_output(example = nil, test_name = nil)
   caller_info = caller.find { |line| line.include?("_test.rb") }
   file_name = @NAME.dasherize
   test_name ||= name.to_s.dasherize if respond_to?(:name)
-  
+
   # Extract file path and line number from caller
   if caller_info =~ /(.+):(\d+):in/
     test_file = $1.split("/").last
@@ -21,15 +21,15 @@ def doc_example_output(example = nil, test_name = nil)
   end
 
   file_path = Rails.root.join("..", "..", "docs", "parts", "examples", "#{file_name}-#{test_name}.md")
-  puts "\nWriting example output to #{file_path}\n"
+  # puts "\nWriting example output to #{file_path}\n"
   FileUtils.mkdir_p(File.dirname(file_path))
-  
+
   # Format the output with metadata
   content = []
   content << "<!-- Generated from #{test_file}:#{line_number} -->"
   content << "<!-- Test: #{test_name} -->"
   content << ""
-  
+
   # Determine if example is JSON
   if example.is_a?(Hash) || example.is_a?(Array)
     content << "```json"
@@ -53,7 +53,7 @@ def doc_example_output(example = nil, test_name = nil)
     content << ActiveAgent.filter_credential_keys(example.to_s)
     content << "```"
   end
-  
+
   File.write(file_path, content.join("\n"))
 end
 
@@ -70,4 +70,35 @@ if ActiveSupport::TestCase.respond_to?(:fixture_paths=)
   ActionDispatch::IntegrationTest.fixture_paths = ActiveSupport::TestCase.fixture_paths
   ActiveSupport::TestCase.file_fixture_path = File.expand_path("test/fixtures", __dir__) + "/files"
   ActiveSupport::TestCase.fixtures :all
+end
+
+# Base test case that properly manages ActiveAgent configuration
+class ActiveAgentTestCase < ActiveSupport::TestCase
+  def setup
+    super
+    # Store original configuration
+    @original_config = ActiveAgent.config.dup if ActiveAgent.config
+    @original_rails_env = ENV["RAILS_ENV"]
+    # Ensure we're in test environment
+    ENV["RAILS_ENV"] = "test"
+  end
+
+  def teardown
+    super
+    # Restore original configuration
+    ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
+    ENV["RAILS_ENV"] = @original_rails_env
+    # Reload default configuration
+    config_file = Rails.root.join("config/active_agent.yml")
+    ActiveAgent.load_configuration(config_file) if File.exist?(config_file)
+  end
+
+  # Helper method to temporarily set configuration
+  def with_active_agent_config(config)
+    old_config = ActiveAgent.config
+    ActiveAgent.instance_variable_set(:@config, config)
+    yield
+  ensure
+    ActiveAgent.instance_variable_set(:@config, old_config)
+  end
 end

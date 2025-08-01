@@ -1,0 +1,14 @@
+<h2>Travel Search Results</h2>
+
+<p>Searching for flights from <%= @departure %> to <%= @destination %></p>
+
+<ul>
+<% @results.each do |flight| %>
+  <li>
+    <%= flight[:airline] %> - $<%= flight[:price] %>
+    <br>Departure: <%= flight[:departure] %>
+  </li>
+<% end %>
+</ul>
+
+<p>Would you like to book any of these flights?</p>

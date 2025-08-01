@@ -16,7 +16,7 @@ class TranslationAgentTest < ActiveSupport::TestCase
       response = TranslationAgent.with(message: "Hi, I'm Justin", locale: "japanese").translate.generate_now
       assert_equal "こんにちは、私はジャスティンです。", response.message.content
       # endregion translation_agent_translate_prompt_generation
-      
+
       doc_example_output(response)
     end
   end

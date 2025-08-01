@@ -1,18 +1,7 @@
 require "test_helper"
 
 # Test for Active Agent configuration loading and validation
-class ActiveAgentConfigurationTest < ActiveSupport::TestCase
-  def setup
-    @original_config = ActiveAgent.config
-    @original_rails_env = ENV["RAILS_ENV"]
-  end
-
-  def teardown
-    ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
-    ENV["RAILS_ENV"] = "test"
-    ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
-  end
-
+class ActiveAgentConfigurationTest < ActiveAgentTestCase
   test "loads configuration from active_agent.yml file" do
     ActiveAgent.instance_variable_set(:@config, nil)
     # Test loading from the actual dummy app configuration
