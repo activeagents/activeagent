@@ -67,7 +67,7 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       json_response = JSON.parse(response.message.content)
       doc_example_output(response)
       doc_example_output(json_response, "parse-resume-json-response")
-      
+
       assert_equal "application/json", response.message.content_type
       assert_equal "resume_schema", response.prompt.output_schema["format"]["name"]
       assert_equal json_response["name"], "John Doe"
@@ -120,7 +120,7 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     VCR.use_cassette("data_extraction_agent_parse_chart_generation_response_with_structured_output") do
       response = prompt.generate_now
       json_response = JSON.parse(response.message.content)
-      
+
       doc_example_output(response)
       doc_example_output(json_response, "parse-chart-json-response")
       assert_equal "application/json", response.message.content_type

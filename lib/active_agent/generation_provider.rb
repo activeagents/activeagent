@@ -17,19 +17,6 @@ module ActiveAgent
 
         config = { "service" => "OpenAI" } if config.empty? && name_or_provider == :openai
         config.merge!(options)
-        
-        # Handle generation_driver option for ruby_llm
-        if options[:generation_driver] == :ruby_llm || config["generation_driver"] == "ruby_llm"
-          config["service"] = "RubyLLM"
-          config["provider"] = name_or_provider.to_s
-        elsif config["service"].nil?
-          # Auto-detect ruby_llm for providers not directly implemented
-          unless %w[openai anthropic ollama open_router].include?(name_or_provider.to_s)
-            config["service"] = "RubyLLM"
-            config["provider"] = name_or_provider.to_s
-          end
-        end
-        
       raise "Failed to load provider #{name_or_provider}: configuration not found for provider"  if config["service"].nil?
         configure_provider(config)
       rescue LoadError => e
@@ -38,9 +25,7 @@ module ActiveAgent
 
       def configure_provider(config)
         service_name = config["service"]
-        # Special handling for RubyLLM to match file naming
-        file_name = service_name == "RubyLLM" ? "ruby_llm" : service_name.underscore
-        require "active_agent/generation_provider/#{file_name}_provider"
+        require "active_agent/generation_provider/#{service_name.underscore}_provider"
         ActiveAgent::GenerationProvider.const_get("#{service_name.camelize}Provider").new(config)
       end
 

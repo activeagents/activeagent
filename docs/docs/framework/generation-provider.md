@@ -56,37 +56,3 @@ For Azure OpenAI or other custom endpoints:
 
 <<< @/../test/generation_provider_examples_test.rb#custom_host_configuration{ruby:line-numbers}
 
-## Ruby LLM Provider
-
-ActiveAgent integrates with [Ruby LLM](https://github.com/crmne/ruby_llm) to provide multi-backend support for various AI providers. This allows you to use providers that aren't directly implemented in ActiveAgent.
-
-### Automatic Provider Detection
-
-Providers not directly supported by ActiveAgent will automatically use Ruby LLM:
-
-<<< @/../test/agents/ruby_llm_provider_test.rb#ruby_llm_auto_detection{ruby:line-numbers}
-
-### Explicit Ruby LLM Usage
-
-You can explicitly specify Ruby LLM as the generation driver:
-
-<<< @/../test/agents/ruby_llm_provider_test.rb#ruby_llm_explicit_driver{ruby:line-numbers}
-
-### Custom Configuration with Ruby LLM
-
-<<< @/../test/agents/ruby_llm_provider_test.rb#ruby_llm_custom_config{ruby:line-numbers}
-
-### Supported Ruby LLM Providers
-
-Ruby LLM supports the following providers:
-- OpenAI
-- Anthropic
-- Google (Gemini)
-- Deepseek
-- Groq
-- Mistral
-- Perplexity
-- Together
-- OpenRouter
-
-Each provider requires appropriate API keys to be set either in configuration or environment variables.

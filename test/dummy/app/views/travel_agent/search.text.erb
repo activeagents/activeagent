@@ -1,0 +1,11 @@
+Travel Search Results
+====================
+
+Searching for flights from <%= @departure %> to <%= @destination %>
+
+Available flights:
+<% @results.each_with_index do |flight, i| %>
+<%= i + 1 %>. <%= flight[:airline] %> - $<%= flight[:price] %> (Departure: <%= flight[:departure] %>)
+<% end %>
+
+Please let me know which flight you'd like to book.

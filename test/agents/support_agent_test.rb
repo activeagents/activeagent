@@ -16,7 +16,7 @@ class SupportAgentTest < ActiveSupport::TestCase
       # region support_agent_tool_call_response
       response = prompt.generate_now
       # endregion support_agent_tool_call_response
-      
+
       doc_example_output(response)
       assert_equal 4, response.prompt.messages.size
       assert_equal :system, response.prompt.messages[0].role
