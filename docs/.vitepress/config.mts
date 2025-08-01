@@ -77,6 +77,7 @@ export default defineConfig({
       { text: 'Agents',
         items: [
           { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
+          { text: 'Translation', link: '/docs/agents/translation-agent' },
         ]
       },
       {
@@ -85,6 +86,7 @@ export default defineConfig({
           { text: 'Messages', link: '/docs/action-prompt/messages' },
           { text: 'Actions', link: '/docs/action-prompt/actions' },
           { text: 'Prompts', link: '/docs/action-prompt/prompts' },
+          { text: 'Tools', link: '/docs/action-prompt/tools' },
         ]
       },
       { text: 'Active Agent',

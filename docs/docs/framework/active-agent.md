@@ -40,49 +40,31 @@ The primary action is the `prompt_context` which provides a common interface to 
 - **[Streaming](/docs/active-agent/callbacks#on-stream-callbacks)**: Support real-time updates with the `on_stream` callback to the user interface based on agent interactions.
 
 ## Example
+
 ::: code-group
-```ruby
-class TravelAgent < ApplicationAgent
-  def search
-    prompt(message: params[:message], content_type: :html)
-  end
+<<< @/../test/dummy/app/agents/travel_agent.rb {ruby} [travel_agent.rb]
 
-  def book
-    prompt(message: params[:message], content_type: :json)
-  end
+<<< @/../test/dummy/app/views/travel_agent/search.html.erb {erb} [search.html.erb]
 
-  def confirm
-    prompt(message: params[:message], content_type: :text)
-  end
-end
-```
+<<< @/../test/dummy/app/views/travel_agent/book.text.erb {erb} [book.text.erb]
 
-```html
-<%# app/views/travel_agent/search.html.erb %>
-<div>
-  <h1>Search Results</h1>
-  <p><%= @prompt.message %></p>
-  <ul>
-    <% @prompt.results.each do |result| %>
-      <li><%= result.title %> - <%= result.price %></li>
-    <% end %>
-  </ul>
-</div>
-```
+<<< @/../test/dummy/app/views/travel_agent/confirm.text.erb {erb} [confirm.text.erb]
+:::
 
-```erb [json]
-{
-  "message": "<%= @prompt.message %>",
-  "results": <%= @prompt.results.to_json %>
-}
-```
+### Using the Travel Agent
 
-```erb [text]
-<%# app/views/travel_agent/confirm.text.erb %>
-Your booking has been confirmed!
-Booking ID: <%= @prompt.booking_id %>
-Thank you for choosing our service.
-```
+<<< @/../test/agents/travel_agent_test.rb#travel_agent_multi_format{ruby:line-numbers}
+
+::: details Search Response Example
+<!-- @include: @/parts/examples/test-travel-agent-search-action-with-HTML-format-test-travel-agent-search-action-with-HTML-format.md -->
+:::
+
+::: details Book Response Example  
+<!-- @include: @/parts/examples/test-travel-agent-book-action-with-text-format-travel_agent_book_text.md -->
+:::
+
+::: details Confirm Response Example
+<!-- @include: @/parts/examples/test-travel-agent-confirm-action-with-text-format-test-travel-agent-confirm-action-with-text-format.md -->
 :::
 
 ## Concepts
