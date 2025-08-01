@@ -60,6 +60,8 @@ These actions can be invoked by the agent to perform specific tasks and receive 
 ## Action params
 Agent Actions can accept parameters, which are passed as a hash to the action method. You pass arguments to agent's using the `with` method and access parameters using the `params` method, just like Mailer Actions.
 
+<<< @/../test/agents/actions_examples_test.rb#actions_with_parameters{ruby:line-numbers}
+
 ## Using Actions to prompt the Agent with a templated message
 You can call these actions directly to render a prompt to the agent directly to generate the requested object.
 
@@ -70,14 +72,15 @@ You can call these actions directly to render a prompt to the agent directly to 
 ## Using Agents to call Actions
 You can also provide an Agent with a prompt context that includes actions and messages. The agent can then use these actions to perform tasks and generate responses based on the provided context.
 
-```ruby
-parameterized_agent = TravelAgent.with(message: "I want to book a hotel in Paris")
-agent_text_prompt_context = parameterized_agent.text_prompt
-
-agent_text_prompt_context.generate_now
-```
+<<< @/../test/agents/actions_examples_test.rb#actions_prompt_context_generation{ruby:line-numbers}
 
 In this example, the `TravelAgent` will use the provided message as context to determine which actions to use during generation. The agent can then call the `search` action to find hotels, `book` action to initialize a hotel booking, or `confirm` action to finalize a booking, as needed based on the prompt context.
+
+### Content Types
+
+Actions can render different content types based on their purpose:
+
+<<< @/../test/agents/actions_examples_test.rb#actions_content_types{ruby:line-numbers}
 
 The `prompt` takes the following options:
 - `content_type`: Specifies the type of content to be rendered (e.g., `:text`, `:json`, `:html`).
@@ -88,24 +91,7 @@ The `prompt` takes the following options:
   * A string with custom instructions (e.g., "Help the user find a hotel");
   * A hash referencing a template (e.g., { template: :custom_template });
 
-```ruby [app/agents/travel_agent.rb]
-class TravelAgent < ActiveAgent::Agent
-  def search
-    Place.search(params[:location])
-    prompt(content_type: :text, template_name: 'search_results', instructions: 'Help the user find a hotel')
-  end
-
-  def book
-    Place.book(hotel_id: params[:hotel_id], user_id: params[:user_id])
-    prompt(content_type: :json, template_name: 'booking_confirmation', instructions: { template: 'book_instructions' })
-  end
-
-  def confirm
-    Place.confirm(params[:booking_id])
-    prompt(content_type: :html, template_name: 'confirmation_page')
-  end
-end
-```
+<<< @/../test/dummy/app/agents/travel_agent.rb {ruby}
 
 ## Action View Templates & Partials
 While partials can be used in the JSON views the action's json view should primarily define the tool schema, then secondarily define the tool's output using a partial to render results of the tool call all in a single JSON action view template. Use the JSON action views for tool schema definitions and results, and use the text or HTML action views for rendering the action's response to the user.

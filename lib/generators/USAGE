@@ -3,23 +3,45 @@ Description:
     configuration files and application agent class.
 
     This generator creates:
-    - Configuration file (config/active_agent.yml)
+    - Configuration file (config/active_agent.yml) unless --skip-config is used
     - Application agent base class (app/agents/application_agent.rb)
     - Layout templates for agent views (via template engine hooks)
+
+Options:
+    --skip-config         Skip the creation of config/active_agent.yml
+    --formats=FORMAT      Specify formats to generate layouts for (default: text)
+                          Can be one or more of: text, html, json
+                          Example: --formats=text html json
 
 Examples:
     `bin/rails generate active_agent:install`
 
-    creates the basic ActiveAgent setup:
+    creates the basic ActiveAgent setup with default text format:
         Config:     config/active_agent.yml
         Base Agent: app/agents/application_agent.rb
-        Layouts:    app/views/layouts/agent.html.erb
-                    app/views/layouts/agent.text.erb
+        Layout:     app/views/layouts/agent.text.erb
+
+    `bin/rails generate active_agent:install --formats=text html json`
+
+    creates ActiveAgent setup with all format layouts:
+        Config:     config/active_agent.yml
+        Base Agent: app/agents/application_agent.rb
+        Layouts:    app/views/layouts/agent.text.erb
+                    app/views/layouts/agent.html.erb
                     app/views/layouts/agent.json.erb
 
-    `bin/rails generate active_agent:install --template-engine=haml`
+    `bin/rails generate active_agent:install --skip-config`
 
-    creates ActiveAgent setup with Haml layouts instead of ERB.
+    creates ActiveAgent setup without configuration file:
+        Base Agent: app/agents/application_agent.rb
+        Layout:     app/views/layouts/agent.text.erb
+
+    `bin/rails generate active_agent:install --skip-config --formats=html json`
+
+    creates ActiveAgent setup without config file but with HTML and JSON layouts:
+        Base Agent: app/agents/application_agent.rb
+        Layouts:    app/views/layouts/agent.html.erb
+                    app/views/layouts/agent.json.erb
 
     After running this generator, you can create individual agents with:
     `bin/rails generate active_agent:agent AGENT_NAME ACTION_NAME`

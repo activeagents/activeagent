@@ -6,25 +6,51 @@ Description:
     engine and test framework generators. If no ApplicationAgent exists,
     it will be created automatically.
 
-    Views are created for each action in three formats:
-    - HTML (.html.erb) - for rich text responses
-    - Text (.text.erb) - for plain text responses  
-    - JSON (.json.erb) - for structured function calling responses
+    By default, only text format views are created. You can specify which
+    formats to generate using the --formats option:
+    - text (.text.erb) - for plain text responses (default)
+    - html (.html.erb) - for rich text responses
+    - json (.json.erb) - for structured function calling responses
+
+Options:
+    --formats=FORMAT      Specify formats to generate views for (default: text)
+                          Can be one or more of: text, html, json
+                          Example: --formats=text html json
 
 Examples:
     `bin/rails generate active_agent:agent inventory search`
 
-    creates an inventory agent class, views, and test:
+    creates an inventory agent class with text format view and test:
+        Agent:      app/agents/inventory_agent.rb
+        View:       app/views/inventory_agent/search.text.erb
+        Test:       test/agents/inventory_agent_test.rb
+
+    `bin/rails generate active_agent:agent inventory search --formats=html json`
+
+    creates an inventory agent with html and json views:
         Agent:      app/agents/inventory_agent.rb
         Views:      app/views/inventory_agent/search.html.erb
-                    app/views/inventory_agent/search.text.erb
                     app/views/inventory_agent/search.json.erb
         Test:       test/agents/inventory_agent_test.rb
 
-    `bin/rails generate active_agent:agent inventory search update report`
+    `bin/rails generate active_agent:agent inventory search update report --formats=text html json`
 
-    creates an inventory agent with search, update, and report actions.
+    creates an inventory agent with search, update, and report actions in all formats:
+        Agent:      app/agents/inventory_agent.rb
+        Views:      app/views/inventory_agent/search.text.erb
+                    app/views/inventory_agent/search.html.erb
+                    app/views/inventory_agent/search.json.erb
+                    app/views/inventory_agent/update.text.erb
+                    app/views/inventory_agent/update.html.erb
+                    app/views/inventory_agent/update.json.erb
+                    app/views/inventory_agent/report.text.erb
+                    app/views/inventory_agent/report.html.erb
+                    app/views/inventory_agent/report.json.erb
+        Test:       test/agents/inventory_agent_test.rb
 
-    `bin/rails generate active_agent:agent admin/user create --template-engine=haml`
+    `bin/rails generate active_agent:agent admin/user create --formats=json`
 
-    creates a namespaced admin/user agent with Haml templates.
+    creates a namespaced admin/user agent with only JSON view for API responses:
+        Agent:      app/agents/admin/user_agent.rb
+        View:       app/views/admin/user_agent/create.json.erb
+        Test:       test/agents/admin/user_agent_test.rb
