@@ -32,7 +32,7 @@ module ActiveAgent
       def chat_prompt(parameters: prompt_parameters)
         parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
 
-        chat_response(@client.messages(parameters))
+        chat_response(@client.messages(parameters: parameters))
       end
 
       private
@@ -50,9 +50,12 @@ module ActiveAgent
         end
       end
 
-      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
+      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions )
+        #fix for new Anthropic API that requires messages to be in a specific format without system role
+        messages = messages.reject { |m| m.role == :system }
         params = {
           model: model,
+          system: @prompt.options[:instructions],
           messages: provider_messages(messages),
           temperature: temperature,
           max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"] || 4096
@@ -68,9 +71,9 @@ module ActiveAgent
       def format_tools(tools)
         tools.map do |tool|
           {
-            name: tool[:name] || tool[:function][:name],
-            description: tool[:description],
-            input_schema: tool[:parameters]
+            name: tool['name'] || tool['function']['name'],
+            description: tool['description'] || tool['function']['description'],
+            input_schema: tool['parameters']  || tool['function']['parameters'],
           }
         end
       end
@@ -114,13 +117,13 @@ module ActiveAgent
       def chat_response(response)
         return @response if prompt.options[:stream]
 
-        content = response.content.first[:text]
+        content = response['content'].first['text']
 
         message = ActiveAgent::ActionPrompt::Message.new(
           content: content,
           role: "assistant",
-          action_requested: response.stop_reason == "tool_use",
-          requested_actions: handle_actions(response.tool_use)
+          action_requested: response['stop_reason'] == "tool_use",
+          requested_actions: handle_actions(response["tool_use"])
         )
 
         update_context(prompt: prompt, message: message, response: response)
