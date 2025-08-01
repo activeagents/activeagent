@@ -1,5 +1,10 @@
-![Active Agent Logo](https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png)
-> *Build AI in Rails*
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/2bad263a-c09f-40b6-94ba-fff8e346d65d">
+  <img alt="activeagents_banner" src="https://github.com/user-attachments/assets/0ebbaa2f-c6bf-4d40-bb77-931015a14be3">
+</picture>
+*Build AI in Rails*
+
+
 >
 > *Now Agents are Controllers*
 >
