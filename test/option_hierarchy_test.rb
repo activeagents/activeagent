@@ -175,11 +175,11 @@ class OptionHierarchyTest < ActiveSupport::TestCase
         frequency_penalty: 0.1,
         presence_penalty: 0.2,
         seed: 12345,
-        stop: [ "END" ],
+        stop: [ "END" ]
       },
       user: "test-user"
     )
-    
+
     prompt = parameterized_agent.prompt_context
 
     assert_equal 0.95, prompt.options[:top_p]
