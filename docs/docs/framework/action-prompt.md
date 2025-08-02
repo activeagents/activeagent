@@ -5,6 +5,10 @@ title: Action Prompt
 
 Action Prompt provides a structured way to manage prompt contexts and handle responses with callbacks as well as perform actions that render messages using Action View templates. 
 
+ActiveAgent::Base implements a `prompt_context` action which by default will render a prompt context object with message text content, that can contain messages, actions, and params. This action doesn't need a template as long as a Message or String are passed into the `message: params[:message]`
+
+<<< @/../test/agents/application_agent_test.rb#application_agent_prompt_context_message_generation {ruby:line-numbers}
+
 Similarly to Action Mailers that render mail messages that are delivered through configured delivery methods, Action Prompt integrates with Generation Providers through the generation module. This allows for dynamic content generation and the ability to use Rails helpers and partials within the prompt templates as well as rendering content from performed actions. Empowering developers with a powerful way to create interactive and engaging user experiences.
 
 ## Prompt-generation Request-Response Cycle

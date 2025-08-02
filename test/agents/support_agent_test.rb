@@ -8,10 +8,16 @@ class SupportAgentTest < ActiveSupport::TestCase
 
   test "it renders a prompt_context generates a response with a tool call and performs the requested actions" do
     VCR.use_cassette("support_agent_prompt_context_tool_call_response") do
+      # region support_agent_tool_call
       message = "Show me a cat"
       prompt = SupportAgent.with(message: message).prompt_context
+      # endregion support_agent_tool_call
       assert_equal message, prompt.message.content
+      # region support_agent_tool_call_response
       response = prompt.generate_now
+      # endregion support_agent_tool_call_response
+
+      doc_example_output(response)
       assert_equal 4, response.prompt.messages.size
       assert_equal :system, response.prompt.messages[0].role
       assert_equal :user, response.prompt.messages[1].role

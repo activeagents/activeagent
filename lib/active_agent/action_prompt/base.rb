@@ -233,7 +233,11 @@ module ActiveAgent
 
       def perform_action(action)
         current_context = context.clone
-        process(action.name, *action.params)
+        # Set params from the action for controller access
+        if action.params.is_a?(Hash)
+          self.params = action.params
+        end
+        process(action.name)
         context.message.role = :tool
         context.message.action_id = action.id
         context.message.action_name = action.name
@@ -495,6 +499,7 @@ module ActiveAgent
         templates_path = headers[:template_path] || self.class.agent_name
         templates_name = headers[:template_name] || action_name
         each_template(Array(templates_path), templates_name).map do |template|
+          next if template.format == :json && headers[:format] != :json
           format = template.format || formats.first
           {
             body: render(template: template, formats: [ format ]),

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 
 import {
   groupIconMdPlugin,
@@ -10,7 +11,8 @@ import {
 export default defineConfig({
   markdown: {
     config(md) {
-      md.use(groupIconMdPlugin)
+      md.use(groupIconMdPlugin),
+      md.use(tabsMarkdownPlugin)
     },
   },
   vite: {
@@ -72,12 +74,19 @@ export default defineConfig({
           { text: 'Active Agent', link: '/docs/framework/active-agent' },
         ]
       },
+      { text: 'Agents',
+        items: [
+          { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
+          { text: 'Translation', link: '/docs/agents/translation-agent' },
+        ]
+      },
       {
         text: 'Action Prompt',
         items: [
           { text: 'Messages', link: '/docs/action-prompt/messages' },
           { text: 'Actions', link: '/docs/action-prompt/actions' },
           { text: 'Prompts', link: '/docs/action-prompt/prompts' },
+          { text: 'Tools', link: '/docs/action-prompt/tools' },
         ]
       },
       { text: 'Active Agent',
@@ -97,7 +106,7 @@ export default defineConfig({
       { icon: 'discord', link: 'https://discord.gg/JRUxkkHKmh' },
       { icon: 'linkedin', link: 'https://www.linkedin.com/in/tonsoffun111/' },
       { icon: 'twitch', link: 'https://www.twitch.tv/tonsoffun111' },
-      // { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
+      { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
     ],
   }
 })

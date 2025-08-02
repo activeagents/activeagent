@@ -1,6 +1,6 @@
 require "test_helper"
 
-class OpenAIAgentTest < ActiveSupport::TestCase
+class OpenAIAgentTest < ActiveAgentTestCase
   test "it renders a prompt_context generates a response" do
     VCR.use_cassette("openai_prompt_context_response") do
       message = "Show me a cat"
@@ -15,24 +15,28 @@ class OpenAIAgentTest < ActiveSupport::TestCase
   end
 end
 
-OpenAI.configure do |config|
-  config.access_token = "test-api-key"
-  config.organization_id = "test-organization-id"
-  config.log_errors = Rails.env.development?
-  config.request_timeout = 600
-end
-
-class OpenAIClientTest < ActiveSupport::TestCase
-  real_config = ActiveAgent.config
-  ActiveAgent.load_configuration("")
-  class OpenAIClientAgent < ApplicationAgent
-    layout "agent"
-    generate_with :openai
+class OpenAIClientTest < ActiveAgentTestCase
+  def setup
+    super
+    # Configure OpenAI before tests
+    OpenAI.configure do |config|
+      config.access_token = "test-api-key"
+      config.organization_id = "test-organization-id"
+      config.log_errors = Rails.env.development?
+      config.request_timeout = 600
+    end
   end
 
   test "loads configuration from environment" do
-    client = OpenAI::Client.new
-    assert_equal OpenAIClientAgent.generation_provider.access_token, client.access_token
-    ActiveAgent.instance_variable_set(:@config, real_config)
+    # Use empty config to test environment-based configuration
+    with_active_agent_config({}) do
+      class OpenAIClientAgent < ApplicationAgent
+        layout "agent"
+        generate_with :openai
+      end
+
+      client = OpenAI::Client.new
+      assert_equal OpenAIClientAgent.generation_provider.access_token, client.access_token
+    end
   end
 end
