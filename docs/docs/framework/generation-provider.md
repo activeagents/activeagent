@@ -10,13 +10,9 @@ You can use the following generation providers with Active Agent:
 
 <<< @/../test/dummy/app/agents/anthropic_agent.rb {ruby} [Anthropic]
 
-<<< @/../test/dummy/app/agents/google_agent.rb {ruby} [Google]
-
 <<< @/../test/dummy/app/agents/open_router_agent.rb#snippet{ruby:line-numbers} [OpenRouter]
 
 <<< @/../test/dummy/app/agents/ollama_agent.rb#snippet{ruby:line-numbers} [Ollama]
-
-<<< @/../test/dummy/app/agents/deepseek_agent.rb {ruby} [Deepseek]
 :::
 
 ## Response
@@ -36,7 +32,7 @@ The `ActiveAgent::GenerationProvider::Response` class encapsulates the result of
 <<< @/../test/generation_provider_examples_test.rb#generation_response_usage{ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/generation_response_usage_example-response_object_usage.md -->
+<!-- @include: @/parts/examples/test-response-object-usage-test-response-object-usage.md -->
 :::
 The response object ensures you have full visibility into both the input prompt context and the raw provider response, making it easy to debug generation issues or access provider-specific response metadata.
 

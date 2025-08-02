@@ -8,6 +8,27 @@ require "rails/test_help"
 require "vcr"
 require "minitest/mock"
 
+# Extract full path and relative path from caller_info
+def extract_path_info(caller_info)
+  if caller_info =~ /(.+):(\d+):in/
+    full_path = $1
+    line_number = $2
+
+    # Get relative path from project root
+    project_root = File.expand_path("../..", __dir__)
+    relative_path = full_path.gsub(project_root + "/", "")
+
+    {
+      full_path: full_path,
+      relative_path: relative_path,
+      line_number: line_number,
+      file_name: File.basename(full_path)
+    }
+  else
+    {}
+  end
+end
+
 def doc_example_output(example = nil, test_name = nil)
   # Extract caller information
   caller_info = caller.find { |line| line.include?("_test.rb") }
@@ -20,13 +41,21 @@ def doc_example_output(example = nil, test_name = nil)
     line_number = $2
   end
 
+  path_info = extract_path_info(caller_info)
+
   file_path = Rails.root.join("..", "..", "docs", "parts", "examples", "#{file_name}-#{test_name}.md")
   # puts "\nWriting example output to #{file_path}\n"
   FileUtils.mkdir_p(File.dirname(file_path))
 
+  open_local = "vscode://file/#{path_info[:relative_path]}:#{path_info[:line_number]}"
+
+  open_remote = "https://github.com/activeagents/activeagent/#{path_info[:relative_path]}:#{path_info[:line_number]}"
+
   # Format the output with metadata
   content = []
   content << "<!-- Generated from #{test_file}:#{line_number} -->"
+
+  content << "[#{path_info[:relative_path]}:#{path_info[:line_number]}]()"
   content << "<!-- Test: #{test_name} -->"
   content << ""
 
