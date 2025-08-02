@@ -26,7 +26,7 @@ end
 ### 2. Documentation Patterns
 
 #### For Implementation Files (app/agents/*)
-- Use full file imports: `<<< @/../test/dummy/app/agents/agent_name.rb {ruby}`
+- Use full file imports: `<<< @/../test/dummy/app/agents/support_agent.rb {ruby}`
 - Use line ranges when needed: `<<< @/../test/dummy/app/agents/support_agent.rb#5-9 {ruby:line-numbers}`
 - NO regions needed for implementation files
 
@@ -37,14 +37,14 @@ end
 code_to_include
 # endregion unique_region_name
 ```
-- Import with: `<<< @/../test/agents/test_file.rb#unique_region_name {ruby:line-numbers}`
+- Import with: `<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call {ruby:line-numbers}`
 
 #### For Test Output Examples
 - Call `doc_example_output(response)` in tests to generate example files
 - Include in docs with:
 ```markdown
 ::: details Response Example
-<!-- @include: @/parts/examples/test-name.md -->
+<!-- @include: @/parts/examples/test-travel-agent-search-action-with-LLM-interaction-test-travel-agent-search-action-with-LLM-interaction.md -->
 :::
 ```
 
@@ -135,11 +135,11 @@ Files still needing review:
 
 == Response Object
 
-<!-- @include: @/parts/examples/test-parse-chart-response.md -->
+<!-- @include: @/parts/examples/test-parse-chart-content-from-image-data-with-structured-output-schema-test-parse-chart-content-from-image-data-with-structured-output-schema.md -->
 
 == JSON Output
 
-<!-- @include: @/parts/examples/test-parse-chart-json-response.md -->
+<!-- @include: @/parts/examples/test-parse-chart-content-from-image-data-with-structured-output-schema-parse-chart-json-response.md -->
 
 :::
 ```

@@ -24,7 +24,7 @@ class TravelAgentTest < ActiveAgentTestCase
       message = "Book flight AA123 for John Doe"
       prompt = TravelAgent.with(message: message).prompt_context
       response = prompt.generate_now
-      
+
       # The LLM should call the book tool
       assert_not_nil response
       assert_not_nil response.message
