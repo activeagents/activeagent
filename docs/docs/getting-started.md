@@ -81,18 +81,6 @@ Active Agent supports multiple generation providers, including OpenAI, Anthropic
 ### Configuring custom hosts
 You can also set the host and port for the generation provider if needed. For example, if you are using a local instance of Ollama or a cloud provider's hosted instance of OpenAI, you can set the host in your configuration file as shown in the example above.
 
-<!-- ### Initializer
-Active Agent is designed to work seamlessly with Rails applications. It can be easily integrated into your existing Rails app without any additional configuration. The framework automatically detects the Rails environment and configures itself accordingly. While its not necessary to include in your Rails app, Active Agent can be configured in the `config/initializers/active_agent.rb` file. You can set default generation providers, models, and other configurations here.
-
-```ruby
-ActiveAgent.configure do |config|
-  config.default_generation_provider = :openai
-  config.default_generation_queue = :agents
-  config.default_model = 'gpt-3.5-turbo'
-  config.default_temperature = 0.7
-end
-``` -->
-
 ## Your First Agent
 You can generate your first agent using the Rails generator. This will create a new agent class in the `app/agents` directory. It will also create a corresponding view template for the agent's actions as well as an Application Agent if you don't already have one. 
 
@@ -105,6 +93,14 @@ The generator will create:
 - An agent class with the specified actions (`search`, `book`, and `confirm`)
 - View templates for each action in `app/views/agents/travel_agent/`
 - An `ApplicationAgent` base class if one doesn't exist
+
+<<< @/../test/dummy/app/agents/travel_agent.rb {ruby}
+
+Agent action methods can be used for building Prompt context objects with Message content from rendered Action Views.
+
+## Action Prompts
+### Instruction messages
+### Prompt messages
 
 Each action is defined as a public instance method that can call `prompt` to generate responses. The views define:
 - **JSON views**: Tool schemas for function calling

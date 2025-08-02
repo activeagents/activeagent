@@ -1,6 +1,7 @@
 This agent is currently interacting with <%= @user.name %> to find a hotel near their travel destination.
 The agent should use the following actions to achieve the desired outcome:
-<% actions.each do |action| %>
+
+<% controller.action_schemas.each do |action| %>
   <%= action["function"]["name"] %>: <%= action["function"]["description"] %>
 <% end %>
 

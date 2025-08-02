@@ -1,6 +1,43 @@
 require "test_helper"
+require "ostruct"
 
 class TravelAgentTest < ActiveAgentTestCase
+  test "travel agent with instructions template" do
+    # region travel_agent_instructions_template
+    user = OpenStruct.new(name: "Alice Johnson")
+    prompt = TravelAgent.with(user: user, message: "I need help planning my trip").prompt_context
+
+    # The instructions template should be included in the prompt
+    system_message = prompt.messages.find { |m| m.role == :system }
+    assert_not_nil system_message
+    assert_includes system_message.content, "Alice Johnson"
+    assert_includes system_message.content, "`search` action to find hotels"
+    assert_includes system_message.content, "`book` action to book a hotel"
+    assert_includes system_message.content, "`confirm` action to confirm the booking"
+    # endregion travel_agent_instructions_template
+  end
+
+  test "travel agent with custom user in instructions" do
+    VCR.use_cassette("travel_agent_custom_user_instructions") do
+      # region travel_agent_custom_user_instructions
+      user = OpenStruct.new(name: "Bob Smith")
+      message = "I need to find a hotel in Paris"
+      prompt = TravelAgent.with(user: user, message: message).prompt_context
+      response = prompt.generate_now
+      
+      # The instructions should have been personalized with the user's name
+      system_message = response.prompt.messages.find { |m| m.role == :system }
+      assert_includes system_message.content, "Bob Smith"
+      
+      # The agent should understand the task based on the instructions
+      assert_not_nil response
+      assert_not_nil response.message
+      # endregion travel_agent_custom_user_instructions
+      
+      doc_example_output(response)
+    end
+  end
+
   test "travel agent search action with LLM interaction" do
     VCR.use_cassette("travel_agent_search_llm") do
       # region travel_agent_search_llm

@@ -1,5 +1,5 @@
 # Actions
-Active Agent Actions render views, just like Action Controller or Action Mailer. Similar to Action Mailer that renders Mail objects with Messages, Active Agent renders Prompt objects with Messages. 
+Active Agent uses Action View to render Message content for [Prompt](action-prompt/prompts.md) context objects.
 
 ## Prompt 
 The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller, it allows you to specify the content type and view template for the action's response.
@@ -17,11 +17,9 @@ You can define actions in your agent class that can be used to interact with the
 <<< @/../test/dummy/app/views/translation_agent/translate.text.erb{erb:line-numbers} [translate.text.erb]
 :::
 
-
-
 ## Set up instructions
 
-You can configure instructions in several ways when using `generate_with`. Here are the supported options:
+You can configure instructions in several ways when using `generate_with`, as
 
 #### 1. Use the default instructions template
 If you don’t pass anything for instructions, it will automatically try to use the default instructions template: `instructions.text.erb`
