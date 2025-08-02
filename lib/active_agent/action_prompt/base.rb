@@ -304,9 +304,9 @@ module ActiveAgent
 
       def prompt(headers = {}, &block)
         return context if @_prompt_was_called && headers.blank? && !block
-
         # Apply option hierarchy: prompt options > agent options > config options
-        merged_options = merge_options(headers)
+        merged_options = merge_options(headers[:options] || {})
+        
         raw_instructions = headers.has_key?(:instructions) ? headers[:instructions] : context.options[:instructions]
 
         context.instructions = prepare_instructions(raw_instructions)
@@ -399,13 +399,12 @@ module ActiveAgent
         agent_options = (self.class.options || {}).deep_dup  # Defensive copy to prevent mutation
 
         parent_options = self.class.superclass.respond_to?(:options) ? (self.class.superclass.options || {}) : {}
-
+        
         # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
         runtime_options = prompt_options.slice(
           :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
-          :presence_penalty, :response_format, :seed, :stop, :tools_choice, :user
+          :presence_penalty, :response_format, :seed, :stop, :tools_choice
         )
-
         # Handle explicit options parameter
         explicit_options = prompt_options[:options] || {}
 
@@ -416,7 +415,7 @@ module ActiveAgent
         explicit_options_filtered = explicit_options.except(:instructions)
 
         merged = config_options_filtered.merge(agent_options_filtered).merge(explicit_options_filtered)
-
+        
         # Only merge runtime options that are actually present (not nil)
         runtime_options.each do |key, value|
           next if value.nil?

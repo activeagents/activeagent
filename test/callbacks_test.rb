@@ -33,7 +33,7 @@ class CallbacksWithConditions < AgentWithCallbacks
   end
 
   def stream_action
-    prompt_context(message: "Stream this message", stream: true)
+    prompt_context(message: "Stream this message", options: { stream: true })
   end
 
   private

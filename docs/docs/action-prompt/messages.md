@@ -13,9 +13,20 @@ Messages can be structured as a Message object or hash with the following attrib
 
 
 ## Instructions as system messages to the agent
-A `:system` message is used to provide instructions to the agent. This message is used to set the context for the generation process and can be used to provide additional information about the interaction to the agent. Instructions can include how an agent should use their available actions to achieve a desired outcome or contain embedded ruby to render retrieve data to augment the generation process with contextual information prior to user-agent interactions.
+A `:system` message is used to provide instructions to the agent. This message is used to set the context for the generation process and can be used to provide additional information about the interaction to the agent. Instructions can include how an agent should use their available tool actions to achieve a desired outcome as well as render embedded ruby representations of retrieved data to augment the generation process with contextual information prior to user-agent interactions.
 
-<<< @/../test/dummy/app/views/agents/instructions.text.erb {erb}
+<<< @/../test/dummy/app/views/travel_agent/instructions.text.erb {erb}
+
+### Agent instructions
+Agent's can use `generate_with` to define instructions for the agent.
+
+<<< @/../test/dummy/app/agents/application_agent.rb {4 ruby:line-numbers}
+
+Agent's can also use implicit instructions by defining an `instructions` view in the agent's view directory.
+
+<<< @/../test/dummy/app/views/agents/application_agent/instructions.text.erb {erb}
+
+
 
 ## User's send :user messages to the agent
 A `:user` message is used to represent the user's input to the agent. These messages are commonly seen as plain text chat messages, but should be thought of as an Action View that could be of any type you choose to support, just like Action Mailer can send 'plain/text' or 'html/text' emails, Action Prompt render formatted messages to the agents.

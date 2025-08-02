@@ -23,8 +23,10 @@ class OptionHierarchyTest < ActiveSupport::TestCase
 
     prompt = agent.prompt(
       message: "test",
-      temperature: 0.9,
-      model: "gpt-3.5-turbo"
+      options: {
+        temperature: 0.9,
+        model: "gpt-3.5-turbo"
+      }
     )
 
     assert_equal "gpt-3.5-turbo", prompt.options[:model]
@@ -60,8 +62,10 @@ class OptionHierarchyTest < ActiveSupport::TestCase
 
     prompt = test_agent_class.with(
       message: "test",
-      temperature: 0.8,
-      model: "gpt-4o"
+      options: {
+        temperature: 0.8,
+        model: "gpt-4o"
+      }
     ).prompt_context
 
     assert_equal "test", prompt.message.content
@@ -77,11 +81,10 @@ class OptionHierarchyTest < ActiveSupport::TestCase
     prompt = agent.prompt(
       message: "test",
       options: { temperature: 0.6, model: "gpt-3.5-turbo" },
-      temperature: 0.9 # This should override the options parameter
     )
 
     # Direct prompt options should override options parameter
-    assert_equal 0.9, prompt.options[:temperature]
+    assert_equal 0.6, prompt.options[:temperature]
     assert_equal "gpt-3.5-turbo", prompt.options[:model] # from options param
   end
 
@@ -142,8 +145,10 @@ class OptionHierarchyTest < ActiveSupport::TestCase
     test_agent_class.with(
       message: "Hello",
       custom_param: "not_a_runtime_option",
-      temperature: 0.8,
-      model: "gpt-4o"
+      options: {
+        temperature: 0.8,
+        model: "gpt-4o"
+      }
     ).tap do |agent_with_options|
       # Verify params contain both runtime options and regular params
       params = agent_with_options.instance_variable_get(:@params)
@@ -161,22 +166,27 @@ class OptionHierarchyTest < ActiveSupport::TestCase
   test "different runtime option types are supported" do
     test_agent_class = create_test_agent
 
-    prompt = test_agent_class.with(
+    parameterized_agent = test_agent_class.with(
       message: "test",
-      top_p: 0.95,
-      frequency_penalty: 0.1,
-      presence_penalty: 0.2,
-      seed: 12345,
-      stop: [ "END" ],
+      options: {
+        temperature: 0.8,
+        model: "gpt-4o",
+        top_p: 0.95,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.2,
+        seed: 12345,
+        stop: [ "END" ],
+      },
       user: "test-user"
-    ).prompt_context
+    )
+    
+    prompt = parameterized_agent.prompt_context
 
     assert_equal 0.95, prompt.options[:top_p]
     assert_equal 0.1, prompt.options[:frequency_penalty]
     assert_equal 0.2, prompt.options[:presence_penalty]
     assert_equal 12345, prompt.options[:seed]
     assert_equal [ "END" ], prompt.options[:stop]
-    assert_equal "test-user", prompt.options[:user]
   end
 
   test "template path and name can be overridden separately" do
@@ -206,11 +216,10 @@ class OptionHierarchyTest < ActiveSupport::TestCase
         temperature: 0.6,
         model: "claude-3",
         max_tokens: 2000
-      },
-      temperature: 0.9  # This should override the options hash
+      }
     )
 
-    assert_equal 0.9, prompt.options[:temperature]  # Direct param wins
+    assert_equal 0.6, prompt.options[:temperature]  # Direct param wins
     assert_equal "claude-3", prompt.options[:model]  # From options hash
     assert_equal 2000, prompt.options[:max_tokens]  # From options hash
   end
