@@ -60,6 +60,32 @@ Agent Actions can accept parameters, which are passed as a hash to the action me
 
 <<< @/../test/agents/actions_examples_test.rb#actions_with_parameters{ruby:line-numbers}
 
+### Parameters vs Runtime Options
+
+When using the `with` method, it's important to understand the distinction:
+- **Regular parameters** (like `message`, `user_id`, etc.) are accessed via the `params` method in your actions
+- **Runtime options** (like `model`, `temperature`, etc.) should be passed via the `:options` key to configure the generation provider
+
+Example:
+```ruby
+# Regular parameters and runtime options
+TravelAgent.with(
+  destination: "Paris",        # Regular parameter
+  user_id: 123,               # Regular parameter  
+  options: {                  # Runtime options
+    model: "gpt-4o",
+    temperature: 0.7
+  }
+).search
+
+# In the action, access regular params:
+def search
+  destination = params[:destination]  # "Paris"
+  user_id = params[:user_id]         # 123
+  # Runtime options are automatically applied to generation
+end
+```
+
 ## Using Actions to prompt the Agent with a templated message
 You can call these actions directly to render a prompt to the agent directly to generate the requested object.
 
@@ -95,10 +121,38 @@ The `prompt` takes the following options:
 While partials can be used in the JSON views the action's json view should primarily define the tool schema, then secondarily define the tool's output using a partial to render results of the tool call all in a single JSON action view template. Use the JSON action views for tool schema definitions and results, and use the text or HTML action views for rendering the action's response to the user.
 
 ### Runtime options
-- `content_type`: Specifies the type of content to be rendered (e.g., `:text`, `:json`, `:html`).
-- `view`: Specifies the view template to be used for rendering the action's response. This can be a string representing the view file name or a symbol representing a predefined view.
-- `stream`: If set to `true`, the response will be streamed to the user in real-time. This is useful for long-running actions or when you want to provide immediate feedback to the user.
-- `options`: Additional options that can be passed to the generation provider, such as model parameters or generation settings.
+Runtime options can be passed to agents in several ways:
+
+1. **Via the `with` method** - Pass runtime options using the `:options` parameter:
+<<< @/../test/option_hierarchy_test.rb#runtime_options_with_method{ruby:line-numbers}
+
+2. **In the `prompt` method** - Pass runtime options directly in the prompt call:
+<<< @/../test/option_hierarchy_test.rb#runtime_options_in_prompt{ruby:line-numbers}
+
+3. **Supported runtime option types**:
+<<< @/../test/option_hierarchy_test.rb#runtime_options_types{ruby:line-numbers}
+
+Available runtime options include:
+- `model`: The model to use for generation (e.g., "gpt-4o", "claude-3")
+- `temperature`: Controls randomness in generation (0.0 to 1.0)
+- `max_tokens`: Maximum number of tokens to generate
+- `stream`: If set to `true`, the response will be streamed in real-time
+- `top_p`: Nucleus sampling parameter
+- `frequency_penalty`: Penalizes repeated tokens based on frequency
+- `presence_penalty`: Penalizes repeated tokens based on presence
+- `seed`: For deterministic generation
+- `stop`: Sequences where generation should stop
+- `response_format`: Format for structured outputs
+
+::: details Runtime Options Example
+<!-- @include: @/parts/examples/test-runtime-options-example-output-test-runtime-options-example-output.md -->
+:::
+
+**Option precedence**: When options are specified in multiple places, they follow this hierarchy:
+1. Config options (lowest priority)
+2. Agent-level options (set with `generate_with`)
+3. Explicit options (passed via `:options` parameter)
+4. Runtime options (highest priority)
   
 ## How Agents use Actions
 1. The agent receives a request from the user, which may include a message or an action to be performed.

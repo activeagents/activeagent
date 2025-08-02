@@ -100,12 +100,26 @@ Files that may still have hardcoded examples:
 
 1. Run tests to generate examples:
 ```bash
+# Run all tests
+bin/test
+
+# Run specific test file
 bin/test test/agents/your_agent_test.rb
+
+# Run specific test by name pattern
+bin/test test/agents/your_agent_test.rb -n "test_name_pattern"
 ```
 
-2. Build docs locally:
+2. Build and serve docs locally:
 ```bash
-bin/docs  # Starts vitepress dev server
+# Start development server (recommended)
+bin/docs  # Starts vitepress dev server at http://localhost:5173
+
+# Build static docs (for production)
+cd docs && npm run docs:build
+
+# Preview built docs
+cd docs && npm run docs:preview
 ```
 
 ## Key Framework Components
@@ -156,11 +170,17 @@ bundle install
 # Run all tests
 bin/test
 
-# Run specific test
+# Run specific test file
 bin/test test/agents/specific_agent_test.rb
 
-# Start documentation server
-bin/docs
+# Run specific test by name
+bin/test test/agents/specific_agent_test.rb -n "test_name_pattern"
+
+# Start documentation development server
+bin/docs  # http://localhost:5173
+
+# Build documentation for production
+cd docs && npm run docs:build
 
 # Generate new agent
 rails generate active_agent:agent AgentName action1 action2
