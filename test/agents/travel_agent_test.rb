@@ -24,16 +24,16 @@ class TravelAgentTest < ActiveAgentTestCase
       message = "I need to find a hotel in Paris"
       prompt = TravelAgent.with(user: user, message: message).prompt_context
       response = prompt.generate_now
-      
+
       # The instructions should have been personalized with the user's name
       system_message = response.prompt.messages.find { |m| m.role == :system }
       assert_includes system_message.content, "Bob Smith"
-      
+
       # The agent should understand the task based on the instructions
       assert_not_nil response
       assert_not_nil response.message
       # endregion travel_agent_custom_user_instructions
-      
+
       doc_example_output(response)
     end
   end
