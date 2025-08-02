@@ -10,6 +10,7 @@ The Prompt is structured to include the following components:
 - **Messages**: An array of messages that represent the contextual information or conversational chat history. Each message includes content, role (user or assistant), and metadata.
 - **Message**: The Action Prompt's rendered message object or hash that contains the content and role of the message. The role can be `:user`, `:system`, `:assistant`, or `:tool`, but defaults to `:user`.
 - **Actions**:  An array of actions that the agent can perform in response to user input. By default, the prompt will use the agent's action methods, but you can also specify custom actions.
+- **Options**: Runtime configuration options that control the generation behavior (e.g., model, temperature, max_tokens). See [Runtime options](actions.md#runtime-options) for details.
 
 ## Example Prompt
 Prompts are built and rendered in the agent's action methods, typically using the `prompt` method. This is an example of creating a prompt by manually building the context; assigning `actions`, the prompt `message` and context `messages`.

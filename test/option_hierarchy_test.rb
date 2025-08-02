@@ -60,6 +60,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
   test "with method supports runtime options via options parameter" do
     test_agent_class = create_test_agent
 
+    # region runtime_options_with_method
     prompt = test_agent_class.with(
       message: "test",
       options: {
@@ -67,6 +68,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
         model: "gpt-4o"
       }
     ).prompt_context
+    # endregion runtime_options_with_method
 
     assert_equal "test", prompt.message.content
     assert_equal 0.8, prompt.options[:temperature]
@@ -166,6 +168,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
   test "different runtime option types are supported" do
     test_agent_class = create_test_agent
 
+    # region runtime_options_types
     parameterized_agent = test_agent_class.with(
       message: "test",
       options: {
@@ -181,6 +184,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
     )
 
     prompt = parameterized_agent.prompt_context
+    # endregion runtime_options_types
 
     assert_equal 0.95, prompt.options[:top_p]
     assert_equal 0.1, prompt.options[:frequency_penalty]
@@ -209,6 +213,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
     test_agent_class = create_test_agent
     agent = test_agent_class.new
 
+    # region runtime_options_in_prompt
     # Explicit options via :options parameter
     prompt = agent.prompt(
       message: "test",
@@ -218,9 +223,29 @@ class OptionHierarchyTest < ActiveSupport::TestCase
         max_tokens: 2000
       }
     )
+    # endregion runtime_options_in_prompt
 
     assert_equal 0.6, prompt.options[:temperature]  # Direct param wins
     assert_equal "claude-3", prompt.options[:model]  # From options hash
     assert_equal 2000, prompt.options[:max_tokens]  # From options hash
+  end
+
+  test "runtime options example output" do
+    test_agent_class = create_test_agent
+    
+    # Example of using runtime options with the with method
+    prompt = test_agent_class.with(
+      message: "Translate 'Hello' to Spanish",
+      options: {
+        temperature: 0.7,
+        model: "gpt-4o",
+        max_tokens: 100
+      }
+    ).prompt_context
+    
+    doc_example_output({ 
+      prompt_options: prompt.options,
+      message: prompt.message.content 
+    })
   end
 end
