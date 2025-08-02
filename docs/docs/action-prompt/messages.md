@@ -24,7 +24,7 @@ Agent's can use `generate_with` to define instructions for the agent.
 
 Agent's can also use implicit instructions by defining an `instructions` view in the agent's view directory.
 
-<<< @/../test/dummy/app/views/agents/application_agent/instructions.text.erb {erb}
+<<< @/../test/dummy/app/views/application_agent/instructions.text.erb {erb}
 
 
 

@@ -91,7 +91,7 @@ The `ApplicationAgent` is the base class for all agents in your application, sim
 
 The generator will create:
 - An agent class with the specified actions (`search`, `book`, and `confirm`)
-- View templates for each action in `app/views/agents/travel_agent/`
+- View templates for each action in `app/views/travel_agent/`
 - An `ApplicationAgent` base class if one doesn't exist
 
 <<< @/../test/dummy/app/agents/travel_agent.rb {ruby}
