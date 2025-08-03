@@ -45,7 +45,8 @@ module ActiveAgent
         register_interceptors(options.delete(:interceptors))
         register_preview_interceptors(options.delete(:preview_interceptors))
         register_observers(options.delete(:observers))
-        self.view_paths = [ "#{Rails.root}/app/views" ]
+        views_dir = ActiveAgent.config["agent_views_directory"] || "app/views"
+        self.view_paths = [ "#{Rails.root}/#{views_dir}" ]
         self.preview_paths |= options[:preview_paths]
 
         if (generation_job = options.delete(:generation_job))

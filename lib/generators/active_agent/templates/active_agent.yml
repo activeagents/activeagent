@@ -1,4 +1,5 @@
 development:
+  agent_views_directory: "app/views/agents"
   openai:
     service: "OpenAI"
     api_key: <%%= Rails.application.credentials.dig(:openai, :api_key) %>
