@@ -247,5 +247,9 @@ class OptionHierarchyTest < ActiveSupport::TestCase
       prompt_options: prompt.options,
       message: prompt.message.content 
     })
+    assert_equal "Translate 'Hello' to Spanish", prompt.message.content
+    assert_equal 0.7, prompt.options[:temperature]
+    assert_equal "gpt-4o", prompt.options[:model]
+    assert_equal 100, prompt.options[:max_tokens]
   end
 end
