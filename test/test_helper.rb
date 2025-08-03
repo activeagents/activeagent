@@ -47,15 +47,17 @@ def doc_example_output(example = nil, test_name = nil)
   # puts "\nWriting example output to #{file_path}\n"
   FileUtils.mkdir_p(File.dirname(file_path))
 
-  open_local = "vscode://file/#{path_info[:relative_path]}:#{path_info[:line_number]}"
+  open_local = "vscode://file/#{path_info[:full_path]}:#{path_info[:line_number]}"
 
-  open_remote = "https://github.com/activeagents/activeagent/#{path_info[:relative_path]}:#{path_info[:line_number]}"
+  open_remote = "https://github.com/activeagents/activeagent/tree/main/test#{path_info[:relative_path]}:#{path_info[:line_number]}"
 
+  open_link = ENV["GITHUB_ACTIONS"] ? open_remote : open_local
+  
   # Format the output with metadata
   content = []
   content << "<!-- Generated from #{test_file}:#{line_number} -->"
 
-  content << "[#{path_info[:relative_path]}:#{path_info[:line_number]}]()"
+  content << "[#{path_info[:relative_path]}:#{path_info[:line_number]}](#{open_link})"
   content << "<!-- Test: #{test_name} -->"
   content << ""
 
