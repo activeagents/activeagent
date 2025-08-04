@@ -50,10 +50,14 @@ features:
     link: /docs/active-agent/callbacks
     icon: 🔄
     details: Callbacks enable contextual prompting using retrieval before_action or persistence after_generation.
-  - title: Generative UI
-    link: /docs/active-agent/generative-ui
-    icon: 🖼️
-    details: Generative UI allows for dynamic and interactive user interfaces that adapt based on AI-generated interactions and content, enhancing user engagement and experience.
+  - title: Structured Output
+    link: /docs/agents/data-extraction-agent#structured-output
+    icon: 📊
+    details: Structured Output allows agents to return structured data in JSON format, enabling easier parsing and integration with other systems.
+  # - title: Generative UI
+  #   link: /docs/active-agent/generative-ui
+  #   icon: 🖼️
+  #   details: Generative UI allows for dynamic and interactive user interfaces that adapt based on AI-generated interactions and content, enhancing user engagement and experience.
   # - title: RAG
   #   icon: 📚
   #   details: Retrieval Augmented Generation enables agents to access external data sources, enhancing their capabilities and providing more accurate and contextually relevant responses. While RAG has become synonymous with vector databases, it can also be used with traditional databases.
