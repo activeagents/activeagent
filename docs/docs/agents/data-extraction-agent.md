@@ -92,7 +92,7 @@ Extract information from PDF resumes:
 <<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume {ruby:line-numbers}
 
 ### Parse Resume with Structured Output
-![Resume PDF](https://raw.githubusercontent.com/activeagents/activeagent/refs/heads/main/test/fixtures/files/sample_resume.pdf)
+<img src="/sample_resume.pdf" alt="Sample Resume" style="height: 420px; object-fit: cover; object-position: top; width: 100%;" />
 Extract resume data with a predefined schema:
 
 :::: tabs
@@ -100,12 +100,13 @@ Extract resume data with a predefined schema:
 == Prompt Generation
 
 <<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume_with_structured_output_response {ruby:line-numbers}
+::: details Generation Response Example
 <!-- @include: @/parts/examples/test-parse-resume-creates-a-multimodal-prompt-with-file-data-with-structured-output-schema-test-parse-resume-creates-a-multimodal-prompt-with-file-data-with-structured-output-schema.md -->
-
+:::
 == JSON Output
 
 <<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume_with_structured_output_json {ruby:line-numbers}
+::: details Parse Resume JSON Response Example
 <!-- @include: @/parts/examples/test-parse-resume-creates-a-multimodal-prompt-with-file-data-with-structured-output-schema-parse-resume-json-response.md -->
-
 :::
 ::::
