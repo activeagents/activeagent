@@ -59,7 +59,7 @@ When using structured output:
 
 
 ### Parse Chart Image with Structured Output
-![Chart Image](https://raw.githubusercontent.com/activeagents/activeagent/main/test/dummy/test/fixtures/images/sales_chart.png)
+![Chart Image](https://raw.githubusercontent.com/activeagents/activeagent/refs/heads/main/test/fixtures/images/sales_chart.png)
 
 Extract chart data with a predefined schema `chart_schema`:
 ::: code-group
@@ -92,7 +92,7 @@ Extract information from PDF resumes:
 <<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume {ruby:line-numbers}
 
 ### Parse Resume with Structured Output
-![Resume PDF](https://raw.githubusercontent.com/activeagents/activeagent/main/test/dummy/test/fixtures/files/sample_resume.pdf)
+![Resume PDF](https://raw.githubusercontent.com/activeagents/activeagent/refs/heads/main/test/fixtures/files/sample_resume.pdf)
 Extract resume data with a predefined schema:
 
 :::: tabs
