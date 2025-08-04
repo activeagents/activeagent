@@ -27,10 +27,11 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "parse_resume creates a multimodal prompt with file data" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_parse_resume") do
+      sample_resume_path = Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")
       # region data_extraction_agent_parse_resume
       prompt = DataExtractionAgent.with(
         output_schema: :resume_schema,
-        file_path: Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")
+        file_path: sample_resume_path
       ).parse_content
       # endregion data_extraction_agent_parse_resume
 

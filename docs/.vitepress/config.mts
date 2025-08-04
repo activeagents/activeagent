@@ -14,6 +14,7 @@ export default defineConfig({
       md.use(groupIconMdPlugin),
       md.use(tabsMarkdownPlugin)
     },
+    lazyLoading: true
   },
   vite: {
     plugins: [
