@@ -13,8 +13,7 @@ export default defineConfig({
     config(md) {
       md.use(groupIconMdPlugin),
       md.use(tabsMarkdownPlugin)
-    },
-    lazyLoading: true
+    }
   },
   vite: {
     plugins: [

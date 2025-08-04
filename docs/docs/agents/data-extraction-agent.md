@@ -92,7 +92,7 @@ Extract information from PDF resumes:
 <<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume {ruby:line-numbers}
 
 #### Parse Resume with Structured Output
-<img src="/sample_resume.pdf" alt="Sample Resume" style="height: 420px; object-fit: cover; object-position: top; width: 100%;" />
+<img src="https://docs.activeagents.ai/sample_resume.pdf" alt="Sample Resume" style="height: 420px; object-fit: cover; object-position: top; width: 100%;" />
 Extract resume data with a predefined schema:
 
 :::: tabs
