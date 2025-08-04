@@ -41,15 +41,17 @@ jobs:
         with:
           node-version: 22
           cache: npm # or pnpm / yarn
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Install dependencies
-        run: npm ci # or pnpm install / yarn install / bun install
-      - name: Install Ruby dpendencies
+      - name: Setup Ruby      
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ruby-3.3.0
           bundler-cache: true
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Install dependencies
+        run: npm ci # or pnpm install / yarn install / bun install
+      - name: Install Ruby dependencies
+        run: bundle install
       - name: Generate doc example output from tests
         run: bin/test
       - name: Build with VitePress
