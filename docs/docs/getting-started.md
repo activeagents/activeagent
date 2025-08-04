@@ -96,13 +96,13 @@ The generator will create:
 
 <<< @/../test/dummy/app/agents/travel_agent.rb {ruby}
 
-Agent action methods can be used for building Prompt context objects with Message content from rendered Action Views.
+Agent action methods are used for building Prompt context objects with Message content from rendered Action Views.
 
 ## Action Prompts
 ### Instruction messages
 ### Prompt messages
 
-Each action is defined as a public instance method that can call `prompt` to generate responses. The views define:
-- **JSON views**: Tool schemas for function calling
+Each action is defined as a public instance method that can call `prompt` to build context objects that are used to generate responses. The views define:
+- **JSON views**: Tool schemas for function calling or output schemas for structured responses
 - **HTML views**: Web-friendly formatted responses  
 - **Text views**: Plain text responses

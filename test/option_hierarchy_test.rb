@@ -232,7 +232,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
 
   test "runtime options example output" do
     test_agent_class = create_test_agent
-    
+
     # Example of using runtime options with the with method
     prompt = test_agent_class.with(
       message: "Translate 'Hello' to Spanish",
@@ -242,10 +242,10 @@ class OptionHierarchyTest < ActiveSupport::TestCase
         max_tokens: 100
       }
     ).prompt_context
-    
-    doc_example_output({ 
+
+    doc_example_output({
       prompt_options: prompt.options,
-      message: prompt.message.content 
+      message: prompt.message.content
     })
     assert_equal "Translate 'Hello' to Spanish", prompt.message.content
     assert_equal 0.7, prompt.options[:temperature]
