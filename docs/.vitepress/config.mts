@@ -51,6 +51,10 @@ export default defineConfig({
     search: {
       provider: 'local',
     },
+    editLink: {
+      pattern: 'https://github.com/activeagents/activeagent/edit/main/docs/:path',
+      text: 'Suggest changes to this page on GitHub'
+    },
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
@@ -69,15 +73,9 @@ export default defineConfig({
       {
         text: 'Framework',
         items: [
-          { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
           { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
           { text: 'Active Agent', link: '/docs/framework/active-agent' },
-        ]
-      },
-      { text: 'Agents',
-        items: [
-          { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
-          { text: 'Translation', link: '/docs/agents/translation-agent' },
+          { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
         ]
       },
       {
@@ -89,9 +87,16 @@ export default defineConfig({
           { text: 'Tools', link: '/docs/action-prompt/tools' },
         ]
       },
+      { text: 'Agents',
+        items: [
+          { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
+          { text: 'Translation', link: '/docs/agents/translation-agent' },
+        ]
+      },
       { text: 'Active Agent',
         items: [
           // { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
+          { text: 'Structured Output', link: '/docs/agents/data-extraction-agent#structured-output' },
           { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
           { text: 'Generation', link: '/docs/active-agent/generation' },
           { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },

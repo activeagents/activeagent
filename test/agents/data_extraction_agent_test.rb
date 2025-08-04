@@ -15,7 +15,9 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     end
 
     VCR.use_cassette("data_extraction_agent_describe_cat_image_generation_response") do
+      # region data_extraction_agent_describe_cat_image_response
       response = prompt.generate_now
+      # endregion data_extraction_agent_describe_cat_image_response
       doc_example_output(response)
 
       assert_equal response.message.content, "The cat in the image has a sleek, short coat that appears to be a grayish-brown color. Its eyes are large and striking, with a vivid green hue. The cat is sitting comfortably, being gently petted by a hand that is adorned with a bracelet. Overall, it has a calm and curious expression. The background features a dark, soft surface, adding to the cozy atmosphere of the scene."
@@ -27,6 +29,7 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     VCR.use_cassette("data_extraction_agent_parse_resume") do
       # region data_extraction_agent_parse_resume
       prompt = DataExtractionAgent.with(
+        output_schema: :resume_schema,
         file_path: Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")
       ).parse_content
       # endregion data_extraction_agent_parse_resume
@@ -63,8 +66,12 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     end
 
     VCR.use_cassette("data_extraction_agent_parse_resume_generation_response_with_structured_output") do
+      # region data_extraction_agent_parse_resume_with_structured_output_response
       response = prompt.generate_now
+      # endregion data_extraction_agent_parse_resume_with_structured_output_response
+      # region data_extraction_agent_parse_resume_with_structured_output_json
       json_response = JSON.parse(response.message.content)
+      # endregion data_extraction_agent_parse_resume_with_structured_output_json
       doc_example_output(response)
       doc_example_output(json_response, "parse-resume-json-response")
 
@@ -81,9 +88,10 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "parse_chart content from image data" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_parse_chart") do
+      sales_chart_path = Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")
       # region data_extraction_agent_parse_chart
       prompt = DataExtractionAgent.with(
-        image_path: Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")
+        image_path: sales_chart_path
       ).parse_content
       # endregion data_extraction_agent_parse_chart
 
@@ -104,10 +112,11 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "parse_chart content from image data with structured output schema" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_parse_chart_with_structured_output") do
+      sales_chart_path = Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")
       # region data_extraction_agent_parse_chart_with_structured_output
       prompt = DataExtractionAgent.with(
         output_schema: :chart_schema,
-        image_path: Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")
+        image_path: sales_chart_path
       ).parse_content
       # endregion data_extraction_agent_parse_chart_with_structured_output
 
@@ -118,8 +127,13 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     end
 
     VCR.use_cassette("data_extraction_agent_parse_chart_generation_response_with_structured_output") do
+      # region data_extraction_agent_parse_chart_with_structured_output_response
       response = prompt.generate_now
+      # endregion data_extraction_agent_parse_chart_with_structured_output_response
+
+      # region data_extraction_agent_parse_chart_with_structured_output_json
       json_response = JSON.parse(response.message.content)
+      # endregion data_extraction_agent_parse_chart_with_structured_output_json
 
       doc_example_output(response)
       doc_example_output(json_response, "parse-chart-json-response")
