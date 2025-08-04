@@ -45,6 +45,11 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Install dependencies
         run: npm ci # or pnpm install / yarn install / bun install
+      - name: Install Ruby dpendencies
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ruby-3.3.0
+          bundler-cache: true
       - name: Generate doc example output from tests
         run: bin/test
       - name: Build with VitePress
