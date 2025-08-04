@@ -1,12 +1,20 @@
 class DataExtractionAgent < ApplicationAgent
   before_action :set_multimodal_content, only: [ :parse_content ]
 
-  def describe_cat_image
-    prompt(message: "Describe the cat in the image", image_data: CatImageService.fetch_base64_image)
+  def parse_content
+    prompt(
+      message: params[:message] || "Parse the content of the file or image",
+      image_data: @image_data,
+      file_data: @file_data,
+      output_schema: params[:output_schema]
+      )
   end
 
-  def parse_content
-    prompt(message: "Parse the resume", image_data: @image_data, file_data: @file_data, output_schema: params[:output_schema])
+  def describe_cat_image
+    prompt(
+      message: "Describe the cat in the image",
+      image_data: CatImageService.fetch_base64_image
+      )
   end
 
   private
