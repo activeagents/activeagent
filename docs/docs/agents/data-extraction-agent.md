@@ -85,15 +85,18 @@ Extract chart data with a predefined schema `chart_schema`:
 :::
 ::::
 
-### Parse Resume
+### Parse Resume with output resume schema
 
 Extract information from PDF resumes:
 
+::: code-group
 <<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume {ruby:line-numbers}
+<<< @/../test/dummy/app/views/data_extraction_agent/resume_schema.json.erb {json}
+:::
 
 #### Parse Resume with Structured Output
 [![Sample Resume](/sample_resume.png)](https://docs.activeagents.ai/sample_resume.pdf)
-Extract resume data with a predefined schema:
+Extract resume data with a predefined `resume_schema`:
 
 :::: tabs
 
