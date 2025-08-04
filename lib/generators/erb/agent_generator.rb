@@ -45,7 +45,7 @@ module Erb # :nodoc:
         # Ensure config is loaded
         ActiveAgent.load_configuration(Rails.root.join("config", "active_agent.yml")) unless ActiveAgent.config
 
-        ActiveAgent.config["agent_views_directory"]
+        ActiveAgent.config["agent_views_directory"] || "app/views"
       end
     end
   end
