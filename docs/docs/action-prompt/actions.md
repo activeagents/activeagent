@@ -1,5 +1,5 @@
 # Actions
-Active Agent uses Action View to render Message content for [Prompt](action-prompt/prompts.md) context objects.
+Active Agent uses Action View to render Message content for [Prompt](./prompts.md) context objects.
 
 ## Prompt 
 The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller, it allows you to specify the content type and view template for the action's response.
