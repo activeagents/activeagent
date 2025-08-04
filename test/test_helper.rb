@@ -49,7 +49,7 @@ def doc_example_output(example = nil, test_name = nil)
 
   open_local = "vscode://file/#{path_info[:full_path]}:#{path_info[:line_number]}"
 
-  open_remote = "https://github.com/activeagents/activeagent/tree/main/test/#{path_info[:relative_path]}:#{path_info[:line_number]}"
+  open_remote = "https://github.com/activeagents/activeagent/tree/main#{path_info[:relative_path].gsub("activeagent", "")}#L#{path_info[:line_number]}"
 
   open_link = ENV["GITHUB_ACTIONS"] ? open_remote : open_local
 
