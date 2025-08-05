@@ -24,8 +24,9 @@ module ActiveAgent
       end
 
       def configure_provider(config)
-        require "active_agent/generation_provider/#{config["service"].underscore}_provider"
-        ActiveAgent::GenerationProvider.const_get("#{config["service"].camelize}Provider").new(config)
+        service_name = config["service"]
+        require "active_agent/generation_provider/#{service_name.underscore}_provider"
+        ActiveAgent::GenerationProvider.const_get("#{service_name.camelize}Provider").new(config)
       end
 
       def generation_provider

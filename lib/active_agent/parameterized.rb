@@ -15,12 +15,12 @@ module ActiveAgent
     module ClassMethods
       def with(params = {})
         # Separate runtime options from regular params
-        runtime_options = params.extract!(:model, :temperature, :max_tokens, :stream, :top_p,
-                                          :frequency_penalty, :presence_penalty, :response_format,
-                                          :seed, :stop, :tools_choice, :user)
+        # runtime_options = params.extract!(:model, :temperature, :max_tokens, :stream, :top_p,
+        #                                   :frequency_penalty, :presence_penalty, :response_format,
+        #                                   :seed, :stop, :tools_choice, :user)
 
-        # Pass runtime options as :options parameter
-        params[:options] = runtime_options if runtime_options.any?
+        # # Pass runtime options as :options parameter
+        # params[:options] = runtime_options if runtime_options.any?
 
         ActiveAgent::Parameterized::Agent.new(self, params)
       end

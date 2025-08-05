@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 
 import {
   groupIconMdPlugin,
@@ -10,8 +11,9 @@ import {
 export default defineConfig({
   markdown: {
     config(md) {
-      md.use(groupIconMdPlugin)
-    },
+      md.use(groupIconMdPlugin),
+      md.use(tabsMarkdownPlugin)
+    }
   },
   vite: {
     plugins: [
@@ -49,6 +51,10 @@ export default defineConfig({
     search: {
       provider: 'local',
     },
+    editLink: {
+      pattern: 'https://github.com/activeagents/activeagent/edit/main/docs/:path',
+      text: 'Suggest changes to this page on GitHub'
+    },
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
@@ -67,9 +73,9 @@ export default defineConfig({
       {
         text: 'Framework',
         items: [
-          { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
           { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
           { text: 'Active Agent', link: '/docs/framework/active-agent' },
+          { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
         ]
       },
       {
@@ -78,11 +84,19 @@ export default defineConfig({
           { text: 'Messages', link: '/docs/action-prompt/messages' },
           { text: 'Actions', link: '/docs/action-prompt/actions' },
           { text: 'Prompts', link: '/docs/action-prompt/prompts' },
+          { text: 'Tools', link: '/docs/action-prompt/tools' },
+        ]
+      },
+      { text: 'Agents',
+        items: [
+          { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
+          { text: 'Translation', link: '/docs/agents/translation-agent' },
         ]
       },
       { text: 'Active Agent',
         items: [
           // { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
+          { text: 'Structured Output', link: '/docs/agents/data-extraction-agent#structured-output' },
           { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
           { text: 'Generation', link: '/docs/active-agent/generation' },
           { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },
@@ -97,7 +111,7 @@ export default defineConfig({
       { icon: 'discord', link: 'https://discord.gg/JRUxkkHKmh' },
       { icon: 'linkedin', link: 'https://www.linkedin.com/in/tonsoffun111/' },
       { icon: 'twitch', link: 'https://www.twitch.tv/tonsoffun111' },
-      // { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
+      { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
     ],
   }
 })

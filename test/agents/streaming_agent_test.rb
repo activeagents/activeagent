@@ -23,7 +23,9 @@ class StreamingAgentTest < ActiveSupport::TestCase
     end
 
     VCR.use_cassette("streaming_agent_stream_response") do
+      # region streaming_agent_stream_response
       StreamingAgent.with(message: "Stream this message").prompt_context.generate_now
+      # endregion streaming_agent_stream_response
     end
 
     assert_equal broadcast_calls.size, 30

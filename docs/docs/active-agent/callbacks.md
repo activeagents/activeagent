@@ -5,40 +5,26 @@ Callbacks can be registered to execute on specific events during the prompt and 
 ## Action Callbacks
 Action callbacks are triggered when an action is invoked within an agent. This allows you to customize the behavior of actions, such as modifying the action's parameters or logging the action's execution. Great for retrieval augmented generation (RAG) workflows.
 
-```ruby
-class ApplicationAgent < ActiveAgent::Base
-  generate_with :openai
-
-  before_action :set_context
-  
-  private
-  def set_context
-    # Logic to set the context for the action, e.g., setting a user ID or session data
-    @context = Context.find(params[:context_id])
-    prompt_context.messages = @context.messages
-  end
-end
-```
+<<< @/../test/agents/callback_agent_test.rb#callback_agent_before_action {ruby:line-numbers}
 
 ## Generation Callbacks
 Generation callbacks are executed during the generation process of an agent. This allows you to modify the prompt, handle responses, or perform additional processing based on the generated content.
 
-```ruby
-class ApplicationAgent < ActiveAgent::Base
-  generate_with :openai
-
-  after_generation :process_response
-
-  private
-  def process_response 
-    generation_provider.response
-  end
-end
-```
+<<< @/../test/agents/callback_agent_test.rb#callback_agent_after_generation {ruby:line-numbers}
 
 ## On Stream Callbacks
 On stream callbacks are triggered during the streaming of responses from an agent. This allows you to handle real-time updates, such as displaying partial responses in a user interface or logging the progress of the response generation. 
 
-Below is a verbose example to demonstrate how to handle streaming responses and broadcast updates to a chat interface. The shows the runtime instance of the Agent's [`generation_provider`](/docs/framework/generation-provider) and its [`response`](/docs/framework/generation-provider#response) object. This example assumes you have a `Chat` model with associated messages, and you want to update the chat in real-time as the agent generates a response.
+### Streaming Implementation
 
-<<< @/../test/dummy/app/agents/streaming_agent.rb{ruby:line-numbers} [streaming_agent.rb]
+The streaming agent demonstrates real-time response handling:
+
+<<< @/../test/dummy/app/agents/streaming_agent.rb{ruby:line-numbers}
+
+### Testing Streaming
+
+The streaming functionality broadcasts each chunk as it arrives:
+
+<<< @/../test/agents/streaming_agent_test.rb#streaming_agent_stream_response {ruby:line-numbers}
+
+In this test, the agent broadcasts 30 chunks during the streaming response.

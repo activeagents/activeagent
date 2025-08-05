@@ -8,17 +8,7 @@ You can use the following generation providers with Active Agent:
 
 <<< @/../test/dummy/app/agents/open_ai_agent.rb#snippet{ruby:line-numbers} [OpenAI]
 
-```ruby [Anthropic]
-class ApplicationAgent < ActiveAgent::Base
-  generate_with :anthropic
-end
-```
-
-```ruby [Google]
-class ApplicationAgent < ActiveAgent::Base
-  generate_with :google
-end
-```
+<<< @/../test/dummy/app/agents/anthropic_agent.rb {ruby} [Anthropic]
 
 <<< @/../test/dummy/app/agents/open_router_agent.rb#snippet{ruby:line-numbers} [OpenRouter]
 
@@ -38,22 +28,27 @@ The `ActiveAgent::GenerationProvider::Response` class encapsulates the result of
 - **`raw_response`** - The unprocessed response data from the AI provider, useful for debugging and accessing provider-specific metadata
 
 #### Example Usage
-::: code-group
 
-<<<@/../test/dummy/app/agents/application_agent.rb#application_agent_text_prompt_message_generation{ruby:line-numbers} [application_agent.rb]
+<<< @/../test/generation_provider_examples_test.rb#generation_response_usage{ruby:line-numbers}
 
-```ruby [irb]{ruby:line-numbers}
-# Access the response message
-puts response.message
-
-# Inspect the prompt that was sent
-puts response.prompt.inspect
-
-# Access the messages in the prompt
-puts response.prompt.messages.inspect
-
-# Debug with raw response data
-puts response.raw_response.inspect
-```
+::: details Response Example
+<!-- @include: @/parts/examples/test-response-object-usage-test-response-object-usage.md -->
 :::
 The response object ensures you have full visibility into both the input prompt context and the raw provider response, making it easy to debug generation issues or access provider-specific response metadata.
+
+## Provider Configuration
+
+You can configure generation providers with custom settings:
+
+### Model and Temperature Configuration
+
+<<< @/../test/generation_provider_examples_test.rb#anthropic_provider_example{ruby:line-numbers}
+
+<<< @/../test/generation_provider_examples_test.rb#google_provider_example{ruby:line-numbers}
+
+### Custom Host Configuration
+
+For Azure OpenAI or other custom endpoints:
+
+<<< @/../test/generation_provider_examples_test.rb#custom_host_configuration{ruby:line-numbers}
+

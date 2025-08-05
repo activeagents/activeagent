@@ -1,18 +1,7 @@
 require "test_helper"
 
 # Test for OpenAI Provider gem loading and configuration
-class OpenAIProviderTest < ActiveSupport::TestCase
-  def setup
-    @original_config = ActiveAgent.config
-    @original_rails_env = ENV["RAILS_ENV"]
-  end
-
-  def teardown
-    ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
-    ENV["RAILS_ENV"] = "test"
-    ActiveAgent.load_configuration(Rails.root.join("config/active_agent.yml"))
-  end
-
+class OpenAIProviderTest < ActiveAgentTestCase
   # Test the gem load rescue block
   test "gem load rescue block provides correct error message" do
     # Since we can't easily simulate the gem not being available without complex mocking,

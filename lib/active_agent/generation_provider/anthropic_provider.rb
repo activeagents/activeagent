@@ -50,8 +50,8 @@ module ActiveAgent
         end
       end
 
-      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions )
-        #fix for new Anthropic API that requires messages to be in a specific format without system role
+      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
+        # fix for new Anthropic API that requires messages to be in a specific format without system role
         messages = messages.reject { |m| m.role == :system }
         params = {
           model: model,
@@ -71,9 +71,9 @@ module ActiveAgent
       def format_tools(tools)
         tools.map do |tool|
           {
-            name: tool['name'] || tool['function']['name'],
-            description: tool['description'] || tool['function']['description'],
-            input_schema: tool['parameters']  || tool['function']['parameters'],
+            name: tool["name"] || tool["function"]["name"],
+            description: tool["description"] || tool["function"]["description"],
+            input_schema: tool["parameters"]  || tool["function"]["parameters"]
           }
         end
       end

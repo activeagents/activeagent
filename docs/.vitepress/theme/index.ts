@@ -5,7 +5,7 @@ import DefaultTheme from 'vitepress/theme'
 import './style.css'
 import 'virtual:group-icons.css'
 import FeatureCards from './components/FeatureCards.vue'
-// import GitHubStars from './components/GitHubStars.vue'
+import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 
 export default {
   extends: DefaultTheme,
@@ -18,6 +18,6 @@ export default {
   enhanceApp({ app, router, siteData }) {
     // Register components globally if needed
     app.component('FeatureCards', FeatureCards)
-    // app.component('GitHubStars', GitHubStars)
+    enhanceAppWithTabs(app)
   }
 } satisfies Theme

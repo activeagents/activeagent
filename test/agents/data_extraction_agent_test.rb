@@ -4,7 +4,9 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "describe_cat_image creates a multimodal prompt with image and text content" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_describe_cat_image") do
+      # region data_extraction_agent_describe_cat_image
       prompt = DataExtractionAgent.describe_cat_image
+      # endregion data_extraction_agent_describe_cat_image
 
       assert_equal "multipart/mixed", prompt.content_type
       assert prompt.multimodal?
@@ -13,7 +15,10 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     end
 
     VCR.use_cassette("data_extraction_agent_describe_cat_image_generation_response") do
+      # region data_extraction_agent_describe_cat_image_response
       response = prompt.generate_now
+      # endregion data_extraction_agent_describe_cat_image_response
+      doc_example_output(response)
 
       assert_equal response.message.content, "The cat in the image has a sleek, short coat that appears to be a grayish-brown color. Its eyes are large and striking, with a vivid green hue. The cat is sitting comfortably, being gently petted by a hand that is adorned with a bracelet. Overall, it has a calm and curious expression. The background features a dark, soft surface, adding to the cozy atmosphere of the scene."
     end
@@ -22,7 +27,13 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "parse_resume creates a multimodal prompt with file data" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_parse_resume") do
-      prompt = DataExtractionAgent.with(file_path: Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")).parse_content
+      sample_resume_path = Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")
+      # region data_extraction_agent_parse_resume
+      prompt = DataExtractionAgent.with(
+        output_schema: :resume_schema,
+        file_path: sample_resume_path
+      ).parse_content
+      # endregion data_extraction_agent_parse_resume
 
       assert_equal "multipart/mixed", prompt.content_type
       assert prompt.multimodal?
@@ -32,6 +43,7 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("data_extraction_agent_parse_resume_generation_response") do
       response = prompt.generate_now
+      doc_example_output(response)
 
       assert response.message.content.include?("John Doe")
       assert response.message.content.include?("Software Engineer")
@@ -41,7 +53,12 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "parse_resume creates a multimodal prompt with file data with structured output schema" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_parse_resume_with_structured_output") do
-      prompt = DataExtractionAgent.with(output_schema: :resume_schema, file_path: Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")).parse_content
+      # region data_extraction_agent_parse_resume_with_structured_output
+      prompt = DataExtractionAgent.with(
+        output_schema: :resume_schema,
+        file_path: Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")
+      ).parse_content
+      # endregion data_extraction_agent_parse_resume_with_structured_output
 
       assert_equal "multipart/mixed", prompt.content_type
       assert prompt.multimodal?, "Prompt should be multimodal with file data"
@@ -50,10 +67,16 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     end
 
     VCR.use_cassette("data_extraction_agent_parse_resume_generation_response_with_structured_output") do
+      # region data_extraction_agent_parse_resume_with_structured_output_response
       response = prompt.generate_now
+      # endregion data_extraction_agent_parse_resume_with_structured_output_response
+      # region data_extraction_agent_parse_resume_with_structured_output_json
       json_response = JSON.parse(response.message.content)
-      assert_equal "application/json", response.message.content_type
+      # endregion data_extraction_agent_parse_resume_with_structured_output_json
+      doc_example_output(response)
+      doc_example_output(json_response, "parse-resume-json-response")
 
+      assert_equal "application/json", response.message.content_type
       assert_equal "resume_schema", response.prompt.output_schema["format"]["name"]
       assert_equal json_response["name"], "John Doe"
       assert_equal json_response["email"], "john.doe@example.com"
@@ -66,7 +89,12 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "parse_chart content from image data" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_parse_chart") do
-      prompt = DataExtractionAgent.with(image_path: Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")).parse_content
+      sales_chart_path = Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")
+      # region data_extraction_agent_parse_chart
+      prompt = DataExtractionAgent.with(
+        image_path: sales_chart_path
+      ).parse_content
+      # endregion data_extraction_agent_parse_chart
 
       assert_equal "multipart/mixed", prompt.content_type
       assert prompt.multimodal?, "Prompt should be multimodal with image data"
@@ -76,6 +104,7 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("data_extraction_agent_parse_chart_generation_response") do
       response = prompt.generate_now
+      doc_example_output(response)
 
       assert_equal response.message.content, "The graph titled \"Quarterly Sales Report\" displays sales revenue for four quarters in 2024. Key points include:\n\n- **Q1**: Blue bar represents the lowest sales revenue.\n- **Q2**: Green bar shows an increase in sales compared to Q1.\n- **Q3**: Yellow bar continues the upward trend with higher sales than Q2.\n- **Q4**: Red bar indicates the highest sales revenue of the year.\n\nOverall, there is a clear upward trend in sales revenue over the quarters, reaching a peak in Q4."
     end
@@ -84,7 +113,13 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
   test "parse_chart content from image data with structured output schema" do
     prompt = nil
     VCR.use_cassette("data_extraction_agent_parse_chart_with_structured_output") do
-      prompt = DataExtractionAgent.with(output_schema: :chart_schema, image_path: Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")).parse_content
+      sales_chart_path = Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")
+      # region data_extraction_agent_parse_chart_with_structured_output
+      prompt = DataExtractionAgent.with(
+        output_schema: :chart_schema,
+        image_path: sales_chart_path
+      ).parse_content
+      # endregion data_extraction_agent_parse_chart_with_structured_output
 
       assert_equal "multipart/mixed", prompt.content_type
       assert prompt.multimodal?, "Prompt should be multimodal with image data"
@@ -93,8 +128,16 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     end
 
     VCR.use_cassette("data_extraction_agent_parse_chart_generation_response_with_structured_output") do
+      # region data_extraction_agent_parse_chart_with_structured_output_response
       response = prompt.generate_now
+      # endregion data_extraction_agent_parse_chart_with_structured_output_response
+
+      # region data_extraction_agent_parse_chart_with_structured_output_json
       json_response = JSON.parse(response.message.content)
+      # endregion data_extraction_agent_parse_chart_with_structured_output_json
+
+      doc_example_output(response)
+      doc_example_output(json_response, "parse-chart-json-response")
       assert_equal "application/json", response.message.content_type
 
       assert_equal "chart_schema", response.prompt.output_schema["format"]["name"]

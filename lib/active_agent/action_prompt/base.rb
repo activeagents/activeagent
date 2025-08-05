@@ -233,7 +233,11 @@ module ActiveAgent
 
       def perform_action(action)
         current_context = context.clone
-        process(action.name, *action.params)
+        # Set params from the action for controller access
+        if action.params.is_a?(Hash)
+          self.params = action.params
+        end
+        process(action.name)
         context.message.role = :tool
         context.message.action_id = action.id
         context.message.action_name = action.name
@@ -300,9 +304,9 @@ module ActiveAgent
 
       def prompt(headers = {}, &block)
         return context if @_prompt_was_called && headers.blank? && !block
-
         # Apply option hierarchy: prompt options > agent options > config options
-        merged_options = merge_options(headers)
+        merged_options = merge_options(headers[:options] || {})
+
         raw_instructions = headers.has_key?(:instructions) ? headers[:instructions] : context.options[:instructions]
 
         context.instructions = prepare_instructions(raw_instructions)
@@ -399,9 +403,8 @@ module ActiveAgent
         # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
         runtime_options = prompt_options.slice(
           :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
-          :presence_penalty, :response_format, :seed, :stop, :tools_choice, :user
+          :presence_penalty, :response_format, :seed, :stop, :tools_choice
         )
-
         # Handle explicit options parameter
         explicit_options = prompt_options[:options] || {}
 
@@ -495,6 +498,7 @@ module ActiveAgent
         templates_path = headers[:template_path] || self.class.agent_name
         templates_name = headers[:template_name] || action_name
         each_template(Array(templates_path), templates_name).map do |template|
+          next if template.format == :json && headers[:format] != :json
           format = template.format || formats.first
           {
             body: render(template: template, formats: [ format ]),
