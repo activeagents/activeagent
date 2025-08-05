@@ -40,7 +40,7 @@ module ActiveAgent
       def provider_stream
         agent_stream = prompt.options[:stream]
         message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
-        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message:)
+        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt)
 
         proc do |chunk|
           if new_content = chunk.dig(:delta, :text)
