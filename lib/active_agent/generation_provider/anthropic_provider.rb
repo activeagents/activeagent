@@ -123,7 +123,7 @@ module ActiveAgent
           content: content,
           role: "assistant",
           action_requested: response["stop_reason"] == "tool_use",
-          requested_actions: handle_actions(response["tool_use"])
+          requested_actions: handle_actions(response["content"].map{ |c| c if c["type"] == "tool_use" }.reject { |m| m.blank? }.to_a),
         )
 
         update_context(prompt: prompt, message: message, response: response)
@@ -140,9 +140,9 @@ module ActiveAgent
 
         tool_uses.map do |tool_use|
           ActiveAgent::ActionPrompt::Action.new(
-            id: tool_use[:id],
-            name: tool_use[:name],
-            params: tool_use[:input]
+            id: tool_use["id"],
+            name: tool_use["name"],
+            params: tool_use["input"]
           )
         end
       end
