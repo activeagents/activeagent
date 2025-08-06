@@ -91,7 +91,7 @@ module ActiveAgent
             role: message.role,
             tool_call_id: message.action_id.presence,
             name: message.action_name.presence,
-            tool_calls: message.raw_actions.present? ? message.raw_actions[:tool_calls] : (message.requested_actions.map { |action| { type: "function", name: action.name, arguments: action.params.to_json } } if message.action_requested),
+            tool_calls: message.raw_actions.present? && message.raw_actions.is_a?(Hash) ? message.raw_actions[:tool_calls] : (message.requested_actions.map { |action| { type: "function", name: action.name, arguments: action.params.to_json } } if message.action_requested),
             generation_id: message.generation_id,
             content: message.content,
             type: message.content_type,
