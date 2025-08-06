@@ -81,7 +81,7 @@ def doc_example_output(example = nil, test_name = nil)
     content << "```"
   else
     content << "```ruby"
-    content << ActiveAgent.filter_credential_keys(example.to_s)
+    content << ActiveAgent.sanitize_credentials(example.to_s)
     content << "```"
   end
 
@@ -91,8 +91,10 @@ end
 VCR.configure do |config|
   config.cassette_library_dir = "test/fixtures/vcr_cassettes"
   config.hook_into :webmock
-  config.filter_sensitive_data("<OPENAI_API_KEY>") { Rails.application.credentials.dig(:openai, :api_key) }
-  config.filter_sensitive_data("<OPEN_ROUTER_API_KEY>") { Rails.application.credentials.dig(:open_router, :api_key) }
+
+  ActiveAgent.sanitizers.each do |secret, placeholder|
+    config.filter_sensitive_data(placeholder) { secret }
+  end
 end
 
 # Load fixtures from the engine

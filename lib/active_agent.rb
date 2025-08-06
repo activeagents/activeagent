@@ -4,6 +4,7 @@ require "active_agent/generation_provider"
 require "active_agent/version"
 require "active_agent/deprecator"
 require "active_agent/railtie" if defined?(Rails)
+require "active_agent/sanitizers"
 
 require "active_support"
 require "active_support/rails"
@@ -12,6 +13,7 @@ require "active_support/core_ext/module/attr_internal"
 require "active_support/core_ext/string/inflections"
 require "active_support/lazy_load_hooks"
 module ActiveAgent
+  include ActiveAgent::Sanitizers
   extend ActiveSupport::Autoload
 
   eager_autoload do
@@ -34,11 +36,6 @@ module ActiveAgent
   class << self
     attr_accessor :config
 
-    def filter_credential_keys(example)
-      example.gsub(Rails.application.credentials.dig(:openai, :api_key), "<OPENAI_API_KEY>")
-        .gsub(Rails.application.credentials.dig(:open_router, :api_key), "<OPEN_ROUTER_API_KEY>")
-    end
-
     def eager_load!
       super
 
@@ -47,10 +44,14 @@ module ActiveAgent
       end
     end
 
+    # @return [void]
     def configure
       yield self
+
+      sanitizers_reset!
     end
 
+    # @return [void]
     def load_configuration(file)
       if File.exist?(file)
         config_file = YAML.load(ERB.new(File.read(file)).result, aliases: true)
@@ -59,6 +60,8 @@ module ActiveAgent
       else
         @config = {}
       end
+
+      sanitizers_reset!
     end
   end
 end
