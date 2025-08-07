@@ -2,7 +2,7 @@
 
 ## Overview
 
-ActiveAgent is a Ruby on Rails framework that brings AI-powered capabilities to Rails applications using familiar Rails patterns. It treats AI agents as controllers with enhanced generation capabilities, memory, and tooling.
+ActiveAgent is a Ruby on Rails framework that brings AI-powered capabilities to Rails applications using familiar Rails patterns. It treats AI agents as controllers with enhanced generation capabilities, memory, and tooling. Unlike traditional web controllers that handle HTTP requests, agents handle AI generation requests while maintaining the same familiar Rails patterns and conventions.
 
 ### Core Concepts
 
@@ -10,6 +10,134 @@ ActiveAgent is a Ruby on Rails framework that brings AI-powered capabilities to 
 2. **Actions are Tools** - Public methods in agents become tools that can interact with systems and code
 3. **Prompts use Action View** - Leverages Rails' view system for rendering prompts and responses
 4. **Generation Providers** - Common interface for AI providers (OpenAI, Anthropic, Ollama, etc.)
+
+## How ActiveAgent Works
+
+ActiveAgent bridges Rails conventions with AI capabilities through a carefully designed architecture that feels natural to Rails developers.
+
+### Architecture Overview
+
+The framework follows a layered architecture:
+
+```
+Your Rails App
+└── ApplicationAgent (your base agent)
+    └── ActiveAgent::Base (framework base)
+        └── ActiveAgent::ActionPrompt::Base (prompt handling)
+            └── AbstractController::Base (Rails foundation)
+```
+
+### Understanding Messages and Actions
+
+#### Messages: The Core Communication Structure
+Messages are the fundamental way agents communicate. Each message has:
+- **Role**: `:system`, `:user`, `:assistant`, or `:tool`
+- **Content**: The rendered view content
+- **Requested Actions**: Tool calls the agent wants to make
+
+#### Message Types and Their Purpose:
+
+1. **System Messages (`:system`)** - Instructions to the agent
+   - Rendered from `instructions.text.erb` views
+   - Provide context and behavioral guidance
+   - Can include dynamic ERB content
+
+2. **User Messages (`:user`)** - Input from users
+   - Action views render these messages
+   - Not just plain text - can be any format (text, HTML, JSON)
+
+3. **Assistant Messages (`:assistant`)** - Agent responses
+   - What the AI generates in response
+   - Can include requested tool calls
+
+4. **Tool Messages (`:tool`)** - Results from executed actions
+   - System's response to agent-requested tool calls
+   - Contains the output of the action execution
+
+### Actions: The Bridge Between Rails and AI
+
+Actions in ActiveAgent serve multiple purposes:
+
+#### 1. **As Message Templates**
+Actions render views that become messages in the conversation:
+
+```ruby
+class TranslationAgent < ApplicationAgent
+  def translate
+    @message = params[:message]
+    @locale = params[:locale]
+    
+    prompt  # Renders translate.text.erb as a user message
+  end
+end
+```
+
+The `translate.text.erb` view:
+```erb
+translate: <%= params[:message] %>; to <%= params[:locale] %>
+```
+
+#### 2. **As Tool Definitions**
+JSON views define tool schemas for the AI:
+
+```erb
+# translate.json.jbuilder
+json.type "function"
+json.function do
+  json.name action_name
+  json.description "Translates text to specified locale"
+  json.parameters do
+    json.type "object"
+    json.properties do
+      json.message do
+        json.type "string"
+        json.description "Text to translate"
+      end
+      json.locale do
+        json.type "string"
+        json.description "Target locale"
+      end
+    end
+    json.required ["message", "locale"]
+  end
+end
+```
+
+#### 3. **As Executable Tools**
+Public methods become tools the AI can call:
+- Method executes when AI requests the tool
+- Results are rendered back as tool messages
+- Can perform any Rails operation (database, API calls, etc.)
+
+### The Generation Flow
+
+```
+1. User Input → Creates initial context
+2. Action Method → Renders view as message
+3. Prompt Context → Combines messages, instructions, available tools
+4. AI Generation → Produces response with potential tool calls
+5. Tool Execution → Runs requested actions
+6. Tool Results → Rendered as tool messages
+7. Reiteration → Continues until no more tool calls
+```
+
+### The Prompt Method
+
+The `prompt` method is the heart of message rendering:
+
+```ruby
+prompt(
+  content_type: :text,      # Format of the view
+  message: "content",       # Direct content (optional)
+  messages: [],             # Additional context messages
+  template_name: "custom",  # Override default template
+  instructions: {           # System message configuration
+    template: "special"     # Or direct string
+  },
+  actions: [],              # Available tools (defaults to all public methods)
+  output_schema: :schema    # For structured output
+)
+```
 
 ## Repository Structure
 
@@ -147,6 +275,586 @@ cd docs && npm run docs:preview
 - Include message history and available actions
 - Can be multimodal (text, images, files)
 
+## Rails Integration
+
+ActiveAgent integrates seamlessly with Rails applications as a complementary system to your existing controllers and models.
+
+### Installation
+
+1. **Add to Gemfile**:
+```ruby
+gem 'activeagent'
+```
+
+2. **Run installation generator**:
+```bash
+rails generate active_agent:install
+```
+This creates:
+- `app/agents/application_agent.rb` - Base agent class
+- `config/active_agent.yml` - Configuration file
+
+3. **Configure API credentials**:
+```bash
+rails credentials:edit
+```
+Add your API keys:
+```yaml
+openai:
+  api_key: your_openai_key
+anthropic:
+  api_key: your_anthropic_key
+```
+
+### How Agents Work in Rails
+
+#### 1. **Direct Usage Pattern**
+Call agents directly from controllers, models, or jobs:
+
+```ruby
+class MessagesController < ApplicationController
+  def create
+    agent = SupportAgent.new
+    response = agent.generate(prompt: params[:message])
+    
+    render json: { 
+      reply: response.content,
+      actions_taken: response.requested_actions
+    }
+  end
+end
+```
+
+#### 2. **Action-Based Generation**
+Use specific actions to generate with templated prompts:
+
+```ruby
+# app/agents/translation_agent.rb
+class TranslationAgent < ApplicationAgent
+  def translate
+    @text = params[:message]
+    @target = params[:locale]
+    prompt  # Renders translate.text.erb
+  end
+end
+
+# app/views/translation_agent/translate.text.erb
+Translate: <%= @text %>
+To: <%= @target %>
+
+# Usage in controller
+agent = TranslationAgent.new
+response = agent.with(message: "Hello", locale: "es").translate
+```
+
+#### 3. **Background Generation**
+Process long-running AI tasks asynchronously:
+
+```ruby
+class DataAnalysisAgent < ApplicationAgent
+  self.queue_adapter = :sidekiq
+  
+  def analyze_dataset
+    @data = params[:dataset]
+    prompt content_type: :json
+  end
+end
+
+# In your controller
+agent = DataAnalysisAgent.new
+generation = agent.with(dataset: large_data).generate_later
+
+# Check status later
+generation.finished? # => true/false
+generation.response  # => AI response when ready
+```
+
+### View Templates and Message Rendering
+
+ActiveAgent uses Rails' view system to render all message types:
+
+#### Directory Structure
+```
+app/views/
+├── layouts/
+│   └── agent.text.erb              # Optional shared layout
+├── application_agent/
+│   └── instructions.text.erb       # Default system instructions
+└── support_agent/
+    ├── instructions.text.erb       # Agent-specific system message
+    ├── answer_question.text.erb    # Action view (user message)
+    ├── answer_question.json.jbuilder # Tool schema definition
+    └── _shared_context.text.erb    # Reusable partial
+```
+
+#### System Instructions (System Messages)
+```erb
+<%# app/views/support_agent/instructions.text.erb %>
+You are a helpful support agent for <%= Rails.application.name %>.
+
+Current user: <%= @user&.name || "Guest" %>
+Time: <%= Time.current %>
+
+Available tools:
+<% controller.action_schemas.each do |schema| %>
+- <%= schema["function"]["name"] %>: <%= schema["function"]["description"] %>
+<% end %>
+
+Guidelines:
+- Be friendly and professional
+- Use tools when needed to help users
+- Provide accurate information
+```
+
+#### Action Views (User/Tool Messages)
+```erb
+<%# app/views/support_agent/answer_question.text.erb %>
+Customer Question: <%= @question %>
+
+<% if @ticket.present? %>
+Ticket #<%= @ticket.id %>
+Priority: <%= @ticket.priority %>
+Previous interactions: <%= @ticket.messages.count %>
+<% end %>
+
+<% if @knowledge_base_results.any? %>
+Relevant KB articles:
+<% @knowledge_base_results.each do |article| %>
+- <%= article.title %>: <%= article.summary %>
+<% end %>
+<% end %>
+```
+
+#### Tool Schemas (JSON)
+```ruby
+# app/views/support_agent/answer_question.json.jbuilder
+json.type "function"
+json.function do
+  json.name action_name
+  json.description "Answer customer support questions"
+  json.parameters do
+    json.type "object"
+    json.properties do
+      json.question do
+        json.type "string"
+        json.description "The customer's question"
+      end
+      json.ticket_id do
+        json.type "integer"
+        json.description "Optional ticket ID for context"
+      end
+    end
+    json.required ["question"]
+  end
+end
+```
+
+### Integration Patterns
+
+#### 1. **Service Objects**
+Encapsulate complex agent workflows:
+
+```ruby
+class CustomerSupportService
+  def initialize(user)
+    @user = user
+    @agent = SupportAgent.new
+  end
+  
+  def handle_message(content, ticket = nil)
+    # Build conversation context
+    messages = ticket ? build_history(ticket) : []
+    
+    # Generate response with context
+    response = @agent.generate(
+      prompt: content,
+      messages: messages,
+      context: { user_id: @user.id, ticket_id: ticket&.id }
+    )
+    
+    # Process any tool calls
+    if response.requested_actions.any?
+      process_tool_calls(response.requested_actions)
+    end
+    
+    response
+  end
+  
+  private
+  
+  def build_history(ticket)
+    ticket.messages.map do |msg|
+      ActiveAgent::Message.new(
+        role: msg.from_agent? ? :assistant : :user,
+        content: msg.content
+      )
+    end
+  end
+end
+```
+
+#### 2. **Model Integration**
+Add AI capabilities to ActiveRecord models:
+
+```ruby
+class Article < ApplicationRecord
+  def generate_summary
+    agent = ContentAgent.new
+    agent.with(
+      title: title,
+      content: content,
+      max_length: 200
+    ).summarize
+  end
+  
+  def translate_to(locale)
+    agent = TranslationAgent.new
+    agent.with(
+      message: content,
+      locale: locale
+    ).translate
+  end
+end
+```
+
+#### 3. **Controller Helpers**
+Create reusable agent helpers:
+
+```ruby
+# app/controllers/concerns/agent_helpers.rb
+module AgentHelpers
+  extend ActiveSupport::Concern
+  
+  included do
+    helper_method :chat_agent
+  end
+  
+  private
+  
+  def chat_agent
+    @chat_agent ||= ChatAgent.new.with(
+      user_id: current_user&.id,
+      session_id: session.id
+    )
+  end
+  
+  def generate_with_agent(agent_class, action, params = {})
+    agent = agent_class.new
+    agent.with(params).public_send(action)
+  end
+end
+```
+
+### Configuration
+
+#### Environment-Specific Settings
+```yaml
+# config/active_agent.yml
+default: &default
+  logger: <%= Rails.logger %>
+  
+development:
+  <<: *default
+  openai:
+    access_token: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: gpt-4o
+    temperature: 0.7
+    
+production:
+  <<: *default
+  openai:
+    access_token: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: gpt-4o
+    temperature: 0.3
+  anthropic:
+    access_token: <%= Rails.application.credentials.dig(:anthropic, :api_key) %>
+    model: claude-3-5-sonnet-latest
+```
+
+#### Runtime Configuration
+Override settings at runtime:
+
+```ruby
+# Change provider for specific agent
+class PremiumAgent < ApplicationAgent
+  generate_with :anthropic, model: "claude-3-opus-latest"
+end
+
+# Override per-generation
+agent.generate(
+  prompt: "Complex task",
+  options: {
+    model: "gpt-4-turbo",
+    temperature: 0.9
+  }
+)
+```
+
+## Creating Your First Agent
+
+Let's build a simple blog writing agent to understand how ActiveAgent works.
+
+### Step 1: Generate the Agent
+
+```bash
+rails generate active_agent:agent BlogWriter write_post edit_post
+```
+
+This creates:
+- `app/agents/blog_writer_agent.rb`
+- `app/views/blog_writer_agent/` directory
+- `test/agents/blog_writer_agent_test.rb`
+
+### Step 2: Define the Agent
+
+```ruby
+# app/agents/blog_writer_agent.rb
+class BlogWriterAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"
+  
+  before_action :set_blog_context
+  
+  def write_post
+    @topic = params[:topic]
+    @style = params[:style] || "professional"
+    @length = params[:length] || 500
+    
+    prompt
+  end
+  
+  def edit_post
+    @content = params[:content]
+    @instructions = params[:instructions]
+    
+    prompt
+  end
+  
+  private
+  
+  def set_blog_context
+    @blog_name = "My Rails Blog"
+    @author = current_user&.name || "Guest Author"
+  end
+end
+```
+
+### Step 3: Create View Templates
+
+#### System Instructions
+```erb
+<%# app/views/blog_writer_agent/instructions.text.erb %>
+You are a professional blog writer for <%= @blog_name %>.
+Author: <%= @author %>
+
+Your writing should be:
+- Engaging and informative
+- SEO-friendly with appropriate keywords
+- Structured with clear headings
+- Factually accurate
+
+Available tools:
+<% controller.action_schemas.each do |schema| %>
+- <%= schema["function"]["name"] %>: <%= schema["function"]["description"] %>
+<% end %>
+```
+
+#### Action Views (User Messages)
+```erb
+<%# app/views/blog_writer_agent/write_post.text.erb %>
+Write a blog post about: <%= @topic %>
+
+Requirements:
+- Style: <%= @style %>
+- Target length: <%= @length %> words
+- Include an engaging introduction
+- Add relevant subheadings
+- Conclude with a call-to-action
+
+Please create an original, well-structured blog post.
+```
+
+```erb
+<%# app/views/blog_writer_agent/edit_post.text.erb %>
+Please edit the following blog post:
+
+---
+<%= @content %>
+---
+
+Editing instructions: <%= @instructions %>
+
+Maintain the original tone and style while making the requested changes.
+```
+
+#### Tool Schemas
+```ruby
+# app/views/blog_writer_agent/write_post.json.jbuilder
+json.type "function"
+json.function do
+  json.name action_name
+  json.description "Write a new blog post on a given topic"
+  json.parameters do
+    json.type "object"
+    json.properties do
+      json.topic do
+        json.type "string"
+        json.description "The topic to write about"
+      end
+      json.style do
+        json.type "string"
+        json.enum ["professional", "casual", "technical", "creative"]
+        json.description "Writing style"
+      end
+      json.length do
+        json.type "integer"
+        json.description "Target word count"
+      end
+    end
+    json.required ["topic"]
+  end
+end
+```
+
+### Step 4: Use the Agent
+
+#### In a Controller
+```ruby
+class BlogPostsController < ApplicationController
+  def new
+    @post = BlogPost.new
+  end
+  
+  def generate
+    agent = BlogWriterAgent.new
+    
+    # Generate a blog post
+    response = agent.with(
+      topic: params[:topic],
+      style: params[:style],
+      length: params[:length]
+    ).write_post
+    
+    @generated_content = response.content
+    @post = BlogPost.new(
+      title: extract_title(@generated_content),
+      content: @generated_content,
+      author: current_user
+    )
+    
+    render :new
+  end
+  
+  def edit_with_ai
+    @post = BlogPost.find(params[:id])
+    agent = BlogWriterAgent.new
+    
+    response = agent.with(
+      content: @post.content,
+      instructions: params[:instructions]
+    ).edit_post
+    
+    @post.content = response.content
+    render :edit
+  end
+  
+  private
+  
+  def extract_title(content)
+    # Extract first H1 or first line as title
+    content.match(/^#\s+(.+)$/)&.captures&.first || 
+    content.lines.first.strip
+  end
+end
+```
+
+#### As a Service
+```ruby
+class BlogGenerationService
+  def initialize(user)
+    @user = user
+    @agent = BlogWriterAgent.new
+  end
+  
+  def generate_weekly_posts(topics)
+    topics.map do |topic|
+      response = @agent.with(
+        topic: topic,
+        style: "professional",
+        length: 800
+      ).write_post
+      
+      BlogPost.create!(
+        title: extract_title(response.content),
+        content: response.content,
+        author: @user,
+        status: "draft"
+      )
+    end
+  end
+  
+  def improve_seo(post)
+    response = @agent.with(
+      content: post.content,
+      instructions: "Improve SEO by adding relevant keywords, meta description, and improving headings"
+    ).edit_post
+    
+    post.update!(content: response.content)
+  end
+end
+```
+
+### Step 5: Test Your Agent
+
+```ruby
+# test/agents/blog_writer_agent_test.rb
+require "test_helper"
+
+class BlogWriterAgentTest < ActiveSupport::TestCase
+  setup do
+    @agent = BlogWriterAgent.new
+  end
+  
+  test "writes blog post about Rails" do
+    VCR.use_cassette("blog_writer_rails_post") do
+      response = @agent.with(
+        topic: "Getting Started with Rails 7",
+        style: "technical",
+        length: 600
+      ).write_post
+      
+      assert response.content.include?("Rails")
+      assert response.content.length > 400
+      
+      # Generate documentation example
+      doc_example_output(response)
+    end
+  end
+  
+  test "edits post for clarity" do
+    original = "Rails is framework. It make web app easy."
+    
+    VCR.use_cassette("blog_writer_edit_grammar") do
+      response = @agent.with(
+        content: original,
+        instructions: "Fix grammar and improve clarity"
+      ).edit_post
+      
+      assert response.content != original
+      assert response.content.include?("Rails")
+    end
+  end
+end
+```
+
+### Key Takeaways
+
+1. **Agents are like controllers** - They use familiar Rails patterns
+2. **Actions render views** - Each action has associated view templates
+3. **Views become messages** - Templates are rendered as conversation messages
+4. **JSON views define tools** - The AI knows what tools are available
+5. **Use `with` for parameters** - Pass data like Rails params
+6. **Test with VCR** - Record API responses for consistent tests
+
 ## Testing Conventions
 
 ### VCR Cassettes
@@ -205,6 +913,313 @@ Store API keys in Rails credentials:
 rails credentials:edit
 ```
 
+## Advanced Patterns
+
+### Multi-Agent Workflows
+
+Chain multiple agents together for complex tasks:
+
+```ruby
+class DocumentProcessingService
+  def process_document(file_path)
+    # Extract content
+    extractor = DataExtractionAgent.new
+    extracted_data = extractor.with(
+      file_path: file_path,
+      schema: :document_schema
+    ).extract
+    
+    # Summarize content
+    summarizer = SummaryAgent.new
+    summary = summarizer.with(
+      content: extracted_data.content,
+      max_length: 200
+    ).summarize
+    
+    # Translate if needed
+    if needs_translation?(extracted_data)
+      translator = TranslationAgent.new
+      translated = translator.with(
+        message: summary.content,
+        locale: current_locale
+      ).translate
+      summary = translated
+    end
+    
+    # Store results
+    ProcessedDocument.create!(
+      original_path: file_path,
+      extracted_data: extracted_data.content,
+      summary: summary.content,
+      language: detected_language(extracted_data)
+    )
+  end
+end
+```
+
+### Conversation Context Management
+
+Build rich conversation histories:
+
+```ruby
+class ConversationAgent < ApplicationAgent
+  def respond
+    @message = params[:message]
+    @conversation_id = params[:conversation_id]
+    
+    # Load conversation history
+    @messages = load_conversation_history
+    
+    prompt(
+      messages: @messages,  # Provide full context
+      instructions: { template: "conversational" }
+    )
+  end
+  
+  private
+  
+  def load_conversation_history
+    Conversation.find(@conversation_id).messages.map do |msg|
+      ActiveAgent::Message.new(
+        role: msg.role.to_sym,
+        content: msg.content,
+        requested_actions: msg.tool_calls
+      )
+    end
+  end
+end
+```
+
+### Dynamic Tool Selection
+
+Conditionally include tools based on context:
+
+```ruby
+class AdaptiveAgent < ApplicationAgent
+  def assist
+    @query = params[:query]
+    @user = current_user
+    
+    # Dynamically select available actions
+    available_actions = determine_available_actions
+    
+    prompt(
+      actions: available_actions,
+      instructions: build_contextual_instructions
+    )
+  end
+  
+  private
+  
+  def determine_available_actions
+    actions = [:search, :calculate]
+    
+    # Add user-specific actions
+    if @user.admin?
+      actions += [:modify_system, :access_logs]
+    end
+    
+    if @query.match?(/weather|temperature/)
+      actions << :get_weather
+    end
+    
+    actions
+  end
+  
+  def build_contextual_instructions
+    base_instructions = "You are a helpful assistant."
+    
+    if @user.preferences[:technical]
+      base_instructions += " Provide technical details when relevant."
+    end
+    
+    base_instructions
+  end
+end
+```
+
+### Streaming Responses
+
+Handle real-time streaming for better UX:
+
+```ruby
+class StreamingChatController < ApplicationController
+  include ActionController::Live
+  
+  def stream
+    response.headers["Content-Type"] = "text/event-stream"
+    response.headers["Cache-Control"] = "no-cache"
+    
+    agent = ChatAgent.new
+    
+    agent.on_message_chunk do |chunk|
+      response.stream.write("data: #{chunk.to_json}\n\n")
+    end
+    
+    agent.generate(
+      prompt: params[:message],
+      stream: true
+    )
+  ensure
+    response.stream.close
+  end
+end
+```
+
+### Structured Output with Schemas
+
+Ensure consistent response formats:
+
+```ruby
+class DataAgent < ApplicationAgent
+  def analyze_sales
+    @data = params[:sales_data]
+    
+    prompt(
+      content_type: :json,
+      output_schema: :sales_analysis
+    )
+  end
+end
+
+# app/views/data_agent/schemas/sales_analysis.json.jbuilder
+json.type "object"
+json.properties do
+  json.summary do
+    json.type "string"
+    json.description "Executive summary"
+  end
+  json.metrics do
+    json.type "object"
+    json.properties do
+      json.total_revenue { json.type "number" }
+      json.growth_rate { json.type "number" }
+      json.top_products do
+        json.type "array"
+        json.items { json.type "string" }
+      end
+    end
+  end
+  json.recommendations do
+    json.type "array"
+    json.items do
+      json.type "object"
+      json.properties do
+        json.action { json.type "string" }
+        json.priority { json.enum ["high", "medium", "low"] }
+        json.impact { json.type "string" }
+      end
+    end
+  end
+end
+json.required ["summary", "metrics", "recommendations"]
+```
+
+### Error Handling and Retries
+
+Build resilient agent interactions:
+
+```ruby
+class ResilientAgent < ApplicationAgent
+  generate_with :openai, 
+    model: "gpt-4o",
+    max_retries: 3,
+    retry_on: [OpenAI::RateLimitError]
+  
+  def process
+    @data = params[:data]
+    
+    begin
+      prompt
+    rescue ActiveAgent::GenerationError => e
+      # Log error
+      Rails.logger.error "Generation failed: #{e.message}"
+      
+      # Fallback to simpler model
+      self.class.generate_with :openai, model: "gpt-3.5-turbo"
+      retry
+    end
+  end
+end
+```
+
+### Testing Complex Interactions
+
+Test multi-step agent workflows:
+
+```ruby
+class ComplexAgentTest < ActiveSupport::TestCase
+  test "multi-agent document processing" do
+    VCR.use_cassette("complex_document_flow") do
+      # Step 1: Extract data
+      extractor = DataExtractionAgent.new
+      extracted = extractor.with(
+        content: file_fixture("report.pdf").read
+      ).extract
+      
+      assert extracted.content.present?
+      
+      # Step 2: Analyze with context
+      analyzer = AnalysisAgent.new
+      analysis = analyzer.generate(
+        prompt: "Analyze this data",
+        messages: [
+          ActiveAgent::Message.new(
+            role: :user,
+            content: "Focus on financial metrics"
+          ),
+          ActiveAgent::Message.new(
+            role: :tool,
+            content: extracted.content
+          )
+        ]
+      )
+      
+      assert analysis.requested_actions.any?
+      
+      # Step 3: Execute requested actions
+      analysis.requested_actions.each do |action|
+        result = analyzer.public_send(
+          action.name,
+          **action.params.symbolize_keys
+        )
+        assert result.success?
+      end
+      
+      doc_example_output(analysis)
+    end
+  end
+end
+```
+
+### Performance Optimization
+
+Cache expensive operations:
+
+```ruby
+class CachedAgent < ApplicationAgent
+  def analyze_trends
+    @timeframe = params[:timeframe]
+    
+    # Cache analysis results
+    Rails.cache.fetch(cache_key, expires_in: 1.hour) do
+      prompt
+    end
+  end
+  
+  private
+  
+  def cache_key
+    "agent_analysis/#{self.class.name}/#{@timeframe}/#{cache_version}"
+  end
+  
+  def cache_version
+    # Invalidate cache when data changes
+    DataPoint.maximum(:updated_at).to_i
+  end
+end
+```
+
 ## Best Practices
 
 1. **Always test code examples** - Never add untested code to docs
@@ -212,6 +1227,11 @@ rails credentials:edit
 3. **Include example outputs** - Users need to see what to expect
 4. **Follow Rails conventions** - ActiveAgent extends Rails patterns
 5. **Document tool schemas** - JSON views should clearly define tool structure
+6. **Handle errors gracefully** - Plan for API failures and rate limits
+7. **Cache when appropriate** - Reduce API calls for repeated queries
+8. **Stream for better UX** - Use streaming for long-running generations
+9. **Version your prompts** - Track prompt changes like code changes
+10. **Monitor usage** - Track API costs and performance metrics
 
 ## Next Steps for Documentation
 
