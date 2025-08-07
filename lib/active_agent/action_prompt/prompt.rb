@@ -4,12 +4,13 @@ module ActiveAgent
   module ActionPrompt
     class Prompt
       attr_reader :messages, :instructions
-      attr_accessor :actions, :body, :content_type, :context_id, :message, :options, :mime_version, :charset, :context, :parts, :params, :action_choice, :agent_class, :output_schema, :action_name
+      attr_accessor :actions, :body, :content_type, :context_id, :message, :options, :mime_version, :charset, :context, :parts, :params, :action_choice, :agent_class, :output_schema, :action_name, :agent_instance
 
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})
         @multimodal = attributes.fetch(:multimodal, false)
         @agent_class = attributes.fetch(:agent_class, ApplicationAgent)
+        @agent_instance = attributes.fetch(:agent_instance, nil)
         @actions = attributes.fetch(:actions, [])
         @action_choice = attributes.fetch(:action_choice, "")
         @instructions = attributes.fetch(:instructions, "")
@@ -81,7 +82,11 @@ module ActiveAgent
 
       def inspect
         "#<#{self.class}:0x#{object_id.to_s(16)}\n" +
+<<<<<<< Updated upstream
           "  @options=#{ActiveAgent.sanitize_credentials(@options.inspect)}\n" +
+=======
+          "  @options=#{ActiveAgent.filter_sensitive_options(@options).inspect}\n" +
+>>>>>>> Stashed changes
           "  @actions=#{@actions.inspect}\n" +
           "  @action_choice=#{@action_choice.inspect}\n" +
           "  @instructions=#{@instructions.inspect}\n" +
