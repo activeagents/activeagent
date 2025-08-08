@@ -82,11 +82,7 @@ module ActiveAgent
 
       def inspect
         "#<#{self.class}:0x#{object_id.to_s(16)}\n" +
-<<<<<<< Updated upstream
           "  @options=#{ActiveAgent.sanitize_credentials(@options.inspect)}\n" +
-=======
-          "  @options=#{ActiveAgent.filter_sensitive_options(@options).inspect}\n" +
->>>>>>> Stashed changes
           "  @actions=#{@actions.inspect}\n" +
           "  @action_choice=#{@action_choice.inspect}\n" +
           "  @instructions=#{@instructions.inspect}\n" +
