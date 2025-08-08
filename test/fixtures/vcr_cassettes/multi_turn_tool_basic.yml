@@ -7,19 +7,19 @@ http_interactions:
       encoding: UTF-8
       string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
         are a calculator assistant. Use the available tools to perform calculations."},{"role":"user","content":"Add
-        2 and 3"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"calculate_area","description":"Calculate
-        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
-        of the rectangle"},"height":{"type":"number","description":"Height of the
-        rectangle"}},"required":["width","height"]}}},{"type":"function","function":{"name":"add","description":"Add
+        2 and 3"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"add","description":"Add
         two numbers together","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
+        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
         number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"subtract","description":"Subtract
         one number from another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Number
         to subtract from"},"b":{"type":"number","description":"Number to subtract"}},"required":["a","b"]}}},{"type":"function","function":{"name":"divide","description":"Divide
         one number by another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Dividend
         (number to be divided)"},"b":{"type":"number","description":"Divisor (number
-        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
-        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
-        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}}]}'
+        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"calculate_area","description":"Calculate
+        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
+        of the rectangle"},"height":{"type":"number","description":"Height of the
+        rectangle"}},"required":["width","height"]}}}]}'
     headers:
       Content-Type:
       - application/json
@@ -37,7 +37,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 02:25:00 GMT
+      - Fri, 08 Aug 2025 02:55:21 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,34 +49,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '477'
+      - '548'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '491'
+      - '561'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9999'
+      - '9978'
       X-Ratelimit-Remaining-Tokens:
       - '199974'
       X-Ratelimit-Reset-Requests:
-      - 8.64s
+      - 3m8.577s
       X-Ratelimit-Reset-Tokens:
       - 7ms
       X-Request-Id:
-      - req_f2e456c5bdd04138b40ca7808f38d9eb
+      - req_f2aa90cb0f924577a635b97421f57125
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=4XQLbUfyE3Xcw60.XsjJLZtBRe7TL4iP_tQf0qm.GVE-1754619900-1.0.1.1-xUzHCALZ_eDHR0FjkJCUnVD1I7lCMsh77EpLBFdjKxELad.U1LwT215sOuyM5Te2yE5rGTf3aPHPtavhpfnLp6xpZUZYOyk8fuJEREsOi.Y;
-        path=/; expires=Fri, 08-Aug-25 02:55:00 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=hntg0MYq3mHGZuhOSCU7NC8bNcHG851ZMBT4UWfafTw-1754621721-1.0.1.1-7h5Puq_X.F1lZ6ibmFYj4BiCyIEfN81TugxfqelNnl2vJIKUkOimdc0Scr2re8g6RLcIYLni3AcfLEzGB0adUxekSy0yZqX5en3S58a._rg;
+        path=/; expires=Fri, 08-Aug-25 03:25:21 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=QINUvM5P90f_Sh3f5nN3HsBAVFukbELeP_Jfu.uQ11s-1754619900289-0.0.1.1-604800000;
+      - _cfuvid=KrQv_hySYYgTiaOf0DhGpKV0rMOL_lFpxE1bxFid2u4-1754621721267-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -85,16 +85,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bb8f855ebfcf21-SJC
+      - 96bbbbf9ec21cfc8-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C274tol2Xw2W9Kfqt8Pr7VJb4G6Cd",
+          "id": "chatcmpl-C27YGQkAU8hwdXlsyUry3vI5bkBGC",
           "object": "chat.completion",
-          "created": 1754619899,
+          "created": 1754621720,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -104,7 +104,7 @@ http_interactions:
                 "content": null,
                 "tool_calls": [
                   {
-                    "id": "call_B5s0wlxiPkQZ5gSsaRU3nAcM",
+                    "id": "call_TECfxC114rdF3ZGKCAgFeaUM",
                     "type": "function",
                     "function": {
                       "name": "add",
@@ -135,9 +135,9 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_62a23a81ef"
+          "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 08 Aug 2025 02:25:00 GMT
+  recorded_at: Fri, 08 Aug 2025 02:55:21 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/chat/completions
@@ -145,19 +145,19 @@ http_interactions:
       encoding: UTF-8
       string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
         are a calculator assistant. Use the available tools to perform calculations."},{"role":"user","content":"Add
-        2 and 3"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"add","arguments":"{\"a\":2,\"b\":3}"},"id":"call_B5s0wlxiPkQZ5gSsaRU3nAcM"}]},{"role":"tool","content":"5.0","tool_call_id":"call_B5s0wlxiPkQZ5gSsaRU3nAcM","name":"add"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"calculate_area","description":"Calculate
-        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
-        of the rectangle"},"height":{"type":"number","description":"Height of the
-        rectangle"}},"required":["width","height"]}}},{"type":"function","function":{"name":"add","description":"Add
+        2 and 3"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"add","arguments":"{\"a\":2,\"b\":3}"},"id":"call_TECfxC114rdF3ZGKCAgFeaUM"}]},{"role":"tool","content":"5.0","tool_call_id":"call_TECfxC114rdF3ZGKCAgFeaUM","name":"add"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"add","description":"Add
         two numbers together","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
+        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
         number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"subtract","description":"Subtract
         one number from another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Number
         to subtract from"},"b":{"type":"number","description":"Number to subtract"}},"required":["a","b"]}}},{"type":"function","function":{"name":"divide","description":"Divide
         one number by another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Dividend
         (number to be divided)"},"b":{"type":"number","description":"Divisor (number
-        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
-        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
-        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}}]}'
+        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"calculate_area","description":"Calculate
+        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
+        of the rectangle"},"height":{"type":"number","description":"Height of the
+        rectangle"}},"required":["width","height"]}}}]}'
     headers:
       Content-Type:
       - application/json
@@ -175,7 +175,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 02:25:01 GMT
+      - Fri, 08 Aug 2025 02:55:21 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -187,34 +187,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '511'
+      - '443'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '636'
+      - '466'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9998'
+      - '9977'
       X-Ratelimit-Remaining-Tokens:
       - '199971'
       X-Ratelimit-Reset-Requests:
-      - 16.447s
+      - 3m16.536s
       X-Ratelimit-Reset-Tokens:
       - 8ms
       X-Request-Id:
-      - req_c7888da2ea5541c8887d7390bc28af92
+      - req_4f55dfb1fe83405b954437907040e4ed
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=_D94piRzbccd.m1d9zsd5ARTp_6Eiw1dLBc7qH6KtTk-1754619901-1.0.1.1-_hK86jigy1tk_wSvL3c57jkNAXtdg1sLcct4fICvKxfVlnLdn0dOm6otMMZoElqVScK.AK7rIX4svtoonziHLF0TCxPVn68XNWmIleps4Yg;
-        path=/; expires=Fri, 08-Aug-25 02:55:01 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=Bh8cx.HSpFcwN6wJLE2LJV6o31DDwfvBeWhdV2pNh00-1754621721-1.0.1.1-M.1SW6M32zt6Q6Y5JefQ4JRiW1ZDBCfrpfNA3Nq82xNvyPcqWsDgeNrtTeF6XsRglf3SgqcSwME4MiteIcOkWz2VJJcAsWJh1EncYdXPHpM;
+        path=/; expires=Fri, 08-Aug-25 03:25:21 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=ArW0fzYQCUhBmSgVWyp0wglYWb_2KSl99PWird.Xdis-1754619901154-0.0.1.1-604800000;
+      - _cfuvid=xN2gygoZpzaPkt4ZUzHwELPR_U1fbm2ka2Nbm18gpgk-1754621721852-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -223,16 +223,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bb8f892d0eeb26-SJC
+      - 96bbbbfe2f8867ee-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C274uw85Mr82krnfEUrRwEkCpumnZ",
+          "id": "chatcmpl-C27YHs6Lh4glaRrB4sme6RrqNsIkg",
           "object": "chat.completion",
-          "created": 1754619900,
+          "created": 1754621721,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -263,7 +263,7 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_62a23a81ef"
+          "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 08 Aug 2025 02:25:01 GMT
+  recorded_at: Fri, 08 Aug 2025 02:55:21 GMT
 recorded_with: VCR 6.3.1

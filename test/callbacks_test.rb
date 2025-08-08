@@ -71,7 +71,7 @@ class TestCallbacksWithConditions < ActiveSupport::TestCase
         @agent_class.stream_action.generate_now
       end
 
-      assert_equal spy.calls.size, 30
+      assert_equal 84, spy.calls.size
     end
   end
 
@@ -206,7 +206,7 @@ class TestAgentWithDefaultStreamOptionCallbacks < ActiveSupport::TestCase
         @agent_class.stream_action.generate_now
       end
 
-      assert_equal spy.calls.size, 30
+      assert_equal 84, spy.calls.size
     end
 
     VCR.use_cassette("streaming_agent_stream_response") do
@@ -216,7 +216,7 @@ class TestAgentWithDefaultStreamOptionCallbacks < ActiveSupport::TestCase
         @agent_class.another_stream_action.generate_now
       end
 
-      assert_equal spy.calls.size, 30
+      assert_equal 84, spy.calls.size
     end
   end
 end
@@ -238,7 +238,7 @@ class TestAgentWithDefaultStreamOptionWithChangedConditionCallbacks < ActiveSupp
         @agent_class.stream_action.generate_now
       end
 
-      assert_equal spy.calls.size, 30
+      assert_equal 84, spy.calls.size
     end
   end
 

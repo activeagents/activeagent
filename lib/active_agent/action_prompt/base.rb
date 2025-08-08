@@ -243,9 +243,12 @@ module ActiveAgent
 
       def perform_action(action)
         current_context = context.clone
-        # Set params from the action for controller access
+        # Merge action params with original params to preserve context
+        original_params = current_context.params || {}
         if action.params.is_a?(Hash)
-          self.params = action.params
+          self.params = original_params.merge(action.params)
+        else
+          self.params = original_params
         end
         process(action.name)
         context.message.role = :tool

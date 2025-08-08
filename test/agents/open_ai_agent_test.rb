@@ -21,7 +21,6 @@ class OpenAIClientTest < ActiveAgentTestCase
     # Configure OpenAI before tests
     OpenAI.configure do |config|
       config.access_token = "test-api-key"
-      config.organization_id = "test-organization-id"
       config.log_errors = Rails.env.development?
       config.request_timeout = 600
     end

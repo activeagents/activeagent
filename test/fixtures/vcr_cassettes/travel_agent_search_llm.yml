@@ -5,25 +5,31 @@ http_interactions:
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
-        are a helpful assistant.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Find
-        flights from NYC to LAX","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"search","description":"Search
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"This
+        agent is currently interacting with Guest to find a hotel near their travel
+        destination.\nThe agent should use the following actions to achieve the desired
+        outcome:\n\n  confirm: Confirm a flight booking\n  search: Search for available
+        flights to a destination\n  book: Book a specific flight\n\nrequirements:\n-
+        The agent should use the `search` action to find hotels in the requested location.\n-
+        The agent should use the `book` action to book a hotel for the user.\n- The
+        agent should use the `confirm` action to confirm the booking with the user."},{"role":"user","content":"Find
+        flights from NYC to LAX"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
+        a flight booking","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"confirmation_number":{"type":"string","description":"The
+        booking confirmation number"},"send_email":{"type":"boolean","description":"Whether
+        to send confirmation email"}},"required":["confirmation_number"]}},"required":["params"]}}},{"type":"function","function":{"name":"search","description":"Search
         for available flights to a destination","parameters":{"type":"object","properties":{"departure":{"type":"string","description":"Departure
         city or airport code"},"destination":{"type":"string","description":"Destination
         city or airport code"},"date":{"type":"string","description":"Travel date
         in YYYY-MM-DD format"}},"required":["destination"]}}},{"type":"function","function":{"name":"book","description":"Book
-        a specific flight","parameters":{"type":"object","properties":{"flight_id":{"type":"string","description":"The
+        a specific flight","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"flight_id":{"type":"string","description":"The
         flight identifier to book"},"passenger_name":{"type":"string","description":"Name
         of the passenger"},"passenger_email":{"type":"string","description":"Email
-        address for booking confirmation"}},"required":["flight_id","passenger_name"]}}},{"type":"function","function":{"name":"confirm","description":"Confirm
-        a flight booking","parameters":{"type":"object","properties":{"confirmation_number":{"type":"string","description":"The
-        booking confirmation number"},"send_email":{"type":"boolean","description":"Whether
-        to send confirmation email"}},"required":["confirmation_number"]}}}]}'
+        address for booking confirmation"}},"required":["flight_id","passenger_name"]}},"required":["params"]}}}]}'
     headers:
       Content-Type:
       - application/json
       Authorization:
-      - Bearer <OPENAI_API_KEY>
+      - Bearer <OPENAI_ACCESS_TOKEN>
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
@@ -36,7 +42,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 01 Aug 2025 02:05:29 GMT
+      - Fri, 08 Aug 2025 03:27:04 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,54 +54,52 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '905'
+      - '441'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '1018'
+      - '487'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9998'
+      - '9994'
       X-Ratelimit-Remaining-Tokens:
-      - '199983'
+      - '199853'
       X-Ratelimit-Reset-Requests:
-      - 16.052s
+      - 46.635s
       X-Ratelimit-Reset-Tokens:
-      - 5ms
+      - 44ms
       X-Request-Id:
-      - req_6419ed4e74ad7e2d2e293c66d1085fe4
-      X-Envoy-Decorator-Operation:
-      - router.openai.svc.cluster.local:5004/*
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
+      - req_efb182510c6c4f51bd41738b7ce03e0a
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=fQLc69N8evjcXZuEaXsMYSVBNaHifrpVBS7QmWi532Y-1754013929-1.0.1.1-jwXmMOz.PdCLV50LU1aE7lkxHG.QgLQp0sd26bbkOIjPtf7LFy5WKb2a0MRFyl1ACbr4AaypHpv80JuM4Pbl1CzO5Wri.iSxEdFFeFsUWsA;
-        path=/; expires=Fri, 01-Aug-25 02:35:29 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=w.ld0WZTtg2DRIqx1KnQ4aNnmQ4CxRi1CBGUqN19mCo-1754623624-1.0.1.1-CpemnL6MYXRdksNmnGj8DpPntbGmZ.PmgQbJqq2pvx2laDI75YSd_6ix2Ps1KbI0FrbMJXfDdZBNdnO1dYBDw_D7Iiwrvl52B6RLEKAoW9s;
+        path=/; expires=Fri, 08-Aug-25 03:57:04 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=8u94giX02MDQd2eOyxgUqQm4H7IMIQ1a7yhMlNJGSW0-1754013929906-0.0.1.1-604800000;
+      - _cfuvid=.gWK5lqKqQ8XPfxBMt.XHt.F1n_cTIWeT1I0WMOZYkI-1754623624601-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 9681c54d7b3f2364-SJC
+      - 96bbea72499423a9-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-BzZRBqzlgn0A1XYwlF4fGvqtl1o9M",
+          "id": "chatcmpl-C282ycGth7KX6QVXMVTrLilGmz03R",
           "object": "chat.completion",
-          "created": 1754013929,
+          "created": 1754623624,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -105,7 +109,7 @@ http_interactions:
                 "content": null,
                 "tool_calls": [
                   {
-                    "id": "call_zzwikHl0mVcvGllveGC2HXuc",
+                    "id": "call_ENoY11c5yEpqqVHe6ZDRJvMp",
                     "type": "function",
                     "function": {
                       "name": "search",
@@ -121,9 +125,9 @@ http_interactions:
             }
           ],
           "usage": {
-            "prompt_tokens": 171,
+            "prompt_tokens": 285,
             "completion_tokens": 19,
-            "total_tokens": 190,
+            "total_tokens": 304,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -136,7 +140,142 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_62a23a81ef"
+          "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 01 Aug 2025 02:05:29 GMT
+  recorded_at: Fri, 08 Aug 2025 03:27:04 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"This
+        agent is currently interacting with Guest to find a hotel near their travel
+        destination.\nThe agent should use the following actions to achieve the desired
+        outcome:\n\n  confirm: Confirm a flight booking\n  book: Book a specific flight\n\nrequirements:\n-
+        The agent should use the `search` action to find hotels in the requested location.\n-
+        The agent should use the `book` action to book a hotel for the user.\n- The
+        agent should use the `confirm` action to confirm the booking with the user."},{"role":"user","content":"Find
+        flights from NYC to LAX"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"search","arguments":"{\"departure\":\"NYC\",\"destination\":\"LAX\"}"},"id":"call_ENoY11c5yEpqqVHe6ZDRJvMp"}]},{"role":"tool","content":"\u003ch2\u003eTravel
+        Search Results\u003c/h2\u003e\n\n\u003cp\u003eSearching for flights from NYC
+        to LAX\u003c/p\u003e\n\n\u003cul\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eWould
+        you like to book any of these flights?\u003c/p\u003e\n","tool_call_id":"call_ENoY11c5yEpqqVHe6ZDRJvMp","name":"search"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
+        a flight booking","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"confirmation_number":{"type":"string","description":"The
+        booking confirmation number"},"send_email":{"type":"boolean","description":"Whether
+        to send confirmation email"}},"required":["confirmation_number"]}},"required":["params"]}}},{"type":"function","function":{"name":"search","description":"Search
+        for available flights to a destination","parameters":{"type":"object","properties":{"departure":{"type":"string","description":"Departure
+        city or airport code"},"destination":{"type":"string","description":"Destination
+        city or airport code"},"date":{"type":"string","description":"Travel date
+        in YYYY-MM-DD format"}},"required":["destination"]}}},{"type":"function","function":{"name":"book","description":"Book
+        a specific flight","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"flight_id":{"type":"string","description":"The
+        flight identifier to book"},"passenger_name":{"type":"string","description":"Name
+        of the passenger"},"passenger_email":{"type":"string","description":"Email
+        address for booking confirmation"}},"required":["flight_id","passenger_name"]}},"required":["params"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 08 Aug 2025 03:27:05 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1112'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '1133'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9993'
+      X-Ratelimit-Remaining-Tokens:
+      - '199830'
+      X-Ratelimit-Reset-Requests:
+      - 54.704s
+      X-Ratelimit-Reset-Tokens:
+      - 51ms
+      X-Request-Id:
+      - req_a7b271e7e01f4c35878330718d16aec3
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=1CmqVyTg3It6bKJi3fJlHg5_.ivmLVmjHpOdUuWzZb8-1754623625-1.0.1.1-o7rBL3aEvtJG6Rqf8aNRtinwQzVR7r6x.TKti6LJFjKsi_Vji6qKNnPwPOipWNL9TvWQjtd_jortYT_65Y4poMxNzg196V3OYhHfHbSWq2E;
+        path=/; expires=Fri, 08-Aug-25 03:57:05 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=k3uEHQ7FJQ3BMQhkXJcCl_j6fg49Skq5Rc.O9iu4Bpw-1754623625840-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96bbea760b382366-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C282y66UViluDcU38D4dDVotfVJeE",
+          "object": "chat.completion",
+          "created": 1754623624,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "It seems that there are currently no available flights from NYC to LAX. Would you like me to help you with anything else, such as searching for hotels in Los Angeles?",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 342,
+            "completion_tokens": 36,
+            "total_tokens": 378,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_34a54ae93c"
+        }
+  recorded_at: Fri, 08 Aug 2025 03:27:05 GMT
 recorded_with: VCR 6.3.1

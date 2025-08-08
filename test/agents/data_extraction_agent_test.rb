@@ -20,7 +20,7 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       # endregion data_extraction_agent_describe_cat_image_response
       doc_example_output(response)
 
-      assert_equal response.message.content, "The cat in the image has a sleek, short coat that appears to be a grayish-brown color. Its eyes are large and striking, with a vivid green hue. The cat is sitting comfortably, being gently petted by a hand that is adorned with a bracelet. Overall, it has a calm and curious expression. The background features a dark, soft surface, adding to the cozy atmosphere of the scene."
+      assert_equal "The cat in the image is lying on its back on a brown leather surface. It has a primarily white coat with some black patches. Its paws are stretched out, and the cat appears to be comfortably relaxed, with its eyes closed and a peaceful expression. The light from the sun creates a warm glow around it, highlighting its features.", response.message.content
     end
   end
 
@@ -106,7 +106,7 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       response = prompt.generate_now
       doc_example_output(response)
 
-      assert_equal response.message.content, "The graph titled \"Quarterly Sales Report\" displays sales revenue for four quarters in 2024. Key points include:\n\n- **Q1**: Blue bar represents the lowest sales revenue.\n- **Q2**: Green bar shows an increase in sales compared to Q1.\n- **Q3**: Yellow bar continues the upward trend with higher sales than Q2.\n- **Q4**: Red bar indicates the highest sales revenue of the year.\n\nOverall, there is a clear upward trend in sales revenue over the quarters, reaching a peak in Q4."
+      assert_equal "The image presents a bar chart titled \"Quarterly Sales Report\" for the year 2024. It depicts sales revenue by quarter, with data represented for four quarters (Q1, Q2, Q3, and Q4) using differently colored bars:\n\n- **Q1**: Blue bar\n- **Q2**: Green bar\n- **Q3**: Yellow bar\n- **Q4**: Red bar\n\nThe sales revenue ranges from $0 to $100,000, with each quarter showing varying levels of sales revenue, with Q4 having the highest bar.", response.message.content
     end
   end
 

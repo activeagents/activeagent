@@ -90,14 +90,20 @@ module ActiveAgent
         return nil if tools.blank?
         
         tools.map do |tool|
-          {
-            type: "function",
-            function: {
-              name: tool["name"] || tool[:name],
-              description: tool["description"] || tool[:description],
-              parameters: tool["parameters"] || tool[:parameters]
+          if tool["function"] || tool[:function]
+            # Tool already has the correct structure
+            tool
+          else
+            # Legacy format - wrap in function structure
+            {
+              type: "function",
+              function: {
+                name: tool["name"] || tool[:name],
+                description: tool["description"] || tool[:description],
+                parameters: tool["parameters"] || tool[:parameters]
+              }
             }
-          }
+          end
         end
       end
 
