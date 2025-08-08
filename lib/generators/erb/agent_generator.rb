@@ -20,6 +20,9 @@ module Erb # :nodoc:
           end
         end
 
+        instructions_path = File.join(view_base_path, "instructions.text.erb")
+        template "instructions.text.erb.tt", instructions_path
+
         actions.each do |action|
           @action = action
 
