@@ -73,8 +73,9 @@ export default defineConfig({
       {
         text: 'Framework',
         items: [
-          { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
+          // { text: 'Rails Integration', link: '/docs/framework/rails-integration' },
           { text: 'Active Agent', link: '/docs/framework/active-agent' },
+          { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
           { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
         ]
       },
