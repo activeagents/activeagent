@@ -85,6 +85,7 @@ export default defineConfig({
           { text: 'Actions', link: '/docs/action-prompt/actions' },
           { text: 'Prompts', link: '/docs/action-prompt/prompts' },
           { text: 'Tools', link: '/docs/action-prompt/tools' },
+          { text: 'Tool Calling', link: '/docs/action-prompt/tool-calling' },
         ]
       },
       { text: 'Agents',

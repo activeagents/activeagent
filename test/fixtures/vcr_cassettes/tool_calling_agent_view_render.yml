@@ -1,0 +1,97 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a weather assistant. Use the available tools to provide weather information."},{"role":"user","content":"Show
+        me the current weather report"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_temperature","description":"Get
+        the current temperature in Celsius","parameters":{"type":"object"}}},{"type":"function","function":{"name":"get_weather_report","description":"Get
+        a detailed weather report with HTML formatting","parameters":{"type":"object"}}},{"type":"function","function":{"name":"convert_temperature","description":"Convert
+        temperature between Celsius and Fahrenheit","parameters":{"type":"object","properties":{"value":{"type":"number","description":"Temperature
+        value to convert"},"from":{"type":"string","description":"Unit to convert
+        from (celsius or fahrenheit)","enum":["celsius","fahrenheit"]},"to":{"type":"string","description":"Unit
+        to convert to (celsius or fahrenheit)","enum":["celsius","fahrenheit"]}},"required":["value","from","to"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 400
+      message: Bad Request
+    headers:
+      Date:
+      - Fri, 08 Aug 2025 02:24:05 GMT
+      Content-Type:
+      - application/json
+      Content-Length:
+      - '258'
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '13'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '28'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9996'
+      X-Ratelimit-Remaining-Tokens:
+      - '199967'
+      X-Ratelimit-Reset-Requests:
+      - 32.342s
+      X-Ratelimit-Reset-Tokens:
+      - 9ms
+      X-Request-Id:
+      - req_83acdca069ab45ddac198a2d9db1e5f7
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=pboaCAjELUvLv4.wHIHwtwOVaj.PipLwgkwCNIECoBE-1754619845-1.0.1.1-FW2WCWTNJB.N.cOe2Sd876p2iCHekIDBs__8dm2rM8vuv9.C9ATkpBq9eYrJHksfgFkyFvURbvQk5HTuU3n54reAAukcVuke7oIXLSuiqKs;
+        path=/; expires=Fri, 08-Aug-25 02:54:05 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=L3VbTn0O76RsjIXW57SAkRXuUXwmjxmo2kITAXxT9bM-1754619845818-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96bb8e33cdc87aca-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |-
+        {
+          "error": {
+            "message": "Invalid schema for function 'get_temperature': In context=(), object schema missing properties.",
+            "type": "invalid_request_error",
+            "param": "tools[0].function.parameters",
+            "code": "invalid_function_parameters"
+          }
+        }
+  recorded_at: Fri, 08 Aug 2025 02:24:05 GMT
+recorded_with: VCR 6.3.1

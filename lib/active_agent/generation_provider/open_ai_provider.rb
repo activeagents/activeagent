@@ -76,33 +76,70 @@ module ActiveAgent
       end
 
       def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
-        {
+        params = {
           model: model,
           messages: provider_messages(messages),
           temperature: temperature,
           max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"],
-          tools: tools.presence
+          tools: format_tools(tools)
         }.compact
+        params
+      end
+
+      def format_tools(tools)
+        return nil if tools.blank?
+        
+        tools.map do |tool|
+          {
+            type: "function",
+            function: {
+              name: tool["name"] || tool[:name],
+              description: tool["description"] || tool[:description],
+              parameters: tool["parameters"] || tool[:parameters]
+            }
+          }
+        end
       end
 
       def provider_messages(messages)
         messages.map do |message|
+          # Start with basic message structure
           provider_message = {
-            role: message.role,
-            tool_call_id: message.action_id.presence,
-            name: message.action_name.presence,
-            tool_calls: message.raw_actions.present? ? message.raw_actions[:tool_calls] : (message.requested_actions.map { |action| { type: "function", name: action.name, arguments: action.params.to_json } } if message.action_requested),
-            generation_id: message.generation_id,
-            content: message.content,
-            type: message.content_type,
-            charset: message.charset
-          }.compact
+            role: message.role.to_s,
+            content: message.content
+          }
 
-          if message.content_type == "image_url" || message.content[0..4] == "data:"
-            provider_message[:type] = "image_url"
-            provider_message[:image_url] = { url: message.content }
+          # Add tool-specific fields based on role
+          case message.role.to_s
+          when "assistant"
+            if message.action_requested && message.requested_actions.any?
+              provider_message[:tool_calls] = message.requested_actions.map do |action| 
+                { 
+                  type: "function", 
+                  function: { 
+                    name: action.name,
+                    arguments: action.params.to_json
+                  }, 
+                  id: action.id 
+                }
+              end
+            elsif message.raw_actions.present? && message.raw_actions.is_a?(Array)
+              provider_message[:tool_calls] = message.raw_actions
+            end
+          when "tool"
+            provider_message[:tool_call_id] = message.action_id
+            provider_message[:name] = message.action_name if message.action_name
           end
-          provider_message
+
+          # Handle image content
+          if message.content_type == "image_url" || (message.content && message.content[0..4] == "data:")
+            provider_message[:content] = [{
+              type: "image_url",
+              image_url: { url: message.content }
+            }]
+          end
+
+          provider_message.compact
         end
       end
 
