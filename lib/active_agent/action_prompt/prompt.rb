@@ -81,7 +81,7 @@ module ActiveAgent
 
       def inspect
         "#<#{self.class}:0x#{object_id.to_s(16)}\n" +
-          "  @options=#{@options.inspect.gsub(Rails.application.credentials.dig(:openai, :api_key), '<OPENAI_API_KEY>')}\n" +
+          "  @options=#{ActiveAgent.sanitize_credentials(@options.inspect)}\n" +
           "  @actions=#{@actions.inspect}\n" +
           "  @action_choice=#{@action_choice.inspect}\n" +
           "  @instructions=#{@instructions.inspect}\n" +
