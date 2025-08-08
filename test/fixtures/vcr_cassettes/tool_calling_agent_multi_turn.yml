@@ -1,0 +1,103 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a calculator assistant. Use the available tools to perform calculations.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Calculate
+        the area of a rectangle with width 5 and height 10, then double it","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":[{"name":"add","description":"Add
+        two numbers together","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}},{"name":"subtract","description":"Subtract
+        one number from another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Number
+        to subtract from"},"b":{"type":"number","description":"Number to subtract"}},"required":["a","b"]}},{"name":"divide","description":"Divide
+        one number by another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Dividend
+        (number to be divided)"},"b":{"type":"number","description":"Divisor (number
+        to divide by)"}},"required":["a","b"]}},{"name":"calculate_area","description":"Calculate
+        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
+        of the rectangle"},"height":{"type":"number","description":"Height of the
+        rectangle"}},"required":["width","height"]}},{"name":"multiply","description":"Multiply
+        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 400
+      message: Bad Request
+    headers:
+      Date:
+      - Fri, 08 Aug 2025 02:10:08 GMT
+      Content-Type:
+      - application/json
+      Content-Length:
+      - '191'
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '31'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '263'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199958'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 12ms
+      X-Request-Id:
+      - req_0ddd422581aa4bb581fa261ec015670b
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=1l5PpNokteHiH41xurZDDeqLTn791FTjrkzpUWUvQqQ-1754619008-1.0.1.1-t.Ar_gbgzx4wp3F3ivVopqGWvmr1ZlNfcZr_2hsozrZwbgY3cwXQudi2C_Q2AXUEeXqiVtP0Ghx3a2AHpcdG0Fy1OMIefgIqRMVRsuRVXZw;
+        path=/; expires=Fri, 08-Aug-25 02:40:08 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=N40ZVwkvkESG9TyT7wm7m_8MlKCn_6byhGu4fmWcny0-1754619008442-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96bb79be9a576cd4-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |-
+        {
+          "error": {
+            "message": "Missing required parameter: 'tools[0].type'.",
+            "type": "invalid_request_error",
+            "param": "tools[0].type",
+            "code": "missing_required_parameter"
+          }
+        }
+  recorded_at: Fri, 08 Aug 2025 02:10:08 GMT
+recorded_with: VCR 6.3.1

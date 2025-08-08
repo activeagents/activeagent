@@ -1,0 +1,269 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a calculator assistant. Use the available tools to perform calculations."},{"role":"user","content":"Add
+        2 and 3"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"calculate_area","description":"Calculate
+        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
+        of the rectangle"},"height":{"type":"number","description":"Height of the
+        rectangle"}},"required":["width","height"]}}},{"type":"function","function":{"name":"add","description":"Add
+        two numbers together","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"subtract","description":"Subtract
+        one number from another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Number
+        to subtract from"},"b":{"type":"number","description":"Number to subtract"}},"required":["a","b"]}}},{"type":"function","function":{"name":"divide","description":"Divide
+        one number by another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Dividend
+        (number to be divided)"},"b":{"type":"number","description":"Divisor (number
+        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
+        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 08 Aug 2025 02:25:00 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '477'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '491'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199974'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 7ms
+      X-Request-Id:
+      - req_f2e456c5bdd04138b40ca7808f38d9eb
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=4XQLbUfyE3Xcw60.XsjJLZtBRe7TL4iP_tQf0qm.GVE-1754619900-1.0.1.1-xUzHCALZ_eDHR0FjkJCUnVD1I7lCMsh77EpLBFdjKxELad.U1LwT215sOuyM5Te2yE5rGTf3aPHPtavhpfnLp6xpZUZYOyk8fuJEREsOi.Y;
+        path=/; expires=Fri, 08-Aug-25 02:55:00 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=QINUvM5P90f_Sh3f5nN3HsBAVFukbELeP_Jfu.uQ11s-1754619900289-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96bb8f855ebfcf21-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C274tol2Xw2W9Kfqt8Pr7VJb4G6Cd",
+          "object": "chat.completion",
+          "created": 1754619899,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_B5s0wlxiPkQZ5gSsaRU3nAcM",
+                    "type": "function",
+                    "function": {
+                      "name": "add",
+                      "arguments": "{\"a\":2,\"b\":3}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 209,
+            "completion_tokens": 17,
+            "total_tokens": 226,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_62a23a81ef"
+        }
+  recorded_at: Fri, 08 Aug 2025 02:25:00 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a calculator assistant. Use the available tools to perform calculations."},{"role":"user","content":"Add
+        2 and 3"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"add","arguments":"{\"a\":2,\"b\":3}"},"id":"call_B5s0wlxiPkQZ5gSsaRU3nAcM"}]},{"role":"tool","content":"5.0","tool_call_id":"call_B5s0wlxiPkQZ5gSsaRU3nAcM","name":"add"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"calculate_area","description":"Calculate
+        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
+        of the rectangle"},"height":{"type":"number","description":"Height of the
+        rectangle"}},"required":["width","height"]}}},{"type":"function","function":{"name":"add","description":"Add
+        two numbers together","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"subtract","description":"Subtract
+        one number from another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Number
+        to subtract from"},"b":{"type":"number","description":"Number to subtract"}},"required":["a","b"]}}},{"type":"function","function":{"name":"divide","description":"Divide
+        one number by another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Dividend
+        (number to be divided)"},"b":{"type":"number","description":"Divisor (number
+        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
+        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 08 Aug 2025 02:25:01 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '511'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '636'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199971'
+      X-Ratelimit-Reset-Requests:
+      - 16.447s
+      X-Ratelimit-Reset-Tokens:
+      - 8ms
+      X-Request-Id:
+      - req_c7888da2ea5541c8887d7390bc28af92
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=_D94piRzbccd.m1d9zsd5ARTp_6Eiw1dLBc7qH6KtTk-1754619901-1.0.1.1-_hK86jigy1tk_wSvL3c57jkNAXtdg1sLcct4fICvKxfVlnLdn0dOm6otMMZoElqVScK.AK7rIX4svtoonziHLF0TCxPVn68XNWmIleps4Yg;
+        path=/; expires=Fri, 08-Aug-25 02:55:01 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=ArW0fzYQCUhBmSgVWyp0wglYWb_2KSl99PWird.Xdis-1754619901154-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96bb8f892d0eeb26-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C274uw85Mr82krnfEUrRwEkCpumnZ",
+          "object": "chat.completion",
+          "created": 1754619900,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "The sum of 2 and 3 is 5.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 236,
+            "completion_tokens": 13,
+            "total_tokens": 249,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_62a23a81ef"
+        }
+  recorded_at: Fri, 08 Aug 2025 02:25:01 GMT
+recorded_with: VCR 6.3.1
