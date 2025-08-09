@@ -4,6 +4,10 @@ module ActiveAgent
   module GenerationProvider
     extend ActiveSupport::Concern
 
+    # Make error classes available in the GenerationProvider namespace
+    GenerationProviderError = ActiveAgent::Errors::GenerationProviderError
+    ProviderApiError        = ActiveAgent::Errors::ProviderApiError
+
     included do
       class_attribute :_generation_provider_name, instance_accessor: false, instance_predicate: false
       class_attribute :_generation_provider, instance_accessor: false, instance_predicate: false
@@ -19,8 +23,8 @@ module ActiveAgent
         config.merge!(options)
       raise "Failed to load provider #{name_or_provider}: configuration not found for provider"  if config["service"].nil?
         configure_provider(config)
-      rescue LoadError => e
-        raise RuntimeError, "Failed to load provider #{name_or_provider}: #{e.message}"
+      rescue LoadError => exception
+        raise RuntimeError, "Failed to load provider #{name_or_provider}: #{exception.message}", exception.backtrace
       end
 
       def configure_provider(config)

@@ -1,5 +1,6 @@
 require "yaml"
 require "abstract_controller"
+require "active_agent/errors"
 require "active_agent/generation_provider"
 require "active_agent/version"
 require "active_agent/deprecator"

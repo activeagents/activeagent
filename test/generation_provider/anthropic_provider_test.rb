@@ -23,8 +23,8 @@ class AnthropicProviderTest < ActiveAgentTestCase
       begin
         gem "nonexistent-anthropic-gem"
         require "nonexistent-anthropic-gem"
-      rescue LoadError
-        raise LoadError, "#{expected_message}"
+      rescue LoadError => exception
+        raise LoadError, "#{expected_message}", exception.backtrace
       end
     RUBY
 
