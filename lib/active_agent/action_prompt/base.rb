@@ -2,6 +2,7 @@ require "active_agent/collector"
 require "active_support/core_ext/string/inflections"
 require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
+require "active_agent/errors"
 
 # require "active_agent/log_subscriber"
 require "active_agent/rescuable"
@@ -398,7 +399,10 @@ module ActiveAgent
         if schema_exists?(action_name, prefixes)
           schema_load(action_name, prefixes)
         else
-          fail "ActiveAgents Template not found: #{action_name} in #{prefixes}"
+          raise ActiveAgent::Errors::SchemaNotFoundError.new(
+            schema_name: action_name,
+            prefixes: prefixes
+          )
         end
       end
 

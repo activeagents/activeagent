@@ -15,7 +15,7 @@ module ActiveAgent
 
     # Error raised when a provider API returns an error response
     # This includes HTTP errors, API key issues, rate limiting, model not found, etc.
-    class ProviderApiError < GenerationProviderError
+    class ProviderApiError < ActiveAgentError
       attr_reader :provider_name, :status_code, :error_type
 
       def initialize(message, provider_name: nil, status_code: nil, error_type: nil)
@@ -30,6 +30,28 @@ module ActiveAgent
         parts << "(Provider: #{provider_name})" if provider_name
         parts << "(Status: #{status_code})" if status_code
         parts << "(Type: #{error_type})" if error_type
+        parts.join(" ")
+      end
+    end
+
+    # Error raised when an output schema template cannot be found or loaded
+    class SchemaNotFoundError < ActiveAgentError
+      attr_reader :schema_name, :prefixes
+
+      def initialize(message = nil, schema_name: nil, prefixes: nil)
+        @schema_name = schema_name
+        @prefixes = prefixes
+
+        message ||= build_default_message
+        super(message)
+      end
+
+      private
+
+      def build_default_message
+        parts = ["Output schema not found"]
+        parts << "for '#{schema_name}'" if schema_name
+        parts << "in #{prefixes}" if prefixes && prefixes.any?
         parts.join(" ")
       end
     end
