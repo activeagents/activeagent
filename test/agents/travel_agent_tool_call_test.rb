@@ -130,7 +130,7 @@ class TravelAgentToolCallTest < ActiveAgentTestCase
     agent.context = ActiveAgent::ActionPrompt::Prompt.new
 
     # Load the search action schema
-    schema = agent.send(:load_schema, "search", [ "travel_agent" ])
+    schema = agent.send(:schema_load_action, "search", [ "travel_agent" ])
 
     # Verify the schema has flat structure
     assert_equal "function", schema["type"]

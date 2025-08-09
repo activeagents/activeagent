@@ -4,6 +4,14 @@ module OpenAI
   class DataExtractionAgentTest < ActiveSupport::TestCase
     VCR_FOLDER = "open_ai/data_extraction_agent"
 
+    test "throw error when output schema not found" do
+      assert_raises(StandardError) do
+        OpenAI::DataExtractionAgent.with(
+          output_schema: :non_existent_schema
+        ).describe_cat_image.generate_now
+      end
+    end
+
     test "describe_cat_image creates a multimodal prompt with image and text content" do
       prompt = nil
       VCR.use_cassette("#{VCR_FOLDER}/describe_cat_image") do
