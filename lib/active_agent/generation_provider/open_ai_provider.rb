@@ -118,6 +118,8 @@ module ActiveAgent
       end
 
       def responses_response(response)
+        fail "Unexpected Response: #{response.inspect}" if response.is_a?(String)
+
         message_json = response.dig("output", 0)
         message_json["id"] = response.dig("id") if message_json["id"].blank?
 
