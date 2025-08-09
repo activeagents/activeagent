@@ -1,0 +1,40 @@
+{
+  "format": {
+    "type": "json_schema",
+    "name": "chart_schema",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title of the chart."
+        },
+        "data_points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/data_point"
+          }
+        }
+      },
+      "required": ["title", "data_points"],
+      "additionalProperties": false,
+      "$defs": {
+        "data_point": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "The label for the data point."
+            },
+            "value": {
+              "type": "number",
+              "description": "The value of the data point."
+            }
+          },
+          "required": ["label", "value"],
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}
