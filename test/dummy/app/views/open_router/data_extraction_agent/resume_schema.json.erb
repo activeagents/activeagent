@@ -1,0 +1,79 @@
+{
+  "type": "json_schema",
+  "json_schema": {
+    "strict": true,
+    "name": "resume_schema",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The full name of the individual."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the individual."
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the individual."
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/education"
+          }
+        },
+        "experience": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/experience"
+          }
+        }
+      },
+      "required": ["name", "email", "phone", "education", "experience"],
+      "additionalProperties": false,
+      "$defs": {
+        "education": {
+          "type": "object",
+          "properties": {
+            "degree": {
+              "type": "string",
+              "description": "The degree obtained."
+            },
+            "institution": {
+              "type": "string",
+              "description": "The institution where the degree was obtained."
+            },
+            "year": {
+              "type": "integer",
+              "description": "The year of graduation."
+            }
+          },
+          "required": ["degree", "institution", "year"],
+          "additionalProperties": false
+        },
+        "experience": {
+          "type": "object",
+          "properties": {
+            "job_title": {
+              "type": "string",
+              "description": "The job title held."
+            },
+            "company": {
+              "type": "string",
+              "description": "The company where the individual worked."
+            },
+            "duration": {
+              "type": "string",
+              "description": "The duration of employment."
+            }
+          },
+          "required": ["job_title", "company", "duration"],
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}
