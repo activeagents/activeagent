@@ -48,4 +48,11 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
       assert_match(/properties:/, content)
     end
   end
+
+  test "adds intruction view to agents view directory " do
+    run_generator [ "user" ]
+
+    assert_directory "app/views/user_agent"
+    assert_file "app/views/user_agent/instructions.text.erb"
+  end
 end
