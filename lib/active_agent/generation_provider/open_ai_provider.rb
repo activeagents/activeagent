@@ -32,6 +32,8 @@ module ActiveAgent
         else
           chat_prompt(parameters: prompt_parameters)
         end
+      rescue ActiveAgent::Errors::ActiveAgentError
+        raise # Raise already transformed errors
       rescue => exception
         error_message = exception.respond_to?(:message) ? exception.message : exception.to_s
         raise GenerationProviderError, error_message, exception.backtrace
@@ -41,6 +43,8 @@ module ActiveAgent
         @prompt = prompt
 
         embeddings_prompt(parameters: embeddings_parameters)
+      rescue ActiveAgent::Errors::ActiveAgentError
+        raise # Raise already transformed errors
       rescue => exception
         error_message = exception.respond_to?(:message) ? exception.message : exception.to_s
         raise GenerationProviderError, error_message, exception.backtrace
