@@ -1,4 +1,7 @@
 #!/usr/bin/env ruby
+require "dotenv"
+Dotenv.load(".env.test")
+
 $: << File.expand_path("../test", __dir__)
 
 require "bundler/setup"

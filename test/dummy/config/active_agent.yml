@@ -4,10 +4,10 @@
 # in your agent's `generate_with` config.
 openai: &openai
   service: "OpenAI"
-  access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
+  access_token: <%= ENV['OPENAI_ACCESS_TOKEN'] || Rails.application.credentials.dig(:openai, :access_token) %>
 open_router: &open_router
   service: "OpenRouter"
-  access_token: <%= Rails.application.credentials.dig(:open_router, :access_token) %>
+  access_token: <%= ENV['OPEN_ROUTER_ACCESS_TOKEN'] || Rails.application.credentials.dig(:open_router, :access_token) %>
 ollama: &ollama
   service: "Ollama"
   access_token: ""
@@ -39,4 +39,4 @@ test:
     <<: *ollama
   anthropic:
     service: "Anthropic"
-    access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
+    access_token: <%= ENV['ANTHROPIC_ACCESS_TOKEN'] || Rails.application.credentials.dig(:anthropic, :access_token) %>
