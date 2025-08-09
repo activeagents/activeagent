@@ -1,8 +1,8 @@
 begin
   gem "ruby-openai", "~> 8.1.0"
   require "openai"
-rescue LoadError
-  raise LoadError, "The 'ruby-openai' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
+rescue LoadError => exception
+  raise LoadError, "The 'ruby-openai' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`.", exception.backtrace
 end
 
 require "active_agent/action_prompt/action"
@@ -32,18 +32,18 @@ module ActiveAgent
         else
           chat_prompt(parameters: prompt_parameters)
         end
-      rescue => e
-        error_message = e.respond_to?(:message) ? e.message : e.to_s
-        raise GenerationProviderError, error_message
+      rescue => exception
+        error_message = exception.respond_to?(:message) ? exception.message : exception.to_s
+        raise GenerationProviderError, error_message, exception.backtrace
       end
 
       def embed(prompt)
         @prompt = prompt
 
         embeddings_prompt(parameters: embeddings_parameters)
-      rescue => e
-        error_message = e.respond_to?(:message) ? e.message : e.to_s
-        raise GenerationProviderError, error_message
+      rescue => exception
+        error_message = exception.respond_to?(:message) ? exception.message : exception.to_s
+        raise GenerationProviderError, error_message, exception.backtrace
       end
 
       private

@@ -24,9 +24,9 @@ module ActiveAgent
         @prompt = prompt
 
         chat_prompt(parameters: prompt_parameters)
-      rescue => e
-        error_message = e.respond_to?(:message) ? e.message : e.to_s
-        raise GenerationProviderError, error_message
+      rescue => exception
+        error_message = exception.respond_to?(:message) ? exception.message : exception.to_s
+        raise GenerationProviderError, error_message, exception.backtrace
       end
 
       def chat_prompt(parameters: prompt_parameters)
