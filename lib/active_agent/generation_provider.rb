@@ -19,8 +19,8 @@ module ActiveAgent
         config.merge!(options)
       raise "Failed to load provider #{name_or_provider}: configuration not found for provider"  if config["service"].nil?
         configure_provider(config)
-      rescue LoadError => e
-        raise RuntimeError, "Failed to load provider #{name_or_provider}: #{e.message}"
+      rescue LoadError => exception
+        raise RuntimeError, "Failed to load provider #{name_or_provider}: #{exception.message}", exception.backtrace
       end
 
       def configure_provider(config)
