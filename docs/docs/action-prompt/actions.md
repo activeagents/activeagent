@@ -157,7 +157,7 @@ Available runtime options include:
 - `response_format`: Format for structured outputs
 
 ::: details Runtime Options Example
-<!-- @include: @/parts/examples/test-runtime-options-example-output-test-runtime-options-example-output.md -->
+<!-- @include: @/parts/examples/option-hierarchy-test.rb-test-runtime-options-example-output.md -->
 :::
 
 **Option precedence**: When options are specified in multiple places, they follow this hierarchy:
@@ -210,3 +210,17 @@ Available runtime options include:
 Tool schema definitions are also view templates that can be rendered to the agent. They are used to define the structure and parameters of the tools that the agent can use. Tool definitions are typically defined in JSON format and can include properties, required fields, and descriptions. They can be represented in various formats, such as jbuilder, JSON, or ERB templates, to provide a structured way to define the tools available to the agent.
 
 <<< @/../test/dummy/app/views/support_agent/get_cat_image.json.erb{erb:line-numbers} [get_cat_image.json.erb]
+
+## Tool Calling Example
+
+Here's an example of how agents handle tool calls using the support agent:
+
+<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call{ruby:line-numbers}
+
+The agent generates a response that includes a tool call request:
+
+<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call_response{ruby:line-numbers}
+
+::: details Tool Call Response Example
+<!-- @include: @/parts/examples/support-agent-test.rb-test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions.md -->
+:::

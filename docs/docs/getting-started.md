@@ -67,7 +67,7 @@ Now, you can interact with your application agent using the default `prompt_cont
 <<< @/../test/agents/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response-test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response.md -->
+<!-- @include: @/parts/examples/application-agent-test.rb-test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response.md -->
 :::
 
 This code parameterizes the `ApplicationAgent` `with` a set of `params`.
