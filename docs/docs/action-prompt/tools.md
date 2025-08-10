@@ -24,7 +24,7 @@ When a tool is called, the response includes the tool's output in the conversati
 <<< @/../test/agents/support_agent_test.rb#support_agent_tool_call_response {ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions-test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions.md -->
+<!-- @include: @/parts/examples/support-agent-test.rb-test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions.md -->
 :::
 
 ## Tool Response Structure

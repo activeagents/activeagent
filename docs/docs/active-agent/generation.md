@@ -8,7 +8,7 @@ To generate a prompt immediately, you can use the `generate_now` method. This me
 <<< @/../test/agents/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response-test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response.md -->
+<!-- @include: @/parts/examples/application-agent-test.rb-test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response.md -->
 :::
 
 ### Generation with Context
@@ -17,7 +17,7 @@ Loading a context from an existing prompt context:
 <<< @/../test/agents/application_agent_test.rb#application_agent_loaded_context_message_generation{ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-it-renders-a-prompt-with-an-plain-text-message-with-previous-messages-and-generates-a-response-test-it-renders-a-prompt-with-an-plain-text-message-with-previous-messages-and-generates-a-response.md -->
+<!-- @include: @/parts/examples/application-agent-test.rb-test-it-renders-a-prompt-with-an-plain-text-message-with-previous-messages-and-generates-a-response.md -->
 ::: 
 
 

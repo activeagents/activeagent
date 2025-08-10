@@ -29,7 +29,7 @@ When asked to add numbers, the agent will:
 The conversation flow includes:
 
 ::: details Response Example
-<!-- @include: @/parts/examples/multi-turn-tool-test-agent-performs-tool-call-and-continues-generation-with-result.md -->
+<!-- @include: @/parts/examples/multi-turn-tool-test.rb-test-agent-performs-tool-call-and-continues-generation-with-result.md -->
 :::
 
 ## Chaining Multiple Tool Calls
@@ -41,7 +41,7 @@ Agents can chain multiple tool calls to solve complex tasks:
 This results in a sequence of tool calls:
 
 ::: details Response Example
-<!-- @include: @/parts/examples/multi-turn-tool-test-agent-chains-multiple-tool-calls-for-complex-task.md -->
+<!-- @include: @/parts/examples/multi-turn-tool-test.rb-test-agent-chains-multiple-tool-calls-for-complex-task.md -->
 :::
 
 ## Tool Response Formats

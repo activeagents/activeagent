@@ -32,7 +32,7 @@ Generate a translation using the configured AI provider:
 <<< @/../test/agents/translation_agent_test.rb#translation_agent_translate_prompt_generation {ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-it-renders-a-translate-prompt-and-generates-a-translation-test-it-renders-a-translate-prompt-and-generates-a-translation.md -->
+<!-- @include: @/parts/examples/translation-agent-test.rb-test-it-renders-a-translate-prompt-and-generates-a-translation.md -->
 :::
 
 ## Key Features
