@@ -287,6 +287,7 @@ class TestAgentWithDefaultStreamOptionWithChangedConditionCallbacks < ActiveSupp
   end
 end
 
+# region around_generation_basic
 class AgentWithAroundGeneration < ActiveAgent::Base
   layout "agent"
 
@@ -315,6 +316,7 @@ class AgentWithAroundGeneration < ActiveAgent::Base
     yield
   end
 end
+# endregion around_generation_basic
 
 class TestAgentWithAroundGeneration < ActiveSupport::TestCase
   def setup
@@ -322,6 +324,7 @@ class TestAgentWithAroundGeneration < ActiveSupport::TestCase
     @agent_class.instance_variable_set(:@generation_count, 0)
   end
 
+  # region around_generation_test
   test "around_generation wraps the generation process" do
     VCR.use_cassette("openai_prompt_context_response") do
       # First call - should execute the generation
@@ -334,6 +337,7 @@ class TestAgentWithAroundGeneration < ActiveSupport::TestCase
       assert generation_result.prompt.agent_instance.instance_variable_get(:@called_at).present?
     end
   end
+  # endregion around_generation_test
 
   test "around_generation is called for each generation" do
     VCR.use_cassette("openai_prompt_context_response", allow_playback_repeats: true) do
@@ -350,6 +354,7 @@ class TestAgentWithAroundGeneration < ActiveSupport::TestCase
   end
 end
 
+# region around_generation_conditions
 class AgentWithAroundGenerationAndConditions < ActiveAgent::Base
   layout "agent"
 
@@ -392,6 +397,7 @@ class AgentWithAroundGenerationAndConditions < ActiveAgent::Base
     yield
   end
 end
+# endregion around_generation_conditions
 
 class TestAgentWithAroundGenerationAndConditions < ActiveSupport::TestCase
   def setup
