@@ -201,7 +201,7 @@ module ActiveAgent
         def embed
           agent_class = ApplicationAgent
           agent = agent_class.new
-          agent.context = ActiveAgent::ActionPrompt::Prompt.new(message: self)
+          agent.context = ActiveAgent::ActionPrompt::Prompt.new(message: self, agent_instance: agent)
           agent.embed
           self
         end
@@ -263,7 +263,7 @@ module ActiveAgent
       def initialize # :nodoc:
         super
         @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options || {})
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options || {}, agent_instance: self)
       end
 
       def process(method_name, *args) # :nodoc:
@@ -275,7 +275,7 @@ module ActiveAgent
 
         ActiveSupport::Notifications.instrument("process.active_agent", payload) do
           super
-          @_context = ActiveAgent::ActionPrompt::Prompt.new unless @_prompt_was_called
+          @_context = ActiveAgent::ActionPrompt::Prompt.new(agent_instance: self) unless @_prompt_was_called
         end
       end
       ruby2_keywords(:process)

@@ -32,8 +32,6 @@ end
 def doc_example_output(example = nil, test_name = nil)
   # Extract caller information
   caller_info = caller.find { |line| line.include?("_test.rb") }
-  file_name = @NAME.dasherize
-  test_name ||= name.to_s.dasherize if respond_to?(:name)
 
   # Extract file path and line number from caller
   if caller_info =~ /(.+):(\d+):in/
@@ -42,6 +40,8 @@ def doc_example_output(example = nil, test_name = nil)
   end
 
   path_info = extract_path_info(caller_info)
+  file_name = path_info[:file_name].dasherize
+  test_name ||= name.to_s.dasherize if respond_to?(:name)
 
   file_path = Rails.root.join("..", "..", "docs", "parts", "examples", "#{file_name}-#{test_name}.md")
   # puts "\nWriting example output to #{file_path}\n"
