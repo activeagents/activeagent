@@ -18,13 +18,14 @@ class SupportAgentTest < ActiveSupport::TestCase
       # endregion support_agent_tool_call_response
 
       doc_example_output(response)
-      assert_equal 4, response.prompt.messages.size
+      assert_equal 5, response.prompt.messages.size
       assert_equal :system, response.prompt.messages[0].role
       assert_equal :user, response.prompt.messages[1].role
       assert_equal :assistant, response.prompt.messages[2].role
       assert_equal :tool, response.prompt.messages[3].role
+      assert_equal :assistant, response.prompt.messages[4].role
       assert_equal response.message, response.prompt.messages.last
-      assert_includes response.message.content, "data:image/jpeg;base64,/9j/2wBDAAYEBQYFBAY"
+      assert_includes response.prompt.messages[3].content, "https://cataas.com/cat/"
     end
   end
 
@@ -34,25 +35,33 @@ class SupportAgentTest < ActiveSupport::TestCase
       prompt = SupportAgent.with(message: message).prompt_context
       response = prompt.generate_now
       assert_equal message, SupportAgent.with(message: message).prompt_context.message.content
-      assert_equal 4, response.prompt.messages.size
+      assert_equal 5, response.prompt.messages.size
       assert_equal :system, response.prompt.messages[0].role
       assert_equal :user, response.prompt.messages[1].role
       assert_equal :assistant, response.prompt.messages[2].role
       assert_equal :tool, response.prompt.messages[3].role
+      assert_equal :assistant, response.prompt.messages[4].role
     end
   end
 
   test "it makes a tool call with streaming enabled" do
+    prompt = nil
+    prompt_message = nil
+    test_prompt_message = "Show me a cat"
     VCR.use_cassette("support_agent_streaming_tool_call") do
-      message = "Show me a cat"
-      prompt = SupportAgent.with(message: message).prompt_context
+      prompt = SupportAgent.with(message: test_prompt_message).prompt_context
+      prompt_message = prompt.message.content
+    end
+
+    VCR.use_cassette("support_agent_streaming_tool_call_response") do
       response = prompt.generate_now
-      assert_equal message, SupportAgent.with(message: message).prompt_context.message.content
-      assert_equal 4, response.prompt.messages.size
+      assert_equal test_prompt_message, prompt_message
+      assert_equal 5, response.prompt.messages.size
       assert_equal :system, response.prompt.messages[0].role
       assert_equal :user, response.prompt.messages[1].role
       assert_equal :assistant, response.prompt.messages[2].role
       assert_equal :tool, response.prompt.messages[3].role
+      assert_equal :assistant, response.prompt.messages[4].role
     end
   end
 end

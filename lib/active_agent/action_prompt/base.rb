@@ -199,7 +199,7 @@ module ActiveAgent
       # Add embedding capability to Message class
       ActiveAgent::ActionPrompt::Message.class_eval do
         def embed
-          agent_class = ActiveAgent::Base.descendants.first
+          agent_class = ApplicationAgent
           agent = agent_class.new
           agent.context = ActiveAgent::ActionPrompt::Prompt.new(message: self)
           agent.embed
@@ -217,8 +217,18 @@ module ActiveAgent
 
       def handle_response(response)
         return response unless response.message.requested_actions.present?
+
+        # Perform the requested actions
         perform_actions(requested_actions: response.message.requested_actions)
-        update_context(response)
+
+        # Continue generation with updated context
+        continue_generation
+      end
+
+      def continue_generation
+        # Continue generating with the updated context that includes tool results
+        generation_provider.generate(context) if context && generation_provider
+        handle_response(generation_provider.response)
       end
 
       def update_context(response)
@@ -233,9 +243,12 @@ module ActiveAgent
 
       def perform_action(action)
         current_context = context.clone
-        # Set params from the action for controller access
+        # Merge action params with original params to preserve context
+        original_params = current_context.params || {}
         if action.params.is_a?(Hash)
-          self.params = action.params
+          self.params = original_params.merge(action.params)
+        else
+          self.params = original_params
         end
         process(action.name)
         context.message.role = :tool

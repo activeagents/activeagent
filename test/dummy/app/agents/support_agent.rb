@@ -4,7 +4,7 @@ class SupportAgent < ApplicationAgent
 
   def get_cat_image
     prompt(content_type: "image_url", context_id: params[:context_id]) do |format|
-      format.text { render plain: CatImageService.fetch_base64_image }
+      format.text { render plain: CatImageService.fetch_image_url }
     end
   end
 end

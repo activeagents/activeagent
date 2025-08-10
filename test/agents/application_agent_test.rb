@@ -13,7 +13,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
 
   test "it renders a prompt with an plain text message and generates a response" do
     VCR.use_cassette("application_agent_prompt_context_message_generation") do
-      test_response_message_content = "It seems like you're looking for information or assistance regarding a \"Test Application Agent.\" Could you please provide more context or specify what exactly you need help with? Are you referring to a software testing agent, a specific tool, or something else? Your clarification will help me assist you better!"
+      test_response_message_content = "It seems like you're asking about a \"Test Application Agent.\" Could you please provide more context or specify what you need help with? Are you looking for information on a specific software application, a test automation framework, or something else entirely?"
       # region application_agent_prompt_context_message_generation
       message = "Test Application Agent"
       prompt = ApplicationAgent.with(message: message).prompt_context
@@ -27,7 +27,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
 
   test "it renders a prompt with an plain text message with previous messages and generates a response" do
     VCR.use_cassette("application_agent_loaded_context_message_generation") do
-      test_response_message_content = "Sure! I can help you with that. Could you please provide more details about the issue you're experiencing with your account?"
+      test_response_message_content = "Sure, I can help you with that! Could you please provide more details about the issue you're facing with your account?"
       # region application_agent_loaded_context_message_generation
       message = "I need help with my account"
       previous_context = ActiveAgent::ActionPrompt::Prompt.new(
