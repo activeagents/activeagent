@@ -32,7 +32,7 @@ end
 def doc_example_output(example = nil, test_name = nil)
   # Extract caller information
   caller_info = caller.find { |line| line.include?("_test.rb") }
-  
+
   # Extract file path and line number from caller
   if caller_info =~ /(.+):(\d+):in/
     test_file = $1.split("/").last
