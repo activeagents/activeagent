@@ -217,10 +217,10 @@ module ActiveAgent
 
       def handle_response(response)
         return response unless response.message.requested_actions.present?
-        
+
         # Perform the requested actions
         perform_actions(requested_actions: response.message.requested_actions)
-        
+
         # Continue generation with updated context
         continue_generation
       end

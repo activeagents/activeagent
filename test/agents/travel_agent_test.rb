@@ -25,9 +25,9 @@ class TravelAgentTest < ActiveAgentTestCase
       prompt = TravelAgent.with(user: user, message: message).prompt_context
       system_message = prompt.messages.find { |m| m.role == :system }
       assert_includes system_message.content, "Bob Smith"
-      
+
       response = prompt.generate_now
-      
+
       # The instructions should have been personalized with the user's name
       system_message = response.prompt.messages.find { |m| m.role == :system }
       assert_includes system_message.content, "Bob Smith"

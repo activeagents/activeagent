@@ -12,5 +12,5 @@ json.parameters do
       json.description "Second number"
     end
   end
-  json.required ["a", "b"]
+  json.required [ "a", "b" ]
 end

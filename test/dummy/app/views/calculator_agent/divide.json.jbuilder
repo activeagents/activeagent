@@ -12,5 +12,5 @@ json.parameters do
       json.description "Divisor (number to divide by)"
     end
   end
-  json.required ["a", "b"]
+  json.required [ "a", "b" ]
 end

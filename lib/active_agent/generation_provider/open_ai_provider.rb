@@ -88,7 +88,7 @@ module ActiveAgent
 
       def format_tools(tools)
         return nil if tools.blank?
-        
+
         tools.map do |tool|
           if tool["function"] || tool[:function]
             # Tool already has the correct structure
@@ -119,14 +119,14 @@ module ActiveAgent
           case message.role.to_s
           when "assistant"
             if message.action_requested && message.requested_actions.any?
-              provider_message[:tool_calls] = message.requested_actions.map do |action| 
-                { 
-                  type: "function", 
-                  function: { 
+              provider_message[:tool_calls] = message.requested_actions.map do |action|
+                {
+                  type: "function",
+                  function: {
                     name: action.name,
                     arguments: action.params.to_json
-                  }, 
-                  id: action.id 
+                  },
+                  id: action.id
                 }
               end
             elsif message.raw_actions.present? && message.raw_actions.is_a?(Array)
@@ -139,10 +139,10 @@ module ActiveAgent
 
           # Handle image content
           if message.content_type == "image_url"
-            provider_message[:content] = [{
+            provider_message[:content] = [ {
               type: "image_url",
               image_url: { url: message.content }
-            }]
+            } ]
           end
 
           provider_message.compact

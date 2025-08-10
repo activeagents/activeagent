@@ -12,5 +12,5 @@ json.parameters do
       json.description "Height of the rectangle"
     end
   end
-  json.required ["width", "height"]
+  json.required [ "width", "height" ]
 end

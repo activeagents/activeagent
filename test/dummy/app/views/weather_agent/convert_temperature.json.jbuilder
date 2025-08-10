@@ -10,13 +10,13 @@ json.parameters do
     json.from do
       json.type "string"
       json.description "Unit to convert from (celsius or fahrenheit)"
-      json.enum ["celsius", "fahrenheit"]
+      json.enum [ "celsius", "fahrenheit" ]
     end
     json.to do
       json.type "string"
       json.description "Unit to convert to (celsius or fahrenheit)"
-      json.enum ["celsius", "fahrenheit"]
+      json.enum [ "celsius", "fahrenheit" ]
     end
   end
-  json.required ["value", "from", "to"]
+  json.required [ "value", "from", "to" ]
 end

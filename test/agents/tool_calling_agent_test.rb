@@ -10,7 +10,7 @@ class ToolCallingAgentTest < ActiveSupport::TestCase
       # endregion multi_turn_tool_call
 
       doc_example_output(response)
-      
+
       # Should have system, user, assistant (tool call), tool result, assistant (final)
       assert response.prompt.messages.size >= 4
       assert_equal :system, response.prompt.messages[0].role
@@ -18,10 +18,10 @@ class ToolCallingAgentTest < ActiveSupport::TestCase
       assert_equal :assistant, response.prompt.messages[2].role
       assert response.prompt.messages[2].action_requested
       assert_equal :tool, response.prompt.messages[3].role
-      
+
       # Check tool result
       assert_equal "50.0", response.prompt.messages[3].content
-      
+
       # If there are more tool calls for doubling
       if response.prompt.messages.size > 5
         assert_equal :assistant, response.prompt.messages[4].role
@@ -40,7 +40,7 @@ class ToolCallingAgentTest < ActiveSupport::TestCase
       # endregion tool_call_with_view
 
       doc_example_output(response)
-      
+
       # Check that view was rendered as tool result
       tool_message = response.prompt.messages.find { |m| m.role == :tool }
       assert_not_nil tool_message
@@ -57,7 +57,7 @@ class ToolCallingAgentTest < ActiveSupport::TestCase
       # endregion tool_call_error_handling
 
       doc_example_output(response)
-      
+
       # Should handle the error and provide a meaningful response
       tool_message = response.prompt.messages.find { |m| m.role == :tool }
       if tool_message
@@ -76,7 +76,7 @@ class ToolCallingAgentTest < ActiveSupport::TestCase
       # endregion tool_call_chain
 
       doc_example_output(response)
-      
+
       # Should call get_temperature then convert_temperature
       tool_messages = response.prompt.messages.select { |m| m.role == :tool }
       assert_equal 2, tool_messages.size
