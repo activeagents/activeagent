@@ -199,7 +199,7 @@ module ActiveAgent
       # Add embedding capability to Message class
       ActiveAgent::ActionPrompt::Message.class_eval do
         def embed
-          agent_class = ActiveAgent::Base.descendants.first
+          agent_class = ApplicationAgent
           agent = agent_class.new
           agent.context = ActiveAgent::ActionPrompt::Prompt.new(message: self)
           agent.embed

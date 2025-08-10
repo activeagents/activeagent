@@ -138,7 +138,7 @@ module ActiveAgent
           end
 
           # Handle image content
-          if message.content_type == "image_url" || (message.content && message.content[0..4] == "data:")
+          if message.content_type == "image_url"
             provider_message[:content] = [{
               type: "image_url",
               image_url: { url: message.content }

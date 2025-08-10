@@ -1,0 +1,328 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You''re
+        a support agent. Your job is to help users with their questions."},{"role":"user","content":"Show
+        me a cat"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_cat_image","description":"This
+        action takes no params and gets a random cat image and returns it as a base64
+        string.","parameters":{"type":"object","properties":{}}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 10 Aug 2025 02:09:43 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '419'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '437'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199976'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 7ms
+      X-Request-Id:
+      - req_d32c2dd199814e8c88b90e1f0cd075df
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=q8Dp8qIAzKofvBfvmVVTHLDGOiwRDKU8ylsugN1nspE-1754791783-1.0.1.1-mgAgH4JH_zNJB7hN8bH3rcN.H54Y2dmLRakimy_crAlQWsh3sIxV3rmlorwZ.AJZA8CT2EadK5asHn1pZScwp.7EMiD8SN_POjxaBX_wvxY;
+        path=/; expires=Sun, 10-Aug-25 02:39:43 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=ujsvxtN.eRte2kYMoVvA3.58rbOFPFj5p7pLdn5EHM0-1754791783104-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96cbf3e12d662343-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C2pnCOB9jJTVT2Je8aieivEvJSv5R",
+          "object": "chat.completion",
+          "created": 1754791782,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_zVEW8uOUS9cHk3RolahnAFLe",
+                    "type": "function",
+                    "function": {
+                      "name": "get_cat_image",
+                      "arguments": "{}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 71,
+            "completion_tokens": 11,
+            "total_tokens": 82,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_62a23a81ef"
+        }
+  recorded_at: Sun, 10 Aug 2025 02:09:42 GMT
+- request:
+    method: get
+    uri: https://cataas.com/cat?json=true&width=100
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+      Host:
+      - cataas.com
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Access-Control-Allow-Headers:
+      - X-Requested-With, Content-Type, Accept, Origin, Authorization
+      Access-Control-Allow-Methods:
+      - GET, POST, PUT, DELETE, OPTIONS
+      Access-Control-Allow-Origin:
+      - "*"
+      Content-Length:
+      - '190'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Sun, 10 Aug 2025 02:09:43 GMT
+      Set-Cookie:
+      - __Host-SESSION_ID=21867947-c727-40f8-b463-85032bfccd3f; Path=/; Secure; HttpOnly;
+        SameSite=Strict
+    body:
+      encoding: UTF-8
+      string: '{"id":"PRYEki3d60uAbAFE","tags":["black and white"],"created_at":"2024-09-29T07:34:34.138Z","url":"https://cataas.com/cat/PRYEki3d60uAbAFE?position=center&width=100","mimetype":"image/jpeg"}'
+  recorded_at: Sun, 10 Aug 2025 02:09:43 GMT
+- request:
+    method: get
+    uri: https://cataas.com/cat/PRYEki3d60uAbAFE?position=center&width=100
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+      Host:
+      - cataas.com
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Access-Control-Allow-Headers:
+      - X-Requested-With, Content-Type, Accept, Origin, Authorization
+      Access-Control-Allow-Methods:
+      - GET, POST, PUT, DELETE, OPTIONS
+      Access-Control-Allow-Origin:
+      - "*"
+      Content-Length:
+      - '2795'
+      Content-Type:
+      - image/jpeg
+      Date:
+      - Sun, 10 Aug 2025 02:09:44 GMT
+      Set-Cookie:
+      - __Host-SESSION_ID=ec03be70-05ea-403b-98fe-ed074a0ac8f2; Path=/; Secure; HttpOnly;
+        SameSite=Strict
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        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
+  recorded_at: Sun, 10 Aug 2025 02:09:44 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You''re
+        a support agent. Your job is to help users with their questions."},{"role":"user","content":"Show
+        me a cat"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"get_cat_image","arguments":"{}"},"id":"call_zVEW8uOUS9cHk3RolahnAFLe"}]},{"role":"tool","content":"data:image/jpeg;base64,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","tool_call_id":"call_zVEW8uOUS9cHk3RolahnAFLe","name":"get_cat_image"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_cat_image","description":"This
+        action takes no params and gets a random cat image and returns it as a base64
+        string.","parameters":{"type":"object","properties":{}}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 10 Aug 2025 02:10:21 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '36845'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '36918'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199036'
+      X-Ratelimit-Reset-Requests:
+      - 15.435s
+      X-Ratelimit-Reset-Tokens:
+      - 289ms
+      X-Request-Id:
+      - req_1c75ac99dea5494e9ddbc2324be13b6c
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=5RiZ39tG35wzsoj7hZoAeu1HfZgzMzDPiXH5d4FkIyw-1754791821-1.0.1.1-iBrhRZm8v24Q7H8y8.jFfcUzGbsi5MQ1MT3vy5r16xSGhdqCp7sXj7gMed6ubHLFfq4bIQP2saaIsJ5AvmGfGiEzryzhfvxzKYZnIMPYwLg;
+        path=/; expires=Sun, 10-Aug-25 02:40:21 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=mnji400es4x8HztocrLZIdxff.jZ9tX.uwpWkKCefCY-1754791821373-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96cbf3ec6e327ada-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C2pnEfi0TkiwwsmjaxHk7X9AbIzbl",
+          "object": "chat.completion",
+          "created": 1754791784,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Here is a cute cat image for you!\n\n![Cat](data:image/jpeg;base64,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)",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2582,
+            "completion_tokens": 2505,
+            "total_tokens": 5087,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_62a23a81ef"
+        }
+  recorded_at: Sun, 10 Aug 2025 02:10:21 GMT
+recorded_with: VCR 6.3.1
