@@ -4,6 +4,18 @@ Active Agent uses Action View to render Message content for [Prompt](./prompts.m
 ## Prompt 
 The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller, it allows you to specify the content type and view template for the action's response.
 
+```ruby
+ApplicationAgent.new.prompt(
+  content_type: :text, # or :json, :html, etc.
+  message: "Hello, world!", # The message content to be rendered
+  messages: [], # Additional messages to include in the prompt context
+  template_name: "action_template", # The name of the view template to be used
+  instructions: { template: "instructions" }, # Optional instructions for the prompt generation
+  actions: [], # Available actions for the agent to use
+  output_schema: :schema_name # Optional schema for structured output
+)
+```
+
 These Prompt objects contain the context Messages and available Actions. These actions are the interface that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views. 
 
 Actions can be used to render Prompt objects with `:assistant` Messages back to a user or `:tool` Messages to provide the result of an action back to the Agent. 
@@ -145,7 +157,7 @@ Available runtime options include:
 - `response_format`: Format for structured outputs
 
 ::: details Runtime Options Example
-<!-- @include: @/parts/examples/test-runtime-options-example-output-test-runtime-options-example-output.md -->
+<!-- @include: @/parts/examples/option-hierarchy-test.rb-test-runtime-options-example-output.md -->
 :::
 
 **Option precedence**: When options are specified in multiple places, they follow this hierarchy:
@@ -198,3 +210,17 @@ Available runtime options include:
 Tool schema definitions are also view templates that can be rendered to the agent. They are used to define the structure and parameters of the tools that the agent can use. Tool definitions are typically defined in JSON format and can include properties, required fields, and descriptions. They can be represented in various formats, such as jbuilder, JSON, or ERB templates, to provide a structured way to define the tools available to the agent.
 
 <<< @/../test/dummy/app/views/support_agent/get_cat_image.json.erb{erb:line-numbers} [get_cat_image.json.erb]
+
+## Tool Calling Example
+
+Here's an example of how agents handle tool calls using the support agent:
+
+<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call{ruby:line-numbers}
+
+The agent generates a response that includes a tool call request:
+
+<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call_response{ruby:line-numbers}
+
+::: details Tool Call Response Example
+<!-- @include: @/parts/examples/support-agent-test.rb-test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions.md -->
+:::

@@ -1,0 +1,407 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a calculator assistant. Use the available tools to perform calculations."},{"role":"user","content":"Calculate
+        the area of a 5x10 rectangle, then multiply by 2"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"add","description":"Add
+        two numbers together","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
+        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"subtract","description":"Subtract
+        one number from another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Number
+        to subtract from"},"b":{"type":"number","description":"Number to subtract"}},"required":["a","b"]}}},{"type":"function","function":{"name":"divide","description":"Divide
+        one number by another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Dividend
+        (number to be divided)"},"b":{"type":"number","description":"Divisor (number
+        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"calculate_area","description":"Calculate
+        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
+        of the rectangle"},"height":{"type":"number","description":"Height of the
+        rectangle"}},"required":["width","height"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 08 Aug 2025 02:55:22 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '494'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '506'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9976'
+      X-Ratelimit-Remaining-Tokens:
+      - '199962'
+      X-Ratelimit-Reset-Requests:
+      - 3m24.577s
+      X-Ratelimit-Reset-Tokens:
+      - 11ms
+      X-Request-Id:
+      - req_44e6a7277d394c5c9d3f43a8a4014ab8
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=g0CEQPKHt3G7DO6Iwv8quv8v5IUiH2rk54dgUsELul8-1754621722-1.0.1.1-vosINPl4WsYB58PjykU5HSkFmhGZaFQjwtl92KM66FzHFoP8n1aTXPqEbCZBiJCm1bIkdsuzr5nKsEhhLem0X_nJvJUwxGpmX5Z7_A.JwN4;
+        path=/; expires=Fri, 08-Aug-25 03:25:22 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=j0sTez3T1oVa8ZEkmbiE_dfff_6iNgwxlimYeM0dGNk-1754621722493-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96bbbc020a21fb44-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C27YIWoaAcII6oPaJH6hreaLjt0k1",
+          "object": "chat.completion",
+          "created": 1754621722,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_g4IWteDNfcuLUtY6MhGRmu6r",
+                    "type": "function",
+                    "function": {
+                      "name": "calculate_area",
+                      "arguments": "{\"width\":5,\"height\":10}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 219,
+            "completion_tokens": 18,
+            "total_tokens": 237,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_34a54ae93c"
+        }
+  recorded_at: Fri, 08 Aug 2025 02:55:22 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a calculator assistant. Use the available tools to perform calculations."},{"role":"user","content":"Calculate
+        the area of a 5x10 rectangle, then multiply by 2"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"calculate_area","arguments":"{\"width\":5,\"height\":10}"},"id":"call_g4IWteDNfcuLUtY6MhGRmu6r"}]},{"role":"tool","content":"50.0","tool_call_id":"call_g4IWteDNfcuLUtY6MhGRmu6r","name":"calculate_area"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"add","description":"Add
+        two numbers together","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
+        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"subtract","description":"Subtract
+        one number from another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Number
+        to subtract from"},"b":{"type":"number","description":"Number to subtract"}},"required":["a","b"]}}},{"type":"function","function":{"name":"divide","description":"Divide
+        one number by another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Dividend
+        (number to be divided)"},"b":{"type":"number","description":"Divisor (number
+        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"calculate_area","description":"Calculate
+        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
+        of the rectangle"},"height":{"type":"number","description":"Height of the
+        rectangle"}},"required":["width","height"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 08 Aug 2025 02:55:23 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '523'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '576'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9975'
+      X-Ratelimit-Remaining-Tokens:
+      - '199959'
+      X-Ratelimit-Reset-Requests:
+      - 3m32.587s
+      X-Ratelimit-Reset-Tokens:
+      - 12ms
+      X-Request-Id:
+      - req_edaf1e46fc3f471081c8b4aea0af4bf2
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=gScV0NVx5wxiOAsRqy_SgMA_.AelgTCW7yRD12v93FM-1754621723-1.0.1.1-XNaGk.QuZrbvervs7Kn5amcu4omi6J7I_NPjf8wJHpaG_MDAhdMoP5rBh8NxW3FNSbO5C6YJeJOT_jnWa2sBX_6RvvtMstP60HcRQ4xNsv0;
+        path=/; expires=Fri, 08-Aug-25 03:25:23 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=OymZpw3TdKEyH5C8j5xLXjvp5ABqCzREmgKYrGfFL6I-1754621723190-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96bbbc05fca3235c-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C27YIZm0zVzdsRkCqhUNBCAFPRy0k",
+          "object": "chat.completion",
+          "created": 1754621722,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_Sd27NuMdZ34sSCBObS6nD9vd",
+                    "type": "function",
+                    "function": {
+                      "name": "multiply",
+                      "arguments": "{\"a\":50,\"b\":2}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 248,
+            "completion_tokens": 17,
+            "total_tokens": 265,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_34a54ae93c"
+        }
+  recorded_at: Fri, 08 Aug 2025 02:55:23 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a calculator assistant. Use the available tools to perform calculations."},{"role":"user","content":"Calculate
+        the area of a 5x10 rectangle, then multiply by 2"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"calculate_area","arguments":"{\"width\":5,\"height\":10}"},"id":"call_g4IWteDNfcuLUtY6MhGRmu6r"}]},{"role":"tool","content":"50.0","tool_call_id":"call_g4IWteDNfcuLUtY6MhGRmu6r","name":"calculate_area"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"multiply","arguments":"{\"a\":50,\"b\":2}"},"id":"call_Sd27NuMdZ34sSCBObS6nD9vd"}]},{"role":"tool","content":"100.0","tool_call_id":"call_Sd27NuMdZ34sSCBObS6nD9vd","name":"multiply"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"add","description":"Add
+        two numbers together","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"multiply","description":"Multiply
+        two numbers","parameters":{"type":"object","properties":{"a":{"type":"number","description":"First
+        number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"]}}},{"type":"function","function":{"name":"subtract","description":"Subtract
+        one number from another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Number
+        to subtract from"},"b":{"type":"number","description":"Number to subtract"}},"required":["a","b"]}}},{"type":"function","function":{"name":"divide","description":"Divide
+        one number by another","parameters":{"type":"object","properties":{"a":{"type":"number","description":"Dividend
+        (number to be divided)"},"b":{"type":"number","description":"Divisor (number
+        to divide by)"}},"required":["a","b"]}}},{"type":"function","function":{"name":"calculate_area","description":"Calculate
+        the area of a rectangle","parameters":{"type":"object","properties":{"width":{"type":"number","description":"Width
+        of the rectangle"},"height":{"type":"number","description":"Height of the
+        rectangle"}},"required":["width","height"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 08 Aug 2025 02:55:24 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '802'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '815'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9974'
+      X-Ratelimit-Remaining-Tokens:
+      - '199956'
+      X-Ratelimit-Reset-Requests:
+      - 3m40.713s
+      X-Ratelimit-Reset-Tokens:
+      - 13ms
+      X-Request-Id:
+      - req_861862f387c6405d80f77caf5605443c
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=ryTmAWLHAWkSVjSSL_SVOu12TSLzL8co72qtBQIFdu4-1754621724-1.0.1.1-jN.XmBE4IS8T4yiHbO3o1XWrpmVN0HRhEVp1Dhr3m.H_kw94.7X7CDModZ4bnINU35fv8hUXAhxOox_41GQHTnYMDcyPOMuGaxWtPTcVaUk;
+        path=/; expires=Fri, 08-Aug-25 03:25:24 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=ibhD0B7MN3gcYL6mPl2rS..VocelcymX7K2IrkcggAc-1754621724124-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96bbbc0a4c35cfb8-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C27YJqDMwMN5vLzTzV5ofHc0FsbCy",
+          "object": "chat.completion",
+          "created": 1754621723,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "The area of the 5x10 rectangle is 50 square units. When multiplied by 2, the result is 100 square units.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 275,
+            "completion_tokens": 30,
+            "total_tokens": 305,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_34a54ae93c"
+        }
+  recorded_at: Fri, 08 Aug 2025 02:55:24 GMT
+recorded_with: VCR 6.3.1

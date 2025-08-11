@@ -23,6 +23,9 @@ class TravelAgentTest < ActiveAgentTestCase
       user = OpenStruct.new(name: "Bob Smith")
       message = "I need to find a hotel in Paris"
       prompt = TravelAgent.with(user: user, message: message).prompt_context
+      system_message = prompt.messages.find { |m| m.role == :system }
+      assert_includes system_message.content, "Bob Smith"
+
       response = prompt.generate_now
 
       # The instructions should have been personalized with the user's name

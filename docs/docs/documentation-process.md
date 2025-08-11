@@ -44,7 +44,7 @@ code_to_include
 - Include in docs with:
 ```markdown
 ::: details Response Example
-<!-- @include: @/parts/examples/test-travel-agent-search-action-with-LLM-interaction-test-travel-agent-search-action-with-LLM-interaction.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-search-action-with-LLM-interaction.md -->
 :::
 ```
 
@@ -135,11 +135,11 @@ Files still needing review:
 
 == Response Object
 
-<!-- @include: @/parts/examples/test-parse-chart-content-from-image-data-with-structured-output-schema-test-parse-chart-content-from-image-data-with-structured-output-schema.md -->
+<!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-chart-content-from-image-data-with-structured-output-schema.md -->
 
 == JSON Output
 
-<!-- @include: @/parts/examples/test-parse-chart-content-from-image-data-with-structured-output-schema-parse-chart-json-response.md -->
+<!-- @include: @/parts/examples/data-extraction-agent-test.rb-parse-chart-json-response.md -->
 
 :::
 ```

@@ -52,7 +52,7 @@ When you create a prompt context and generate a response, the LLM can call the T
 <<< @/../test/agents/travel_agent_test.rb#travel_agent_search_llm {ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-travel-agent-search-action-with-LLM-interaction-test-travel-agent-search-action-with-LLM-interaction.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-search-action-with-LLM-interaction.md -->
 :::
 
 ### Booking a Flight
@@ -60,7 +60,7 @@ When you create a prompt context and generate a response, the LLM can call the T
 <<< @/../test/agents/travel_agent_test.rb#travel_agent_book_llm {ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-travel-agent-book-action-with-LLM-interaction-travel_agent_book_llm.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-travel_agent_book_llm.md -->
 :::
 
 ### Confirming a Booking
@@ -68,7 +68,7 @@ When you create a prompt context and generate a response, the LLM can call the T
 <<< @/../test/agents/travel_agent_test.rb#travel_agent_confirm_llm {ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-travel-agent-confirm-action-with-LLM-interaction-test-travel-agent-confirm-action-with-LLM-interaction.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-confirm-action-with-LLM-interaction.md -->
 :::
 
 ### Full Conversation Flow
@@ -76,7 +76,7 @@ When you create a prompt context and generate a response, the LLM can call the T
 <<< @/../test/agents/travel_agent_test.rb#travel_agent_conversation_flow {ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-travel-agent-full-conversation-flow-with-LLM-test-travel-agent-full-conversation-flow-with-LLM.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-full-conversation-flow-with-LLM.md -->
 :::
 
 ### Direct Action Invocation
@@ -86,7 +86,7 @@ You can also call actions directly with parameters:
 <<< @/../test/agents/travel_agent_test.rb#travel_agent_search_html {ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/test-travel-agent-search-view-renders-HTML-format-test-travel-agent-search-view-renders-HTML-format.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-search-view-renders-HTML-format.md -->
 :::
 
 ## How Tool Calling Works

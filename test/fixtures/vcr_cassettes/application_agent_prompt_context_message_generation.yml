@@ -5,14 +5,13 @@ http_interactions:
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
-        are a helpful assistant.","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"Test
-        Application Agent","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":null}'
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":""},{"role":"user","content":"Test
+        Application Agent"}],"temperature":0.7}'
     headers:
       Content-Type:
       - application/json
       Authorization:
-      - Bearer <OPENAI_API_KEY>
+      - Bearer <OPENAI_ACCESS_TOKEN>
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
@@ -25,7 +24,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 16 Jul 2025 23:00:06 GMT
+      - Fri, 08 Aug 2025 02:55:13 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -37,59 +36,59 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '1206'
+      - '1375'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '1211'
+      - '1398'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9999'
+      - '9980'
       X-Ratelimit-Remaining-Tokens:
-      - '199983'
+      - '199991'
       X-Ratelimit-Reset-Requests:
-      - 8.64s
+      - 2m51.239s
       X-Ratelimit-Reset-Tokens:
-      - 4ms
+      - 2ms
       X-Request-Id:
-      - req_1b7b01fd118cc2550e54dae342191658
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
+      - req_21a1da7d843b4740855baf30f279ddcf
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=YziLiaSAK4A_g4M.d3f9gCBuLnV2KVxJug5GHcyl_Rk-1752706806-1.0.1.1-9X.44T.NzYCdZ5giwSy9GWJT1YsjEaocmTy_rTvbfm_BXX.dJK0ZJOxxpG5VeCO65JbpALbZjx0FjEfbqo2afMd3lG7fr1a.WeUVX4E6KvQ;
-        path=/; expires=Wed, 16-Jul-25 23:30:06 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=U_NJdsflZR1jsxzpc.GEUVXwDl4oZqYa2JwF9y_VHaY-1754621713-1.0.1.1-RSPCRo96FK6X26Ws8cJUU9Wu3gXnqE46j.CXuil6_uf3EysC89fBdUSE6ppREe_lA2ik26irfAFEKn57HQCaI19Q88YAvYpIxo0Oz4xMkTY;
+        path=/; expires=Fri, 08-Aug-25 03:25:13 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=TazgSt_ODlkzvTJJaSmfsnaUD2GkUkuWMxlhOy1r4gc-1752706806289-0.0.1.1-604800000;
+      - _cfuvid=BMSj4b7bbgAP8o4S_eqWk9iv3g6N8ykJajMuJOtCmfk-1754621713519-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 96051d1829e567a6-SJC
+      - 96bbbbc45f96cf23-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-Bu5OXyVCFFCWaWfoiVXVXaq9LPKA7",
+          "id": "chatcmpl-C27Y8pB11cz4nghXIeKYJY8X9P9Gf",
           "object": "chat.completion",
-          "created": 1752706805,
+          "created": 1754621712,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "It seems like you're looking for information or assistance regarding a \"Test Application Agent.\" Could you please provide more context or specify what exactly you need help with? Are you referring to a software testing agent, a specific tool, or something else? Your clarification will help me assist you better!",
+                "content": "It seems like you're asking about a \"Test Application Agent.\" Could you please provide more context or specify what you need help with? Are you looking for information on a specific software application, a test automation framework, or something else entirely?",
                 "refusal": null,
                 "annotations": []
               },
@@ -98,9 +97,9 @@ http_interactions:
             }
           ],
           "usage": {
-            "prompt_tokens": 20,
-            "completion_tokens": 57,
-            "total_tokens": 77,
+            "prompt_tokens": 14,
+            "completion_tokens": 47,
+            "total_tokens": 61,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -113,7 +112,7 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": null
+          "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Wed, 16 Jul 2025 23:00:06 GMT
+  recorded_at: Fri, 08 Aug 2025 02:55:13 GMT
 recorded_with: VCR 6.3.1

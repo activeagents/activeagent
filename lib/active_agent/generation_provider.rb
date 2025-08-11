@@ -14,7 +14,6 @@ module ActiveAgent
     module ClassMethods
       def configuration(name_or_provider, **options)
         config = ActiveAgent.config[name_or_provider.to_s] || ActiveAgent.config.dig(ENV["RAILS_ENV"], name_or_provider.to_s) || {}
-
         config = { "service" => "OpenAI" } if config.empty? && name_or_provider == :openai
         config.merge!(options)
       raise "Failed to load provider #{name_or_provider}: configuration not found for provider"  if config["service"].nil?
@@ -26,6 +25,7 @@ module ActiveAgent
       def configure_provider(config)
         service_name = config["service"]
         require "active_agent/generation_provider/#{service_name.underscore}_provider"
+
         ActiveAgent::GenerationProvider.const_get("#{service_name.camelize}Provider").new(config)
       end
 

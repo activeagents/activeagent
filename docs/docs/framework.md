@@ -21,6 +21,12 @@ controller:
 
 Active Agent provides a structured approach to building AI-powered applications through Agent Oriented Programming. Designing applications using agents allows developers to create modular, reusable components that can be easily integrated into existing systems. This approach promotes code reusability, maintainability, and scalability, making it easier to build complex AI-driven applications with the Object Oriented Ruby code you already use today.
 
+Agent instructions are action views rendered as system messages to  
+the agent's context `prompt.messages`.
+
+Actions render user/assistant/tool messages  using the views associated with the agent based on Action View naming conventions. Tools can be defined by providing json action views, but actions could also just be formatted prompt message templates or
+ assistant response templates.
+
 ## Core Concepts
 Active Agent is built around a few core concepts that form the foundation of the framework. These concepts are designed to be familiar to developers who have experience with Ruby on Rails, making it easy to get started with Active Agent. 
 

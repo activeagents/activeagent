@@ -5,16 +5,14 @@ http_interactions:
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
-        are a helpful assistant.","type":"text/plain","charset":"UTF-8"},{"role":"system","content":"You''re
-        an application agent","type":"text/plain","charset":"UTF-8"},{"role":"assistant","content":"Hello,
-        how can I assist you today?","type":"text/plain","charset":"UTF-8"},{"role":"user","content":"I
-        need help with my account","type":"text/plain","charset":"UTF-8"}],"temperature":0.7,"tools":null}'
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":""},{"role":"system","content":"You''re
+        an application agent"},{"role":"assistant","content":"Hello, how can I assist
+        you today?"},{"role":"user","content":"I need help with my account"}],"temperature":0.7}'
     headers:
       Content-Type:
       - application/json
       Authorization:
-      - Bearer <OPENAI_API_KEY>
+      - Bearer <OPENAI_ACCESS_TOKEN>
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
@@ -27,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 16 Jul 2025 22:57:57 GMT
+      - Fri, 08 Aug 2025 02:55:10 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -39,59 +37,59 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '730'
+      - '987'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '739'
+      - '1019'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9999'
+      - '9981'
       X-Ratelimit-Remaining-Tokens:
-      - '199966'
+      - '199973'
       X-Ratelimit-Reset-Requests:
-      - 8.64s
+      - 2m36.323s
       X-Ratelimit-Reset-Tokens:
-      - 10ms
+      - 8ms
       X-Request-Id:
-      - req_c0aabeba7b3275ef92168044a6acb3f8
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
+      - req_ee6da9f7b2234998b30a064c8beaaaa5
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=6x17BY.7tXHd7jzGYhpLDrNb.m9lhUtsWdoeEefedWc-1752706677-1.0.1.1-JufrgvRVkwq9Xefsgwa3M6cyjgBjUBJpCxSxe4y4YKGYV36tGevwjaKaglynfH4EGUdh84aZC8YAL31JaMTnuDwhvByaYgraOgbfSVzysTE;
-        path=/; expires=Wed, 16-Jul-25 23:27:57 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=bMM7TiH1QbkNi4H8JjWa44I_WpVOXcAvfq4KaLu878I-1754621710-1.0.1.1-SLImH_4TDUu8qdBleNJHg.Me97.AkviaV1mx4KU2BhQTznU6R8h8fKDUQLgbGBNey7iRac8zTxOKSzocKUNuEQBOTNs_al88SCinrMEji50;
+        path=/; expires=Fri, 08-Aug-25 03:25:10 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=hWOhXFlXnCp8zXGe8CA21O4XvyM18Z0CHCQ_MpagMYI-1752706677617-0.0.1.1-604800000;
+      - _cfuvid=ICBBaiZUor0pfWrTh9jQsEekP2T38ebhoEvUPHrtFvY-1754621710789-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 960519f65f94f947-SJC
+      - 96bbbbb59a98ce78-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-Bu5MSglEF3n0DpqL2nHFOzvM39q31",
+          "id": "chatcmpl-C27Y5uOUVJuNjjRSE05n1mkn7NuEp",
           "object": "chat.completion",
-          "created": 1752706676,
+          "created": 1754621709,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "Sure! I can help you with that. Could you please provide more details about the issue you're experiencing with your account?",
+                "content": "Sure, I can help you with that! Could you please provide more details about the issue you're facing with your account?",
                 "refusal": null,
                 "annotations": []
               },
@@ -100,9 +98,9 @@ http_interactions:
             }
           ],
           "usage": {
-            "prompt_tokens": 44,
+            "prompt_tokens": 38,
             "completion_tokens": 24,
-            "total_tokens": 68,
+            "total_tokens": 62,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -115,7 +113,7 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": null
+          "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Wed, 16 Jul 2025 22:57:57 GMT
+  recorded_at: Fri, 08 Aug 2025 02:55:10 GMT
 recorded_with: VCR 6.3.1

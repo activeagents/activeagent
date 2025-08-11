@@ -56,15 +56,15 @@ The primary action is the `prompt_context` which provides a common interface to 
 <<< @/../test/agents/travel_agent_test.rb#travel_agent_multi_format{ruby:line-numbers}
 
 ::: details Search Response Example
-<!-- @include: @/parts/examples/test-travel-agent-search-action-with-HTML-format-test-travel-agent-search-action-with-HTML-format.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-search-view-renders-HTML-format.md -->
 :::
 
 ::: details Book Response Example  
-<!-- @include: @/parts/examples/test-travel-agent-book-action-with-text-format-travel_agent_book_text.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-travel_agent_book_text.md -->
 :::
 
 ::: details Confirm Response Example
-<!-- @include: @/parts/examples/test-travel-agent-confirm-action-with-text-format-test-travel-agent-confirm-action-with-text-format.md -->
+<!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-confirm-view-renders-text-format.md -->
 :::
 
 ## Concepts

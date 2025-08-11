@@ -1,6 +1,6 @@
 json.type :function
 json.function do
-  json.name action_name
+  json.name "book"
   json.description "Book a specific flight"
   json.parameters do
     json.type :object

@@ -24,6 +24,7 @@ module ActiveAgent
 
         ActiveAgent::Parameterized::Agent.new(self, params)
       end
+      alias_method :prompt_with, :with
     end
 
     class Agent
