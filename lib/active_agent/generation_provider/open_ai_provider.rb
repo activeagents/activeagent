@@ -161,7 +161,7 @@ module ActiveAgent
       end
 
       def responses_response(response)
-        message_json = response.dig("output", 0)
+        message_json = response["output"].find { |output_item| output_item["type"] == "message" }
         message_json["id"] = response.dig("id") if message_json["id"].blank?
 
         message = ActiveAgent::ActionPrompt::Message.new(
