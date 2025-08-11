@@ -17,7 +17,8 @@ module ActiveAgent
       def initialize(config)
         super
         @access_token ||= config["api_key"] || config["access_token"] || Anthropic.configuration.access_token || ENV["ANTHROPIC_ACCESS_TOKEN"]
-        @client = Anthropic::Client.new(access_token: @access_token)
+        @extra_headers = config["extra_headers"] || {}
+        @client = Anthropic::Client.new(access_token: @access_token,extra_headers:@extra_headers)
       end
 
       def generate(prompt)
@@ -26,6 +27,9 @@ module ActiveAgent
         chat_prompt(parameters: prompt_parameters)
       rescue => e
         error_message = e.respond_to?(:message) ? e.message : e.to_s
+        if e.respond_to?(:response)
+          error_message += " - #{e.response[:body]["error"]["message"]}"
+        end
         raise GenerationProviderError, error_message
       end
 
@@ -50,14 +54,16 @@ module ActiveAgent
         end
       end
 
-      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
+      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, mcp_servers: @prompt.mcp_servers)
         # fix for new Anthropic API that requires messages to be in a specific format without system role
+        system_messages = messages.select { |m| m.role == :system }
         messages = messages.reject { |m| m.role == :system }
         params = {
           model: model,
-          system: @prompt.options[:instructions],
+          system: system_messages.last.content || @prompt.options[:instructions],
           messages: provider_messages(messages),
           temperature: temperature,
+          mcp_servers: mcp_servers,
           max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"] || 4096
         }
 
@@ -70,11 +76,20 @@ module ActiveAgent
 
       def format_tools(tools)
         tools.map do |tool|
+          if tool["type"] == "function"
           {
             name: tool["name"] || tool["function"]["name"],
             description: tool["description"] || tool["function"]["description"],
             input_schema: tool["parameters"]  || tool["function"]["parameters"]
           }
+          else
+            {
+              type: tool["type"],
+              name: tool["name"],
+              max_uses: tool["max_uses"]
+            }
+          end
+
         end
       end
 
@@ -96,7 +111,7 @@ module ActiveAgent
           else
             {
               type: "text",
-              text: message.content
+              text: message.content.blank?? "do nothing" : message.content
             }
           end
 

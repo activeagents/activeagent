@@ -317,6 +317,7 @@ module ActiveAgent
 
         headers = apply_defaults(headers)
         context.messages = headers[:messages] || []
+        context.mcp_servers = headers[:mcp_servers] || []
         context.context_id = headers[:context_id]
         context.params = params
         context.action_name = action_name

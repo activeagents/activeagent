@@ -37,7 +37,8 @@ module ActiveAgent
           messages: params[:messages],
           message: params[:message],
           context_id: params[:context_id],
-          options: params[:options]
+          options: params[:options],
+          mcp_servers: params[:mcp_servers]
         }.merge(additional_options)
       )
     end

@@ -4,7 +4,7 @@ module ActiveAgent
   module ActionPrompt
     class Prompt
       attr_reader :messages, :instructions
-      attr_accessor :actions, :body, :content_type, :context_id, :message, :options, :mime_version, :charset, :context, :parts, :params, :action_choice, :agent_class, :output_schema, :action_name
+      attr_accessor :actions, :body, :content_type, :context_id, :message, :options, :mime_version, :charset, :context, :parts, :params, :action_choice, :agent_class, :output_schema, :action_name, :mcp_servers
 
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})
@@ -27,6 +27,7 @@ module ActiveAgent
         @output_schema = attributes.fetch(:output_schema, nil)
         @messages = Message.from_messages(@messages)
         @action_name = attributes.fetch(:action_name, nil)
+        @mcp_servers = attributes.fetch(:mcp_servers, nil)
         set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message&.content
         set_messages if @instructions.present?
       end
