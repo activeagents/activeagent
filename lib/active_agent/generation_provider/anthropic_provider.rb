@@ -18,7 +18,7 @@ module ActiveAgent
         super
         @access_token ||= config["api_key"] || config["access_token"] || Anthropic.configuration.access_token || ENV["ANTHROPIC_ACCESS_TOKEN"]
         @extra_headers = config["extra_headers"] || {}
-        @client = Anthropic::Client.new(access_token: @access_token, extra_headers:@extra_headers)
+        @client = Anthropic::Client.new(access_token: @access_token, extra_headers: @extra_headers)
       end
 
       def generate(prompt)
