@@ -23,7 +23,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 02:55:08 GMT
+      - Mon, 11 Aug 2025 22:51:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -35,34 +35,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '465'
+      - '313'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '476'
+      - '359'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9986'
+      - '9967'
       X-Ratelimit-Remaining-Tokens:
-      - '198793'
+      - '199995'
       X-Ratelimit-Reset-Requests:
-      - 1m54.924s
+      - 4m44.381s
       X-Ratelimit-Reset-Tokens:
-      - 361ms
+      - 1ms
       X-Request-Id:
-      - req_0827e84d7a9649f190c6aaabee027ce5
+      - req_1bb9908390c945608db96543155b047a
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=JfUpfGmUB4vhPoKVW3E_dwASEBhoSkJNuiwXC9HmmiQ-1754621708-1.0.1.1-.PBMKzAiIUraK5pCHP9BdCC2KN4TFZkxrciB1IXdFyovgSzbTK1PjGBynu3EZRAqeRMEdArp1HpW_e4TeDV1Jh72t62fRyXG.ljdjEEJNh8;
-        path=/; expires=Fri, 08-Aug-25 03:25:08 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=pNA_QMqV3H13lp76Aav1j0ZZeOqwXRrY4_t7oUHeqew-1754952676-1.0.1.1-uZ85XQU7IazZKy_l2L0CNK8no.WvmB5NTjLaTDGsfv8LKtjGQAVkCURr7NRMo4mCdsfXfaOOt91xHXCaJOAzkMgkqcVsPOZSVu0Nr5xUrXg;
+        path=/; expires=Mon, 11-Aug-25 23:21:16 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=4TtxJ21akzIoZpAZAGykIJUA5XXWupwGCJQZ4dqs1l4-1754621708435-0.0.1.1-604800000;
+      - _cfuvid=ksxeMoBZ.2fPHUz4HdVtV6OtcevGneI8WlhRSOUmaY8-1754952676471-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +71,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbbbaa4ac4cf1e-SJC
+      - 96db4bf15a0a17d2-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C27Y3TqY5J5pyL2YbrFMacwRuhbLV",
+          "id": "chatcmpl-C3VeG9kadKnUO5FCQAXI74rn8cZhX",
           "object": "chat.completion",
-          "created": 1754621707,
+          "created": 1754952676,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -113,5 +113,5 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 08 Aug 2025 02:55:08 GMT
+  recorded_at: Mon, 11 Aug 2025 22:51:16 GMT
 recorded_with: VCR 6.3.1

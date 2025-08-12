@@ -7,13 +7,13 @@ http_interactions:
       encoding: UTF-8
       string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
         are a weather assistant. Use the available tools to provide weather information."},{"role":"user","content":"Get
-        the current temperature and convert it from Celsius to Fahrenheit"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"convert_temperature","description":"Convert
+        the current temperature and convert it from Celsius to Fahrenheit"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_temperature","description":"Get
+        the current temperature in Celsius","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"get_weather_report","description":"Get
+        a detailed weather report with HTML formatting","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"convert_temperature","description":"Convert
         temperature between Celsius and Fahrenheit","parameters":{"type":"object","properties":{"value":{"type":"number","description":"Temperature
         value to convert"},"from":{"type":"string","description":"Unit to convert
         from (celsius or fahrenheit)","enum":["celsius","fahrenheit"]},"to":{"type":"string","description":"Unit
-        to convert to (celsius or fahrenheit)","enum":["celsius","fahrenheit"]}},"required":["value","from","to"]}}},{"type":"function","function":{"name":"get_temperature","description":"Get
-        the current temperature in Celsius","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"get_weather_report","description":"Get
-        a detailed weather report with HTML formatting","parameters":{"type":"object","properties":{}}}}]}'
+        to convert to (celsius or fahrenheit)","enum":["celsius","fahrenheit"]}},"required":["value","from","to"]}}}]}'
     headers:
       Content-Type:
       - application/json
@@ -31,7 +31,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 03:27:11 GMT
+      - Mon, 11 Aug 2025 22:50:40 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -43,34 +43,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '378'
+      - '367'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '497'
+      - '393'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9986'
+      - '9991'
       X-Ratelimit-Remaining-Tokens:
       - '199958'
       X-Ratelimit-Reset-Requests:
-      - 1m57.402s
+      - 1m10.198s
       X-Ratelimit-Reset-Tokens:
       - 12ms
       X-Request-Id:
-      - req_8dded577f26748a8867b3d9ceb7836ab
+      - req_52e2130ea01e42c482dfbba215725803
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=FETgyRArVqIT2BTNZLKl.vGhlETZXRKA2048RRRVTPM-1754623631-1.0.1.1-zVYh3nZhKZHuUHsne_TtelKRIhIPjWPeQ3LrvfQCL2VUcYq8xbqONBF_VJpvCCYPgUnaSAX2FFNRDiaYasZSBdakXoQlGQcaDuoyuOHxFMg;
-        path=/; expires=Fri, 08-Aug-25 03:57:11 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=vspu_MTC56N3feGSwCKJTXKoPc7SNwKPz0k6p8YVdSc-1754952640-1.0.1.1-4ITA3fWBPSNfIctYKp00G0nWM2dO44hr1IKUOCK80mcorGI9JXEl6upHBwPNaw1UylIUkcovqbrK_SCIo6D1zG80efY8lI8HIYapieQNjJ0;
+        path=/; expires=Mon, 11-Aug-25 23:20:40 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=MnGuEyhYaKPU4kkzvrlNF_yENhpn3LKDMZ1SCaiZ1oQ-1754623631526-0.0.1.1-604800000;
+      - _cfuvid=F_Mgwwrbb.mZXl0FsfUHfQRHDqWyHtND8BGEuz30T8w-1754952640148-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -79,16 +79,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbea9d8ea8fa92-SJC
+      - 96db4b0e0dbffa9e-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C2835tVtxAB1ihGSmi0jVZ6jS58Vz",
+          "id": "chatcmpl-C3VdfuWugW71JbNjBVyXxHsSlql34",
           "object": "chat.completion",
-          "created": 1754623631,
+          "created": 1754952639,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -98,7 +98,7 @@ http_interactions:
                 "content": null,
                 "tool_calls": [
                   {
-                    "id": "call_mySHm3VW7lr3tHkTpF6rAjUv",
+                    "id": "call_Bb7Lop4ConLJr6hovWjFqzbV",
                     "type": "function",
                     "function": {
                       "name": "get_temperature",
@@ -129,9 +129,9 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_34a54ae93c"
+          "system_fingerprint": "fp_62a23a81ef"
         }
-  recorded_at: Fri, 08 Aug 2025 03:27:11 GMT
+  recorded_at: Mon, 11 Aug 2025 22:50:40 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/chat/completions
@@ -139,13 +139,13 @@ http_interactions:
       encoding: UTF-8
       string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
         are a weather assistant. Use the available tools to provide weather information."},{"role":"user","content":"Get
-        the current temperature and convert it from Celsius to Fahrenheit"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"get_temperature","arguments":"{}"},"id":"call_mySHm3VW7lr3tHkTpF6rAjUv"}]},{"role":"tool","content":"22.5","tool_call_id":"call_mySHm3VW7lr3tHkTpF6rAjUv","name":"get_temperature"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"convert_temperature","description":"Convert
+        the current temperature and convert it from Celsius to Fahrenheit"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"get_temperature","arguments":"{}"},"id":"call_Bb7Lop4ConLJr6hovWjFqzbV"}]},{"role":"tool","content":"22.5","tool_call_id":"call_Bb7Lop4ConLJr6hovWjFqzbV","name":"get_temperature"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_temperature","description":"Get
+        the current temperature in Celsius","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"get_weather_report","description":"Get
+        a detailed weather report with HTML formatting","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"convert_temperature","description":"Convert
         temperature between Celsius and Fahrenheit","parameters":{"type":"object","properties":{"value":{"type":"number","description":"Temperature
         value to convert"},"from":{"type":"string","description":"Unit to convert
         from (celsius or fahrenheit)","enum":["celsius","fahrenheit"]},"to":{"type":"string","description":"Unit
-        to convert to (celsius or fahrenheit)","enum":["celsius","fahrenheit"]}},"required":["value","from","to"]}}},{"type":"function","function":{"name":"get_temperature","description":"Get
-        the current temperature in Celsius","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"get_weather_report","description":"Get
-        a detailed weather report with HTML formatting","parameters":{"type":"object","properties":{}}}}]}'
+        to convert to (celsius or fahrenheit)","enum":["celsius","fahrenheit"]}},"required":["value","from","to"]}}}]}'
     headers:
       Content-Type:
       - application/json
@@ -163,7 +163,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 03:27:12 GMT
+      - Mon, 11 Aug 2025 22:50:40 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -175,34 +175,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '595'
+      - '463'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '643'
+      - '477'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9985'
+      - '9990'
       X-Ratelimit-Remaining-Tokens:
       - '199955'
       X-Ratelimit-Reset-Requests:
-      - 2m5.505s
+      - 1m18.33s
       X-Ratelimit-Reset-Tokens:
       - 13ms
       X-Request-Id:
-      - req_a3c95adab7514ac4b5c3f79766d61cf5
+      - req_0766d28ac16c4a70a9387be5a8a3bce7
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=_DjcJSo0c0owIzFvIUruSiEgoNJ7Qx1AlyGpoiPzC8Q-1754623632-1.0.1.1-D7OnopPTu_Ef8GVViA_tduIwbe1McKoC_DWuJXrSNcxMyv7lDl0GyycpZ4Ry8HZSGMMlBu7WqzfYQ65DFSS8B1ScVFKsuP0l.yOyAQxSiuo;
-        path=/; expires=Fri, 08-Aug-25 03:57:12 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=foiFNtyWwcPndlunWl6D0jGxM15r3oS0q6LhWWIbazA-1754952640-1.0.1.1-YX3v0eMn3.3iMH9kmn9O6VJC1FnweXXyaqHZYulpxD60JMKQT4z4LHcih.R9SFSG9QR.aG_LNk_ZHSCgkIwv7tviSedPjBEOW194TD1rUDU;
+        path=/; expires=Mon, 11-Aug-25 23:20:40 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=PUzEQjTw9CBrYwMXwQPL_MUO1ElIZEDhtbLONTk0EG4-1754623632303-0.0.1.1-604800000;
+      - _cfuvid=Hj1HYp1Vp2ltWxB36ILUh8KRfJV9brHhgH_2hDoXhq0-1754952640747-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -211,16 +211,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbeaa158011975-SJC
+      - 96db4b115bf16892-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C28351S20zoAv6WQhnH5ZkVNm045Q",
+          "id": "chatcmpl-C3Vdg5enzaPPVthuHf6o02GEYTCAO",
           "object": "chat.completion",
-          "created": 1754623631,
+          "created": 1754952640,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -230,7 +230,7 @@ http_interactions:
                 "content": null,
                 "tool_calls": [
                   {
-                    "id": "call_hv84ien3Ve2BZwCDuwnRgUwp",
+                    "id": "call_114aycJ0DnzlNG524ZSEgQIu",
                     "type": "function",
                     "function": {
                       "name": "convert_temperature",
@@ -261,9 +261,9 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_34a54ae93c"
+          "system_fingerprint": "fp_62a23a81ef"
         }
-  recorded_at: Fri, 08 Aug 2025 03:27:12 GMT
+  recorded_at: Mon, 11 Aug 2025 22:50:40 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/chat/completions
@@ -271,13 +271,13 @@ http_interactions:
       encoding: UTF-8
       string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
         are a weather assistant. Use the available tools to provide weather information."},{"role":"user","content":"Get
-        the current temperature and convert it from Celsius to Fahrenheit"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"get_temperature","arguments":"{}"},"id":"call_mySHm3VW7lr3tHkTpF6rAjUv"}]},{"role":"tool","content":"22.5","tool_call_id":"call_mySHm3VW7lr3tHkTpF6rAjUv","name":"get_temperature"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"convert_temperature","arguments":"{\"value\":22.5,\"from\":\"celsius\",\"to\":\"fahrenheit\"}"},"id":"call_hv84ien3Ve2BZwCDuwnRgUwp"}]},{"role":"tool","content":"72.5","tool_call_id":"call_hv84ien3Ve2BZwCDuwnRgUwp","name":"convert_temperature"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"convert_temperature","description":"Convert
+        the current temperature and convert it from Celsius to Fahrenheit"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"get_temperature","arguments":"{}"},"id":"call_Bb7Lop4ConLJr6hovWjFqzbV"}]},{"role":"tool","content":"22.5","tool_call_id":"call_Bb7Lop4ConLJr6hovWjFqzbV","name":"get_temperature"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"convert_temperature","arguments":"{\"value\":22.5,\"from\":\"celsius\",\"to\":\"fahrenheit\"}"},"id":"call_114aycJ0DnzlNG524ZSEgQIu"}]},{"role":"tool","content":"72.5","tool_call_id":"call_114aycJ0DnzlNG524ZSEgQIu","name":"convert_temperature"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"get_temperature","description":"Get
+        the current temperature in Celsius","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"get_weather_report","description":"Get
+        a detailed weather report with HTML formatting","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"convert_temperature","description":"Convert
         temperature between Celsius and Fahrenheit","parameters":{"type":"object","properties":{"value":{"type":"number","description":"Temperature
         value to convert"},"from":{"type":"string","description":"Unit to convert
         from (celsius or fahrenheit)","enum":["celsius","fahrenheit"]},"to":{"type":"string","description":"Unit
-        to convert to (celsius or fahrenheit)","enum":["celsius","fahrenheit"]}},"required":["value","from","to"]}}},{"type":"function","function":{"name":"get_temperature","description":"Get
-        the current temperature in Celsius","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"get_weather_report","description":"Get
-        a detailed weather report with HTML formatting","parameters":{"type":"object","properties":{}}}}]}'
+        to convert to (celsius or fahrenheit)","enum":["celsius","fahrenheit"]}},"required":["value","from","to"]}}}]}'
     headers:
       Content-Type:
       - application/json
@@ -295,7 +295,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 03:27:12 GMT
+      - Mon, 11 Aug 2025 22:50:41 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -307,34 +307,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '482'
+      - '428'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '494'
+      - '599'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9984'
+      - '9990'
       X-Ratelimit-Remaining-Tokens:
       - '199952'
       X-Ratelimit-Reset-Requests:
-      - 2m13.396s
+      - 1m19.24s
       X-Ratelimit-Reset-Tokens:
       - 14ms
       X-Request-Id:
-      - req_b560ee47174648a8a42e1207b9f88903
+      - req_ed54d56bd1ff4765a20efbca5a9955f3
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=A1r5jC7gj5Q3v445kIuXibSgGgTw6.9HygYJ2x4lqH8-1754623632-1.0.1.1-xa9ryVNR93kIcEIMVjpKfXWZFMYXOAeHf5oVkVzRF5ADR2ZZboUDSb.TFAGZzODYk16QCBuAsY2sZ1GztRP32WzdnYBIdd1hApYkhrCj7pc;
-        path=/; expires=Fri, 08-Aug-25 03:57:12 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=l.pl6BvOPHc06aB0jtSCL2xssPQ793MCi5AbjB7TLXY-1754952641-1.0.1.1-d.uUScoZzkjdJQ.7tWR98_cIVqqs3xn2Pf_WZu7Ga9jLMSXLUcEEGAieJyO7uh1Ez.XJy4n_CRFlUGHO.lJJzvinxfYgT11_ar42Ms.K9Ag;
+        path=/; expires=Mon, 11-Aug-25 23:20:41 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=KS9N0YHA28l2TXXteqox4AbTfvUTmwt2nd08qwvcsfo-1754623632911-0.0.1.1-604800000;
+      - _cfuvid=sINPopjfdnJGUcEMENzszkTRSlpcgE54CfJoEqlVt6M-1754952641646-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -343,12 +343,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbeaa639b69e53-SJC
+      - 96db4b14fc99fb3c-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        ewogICJpZCI6ICJjaGF0Y21wbC1DMjgzNjc1dkRzYndSeGxvbkJMSHF0dGlGcmh5ZyIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc1NDYyMzYzMiwKICAibW9kZWwiOiAiZ3B0LTRvLW1pbmktMjAyNC0wNy0xOCIsCiAgImNob2ljZXMiOiBbCiAgICB7CiAgICAgICJpbmRleCI6IDAsCiAgICAgICJtZXNzYWdlIjogewogICAgICAgICJyb2xlIjogImFzc2lzdGFudCIsCiAgICAgICAgImNvbnRlbnQiOiAiVGhlIGN1cnJlbnQgdGVtcGVyYXR1cmUgaXMgMjIuNcKwQywgd2hpY2ggaXMgZXF1aXZhbGVudCB0byA3Mi41wrBGLiIsCiAgICAgICAgInJlZnVzYWwiOiBudWxsLAogICAgICAgICJhbm5vdGF0aW9ucyI6IFtdCiAgICAgIH0sCiAgICAgICJsb2dwcm9icyI6IG51bGwsCiAgICAgICJmaW5pc2hfcmVhc29uIjogInN0b3AiCiAgICB9CiAgXSwKICAidXNhZ2UiOiB7CiAgICAicHJvbXB0X3Rva2VucyI6IDIxMSwKICAgICJjb21wbGV0aW9uX3Rva2VucyI6IDIxLAogICAgInRvdGFsX3Rva2VucyI6IDIzMiwKICAgICJwcm9tcHRfdG9rZW5zX2RldGFpbHMiOiB7CiAgICAgICJjYWNoZWRfdG9rZW5zIjogMCwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAKICAgIH0sCiAgICAiY29tcGxldGlvbl90b2tlbnNfZGV0YWlscyI6IHsKICAgICAgInJlYXNvbmluZ190b2tlbnMiOiAwLAogICAgICAiYXVkaW9fdG9rZW5zIjogMCwKICAgICAgImFjY2VwdGVkX3ByZWRpY3Rpb25fdG9rZW5zIjogMCwKICAgICAgInJlamVjdGVkX3ByZWRpY3Rpb25fdG9rZW5zIjogMAogICAgfQogIH0sCiAgInNlcnZpY2VfdGllciI6ICJkZWZhdWx0IiwKICAic3lzdGVtX2ZpbmdlcnByaW50IjogImZwXzM0YTU0YWU5M2MiCn0K
-  recorded_at: Fri, 08 Aug 2025 03:27:12 GMT
+        ewogICJpZCI6ICJjaGF0Y21wbC1DM1ZkaHpVN1ZCOXN3QkFyR2VnNzlmaExvNDFCciIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc1NDk1MjY0MSwKICAibW9kZWwiOiAiZ3B0LTRvLW1pbmktMjAyNC0wNy0xOCIsCiAgImNob2ljZXMiOiBbCiAgICB7CiAgICAgICJpbmRleCI6IDAsCiAgICAgICJtZXNzYWdlIjogewogICAgICAgICJyb2xlIjogImFzc2lzdGFudCIsCiAgICAgICAgImNvbnRlbnQiOiAiVGhlIGN1cnJlbnQgdGVtcGVyYXR1cmUgaXMgMjIuNcKwQywgd2hpY2ggaXMgZXF1aXZhbGVudCB0byA3Mi41wrBGLiIsCiAgICAgICAgInJlZnVzYWwiOiBudWxsLAogICAgICAgICJhbm5vdGF0aW9ucyI6IFtdCiAgICAgIH0sCiAgICAgICJsb2dwcm9icyI6IG51bGwsCiAgICAgICJmaW5pc2hfcmVhc29uIjogInN0b3AiCiAgICB9CiAgXSwKICAidXNhZ2UiOiB7CiAgICAicHJvbXB0X3Rva2VucyI6IDIxMSwKICAgICJjb21wbGV0aW9uX3Rva2VucyI6IDIxLAogICAgInRvdGFsX3Rva2VucyI6IDIzMiwKICAgICJwcm9tcHRfdG9rZW5zX2RldGFpbHMiOiB7CiAgICAgICJjYWNoZWRfdG9rZW5zIjogMCwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAKICAgIH0sCiAgICAiY29tcGxldGlvbl90b2tlbnNfZGV0YWlscyI6IHsKICAgICAgInJlYXNvbmluZ190b2tlbnMiOiAwLAogICAgICAiYXVkaW9fdG9rZW5zIjogMCwKICAgICAgImFjY2VwdGVkX3ByZWRpY3Rpb25fdG9rZW5zIjogMCwKICAgICAgInJlamVjdGVkX3ByZWRpY3Rpb25fdG9rZW5zIjogMAogICAgfQogIH0sCiAgInNlcnZpY2VfdGllciI6ICJkZWZhdWx0IiwKICAic3lzdGVtX2ZpbmdlcnByaW50IjogImZwXzYyYTIzYTgxZWYiCn0K
+  recorded_at: Mon, 11 Aug 2025 22:50:41 GMT
 recorded_with: VCR 6.3.1

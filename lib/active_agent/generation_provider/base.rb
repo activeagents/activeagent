@@ -1,8 +1,14 @@
 # lib/active_agent/generation_provider/base.rb
 
+require_relative "error_handling"
+require_relative "parameter_builder"
+
 module ActiveAgent
   module GenerationProvider
     class Base
+      include ErrorHandling
+      include ParameterBuilder
+      
       class GenerationProviderError < StandardError; end
       attr_reader :client, :config, :prompt, :response, :access_token, :model_name
 
@@ -10,10 +16,16 @@ module ActiveAgent
         @config = config
         @prompt = nil
         @response = nil
+        @model_name = config["model"] if config
       end
 
       def generate(prompt)
         raise NotImplementedError, "Subclasses must implement the 'generate' method"
+      end
+
+      def embed(prompt)
+        # Optional embedding support - override in providers that support it
+        raise NotImplementedError, "#{self.class.name} does not support embeddings"
       end
 
       private
@@ -30,11 +42,12 @@ module ActiveAgent
 
       protected
 
-      def prompt_parameters
-        {
-          messages: @prompt.messages,
-          temperature: @config["temperature"] || 0.7
-        }
+      # This method is now provided by ParameterBuilder module
+      # but can still be overridden if needed
+      def build_provider_parameters
+        # Base implementation returns empty hash
+        # Providers override this to add their specific parameters
+        {}
       end
     end
   end

@@ -42,7 +42,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 03:27:08 GMT
+      - Mon, 11 Aug 2025 22:51:02 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,34 +54,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '666'
+      - '484'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '716'
+      - '573'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9991'
+      - '9980'
       X-Ratelimit-Remaining-Tokens:
       - '199853'
       X-Ratelimit-Reset-Requests:
-      - 1m17.469s
+      - 2m48.581s
       X-Ratelimit-Reset-Tokens:
       - 44ms
       X-Request-Id:
-      - req_3341e5bebbf14b27abfbf83b77f0a8f7
+      - req_10170f1f02774a108ec281074e94dd48
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=SHlURUdd50DCsR8Y0KJbBFy.3yUY2U2WXPQVKWquRo4-1754623628-1.0.1.1-cFbsQ5tWh8PmCsFGf35Q7qZerjglDRtieO9iLqYQGlx4IIwjckD9AW5NWgJVb6E30iq6MiC99TZMPMw7T6M_PRsIHzJaPTySQmBPYWNCLao;
-        path=/; expires=Fri, 08-Aug-25 03:57:08 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=xA4V1ftUy1jQaj4SJAD516WofLRiP8ZDcz6Mah3tHGQ-1754952662-1.0.1.1-Shtfy5JZjf_R8bwfA2e2pKTVtGZTqlashvE3WTUh12yzicina4Cn73vMgVFA01nqHaQMyQ_0Y2oxlrUITHyoDhf3M3SXk9RdccI4Q4Ie9pI;
+        path=/; expires=Mon, 11-Aug-25 23:21:02 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=kBmEh1Gmn2NNIWQF3pOwzgxjMxow3dXjJfRcdGNtNjQ-1754623628541-0.0.1.1-604800000;
+      - _cfuvid=HQjGIRu1A05tHppyIgV4J_zT_K7dxnmegJNkxEWdor8-1754952662904-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -90,16 +90,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbea897d67fad2-SJC
+      - 96db4b9b1ed4cf8b-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C2831JqKP66RPtPdvyT24d7CHrp8T",
+          "id": "chatcmpl-C3Ve2q894tY57a1PWNC2I1614nn1w",
           "object": "chat.completion",
-          "created": 1754623627,
+          "created": 1754952662,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -109,7 +109,7 @@ http_interactions:
                 "content": null,
                 "tool_calls": [
                   {
-                    "id": "call_DQIjMOYC6pJVHz5MFVyKJODm",
+                    "id": "call_nPvBYkQzCCExbsfNT2rkOHhB",
                     "type": "function",
                     "function": {
                       "name": "book",
@@ -142,7 +142,7 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 08 Aug 2025 03:27:08 GMT
+  recorded_at: Mon, 11 Aug 2025 22:51:02 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/chat/completions
@@ -157,8 +157,8 @@ http_interactions:
         `book` action to book a hotel for the user.\n- The agent should use the `confirm`
         action to confirm the booking with the user."},{"role":"user","content":"Book
         flight AA123 for John Doe"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"book","arguments":"{\"params\":{\"flight_id\":\"AA123\",\"passenger_name\":\"John
-        Doe\"}}"},"id":"call_DQIjMOYC6pJVHz5MFVyKJODm"}]},{"role":"tool","content":"Booking
-        flight \nPassenger: \nConfirmation: \nStatus: Booking confirmed\n","tool_call_id":"call_DQIjMOYC6pJVHz5MFVyKJODm","name":"book"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
+        Doe\"}}"},"id":"call_nPvBYkQzCCExbsfNT2rkOHhB"}]},{"role":"tool","content":"Booking
+        flight \nPassenger: \nConfirmation: \nStatus: Booking confirmed\n","tool_call_id":"call_nPvBYkQzCCExbsfNT2rkOHhB","name":"book"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
         a flight booking","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"confirmation_number":{"type":"string","description":"The
         booking confirmation number"},"send_email":{"type":"boolean","description":"Whether
         to send confirmation email"}},"required":["confirmation_number"]}},"required":["params"]}}},{"type":"function","function":{"name":"search","description":"Search
@@ -187,7 +187,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 03:27:09 GMT
+      - Mon, 11 Aug 2025 22:51:03 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -199,34 +199,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '549'
+      - '524'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '563'
+      - '562'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9990'
+      - '9979'
       X-Ratelimit-Remaining-Tokens:
       - '199841'
       X-Ratelimit-Reset-Requests:
-      - 1m25.335s
+      - 2m56.494s
       X-Ratelimit-Reset-Tokens:
       - 47ms
       X-Request-Id:
-      - req_7f78ff28e9aa4f7581012710ef16bc2c
+      - req_b3eaec805f9b427c95c4aa93d337ad5c
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=FS0BLA6SfAApimK2sg5EBSC6QZsO9Eepiua4cEyyOeA-1754623629-1.0.1.1-IIjBl7S_vp7_aoVlXW2S7avJNHacEkHPLlB7LY2l.F5VKz7ZhU1kWFhAfI6IZcS81q0qSTJf5KFVRQ8YU1iZMJHmWa_24EgO5v_km1aZtTU;
-        path=/; expires=Fri, 08-Aug-25 03:57:09 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=t_krfTdIeKtX8n.6DQLGg9DrdhgSS3pt8knjK5jAVNU-1754952663-1.0.1.1-Waf0YPmK4hrpm98y8Ag0yZWcwh_7DilJBGVKnW7jX2KoE15NL3GFKb.Q4eGzC60AGnb081R7pSB5fBYcLY.2gj11P3FH2cdQe7LhtAjGYN4;
+        path=/; expires=Mon, 11-Aug-25 23:21:03 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=MvrmPL3iQDLZ1GhE5ZIyC60ivHiMSiUjfzdWakms3MM-1754623629198-0.0.1.1-604800000;
+      - _cfuvid=SSMrIl1x8jaTE8EbItAiDvVAGKOBL0A.Rr4XwNBmtFk-1754952663608-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -235,34 +235,44 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbea8eacaf173a-SJC
+      - 96db4b9f9fb4679e-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C2832BtnSn8synH7b0koiEif3PHmQ",
+          "id": "chatcmpl-C3Ve3Ovn8yGvFGmPLGoufKd89aL7B",
           "object": "chat.completion",
-          "created": 1754623628,
+          "created": 1754952663,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "I have successfully booked flight AA123 for John Doe. If you need any further assistance or have questions, feel free to ask!",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_63zfMyk53BcEtNSlFelm70Hq",
+                    "type": "function",
+                    "function": {
+                      "name": "confirm",
+                      "arguments": "{\"params\":{\"confirmation_number\":\"\",\"send_email\":true}}"
+                    }
+                  }
+                ],
                 "refusal": null,
                 "annotations": []
               },
               "logprobs": null,
-              "finish_reason": "stop"
+              "finish_reason": "tool_calls"
             }
           ],
           "usage": {
             "prompt_tokens": 322,
-            "completion_tokens": 27,
-            "total_tokens": 349,
+            "completion_tokens": 19,
+            "total_tokens": 341,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -277,5 +287,143 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 08 Aug 2025 03:27:09 GMT
+  recorded_at: Mon, 11 Aug 2025 22:51:03 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"This
+        agent is currently interacting with Guest to find a hotel near their travel
+        destination.\nThe agent should use the following actions to achieve the desired
+        outcome:\n\n  search: Search for available flights to a destination\n  book:
+        Book a specific flight\n\nrequirements:\n- The agent should use the `search`
+        action to find hotels in the requested location.\n- The agent should use the
+        `book` action to book a hotel for the user.\n- The agent should use the `confirm`
+        action to confirm the booking with the user."},{"role":"user","content":"Book
+        flight AA123 for John Doe"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"book","arguments":"{\"params\":{\"flight_id\":\"AA123\",\"passenger_name\":\"John
+        Doe\"}}"},"id":"call_nPvBYkQzCCExbsfNT2rkOHhB"}]},{"role":"tool","content":"Booking
+        flight \nPassenger: \nConfirmation: \nStatus: Booking confirmed\n","tool_call_id":"call_nPvBYkQzCCExbsfNT2rkOHhB","name":"book"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"confirm","arguments":"{\"params\":{\"confirmation_number\":\"\",\"send_email\":true}}"},"id":"call_63zfMyk53BcEtNSlFelm70Hq"}]},{"role":"tool","content":"Your
+        booking has been confirmed!\n\nConfirmation Number: TRV123456\nPassenger:
+        Guest\nFlight: Flight details will be sent via email\n\nThank you for choosing
+        our travel service.\n","tool_call_id":"call_63zfMyk53BcEtNSlFelm70Hq","name":"confirm"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
+        a flight booking","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"confirmation_number":{"type":"string","description":"The
+        booking confirmation number"},"send_email":{"type":"boolean","description":"Whether
+        to send confirmation email"}},"required":["confirmation_number"]}},"required":["params"]}}},{"type":"function","function":{"name":"search","description":"Search
+        for available flights to a destination","parameters":{"type":"object","properties":{"departure":{"type":"string","description":"Departure
+        city or airport code"},"destination":{"type":"string","description":"Destination
+        city or airport code"},"date":{"type":"string","description":"Travel date
+        in YYYY-MM-DD format"}},"required":["destination"]}}},{"type":"function","function":{"name":"book","description":"Book
+        a specific flight","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"flight_id":{"type":"string","description":"The
+        flight identifier to book"},"passenger_name":{"type":"string","description":"Name
+        of the passenger"},"passenger_email":{"type":"string","description":"Email
+        address for booking confirmation"}},"required":["flight_id","passenger_name"]}},"required":["params"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Mon, 11 Aug 2025 22:51:04 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1147'
+      Openai-Project:
+      - proj_pcPHiweuB88laiGDTaN3nH2M
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '1166'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9978'
+      X-Ratelimit-Remaining-Tokens:
+      - '199798'
+      X-Ratelimit-Reset-Requests:
+      - 3m4.468s
+      X-Ratelimit-Reset-Tokens:
+      - 60ms
+      X-Request-Id:
+      - req_99c6188dd7af4d76af91953ad4de558a
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=RFKI534HcYJR7o8qisSb.riKPBHwNFts9yxWE4b9Spw-1754952664-1.0.1.1-CswNAO34KlEGs6v9W5g2jTMNhUYy9SvNHHW1essSxqL1yQNb6hC8k0uqGtKd1npY_jWqYq7CjDHtQneCoJra25sdA4R0ofHUWN5pc0ld9f0;
+        path=/; expires=Mon, 11-Aug-25 23:21:04 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=SZO7HEdm9hKE1.J1Jmt.Iy8ufziQUV19iZ3a9uTwnj4-1754952664891-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 96db4ba3e8681679-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C3Ve3dGG1Kpbhwv6mK5pZlM7HyqKa",
+          "object": "chat.completion",
+          "created": 1754952663,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Your flight AA123 for John Doe has been successfully booked and confirmed! \n\n**Confirmation Number:** TRV123456  \nDetails will be sent to your email.\n\nThank you for choosing our travel service! If you need any further assistance, feel free to ask.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 384,
+            "completion_tokens": 53,
+            "total_tokens": 437,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_34a54ae93c"
+        }
+  recorded_at: Mon, 11 Aug 2025 22:51:04 GMT
 recorded_with: VCR 6.3.1

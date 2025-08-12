@@ -1,5 +1,6 @@
 require "yaml"
 require "abstract_controller"
+require "active_agent/configuration"
 require "active_agent/generation_provider"
 require "active_agent/version"
 require "active_agent/deprecator"
@@ -25,7 +26,6 @@ module ActiveAgent
   autoload :InlinePreviewInterceptor
   autoload :PromptHelper
   autoload :Generation
-  autoload :GenerationMethods
   autoload :GenerationProvider
   autoload :QueuedGeneration
   autoload :Parameterized
