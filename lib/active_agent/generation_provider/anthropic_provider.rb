@@ -10,10 +10,16 @@ end
 require "active_agent/action_prompt/action"
 require_relative "base"
 require_relative "response"
+require_relative "stream_processing"
+require_relative "message_formatting"
+require_relative "tool_management"
 
 module ActiveAgent
   module GenerationProvider
     class AnthropicProvider < Base
+      include StreamProcessing
+      include MessageFormatting
+      include ToolManagement
       def initialize(config)
         super
         @access_token ||= config["api_key"] || config["access_token"] || Anthropic.configuration.access_token || ENV["ANTHROPIC_ACCESS_TOKEN"]
@@ -24,13 +30,9 @@ module ActiveAgent
       def generate(prompt)
         @prompt = prompt
 
-        chat_prompt(parameters: prompt_parameters)
-      rescue => e
-        error_message = e.respond_to?(:message) ? e.message : e.to_s
-        if e.respond_to?(:response)
-          error_message += " - #{e.response[:body]["error"]["message"]}"
+        with_error_handling do
+          chat_prompt(parameters: prompt_parameters)
         end
-        raise GenerationProviderError, error_message
       end
 
       def chat_prompt(parameters: prompt_parameters)
@@ -39,85 +41,75 @@ module ActiveAgent
         chat_response(@client.messages(parameters: parameters))
       end
 
-      private
+      protected
 
-      def provider_stream
-        agent_stream = prompt.options[:stream]
-        message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
-        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt)
-
-        proc do |chunk|
-          if new_content = chunk.dig(:delta, :text)
-            message.content += new_content
-            agent_stream.call(message, nil, false, prompt.action_name) if agent_stream.respond_to?(:call)
-          end
+      # Override from StreamProcessing module for Anthropic-specific streaming
+      def process_stream_chunk(chunk, message, agent_stream)
+        if new_content = chunk.dig(:delta, :text)
+          message.content += new_content
+          agent_stream&.call(message, new_content, false, prompt.action_name)
+        end
+        
+        if chunk[:type] == "message_stop"
+          finalize_stream(message, agent_stream)
         end
       end
 
-      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, mcp_servers: @prompt.mcp_servers)
-        # fix for new Anthropic API that requires messages to be in a specific format without system role
-        system_messages = messages.select { |m| m.role == :system }
-        messages = messages.reject { |m| m.role == :system }
+      # Override from ParameterBuilder to handle Anthropic-specific requirements
+      def build_provider_parameters
+        # Anthropic requires system message separately and no system role in messages
+        filtered_messages = @prompt.messages.reject { |m| m.role == :system }
+        system_message = @prompt.messages.find { |m| m.role == :system }
+        
         params = {
-          model: model,
-          system: system_messages.last.content || @prompt.options[:instructions],
-          messages: provider_messages(messages),
-          temperature: temperature,
-          mcp_servers: mcp_servers,
-          max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"] || 4096
+          system: system_message&.content || @prompt.options[:instructions]
         }
-
-        if tools&.present?
-          params[:tools] = format_tools(tools)
-        end
-
+        
+        # Override messages to use filtered version
+        @filtered_messages = filtered_messages
+        
         params
       end
-
-      def format_tools(tools)
-        tools.map do |tool|
-          if tool["type"] == "function"
-          {
-            name: tool["name"] || tool["function"]["name"],
-            description: tool["description"] || tool["function"]["description"],
-            input_schema: tool["parameters"]  || tool["function"]["parameters"]
-          }
-          else
-            {
-              type: tool["type"],
-              name: tool["name"],
-              max_uses: tool["max_uses"]
-            }
-          end
+      
+      def build_base_parameters
+        super.tap do |params|
+          # Use filtered messages if available (set by build_provider_parameters)
+          params[:messages] = provider_messages(@filtered_messages || @prompt.messages)
+          # Anthropic requires max_tokens
+          params[:max_tokens] ||= 4096
         end
       end
 
-      def provider_messages(messages)
-        messages.map do |message|
-          provider_message = {
-            role: convert_role(message.role),
-            content: []
-          }
-
-          provider_message[:content] << if message.content_type == "image_url"
-            {
-              type: "image",
-              source: {
-                type: "url",
-                url: message.content
-              }
-            }
-          else
-            {
-              type: "text",
-              text: message.content.blank?? "do nothing" : message.content
-            }
-          end
-
-          provider_message
-        end
+      # Override from ToolManagement for Anthropic-specific tool format
+      def format_single_tool(tool)
+        {
+          name: tool["name"] || tool.dig("function", "name") || tool[:name] || tool.dig(:function, :name),
+          description: tool["description"] || tool.dig("function", "description") || tool[:description] || tool.dig(:function, :description),
+          input_schema: tool["parameters"] || tool.dig("function", "parameters") || tool[:parameters] || tool.dig(:function, :parameters)
+        }
       end
 
+      # Override from MessageFormatting for Anthropic-specific message format
+      def format_content(message)
+        # Anthropic requires content as an array
+        if message.content_type == "image_url"
+          [format_image_content(message).first]
+        else
+          [{ type: "text", text: message.content }]
+        end
+      end
+      
+      def format_image_content(message)
+        [{
+          type: "image",
+          source: {
+            type: "url",
+            url: message.content
+          }
+        }]
+      end
+
+      # Override from MessageFormatting for Anthropic role mapping
       def convert_role(role)
         case role.to_s
         when "system" then "system"
@@ -149,17 +141,18 @@ module ActiveAgent
         )
       end
 
-      def handle_actions(tool_uses)
-        return unless tool_uses&.present?
-
-        tool_uses.map do |tool_use|
-          ActiveAgent::ActionPrompt::Action.new(
-            id: tool_use["id"],
-            name: tool_use["name"],
-            params: tool_use["input"]
-          )
-        end
+      # Override from ToolManagement for Anthropic-specific tool parsing
+      def parse_tool_call(tool_use)
+        return nil unless tool_use
+        
+        ActiveAgent::ActionPrompt::Action.new(
+          id: tool_use[:id],
+          name: tool_use[:name],
+          params: tool_use[:input]
+        )
       end
+      
+      private
     end
   end
 end

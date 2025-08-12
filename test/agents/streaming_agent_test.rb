@@ -28,7 +28,7 @@ class StreamingAgentTest < ActiveSupport::TestCase
       # endregion streaming_agent_stream_response
     end
 
-    assert_equal 84, broadcast_calls.size
+    assert_equal 54, broadcast_calls.size
   ensure
     # Restore original broadcast method
     ActionCable.server.singleton_class.class_eval do

@@ -9,10 +9,16 @@ require "active_agent/action_prompt/action"
 require_relative "base"
 require_relative "response"
 require_relative "responses_adapter"
+require_relative "stream_processing"
+require_relative "message_formatting"
+require_relative "tool_management"
 
 module ActiveAgent
   module GenerationProvider
     class OpenAIProvider < Base
+      include StreamProcessing
+      include MessageFormatting
+      include ToolManagement
       def initialize(config)
         super
         @host = config["host"] || nil
@@ -27,128 +33,58 @@ module ActiveAgent
       def generate(prompt)
         @prompt = prompt
 
-        if @prompt.multimodal? || @prompt.content_type == "multipart/mixed"
-          responses_prompt(parameters: responses_parameters)
-        else
-          chat_prompt(parameters: prompt_parameters)
+        with_error_handling do
+          if @prompt.multimodal? || @prompt.content_type == "multipart/mixed"
+            responses_prompt(parameters: responses_parameters)
+          else
+            chat_prompt(parameters: prompt_parameters)
+          end
         end
-      rescue => e
-        error_message = e.respond_to?(:message) ? e.message : e.to_s
-        raise GenerationProviderError, error_message
       end
 
       def embed(prompt)
         @prompt = prompt
 
-        embeddings_prompt(parameters: embeddings_parameters)
-      rescue => e
-        error_message = e.respond_to?(:message) ? e.message : e.to_s
-        raise GenerationProviderError, error_message
+        with_error_handling do
+          embeddings_prompt(parameters: embeddings_parameters)
+        end
+      end
+
+      protected
+
+      # Override from StreamProcessing module
+      def process_stream_chunk(chunk, message, agent_stream)
+        new_content = chunk.dig("choices", 0, "delta", "content")
+        if new_content && !new_content.blank?
+          message.generation_id = chunk.dig("id")
+          message.content += new_content
+          # Call agent_stream directly without the block to avoid double execution
+          agent_stream&.call(message, new_content, false, prompt.action_name)
+        elsif chunk.dig("choices", 0, "delta", "tool_calls") && chunk.dig("choices", 0, "delta", "role")
+          message = handle_message(chunk.dig("choices", 0, "delta"))
+          prompt.messages << message
+          @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
+        end
+
+        if chunk.dig("choices", 0, "finish_reason")
+          finalize_stream(message, agent_stream)
+        end
+      end
+
+      # Override from MessageFormatting module to handle OpenAI image format
+      def format_image_content(message)
+        [{
+          type: "image_url",
+          image_url: { url: message.content }
+        }]
       end
 
       private
 
-      def provider_stream
-        agent_stream = prompt.options[:stream]
-
-        message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
-
-        @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
-        proc do |chunk, bytesize|
-          new_content = chunk.dig("choices", 0, "delta", "content")
-          if new_content && !new_content.blank?
-            message.generation_id = chunk.dig("id")
-            message.content += new_content
-
-            agent_stream.call(message, new_content, false, prompt.action_name) do |message, new_content|
-              yield message, new_content if block_given?
-            end
-          elsif chunk.dig("choices", 0, "delta", "tool_calls") && chunk.dig("choices", 0, "delta", "role")
-            message = handle_message(chunk.dig("choices", 0, "delta"))
-            prompt.messages << message
-            @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
-          end
-
-          agent_stream.call(message, nil, true, prompt.action_name) do |message|
-            yield message, nil if block_given?
-          end
-        end
-      end
-
-      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, mcp_servers: @prompt.mcp_servers)
-        params = {
-          model: model,
-          messages: provider_messages(messages),
-          temperature: temperature,
-          mcp_servers: mcp_servers,
-          max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"],
-          tools: format_tools(tools) + mcp_servers
-        }.compact
-        params
-      end
-
-      def format_tools(tools)
-        return [] if tools.blank?
-
-        tools.map do |tool|
-          if tool["function"] || tool[:function]
-            # Tool already has the correct structure
-            tool
-          else
-            # Legacy format - wrap in function structure
-            {
-              type: "function",
-              function: {
-                name: tool["name"] || tool[:name],
-                description: tool["description"] || tool[:description],
-                parameters: tool["parameters"] || tool[:parameters]
-              }
-            }
-          end
-        end
-      end
-
-      def provider_messages(messages)
-        messages.map do |message|
-          # Start with basic message structure
-          provider_message = {
-            role: message.role.to_s,
-            content: message.content
-          }
-
-          # Add tool-specific fields based on role
-          case message.role.to_s
-          when "assistant"
-            if message.action_requested && message.requested_actions.any?
-              provider_message[:tool_calls] = message.requested_actions.map do |action|
-                {
-                  type: "function",
-                  function: {
-                    name: action.name,
-                    arguments: action.params.to_json
-                  },
-                  id: action.id
-                }
-              end
-            elsif message.raw_actions.present? && message.raw_actions.is_a?(Array)
-              provider_message[:tool_calls] = message.raw_actions
-            end
-          when "tool"
-            provider_message[:tool_call_id] = message.action_id
-            provider_message[:name] = message.action_name if message.action_name
-          end
-
-          # Handle image content
-          if message.content_type == "image_url"
-            provider_message[:content] = [ {
-              type: "image_url",
-              image_url: { url: message.content }
-            } ]
-          end
-
-          provider_message.compact
-        end
-      end
+      # Now using modules, but we can override build_provider_parameters for OpenAI-specific needs
+      # The prompt_parameters method comes from ParameterBuilder module
+      # The format_tools method comes from ToolManagement module
+      # The provider_messages method comes from MessageFormatting module
 
       def chat_response(response)
         return @response if prompt.options[:stream]
@@ -188,20 +124,7 @@ module ActiveAgent
         )
       end
 
-      def handle_actions(tool_calls)
-        return [] if tool_calls.nil? || tool_calls.empty?
-
-        tool_calls.map do |tool_call|
-          next if tool_call["function"].nil? || tool_call["function"]["name"].blank?
-          args = tool_call["function"]["arguments"].blank? ? nil : JSON.parse(tool_call["function"]["arguments"], { symbolize_names: true })
-
-          ActiveAgent::ActionPrompt::Action.new(
-            id: tool_call["id"],
-            name: tool_call.dig("function", "name"),
-            params: args
-          )
-        end.compact
-      end
+      # handle_actions is now provided by ToolManagement module
 
       def chat_prompt(parameters: prompt_parameters)
         parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
