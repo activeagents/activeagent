@@ -24,7 +24,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 02:54:58 GMT
+      - Mon, 11 Aug 2025 22:51:32 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -36,11 +36,11 @@ http_interactions:
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9989'
+      - '9963'
       X-Ratelimit-Remaining-Tokens:
       - '199235'
       X-Ratelimit-Reset-Requests:
-      - 1m32.447s
+      - 5m14.022s
       X-Ratelimit-Reset-Tokens:
       - 229ms
       Openai-Version:
@@ -50,36 +50,36 @@ http_interactions:
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       X-Request-Id:
-      - req_8a1f07681edf38a7e615fa9d6a565b6e
+      - req_226d912c1ee9454c535be4a2f791584e
       Openai-Processing-Ms:
-      - '2723'
+      - '3171'
       X-Envoy-Upstream-Service-Time:
-      - '2729'
+      - '3184'
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=NImfFBBd7qXi8dFnKzfJBkJ4FYLiP6GnHeCOfTCsQFI-1754621698-1.0.1.1-PA6ddC730YsUC5YXJ5o514wNg0pHBV2hUGzSp6DbjvDZGf0cGoKlmI49d9vfVtYQb0oMbEvop4rmUqdmxCrwk7r8qRzF8Fl7sU_Wt6LApuE;
-        path=/; expires=Fri, 08-Aug-25 03:24:58 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=2RjGuQkQ5E0Z8.nZKcynurvbJgh_iZBO.YJ1fVFElQo-1754952692-1.0.1.1-Ee1dVJDssfZ6WBlq8Mn2tLXjP8owuK17GRdG8Hoi1TU1KRi31pejw9upRsxK34tV9eOjgGByoZVPJFHLReepCffyW.hpegoYIMC_LbHT8W8;
+        path=/; expires=Mon, 11-Aug-25 23:21:32 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=bt9hCtUAmVV84dXGPLLO_8GYyHHjpk3fKnTbWo0kxsE-1754621698098-0.0.1.1-604800000;
+      - _cfuvid=3VCuIAvflouUbWOYUZ4EElHDq.jB5d22EH7tBrDdUPs-1754952692408-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbbb59dc91ebed-SJC
+      - 96db4c418e0f7af1-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_689566ff574881a18668f83484c2867402a8c10f7309a9b3",
+          "id": "resp_689a73f12e5881a08424f06b5769cee40af549a40da5f4b7",
           "object": "response",
-          "created_at": 1754621695,
+          "created_at": 1754952689,
           "status": "completed",
           "background": false,
           "error": null,
@@ -90,7 +90,7 @@ http_interactions:
           "model": "gpt-4o-mini-2024-07-18",
           "output": [
             {
-              "id": "msg_6895670073c081a18502d883f6396c9802a8c10f7309a9b3",
+              "id": "msg_689a73f2398081a08305d93a9a27f31e0af549a40da5f4b7",
               "type": "message",
               "status": "completed",
               "content": [
@@ -98,7 +98,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "The image presents a bar chart titled \"Quarterly Sales Report\" for the year 2024. It depicts sales revenue by quarter, with data represented for four quarters (Q1, Q2, Q3, and Q4) using differently colored bars:\n\n- **Q1**: Blue bar\n- **Q2**: Green bar\n- **Q3**: Yellow bar\n- **Q4**: Red bar\n\nThe sales revenue ranges from $0 to $100,000, with each quarter showing varying levels of sales revenue, with Q4 having the highest bar."
+                  "text": "The image is a bar chart titled \"Quarterly Sales Report\" that displays sales revenue for the year 2024 by quarter. \n\n- **Y-axis** represents sales revenue in thousands of dollars, ranging from $0 to $100,000.\n- **X-axis** lists the four quarters: Q1, Q2, Q3, and Q4.\n\nThe bars are colored as follows:\n- Q1: Blue\n- Q2: Green\n- Q3: Yellow\n- Q4: Red\n\nThe heights of the bars indicate the sales revenue for each quarter, with Q4 showing the highest revenue."
                 }
               ],
               "role": "assistant"
@@ -131,14 +131,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 120,
+            "output_tokens": 126,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 8639
+            "total_tokens": 8645
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Fri, 08 Aug 2025 02:54:58 GMT
+  recorded_at: Mon, 11 Aug 2025 22:51:32 GMT
 recorded_with: VCR 6.3.1

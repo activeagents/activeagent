@@ -24,7 +24,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 02:54:48 GMT
+      - Mon, 11 Aug 2025 22:50:51 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -36,34 +36,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '1880'
+      - '1813'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '1969'
+      - '1852'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9996'
+      - '9985'
       X-Ratelimit-Remaining-Tokens:
       - '199986'
       X-Ratelimit-Reset-Requests:
-      - 32.99s
+      - 2m1.155s
       X-Ratelimit-Reset-Tokens:
       - 4ms
       X-Request-Id:
-      - req_33b36edfbe54488aac66bd99dbd54416
+      - req_fdae1e71ddfb4da38461e69ddcbafce5
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=oj_9Fdqp_3VKl3Ye_I41LEHyEqpR5kxg9xRi4Q5pMcc-1754621688-1.0.1.1-ssfZ26wqfcL4NVLzTiLdRFORu1ISIGiqzRSgANfl3OTmac8fN2P8pJLJ9TibAv.nWiVMErwdQgVlSKhWKvFC7dw9x1zXL4qmXiLGPAFN3o4;
-        path=/; expires=Fri, 08-Aug-25 03:24:48 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=Hgnc.xUIUeo_vd_OGsQSOERYfZYEarBJgPw1Y3ORGa0-1754952651-1.0.1.1-Kc07ukgDmpUQ.cKg.1qK2nyBeyNf2iF9nKENKGFok9Lt7k.5UOT0oBpEyrmeP7DkqMyEq_3xfmqf2ZrKaLgJednSQAR8pWCm9rtrh8ifQAc;
+        path=/; expires=Mon, 11-Aug-25 23:20:51 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=jkialTmXYj6vbYR2evkQkzYSejtghx2xVTETJuGJ8nU-1754621688111-0.0.1.1-604800000;
+      - _cfuvid=x2wHCQkLYEq7QCi4hkjft7dXFiGr2AM.HVk14UdP1DU-1754952651130-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,23 +72,23 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbbb21ed3615fb-SJC
+      - 96db4b499b8effb8-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C27XiO8X4eF7jVn9Echh69VHqzS5y",
+          "id": "chatcmpl-C3VdpedPrPqeROMLlAyfqXFENQ3V0",
           "object": "chat.completion",
-          "created": 1754621686,
+          "created": 1754952649,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "I can't display images directly, but I can help describe a cat or suggest where to find pictures of cats! You can search for \"cute cats\" on image search engines or websites like Unsplash or Pixabay for high-quality images of cats. Would you like to know more about cats or specific breeds?",
+                "content": "I can't display images, but I can describe a cat for you! Cats are typically small, furry animals with a variety of colors and patterns. They have pointed ears, sharp retractable claws, and whiskers that help them navigate their environment. Cats are known for their playful and curious nature, often enjoying activities like chasing after toys or exploring their surroundings. If you're looking for pictures of cats, you can easily find them by searching online or on social media platforms dedicated to pets!",
                 "refusal": null,
                 "annotations": []
               },
@@ -98,8 +98,8 @@ http_interactions:
           ],
           "usage": {
             "prompt_tokens": 21,
-            "completion_tokens": 60,
-            "total_tokens": 81,
+            "completion_tokens": 96,
+            "total_tokens": 117,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -114,5 +114,5 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": "fp_62a23a81ef"
         }
-  recorded_at: Fri, 08 Aug 2025 02:54:48 GMT
+  recorded_at: Mon, 11 Aug 2025 22:50:51 GMT
 recorded_with: VCR 6.3.1
