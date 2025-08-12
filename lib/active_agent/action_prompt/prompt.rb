@@ -28,7 +28,7 @@ module ActiveAgent
         @output_schema = attributes.fetch(:output_schema, nil)
         @messages = Message.from_messages(@messages)
         @action_name = attributes.fetch(:action_name, nil)
-        @mcp_servers = attributes.fetch(:mcp_servers, nil)
+        @mcp_servers = attributes.fetch(:mcp_servers, [])
         set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message&.content
         set_messages if @instructions.present?
       end
