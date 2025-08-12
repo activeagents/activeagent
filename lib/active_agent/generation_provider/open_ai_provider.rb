@@ -75,19 +75,20 @@ module ActiveAgent
         end
       end
 
-      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions)
+      def prompt_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, mcp_servers: @prompt.mcp_servers)
         params = {
           model: model,
           messages: provider_messages(messages),
           temperature: temperature,
+          mcp_servers: mcp_servers,
           max_tokens: @prompt.options[:max_tokens] || @config["max_tokens"],
-          tools: format_tools(tools)
+          tools: format_tools(tools) + mcp_servers
         }.compact
         params
       end
 
       def format_tools(tools)
-        return nil if tools.blank?
+        return [] if tools.blank?
 
         tools.map do |tool|
           if tool["function"] || tool[:function]
