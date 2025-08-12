@@ -18,7 +18,7 @@ module ActiveAgent
         super
         @access_token ||= config["api_key"] || config["access_token"] || Anthropic.configuration.access_token || ENV["ANTHROPIC_ACCESS_TOKEN"]
         @extra_headers = config["extra_headers"] || {}
-        @client = Anthropic::Client.new(access_token: @access_token,extra_headers:@extra_headers)
+        @client = Anthropic::Client.new(access_token: @access_token, extra_headers:@extra_headers)
       end
 
       def generate(prompt)
@@ -89,7 +89,6 @@ module ActiveAgent
               max_uses: tool["max_uses"]
             }
           end
-
         end
       end
 
@@ -138,7 +137,7 @@ module ActiveAgent
           content: content,
           role: "assistant",
           action_requested: response["stop_reason"] == "tool_use",
-          requested_actions: handle_actions(response["content"].map{ |c| c if c["type"] == "tool_use" }.reject { |m| m.blank? }.to_a),
+          requested_actions: handle_actions(response["content"].map { |c| c if c["type"] == "tool_use" }.reject { |m| m.blank? }.to_a),
         )
 
         update_context(prompt: prompt, message: message, response: response)
