@@ -42,7 +42,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 03:27:01 GMT
+      - Mon, 11 Aug 2025 22:51:09 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,34 +54,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '928'
+      - '554'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '975'
+      - '572'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9997'
+      - '9977'
       X-Ratelimit-Remaining-Tokens:
       - '199852'
       X-Ratelimit-Reset-Requests:
-      - 24.238s
+      - 3m16.59s
       X-Ratelimit-Reset-Tokens:
       - 44ms
       X-Request-Id:
-      - req_1ad894c1bf504ba88ab5cd20889776a4
+      - req_3fe2eef22291465d83f891fc57e02087
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=kLg20INoK.roQQAtYA3KJiaRIjOjay6MO7B9y9Ylw78-1754623621-1.0.1.1-7iZ_8E9ekX7X9j5tGG6cbNRSRGzAEzWmNDMVV4VGDK9xGg6s7LkHTeYLEJ4wiX9rOB3dzUtoONgYuEWGlhgeiuKScElYt.FMxRBj32zYk8w;
-        path=/; expires=Fri, 08-Aug-25 03:57:01 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=eofsghVKgGeuuXIKDJ75Z8qJ2Jcf3Oc_dsay.5Tf12s-1754952669-1.0.1.1-kzzjGvmOawONGM6tCTtzGm55feeskwJMfiHXI1hLTeJFnf_z2c9pZGWtL_0z_Jh_oZU7wE2fmd6P.ifn_b0TI9n5rityKAIXG5XqKXlvf.c;
+        path=/; expires=Mon, 11-Aug-25 23:21:09 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=qc0Bj4ZHRD0fdQtBwwwQhOKeEEkGgQfcOvyZE7GWkX0-1754623621554-0.0.1.1-604800000;
+      - _cfuvid=BHEGiaZQRRC4HgeBlmQZOJgFIwC4KOo1gcgfoMp6E9Y-1754952669456-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -90,16 +90,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbea5c4bdf679d-SJC
+      - 96db4bc4188a67ff-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C282u2tZ9kDlNgvAQvSB15IexIDC4",
+          "id": "chatcmpl-C3Ve8zNbDfYOCZjM6USGKDc7ANZKB",
           "object": "chat.completion",
-          "created": 1754623620,
+          "created": 1754952668,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
@@ -109,7 +109,7 @@ http_interactions:
                 "content": null,
                 "tool_calls": [
                   {
-                    "id": "call_ihrurZHsXFOBwZQsRA2Qtmtt",
+                    "id": "call_dumiRuTsZjF6E1bOJSb573Xf",
                     "type": "function",
                     "function": {
                       "name": "search",
@@ -142,23 +142,23 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 08 Aug 2025 03:27:01 GMT
+  recorded_at: Mon, 11 Aug 2025 22:51:09 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
       string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"This
-        agent is currently interacting with Guest to find a hotel near their travel
+        agent is currently interacting with Bob Smith to find a hotel near their travel
         destination.\nThe agent should use the following actions to achieve the desired
         outcome:\n\n  confirm: Confirm a flight booking\n  book: Book a specific flight\n\nrequirements:\n-
         The agent should use the `search` action to find hotels in the requested location.\n-
         The agent should use the `book` action to book a hotel for the user.\n- The
         agent should use the `confirm` action to confirm the booking with the user."},{"role":"user","content":"I
-        need to find a hotel in Paris"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"search","arguments":"{\"destination\":\"Paris\"}"},"id":"call_ihrurZHsXFOBwZQsRA2Qtmtt"}]},{"role":"tool","content":"\u003ch2\u003eTravel
+        need to find a hotel in Paris"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"search","arguments":"{\"destination\":\"Paris\"}"},"id":"call_dumiRuTsZjF6E1bOJSb573Xf"}]},{"role":"tool","content":"\u003ch2\u003eTravel
         Search Results\u003c/h2\u003e\n\n\u003cp\u003eSearching for flights from  to
         Paris\u003c/p\u003e\n\n\u003cul\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eWould
-        you like to book any of these flights?\u003c/p\u003e\n","tool_call_id":"call_ihrurZHsXFOBwZQsRA2Qtmtt","name":"search"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
+        you like to book any of these flights?\u003c/p\u003e\n","tool_call_id":"call_dumiRuTsZjF6E1bOJSb573Xf","name":"search"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
         a flight booking","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"confirmation_number":{"type":"string","description":"The
         booking confirmation number"},"send_email":{"type":"boolean","description":"Whether
         to send confirmation email"}},"required":["confirmation_number"]}},"required":["params"]}}},{"type":"function","function":{"name":"search","description":"Search
@@ -187,7 +187,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 03:27:02 GMT
+      - Mon, 11 Aug 2025 22:51:10 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -199,34 +199,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '1159'
+      - '1168'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '1182'
+      - '1186'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9996'
+      - '9973'
       X-Ratelimit-Remaining-Tokens:
-      - '199829'
+      - '199828'
       X-Ratelimit-Reset-Requests:
-      - 31.8s
+      - 3m52.296s
       X-Ratelimit-Reset-Tokens:
       - 51ms
       X-Request-Id:
-      - req_94d4fead97fa460e9da853faed7d47f2
+      - req_dbea17bb11d84e20a588713e3c125c7e
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=m7PjXy1850LmAV9z.VRpaGUbgtBYGe5NX3EKeTJ3RcI-1754623622-1.0.1.1-EN2avXnDuakbSQes_vMyDxmphOUE6rMl3I4_oEoI9un_cw6WLjxWvXxTqN600G4lL9S1Fc560nN7QmQHDg07VQ3h7JO.ZoU5TWPmxkeJa6E;
-        path=/; expires=Fri, 08-Aug-25 03:57:02 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=qsYqSnlqhDM52U6Sz3PASA8tgrTHkENjv.7OhyiEX_w-1754952670-1.0.1.1-crX4GWhaZgQNm3h235DZOPjp0en9cMv1fcsgEwJ7op4IGeVgwI2UBfRsEzJKZwBu9JsplzDFmjUtvXvLhhjc334ECLSSG_7znor9MTgfyF8;
+        path=/; expires=Mon, 11-Aug-25 23:21:10 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=1WZLCVSGMfZ9XGm_r03VE0yQZMEb7apqtqCRiksLa4A-1754623622873-0.0.1.1-604800000;
+      - _cfuvid=ZtCak94DRjmWaxccXo0pTWbb4JB41wiGSa2F0QSGeTU-1754952670785-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -235,26 +235,26 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbea632c62689b-SJC
+      - 96db4bc88cfa270c-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C282vx9PT5Z8ITIVp4zZarl33AI1L",
+          "id": "chatcmpl-C3Ve9IQ7DsRfjQJm7kFyBwGuRhpaE",
           "object": "chat.completion",
-          "created": 1754623621,
+          "created": 1754952669,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "It seems there was an error in retrieving hotel listings for Paris. Let me try again to find available hotels for you.",
+                "content": "It seems there was an issue with the search results for hotels in Paris. Let me try again to find available hotels for you.",
                 "tool_calls": [
                   {
-                    "id": "call_7RK0w5Z56JSpuJP2ikT1OZPd",
+                    "id": "call_RB8gX1IhYp7hrfRBK8FF5Ny3",
                     "type": "function",
                     "function": {
                       "name": "search",
@@ -270,9 +270,9 @@ http_interactions:
             }
           ],
           "usage": {
-            "prompt_tokens": 336,
-            "completion_tokens": 38,
-            "total_tokens": 374,
+            "prompt_tokens": 337,
+            "completion_tokens": 40,
+            "total_tokens": 377,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -287,28 +287,28 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 08 Aug 2025 03:27:02 GMT
+  recorded_at: Mon, 11 Aug 2025 22:51:10 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
       string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"This
-        agent is currently interacting with Guest to find a hotel near their travel
+        agent is currently interacting with Bob Smith to find a hotel near their travel
         destination.\nThe agent should use the following actions to achieve the desired
         outcome:\n\n  confirm: Confirm a flight booking\n  book: Book a specific flight\n\nrequirements:\n-
         The agent should use the `search` action to find hotels in the requested location.\n-
         The agent should use the `book` action to book a hotel for the user.\n- The
         agent should use the `confirm` action to confirm the booking with the user."},{"role":"user","content":"I
-        need to find a hotel in Paris"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"search","arguments":"{\"destination\":\"Paris\"}"},"id":"call_ihrurZHsXFOBwZQsRA2Qtmtt"}]},{"role":"tool","content":"\u003ch2\u003eTravel
+        need to find a hotel in Paris"},{"role":"assistant","content":"","tool_calls":[{"type":"function","function":{"name":"search","arguments":"{\"destination\":\"Paris\"}"},"id":"call_dumiRuTsZjF6E1bOJSb573Xf"}]},{"role":"tool","content":"\u003ch2\u003eTravel
         Search Results\u003c/h2\u003e\n\n\u003cp\u003eSearching for flights from  to
         Paris\u003c/p\u003e\n\n\u003cul\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eWould
-        you like to book any of these flights?\u003c/p\u003e\n","tool_call_id":"call_ihrurZHsXFOBwZQsRA2Qtmtt","name":"search"},{"role":"assistant","content":"It
-        seems there was an error in retrieving hotel listings for Paris. Let me try
-        again to find available hotels for you.","tool_calls":[{"type":"function","function":{"name":"search","arguments":"{\"destination\":\"Paris\"}"},"id":"call_7RK0w5Z56JSpuJP2ikT1OZPd"}]},{"role":"tool","content":"\u003ch2\u003eTravel
+        you like to book any of these flights?\u003c/p\u003e\n","tool_call_id":"call_dumiRuTsZjF6E1bOJSb573Xf","name":"search"},{"role":"assistant","content":"It
+        seems there was an issue with the search results for hotels in Paris. Let
+        me try again to find available hotels for you.","tool_calls":[{"type":"function","function":{"name":"search","arguments":"{\"destination\":\"Paris\"}"},"id":"call_RB8gX1IhYp7hrfRBK8FF5Ny3"}]},{"role":"tool","content":"\u003ch2\u003eTravel
         Search Results\u003c/h2\u003e\n\n\u003cp\u003eSearching for flights from  to
         Paris\u003c/p\u003e\n\n\u003cul\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eWould
-        you like to book any of these flights?\u003c/p\u003e\n","tool_call_id":"call_7RK0w5Z56JSpuJP2ikT1OZPd","name":"search"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
+        you like to book any of these flights?\u003c/p\u003e\n","tool_call_id":"call_RB8gX1IhYp7hrfRBK8FF5Ny3","name":"search"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"confirm","description":"Confirm
         a flight booking","parameters":{"type":"object","properties":{"params":{"type":"object","properties":{"confirmation_number":{"type":"string","description":"The
         booking confirmation number"},"send_email":{"type":"boolean","description":"Whether
         to send confirmation email"}},"required":["confirmation_number"]}},"required":["params"]}}},{"type":"function","function":{"name":"search","description":"Search
@@ -337,7 +337,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 08 Aug 2025 03:27:03 GMT
+      - Mon, 11 Aug 2025 22:51:11 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -349,34 +349,34 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '966'
+      - '888'
       Openai-Project:
       - proj_pcPHiweuB88laiGDTaN3nH2M
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '980'
+      - '918'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9995'
+      - '9974'
       X-Ratelimit-Remaining-Tokens:
-      - '199763'
+      - '199760'
       X-Ratelimit-Reset-Requests:
-      - 39.138s
+      - 3m40.485s
       X-Ratelimit-Reset-Tokens:
-      - 71ms
+      - 72ms
       X-Request-Id:
-      - req_c283812abd464f8a93bbc7327dff27f9
+      - req_3ddfa3d7d2bb497fa9acac9862fad20f
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=n6JXKWyjZWfubTzrUnlNDNBEikTZprifXfuZjTdq_I8-1754623623-1.0.1.1-i.yH_.YU.4ycZGII.3_0_9KEAEuKUVhNaBSFJ_3FLLWH49moA22c9zCsihrvYcb.SHMGI.mibk5JnLhU6Pfn3obSx86sFB.lPfFnuMj4bHY;
-        path=/; expires=Fri, 08-Aug-25 03:57:03 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=V5uTGOanD03ufoSR5MtcIvhu38N5_2VReGxxdMYIrD4-1754952671-1.0.1.1-rhwgnFceeEfTGHD8TJzwgZDQfIwMcYaJy9PnNGog0gBLPe9XnCD_4fb54DzG2CqmVz8Q0QhikHjfTKDhLvgwekyq0zp4KTfFdbv5llBkiSU;
+        path=/; expires=Mon, 11-Aug-25 23:21:11 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=CPSIgjHokLvNiIsXmIizK4gnc07f5ovlD_7RPYJJejk-1754623623974-0.0.1.1-604800000;
+      - _cfuvid=_2w80bhHKzftTXcUCZYZDZUhrK5718mTayOpSotiHHo-1754952671829-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -385,23 +385,23 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96bbea6b4ceb1742-SJC
+      - 96db4bd0cec37ae0-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-C282xLGisffbancMWE2IuZWR0t2kW",
+          "id": "chatcmpl-C3VeBZ1gELOCsy7ciewyv7H5xppp5",
           "object": "chat.completion",
-          "created": 1754623623,
+          "created": 1754952671,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "It appears that I'm encountering issues retrieving hotel listings for Paris. Unfortunately, I can't find any hotels at this moment. \n\nWould you like to provide me with specific dates for your stay, or is there anything else I can assist you with?",
+                "content": "It looks like I'm having trouble retrieving hotel options in Paris at the moment. Could you please specify the dates of your stay or any preferences you have for the hotel? This will help me narrow down the search.",
                 "refusal": null,
                 "annotations": []
               },
@@ -410,9 +410,9 @@ http_interactions:
             }
           ],
           "usage": {
-            "prompt_tokens": 425,
-            "completion_tokens": 49,
-            "total_tokens": 474,
+            "prompt_tokens": 428,
+            "completion_tokens": 43,
+            "total_tokens": 471,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -427,5 +427,5 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": "fp_34a54ae93c"
         }
-  recorded_at: Fri, 08 Aug 2025 03:27:03 GMT
+  recorded_at: Mon, 11 Aug 2025 22:51:11 GMT
 recorded_with: VCR 6.3.1

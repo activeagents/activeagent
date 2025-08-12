@@ -1,4 +1,6 @@
 require "test_helper"
+require "active_agent/action_prompt/prompt"
+require "active_agent/action_prompt/message"
 require_relative "../../lib/active_agent/generation_provider/responses_adapter"
 
 module ActiveAgent
