@@ -1,0 +1,9 @@
+<% if @pdf_url %>
+Analyze this PDF from URL: <%= @pdf_url %>
+<%= params[:prompt_text] || "Please provide a comprehensive analysis of this PDF document." %>
+<% elsif @pdf_data %>
+Analyze this PDF document (base64 encoded).
+<%= params[:prompt_text] || "Please provide a comprehensive analysis of this PDF document." %>
+<% else %>
+No PDF provided for analysis.
+<% end %>

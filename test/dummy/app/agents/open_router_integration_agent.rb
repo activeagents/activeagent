@@ -48,6 +48,51 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     )
   end
 
+  def analyze_content
+    @content = params[:content]
+    prompt(message: @content)
+  end
+
+  def analyze_pdf
+    @pdf_url = params[:pdf_url]
+    @pdf_data = params[:pdf_data]
+    
+    # Allow users to specify their preferred PDF processing engine
+    # Options: 'mistral-ocr' ($2/1000 pages), 'pdf-text' (free), 'native' (input tokens)
+    pdf_engine = params[:pdf_engine] || 'pdf-text'  # Default to free option
+    
+    # Build the proper plugin format for OpenRouter PDF processing
+    pdf_plugin = {
+      id: 'file-parser',
+      pdf: {
+        engine: pdf_engine
+      }
+    }
+    
+    # Allow disabling plugins entirely for models with built-in support
+    options = params[:skip_plugin] ? {} : { plugins: [pdf_plugin] }
+    
+    if @pdf_url
+      prompt(
+        message: [
+          { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
+          { type: "image_url", image_url: { url: @pdf_url } }
+        ],
+        options: options
+      )
+    elsif @pdf_data
+      prompt(
+        message: [
+          { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
+          { type: "image_url", image_url: { url: "data:application/pdf;base64,#{@pdf_data}" } }
+        ],
+        options: options
+      )
+    else
+      prompt(message: "No PDF provided")
+    end
+  end
+
   private
 
   def build_image_message

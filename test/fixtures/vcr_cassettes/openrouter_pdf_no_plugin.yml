@@ -10,7 +10,8 @@ http_interactions:
         analyzing images:\n- Be detailed and accurate\n- Identify all visible objects\n-
         Note colors, positions, and relationships\n- Follow the exact schema provided\n\nWhen
         processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":"Analyze
-        the provided image and extract information according to the specified schema.\n"}],"temperature":0.7}'
+        this PDF from URL: https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf\nCan
+        you see this PDF?\n\n"}],"temperature":0.7}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +29,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 05:12:42 GMT
+      - Wed, 13 Aug 2025 05:23:14 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,12 +50,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5b80e3cb7fa05-SJC
+      - 96e5c7748c24faaa-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n{\"id\":\"gen-1755061961-ESkwqQb0pRhpGxMIORWd\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755061962,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        sorry, but I currently don't have the capability to analyze images. However,
-        if you describe the image to me, I can help you extract information based
-        on that description.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":85,\"completion_tokens\":35,\"total_tokens\":120,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 05:12:43 GMT
+      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1755062592-SkBoHIgOj3cMNnQ4N03c\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755062592,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I
+        cannot access external URLs or view PDF files directly. However, if you can
+        provide specific content or details from the PDF, I would be happy to help
+        analyze or summarize that information!\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":104,\"completion_tokens\":37,\"total_tokens\":141,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Wed, 13 Aug 2025 05:23:14 GMT
 recorded_with: VCR 6.3.1

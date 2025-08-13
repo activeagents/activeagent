@@ -28,7 +28,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 05:12:42 GMT
+      - Wed, 13 Aug 2025 05:12:35 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,12 +49,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5b80e3cb7fa05-SJC
+      - 96e5b7e28af03023-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n{\"id\":\"gen-1755061961-ESkwqQb0pRhpGxMIORWd\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755061962,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        sorry, but I currently don't have the capability to analyze images. However,
-        if you describe the image to me, I can help you extract information based
-        on that description.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":85,\"completion_tokens\":35,\"total_tokens\":120,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 05:12:43 GMT
+      string: "\n         \n{\"id\":\"gen-1755061955-2upIQi03sLfiODOeVJjs\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755061955,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"It
+        seems that you haven't uploaded an image for analysis. Please upload the image
+        you'd like me to analyze, and I will extract the information according to
+        the specified schema.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_62a23a81ef\",\"usage\":{\"prompt_tokens\":85,\"completion_tokens\":33,\"total_tokens\":118,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Wed, 13 Aug 2025 05:12:35 GMT
 recorded_with: VCR 6.3.1

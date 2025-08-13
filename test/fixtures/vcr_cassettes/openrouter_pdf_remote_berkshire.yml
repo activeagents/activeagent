@@ -10,7 +10,8 @@ http_interactions:
         analyzing images:\n- Be detailed and accurate\n- Identify all visible objects\n-
         Note colors, positions, and relationships\n- Follow the exact schema provided\n\nWhen
         processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":"Analyze
-        the provided image and extract information according to the specified schema.\n"}],"temperature":0.7}'
+        this PDF from URL: https://www.berkshirehathaway.com/letters/2024ltr.pdf\nAnalyze
+        this letter and provide a brief summary of 2-3 key points.\n\n"}],"temperature":0.7}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +29,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 05:12:42 GMT
+      - Wed, 13 Aug 2025 05:18:31 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,12 +50,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5b80e3cb7fa05-SJC
+      - 96e5c0947e9f9456-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n{\"id\":\"gen-1755061961-ESkwqQb0pRhpGxMIORWd\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755061962,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        sorry, but I currently don't have the capability to analyze images. However,
-        if you describe the image to me, I can help you extract information based
-        on that description.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":85,\"completion_tokens\":35,\"total_tokens\":120,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 05:12:43 GMT
+      string: "\n         \n{\"id\":\"gen-1755062311-uZa3hAqaggwAKYrD3GaS\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755062311,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
+        unable to access external content such as PDFs or URLs directly. However,
+        if you can provide text or key excerpts from the letter, I can help analyze
+        it and summarize the key points for you.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":112,\"completion_tokens\":40,\"total_tokens\":152,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Wed, 13 Aug 2025 05:18:31 GMT
 recorded_with: VCR 6.3.1
