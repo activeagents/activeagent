@@ -26,4 +26,48 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
     system_message = prompt.messages.find { |m| m.role == :system }
     assert_equal "You're a basic Open Router agent.", system_message.content
   end
+
+  test "it can use fallback models when configured" do
+    # Create a custom agent with fallback models
+    agent_class = Class.new(ApplicationAgent) do
+      generate_with :open_router, 
+        model: "openai/gpt-4o",
+        fallback_models: ["anthropic/claude-3-opus", "google/gemini-pro"],
+        enable_fallbacks: true
+    end
+
+    # Just verify the agent can be created with these options
+    agent = agent_class.new
+    assert_not_nil agent
+  end
+
+  test "it can configure provider preferences" do
+    # Create a custom agent with provider preferences
+    agent_class = Class.new(ApplicationAgent) do
+      generate_with :open_router,
+        model: "openai/gpt-4o",
+        provider: {
+          "order" => ["OpenAI", "Anthropic"],
+          "require_parameters" => true,
+          "data_collection" => "deny"
+        }
+    end
+
+    # Just verify the agent can be created with these options
+    agent = agent_class.new
+    assert_not_nil agent
+  end
+
+  test "it can enable transforms" do
+    # Create a custom agent with transforms
+    agent_class = Class.new(ApplicationAgent) do
+      generate_with :open_router,
+        model: "anthropic/claude-3-opus",
+        transforms: ["middle-out"]
+    end
+
+    # Just verify the agent can be created with these options
+    agent = agent_class.new
+    assert_not_nil agent
+  end
 end
