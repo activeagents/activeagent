@@ -392,7 +392,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 04:04:34 GMT
+      - Wed, 13 Aug 2025 05:12:38 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -413,15 +413,14 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5543e9e132516-SJC
+      - 96e5b7efbb2367d7-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1755057873-sqFsIheiYhzd565CTjjF\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755057873,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"-
-        The text consists of repetitive phrases of \\\"Lorem ipsum dolor sit amet,\\\"
-        indicating it serves as a placeholder or filler text commonly used in design
-        and publishing.\\n- It does not convey any specific message or information,
-        focusing instead on the visual appearance of text.\\n- The overall structure
-        and content are uniform, emphasizing the layout rather than the substance
-        of the writing.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":6085,\"completion_tokens\":71,\"total_tokens\":6156,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 04:04:35 GMT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1755061957-TuOFYP9vibbDjs9311HN\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755061957,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"-
+        The text consists of repetitive phrases, mainly \\\"Lorem ipsum dolor sit
+        amet,\\\" which is a placeholder text commonly used in design and typesetting.\\n-
+        The text does not convey any specific information or message, as it is primarily
+        used for visual layout purposes.\\n- It serves as an example of how text can
+        fill a space without requiring meaningful content.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":6085,\"completion_tokens\":69,\"total_tokens\":6154,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Wed, 13 Aug 2025 05:12:39 GMT
 recorded_with: VCR 6.3.1

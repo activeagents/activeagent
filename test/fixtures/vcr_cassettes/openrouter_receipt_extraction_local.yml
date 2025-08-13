@@ -28,7 +28,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 03:42:34 GMT
+      - Wed, 13 Aug 2025 05:12:41 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,12 +49,11 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e53407edeb7542-SJC
+      - 96e5b8098f94fb40-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1755056554-V4HCOxM7CKM2DBvSX4Ne\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755056554,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        sorry, but I can't process images directly. However, if you can provide the
-        text from the receipt or describe its contents, I can help you extract the
-        information according to the specified schema.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":85,\"completion_tokens\":39,\"total_tokens\":124,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 03:42:35 GMT
+      string: "\n         \n{\"id\":\"gen-1755061961-MM4gJ7R14G7RACacGfCy\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755061961,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Please
+        upload the image of the receipt for me to analyze and extract the information
+        according to the specified schema.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":85,\"completion_tokens\":21,\"total_tokens\":106,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Wed, 13 Aug 2025 05:12:41 GMT
 recorded_with: VCR 6.3.1

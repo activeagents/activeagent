@@ -180,6 +180,11 @@ module ActiveAgent
           params[:provider] = build_provider_preferences
         end
         
+        # Add plugins (e.g., for PDF processing)
+        if prompt.options[:plugins].present?
+          params[:plugins] = prompt.options[:plugins]
+        end
+        
         params
       end
 
