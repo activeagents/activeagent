@@ -10,7 +10,7 @@ openai: &openai
   access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
 open_router: &open_router
   service: "OpenRouter"
-  access_token: <%= Rails.application.credentials.dig(:open_router, :access_token) %>
+  access_token: <%= Rails.application.credentials.dig(:open_router, :access_token) || Rails.application.credentials.dig(:open_router, :api_key) %>
 ollama: &ollama
   service: "Ollama"
   access_token: ""

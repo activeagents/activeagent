@@ -4,11 +4,13 @@ module ActiveAgent
   module GenerationProvider
     class Response
       attr_reader :message, :prompt, :raw_response
+      attr_accessor :metadata
 
-      def initialize(prompt:, message: nil, raw_response: nil)
+      def initialize(prompt:, message: nil, raw_response: nil, metadata: nil)
         @prompt = prompt
         @message = message || prompt.message
         @raw_response = raw_response
+        @metadata = metadata || {}
       end
 
       # Extract usage statistics from the raw response
