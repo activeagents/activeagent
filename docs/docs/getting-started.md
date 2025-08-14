@@ -54,7 +54,6 @@ This command will create the following files and directories:
 - `app/views/layouts/agent.text.erb`: The layout file for your agent prompt/view templates.
 - `app/views/agent_*`: The directory where your agent prompt/view templates will be stored.
 
-
 ## Usage
 Active Agent is designed to work seamlessly with Rails applications. It can be easily integrated into your existing Rails app without any additional configuration. The framework automatically detects the Rails environment and configures itself accordingly.
 
