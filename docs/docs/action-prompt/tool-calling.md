@@ -70,7 +70,7 @@ When an error occurs, the agent receives the error message and can provide appro
 
 ## Tool Schemas
 
-Define tool schemas using JSON views to describe parameters:
+Define tool schemas using JSON views to describe parameters. [Learn more about tool implementation →](/docs/action-prompt/tools)
 
 <<< @/../test/dummy/app/views/calculator_agent/add.json.jbuilder {ruby:line-numbers}
 
@@ -90,4 +90,4 @@ The tool calling flow is handled by the `perform_generation` method:
 5. **Continuation**: Generation continues with `continue_generation`
 6. **Completion**: The process repeats until no more tools are requested
 
-This creates a natural conversation flow where the agent can gather information through tools before providing a final answer.
+This creates a natural conversation flow where the agent can gather information through tools before providing a final answer. [Understanding the complete generation cycle →](/docs/active-agent/generation)

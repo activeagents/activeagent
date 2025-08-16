@@ -61,7 +61,7 @@ You can start by defining an `ApplicationAgent` class that inherits from `Active
 
 <<< @/../test/dummy/app/agents/application_agent.rb {ruby}
 
-This sets up the `ApplicationAgent` to use OpenAI as the generation provider. You can replace `:openai` with any other supported provider, such as `:anthropic`, `:google`, or `:ollama`.
+This sets up the `ApplicationAgent` to use OpenAI as the generation provider. You can replace `:openai` with any other supported provider, such as `:anthropic`, `:google`, or `:ollama`. [Learn more about generation providers and their configuration →](/docs/framework/generation-provider)
 
 Now, you can interact with your application agent using the default `prompt_context` method. This method allows you to provide a context for the agent to generate a response based on the defined actions and behaviors:
 
@@ -100,10 +100,11 @@ The generator will create:
 Agent action methods are used for building Prompt context objects with Message content from rendered Action Views.
 
 ## Action Prompts
-### Instruction messages
-### Prompt messages
 
-Each action is defined as a public instance method that can call `prompt` to build context objects that are used to generate responses. The views define:
-- **JSON views**: Tool schemas for function calling or output schemas for structured responses
+Each action is defined as a public instance method that can call `prompt` to build context objects that are used to generate responses. [Learn more about Action Prompts and how they work →](/docs/action-prompt/prompts)
+
+### Instruction messages
+### Prompt messages The views define:
+- **JSON views**: [Tool schemas for function calling](/docs/action-prompt/tools) or [output schemas for structured responses](/docs/agents/data-extraction-agent#structured-output)
 - **HTML views**: Web-friendly formatted responses  
 - **Text views**: Plain text responses

@@ -52,3 +52,9 @@ For Azure OpenAI or other custom endpoints:
 
 <<< @/../test/generation_provider_examples_test.rb#custom_host_configuration{ruby:line-numbers}
 
+## Provider-Specific Documentation
+
+For detailed documentation on specific providers and their features:
+
+- [OpenRouter Provider](/docs/generation-providers/open-router-provider) - Multi-model routing with fallbacks, PDF processing, and vision support
+
