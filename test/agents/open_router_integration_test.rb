@@ -80,6 +80,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       # Since analyze_image uses structured output, we'll get JSON
       # Just verify we got a response
       # In the future, we could add a simple_analyze action without schema
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -138,6 +141,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
         assert item_names.include?("MILK")
         assert item_names.include?("BREAD")
       end
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -194,6 +200,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       
       # Description should mention sales or chart
       assert result["description"].downcase.match?(/chart|sales|graph|quarterly|report|bar/)
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -221,6 +230,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       # we should at least verify we got a response indicating the model received the request
       # In production, you'd use a model that supports PDFs or use OpenRouter's PDF plugins
       assert response.message.content.downcase.match?(/pdf|document|unable|cannot|provide|text/)
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -244,6 +256,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       # Since gpt-4o-mini doesn't support PDF URLs directly,
       # we should at least verify we got a response about the PDF/document
       assert response.message.content.downcase.match?(/pdf|document|unable|cannot|url|letter|analyze|provide/i)
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -269,6 +284,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       
       # Should get some response about the document
       assert response.message.content.downcase.match?(/document|pdf|file|resume|unable/)
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -292,6 +310,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       
       # Model should indicate whether it can or cannot process the PDF
       assert response.message.content.downcase.match?(/pdf|document|unable|cannot|yes|no/)
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -316,6 +337,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       
       # Should get some response about the document content
       assert response.message.content.downcase.match?(/pdf|document|text|content|dummy/)
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -339,6 +363,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       
       # The response should still work (2+2=4)
       assert response.message.content.include?("4")
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -358,6 +385,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       
       # The summary should be much shorter than the original
       assert response.message.content.length < long_text.length / 10
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 
@@ -384,6 +414,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
         # Verify we're using the expected model (gpt-4o-mini)
         assert_equal "openai/gpt-4o-mini", response.metadata[:model_used]
       end
+      
+      # Generate documentation example
+      doc_example_output(response)
     end
   end
 

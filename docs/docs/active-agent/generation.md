@@ -34,6 +34,6 @@ The prompt generation cycle is similar to the request-response cycle of Action C
 3. **Generation Response**: The generation provider processes the request and returns a response, which is then passed back to the agent.
 4. **Response Handling**: The agent processes the response, which can be sent back to the user or used for further processing.
 5. **Action Execution**: If the response includes actions, the agent executes them and updates the context accordingly.
-6. **Updated Context**: The context is updated with the new messages, actions, and parameters, and the cycle continues.
+6. **Updated Context**: The context is updated with the new messages, actions, and parameters, and the cycle continues. [Customize generation behavior with callbacks →](/docs/active-agent/callbacks)
 ## Prompt Context
 Action Prompt renders prompt context objects that represent the contextual data and runtime parameters for the generation process. Prompt context objects contain messages, actions, and params that are passed in the request to the agent's generation provider. The context object is responsible for managing the contextual history and providing the necessary information for prompt and response cycles.

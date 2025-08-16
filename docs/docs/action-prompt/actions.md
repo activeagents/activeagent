@@ -18,7 +18,7 @@ ApplicationAgent.new.prompt(
 
 These Prompt objects contain the context Messages and available Actions. These actions are the interface that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views. 
 
-Actions can be used to render Prompt objects with `:assistant` Messages back to a user or `:tool` Messages to provide the result of an action back to the Agent. 
+Actions can be used to render Prompt objects with `:assistant` [Messages](/docs/action-prompt/messages) back to a user or `:tool` Messages to provide the result of an action back to the Agent. 
 
 ## Defining Actions
 You can define actions in your agent class that can be used to interact with the agent. 
@@ -213,7 +213,7 @@ Tool schema definitions are also view templates that can be rendered to the agen
 
 ## Tool Calling Example
 
-Here's an example of how agents handle tool calls using the support agent:
+Here's an example of how agents handle tool calls using the support agent. [See complete tool calling workflows →](/docs/action-prompt/tool-calling)
 
 <<< @/../test/agents/support_agent_test.rb#support_agent_tool_call{ruby:line-numbers}
 

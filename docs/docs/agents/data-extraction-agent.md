@@ -48,7 +48,7 @@ Active Agent can extract data from chart images:
 :::
 
 ## Structured Output
-Active Agent supports structured output using JSON schemas. Define schemas in your agent's views directory (e.g., `app/views/data_extraction_agent/`) and reference them using the `output_schema` parameter.
+Active Agent supports structured output using JSON schemas. Define schemas in your agent's views directory (e.g., `app/views/data_extraction_agent/`) and reference them using the `output_schema` parameter. [Learn more about prompt structure and schemas →](/docs/action-prompt/prompts)
 
 ### Structured Output Schemas
 
@@ -56,6 +56,14 @@ When using structured output:
 - The response will have `content_type` of `application/json`
 - The response content will be valid JSON matching your schema
 - Parse the response with `JSON.parse(response.message.content)`
+
+::: info Provider Support
+Structured output requires a generation provider that supports JSON schemas. Currently supported providers include:
+- **OpenAI** - GPT-4o, GPT-4o-mini, GPT-3.5-turbo variants
+- **OpenRouter** - When using compatible models like OpenAI models through OpenRouter
+
+See the [OpenRouter Provider documentation](/docs/generation-providers/open-router-provider#structured-output-support) for details on using structured output with multiple model providers.
+:::
 
 
 ### Parse Chart Image with Structured Output
@@ -113,3 +121,34 @@ Extract resume data with a predefined `resume_schema`:
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-parse-resume-json-response.md -->
 :::
 ::::
+
+## Advanced Examples
+
+### Receipt Data Extraction with OpenRouter
+
+For extracting data from receipts and invoices, you can use OpenRouter's multimodal capabilities combined with structured output. OpenRouter provides access to models that support both vision and structured output, making it ideal for document processing tasks.
+
+See the [OpenRouter Receipt Extraction example](/docs/generation-providers/open-router-provider#receipt-data-extraction-with-structured-output) for a complete implementation that extracts:
+- Merchant information (name, address)
+- Line items with prices
+- Tax and total amounts
+- Currency details
+
+### Using Different Providers
+
+The Data Extraction Agent can work with any generation provider that supports the required capabilities:
+
+- **For text extraction**: Any provider (OpenAI, Anthropic, Ollama, etc.)
+- **For image analysis**: Providers with vision models (OpenAI GPT-4o, Anthropic Claude 3, etc.)
+- **For structured output**: OpenAI models or OpenRouter with compatible models
+- **For PDF processing**: OpenRouter with PDF plugins or models with native PDF support
+
+::: tip Provider Selection
+Choose your provider based on your specific needs:
+- **OpenAI**: Best for structured output with GPT-4o/GPT-4o-mini
+- **OpenRouter**: Access to 200+ models with fallback support
+- **Anthropic**: Strong reasoning capabilities with Claude models
+- **Ollama**: Local model deployment for privacy-sensitive data
+
+Learn more about configuring providers in the [Generation Provider Overview](/docs/framework/generation-provider).
+:::

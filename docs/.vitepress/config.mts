@@ -80,6 +80,12 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Generation Providers',
+        items: [
+          { text: 'OpenRouter', link: '/docs/generation-providers/open-router-provider' },
+        ]
+      },
+      {
         text: 'Action Prompt',
         items: [
           { text: 'Messages', link: '/docs/action-prompt/messages' },

@@ -34,7 +34,7 @@ You can apply around_generation callbacks conditionally using `:only` and `:exce
 <<< @/../test/callbacks_test.rb#around_generation_conditions {ruby:line-numbers}
 
 This pattern is useful for:
-- **Performance monitoring**: Track generation times for specific actions
+- **Performance monitoring**: Track generation times for specific actions. [For long-running tasks, consider queued generation →](/docs/active-agent/queued-generation)
 - **Caching**: Cache LLM responses for expensive operations
 - **Rate limiting**: Implement custom rate limiting logic
 - **Debugging**: Log detailed information about specific generations
