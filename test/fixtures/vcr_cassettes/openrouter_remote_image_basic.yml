@@ -9,8 +9,9 @@ http_interactions:
         are an advanced AI assistant with vision and structured output capabilities.\n\nWhen
         analyzing images:\n- Be detailed and accurate\n- Identify all visible objects\n-
         Note colors, positions, and relationships\n- Follow the exact schema provided\n\nWhen
-        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":"Analyze
-        the provided image and extract information according to the specified schema.\n"}],"temperature":0.7}'
+        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":[{"type":"text","text":"Analyze
+        this image and describe what you see. Return your response as a JSON object
+        with description, objects array, scene_type, and primary_colors."},{"type":"image_url","image_url":{"url":"https://picsum.photos/400/300"}}]}],"temperature":0.7}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +29,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 05:12:35 GMT
+      - Sat, 16 Aug 2025 19:38:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,12 +50,17 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5b7e28af03023-SJC
+      - 9703640f686b236e-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n{\"id\":\"gen-1755061955-2upIQi03sLfiODOeVJjs\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755061955,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"It
-        seems that you haven't uploaded an image for analysis. Please upload the image
-        you'd like me to analyze, and I will extract the information according to
-        the specified schema.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_62a23a81ef\",\"usage\":{\"prompt_tokens\":85,\"completion_tokens\":33,\"total_tokens\":118,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 05:12:35 GMT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1755373094-mhEr8i0nbO1gILbTfAyV\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755373094,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\n
+        \ \\\"description\\\": \\\"A scenic view of the Golden Gate Bridge partially
+        obscured by fog, spanning across the water. The bridge is seen from an elevated
+        perspective, showcasing its iconic towers and cables. A sailboat is visible
+        on the water below.\\\",\\n  \\\"objects\\\": [\\n    \\\"Golden Gate Bridge\\\",\\n
+        \   \\\"water\\\",\\n    \\\"fog\\\",\\n    \\\"sailboat\\\"\\n  ],\\n  \\\"scene_type\\\":
+        \\\"landscape\\\",\\n  \\\"primary_colors\\\": [\\n    \\\"blue\\\",\\n    \\\"gray\\\",\\n
+        \   \\\"white\\\",\\n    \\\"brown\\\"\\n  ]\\n}\\n```\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_51db84afab\",\"usage\":{\"prompt_tokens\":8601,\"completion_tokens\":116,\"total_tokens\":8717,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 16 Aug 2025 19:38:19 GMT
 recorded_with: VCR 6.3.1
