@@ -29,7 +29,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 05:23:14 GMT
+      - Sat, 16 Aug 2025 19:38:13 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -50,12 +50,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5c7748c24faaa-SJC
+      - 970364075b2167b9-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1755062592-SkBoHIgOj3cMNnQ4N03c\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755062592,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I
-        cannot access external URLs or view PDF files directly. However, if you can
-        provide specific content or details from the PDF, I would be happy to help
-        analyze or summarize that information!\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":104,\"completion_tokens\":37,\"total_tokens\":141,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 05:23:14 GMT
+      string: "\n         \n\n         \n{\"id\":\"gen-1755373093-076rOnxlyWI34xtcnosq\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755373093,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I
+        cannot access external URLs or view PDFs directly. However, if you provide
+        me with specific details or text from the PDF, I can help analyze or summarize
+        that content. Please share the information you'd like assistance with!\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":104,\"completion_tokens\":43,\"total_tokens\":147,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 16 Aug 2025 19:38:14 GMT
 recorded_with: VCR 6.3.1

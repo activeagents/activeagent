@@ -9,17 +9,32 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     @image_url = params[:image_url]
     @image_path = params[:image_path]
     
+    # Create an ActiveAgent::ActionPrompt::Message with multimodal content
+    message = ActiveAgent::ActionPrompt::Message.new(
+      content: build_image_message,
+      role: :user
+    )
+    
+    # Pass the multimodal message directly to prompt
     prompt(
-      message: build_image_message,
+      message: message,
       output_schema: image_analysis_schema
     )
   end
 
   def extract_receipt_data
     @image_url = params[:image_url]
+    @image_path = params[:image_path]
     
+    # Create an ActiveAgent::ActionPrompt::Message with multimodal content
+    message = ActiveAgent::ActionPrompt::Message.new(
+      content: build_receipt_message,
+      role: :user
+    )
+    
+    # Pass the multimodal message directly to prompt
     prompt(
-      message: build_receipt_message,
+      message: message,
       output_schema: receipt_schema
     )
   end
@@ -98,14 +113,14 @@ class OpenRouterIntegrationAgent < ApplicationAgent
   def build_image_message
     if @image_url
       [
-        { type: "text", text: "Analyze this image and describe what you see." },
+        { type: "text", text: "Analyze this image and describe what you see. Return your response as a JSON object with description, objects array, scene_type, and primary_colors." },
         { type: "image_url", image_url: { url: @image_url } }
       ]
     elsif @image_path
       image_data = Base64.strict_encode64(File.read(@image_path))
       mime_type = "image/jpeg"  # Simplified for testing
       [
-        { type: "text", text: "Analyze this image and describe what you see." },
+        { type: "text", text: "Analyze this image and describe what you see. Return your response as a JSON object with description, objects array, scene_type, and primary_colors." },
         { type: "image_url", image_url: { url: "data:#{mime_type};base64,#{image_data}" } }
       ]
     else
@@ -114,10 +129,21 @@ class OpenRouterIntegrationAgent < ApplicationAgent
   end
 
   def build_receipt_message
-    [
-      { type: "text", text: "Extract the receipt information from this image. Include merchant name, total amount, date, and line items." },
-      { type: "image_url", image_url: { url: @image_url } }
-    ]
+    if @image_url
+      [
+        { type: "text", text: "Extract the receipt information from this image. Return a JSON object with merchant (name, address), total (amount, currency), items array, tax, and subtotal." },
+        { type: "image_url", image_url: { url: @image_url } }
+      ]
+    elsif @image_path
+      image_data = Base64.strict_encode64(File.read(@image_path))
+      mime_type = "image/png"  # For receipt images
+      [
+        { type: "text", text: "Extract the receipt information from this image. Return a JSON object with merchant (name, address), total (amount, currency), items array, tax, and subtotal." },
+        { type: "image_url", image_url: { url: "data:#{mime_type};base64,#{image_data}" } }
+      ]
+    else
+      "No receipt image provided"
+    end
   end
 
   def image_analysis_schema
@@ -140,7 +166,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
                 position: { type: "string" },
                 color: { type: "string" }
               },
-              required: ["name"],
+              required: ["name", "position", "color"],
               additionalProperties: false
             }
           },
@@ -153,7 +179,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
             items: { type: "string" }
           }
         },
-        required: ["description", "objects", "scene_type"],
+        required: ["description", "objects", "scene_type", "primary_colors"],
         additionalProperties: false
       }
     }

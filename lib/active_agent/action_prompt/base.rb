@@ -335,7 +335,7 @@ module ActiveAgent
         context.params = params
         context.action_name = action_name
 
-        context.output_schema = load_schema(headers[:output_schema], set_prefixes(headers[:output_schema], lookup_context.prefixes))
+        context.output_schema = render_schema(headers[:output_schema], set_prefixes(headers[:output_schema], lookup_context.prefixes))
 
         context.charset = charset = headers[:charset]
 
@@ -364,7 +364,7 @@ module ActiveAgent
         prefixes = set_prefixes(action_name, lookup_context.prefixes)
 
         action_methods.map do |action|
-          load_schema(action, prefixes)
+          render_schema(action, prefixes)
         end.compact
       end
 
@@ -402,10 +402,14 @@ module ActiveAgent
         prefixes = lookup_context.prefixes | [ self.class.agent_name ]
       end
 
-      def load_schema(action_name, prefixes)
-        return unless lookup_context.template_exists?(action_name, prefixes, false, formats: [ :json ])
+      def render_schema(schema_or_action, prefixes)
+        # If it's already a hash (direct schema), return it
+        return schema_or_action if schema_or_action.is_a?(Hash)
+        
+        # Otherwise try to load from template
+        return unless lookup_context.template_exists?(schema_or_action, prefixes, false, formats: [ :json ])
 
-        JSON.parse render_to_string(locals: { action_name: action_name }, action: action_name, formats: :json)
+        JSON.parse render_to_string(locals: { action_name: schema_or_action }, action: schema_or_action, formats: :json)
       end
 
       def merge_options(prompt_options)

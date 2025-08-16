@@ -9,8 +9,10 @@ http_interactions:
         are an advanced AI assistant with vision and structured output capabilities.\n\nWhen
         analyzing images:\n- Be detailed and accurate\n- Identify all visible objects\n-
         Note colors, positions, and relationships\n- Follow the exact schema provided\n\nWhen
-        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":"Analyze
-        the provided image and extract information according to the specified schema.\n"}],"temperature":0.7}'
+        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":[{"type":"text","text":"Analyze
+        this image and describe what you see. Return your response as a JSON object
+        with description, objects array, scene_type, and primary_colors."},{"type":"image_url","image_url":{"url":"https://raw.githubusercontent.com/activeagents/activeagent/refs/heads/main/test/fixtures/images/sales_chart.png"}}]}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"image_analysis","strict":true,"schema":{"type":"object","properties":{"description":{"type":"string","description":"A
+        detailed description of the image"},"objects":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"position":{"type":"string"},"color":{"type":"string"}},"required":["name","position","color"],"additionalProperties":false}},"scene_type":{"type":"string","enum":["indoor","outdoor","abstract","document","photo","illustration"]},"primary_colors":{"type":"array","items":{"type":"string"}}},"required":["description","objects","scene_type","primary_colors"],"additionalProperties":false}}}}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +30,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 05:12:42 GMT
+      - Sat, 16 Aug 2025 19:50:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,12 +51,21 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5b80e3cb7fa05-SJC
+      - 970375aa4e032716-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n{\"id\":\"gen-1755061961-ESkwqQb0pRhpGxMIORWd\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755061962,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        sorry, but I currently don't have the capability to analyze images. However,
-        if you describe the image to me, I can help you extract information based
-        on that description.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":85,\"completion_tokens\":35,\"total_tokens\":120,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 05:12:43 GMT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n{\"id\":\"gen-1755373815-sWSJ4qhQBfM8OeK65Q2P\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755373815,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"description\\\":\\\"The
+        image displays a bar chart titled 'Quarterly Sales Report'. It shows sales
+        revenue for each quarter of the year 2024. The y-axis is labeled with sales
+        revenue in thousands, ranging from $0 to $100K, while the x-axis lists the
+        quarters: Q1, Q2, Q3, and Q4. Each bar represents the sales revenue for the
+        respective quarter, with Q1 in blue, Q2 in green, Q3 in yellow, and Q4 in
+        red. The bars vary in height, indicating different revenue amounts. The background
+        is light gray, and the chart features a clean, minimalist design.\\\",\\\"objects\\\":[{\\\"name\\\":\\\"bar
+        chart\\\",\\\"position\\\":\\\"center\\\",\\\"color\\\":\\\"blue\\\"},{\\\"name\\\":\\\"bar
+        chart\\\",\\\"position\\\":\\\"center\\\",\\\"color\\\":\\\"green\\\"},{\\\"name\\\":\\\"bar
+        chart\\\",\\\"position\\\":\\\"center\\\",\\\"color\\\":\\\"yellow\\\"},{\\\"name\\\":\\\"bar
+        chart\\\",\\\"position\\\":\\\"center\\\",\\\"color\\\":\\\"red\\\"}],\\\"scene_type\\\":\\\"illustration\\\",\\\"primary_colors\\\":[\\\"blue\\\",\\\"green\\\",\\\"yellow\\\",\\\"red\\\",\\\"gray\\\"]}\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_51db84afab\",\"usage\":{\"prompt_tokens\":8712,\"completion_tokens\":207,\"total_tokens\":8919,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 16 Aug 2025 19:50:19 GMT
 recorded_with: VCR 6.3.1

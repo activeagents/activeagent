@@ -29,7 +29,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 05:18:30 GMT
+      - Sat, 16 Aug 2025 19:38:09 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -50,13 +50,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5c08d0e7f67ab-SJC
+      - 970363eeb9edf997-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n{\"id\":\"gen-1755062310-diYuG52bORsv1mrxsVAS\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755062310,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        unable to directly analyze or decode base64 encoded content, including PDF
-        documents. However, if you can provide text from the PDF or describe its contents,
-        I can help summarize or analyze that information. Please share the necessary
-        details!\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_62a23a81ef\",\"usage\":{\"prompt_tokens\":101,\"completion_tokens\":46,\"total_tokens\":147,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 05:18:31 GMT
+      string: "\n         \n\n         \n{\"id\":\"gen-1755373089-JAMlXOxhKG1AdrlAo9G1\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755373089,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
+        sorry, but I cannot process base64 encoded data or directly analyze PDF documents.
+        However, if you provide a text excerpt or describe the content, I can help
+        summarize or analyze that information.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":101,\"completion_tokens\":39,\"total_tokens\":140,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 16 Aug 2025 19:38:10 GMT
 recorded_with: VCR 6.3.1

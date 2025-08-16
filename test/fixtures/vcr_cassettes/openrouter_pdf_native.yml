@@ -28,7 +28,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 13 Aug 2025 05:23:12 GMT
+      - Sat, 16 Aug 2025 19:37:50 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,12 +49,11 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 96e5c76d9e5d159e-SJC
+      - 97036375ce931761-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n{\"id\":\"gen-1755062591-dzZALYPOeifXYsAM7PR1\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755062591,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        unable to process base64 encoded data or analyze PDF documents directly. Please
-        provide the content or details of the document in text format, and I can help
-        analyze or summarize it.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_34a54ae93c\",\"usage\":{\"prompt_tokens\":88,\"completion_tokens\":36,\"total_tokens\":124,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Wed, 13 Aug 2025 05:23:12 GMT
+      string: "\n         \n{\"id\":\"gen-1755373069-bIep87DQFuqA3OrXhTQ1\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755373069,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
+        sorry, but I cannot process base64 encoded documents directly. Please provide
+        the content or describe the document, and I will help you analyze it.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":88,\"completion_tokens\":30,\"total_tokens\":118,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 16 Aug 2025 19:37:50 GMT
 recorded_with: VCR 6.3.1
