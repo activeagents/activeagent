@@ -30,9 +30,9 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
   test "it can use fallback models when configured" do
     # Create a custom agent with fallback models
     agent_class = Class.new(ApplicationAgent) do
-      generate_with :open_router, 
+      generate_with :open_router,
         model: "openai/gpt-4o",
-        fallback_models: ["anthropic/claude-3-opus", "google/gemini-pro"],
+        fallback_models: [ "anthropic/claude-3-opus", "google/gemini-pro" ],
         enable_fallbacks: true
     end
 
@@ -47,7 +47,7 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
       generate_with :open_router,
         model: "openai/gpt-4o",
         provider: {
-          "order" => ["OpenAI", "Anthropic"],
+          "order" => [ "OpenAI", "Anthropic" ],
           "require_parameters" => true,
           "data_collection" => "deny"
         }
@@ -63,7 +63,7 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
     agent_class = Class.new(ApplicationAgent) do
       generate_with :open_router,
         model: "anthropic/claude-3-opus",
-        transforms: ["middle-out"]
+        transforms: [ "middle-out" ]
     end
 
     # Just verify the agent can be created with these options

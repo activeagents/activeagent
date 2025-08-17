@@ -1,11 +1,11 @@
 class PrivacyFocusedAgent < ApplicationAgent
   # Configure OpenRouter with strict data privacy settings
   # region privacy_agent_config
-  generate_with :open_router, 
+  generate_with :open_router,
     model: "openai/gpt-4o-mini",
     data_collection: "deny",  # Prevent all providers from collecting data
     enable_fallbacks: true,
-    fallback_models: ["openai/gpt-3.5-turbo"]
+    fallback_models: [ "openai/gpt-3.5-turbo" ]
   # endregion privacy_agent_config
 
   # Process sensitive financial data without data collection
@@ -13,7 +13,7 @@ class PrivacyFocusedAgent < ApplicationAgent
   def analyze_financial_data
     @data = params[:financial_data]
     @analysis_type = params[:analysis_type] || "summary"
-    
+
     prompt(
       message: build_financial_message,
       instructions: "You are analyzing sensitive financial data. Ensure privacy and confidentiality."
@@ -30,7 +30,7 @@ class PrivacyFocusedAgent < ApplicationAgent
       instructions: "Handle medical data with utmost privacy",
       options: {
         provider: {
-          data_collection: ["OpenAI"]  # Only OpenAI can collect this data
+          data_collection: [ "OpenAI" ]  # Only OpenAI can collect this data
         }
       }
     )
@@ -43,9 +43,9 @@ class PrivacyFocusedAgent < ApplicationAgent
     <<~MESSAGE
       Analyze the following financial data:
       #{@data}
-      
+
       Analysis type: #{@analysis_type}
-      
+
       Please provide:
       1. Key financial metrics
       2. Risk assessment

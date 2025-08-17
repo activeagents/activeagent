@@ -121,19 +121,19 @@ module ActiveAgent
       private
 
       def extract_tool_name_from_schema(tool)
-        tool["name"] || tool[:name] || 
+        tool["name"] || tool[:name] ||
         tool.dig("function", "name") || tool.dig(:function, "name") ||
         tool.dig("function", :name) || tool.dig(:function, :name)
       end
 
       def extract_tool_description_from_schema(tool)
-        tool["description"] || tool[:description] || 
+        tool["description"] || tool[:description] ||
         tool.dig("function", "description") || tool.dig(:function, "description") ||
         tool.dig("function", :description) || tool.dig(:function, :description)
       end
 
       def extract_tool_parameters_from_schema(tool)
-        tool["parameters"] || tool[:parameters] || 
+        tool["parameters"] || tool[:parameters] ||
         tool.dig("function", "parameters") || tool.dig(:function, "parameters") ||
         tool.dig("function", :parameters) || tool.dig(:function, :parameters)
       end

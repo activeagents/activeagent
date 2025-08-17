@@ -49,7 +49,7 @@ module ActiveAgent
           message.content += new_content
           agent_stream&.call(message, new_content, false, prompt.action_name)
         end
-        
+
         if chunk[:type] == "message_stop"
           finalize_stream(message, agent_stream)
         end
@@ -60,17 +60,17 @@ module ActiveAgent
         # Anthropic requires system message separately and no system role in messages
         filtered_messages = @prompt.messages.reject { |m| m.role == :system }
         system_message = @prompt.messages.find { |m| m.role == :system }
-        
+
         params = {
           system: system_message&.content || @prompt.options[:instructions]
         }
-        
+
         # Override messages to use filtered version
         @filtered_messages = filtered_messages
-        
+
         params
       end
-      
+
       def build_base_parameters
         super.tap do |params|
           # Use filtered messages if available (set by build_provider_parameters)
@@ -93,20 +93,20 @@ module ActiveAgent
       def format_content(message)
         # Anthropic requires content as an array
         if message.content_type == "image_url"
-          [format_image_content(message).first]
+          [ format_image_content(message).first ]
         else
-          [{ type: "text", text: message.content }]
+          [ { type: "text", text: message.content } ]
         end
       end
-      
+
       def format_image_content(message)
-        [{
+        [ {
           type: "image",
           source: {
             type: "url",
             url: message.content
           }
-        }]
+        } ]
       end
 
       # Override from MessageFormatting for Anthropic role mapping
@@ -144,14 +144,14 @@ module ActiveAgent
       # Override from ToolManagement for Anthropic-specific tool parsing
       def parse_tool_call(tool_use)
         return nil unless tool_use
-        
+
         ActiveAgent::ActionPrompt::Action.new(
           id: tool_use[:id],
           name: tool_use[:name],
           params: tool_use[:input]
         )
       end
-      
+
       private
     end
   end

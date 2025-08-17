@@ -14,7 +14,7 @@ module ActiveAgent
         info do
           provider = event.payload[:provider]
           model = event.payload[:model]
-          
+
           if exception = event.payload[:exception_object]
             "Failed generation with #{provider} model=#{model} error_class=#{exception.class} error_message=#{exception.message.inspect}"
           else
@@ -41,7 +41,7 @@ module ActiveAgent
         info do
           tool_name = event.payload[:tool_name]
           tool_id = event.payload[:tool_id]
-          
+
           if exception = event.payload[:exception_object]
             "Failed tool call #{tool_name} id=#{tool_id} error=#{exception.class}"
           else
@@ -58,7 +58,7 @@ module ActiveAgent
           attempt = event.payload[:attempt]
           max_attempts = event.payload[:max_attempts]
           error_class = event.payload[:error_class]
-          
+
           "#{provider}: Retry attempt #{attempt}/#{max_attempts} after #{error_class}"
         end
       end
@@ -70,7 +70,7 @@ module ActiveAgent
           provider = event.payload[:provider]
           error_class = event.payload[:error_class]
           error_message = event.payload[:error_message]
-          
+
           "#{provider}: Error #{error_class} - #{error_message}"
         end
       end

@@ -1,20 +1,20 @@
 class OpenRouterIntegrationAgent < ApplicationAgent
-  generate_with :open_router, 
+  generate_with :open_router,
     model: "openai/gpt-4o-mini",
-    fallback_models: ["openai/gpt-3.5-turbo"],
+    fallback_models: [ "openai/gpt-3.5-turbo" ],
     enable_fallbacks: true,
     track_costs: true
 
   def analyze_image
     @image_url = params[:image_url]
     @image_path = params[:image_path]
-    
+
     # Create an ActiveAgent::ActionPrompt::Message with multimodal content
     message = ActiveAgent::ActionPrompt::Message.new(
       content: build_image_message,
       role: :user
     )
-    
+
     # Pass the multimodal message directly to prompt
     prompt(
       message: message,
@@ -25,13 +25,13 @@ class OpenRouterIntegrationAgent < ApplicationAgent
   def extract_receipt_data
     @image_url = params[:image_url]
     @image_path = params[:image_path]
-    
+
     # Create an ActiveAgent::ActionPrompt::Message with multimodal content
     message = ActiveAgent::ActionPrompt::Message.new(
       content: build_receipt_message,
       role: :user
     )
-    
+
     # Pass the multimodal message directly to prompt
     prompt(
       message: message,
@@ -41,10 +41,10 @@ class OpenRouterIntegrationAgent < ApplicationAgent
 
   def process_long_text
     @text = params[:text]
-    
+
     prompt(
       message: "Summarize the following text in 3 bullet points:\n\n#{@text}",
-      options: { transforms: ["middle-out"] }
+      options: { transforms: [ "middle-out" ] }
     )
   end
 
@@ -52,12 +52,12 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     # Use a model with small context and provide text that might exceed it
     # This should trigger fallback to a model with larger context
     long_context = "Please summarize this: " + ("The quick brown fox jumps over the lazy dog. " * 50)
-    
+
     prompt(
       message: long_context + "\n\nNow, what is 2+2? Answer with just the number.",
-      options: { 
+      options: {
         # Try to use a model with limited context first
-        models: ["openai/gpt-3.5-turbo-0301", "openai/gpt-3.5-turbo", "openai/gpt-4o-mini"],
+        models: [ "openai/gpt-3.5-turbo-0301", "openai/gpt-3.5-turbo", "openai/gpt-4o-mini" ],
         route: "fallback"
       }
     )
@@ -71,22 +71,22 @@ class OpenRouterIntegrationAgent < ApplicationAgent
   def analyze_pdf
     @pdf_url = params[:pdf_url]
     @pdf_data = params[:pdf_data]
-    
+
     # Allow users to specify their preferred PDF processing engine
     # Options: 'mistral-ocr' ($2/1000 pages), 'pdf-text' (free), 'native' (input tokens)
-    pdf_engine = params[:pdf_engine] || 'pdf-text'  # Default to free option
-    
+    pdf_engine = params[:pdf_engine] || "pdf-text"  # Default to free option
+
     # Build the proper plugin format for OpenRouter PDF processing
     pdf_plugin = {
-      id: 'file-parser',
+      id: "file-parser",
       pdf: {
         engine: pdf_engine
       }
     }
-    
+
     # Allow disabling plugins entirely for models with built-in support
-    options = params[:skip_plugin] ? {} : { plugins: [pdf_plugin] }
-    
+    options = params[:skip_plugin] ? {} : { plugins: [ pdf_plugin ] }
+
     if @pdf_url
       prompt(
         message: [
@@ -153,7 +153,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
       schema: {
         type: "object",
         properties: {
-          description: { 
+          description: {
             type: "string",
             description: "A detailed description of the image"
           },
@@ -166,20 +166,20 @@ class OpenRouterIntegrationAgent < ApplicationAgent
                 position: { type: "string" },
                 color: { type: "string" }
               },
-              required: ["name", "position", "color"],
+              required: [ "name", "position", "color" ],
               additionalProperties: false
             }
           },
           scene_type: {
             type: "string",
-            enum: ["indoor", "outdoor", "abstract", "document", "photo", "illustration"]
+            enum: [ "indoor", "outdoor", "abstract", "document", "photo", "illustration" ]
           },
           primary_colors: {
             type: "array",
             items: { type: "string" }
           }
         },
-        required: ["description", "objects", "scene_type", "primary_colors"],
+        required: [ "description", "objects", "scene_type", "primary_colors" ],
         additionalProperties: false
       }
     }
@@ -198,7 +198,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
               name: { type: "string" },
               address: { type: "string" }
             },
-            required: ["name"],
+            required: [ "name" ],
             additionalProperties: false
           },
           date: { type: "string" },
@@ -208,7 +208,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
               amount: { type: "number" },
               currency: { type: "string" }
             },
-            required: ["amount"],
+            required: [ "amount" ],
             additionalProperties: false
           },
           items: {
@@ -220,14 +220,14 @@ class OpenRouterIntegrationAgent < ApplicationAgent
                 quantity: { type: "integer" },
                 price: { type: "number" }
               },
-              required: ["name", "price"],
+              required: [ "name", "price" ],
               additionalProperties: false
             }
           },
           tax: { type: "number" },
           subtotal: { type: "number" }
         },
-        required: ["merchant", "total"],
+        required: [ "merchant", "total" ],
         additionalProperties: false
       }
     }
