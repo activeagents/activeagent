@@ -349,8 +349,8 @@ class MessagesController < ApplicationController
     response = agent.generate(prompt: params[:message])
     
     render json: { 
-      reply: response.content,
-      actions_taken: response.requested_actions
+      reply: response.message.content,
+      actions_taken: response.prompt.requested_actions
     }
   end
 end
@@ -763,7 +763,7 @@ class BlogPostsController < ApplicationController
       length: params[:length]
     ).write_post.generate_now
     
-    @generated_content = response.content
+    @generated_content = response.message.content
     @post = BlogPost.new(
       title: extract_title(@generated_content),
       content: @generated_content,
@@ -781,7 +781,7 @@ class BlogPostsController < ApplicationController
       instructions: params[:instructions]
     ).edit_post.generate_now
     
-    @post.content = response.content
+    @post.content = response.message.content
     render :edit
   end
   
@@ -849,8 +849,8 @@ class BlogWriterAgentTest < ActiveSupport::TestCase
         length: 600
       ).write_post.generate_now
       
-      assert response.content.include?("Rails")
-      assert response.content.length > 400
+      assert response.message.content.include?("Rails")
+      assert response.message.content.length > 400
       
       # Generate documentation example
       doc_example_output(response)
@@ -866,8 +866,8 @@ class BlogWriterAgentTest < ActiveSupport::TestCase
         instructions: "Fix grammar and improve clarity"
       ).edit_post.generate_now
       
-      assert response.content != original
-      assert response.content.include?("Rails")
+      assert response.message.content != original
+      assert response.message.content.include?("Rails")
     end
   end
 end
@@ -1182,7 +1182,7 @@ class ComplexAgentTest < ActiveSupport::TestCase
         content: file_fixture("report.pdf").read
       ).extract.generate_now
       
-      assert extracted.content.present?
+      assert extracted.message.content.present?
       
       # Step 2: Analyze with context
       analyzer = AnalysisAgent.new
