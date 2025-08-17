@@ -15,8 +15,22 @@ You can pass messages to the agent from Action Controller, and the agent render 
 ```ruby
 class MessagesController < ApplicationController
   def create
-    @agent = TravelAgent.with(messages: params[:messages]).generate_later
-    render json: @agent.response
+    # Use the class method with() to pass parameters, then call the action
+    generation = TravelAgent.with(message: params[:message]).prompt_context.generate_later
+    
+    # The generation object tracks the async job
+    render json: { job_id: generation.job_id }
+  end
+  
+  def show
+    # Check status of a generation
+    generation = ActiveAgent::Generation.find(params[:id])
+    
+    if generation.finished?
+      render json: { response: generation.response.message.content }
+    else
+      render json: { status: "processing" }
+    end
   end
 end
 ```
