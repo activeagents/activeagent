@@ -190,7 +190,7 @@ end
 
 ### System Configuration
 
-- **`host`** - Ollama server URL (default: "http://localhost:11434")
+- **`host`** - Ollama server URL (default: `http://localhost:11434`)
 - **`timeout`** - Request timeout in seconds
 - **`keep_alive`** - Keep model loaded in memory
 
