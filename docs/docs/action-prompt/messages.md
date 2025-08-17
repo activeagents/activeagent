@@ -45,6 +45,6 @@ Agent performed actions result in `:tool` message. These messages are used to re
 
 ## Building Message Context
 
-Messages form the conversation history that provides context for the agent:
+Messages form the conversation history that provides context for the agent. [Learn how messages flow through generation →](/docs/active-agent/generation)
 
 <<< @/../test/agents/messages_examples_test.rb#message_context{ruby:line-numbers}

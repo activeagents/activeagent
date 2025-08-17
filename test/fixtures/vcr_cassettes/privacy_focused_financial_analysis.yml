@@ -1,0 +1,97 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"openai/gpt-4o-mini","messages":[{"role":"system","content":"You
+        are analyzing sensitive financial data. Ensure privacy and confidentiality."},{"role":"user","content":"Analyze
+        the following financial data:\n{\"revenue\":1000000,\"expenses\":750000,\"profit_margin\":0.25,\"quarter\":\"Q3
+        2024\"}\n\nAnalysis type: risk_assessment\n\nPlease provide:\n1. Key financial
+        metrics\n2. Risk assessment\n3. Recommendations\n"}],"temperature":0.7,"provider":{"allow_fallbacks":true,"data_collection":"deny"}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPEN_ROUTER_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 17 Aug 2025 19:41:22 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 970ba6028e00cf2b-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1755459681-gFv6rC0FHWR4F60iZfvW\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755459681,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"###
+        1. Key Financial Metrics\\n\\n- **Revenue:** $1,000,000\\n- **Expenses:**
+        $750,000\\n- **Profit:** $250,000 (calculated as Revenue - Expenses)\\n- **Profit
+        Margin:** 25% (given)\\n- **Net Profit Margin:** 25% (Profit / Revenue)\\n
+        \ \\n### 2. Risk Assessment\\n\\n#### Financial Health:\\n- The profit margin
+        of 25% indicates a relatively healthy financial position, as it shows that
+        the company retains a quarter of its revenue as profit after covering its
+        expenses.\\n  \\n#### Risks Identified:\\n1. **Market Risk:** \\n   - A high
+        reliance on market conditions can pose a risk, especially if revenue is sensitive
+        to economic fluctuations. Any downturn could adversely affect sales.\\n  \\n2.
+        **Cost Management Risks:**\\n   - Expenses are high relative to revenue. If
+        expenses increase further (e.g., through inflation or unforeseen costs), the
+        profit margin could shrink, leading to potential losses.\\n\\n3. **Operational
+        Risks:**\\n   - Operational inefficiencies could lead to increased costs.
+        Monitoring and improving operational processes is essential to maintain the
+        profit margin.\\n\\n4. **Liquidity Risk:**\\n   - If the company faces unexpected
+        expenses or a dip in revenue, it may struggle to maintain liquidity. This
+        could affect operations and the ability to meet obligations.\\n\\n5. **Regulatory
+        Risks:**\\n   - Changes in regulations related to the industry could potentially
+        increase costs or limit revenue opportunities.\\n\\n### 3. Recommendations\\n\\n1.
+        **Diversify Revenue Streams:**\\n   - Explore additional markets or product
+        lines to reduce reliance on a single source of revenue. This can mitigate
+        market risk and improve overall financial stability.\\n\\n2. **Cost Control
+        Measures:**\\n   - Conduct regular reviews of expenses and identify areas
+        for potential savings. Implementing tighter cost controls can help maintain
+        or improve profit margins.\\n\\n3. **Strengthen Cash Reserves:**\\n   - Build
+        a financial buffer to ensure liquidity during downturns. This could involve
+        setting aside a percentage of profits to cover unexpected expenses.\\n\\n4.
+        **Enhance Operational Efficiency:**\\n   - Invest in process improvements
+        and technology to streamline operations and reduce costs. This will help protect
+        the profit margin against rising expenses.\\n\\n5. **Monitor Regulatory Changes:**\\n
+        \  - Stay informed about potential regulatory changes that could impact the
+        business. Engaging with industry associations may provide insights into upcoming
+        changes and strategies to comply.\\n\\n6. **Risk Management Strategy:**\\n
+        \  - Develop a comprehensive risk management framework to identify, assess,
+        and mitigate financial risks proactively. Regular risk assessments can help
+        the company remain agile in changing environments.\\n\\nBy following these
+        recommendations, the company can strengthen its financial position and mitigate
+        potential risks that could impact profitability in the future.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":82,\"completion_tokens\":549,\"total_tokens\":631,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 17 Aug 2025 19:41:32 GMT
+recorded_with: VCR 6.3.1

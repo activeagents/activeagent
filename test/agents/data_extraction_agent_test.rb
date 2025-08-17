@@ -19,8 +19,8 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       response = prompt.generate_now
       # endregion data_extraction_agent_describe_cat_image_response
       doc_example_output(response)
-
-      assert_equal "The cat in the image is lying on its back on a brown leather surface. It has a primarily white coat with some black patches. Its paws are stretched out, and the cat appears to be comfortably relaxed, with its eyes closed and a peaceful expression. The light from the sun creates a warm glow around it, highlighting its features.", response.message.content
+      expected_response = "The cat in the image appears to have a primarily dark gray coat with a white patch on its chest. It has a curious expression and is positioned in a relaxed manner. The background suggests a cozy indoor environment, possibly with soft bedding and other household items visible."
+      assert_equal expected_response, response.message.content
     end
   end
 
@@ -105,8 +105,8 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     VCR.use_cassette("data_extraction_agent_parse_chart_generation_response") do
       response = prompt.generate_now
       doc_example_output(response)
-
-      assert_equal "The image presents a bar chart titled \"Quarterly Sales Report\" for the year 2024. It depicts sales revenue by quarter, with data represented for four quarters (Q1, Q2, Q3, and Q4) using differently colored bars:\n\n- **Q1**: Blue bar\n- **Q2**: Green bar\n- **Q3**: Yellow bar\n- **Q4**: Red bar\n\nThe sales revenue ranges from $0 to $100,000, with each quarter showing varying levels of sales revenue, with Q4 having the highest bar.", response.message.content
+      expected_response = "The image is a bar chart titled \"Quarterly Sales Report\" that displays sales revenue for the year 2024 by quarter. \n\n- **Y-axis** represents sales revenue in thousands of dollars, ranging from $0 to $100,000.\n- **X-axis** lists the four quarters: Q1, Q2, Q3, and Q4.\n\nThe bars are colored as follows:\n- Q1: Blue\n- Q2: Green\n- Q3: Yellow\n- Q4: Red\n\nThe heights of the bars indicate the sales revenue for each quarter, with Q4 showing the highest revenue."
+      assert_equal expected_response, response.message.content
     end
   end
 

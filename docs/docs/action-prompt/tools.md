@@ -48,3 +48,5 @@ Tools are defined as methods in your agent class. The tool's JSON schema is defi
 ### Tool Schema Definition
 
 <<< @/../test/dummy/app/views/support_agent/get_cat_image.json.erb {erb}
+
+[See how tools are called and executed in multi-turn conversations →](/docs/action-prompt/tool-calling)
