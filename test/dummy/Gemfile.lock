@@ -1,12 +1,12 @@
 PATH
   remote: ../../..
   specs:
-    activeagent (0.5.0)
-      actionpack (>= 7.2, < 9.0)
-      actionview (>= 7.2, < 9.0)
-      activejob (>= 7.2, < 9.0)
-      activemodel (>= 7.2, < 9.0)
-      activesupport (>= 7.2, < 9.0)
+    activeagent (0.6.0rc1)
+      actionpack (>= 7.2, <= 8.0.2.1)
+      actionview (>= 7.2, <= 8.0.2.1)
+      activejob (>= 7.2, <= 8.0.2.1)
+      activemodel (>= 7.2, <= 8.0.2.1)
+      activesupport (>= 7.2, <= 8.0.2.1)
 
 GEM
   remote: https://rubygems.org/
@@ -109,6 +109,15 @@ GEM
       reline (>= 0.3.8)
     drb (2.2.1)
     erubi (1.13.1)
+    event_stream_parser (1.0.0)
+    faraday (2.13.4)
+      faraday-net_http (>= 2.0, < 3.5)
+      json
+      logger
+    faraday-multipart (1.1.1)
+      multipart-post (~> 2.0)
+    faraday-net_http (3.4.1)
+      net-http (>= 0.5.0)
     globalid (1.2.1)
       activesupport (>= 6.1)
     i18n (1.14.7)
@@ -121,6 +130,7 @@ GEM
     jbuilder (2.13.0)
       actionview (>= 5.0.0)
       activesupport (>= 5.0.0)
+    json (2.13.2)
     logger (1.7.0)
     loofah (2.24.0)
       crass (~> 1.0.2)
@@ -135,6 +145,9 @@ GEM
     mini_mime (1.1.5)
     minitest (5.25.5)
     msgpack (1.8.0)
+    multipart-post (2.4.1)
+    net-http (0.6.0)
+      uri
     net-imap (0.5.8)
       date
       net-protocol
@@ -215,6 +228,14 @@ GEM
     reline (0.6.1)
       io-console (~> 0.5)
     rexml (3.4.1)
+    ruby-anthropic (0.4.2)
+      event_stream_parser (>= 0.3.0, < 2.0.0)
+      faraday (>= 1)
+      faraday-multipart (>= 1)
+    ruby-openai (8.2.0)
+      event_stream_parser (>= 0.3.0, < 2.0.0)
+      faraday (>= 1)
+      faraday-multipart (>= 1)
     rubyzip (2.4.1)
     securerandom (0.4.1)
     selenium-webdriver (4.32.0)
@@ -273,6 +294,8 @@ DEPENDENCIES
   jbuilder
   puma (>= 5.0)
   rails (~> 8.0.2.1)
+  ruby-anthropic (~> 0.4.2)
+  ruby-openai (~> 8.2.0)
   selenium-webdriver
   sqlite3 (>= 2.1)
   tzinfo-data
