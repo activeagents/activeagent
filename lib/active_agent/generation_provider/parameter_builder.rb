@@ -8,7 +8,7 @@ module ActiveAgent
       def prompt_parameters(overrides = {})
         base_params = build_base_parameters
         provider_params = build_provider_parameters
-        
+
         # Merge parameters with proper precedence:
         # 1. Overrides (highest priority)
         # 2. Prompt options
@@ -44,9 +44,9 @@ module ActiveAgent
       def extract_prompt_options
         # Extract relevant options from prompt
         options = {}
-        
+
         # Common options that map directly
-        [:stream, :top_p, :frequency_penalty, :presence_penalty, :seed, :stop, :user].each do |key|
+        [ :stream, :top_p, :frequency_penalty, :presence_penalty, :seed, :stop, :user ].each do |key|
           options[key] = @prompt.options[key] if @prompt.options.key?(key)
         end
 

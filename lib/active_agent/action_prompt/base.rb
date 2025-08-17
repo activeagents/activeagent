@@ -405,7 +405,7 @@ module ActiveAgent
       def render_schema(schema_or_action, prefixes)
         # If it's already a hash (direct schema), return it
         return schema_or_action if schema_or_action.is_a?(Hash)
-        
+
         # Otherwise try to load from template
         return unless lookup_context.template_exists?(schema_or_action, prefixes, false, formats: [ :json ])
 

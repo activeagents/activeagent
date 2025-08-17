@@ -73,10 +73,10 @@ module ActiveAgent
 
       # Override from MessageFormatting module to handle OpenAI image format
       def format_image_content(message)
-        [{
+        [ {
           type: "image_url",
           image_url: { url: message.content }
-        }]
+        } ]
       end
 
       private

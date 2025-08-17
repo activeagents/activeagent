@@ -8,7 +8,7 @@ module ActiveAgent
     class Base
       include ErrorHandling
       include ParameterBuilder
-      
+
       class GenerationProviderError < StandardError; end
       attr_reader :client, :config, :prompt, :response, :access_token, :model_name
 
