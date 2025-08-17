@@ -100,7 +100,7 @@ GEM
     erb (5.0.2)
     erubi (1.13.1)
     event_stream_parser (1.0.0)
-    faraday (2.13.2)
+    faraday (2.13.4)
       faraday-net_http (>= 2.0, < 3.5)
       json
       logger
@@ -121,7 +121,7 @@ GEM
     jbuilder (2.14.1)
       actionview (>= 7.0.0)
       activesupport (>= 7.0.0)
-    json (2.13.0)
+    json (2.13.2)
     language_server-protocol (3.17.0.5)
     lint_roller (1.1.0)
     logger (1.7.0)
@@ -246,7 +246,7 @@ GEM
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
       faraday-multipart (>= 1)
-    ruby-openai (8.1.0)
+    ruby-openai (8.2.0)
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
       faraday-multipart (>= 1)
@@ -299,7 +299,7 @@ DEPENDENCIES
   rails
   rubocop-rails-omakase
   ruby-anthropic (~> 0.4.2)
-  ruby-openai (~> 8.1.0)
+  ruby-openai (~> 8.2.0)
   sqlite3
   standard
   vcr
