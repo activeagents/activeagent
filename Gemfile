@@ -2,7 +2,7 @@ source "https://rubygems.org"
 
 gemspec
 
-gem "ruby-openai", "~> 8.1.0"
+gem "ruby-openai", "~> 8.2.0"
 gem "ruby-anthropic", "~> 0.4.2"
 
 group :development, :test do
