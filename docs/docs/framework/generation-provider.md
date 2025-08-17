@@ -52,6 +52,75 @@ For Azure OpenAI or other custom endpoints:
 
 <<< @/../test/generation_provider_examples_test.rb#custom_host_configuration{ruby:line-numbers}
 
+## Configuration Precedence
+
+ActiveAgent follows a clear hierarchy for configuration parameters, ensuring that you have fine-grained control over your AI generation settings. Parameters can be configured at multiple levels, with higher-priority settings overriding lower-priority ones.
+
+### Precedence Order (Highest to Lowest)
+
+1. **Runtime Options** - Parameters passed directly to the `prompt` method
+2. **Agent Options** - Parameters defined in `generate_with` at the agent class level
+3. **Global Configuration** - Parameters in `config/active_agent.yml`
+
+This hierarchy allows you to:
+- Set sensible defaults globally
+- Override them for specific agents
+- Make runtime adjustments for individual requests
+
+### Example: Configuration Precedence in Action
+
+<<< @/../test/agents/configuration_precedence_test.rb#test_configuration_precedence{ruby:line-numbers}
+
+### Data Collection Precedence Example
+
+The `data_collection` parameter for OpenRouter follows the same precedence rules:
+
+<<< @/../test/agents/configuration_precedence_test.rb#test_data_collection_precedence{ruby:line-numbers}
+
+### Key Principles
+
+#### 1. Runtime Always Wins
+Runtime options in the `prompt` method override all other configurations. See the test demonstrating this behavior:
+
+<<< @/../test/agents/configuration_precedence_test.rb#runtime_options_override{ruby:line-numbers}
+
+#### 2. Nil Values Don't Override  
+Nil values passed at runtime don't override existing configurations:
+
+<<< @/../test/agents/configuration_precedence_test.rb#nil_values_dont_override{ruby:line-numbers}
+
+#### 3. Agent Configuration Overrides Global
+Agent-level settings take precedence over global configuration files:
+
+<<< @/../test/agents/configuration_precedence_test.rb#agent_overrides_config{ruby:line-numbers}
+
+### Supported Runtime Options
+
+The following options can be overridden at runtime:
+
+- `:model` - The AI model to use
+- `:temperature` - Creativity/randomness (0.0-1.0)
+- `:max_tokens` - Maximum response length
+- `:stream` - Enable streaming responses
+- `:top_p` - Nucleus sampling parameter
+- `:frequency_penalty` - Reduce repetition
+- `:presence_penalty` - Encourage topic diversity
+- `:response_format` - Structured output format
+- `:seed` - For reproducible outputs
+- `:stop` - Stop sequences
+- `:tools_choice` - Tool selection strategy
+- `:data_collection` - Privacy settings (OpenRouter)
+
+### Best Practices
+
+1. **Use Global Config for Defaults**: Set organization-wide defaults in `config/active_agent.yml`
+2. **Agent-Level for Specific Needs**: Override in `generate_with` for agent-specific requirements  
+3. **Runtime for Dynamic Adjustments**: Use runtime options for user preferences or conditional logic
+
+For a complete example showing all three levels working together, see:
+
+<<< @/../test/agents/configuration_precedence_test.rb#test_configuration_precedence{ruby:line-numbers}
+
 ## Provider-Specific Documentation
 
 For detailed documentation on specific providers and their features:

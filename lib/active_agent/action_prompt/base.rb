@@ -421,7 +421,7 @@ module ActiveAgent
         # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
         runtime_options = prompt_options.slice(
           :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
-          :presence_penalty, :response_format, :seed, :stop, :tools_choice
+          :presence_penalty, :response_format, :seed, :stop, :tools_choice, :data_collection
         )
         # Handle explicit options parameter
         explicit_options = prompt_options[:options] || {}

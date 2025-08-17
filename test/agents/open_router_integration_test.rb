@@ -453,6 +453,31 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     assert_equal "deny", prefs[:data_collection]
   end
 
+  test "configures data collection policies" do
+    # Test deny all data collection
+    provider_deny = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+      "model" => "openai/gpt-4o",
+      "data_collection" => "deny"
+    )
+    prefs_deny = provider_deny.send(:build_provider_preferences)
+    assert_equal "deny", prefs_deny[:data_collection]
+    
+    # Test allow all data collection (default)
+    provider_allow = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+      "model" => "openai/gpt-4o"
+    )
+    prefs_allow = provider_allow.send(:build_provider_preferences)
+    assert_equal "allow", prefs_allow[:data_collection]
+    
+    # Test selective provider data collection
+    provider_selective = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+      "model" => "openai/gpt-4o",
+      "data_collection" => ["OpenAI", "Google"]
+    )
+    prefs_selective = provider_selective.send(:build_provider_preferences)
+    assert_equal ["OpenAI", "Google"], prefs_selective[:data_collection]
+  end
+
   test "handles multimodal content correctly" do
     # Create a message with multimodal content
     message = ActiveAgent::ActionPrompt::Message.new(

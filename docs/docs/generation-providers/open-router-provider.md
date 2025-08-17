@@ -177,7 +177,70 @@ Track token usage and costs for OpenRouter requests:
 
 Configure provider preferences for routing and data collection:
 
-<<< @/../test/agents/open_router_integration_test.rb#434-451{ruby:line-numbers}
+<<< @/../test/agents/open_router_integration_test.rb#437-454{ruby:line-numbers}
+
+### Data Collection Policies
+
+OpenRouter supports configuring data collection policies to control which providers can collect and use your data for training. According to the [OpenRouter documentation](https://openrouter.ai/docs/features/provider-routing#requiring-providers-to-comply-with-data-policies), you can configure this in three ways:
+
+1. **Allow all providers** (default): All providers can collect data
+2. **Deny all providers**: No providers can collect data
+3. **Selective providers**: Only specified providers can collect data
+
+#### Configuration Examples
+
+<<< @/../test/agents/open_router_integration_test.rb#456-479{ruby:line-numbers}
+
+#### Real-World Example: Privacy-Focused Agent
+
+Here's a complete example of an agent configured to handle sensitive data with strict privacy controls:
+
+<<< @/../test/dummy/app/agents/privacy_focused_agent.rb#privacy_agent_config{ruby:line-numbers}
+
+Processing sensitive financial data:
+
+<<< @/../test/dummy/app/agents/privacy_focused_agent.rb#process_financial_data{ruby:line-numbers}
+
+Selective provider data collection for medical records:
+
+<<< @/../test/dummy/app/agents/privacy_focused_agent.rb#process_medical_records{ruby:line-numbers}
+
+You can configure data collection at multiple levels:
+
+```ruby
+# In config/active_agent.yml
+development:
+  open_router:
+    api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
+    model: openai/gpt-4o
+    data_collection: deny  # Deny all providers from collecting data
+
+# Or allow specific providers only
+production:
+  open_router:
+    api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
+    model: openai/gpt-4o
+    data_collection: ["OpenAI", "Google"]  # Only these providers can collect data
+
+# In your agent configuration
+class PrivacyFocusedAgent < ApplicationAgent
+  generate_with :open_router, 
+    model: "openai/gpt-4o",
+    data_collection: "deny"  # Override for this specific agent
+end
+```
+
+::: warning Privacy Considerations
+When handling sensitive data, consider setting `data_collection: "deny"` to ensure your data is not used for model training. This is especially important for:
+- Personal information
+- Proprietary business data
+- Medical or financial records
+- Confidential communications
+:::
+
+::: tip
+The `data_collection` parameter respects OpenRouter's provider compliance requirements. Providers that don't comply with your data collection policy will be automatically excluded from the routing pool.
+:::
 
 ## Headers and Site Configuration
 
