@@ -5,15 +5,23 @@ Active Agent uses Action View to render Message content for [Prompt](./prompts.m
 The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller, it allows you to specify the content type and view template for the action's response.
 
 ```ruby
-ApplicationAgent.new.prompt(
-  content_type: :text, # or :json, :html, etc.
-  message: "Hello, world!", # The message content to be rendered
-  messages: [], # Additional messages to include in the prompt context
-  template_name: "action_template", # The name of the view template to be used
-  instructions: { template: "instructions" }, # Optional instructions for the prompt generation
-  actions: [], # Available actions for the agent to use
-  output_schema: :schema_name # Optional schema for structured output
-)
+# The prompt method is typically called within an action
+class MyAgent < ApplicationAgent
+  def my_action
+    prompt(
+      content_type: :text, # or :json, :html, etc.
+      message: "Hello, world!", # The message content to be rendered
+      messages: [], # Additional messages to include in the prompt context
+      template_name: "action_template", # The name of the view template to be used
+      instructions: { template: "instructions" }, # Optional instructions for the prompt generation
+      actions: [], # Available actions for the agent to use
+      output_schema: :schema_name # Optional schema for structured output
+    )
+  end
+end
+
+# To use the agent with parameters:
+MyAgent.with(param: value).my_action.generate_now
 ```
 
 These Prompt objects contain the context Messages and available Actions. These actions are the interface that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views. 

@@ -125,5 +125,8 @@ For a complete example showing all three levels working together, see:
 
 For detailed documentation on specific providers and their features:
 
+- [OpenAI Provider](/docs/generation-providers/openai-provider) - GPT-4, GPT-3.5, function calling, vision, and Azure OpenAI support
+- [Anthropic Provider](/docs/generation-providers/anthropic-provider) - Claude 3.5 and Claude 3 models with extended context windows
+- [Ollama Provider](/docs/generation-providers/ollama-provider) - Local LLM inference for privacy-sensitive applications
 - [OpenRouter Provider](/docs/generation-providers/open-router-provider) - Multi-model routing with fallbacks, PDF processing, and vision support
 
