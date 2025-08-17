@@ -45,6 +45,9 @@ module ActiveAgent
         @track_costs = config["track_costs"] != false
         @route = config["route"] || "fallback"
         
+        # Data collection preference (allow, deny, or specific provider list)
+        @data_collection = config["data_collection"] || @provider_preferences["data_collection"] || "allow"
+        
         # Initialize OpenAI client with OpenRouter base URL
         @client = OpenAI::Client.new(
           uri_base: "https://openrouter.ai/api/v1",
@@ -148,8 +151,10 @@ module ActiveAgent
         # Add transforms if specified
         parameters[:transforms] = @transforms if @transforms.present?
         
-        # Add provider preferences
-        if @provider_preferences.present?
+        # Add provider preferences (always include if we have data_collection or other settings)
+        # Check both configured and runtime data_collection values
+        runtime_data_collection = prompt&.options&.key?(:data_collection)
+        if @provider_preferences.present? || @data_collection != "allow" || runtime_data_collection
           parameters[:provider] = build_provider_preferences
         end
         
@@ -161,7 +166,16 @@ module ActiveAgent
         prefs[:order] = @provider_preferences["order"] if @provider_preferences["order"]
         prefs[:require_parameters] = @provider_preferences["require_parameters"] if @provider_preferences.key?("require_parameters")
         prefs[:allow_fallbacks] = @enable_fallbacks
-        prefs[:data_collection] = @provider_preferences["data_collection"] || "allow"
+        
+        # Data collection can be:
+        # - "allow" (default): Allow all providers to collect data
+        # - "deny": Deny all providers from collecting data
+        # - Array of provider names: Only allow these providers to collect data
+        # Check prompt options first (runtime override), then fall back to configured value
+        data_collection = prompt.options[:data_collection] if prompt&.options&.key?(:data_collection)
+        data_collection ||= @data_collection
+        prefs[:data_collection] = data_collection
+        
         prefs.compact
       end
 
@@ -175,8 +189,10 @@ module ActiveAgent
         # Add transforms
         params[:transforms] = @transforms if @transforms.present?
         
-        # Add provider configuration
-        if @provider_preferences.present?
+        # Add provider configuration (always include if we have data_collection or other settings)
+        # Check both configured and runtime data_collection values
+        runtime_data_collection = prompt&.options&.key?(:data_collection)
+        if @provider_preferences.present? || @data_collection != "allow" || runtime_data_collection
           params[:provider] = build_provider_preferences
         end
         

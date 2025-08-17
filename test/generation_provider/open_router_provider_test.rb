@@ -138,6 +138,54 @@ module ActiveAgent
         assert_equal "deny", prefs[:data_collection]
       end
 
+      test "data_collection parameter defaults to allow" do
+        provider = OpenRouterProvider.new(@base_config)
+        prefs = provider.send(:build_provider_preferences)
+        
+        assert_equal "allow", prefs[:data_collection]
+      end
+
+      test "data_collection parameter can be set to deny" do
+        config = @base_config.merge("data_collection" => "deny")
+        provider = OpenRouterProvider.new(config)
+        prefs = provider.send(:build_provider_preferences)
+        
+        assert_equal "deny", prefs[:data_collection]
+      end
+
+      test "data_collection parameter can be array of provider names" do
+        config = @base_config.merge("data_collection" => ["OpenAI", "Anthropic"])
+        provider = OpenRouterProvider.new(config)
+        prefs = provider.send(:build_provider_preferences)
+        
+        assert_equal ["OpenAI", "Anthropic"], prefs[:data_collection]
+      end
+
+      test "data_collection parameter can be set in provider preferences" do
+        config = @base_config.merge(
+          "provider" => {
+            "data_collection" => "deny"
+          }
+        )
+        provider = OpenRouterProvider.new(config)
+        prefs = provider.send(:build_provider_preferences)
+        
+        assert_equal "deny", prefs[:data_collection]
+      end
+
+      test "top-level data_collection overrides provider preferences" do
+        config = @base_config.merge(
+          "data_collection" => "allow",
+          "provider" => {
+            "data_collection" => "deny"
+          }
+        )
+        provider = OpenRouterProvider.new(config)
+        prefs = provider.send(:build_provider_preferences)
+        
+        assert_equal "allow", prefs[:data_collection]
+      end
+
       test "handles OpenRouter-specific errors" do
         provider = OpenRouterProvider.new(@base_config)
         
