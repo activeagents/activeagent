@@ -35,14 +35,15 @@ class PrivacyFocusedAgentTest < ActiveSupport::TestCase
         quarter: "Q3 2024"
       }
 
-      response = @agent.with(
+      response = PrivacyFocusedAgent.with(
         financial_data: financial_data.to_json,
         analysis_type: "risk_assessment"
       ).analyze_financial_data.generate_now
 
       assert_not_nil response
-      assert_not_nil response.content
-      assert response.content.include?("risk") || response.content.include?("financial")
+      assert_not_nil response.message
+      assert_not_nil response.message.content
+      assert response.message.content.include?("risk") || response.message.content.include?("financial")
 
       # Verify the request was made with data_collection: "deny"
       # This ensures the data won't be used for training
@@ -63,12 +64,13 @@ class PrivacyFocusedAgentTest < ActiveSupport::TestCase
         date: "2024-01-01"
       }
 
-      response = @agent.with(
+      response = PrivacyFocusedAgent.with(
         record: medical_record.to_json
       ).process_medical_records.generate_now
 
       assert_not_nil response
-      assert_not_nil response.content
+      assert_not_nil response.message
+      assert_not_nil response.message.content
 
       # The response should handle the medical data appropriately
       doc_example_output(response)

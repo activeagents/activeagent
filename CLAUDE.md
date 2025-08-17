@@ -54,6 +54,37 @@ Messages are the fundamental way agents communicate. Each message has:
    - System's response to agent-requested tool calls
    - Contains the output of the action execution
 
+### The `with` Method Pattern
+
+The `with` method is a **class method** that allows you to pass parameters to agents before calling actions. This follows the Rails pattern and returns a `Generation` object that can be executed.
+
+#### Important: `with` is a CLASS Method
+
+```ruby
+# CORRECT - with is called on the class
+response = MyAgent.with(param: value).my_action.generate_now
+
+# INCORRECT - with is NOT an instance method  
+agent = MyAgent.new
+response = agent.with(param: value).my_action  # This will error!
+```
+
+#### How it Works
+
+1. `with` returns a `Parameterized::Agent` object
+2. Calling an action on it returns a `Generation` object
+3. Call `generate_now` or `generate_later` to execute
+
+```ruby
+# Step by step
+generation = TranslationAgent.with(message: "Hello", locale: "es").translate
+# generation is now a Generation object
+response = generation.generate_now  # Execute the generation
+
+# Or chain it all together
+response = TranslationAgent.with(message: "Hello", locale: "es").translate.generate_now
+```
+
 ### Actions: The Bridge Between Rails and AI
 
 Actions in ActiveAgent serve multiple purposes:
@@ -342,9 +373,13 @@ end
 Translate: <%= @text %>
 To: <%= @target %>
 
-# Usage in controller
-agent = TranslationAgent.new
-response = agent.with(message: "Hello", locale: "es").translate
+# Usage in controller - Note: `with` is a CLASS method
+# It returns a Generation object that can be executed
+response = TranslationAgent.with(message: "Hello", locale: "es").translate.generate_now
+
+# Alternative: store the generation for later execution
+generation = TranslationAgent.with(message: "Hello", locale: "es").translate
+response = generation.generate_now  # Execute when ready
 ```
 
 #### 3. **Background Generation**
@@ -361,8 +396,7 @@ class DataAnalysisAgent < ApplicationAgent
 end
 
 # In your controller
-agent = DataAnalysisAgent.new
-generation = agent.with(dataset: large_data).generate_later
+generation = DataAnalysisAgent.with(dataset: large_data).generate_later
 
 # Check status later
 generation.finished? # => true/false
@@ -499,20 +533,18 @@ Add AI capabilities to ActiveRecord models:
 ```ruby
 class Article < ApplicationRecord
   def generate_summary
-    agent = ContentAgent.new
-    agent.with(
+    ContentAgent.with(
       title: title,
       content: content,
       max_length: 200
-    ).summarize
+    ).summarize.generate_now
   end
   
   def translate_to(locale)
-    agent = TranslationAgent.new
-    agent.with(
+    TranslationAgent.with(
       message: content,
       locale: locale
-    ).translate
+    ).translate.generate_now
   end
 end
 ```
@@ -539,8 +571,7 @@ module AgentHelpers
   end
   
   def generate_with_agent(agent_class, action, params = {})
-    agent = agent_class.new
-    agent.with(params).public_send(action)
+    agent_class.with(params).public_send(action).generate_now
   end
 end
 ```
@@ -725,14 +756,12 @@ class BlogPostsController < ApplicationController
   end
   
   def generate
-    agent = BlogWriterAgent.new
-    
     # Generate a blog post
-    response = agent.with(
+    response = BlogWriterAgent.with(
       topic: params[:topic],
       style: params[:style],
       length: params[:length]
-    ).write_post
+    ).write_post.generate_now
     
     @generated_content = response.content
     @post = BlogPost.new(
@@ -746,12 +775,11 @@ class BlogPostsController < ApplicationController
   
   def edit_with_ai
     @post = BlogPost.find(params[:id])
-    agent = BlogWriterAgent.new
     
-    response = agent.with(
+    response = BlogWriterAgent.with(
       content: @post.content,
       instructions: params[:instructions]
-    ).edit_post
+    ).edit_post.generate_now
     
     @post.content = response.content
     render :edit
@@ -772,20 +800,19 @@ end
 class BlogGenerationService
   def initialize(user)
     @user = user
-    @agent = BlogWriterAgent.new
   end
   
   def generate_weekly_posts(topics)
     topics.map do |topic|
-      response = @agent.with(
+      response = BlogWriterAgent.with(
         topic: topic,
         style: "professional",
         length: 800
-      ).write_post
+      ).write_post.generate_now
       
       BlogPost.create!(
-        title: extract_title(response.content),
-        content: response.content,
+        title: extract_title(response.message.content),
+        content: response.message.content,
         author: @user,
         status: "draft"
       )
@@ -793,12 +820,12 @@ class BlogGenerationService
   end
   
   def improve_seo(post)
-    response = @agent.with(
+    response = BlogWriterAgent.with(
       content: post.content,
       instructions: "Improve SEO by adding relevant keywords, meta description, and improving headings"
-    ).edit_post
+    ).edit_post.generate_now
     
-    post.update!(content: response.content)
+    post.update!(content: response.message.content)
   end
 end
 ```
@@ -816,11 +843,11 @@ class BlogWriterAgentTest < ActiveSupport::TestCase
   
   test "writes blog post about Rails" do
     VCR.use_cassette("blog_writer_rails_post") do
-      response = @agent.with(
+      response = BlogWriterAgent.with(
         topic: "Getting Started with Rails 7",
         style: "technical",
         length: 600
-      ).write_post
+      ).write_post.generate_now
       
       assert response.content.include?("Rails")
       assert response.content.length > 400
@@ -834,10 +861,10 @@ class BlogWriterAgentTest < ActiveSupport::TestCase
     original = "Rails is framework. It make web app easy."
     
     VCR.use_cassette("blog_writer_edit_grammar") do
-      response = @agent.with(
+      response = BlogWriterAgent.with(
         content: original,
         instructions: "Fix grammar and improve clarity"
-      ).edit_post
+      ).edit_post.generate_now
       
       assert response.content != original
       assert response.content.include?("Rails")
@@ -923,11 +950,10 @@ Chain multiple agents together for complex tasks:
 class DocumentProcessingService
   def process_document(file_path)
     # Extract content
-    extractor = DataExtractionAgent.new
-    extracted_data = extractor.with(
+    extracted_data = DataExtractionAgent.with(
       file_path: file_path,
       schema: :document_schema
-    ).extract
+    ).extract.generate_now
     
     # Summarize content
     summarizer = SummaryAgent.new
@@ -1152,10 +1178,9 @@ class ComplexAgentTest < ActiveSupport::TestCase
   test "multi-agent document processing" do
     VCR.use_cassette("complex_document_flow") do
       # Step 1: Extract data
-      extractor = DataExtractionAgent.new
-      extracted = extractor.with(
+      extracted = DataExtractionAgent.with(
         content: file_fixture("report.pdf").read
-      ).extract
+      ).extract.generate_now
       
       assert extracted.content.present?
       
