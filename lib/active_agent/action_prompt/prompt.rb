@@ -34,7 +34,7 @@ module ActiveAgent
       end
 
       def multimodal?
-        @multimodal ||= @message&.content.is_a?(Array) || @messages.any? { |m| m.content.is_a?(Array) }
+        @multimodal ||= @message&.content.is_a?(Array) || @messages.any? { |m| m&.content.is_a?(Array) }
       end
 
       def messages=(messages)
