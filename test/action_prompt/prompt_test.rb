@@ -79,6 +79,20 @@ module ActiveAgent
         assert prompt.multimodal?
       end
 
+      test "multimodal? handles nil messages gracefully" do
+        # Test with empty messages array
+        prompt = Prompt.new(messages: [])
+        assert_not prompt.multimodal?
+        
+        # Test with nil message content but array in messages
+        prompt_with_nil = Prompt.new(message: nil, messages: [Message.new(content: ["image.png"])])
+        assert prompt_with_nil.multimodal?
+        
+        # Test with only nil message and empty messages
+        prompt_all_nil = Prompt.new(message: nil, messages: [])
+        assert_not prompt_all_nil.multimodal?
+      end
+
       test "from_messages initializes messages from an array of Message objects" do
         prompt = Prompt.new(
           messages: [
