@@ -151,7 +151,7 @@ module ActiveAgent
         end
 
         # Add plugins (e.g., for PDF processing)
-        
+
         parameters[:plugins] = prompt.options[:plugins] if prompt.options[:plugins].present?
         parameters[:models] = prompt.options[:fallback_models] if prompt.options[:enable_fallbacks] && prompt.options[:fallback_models].present?
         parameters

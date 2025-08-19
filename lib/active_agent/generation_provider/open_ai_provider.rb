@@ -26,9 +26,9 @@ module ActiveAgent
         @organization_id = config["organization_id"] || OpenAI.configuration.organization_id || ENV["OPENAI_ORGANIZATION_ID"]
         @admin_token = config["admin_token"] || OpenAI.configuration.admin_token || ENV["OPENAI_ADMIN_TOKEN"]
         @client = OpenAI::Client.new(
-          access_token: @access_token, 
-          uri_base: @host, 
-          organization_id: @organization_id, 
+          access_token: @access_token,
+          uri_base: @host,
+          organization_id: @organization_id,
           admin_token: @admin_token,
           log_errors: Rails.env.development?
           )
