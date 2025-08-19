@@ -5,13 +5,21 @@ http_interactions:
     uri: https://openrouter.ai/api/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"model":"openai/gpt-4o-mini","messages":[{"role":"system","content":"You
+      string: '{"model":"openai/gpt-4o","messages":[{"role":"system","content":"You
         are an advanced AI assistant with vision and structured output capabilities.\n\nWhen
         analyzing images:\n- Be detailed and accurate\n- Identify all visible objects\n-
         Note colors, positions, and relationships\n- Follow the exact schema provided\n\nWhen
-        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":"Analyze
-        this PDF document (base64 encoded).\nSummarize this PDF document. What type
-        of document is it and what are the key points?\n\n"}],"temperature":0.7}'
+        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":[{"type":"text","text":"Extract
+        information from this document and return as JSON"},{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCgoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagoKMyAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDIgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDQgMCBSCj4+Cj4+Ci9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagoKNSAwIG9iago8PAovTGVuZ3RoIDMwMAo+PgpzdHJlYW0KQlQKL0YxIDE2IFRmCjUwIDc1MCBUZAooSm9obiBEb2UgLSBTb2Z0d2FyZSBFbmdpbmVlcikgVGoKMCAtMzAgVGQKL0YxIDEyIFRmCihFbWFpbDogam9obi5kb2VAZXhhbXBsZS5jb20pIFRqCjAgLTIwIFRkCihQaG9uZTogKDU1NSkgMTIzLTQ1NjcpIFRqCjAgLTIwIFRkCihMb2NhdGlvbjogU2FuIEZyYW5jaXNjbywgQ0EpIFRqCjAgLTQwIFRkCi9GMSAxNCBUZgooRXhwZXJpZW5jZTopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyIGF0IFRlY2hDb3JwICgyMDIwLTIwMjQpKSBUagowIC0yMCBUZAooLSBEZXZlbG9wZWQgd2ViIGFwcGxpY2F0aW9ucyB1c2luZyBSdWJ5IG9uIFJhaWxzKSBUagowIC0yMCBUZAooLSBMZWQgdGVhbSBvZiA1IGRldmVsb3BlcnMpIFRqCjAgLTIwIFRkCigtIEltcGxlbWVudGVkIENJL0NEIHBpcGVsaW5lcykgVGoKMCAtNDAgVGQKL0YxIDE0IFRmCihTa2lsbHM6KSBUagowIC0yNSBUZAovRjEgMTIgVGYKKFJ1YnksIFJhaWxzLCBKYXZhU2NyaXB0LCBQeXRob24sIEFXUywgRG9ja2VyKSBUagowIC00MCBUZAovRjEgMTQgVGYKKEVkdWNhdGlvbjopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooQlMgQ29tcHV0ZXIgU2NpZW5jZSwgU3RhbmZvcmQgVW5pdmVyc2l0eSAoMjAxNi0yMDIwKSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCjAwMDAwMDAzMzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo2ODcKJSVFT0YK"}}]}],"temperature":0.7,"plugins":[{"id":"file-parser","pdf":{"engine":"pdf-text"}}],"response_format":{"type":"json_schema","json_schema":{"name":"resume_schema","schema":{"type":"object","properties":{"name":{"type":"string","description":"The
+        full name of the individual."},"email":{"type":"string","format":"email","description":"The
+        email address of the individual."},"phone":{"type":"string","description":"The
+        phone number of the individual."},"education":{"type":"array","items":{"$ref":"#/$defs/education"}},"experience":{"type":"array","items":{"$ref":"#/$defs/experience"}}},"required":["name","email","phone","education","experience"],"additionalProperties":false,"$defs":{"education":{"type":"object","properties":{"degree":{"type":"string","description":"The
+        degree obtained."},"institution":{"type":"string","description":"The institution
+        where the degree was obtained."},"year":{"type":"integer","description":"The
+        year of graduation."}},"required":["degree","institution","year"],"additionalProperties":false},"experience":{"type":"object","properties":{"job_title":{"type":"string","description":"The
+        job title held."},"company":{"type":"string","description":"The company where
+        the individual worked."},"duration":{"type":"string","description":"The duration
+        of employment."}},"required":["job_title","company","duration"],"additionalProperties":false}}},"strict":true}}}'
     headers:
       Content-Type:
       - application/json
@@ -29,7 +37,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Sat, 16 Aug 2025 19:38:09 GMT
+      - Tue, 19 Aug 2025 00:48:01 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -50,12 +58,19 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 970363eeb9edf997-SJC
+      - 9715a492ab29182a-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n{\"id\":\"gen-1755373089-JAMlXOxhKG1AdrlAo9G1\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755373089,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        sorry, but I cannot process base64 encoded data or directly analyze PDF documents.
-        However, if you provide a text excerpt or describe the content, I can help
-        summarize or analyze that information.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":101,\"completion_tokens\":39,\"total_tokens\":140,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Sat, 16 Aug 2025 19:38:10 GMT
+      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1755564480-DCBj2Dty42xbTX1Kqw7c\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1755564480,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"name\\\":\\\"John
+        Doe\\\",\\\"email\\\":\\\"john.doe@example.com\\\",\\\"phone\\\":\\\"(555)
+        123-4567\\\",\\\"education\\\":[{\\\"degree\\\":\\\"BS Computer Science\\\",\\\"institution\\\":\\\"Stanford
+        University\\\",\\\"year\\\":2020}],\\\"experience\\\":[{\\\"job_title\\\":\\\"Senior
+        Software Engineer\\\",\\\"company\\\":\\\"TechCorp\\\",\\\"duration\\\":\\\"2020-2024\\\"}]}\",\"refusal\":null,\"reasoning\":null,\"annotations\":[{\"type\":\"file\",\"file\":{\"hash\":\"649e9c3a723038ab9a4b4c71da0d236b4d163f9f25a5b48a58b9ae4592c7d638\",\"content\":[{\"type\":\"text\",\"text\":\"<file
+        name=\\\"file\\\">\"},{\"type\":\"text\",\"text\":\"John Doe - Software Engineer\\n\\nEmail:
+        john.doe@example.com\\nPhone: (555) 123-4567\\nLocation: San Francisco, CA\\n\\nExperience:\\n\\nSenior
+        Software Engineer at TechCorp (2020-2024)\\n- Developed web applications using
+        Ruby on Rails\\n- Led team of 5 developers\\n- Implemented CI/CD pipelines\\n\\nSkills:\\n\\nRuby,
+        Rails, JavaScript, Python, AWS, Docker\\n\\nEducation:\\n\\nBS Computer Science,
+        Stanford University (2016-2020)\"},{\"type\":\"text\",\"text\":\"</file>\"}]}}]}}],\"system_fingerprint\":\"fp_46bff0e0c8\",\"usage\":{\"prompt_tokens\":405,\"completion_tokens\":70,\"total_tokens\":475,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Tue, 19 Aug 2025 00:48:02 GMT
 recorded_with: VCR 6.3.1

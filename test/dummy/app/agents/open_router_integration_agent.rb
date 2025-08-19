@@ -1,7 +1,7 @@
 class OpenRouterIntegrationAgent < ApplicationAgent
   generate_with :open_router,
-    model: "openai/gpt-4o-mini",
-    fallback_models: [ "openai/gpt-3.5-turbo" ],
+    model: "openai/gpt-4o",
+    fallback_models: [ "anthropic/claude-sonnet-4" ],
     enable_fallbacks: true,
     track_costs: true
 
@@ -85,23 +85,25 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     }
 
     # Allow disabling plugins entirely for models with built-in support
-    options = params[:skip_plugin] ? {} : { plugins: [ pdf_plugin ] }
-
+    options = params[:skip_plugin] ? nil : { plugins: [ pdf_plugin ] }
+    
     if @pdf_url
       prompt(
         message: [
           { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
-          { type: "image_url", image_url: { url: @pdf_url } }
+          { type: "file", file: { file_name: 'test.pdf', file_data: @pdf_url } }
         ],
-        options: options
+        options: options,
+        output_schema: params[:output_schema]
       )
     elsif @pdf_data
       prompt(
         message: [
           { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
-          { type: "image_url", image_url: { url: "data:application/pdf;base64,#{@pdf_data}" } }
+          { type: "file", file: { file_name: 'test.pdf', file_data: "data:application/pdf;base64,#{@pdf_data}" } }
         ],
-        options: options
+        options: options,
+        output_schema: params[:output_schema]
       )
     else
       prompt(message: "No PDF provided")
@@ -131,14 +133,14 @@ class OpenRouterIntegrationAgent < ApplicationAgent
   def build_receipt_message
     if @image_url
       [
-        { type: "text", text: "Extract the receipt information from this image. Return a JSON object with merchant (name, address), total (amount, currency), items array, tax, and subtotal." },
+        { type: "text", text: "Extract the receipt information from this image." },
         { type: "image_url", image_url: { url: @image_url } }
       ]
     elsif @image_path
       image_data = Base64.strict_encode64(File.read(@image_path))
       mime_type = "image/png"  # For receipt images
       [
-        { type: "text", text: "Extract the receipt information from this image. Return a JSON object with merchant (name, address), total (amount, currency), items array, tax, and subtotal." },
+        { type: "text", text: "Extract the receipt information from this image." },
         { type: "image_url", image_url: { url: "data:#{mime_type};base64,#{image_data}" } }
       ]
     else
@@ -198,7 +200,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
               name: { type: "string" },
               address: { type: "string" }
             },
-            required: [ "name" ],
+            required: [ "name", "address" ],
             additionalProperties: false
           },
           date: { type: "string" },
@@ -208,7 +210,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
               amount: { type: "number" },
               currency: { type: "string" }
             },
-            required: [ "amount" ],
+            required: [ "amount", "currency" ],
             additionalProperties: false
           },
           items: {
@@ -220,14 +222,14 @@ class OpenRouterIntegrationAgent < ApplicationAgent
                 quantity: { type: "integer" },
                 price: { type: "number" }
               },
-              required: [ "name", "price" ],
+              required: [ "name", "price", "quantity" ],
               additionalProperties: false
             }
           },
           tax: { type: "number" },
           subtotal: { type: "number" }
         },
-        required: [ "merchant", "total" ],
+        required: [ "merchant", "total", "items", "date", "tax", "subtotal" ],
         additionalProperties: false
       }
     }

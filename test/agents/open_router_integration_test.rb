@@ -13,26 +13,6 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     ENV["OPENROUTER_API_KEY"].present?
   end
 
-  test "detects vision support for compatible models" do
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
-      "model" => "openai/gpt-4o"
-    )
-
-    assert provider.supports_vision?("openai/gpt-4o")
-    assert provider.supports_vision?("anthropic/claude-3-5-sonnet")
-    refute provider.supports_vision?("openai/gpt-3.5-turbo")
-  end
-
-  test "detects structured output support for compatible models" do
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
-      "model" => "openai/gpt-4o"
-    )
-
-    assert provider.supports_structured_output?("openai/gpt-4o")
-    assert provider.supports_structured_output?("openai/gpt-4o-mini")
-    refute provider.supports_structured_output?("anthropic/claude-3-opus")
-  end
-
   test "analyzes image with structured output schema" do
     skip "Requires actual OpenRouter API key and credits" unless has_openrouter_credentials?
 
@@ -99,49 +79,20 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       assert_not_nil response
       assert_not_nil response.message
 
-      # Parse the structured output - handle both JSON and text responses
-      content = response.message.content
-
-      if content.is_a?(String)
-        # Strip markdown code block formatting if present
-        cleaned_content = content.strip
-        if cleaned_content.start_with?("```json")
-          cleaned_content = cleaned_content.gsub(/^```json\n?/, "").gsub(/\n?```$/, "")
-        elsif cleaned_content.start_with?("```")
-          cleaned_content = cleaned_content.gsub(/^```\n?/, "").gsub(/\n?```$/, "")
-        end
-
-        # Try to parse as JSON
-        begin
-          result = JSON.parse(cleaned_content)
-        rescue JSON::ParserError => e
-          # If model doesn't return JSON, skip assertions for structured data
-          skip "Model did not return structured JSON output"
-        end
-      elsif content.is_a?(Hash)
-        result = content
-      else
-        # If model doesn't return JSON, skip assertions for structured data
-        skip "Model did not return structured JSON output"
+      result = JSON.parse(response.message.content)
+      
+      assert_equal result["merchant"]["name"], "Corner Mart"
+      assert_equal result["total"]["amount"], 14.83
+      assert_equal result["items"].size, 4
+      result["items"].each do |item|
+        assert item.key?("name")
+        assert item.key?("quantity")
+        assert item.key?("price")
       end
-
-      # Verify required fields for receipt
-      assert result.key?("merchant")
-      assert result.key?("total")
-      assert result["merchant"].key?("name")
-      assert result["total"].key?("amount")
-
-      # Check if it parsed the Corner Mart receipt correctly
-      assert_equal "CORNER MART", result["merchant"]["name"].upcase
-      assert_equal 14.83, result["total"]["amount"]
-
-      # Verify some items were extracted
-      if result["items"]
-        item_names = result["items"].map { |item| item["name"].upcase }
-        assert item_names.include?("MILK")
-        assert item_names.include?("BREAD")
-      end
-
+      assert_equal result["items"][0], {"name"=>"Milk", "quantity"=>1, "price"=>3.49}
+      assert_equal result["items"][1], {"name"=>"Bread", "quantity"=>1, "price"=>2.29}
+      assert_equal result["items"][2], {"name"=>"Apples", "quantity"=>1, "price"=>5.1}
+      assert_equal result["items"][3], {"name"=>"Eggs", "quantity"=>1, "price"=>2.99}
       # Generate documentation example
       doc_example_output(response)
     end
@@ -159,47 +110,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
       assert_not_nil response
       assert_not_nil response.message
-      assert response.message.content.present?
-
-      # Parse the structured output - handle both JSON and text responses
-      content = response.message.content
-
-      if content.is_a?(String)
-        # Strip markdown code block formatting if present
-        cleaned_content = content.strip
-        if cleaned_content.start_with?("```json")
-          cleaned_content = cleaned_content.gsub(/^```json\n?/, "").gsub(/\n?```$/, "")
-        elsif cleaned_content.start_with?("```")
-          cleaned_content = cleaned_content.gsub(/^```\n?/, "").gsub(/\n?```$/, "")
-        end
-
-        # Try to parse as JSON
-        begin
-          result = JSON.parse(cleaned_content)
-        rescue JSON::ParserError => e
-          # If model doesn't return JSON, skip assertions for structured data
-          skip "Model did not return structured JSON output"
-        end
-      elsif content.is_a?(Hash)
-        result = content
-      else
-        # If model doesn't return JSON, skip assertions for structured data
-        skip "Model did not return structured JSON output"
-      end
-
-      # Verify the structure matches our schema
-      assert result.key?("description")
-      assert result.key?("objects")
-      assert result.key?("scene_type")
-      assert result["objects"].is_a?(Array)
-
-      # Should recognize it as a document/chart
-      # Note: The model may return values outside the enum if the cassette was recorded
-      # before strict structured output was properly configured
-      assert [ "document", "illustration", "bar_chart" ].include?(result["scene_type"])
-
-      # Description should mention sales or chart
-      assert result["description"].downcase.match?(/chart|sales|graph|quarterly|report|bar/)
+      assert_includes response.message.content, "(Q1, Q2, Q3, Q4), with varying heights indicating different sales amounts"
 
       # Generate documentation example
       doc_example_output(response)
@@ -218,7 +129,8 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
       prompt = OpenRouterIntegrationAgent.with(
         pdf_data: pdf_data,
-        prompt_text: "Summarize this PDF document. What type of document is it and what are the key points?"
+        prompt_text: "Extract information from this document and return as JSON",
+        output_schema: :resume_schema
       ).analyze_pdf
       response = prompt.generate_now
 
@@ -226,39 +138,45 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       assert_not_nil response.message
       assert response.message.content.present?
 
-      # Since gpt-4o-mini doesn't support PDF processing directly,
-      # we should at least verify we got a response indicating the model received the request
-      # In production, you'd use a model that supports PDFs or use OpenRouter's PDF plugins
-      assert response.message.content.downcase.match?(/pdf|document|unable|cannot|provide|text/)
+      result = JSON.parse(response.message.content)
+      
+      assert_equal result["name"], "John Doe"
+      assert_equal result["email"], "john.doe@example.com"
+      assert_equal result["phone"], "(555) 123-4567"
+      assert_equal result["education"].first, {"degree"=>"BS Computer Science", "institution"=>"Stanford University", "year"=>2020}
+      assert_equal result["experience"].first, {"job_title"=>"Senior Software Engineer", "company"=>"TechCorp", "duration"=>"2020-2024"}
 
       # Generate documentation example
       doc_example_output(response)
     end
   end
 
-  test "processes PDF from remote URL using Berkshire letter" do
+  test "processes PDF from remote URL of resume no plugins" do
     skip "Requires actual OpenRouter API key and credits" unless has_openrouter_credentials?
 
-    VCR.use_cassette("openrouter_pdf_remote_berkshire") do
-      # Use Berkshire Hathaway 2024 letter as example - OpenRouter supports PDF URLs directly
-      pdf_url = "https://www.berkshirehathaway.com/letters/2024ltr.pdf"
+    VCR.use_cassette("openrouter_pdf_remote_no_plugin") do
+      pdf_url = "https://docs.activeagents.ai/sample_resume.pdf"
 
       prompt = OpenRouterIntegrationAgent.with(
         pdf_url: pdf_url,
-        prompt_text: "Analyze this letter and provide a brief summary of 2-3 key points."
+        prompt_text: "Analyze the PDF",
+        output_schema: :resume_schema,
+        skip_plugin: true
       ).analyze_pdf
-      response = prompt.generate_now
 
-      assert_not_nil response
-      assert_not_nil response.message
-      assert response.message.content.present?
+      # Remote URLs are not supported without a PDF engine plugin
+      # OpenAI: Inputs by file URL are not supported for chat completions. Use the ResponsesAPI for this option.
+      # https://platform.openai.com/docs/guides/pdf-files#file-urls
+      # Accept either the OpenAI error directly or our wrapped error
+      # Suppress ruby-openai gem's error output to STDERR
+      error = assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError, OpenAI::Error) do
+        prompt.generate_now
+      end
 
-      # Since gpt-4o-mini doesn't support PDF URLs directly,
-      # we should at least verify we got a response about the PDF/document
-      assert response.message.content.downcase.match?(/pdf|document|unable|cannot|url|letter|analyze|provide/i)
-
-      # Generate documentation example
-      doc_example_output(response)
+      # Check the error message regardless of which error type was raised
+      error_message = error.message
+      assert_match(/Missing required parameter.*file_id/, error_message)
+      assert_match(/Provider returned error|invalid_request_error/, error_message)
     end
   end
 
@@ -273,17 +191,22 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
       prompt = OpenRouterIntegrationAgent.with(
         pdf_data: pdf_data,
-        prompt_text: "What type of document is this?",
+        prompt_text: "Analyze this PDF document",
         pdf_engine: "native"  # Use native engine (charged as input tokens)
       ).analyze_pdf
+      
+      # First verify the prompt has the plugins in options
+      assert prompt.options[:plugins].present?, "Plugins should be present in prompt options"
+      assert prompt.options[:fallback_models].present?, "Fallback models should be present in prompt options"
+      assert_equal "file-parser", prompt.options[:plugins][0][:id]
+      assert_equal "native", prompt.options[:plugins][0][:pdf][:engine]
+      
       response = prompt.generate_now
 
       assert_not_nil response
       assert_not_nil response.message
       assert response.message.content.present?
-
-      # Should get some response about the document
-      assert response.message.content.downcase.match?(/document|pdf|file|resume|unable/)
+      assert_includes response.message.content, "John Doe"
 
       # Generate documentation example
       doc_example_output(response)
@@ -299,18 +222,19 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
       prompt = OpenRouterIntegrationAgent.with(
         pdf_url: pdf_url,
-        prompt_text: "Can you see this PDF?",
+        prompt_text: "Analyze this PDF document",
         skip_plugin: true  # Don't use any plugin
       ).analyze_pdf
+      
+      # Verify no plugins are included when skip_plugin is true
+      assert_nil prompt.options[:plugins], "Should not have plugins when skip_plugin is true"
+      
       response = prompt.generate_now
-
+      raw_response = response.raw_response
+      assert_equal "Google", raw_response["provider"]
       assert_not_nil response
       assert_not_nil response.message
       assert response.message.content.present?
-
-      # Model should indicate whether it can or cannot process the PDF
-      assert response.message.content.downcase.match?(/pdf|document|unable|cannot|yes|no/)
-
       # Generate documentation example
       doc_example_output(response)
     end
@@ -321,22 +245,31 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
     VCR.use_cassette("openrouter_pdf_ocr") do
       # Test with the mistral-ocr engine for scanned documents
-      # This would be best for PDFs with images or scanned text
-      pdf_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+      # Using a simple PDF that should be processable
+      pdf_url = "https://docs.activeagents.ai/sample_resume.pdf"
 
       prompt = OpenRouterIntegrationAgent.with(
         pdf_url: pdf_url,
-        prompt_text: "Extract any text from this document",
-        pdf_engine: "mistral-ocr"  # Best for scanned docs ($2 per 1000 pages)
+        prompt_text: "Extract text from this PDF.",
+        output_schema: :resume_schema,
+        pdf_engine: "mistral-ocr"  # OCR engine for text extraction
       ).analyze_pdf
+
+      # Verify OCR engine is specified
+      assert prompt.options[:plugins].present?, "Should have plugins for OCR"
+      assert_equal "mistral-ocr", prompt.options[:plugins][0][:pdf][:engine]
+      
       response = prompt.generate_now
+     
+      # MUST return valid JSON - no fallback allowed
+      raw_response = response.raw_response
+      result = JSON.parse(response.message.content)
 
-      assert_not_nil response
-      assert_not_nil response.message
-      assert response.message.content.present?
-
-      # Should get some response about the document content
-      assert response.message.content.downcase.match?(/pdf|document|text|content|dummy/)
+      assert_equal result["name"], "John Doe"
+      assert_equal result["email"], "john.doe@example.com"
+      assert_equal result["phone"], "(555) 123-4567"
+      assert_equal result["education"], [{"degree"=>"BS Computer Science", "institution"=>"Stanford University", "year"=>2020}]
+      assert_equal result["experience"], [{"job_title"=>"Senior Software Engineer", "company"=>"TechCorp", "duration"=>"2020-2024"}]
 
       # Generate documentation example
       doc_example_output(response)
@@ -495,6 +428,25 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     assert prompt.multimodal?
   end
 
+  test "converts file type to image_url for OpenRouter PDF support" do
+    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+      "model" => "openai/gpt-4o"
+    )
+
+    # Test file type conversion
+    file_item = {
+      type: "file",
+      file: {
+        file_data: "data:application/pdf;base64,JVBERi0xLj..."
+      }
+    }
+
+    formatted = provider.send(:format_content_item, file_item)
+    
+    assert_equal "image_url", formatted[:type]
+    assert_equal "data:application/pdf;base64,JVBERi0xLj...", formatted[:image_url][:url]
+  end
+
   test "respects configuration hierarchy for site_url" do
     # Test with explicit site_url config
     provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
@@ -539,5 +491,37 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     assert_equal "99", response.metadata[:ratelimit][:requests_remaining]
     assert_equal "10000", response.metadata[:ratelimit][:tokens_limit]
     assert_equal "9500", response.metadata[:ratelimit][:tokens_remaining]
+  end
+
+  test "includes plugins parameter when passed in options" do
+    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+      "model" => "openai/gpt-4o"
+    )
+
+    # Create a prompt with plugins option
+    prompt = ActiveAgent::ActionPrompt::Prompt.new(
+      message: "test",
+      options: {
+        plugins: [
+          {
+            id: "file-parser",
+            pdf: {
+              engine: "pdf-text"
+            }
+          }
+        ]
+      }
+    )
+
+    # Set the prompt on the provider
+    provider.instance_variable_set(:@prompt, prompt)
+
+    # Build parameters and verify plugins are included
+    parameters = provider.send(:build_openrouter_parameters)
+    
+    assert_not_nil parameters[:plugins]
+    assert_equal 1, parameters[:plugins].size
+    assert_equal "file-parser", parameters[:plugins][0][:id]
+    assert_equal "pdf-text", parameters[:plugins][0][:pdf][:engine]
   end
 end

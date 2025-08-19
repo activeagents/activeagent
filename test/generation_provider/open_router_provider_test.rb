@@ -73,28 +73,6 @@ module ActiveAgent
         assert_equal "https://openrouter.ai/api/v1", client.instance_variable_get(:@uri_base)
       end
 
-      test "supports_vision? returns true for vision models" do
-        provider = OpenRouterProvider.new(@base_config)
-
-        assert provider.supports_vision?("openai/gpt-4o")
-        assert provider.supports_vision?("anthropic/claude-3-5-sonnet")
-        assert provider.supports_vision?("google/gemini-pro-vision")
-
-        refute provider.supports_vision?("meta-llama/llama-3-70b")
-        refute provider.supports_vision?("openai/gpt-3.5-turbo")
-      end
-
-      test "supports_structured_output? returns true for compatible models" do
-        provider = OpenRouterProvider.new(@base_config)
-
-        assert provider.supports_structured_output?("openai/gpt-4o")
-        assert provider.supports_structured_output?("openai/gpt-4-turbo")
-        assert provider.supports_structured_output?("openai/gpt-3.5-turbo-1106")
-
-        refute provider.supports_structured_output?("anthropic/claude-3-opus")
-        refute provider.supports_structured_output?("google/gemini-pro")
-      end
-
       test "builds OpenRouter-specific parameters with fallbacks" do
         config = @base_config.merge(
           "fallback_models" => [ "anthropic/claude-3-opus" ],

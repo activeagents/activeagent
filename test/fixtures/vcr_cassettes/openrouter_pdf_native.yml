@@ -5,12 +5,12 @@ http_interactions:
     uri: https://openrouter.ai/api/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"model":"openai/gpt-4o-mini","messages":[{"role":"system","content":"You
+      string: '{"model":"openai/gpt-4o","messages":[{"role":"system","content":"You
         are an advanced AI assistant with vision and structured output capabilities.\n\nWhen
         analyzing images:\n- Be detailed and accurate\n- Identify all visible objects\n-
         Note colors, positions, and relationships\n- Follow the exact schema provided\n\nWhen
-        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":"Analyze
-        this PDF document (base64 encoded).\nWhat type of document is this?\n\n"}],"temperature":0.7}'
+        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":[{"type":"text","text":"Analyze
+        this PDF document"},{"type":"file","file":{"file_name":"test.pdf","file_data":"data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCgoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagoKMyAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDIgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDQgMCBSCj4+Cj4+Ci9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagoKNSAwIG9iago8PAovTGVuZ3RoIDMwMAo+PgpzdHJlYW0KQlQKL0YxIDE2IFRmCjUwIDc1MCBUZAooSm9obiBEb2UgLSBTb2Z0d2FyZSBFbmdpbmVlcikgVGoKMCAtMzAgVGQKL0YxIDEyIFRmCihFbWFpbDogam9obi5kb2VAZXhhbXBsZS5jb20pIFRqCjAgLTIwIFRkCihQaG9uZTogKDU1NSkgMTIzLTQ1NjcpIFRqCjAgLTIwIFRkCihMb2NhdGlvbjogU2FuIEZyYW5jaXNjbywgQ0EpIFRqCjAgLTQwIFRkCi9GMSAxNCBUZgooRXhwZXJpZW5jZTopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyIGF0IFRlY2hDb3JwICgyMDIwLTIwMjQpKSBUagowIC0yMCBUZAooLSBEZXZlbG9wZWQgd2ViIGFwcGxpY2F0aW9ucyB1c2luZyBSdWJ5IG9uIFJhaWxzKSBUagowIC0yMCBUZAooLSBMZWQgdGVhbSBvZiA1IGRldmVsb3BlcnMpIFRqCjAgLTIwIFRkCigtIEltcGxlbWVudGVkIENJL0NEIHBpcGVsaW5lcykgVGoKMCAtNDAgVGQKL0YxIDE0IFRmCihTa2lsbHM6KSBUagowIC0yNSBUZAovRjEgMTIgVGYKKFJ1YnksIFJhaWxzLCBKYXZhU2NyaXB0LCBQeXRob24sIEFXUywgRG9ja2VyKSBUagowIC00MCBUZAovRjEgMTQgVGYKKEVkdWNhdGlvbjopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooQlMgQ29tcHV0ZXIgU2NpZW5jZSwgU3RhbmZvcmQgVW5pdmVyc2l0eSAoMjAxNi0yMDIwKSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCjAwMDAwMDAzMzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo2ODcKJSVFT0YK"}}]}],"temperature":0.7,"plugins":[{"id":"file-parser","pdf":{"engine":"native"}}],"models":["anthropic/claude-sonnet-4"]}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +28,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Sat, 16 Aug 2025 19:37:50 GMT
+      - Tue, 19 Aug 2025 05:08:47 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,11 +49,31 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 97036375ce931761-SJC
+      - 971722858f7817e4-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n{\"id\":\"gen-1755373069-bIep87DQFuqA3OrXhTQ1\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1755373069,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'm
-        sorry, but I cannot process base64 encoded documents directly. Please provide
-        the content or describe the document, and I will help you analyze it.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":88,\"completion_tokens\":30,\"total_tokens\":118,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Sat, 16 Aug 2025 19:37:50 GMT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n{\"id\":\"gen-1755580125-i6ewJrHMKIFkRy8UMrGw\",\"provider\":\"Google\",\"model\":\"anthropic/claude-sonnet-4\",\"object\":\"chat.completion\",\"created\":1755580125,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"This
+        is a professional resume for John Doe, a Software Engineer. Here's my analysis
+        of the document:\\n\\n## Document Overview\\nThe PDF contains a clean, well-structured
+        resume with standard formatting and clear section divisions.\\n\\n## Personal
+        Information\\n- **Name**: John Doe\\n- **Title**: Software Engineer\\n- **Email**:
+        john.doe@example.com\\n- **Phone**: (555) 123-4567\\n- **Location**: San Francisco,
+        CA\\n\\n## Professional Experience\\n**Senior Software Engineer at TechCorp
+        (2020-2024)**\\n- 4 years of experience in a senior role\\n- Key responsibilities
+        include:\\n  - Developing web applications using Ruby on Rails\\n  - Leading
+        a team of 5 developers\\n  - Implementing CI/CD pipelines\\n\\n## Technical
+        Skills\\nThe candidate demonstrates proficiency in:\\n- **Programming Languages**:
+        Ruby, JavaScript, Python\\n- **Frameworks**: Rails\\n- **Cloud/Infrastructure**:
+        AWS, Docker\\n- **DevOps**: CI/CD pipeline implementation\\n\\n## Education\\n-
+        **Degree**: BS Computer Science\\n- **Institution**: Stanford University\\n-
+        **Duration**: 2016-2020\\n\\n## Document Quality\\nThe resume is well-organized
+        with clear headings, consistent formatting, and concise bullet points. It
+        follows a traditional resume structure that would be appropriate for software
+        engineering positions. The information is current, with recent work experience
+        and relevant technical skills for the field.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":1765,\"completion_tokens\":311,\"total_tokens\":2076}}"
+  recorded_at: Tue, 19 Aug 2025 05:08:55 GMT
 recorded_with: VCR 6.3.1

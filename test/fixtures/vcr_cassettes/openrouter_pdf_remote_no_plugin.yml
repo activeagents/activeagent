@@ -9,8 +9,8 @@ http_interactions:
         are an advanced AI assistant with vision and structured output capabilities.\n\nWhen
         analyzing images:\n- Be detailed and accurate\n- Identify all visible objects\n-
         Note colors, positions, and relationships\n- Follow the exact schema provided\n\nWhen
-        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":[{"type":"text","text":"Extract
-        text from this PDF."},{"type":"file","file":{"file_data":"https://docs.activeagents.ai/sample_resume.pdf"}}]}],"temperature":0.7,"plugins":[{"id":"file-parser","pdf":{"engine":"mistral-ocr"}}],"response_format":{"type":"json_schema","json_schema":{"name":"resume_schema","schema":{"type":"object","properties":{"name":{"type":"string","description":"The
+        processing text:\n- Be concise and clear\n- Follow the specified format exactly"},{"role":"user","content":[{"type":"text","text":"Analyze
+        the PDF"},{"type":"file","file":{"file_data":"https://docs.activeagents.ai/sample_resume.pdf"}}]}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"resume_schema","schema":{"type":"object","properties":{"name":{"type":"string","description":"The
         full name of the individual."},"email":{"type":"string","format":"email","description":"The
         email address of the individual."},"phone":{"type":"string","description":"The
         phone number of the individual."},"education":{"type":"array","items":{"$ref":"#/$defs/education"}},"experience":{"type":"array","items":{"$ref":"#/$defs/experience"}}},"required":["name","email","phone","education","experience"],"additionalProperties":false,"$defs":{"education":{"type":"object","properties":{"degree":{"type":"string","description":"The
@@ -33,17 +33,19 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 200
-      message: OK
+      code: 400
+      message: Bad Request
     headers:
       Date:
-      - Tue, 19 Aug 2025 02:56:13 GMT
+      - Tue, 19 Aug 2025 03:05:18 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
       - chunked
       Connection:
       - keep-alive
+      Cf-Ray:
+      - 97166dabce10ed3b-SJC
       Access-Control-Allow-Origin:
       - "*"
       Vary:
@@ -57,22 +59,11 @@ http_interactions:
       - nosniff
       Server:
       - cloudflare
-      Cf-Ray:
-      - 9716605798751739-SJC
     body:
-      encoding: ASCII-8BIT
-      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n{\"id\":\"gen-1755572171-PesULuJGgMNgTRFzK0e6\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1755572173,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"name\\\":\\\"John
-        Doe\\\",\\\"email\\\":\\\"john.doe@example.com\\\",\\\"phone\\\":\\\"(555)
-        123-4567\\\",\\\"education\\\":[{\\\"degree\\\":\\\"BS Computer Science\\\",\\\"institution\\\":\\\"Stanford
-        University\\\",\\\"year\\\":2020}],\\\"experience\\\":[{\\\"job_title\\\":\\\"Senior
-        Software Engineer\\\",\\\"company\\\":\\\"TechCorp\\\",\\\"duration\\\":\\\"2020-2024\\\"}]}\",\"refusal\":null,\"reasoning\":null,\"annotations\":[{\"type\":\"file\",\"file\":{\"hash\":\"a07ee87fc40ecf27abb3dad8cdea615042b82e1c2ba87d6f42ec78fc5b6ea475\",\"content\":[{\"type\":\"text\",\"text\":\"<file
-        name=\\\"file\\\">\"},{\"type\":\"text\",\"text\":\"# John Doe - Software
-        Engineer \\n\\nEmail: john.doe@example.com\\nPhone: (555) 123-4567\\nLocation:
-        San Francisco, CA\\n\\n## Experience:\\n\\nSenior Software Engineer at TechCorp
-        (2020-2024)\\n\\n- Developed web applications using Ruby on Rails\\n- Led
-        team of 5 developers\\n- Implemented CI/CD pipelines\\n\\n\\n## Skills:\\n\\nRuby,
-        Rails, JavaScript, Python, AWS, Docker\\n\\n## Education:\\n\\nBS Computer
-        Science, Stanford University (2016-2020)\"},{\"type\":\"text\",\"text\":\"</file>\"}]}}]}}],\"system_fingerprint\":\"fp_46bff0e0c8\",\"usage\":{\"prompt_tokens\":405,\"completion_tokens\":70,\"total_tokens\":475,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Tue, 19 Aug 2025 02:56:15 GMT
+      encoding: UTF-8
+      string: '{"error":{"message":"Provider returned error","code":400,"metadata":{"raw":"{\n  \"error\":
+        {\n    \"message\": \"Missing required parameter: ''messages[1].content[1].file.file_id''.\",\n    \"type\":
+        \"invalid_request_error\",\n    \"param\": \"messages[1].content[1].file.file_id\",\n    \"code\":
+        \"missing_required_parameter\"\n  }\n}","provider_name":"Azure"}},"user_id":"user_2eQUOcQCBVawo2tt464cvhH6ned"}'
+  recorded_at: Tue, 19 Aug 2025 03:05:18 GMT
 recorded_with: VCR 6.3.1

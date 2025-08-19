@@ -36,9 +36,9 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
         enable_fallbacks: true
     end
 
-    # Just verify the agent can be created with these options
-    agent = agent_class.new
-    assert_not_nil agent
+    # Just verify the prompt can be created with these options
+    prompt = agent_class.with(message: "test").prompt_context
+    assert_not_nil prompt
   end
 
   test "it can configure provider preferences" do
@@ -53,9 +53,9 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
         }
     end
 
-    # Just verify the agent can be created with these options
-    agent = agent_class.new
-    assert_not_nil agent
+    # Just verify the prompt can be created with these options
+    prompt = agent_class.with(message: "test").prompt_context
+    assert_not_nil prompt
   end
 
   test "it can enable transforms" do
@@ -66,8 +66,8 @@ class OpenRouterAgentTest < ActiveSupport::TestCase
         transforms: [ "middle-out" ]
     end
 
-    # Just verify the agent can be created with these options
-    agent = agent_class.new
-    assert_not_nil agent
+    # Just verify the prompt can be created with these options
+    prompt = agent_class.with(message: "test").prompt_context
+    assert_not_nil prompt
   end
 end
