@@ -85,7 +85,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     }
 
     # Allow disabling plugins entirely for models with built-in support
-    options = params[:skip_plugin] ? nil : { plugins: [ pdf_plugin ] }
+    options = params[:skip_plugin] ? { plugins: [] } : { plugins: [ pdf_plugin ] }
     
     if @pdf_url
       prompt(

@@ -227,7 +227,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       ).analyze_pdf
       
       # Verify no plugins are included when skip_plugin is true
-      assert_nil prompt.options[:plugins], "Should not have plugins when skip_plugin is true"
+      assert_empty prompt.options[:plugins], "Should not have plugins when skip_plugin is true"
       
       response = prompt.generate_now
       raw_response = response.raw_response
