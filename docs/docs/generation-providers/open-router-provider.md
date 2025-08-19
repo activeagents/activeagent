@@ -97,11 +97,11 @@ Extract structured data from receipts and documents using OpenRouter's structure
 
 #### Test Implementation
 
-<<< @/../test/agents/open_router_integration_test.rb#89-145{ruby:line-numbers}
+<<< @/../test/agents/open_router_integration_test.rb#receipt_extraction_test{ruby:line-numbers}
 
 #### Receipt Schema Definition
 
-<<< @/../test/dummy/app/agents/open_router_integration_agent.rb#188-234{ruby:line-numbers}
+<<< @/../test/dummy/app/agents/open_router_integration_agent.rb#receipt_schema{ruby:line-numbers}
 
 The receipt schema ensures consistent extraction of:
 - Merchant name and address
@@ -121,7 +121,7 @@ This example uses structured output to ensure the receipt data is returned in a 
 
 OpenRouter supports PDF processing with various engines:
 
-<<< @/../test/agents/open_router_integration_test.rb#209-234{ruby:line-numbers}
+<<< @/../test/agents/open_router_integration_test.rb#pdf_processing_local{ruby:line-numbers}
 
 ::: details PDF Processing Example
 <!-- @include: @/parts/examples/open-router-integration-test.rb-test-processes-PDF-document-from-local-file.md -->
@@ -137,7 +137,7 @@ OpenRouter offers multiple PDF processing engines:
 
 Example with OCR engine:
 
-<<< @/../test/agents/open_router_integration_test.rb#316-338{ruby:line-numbers}
+<<< @/../test/agents/open_router_integration_test.rb#pdf_native_support{ruby:line-numbers}
 
 ::: details OCR Processing Example
 <!-- @include: @/parts/examples/open-router-integration-test.rb-test-processes-scanned-PDF-with-OCR-engine.md -->

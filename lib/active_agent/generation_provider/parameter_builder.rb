@@ -46,7 +46,7 @@ module ActiveAgent
         options = {}
 
         # Common options that map directly
-        [ :stream, :top_p, :frequency_penalty, :presence_penalty, :seed, :stop, :user ].each do |key|
+        [ :stream, :top_p, :frequency_penalty, :presence_penalty, :seed, :stop, :user, :plugins ].each do |key|
           options[key] = @prompt.options[key] if @prompt.options.key?(key)
         end
 
