@@ -86,12 +86,12 @@ class OpenRouterIntegrationAgent < ApplicationAgent
 
     # Allow disabling plugins entirely for models with built-in support
     options = params[:skip_plugin] ? { plugins: [] } : { plugins: [ pdf_plugin ] }
-    
+
     if @pdf_url
       prompt(
         message: [
           { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
-          { type: "file", file: { file_name: 'test.pdf', file_data: @pdf_url } }
+          { type: "file", file: { file_name: "test.pdf", file_data: @pdf_url } }
         ],
         options: options,
         output_schema: params[:output_schema]
@@ -100,7 +100,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
       prompt(
         message: [
           { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
-          { type: "file", file: { file_name: 'test.pdf', file_data: "data:application/pdf;base64,#{@pdf_data}" } }
+          { type: "file", file: { file_name: "test.pdf", file_data: "data:application/pdf;base64,#{@pdf_data}" } }
         ],
         options: options,
         output_schema: params[:output_schema]
@@ -187,6 +187,7 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     }
   end
 
+  # region receipt_schema
   def receipt_schema
     {
       name: "receipt_data",
@@ -234,4 +235,5 @@ class OpenRouterIntegrationAgent < ApplicationAgent
       }
     }
   end
+  # endregion receipt_schema
 end

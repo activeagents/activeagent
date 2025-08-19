@@ -88,7 +88,7 @@ module ActiveAgent
       def detect_content_type(attributes)
         # If content_type is explicitly provided, use it
         return attributes[:content_type] if attributes[:content_type]
-        
+
         # If content is an array with multipart/mixed content, set appropriate type
         if attributes[:content].is_a?(Array)
           # Check if it contains multimodal content (text, image_url, file, etc.)

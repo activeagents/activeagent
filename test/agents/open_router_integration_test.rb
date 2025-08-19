@@ -80,7 +80,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       assert_not_nil response.message
 
       result = JSON.parse(response.message.content)
-      
+
       assert_equal result["merchant"]["name"], "Corner Mart"
       assert_equal result["total"]["amount"], 14.83
       assert_equal result["items"].size, 4
@@ -89,10 +89,10 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
         assert item.key?("quantity")
         assert item.key?("price")
       end
-      assert_equal result["items"][0], {"name"=>"Milk", "quantity"=>1, "price"=>3.49}
-      assert_equal result["items"][1], {"name"=>"Bread", "quantity"=>1, "price"=>2.29}
-      assert_equal result["items"][2], {"name"=>"Apples", "quantity"=>1, "price"=>5.1}
-      assert_equal result["items"][3], {"name"=>"Eggs", "quantity"=>1, "price"=>2.99}
+      assert_equal result["items"][0], { "name"=>"Milk", "quantity"=>1, "price"=>3.49 }
+      assert_equal result["items"][1], { "name"=>"Bread", "quantity"=>1, "price"=>2.29 }
+      assert_equal result["items"][2], { "name"=>"Apples", "quantity"=>1, "price"=>5.1 }
+      assert_equal result["items"][3], { "name"=>"Eggs", "quantity"=>1, "price"=>2.99 }
       # Generate documentation example
       doc_example_output(response)
     end
@@ -139,17 +139,18 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       assert response.message.content.present?
 
       result = JSON.parse(response.message.content)
-      
+
       assert_equal result["name"], "John Doe"
       assert_equal result["email"], "john.doe@example.com"
       assert_equal result["phone"], "(555) 123-4567"
-      assert_equal result["education"].first, {"degree"=>"BS Computer Science", "institution"=>"Stanford University", "year"=>2020}
-      assert_equal result["experience"].first, {"job_title"=>"Senior Software Engineer", "company"=>"TechCorp", "duration"=>"2020-2024"}
+      assert_equal result["education"].first, { "degree"=>"BS Computer Science", "institution"=>"Stanford University", "year"=>2020 }
+      assert_equal result["experience"].first, { "job_title"=>"Senior Software Engineer", "company"=>"TechCorp", "duration"=>"2020-2024" }
 
       # Generate documentation example
       doc_example_output(response)
     end
   end
+  # endregion pdf_processing_local
 
   test "processes PDF from remote URL of resume no plugins" do
     skip "Requires actual OpenRouter API key and credits" unless has_openrouter_credentials?
@@ -180,6 +181,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     end
   end
 
+  # region pdf_native_support
   test "processes PDF with native model support" do
     skip "Requires actual OpenRouter API key and credits" unless has_openrouter_credentials?
 
@@ -194,13 +196,13 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
         prompt_text: "Analyze this PDF document",
         pdf_engine: "native"  # Use native engine (charged as input tokens)
       ).analyze_pdf
-      
+
       # First verify the prompt has the plugins in options
       assert prompt.options[:plugins].present?, "Plugins should be present in prompt options"
       assert prompt.options[:fallback_models].present?, "Fallback models should be present in prompt options"
       assert_equal "file-parser", prompt.options[:plugins][0][:id]
       assert_equal "native", prompt.options[:plugins][0][:pdf][:engine]
-      
+
       response = prompt.generate_now
 
       assert_not_nil response
@@ -212,6 +214,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       doc_example_output(response)
     end
   end
+  # endregion pdf_native_support
 
   test "processes PDF without any plugin for models with built-in support" do
     skip "Requires actual OpenRouter API key and credits" unless has_openrouter_credentials?
@@ -225,10 +228,10 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
         prompt_text: "Analyze this PDF document",
         skip_plugin: true  # Don't use any plugin
       ).analyze_pdf
-      
+
       # Verify no plugins are included when skip_plugin is true
       assert_empty prompt.options[:plugins], "Should not have plugins when skip_plugin is true"
-      
+
       response = prompt.generate_now
       raw_response = response.raw_response
       assert_equal "Google", raw_response["provider"]
@@ -258,9 +261,9 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       # Verify OCR engine is specified
       assert prompt.options[:plugins].present?, "Should have plugins for OCR"
       assert_equal "mistral-ocr", prompt.options[:plugins][0][:pdf][:engine]
-      
+
       response = prompt.generate_now
-     
+
       # MUST return valid JSON - no fallback allowed
       raw_response = response.raw_response
       result = JSON.parse(response.message.content)
@@ -268,8 +271,8 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       assert_equal result["name"], "John Doe"
       assert_equal result["email"], "john.doe@example.com"
       assert_equal result["phone"], "(555) 123-4567"
-      assert_equal result["education"], [{"degree"=>"BS Computer Science", "institution"=>"Stanford University", "year"=>2020}]
-      assert_equal result["experience"], [{"job_title"=>"Senior Software Engineer", "company"=>"TechCorp", "duration"=>"2020-2024"}]
+      assert_equal result["education"], [ { "degree"=>"BS Computer Science", "institution"=>"Stanford University", "year"=>2020 } ]
+      assert_equal result["experience"], [ { "job_title"=>"Senior Software Engineer", "company"=>"TechCorp", "duration"=>"2020-2024" } ]
 
       # Generate documentation example
       doc_example_output(response)
@@ -442,7 +445,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     }
 
     formatted = provider.send(:format_content_item, file_item)
-    
+
     assert_equal "image_url", formatted[:type]
     assert_equal "data:application/pdf;base64,JVBERi0xLj...", formatted[:image_url][:url]
   end
@@ -518,7 +521,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
     # Build parameters and verify plugins are included
     parameters = provider.send(:build_openrouter_parameters)
-    
+
     assert_not_nil parameters[:plugins]
     assert_equal 1, parameters[:plugins].size
     assert_equal "file-parser", parameters[:plugins][0][:id]

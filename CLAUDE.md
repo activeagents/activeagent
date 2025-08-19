@@ -1268,3 +1268,4 @@ When updating documentation:
 5. Add `@include` directives for example outputs
 6. Run tests and verify documentation builds correctly
 - when adding new paramters ensure the prompt and merge params method in @lib/active_agent/base.rb allows them to be passed through
+- Use vscode regions for snippets of examples in docs
