@@ -29,6 +29,33 @@ class StreamingAgentTest < ActiveSupport::TestCase
     end
 
     assert_equal 54, broadcast_calls.size
+    assert_equal "It looks like you'd like to stream a message.", broadcast_calls[9].last.dig(:locals, :message)
+  ensure
+    # Restore original broadcast method
+    ActionCable.server.singleton_class.class_eval do
+      alias_method :broadcast, :orig_broadcast
+      remove_method :orig_broadcast
+    end
+  end
+
+  test "it broadcasts deltas" do
+    # Mock ActionCable.server.broadcast
+    broadcast_calls = []
+    ActionCable.server.singleton_class.class_eval do
+      alias_method :orig_broadcast, :broadcast
+      define_method(:broadcast) do |*args|
+        broadcast_calls << args
+      end
+    end
+
+    VCR.use_cassette("streaming_agent_stream_response") do
+      # region streaming_agent_stream_response
+      StreamingAgent.with(message: "Stream this message", delta: true).prompt_context.generate_now
+      # endregion streaming_agent_stream_response
+    end
+
+    assert_equal 54, broadcast_calls.size
+    assert_equal ".", broadcast_calls[9].last.dig(:locals, :message)
   ensure
     # Restore original broadcast method
     ActionCable.server.singleton_class.class_eval do

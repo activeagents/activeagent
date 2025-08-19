@@ -15,5 +15,5 @@ docs/.vitepress/dist
 docs/.vitepress/cache
 docs/parts/examples/*.md
 
-Gemfile.lock
 gemfiles/*.lock
+Gemfile.lock

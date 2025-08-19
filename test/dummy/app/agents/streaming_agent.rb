@@ -12,11 +12,12 @@ class StreamingAgent < ApplicationAgent
   def broadcast_message
     response = generation_provider.response
 
+    message = params[:delta] ? stream_chunk.delta : response.message.content
     # Broadcast the message to the specified channel
     ActionCable.server.broadcast(
       "#{response.message.generation_id}_messages",
       partial: "streaming_agent/message",
-      locals: { message: response.message.content, scroll_to: true }
+      locals: { message:, scroll_to: true }
     )
   end
 end

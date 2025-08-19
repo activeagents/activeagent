@@ -10,6 +10,7 @@ module ActiveAgent
     class Base < AbstractController::Base
       include Callbacks
       include GenerationProvider
+      include Streaming
       include QueuedGeneration
       include Rescuable
       include Parameterized
