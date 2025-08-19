@@ -23,6 +23,16 @@ module ActiveAgent
         # Data collection preference (allow, deny, or specific provider list)
         @data_collection = config["data_collection"] || @provider_preferences["data_collection"] || "allow"
 
+        # Require parameters preference (defaults to false)
+        @require_parameters = config["require_parameters"] || @provider_preferences["require_parameters"] || false
+
+        # Additional OpenRouter provider routing options
+        @only_providers = config["only"] || @provider_preferences["only"]
+        @ignore_providers = config["ignore"] || @provider_preferences["ignore"]
+        @quantizations = config["quantizations"] || @provider_preferences["quantizations"]
+        @sort_preference = config["sort"] || @provider_preferences["sort"]
+        @max_price = config["max_price"] || @provider_preferences["max_price"]
+
         # Initialize OpenAI client with OpenRouter base URL
         @client = OpenAI::Client.new(
           uri_base: "https://openrouter.ai/api/v1",
@@ -144,9 +154,15 @@ module ActiveAgent
         parameters[:transforms] = @transforms if @transforms.present?
 
         # Add provider preferences (always include if we have data_collection or other settings)
-        # Check both configured and runtime data_collection values
+        # Check both configured and runtime data_collection/require_parameters values
         runtime_data_collection = prompt&.options&.key?(:data_collection)
-        if @provider_preferences.present? || @data_collection != "allow" || runtime_data_collection
+        runtime_require_parameters = prompt&.options&.key?(:require_parameters)
+        runtime_provider_options = prompt&.options&.keys&.any? { |k| [ :only, :ignore, :quantizations, :sort, :max_price ].include?(k) }
+
+        if @provider_preferences.present? || @data_collection != "allow" || @require_parameters != false ||
+           @only_providers.present? || @ignore_providers.present? || @quantizations.present? ||
+           @sort_preference.present? || @max_price.present? ||
+           runtime_data_collection || runtime_require_parameters || runtime_provider_options
           parameters[:provider] = build_provider_preferences
         end
 
@@ -160,7 +176,12 @@ module ActiveAgent
       def build_provider_preferences
         prefs = {}
         prefs[:order] = @provider_preferences["order"] if @provider_preferences["order"]
-        prefs[:require_parameters] = @provider_preferences["require_parameters"] if @provider_preferences.key?("require_parameters")
+
+        # Require parameters can be overridden at runtime
+        require_parameters = prompt.options[:require_parameters] if prompt&.options&.key?(:require_parameters)
+        require_parameters = @require_parameters if require_parameters.nil?
+        prefs[:require_parameters] = require_parameters if require_parameters != false
+
         prefs[:allow_fallbacks] = @enable_fallbacks
 
         # Data collection can be:
@@ -171,6 +192,27 @@ module ActiveAgent
         data_collection = prompt.options[:data_collection] if prompt&.options&.key?(:data_collection)
         data_collection ||= @data_collection
         prefs[:data_collection] = data_collection
+
+        # Additional OpenRouter provider routing options - check runtime overrides first
+        only_providers = prompt.options[:only] if prompt&.options&.key?(:only)
+        only_providers ||= @only_providers
+        prefs[:only] = only_providers if only_providers.present?
+
+        ignore_providers = prompt.options[:ignore] if prompt&.options&.key?(:ignore)
+        ignore_providers ||= @ignore_providers
+        prefs[:ignore] = ignore_providers if ignore_providers.present?
+
+        quantizations = prompt.options[:quantizations] if prompt&.options&.key?(:quantizations)
+        quantizations ||= @quantizations
+        prefs[:quantizations] = quantizations if quantizations.present?
+
+        sort_preference = prompt.options[:sort] if prompt&.options&.key?(:sort)
+        sort_preference ||= @sort_preference
+        prefs[:sort] = sort_preference if sort_preference.present?
+
+        max_price = prompt.options[:max_price] if prompt&.options&.key?(:max_price)
+        max_price ||= @max_price
+        prefs[:max_price] = max_price if max_price.present?
 
         prefs.compact
       end
@@ -186,9 +228,15 @@ module ActiveAgent
         params[:transforms] = @transforms if @transforms.present?
 
         # Add provider configuration (always include if we have data_collection or other settings)
-        # Check both configured and runtime data_collection values
+        # Check both configured and runtime data_collection/require_parameters values
         runtime_data_collection = prompt&.options&.key?(:data_collection)
-        if @provider_preferences.present? || @data_collection != "allow" || runtime_data_collection
+        runtime_require_parameters = prompt&.options&.key?(:require_parameters)
+        runtime_provider_options = prompt&.options&.keys&.any? { |k| [ :only, :ignore, :quantizations, :sort, :max_price ].include?(k) }
+
+        if @provider_preferences.present? || @data_collection != "allow" || @require_parameters != false ||
+           @only_providers.present? || @ignore_providers.present? || @quantizations.present? ||
+           @sort_preference.present? || @max_price.present? ||
+           runtime_data_collection || runtime_require_parameters || runtime_provider_options
           params[:provider] = build_provider_preferences
         end
 

@@ -84,7 +84,7 @@ Runtime options in the `prompt` method override all other configurations. See th
 
 <<< @/../test/agents/configuration_precedence_test.rb#runtime_options_override{ruby:line-numbers}
 
-#### 2. Nil Values Don't Override  
+#### 2. Nil Values Don't Override
 Nil values passed at runtime don't override existing configurations:
 
 <<< @/../test/agents/configuration_precedence_test.rb#nil_values_dont_override{ruby:line-numbers}
@@ -110,11 +110,12 @@ The following options can be overridden at runtime:
 - `:stop` - Stop sequences
 - `:tools_choice` - Tool selection strategy
 - `:data_collection` - Privacy settings (OpenRouter)
+- `:require_parameters` - Provider parameter validation (OpenRouter)
 
 ### Best Practices
 
 1. **Use Global Config for Defaults**: Set organization-wide defaults in `config/active_agent.yml`
-2. **Agent-Level for Specific Needs**: Override in `generate_with` for agent-specific requirements  
+2. **Agent-Level for Specific Needs**: Override in `generate_with` for agent-specific requirements
 3. **Runtime for Dynamic Adjustments**: Use runtime options for user preferences or conditional logic
 
 For a complete example showing all three levels working together, see:

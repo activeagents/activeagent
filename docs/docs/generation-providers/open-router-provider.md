@@ -29,18 +29,18 @@ Define your schema and pass it to the `prompt` method:
 ```ruby
 class OpenRouterAgent < ApplicationAgent
   generate_with :open_router, model: "openai/gpt-4o-mini"
-  
+
   def analyze_image
     @image_url = params[:image_url]
-    
+
     prompt(
       message: build_image_message,
       output_schema: image_analysis_schema
     )
   end
-  
+
   private
-  
+
   def image_analysis_schema
     {
       name: "image_analysis",
@@ -214,6 +214,7 @@ development:
     api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
     model: openai/gpt-4o
     data_collection: deny  # Deny all providers from collecting data
+    require_parameters: true  # Require model providers to support all specified parameters
 
 # Or allow specific providers only
 production:
@@ -221,12 +222,14 @@ production:
     api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
     model: openai/gpt-4o
     data_collection: ["OpenAI", "Google"]  # Only these providers can collect data
+    require_parameters: false  # Allow fallback to providers that don't support all parameters
 
 # In your agent configuration
 class PrivacyFocusedAgent < ApplicationAgent
-  generate_with :open_router, 
+  generate_with :open_router,
     model: "openai/gpt-4o",
-    data_collection: "deny"  # Override for this specific agent
+    data_collection: "deny",  # Override for this specific agent
+    require_parameters: true  # Ensure all parameters are supported
 end
 ```
 

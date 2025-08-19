@@ -286,6 +286,184 @@ module ActiveAgent
       ensure
         ENV.delete("OPENROUTER_ACCESS_TOKEN")
       end
+
+      test "initializes with only providers configuration" do
+        config = @base_config.merge("only" => [ "openai", "anthropic" ])
+        provider = OpenRouterProvider.new(config)
+
+        assert_equal [ "openai", "anthropic" ], provider.instance_variable_get(:@only_providers)
+      end
+
+      test "initializes with ignore providers configuration" do
+        config = @base_config.merge("ignore" => [ "google", "cohere" ])
+        provider = OpenRouterProvider.new(config)
+
+        assert_equal [ "google", "cohere" ], provider.instance_variable_get(:@ignore_providers)
+      end
+
+      test "initializes with quantizations configuration" do
+        config = @base_config.merge("quantizations" => [ "int4", "int8" ])
+        provider = OpenRouterProvider.new(config)
+
+        assert_equal [ "int4", "int8" ], provider.instance_variable_get(:@quantizations)
+      end
+
+      test "initializes with sort configuration" do
+        config = @base_config.merge("sort" => "price")
+        provider = OpenRouterProvider.new(config)
+
+        assert_equal "price", provider.instance_variable_get(:@sort_preference)
+      end
+
+      test "initializes with max_price configuration" do
+        max_price = { "prompt_tokens" => 0.001, "completion_tokens" => 0.002 }
+        config = @base_config.merge("max_price" => max_price)
+        provider = OpenRouterProvider.new(config)
+
+        assert_equal max_price, provider.instance_variable_get(:@max_price)
+      end
+
+      test "initializes with provider preferences containing new options" do
+        config = @base_config.merge(
+          "provider" => {
+            "only" => [ "openai", "anthropic" ],
+            "ignore" => [ "google" ],
+            "quantizations" => [ "int4" ],
+            "sort" => "throughput",
+            "max_price" => { "prompt_tokens" => 0.001 }
+          }
+        )
+
+        provider = OpenRouterProvider.new(config)
+        prefs = provider.instance_variable_get(:@provider_preferences)
+
+        assert_equal [ "openai", "anthropic" ], prefs["only"]
+        assert_equal [ "google" ], prefs["ignore"]
+        assert_equal [ "int4" ], prefs["quantizations"]
+        assert_equal "throughput", prefs["sort"]
+        assert_equal({ "prompt_tokens" => 0.001 }, prefs["max_price"])
+      end
+
+      test "builds provider preferences with only providers" do
+        config = @base_config.merge("only" => [ "openai", "anthropic" ])
+        provider = OpenRouterProvider.new(config)
+
+        # Create a real prompt object
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          messages: [], actions: [], options: {}, output_schema: nil
+        )
+        provider.instance_variable_set(:@prompt, prompt)
+
+        prefs = provider.send(:build_provider_preferences)
+        assert_equal [ "openai", "anthropic" ], prefs[:only]
+      end
+
+      test "builds provider preferences with ignore providers" do
+        config = @base_config.merge("ignore" => [ "google", "cohere" ])
+        provider = OpenRouterProvider.new(config)
+
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          messages: [], actions: [], options: {}, output_schema: nil
+        )
+        provider.instance_variable_set(:@prompt, prompt)
+
+        prefs = provider.send(:build_provider_preferences)
+        assert_equal [ "google", "cohere" ], prefs[:ignore]
+      end
+
+      test "builds provider preferences with quantizations" do
+        config = @base_config.merge("quantizations" => [ "int4", "int8" ])
+        provider = OpenRouterProvider.new(config)
+
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          messages: [], actions: [], options: {}, output_schema: nil
+        )
+        provider.instance_variable_set(:@prompt, prompt)
+
+        prefs = provider.send(:build_provider_preferences)
+        assert_equal [ "int4", "int8" ], prefs[:quantizations]
+      end
+
+      test "builds provider preferences with sort" do
+        config = @base_config.merge("sort" => "price")
+        provider = OpenRouterProvider.new(config)
+
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          messages: [], actions: [], options: {}, output_schema: nil
+        )
+        provider.instance_variable_set(:@prompt, prompt)
+
+        prefs = provider.send(:build_provider_preferences)
+        assert_equal "price", prefs[:sort]
+      end
+
+      test "builds provider preferences with max_price" do
+        max_price = { "prompt_tokens" => 0.001, "completion_tokens" => 0.002 }
+        config = @base_config.merge("max_price" => max_price)
+        provider = OpenRouterProvider.new(config)
+
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          messages: [], actions: [], options: {}, output_schema: nil
+        )
+        provider.instance_variable_set(:@prompt, prompt)
+
+        prefs = provider.send(:build_provider_preferences)
+        assert_equal max_price, prefs[:max_price]
+      end
+
+      test "runtime options override configured provider preferences" do
+        config = @base_config.merge(
+          "only" => [ "openai" ],
+          "sort" => "price"
+        )
+        provider = OpenRouterProvider.new(config)
+
+        # Create prompt with runtime overrides
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          messages: [],
+          actions: [],
+          options: {
+            only: [ "anthropic", "openai" ],
+            sort: "throughput",
+            quantizations: [ "int4" ]
+          },
+          output_schema: nil
+        )
+        provider.instance_variable_set(:@prompt, prompt)
+
+        prefs = provider.send(:build_provider_preferences)
+
+        # Runtime options should override configured ones
+        assert_equal [ "anthropic", "openai" ], prefs[:only]
+        assert_equal "throughput", prefs[:sort]
+        assert_equal [ "int4" ], prefs[:quantizations]
+      end
+
+      test "builds openrouter parameters with all provider preferences" do
+        config = @base_config.merge(
+          "only" => [ "openai", "anthropic" ],
+          "ignore" => [ "google" ],
+          "quantizations" => [ "int4" ],
+          "sort" => "price",
+          "max_price" => { "prompt_tokens" => 0.001 }
+        )
+
+        provider = OpenRouterProvider.new(config)
+
+        prompt = ActiveAgent::ActionPrompt::Prompt.new(
+          messages: [], actions: [], options: {}, output_schema: nil
+        )
+        provider.instance_variable_set(:@prompt, prompt)
+
+        params = provider.send(:build_openrouter_parameters)
+
+        assert params[:provider].present?
+        assert_equal [ "openai", "anthropic" ], params[:provider][:only]
+        assert_equal [ "google" ], params[:provider][:ignore]
+        assert_equal [ "int4" ], params[:provider][:quantizations]
+        assert_equal "price", params[:provider][:sort]
+        assert_equal({ "prompt_tokens" => 0.001 }, params[:provider][:max_price])
+      end
     end
   end
 end
