@@ -72,6 +72,12 @@ module ActiveAgent
       end
     end
 
+    initializer "active_agent.inflections" do
+      ActiveSupport::Inflector.inflections do |inflect|
+        inflect.acronym "AI"
+      end
+    end
+
     config.after_initialize do |app|
       options = app.config.active_agent
 
