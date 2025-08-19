@@ -27,7 +27,7 @@ module ActiveAgent
         @metadata = attributes[:metadata] || {}
         @charset = attributes[:charset] || "UTF-8"
         @content = attributes[:content] || ""
-        @content_type = attributes[:content_type] || "text/plain"
+        @content_type = detect_content_type(attributes)
         @role = attributes[:role] || :user
         @raw_actions = attributes[:raw_actions]
         @requested_actions = attributes[:requested_actions] || []
@@ -84,6 +84,22 @@ module ActiveAgent
       end
 
       private
+
+      def detect_content_type(attributes)
+        # If content_type is explicitly provided, use it
+        return attributes[:content_type] if attributes[:content_type]
+        
+        # If content is an array with multipart/mixed content, set appropriate type
+        if attributes[:content].is_a?(Array)
+          # Check if it contains multimodal content (text, image_url, file, etc.)
+          has_multimodal = attributes[:content].any? do |item|
+            item.is_a?(Hash) && (item[:type] || item["type"])
+          end
+          has_multimodal ? "multipart/mixed" : "array"
+        else
+          "text/plain"
+        end
+      end
 
       def validate_role
         unless VALID_ROLES.include?(role.to_s)

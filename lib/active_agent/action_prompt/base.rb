@@ -104,7 +104,6 @@ module ActiveAgent
         # Define how the agent should generate content
         def generate_with(provider, **options)
           self.generation_provider = provider
-
           if options.has_key?(:instructions) || (self.options || {}).empty?
             # Either instructions explicitly provided, or no inherited options exist
             self.options = (self.options || {}).merge(options)
@@ -245,11 +244,13 @@ module ActiveAgent
         current_context = context.clone
         # Merge action params with original params to preserve context
         original_params = current_context.params || {}
+
         if action.params.is_a?(Hash)
           self.params = original_params.merge(action.params)
         else
           self.params = original_params
         end
+
         process(action.name)
         context.message.role = :tool
         context.message.action_id = action.id
@@ -373,6 +374,10 @@ module ActiveAgent
         if headers[:message].present? && headers[:message].is_a?(ActiveAgent::ActionPrompt::Message)
           headers[:body] = headers[:message].content
           headers[:role] = headers[:message].role
+        elsif headers[:message].present? && headers[:message].is_a?(Array)
+          # Handle array of multipart content like [{type: "text", text: "..."}, {type: "file", file: {...}}]
+          headers[:body] = headers[:message]
+          headers[:role] = :user
         elsif headers[:message].present? && headers[:message].is_a?(String)
           headers[:body] = headers[:message]
           headers[:role] = :user
@@ -394,7 +399,6 @@ module ActiveAgent
             ActiveAgent::ActionPrompt::Message.new(content: headers[:body], content_type: "input_text")
           ]
         end
-
         headers
       end
 
@@ -421,7 +425,7 @@ module ActiveAgent
         # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
         runtime_options = prompt_options.slice(
           :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
-          :presence_penalty, :response_format, :seed, :stop, :tools_choice, :data_collection
+          :presence_penalty, :response_format, :seed, :stop, :tools_choice, :data_collection, :plugins
         )
         # Handle explicit options parameter
         explicit_options = prompt_options[:options] || {}

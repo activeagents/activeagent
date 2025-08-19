@@ -4,31 +4,6 @@ require_relative "open_ai_provider"
 module ActiveAgent
   module GenerationProvider
     class OpenRouterProvider < OpenAIProvider
-      # Vision-capable models on OpenRouter
-      VISION_MODELS = [
-        "openai/gpt-4-vision-preview",
-        "openai/gpt-4o",
-        "openai/gpt-4o-mini",
-        "anthropic/claude-3-5-sonnet",
-        "anthropic/claude-3-opus",
-        "anthropic/claude-3-sonnet",
-        "anthropic/claude-3-haiku",
-        "google/gemini-pro-1.5",
-        "google/gemini-pro-vision"
-      ].freeze
-
-      # Models that support structured output
-      STRUCTURED_OUTPUT_MODELS = [
-        "openai/gpt-4o",
-        "openai/gpt-4o-2024-08-06",
-        "openai/gpt-4o-mini",
-        "openai/gpt-4o-mini-2024-07-18",
-        "openai/gpt-4-turbo",
-        "openai/gpt-4-turbo-2024-04-09",
-        "openai/gpt-3.5-turbo-0125",
-        "openai/gpt-3.5-turbo-1106"
-      ].freeze
-
       def initialize(config)
         @config = config
         @access_token = config["api_key"] || config["access_token"] ||
@@ -52,7 +27,7 @@ module ActiveAgent
         @client = OpenAI::Client.new(
           uri_base: "https://openrouter.ai/api/v1",
           access_token: @access_token,
-          log_errors: true,
+          log_errors: Rails.env.development?,
           default_headers: openrouter_headers
         )
       end
@@ -69,15 +44,6 @@ module ActiveAgent
         handle_openrouter_error(e)
       end
 
-      # Helper methods for checking model capabilities
-      def supports_vision?(model = @model_name)
-        VISION_MODELS.include?(model)
-      end
-
-      def supports_structured_output?(model = @model_name)
-        STRUCTURED_OUTPUT_MODELS.include?(model)
-      end
-
       protected
 
       def build_provider_parameters
@@ -86,6 +52,32 @@ module ActiveAgent
 
         # Add OpenRouter-specific parameters
         add_openrouter_params(params)
+      end
+
+      def format_content_item(item)
+        # Handle OpenRouter-specific content formats
+        if item.is_a?(Hash)
+          case item[:type] || item["type"]
+          when "file"
+            # Convert file type to image_url for OpenRouter PDF support
+            file_data = item.dig(:file, :file_data) || item.dig("file", "file_data")
+            if file_data
+              {
+                type: "image_url",
+                image_url: {
+                  url: file_data
+                }
+              }
+            else
+              item
+            end
+          else
+            # Use default formatting for other types
+            super
+          end
+        else
+          super
+        end
       end
 
       private
@@ -158,6 +150,10 @@ module ActiveAgent
           parameters[:provider] = build_provider_preferences
         end
 
+        # Add plugins (e.g., for PDF processing)
+        
+        parameters[:plugins] = prompt.options[:plugins] if prompt.options[:plugins].present?
+        parameters[:models] = prompt.options[:fallback_models] if prompt.options[:enable_fallbacks] && prompt.options[:fallback_models].present?
         parameters
       end
 
@@ -208,7 +204,6 @@ module ActiveAgent
         parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
 
         response = @client.chat(parameters: parameters)
-
         # Log if fallback was used
         if response.respond_to?(:headers) && response.headers["x-model"] != @model_name
           Rails.logger.info "[OpenRouter] Fallback model used: #{response.headers['x-model']}" if defined?(Rails)
@@ -229,7 +224,6 @@ module ActiveAgent
         message = handle_message(message_json) if message_json
 
         update_context(prompt: prompt, message: message, response: response) if message
-
         # Create response with OpenRouter metadata
         @response = ActiveAgent::GenerationProvider::Response.new(
           prompt: prompt,
@@ -315,7 +309,7 @@ module ActiveAgent
           handle_timeout_error(error)
         else
           # Fall back to parent error handling
-          super(error) if defined?(super)
+          raise GenerationProviderError, error, error.backtrace
         end
       end
 
