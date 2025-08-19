@@ -23,6 +23,7 @@ module ActiveAgent
 
   autoload :Base
   autoload :Callbacks
+  autoload :Streaming
   autoload :InlinePreviewInterceptor
   autoload :PromptHelper
   autoload :Generation
