@@ -68,7 +68,7 @@ module ActiveAgent
 
     initializer "active_agent.compile_config_methods" do
       ActiveSupport.on_load(:active_agent) do
-        config.compile_methods! if config.respond_to?(:compile_methods!)
+        config.compile_methods! if config.class.respond_to?(:compile_methods!)
       end
     end
 

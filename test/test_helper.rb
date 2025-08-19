@@ -1,6 +1,11 @@
 # Configure Rails Environment
 ENV["RAILS_ENV"] = "test"
 
+begin
+  require "debug"
+rescue LoadError
+end
+
 require "jbuilder"
 require_relative "../test/dummy/config/environment"
 ActiveRecord::Migrator.migrations_paths = [ File.expand_path("../test/dummy/db/migrate", __dir__) ]

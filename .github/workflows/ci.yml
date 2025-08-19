@@ -23,36 +23,37 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    # services:
-    #  redis:
-    #    image: redis
-    #    ports:
-    #      - 6379:6379
-    #    options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      BUNDLE_JOBS: 4
+      BUNDLE_RETRY: 3
+      BUNDLE_GEMFILE: ${{ matrix.gemfile }}
+      CI: true
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.4"]
+        gemfile: [
+          "gemfiles/rails8.gemfile",
+        ]
+        include:
+        - ruby: "3.4"
+          gemfile: "gemfiles/railsmain.gemfile"
+        - ruby: "3.3"
+          gemfile: "gemfiles/rails8.gemfile"
+        - ruby: "3.2"
+          gemfile: "gemfiles/rails7.gemfile"
     steps:
-      - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config 
-
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: ruby-3.3.0
-          bundler-cache: true
-
-      - name: Run tests
-        env:
-          RAILS_ENV: test
-          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-          # REDIS_URL: redis://localhost:6379/0
-        run: bin/test
-
-      - name: Keep screenshots from failed system tests
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: screenshots
-          path: ${{ github.workspace }}/tmp/screenshots
-          if-no-files-found: ignore
+    - uses: actions/checkout@v5
+    - name: Install system deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby }}
+        bundler-cache: true
+    - name: Run tests
+      env:
+        RAILS_ENV: test
+        RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+      run: bin/test
