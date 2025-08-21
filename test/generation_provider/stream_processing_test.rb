@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "ostruct"
 require "active_agent/action_prompt/message"
 require "active_agent/generation_provider/response"
 require "active_agent/generation_provider/stream_processing"
@@ -35,8 +34,10 @@ class StreamProcessingTest < ActiveSupport::TestCase
     attr_reader :stream_chunks
   end
 
+  MockPrompt = Data.define(:options, :action_name)
+
   setup do
-    @prompt = OpenStruct.new(
+    @prompt = MockPrompt.new(
       options: { stream: true },
       action_name: "test_action"
     )
@@ -115,7 +116,11 @@ class StreamProcessingTest < ActiveSupport::TestCase
       }
     end
 
-    @prompt.options[:stream] = agent_stream
+    @prompt = MockPrompt.new(
+      options: @prompt.options.merge(stream: agent_stream),
+      action_name: @prompt.action_name
+    )
+    @provider.prompt = @prompt
     stream_proc = @provider.provider_stream
 
     # Simulate streaming chunks
