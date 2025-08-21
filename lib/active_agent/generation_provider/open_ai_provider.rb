@@ -69,7 +69,12 @@ module ActiveAgent
         elsif chunk.dig("choices", 0, "delta", "tool_calls") && chunk.dig("choices", 0, "delta", "role")
           message = handle_message(chunk.dig("choices", 0, "delta"))
           prompt.messages << message
-          @response = ActiveAgent::GenerationProvider::Response.new(prompt:, message:)
+          @response = ActiveAgent::GenerationProvider::Response.new(
+            prompt:,
+            message:,
+            raw_response: chunk,
+            raw_request: @streaming_request_params
+          )
         end
 
         if chunk.dig("choices", 0, "finish_reason")
@@ -92,7 +97,7 @@ module ActiveAgent
       # The format_tools method comes from ToolManagement module
       # The provider_messages method comes from MessageFormatting module
 
-      def chat_response(response)
+      def chat_response(response, request_params = nil)
         return @response if prompt.options[:stream]
         message_json = response.dig("choices", 0, "message")
         message_json["id"] = response.dig("id") if message_json["id"].blank?
@@ -100,10 +105,15 @@ module ActiveAgent
 
         update_context(prompt: prompt, message: message, response: response)
 
-        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
+        @response = ActiveAgent::GenerationProvider::Response.new(
+          prompt: prompt,
+          message: message,
+          raw_response: response,
+          raw_request: request_params
+        )
       end
 
-      def responses_response(response)
+      def responses_response(response, request_params = nil)
         message_json = response["output"].find { |output_item| output_item["type"] == "message" }
         message_json["id"] = response.dig("id") if message_json["id"].blank?
 
@@ -116,7 +126,12 @@ module ActiveAgent
           content_type: prompt.output_schema.present? ? "application/json" : "text/plain",
         )
 
-        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
+        @response = ActiveAgent::GenerationProvider::Response.new(
+          prompt: prompt,
+          message: message,
+          raw_response: response,
+          raw_request: request_params
+        )
       end
 
       def handle_message(message_json)
@@ -133,13 +148,16 @@ module ActiveAgent
       # handle_actions is now provided by ToolManagement module
 
       def chat_prompt(parameters: prompt_parameters)
-        parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
-        chat_response(@client.chat(parameters: parameters))
+        if prompt.options[:stream] || config["stream"]
+          parameters[:stream] = provider_stream
+          @streaming_request_params = parameters
+        end
+        chat_response(@client.chat(parameters: parameters), parameters)
       end
 
       def responses_prompt(parameters: responses_parameters)
         # parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
-        responses_response(@client.responses.create(parameters: parameters))
+        responses_response(@client.responses.create(parameters: parameters), parameters)
       end
 
       def responses_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, structured_output: @prompt.output_schema)
@@ -158,14 +176,20 @@ module ActiveAgent
         }
       end
 
-      def embeddings_response(response)
+      def embeddings_response(response, request_params = nil)
         message = ActiveAgent::ActionPrompt::Message.new(content: response.dig("data", 0, "embedding"), role: "assistant")
 
-        @response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt, message: message, raw_response: response)
+        @response = ActiveAgent::GenerationProvider::Response.new(
+          prompt: prompt,
+          message: message,
+          raw_response: response,
+          raw_request: request_params
+        )
       end
 
       def embeddings_prompt(parameters:)
-        embeddings_response(@client.embeddings(parameters: embeddings_parameters))
+        params = embeddings_parameters
+        embeddings_response(@client.embeddings(parameters: params), params)
       end
     end
   end
