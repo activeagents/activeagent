@@ -14,7 +14,7 @@ class OpenAIProviderGemLoadTest < ActiveSupport::TestCase
     provider_file = File.read(Rails.root.join("../../lib/active_agent/generation_provider/open_ai_provider.rb"))
 
     assert_includes provider_file, "begin"
-    assert_includes provider_file, 'gem "ruby-openai", "~> 8.2.0"'
+    assert_includes provider_file, 'gem "ruby-openai", ">= 8.2.0"'
     assert_includes provider_file, 'require "openai"'
     assert_includes provider_file, "rescue LoadError"
     assert_includes provider_file, expected_message
