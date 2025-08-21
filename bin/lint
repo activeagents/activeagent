@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Script to run linting consistently between local and CI environments
+
+set -e
+
+echo "Running RuboCop linter..."
+
+if [ "$1" = "--fix" ] || [ "$1" = "-a" ]; then
+  echo "Auto-correcting issues..."
+  bundle exec rubocop --config .rubocop.yml --autocorrect --color
+elif [ "$1" = "--fix-unsafe" ] || [ "$1" = "-A" ]; then
+  echo "Auto-correcting all issues (including unsafe)..."
+  bundle exec rubocop --config .rubocop.yml --autocorrect-all --color
+else
+  bundle exec rubocop --config .rubocop.yml --color
+fi
+
+echo "Linting complete!"

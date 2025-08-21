@@ -1,0 +1,41 @@
+{
+  // Ruby formatting settings
+  "[ruby]": {
+    "editor.defaultFormatter": "Shopify.ruby-lsp",
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true
+  },
+  
+  // Ruby LSP settings for consistent formatting with RuboCop
+  "rubyLsp.formatter": "rubocop",
+  "rubyLsp.linters": ["rubocop"],
+  "rubyLsp.featuresConfiguration": {
+    "diagnostics": true,
+    "formatting": true
+  },
+  
+  // Editor settings for consistency
+  "editor.rulers": [120],
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/tmp": true,
+    "**/log": true
+  },
+  
+  // Terminal settings for running lint commands
+  "terminal.integrated.env.osx": {
+    "BUNDLE_GEMFILE": ""
+  },
+  
+  // Disable conflicting extensions
+  "standard.enable": false,
+  "solargraph.formatting": false,
+  "solargraph.diagnostics": false
+}
