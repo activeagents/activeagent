@@ -1,10 +1,10 @@
 require "test_helper"
-require "ostruct"
 
 class TravelAgentTest < ActiveAgentTestCase
+  MockUser = Data.define(:name)
   test "travel agent with instructions template" do
     # region travel_agent_instructions_template
-    user = OpenStruct.new(name: "Alice Johnson")
+    user = MockUser.new(name: "Alice Johnson")
     prompt = TravelAgent.with(user: user, message: "I need help planning my trip").prompt_context
 
     # The instructions template should be included in the prompt
@@ -20,7 +20,7 @@ class TravelAgentTest < ActiveAgentTestCase
   test "travel agent with custom user in instructions" do
     VCR.use_cassette("travel_agent_custom_user_instructions") do
       # region travel_agent_custom_user_instructions
-      user = OpenStruct.new(name: "Bob Smith")
+      user = MockUser.new(name: "Bob Smith")
       message = "I need to find a hotel in Paris"
       prompt = TravelAgent.with(user: user, message: message).prompt_context
       system_message = prompt.messages.find { |m| m.role == :system }

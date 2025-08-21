@@ -1,4 +1,5 @@
 class TravelAgent < ApplicationAgent
+  MockUser = Data.define(:name) unless defined?(MockUser)
   before_action :set_user
 
   def search
@@ -25,6 +26,6 @@ class TravelAgent < ApplicationAgent
   private
 
   def set_user
-    @user = params[:user] || OpenStruct.new(name: "Guest")
+    @user = params[:user] || MockUser.new(name: "Guest")
   end
 end

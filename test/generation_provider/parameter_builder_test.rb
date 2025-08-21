@@ -1,13 +1,18 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "ostruct"
 require "active_agent/action_prompt/message"
 require "active_agent/generation_provider/parameter_builder"
 require "active_agent/generation_provider/message_formatting"
 require "active_agent/generation_provider/tool_management"
 
 class ParameterBuilderTest < ActiveSupport::TestCase
+  MockPrompt = Data.define(:messages, :options, :actions, :output_schema, :message) do
+    def initialize(messages: [], options: {}, actions: nil, output_schema: nil, message: nil)
+      super
+    end
+  end
+
   class TestProvider
     include ActiveAgent::GenerationProvider::ParameterBuilder
     include ActiveAgent::GenerationProvider::MessageFormatting
@@ -22,7 +27,7 @@ class ParameterBuilderTest < ActiveSupport::TestCase
 
   setup do
     @provider = TestProvider.new("temperature" => 0.5, "model" => "test-model")
-    @prompt = OpenStruct.new(
+    @prompt = MockPrompt.new(
       messages: [
         ActiveAgent::ActionPrompt::Message.new(role: :user, content: "Hello")
       ],
@@ -65,9 +70,14 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "build_base_parameters includes tools when actions present" do
-    @prompt.actions = [
-      { "name" => "tool1", "description" => "Test tool", "parameters" => {} }
-    ]
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options,
+      actions: [
+        { "name" => "tool1", "description" => "Test tool", "parameters" => {} }
+      ],
+      output_schema: @prompt.output_schema
+    )
 
     params = @provider.send(:build_base_parameters)
 
@@ -82,15 +92,20 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "extract_prompt_options includes common options" do
-    @prompt.options = {
-      stream: true,
-      top_p: 0.9,
-      frequency_penalty: 0.1,
-      presence_penalty: 0.2,
-      seed: 42,
-      stop: [ "\n" ],
-      user: "user123"
-    }
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: {
+        stream: true,
+        top_p: 0.9,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.2,
+        seed: 42,
+        stop: [ "\n" ],
+        user: "user123"
+      },
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
 
     options = @provider.send(:extract_prompt_options)
 
@@ -104,7 +119,12 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "extract_prompt_options excludes missing options" do
-    @prompt.options = { stream: true }
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: { stream: true },
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
 
     options = @provider.send(:extract_prompt_options)
 
@@ -114,20 +134,30 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "extract_prompt_options includes response_format for output_schema" do
-    @prompt.output_schema = {
-      name: "test_schema",
-      schema: { type: "object" }
-    }
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options,
+      actions: @prompt.actions,
+      output_schema: {
+        name: "test_schema",
+        schema: { type: "object" }
+      }
+    )
 
     options = @provider.send(:extract_prompt_options)
 
     assert options[:response_format]
     assert_equal "json_schema", options[:response_format][:type]
-    assert_equal @prompt.output_schema, options[:response_format][:json_schema]
+    assert_equal @provider.prompt.output_schema, options[:response_format][:json_schema]
   end
 
   test "determine_model prioritizes prompt option over config" do
-    @prompt.options[:model] = "prompt-model"
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(model: "prompt-model"),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.model_name = "provider-model"
     @provider.config["model"] = "config-model"
 
@@ -135,7 +165,12 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "determine_model falls back to provider model_name" do
-    @prompt.options[:model] = nil
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(model: nil),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.model_name = "provider-model"
     @provider.config["model"] = "config-model"
 
@@ -143,7 +178,12 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "determine_model falls back to config model" do
-    @prompt.options[:model] = nil
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(model: nil),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.model_name = nil
     @provider.config["model"] = "config-model"
 
@@ -151,50 +191,80 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "determine_temperature prioritizes prompt option" do
-    @prompt.options[:temperature] = 0.3
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(temperature: 0.3),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.config["temperature"] = 0.5
 
     assert_equal 0.3, @provider.send(:determine_temperature)
   end
 
   test "determine_temperature falls back to config" do
-    @prompt.options[:temperature] = nil
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(temperature: nil),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.config["temperature"] = 0.5
 
     assert_equal 0.5, @provider.send(:determine_temperature)
   end
 
   test "determine_temperature defaults to 0.7" do
-    @prompt.options[:temperature] = nil
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(temperature: nil),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.config["temperature"] = nil
 
     assert_equal 0.7, @provider.send(:determine_temperature)
   end
 
   test "determine_max_tokens from prompt options" do
-    @prompt.options[:max_tokens] = 500
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(max_tokens: 500),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.config["max_tokens"] = 1000
 
     assert_equal 500, @provider.send(:determine_max_tokens)
   end
 
   test "determine_max_tokens from config" do
-    @prompt.options[:max_tokens] = nil
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(max_tokens: nil),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.config["max_tokens"] = 1000
 
     assert_equal 1000, @provider.send(:determine_max_tokens)
   end
 
   test "build_response_format creates OpenAI format" do
-    @prompt.output_schema = {
-      name: "response",
-      schema: { type: "object", properties: {} }
-    }
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options,
+      actions: @prompt.actions,
+      output_schema: {
+        name: "response",
+        schema: { type: "object", properties: {} }
+      }
+    )
 
     format = @provider.send(:build_response_format)
 
     assert_equal "json_schema", format[:type]
-    assert_equal @prompt.output_schema, format[:json_schema]
+    assert_equal @provider.prompt.output_schema, format[:json_schema]
   end
 
   test "embeddings_parameters builds embedding params" do
@@ -213,53 +283,83 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "determine_embedding_model prioritizes prompt option" do
-    @prompt.options[:embedding_model] = "custom-embed"
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(embedding_model: "custom-embed"),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.config["embedding_model"] = "config-embed"
 
     assert_equal "custom-embed", @provider.send(:determine_embedding_model)
   end
 
   test "determine_embedding_model defaults to text-embedding-3-small" do
-    @prompt.options[:embedding_model] = nil
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(embedding_model: nil),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     @provider.config["embedding_model"] = nil
 
     assert_equal "text-embedding-3-small", @provider.send(:determine_embedding_model)
   end
 
   test "format_embedding_input handles single message" do
-    @prompt.message = ActiveAgent::ActionPrompt::Message.new(
-      role: :user,
-      content: "Embed this text"
+    @provider.prompt = MockPrompt.new(
+      message: ActiveAgent::ActionPrompt::Message.new(
+        role: :user,
+        content: "Embed this text"
+      ),
+      messages: nil,
+      options: @prompt.options,
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
     )
-    @prompt.messages = nil
 
     assert_equal "Embed this text", @provider.send(:format_embedding_input)
   end
 
   test "format_embedding_input handles multiple messages" do
-    @prompt.message = nil
-    @prompt.messages = [
-      ActiveAgent::ActionPrompt::Message.new(role: :user, content: "First"),
-      ActiveAgent::ActionPrompt::Message.new(role: :user, content: "Second")
-    ]
+    @provider.prompt = MockPrompt.new(
+      message: nil,
+      messages: [
+        ActiveAgent::ActionPrompt::Message.new(role: :user, content: "First"),
+        ActiveAgent::ActionPrompt::Message.new(role: :user, content: "Second")
+      ],
+      options: @prompt.options,
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
 
     assert_equal [ "First", "Second" ], @provider.send(:format_embedding_input)
   end
 
   test "format_embedding_input returns nil when no input" do
-    @prompt.message = nil
-    @prompt.messages = nil
+    @provider.prompt = MockPrompt.new(
+      message: nil,
+      messages: nil,
+      options: @prompt.options,
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
 
     assert_nil @provider.send(:format_embedding_input)
   end
 
   test "parameter precedence order" do
     # Setup all parameter sources
-    @prompt.options = {
-      model: "prompt-model",
-      temperature: 0.1,
-      max_tokens: 100
-    }
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: {
+        model: "prompt-model",
+        temperature: 0.1,
+        max_tokens: 100
+      },
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
 
     @provider.config = {
       "model" => "config-model",
@@ -276,7 +376,7 @@ class ParameterBuilderTest < ActiveSupport::TestCase
     end
 
     provider = CustomProvider.new(@provider.config)
-    provider.prompt = @prompt
+    provider.prompt = @provider.prompt
 
     # Test with overrides
     params = provider.prompt_parameters(temperature: 0.9, another_param: "override")
@@ -290,7 +390,12 @@ class ParameterBuilderTest < ActiveSupport::TestCase
   end
 
   test "compact removes nil values" do
-    @prompt.options[:max_tokens] = nil
+    @provider.prompt = MockPrompt.new(
+      messages: @prompt.messages,
+      options: @prompt.options.merge(max_tokens: nil),
+      actions: @prompt.actions,
+      output_schema: @prompt.output_schema
+    )
     params = @provider.prompt_parameters
 
     assert_not params.key?(:max_tokens)
