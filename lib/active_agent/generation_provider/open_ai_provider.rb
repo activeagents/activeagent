@@ -1,5 +1,5 @@
 begin
-  gem "ruby-openai", "~> 8.1.0"
+  gem "ruby-openai", ">= 8.1.0"
   require "openai"
 rescue LoadError
   raise LoadError, "The 'ruby-openai' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
