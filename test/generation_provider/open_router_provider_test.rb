@@ -71,6 +71,79 @@ module ActiveAgent
         assert_not_nil client
         # The client should be configured with OpenRouter base URL
         assert_equal "https://openrouter.ai/api/v1", client.instance_variable_get(:@uri_base)
+
+        # Verify extra headers are set
+        extra_headers = client.instance_variable_get(:@extra_headers)
+        assert_not_nil extra_headers
+        assert_equal "TestApp", extra_headers["X-Title"]
+        assert_equal "https://test.app", extra_headers["HTTP-Referer"]
+      end
+
+      test "uses default app name when not configured" do
+        config = @base_config.dup
+        config.delete("app_name")
+
+        provider = OpenRouterProvider.new(config)
+        client = provider.instance_variable_get(:@client)
+        extra_headers = client.instance_variable_get(:@extra_headers)
+
+        # Should use Rails app name or "ActiveAgent" as default
+        assert_not_nil extra_headers["X-Title"]
+        assert_includes [ "ActiveAgent", "Dummy" ], extra_headers["X-Title"]
+      end
+
+      test "uses default site URL from Rails config when not provided" do
+        config = @base_config.dup
+        config.delete("site_url")
+
+        provider = OpenRouterProvider.new(config)
+        client = provider.instance_variable_get(:@client)
+        extra_headers = client.instance_variable_get(:@extra_headers)
+
+        # Should either be localhost or no HTTP-Referer header
+        referer = extra_headers["HTTP-Referer"]
+        assert(referer.nil? || referer.include?("localhost") || referer.include?("example.com"))
+      end
+
+      test "headers are present when both app_name and site_url are configured" do
+        provider = OpenRouterProvider.new(@base_config)
+        headers = provider.send(:openrouter_headers)
+
+        assert_equal "TestApp", headers["X-Title"]
+        assert_equal "https://test.app", headers["HTTP-Referer"]
+      end
+
+      test "headers handle nil app_name gracefully" do
+        config = @base_config.merge("app_name" => nil)
+        provider = OpenRouterProvider.new(config)
+        headers = provider.send(:openrouter_headers)
+
+        # Should still have a header, using default
+        assert_not_nil headers["X-Title"]
+      end
+
+      test "headers handle nil site_url gracefully" do
+        config = @base_config.merge("site_url" => nil)
+        provider = OpenRouterProvider.new(config)
+        headers = provider.send(:openrouter_headers)
+
+        # HTTP-Referer might be nil or use default
+        # The key should exist but value might be nil
+        assert headers.key?("HTTP-Referer")
+      end
+
+      test "headers are passed to OpenAI client on initialization" do
+        provider = OpenRouterProvider.new(@base_config)
+        client = provider.instance_variable_get(:@client)
+
+        # The OpenAI::Client should receive the extra_headers
+        assert_not_nil client
+        extra_headers = client.instance_variable_get(:@extra_headers)
+
+        assert_equal({
+          "X-Title" => "TestApp",
+          "HTTP-Referer" => "https://test.app"
+        }, extra_headers)
       end
 
       test "builds OpenRouter-specific parameters with fallbacks" do

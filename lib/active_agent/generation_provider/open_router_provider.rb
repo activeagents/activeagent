@@ -38,7 +38,7 @@ module ActiveAgent
           uri_base: "https://openrouter.ai/api/v1",
           access_token: @access_token,
           log_errors: Rails.env.development?,
-          default_headers: openrouter_headers
+          extra_headers: openrouter_headers
         )
       end
 
