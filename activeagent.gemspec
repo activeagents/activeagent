@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "jbuilder", "~> 2.14"
   spec.add_development_dependency "rails"
 
-  spec.add_development_dependency "ruby-openai", "~> 8.2.0"
+  spec.add_development_dependency "ruby-openai", ">= 8.1.0"
   spec.add_development_dependency "ruby-anthropic", "~> 0.4.2"
 
   spec.add_development_dependency "standard"
