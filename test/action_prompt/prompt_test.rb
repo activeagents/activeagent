@@ -14,7 +14,10 @@ module ActiveAgent
         assert_equal "", prompt.body
         assert_equal "text/plain", prompt.content_type
         assert_nil prompt.message
-        assert_equal [], prompt.messages
+        # Should have one system message with empty instructions
+        assert_equal 1, prompt.messages.size
+        assert_equal :system, prompt.messages[0].role
+        assert_equal "", prompt.messages[0].content
         assert_equal({}, prompt.params)
         assert_equal "1.0", prompt.mime_version
         assert_equal "UTF-8", prompt.charset
@@ -101,11 +104,14 @@ module ActiveAgent
           ]
         )
 
-        assert_equal 2, prompt.messages.size
-        assert_equal "Hello, how can I assist you today?", prompt.messages.first.content
-        assert_equal :assistant, prompt.messages.first.role
-        assert_equal "I need help with my account.", prompt.messages.last.content
-        assert_equal :user, prompt.messages.last.role
+        # Should have system message plus the two provided messages
+        assert_equal 3, prompt.messages.size
+        assert_equal :system, prompt.messages[0].role
+        assert_equal "", prompt.messages[0].content
+        assert_equal "Hello, how can I assist you today?", prompt.messages[1].content
+        assert_equal :assistant, prompt.messages[1].role
+        assert_equal "I need help with my account.", prompt.messages[2].content
+        assert_equal :user, prompt.messages[2].role
       end
 
       test "from_messages initializes messages from an array of Message objects with instructions" do
@@ -212,10 +218,16 @@ module ActiveAgent
         assert_equal :system, prompt.messages.first.role
       end
 
-      test "instructions setter does not add empty instruction to messages" do
+      test "instructions setter updates system message even with empty instructions" do
         prompt = Prompt.new
+        # Prompt already has a system message with empty content
+        assert_equal 1, prompt.messages.size
+        assert_equal "", prompt.messages[0].content
+
+        # Setting empty instructions should maintain the system message
         prompt.instructions = ""
-        assert_equal 0, prompt.messages.size
+        assert_equal 1, prompt.messages.size
+        assert_equal "", prompt.messages[0].content
       end
 
       test "initializes with actions, message, and messages example" do
@@ -232,11 +244,12 @@ module ActiveAgent
         assert_equal "get_cat_image", prompt.actions.first["function"]["name"]
         assert_equal "I need help with my account.", prompt.message.content
         assert_equal :user, prompt.message.role
-        assert_equal 2, prompt.messages.size
-        assert_equal "Hello, how can I assist you today?", prompt.messages.first.content
-        assert_equal :assistant, prompt.messages.first.role
-        assert_equal "I need help with my account.", prompt.messages.last.content
-        assert_equal :user, prompt.messages.last.role
+        # Should have system message plus the provided assistant message
+        assert_equal 3, prompt.messages.size
+        assert_equal :system, prompt.messages[0].role
+        assert_equal "", prompt.messages[0].content
+        assert_equal "Hello, how can I assist you today?", prompt.messages[1].content
+        assert_equal :assistant, prompt.messages[1].role
       end
     end
   end
