@@ -257,17 +257,17 @@ module ActiveAgent
 
         # Process the action, which will create a new message in context.message
         process(action.name)
-        
+
         # Create a tool message from the action's response
         tool_message = context.message.dup
         tool_message.role = :tool
         tool_message.action_id = action.id
         tool_message.action_name = action.name
         tool_message.generation_id = action.id
-        
+
         # Add the tool message to the current context's messages
         current_context.messages << tool_message
-        
+
         # Restore the context without overwriting the message
         self.context = current_context
       end
