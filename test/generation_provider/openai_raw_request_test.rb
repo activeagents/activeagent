@@ -48,7 +48,7 @@ module ActiveAgent
         response = @provider.send(:chat_response, mock_response, request_params)
 
         assert_not_nil response
-        # Note: raw_request should be sanitized, but since our test key isn't in the 
+        # Note: raw_request should be sanitized, but since our test key isn't in the
         # sanitizers list, it should remain unchanged in this test
         assert_equal request_params, response.raw_request
         assert_equal mock_response, response.raw_response
@@ -86,7 +86,7 @@ module ActiveAgent
         # API key should be sanitized in raw_request
         assert_equal "<OPENAI_API_KEY>", response.raw_request[:api_key]
         assert_equal "Bearer <OPENAI_API_KEY>", response.raw_request[:headers]["Authorization"]
-        assert_equal "Message with key: <OPENAI_API_KEY>", 
+        assert_equal "Message with key: <OPENAI_API_KEY>",
                      response.raw_request[:messages][0][:content]
 
         # Restore original config
