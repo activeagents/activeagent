@@ -1,0 +1,21 @@
+<%= {
+    type: :function,
+    function: {
+      name: action_name,
+      description: "Navigates the browser to the provided URL",
+      parameters: {
+        type: :object,
+        properties: {
+          url: {
+            type: :string,
+            description: "The url to visit"
+          }
+        },
+        required: ["url"]
+      },
+      returns: {
+        type: "string",
+        description: "The status of the response"
+      },
+    }
+  }.to_json.html_safe %>
