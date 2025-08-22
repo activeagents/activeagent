@@ -53,7 +53,7 @@ module ActiveAgent
       def instructions=(instructions)
         # Store the instructions even if blank (will use empty string)
         @instructions = instructions || ""
-        
+
         # Update or add the system message
         if @messages[0].present? && @messages[0].role == :system
           @messages[0] = instructions_message

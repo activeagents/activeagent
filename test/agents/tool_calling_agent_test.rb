@@ -13,7 +13,7 @@ class ToolCallingAgentTest < ActiveSupport::TestCase
 
       # Messages should include system messages first, then user, assistant, and tool messages
       assert response.prompt.messages.size >= 5
-      
+
       # System messages should be first (multiple empty ones may be added during prompt flow)
       system_count = 0
       response.prompt.messages.each_with_index do |msg, i|
@@ -21,22 +21,22 @@ class ToolCallingAgentTest < ActiveSupport::TestCase
         system_count = i + 1
       end
       assert system_count >= 1, "Should have at least one system message at the beginning"
-      
+
       # After system messages, should have user message
       user_index = system_count
       assert_equal :user, response.prompt.messages[user_index].role
       assert_includes response.prompt.messages[user_index].content, "Calculate the area"
-      
+
       # Then assistant message with tool call
       assistant_index = user_index + 1
       assert_equal :assistant, response.prompt.messages[assistant_index].role
       assert response.prompt.messages[assistant_index].action_requested
-      
+
       # Then tool result
       tool_index = assistant_index + 1
       assert_equal :tool, response.prompt.messages[tool_index].role
       assert_equal "50.0", response.prompt.messages[tool_index].content
-      
+
       # If there are more tool calls for doubling
       if response.prompt.messages.size > tool_index + 2
         assert_equal :assistant, response.prompt.messages[tool_index + 1].role

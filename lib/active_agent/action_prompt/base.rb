@@ -258,10 +258,10 @@ module ActiveAgent
         # Save the current prompt_was_called state and reset it so the action can render
         original_prompt_was_called = @_prompt_was_called
         @_prompt_was_called = false
-        
+
         # Process the action, which will render the view and populate context
         process(action.name)
-        
+
         # The action should have called prompt which populates context.message
         # Create a tool message from the rendered response
         tool_message = context.message.dup
@@ -272,7 +272,7 @@ module ActiveAgent
 
         # Restore the messages with the new tool message
         context.messages = original_messages + [ tool_message ]
-        
+
         # Restore the prompt_was_called state
         @_prompt_was_called = original_prompt_was_called
       end

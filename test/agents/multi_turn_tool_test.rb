@@ -22,10 +22,10 @@ class MultiTurnToolTest < ActiveSupport::TestCase
 
       # Should have system messages
       assert system_messages.any?, "Should have system messages"
-      
+
       # At least one system message should mention calculator if the agent has instructions
       if system_messages.any? { |m| m.content.present? }
-        assert system_messages.any? { |m| m.content.include?("calculator") }, 
+        assert system_messages.any? { |m| m.content.include?("calculator") },
           "System message should mention calculator"
       end
 

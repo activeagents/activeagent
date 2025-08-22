@@ -160,8 +160,9 @@ module ActiveAgent
         assistant_messages = messages.select { |m| m.role == :assistant }
         tool_messages = messages.select { |m| m.role == :tool }
 
-        assert_equal 3, system_messages.count
-        assert_equal 1, user_messages.count  
+        # Agent starts with empty system message, plus the one we added in setup
+        assert_equal 2, system_messages.count
+        assert_equal 1, user_messages.count
         assert_equal 2, assistant_messages.count
         assert_equal 2, tool_messages.count
 
@@ -279,13 +280,13 @@ module ActiveAgent
 
         # After perform_action, we expect:
         # - Original system message preserved
-        # - Original user message preserved  
+        # - Original user message preserved
         # - New tool message added
-        
+
         system_messages = @agent.context.messages.select { |m| m.role == :system }
         user_messages = @agent.context.messages.select { |m| m.role == :user }
         tool_messages = @agent.context.messages.select { |m| m.role == :tool }
-        
+
         # The system messages may be modified during prompt flow
         # What matters is we have system messages and the user message is preserved
         assert system_messages.any?, "Should have system messages"

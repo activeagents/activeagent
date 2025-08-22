@@ -122,11 +122,11 @@ class TravelAgentToolCallTest < ActiveAgentTestCase
     # Verify context was updated with tool message
     # Additional system messages may be added during perform_action
     assert agent.context.messages.size > initial_message_count, "Should have added messages"
-    
+
     # Find the tool message that was added
     tool_messages = agent.context.messages.select { |m| m.role == :tool }
     assert_equal 1, tool_messages.size, "Should have exactly one tool message"
-    
+
     tool_message = tool_messages.first
     assert_equal "call_456", tool_message.action_id
     assert_equal "search", tool_message.action_name
