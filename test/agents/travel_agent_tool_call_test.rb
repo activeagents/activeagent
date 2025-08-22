@@ -120,12 +120,17 @@ class TravelAgentToolCallTest < ActiveAgentTestCase
     assert_equal({ departure: "NYC", destination: "LAX" }, agent.params)
 
     # Verify context was updated with tool message
-    assert_equal initial_message_count + 1, agent.context.messages.size
-    last_message = agent.context.messages.last
-    assert_equal :tool, last_message.role
-    assert_equal "call_456", last_message.action_id
-    assert_equal "search", last_message.action_name
-    assert_equal "call_456", last_message.generation_id
+    # Additional system messages may be added during perform_action
+    assert agent.context.messages.size > initial_message_count, "Should have added messages"
+    
+    # Find the tool message that was added
+    tool_messages = agent.context.messages.select { |m| m.role == :tool }
+    assert_equal 1, tool_messages.size, "Should have exactly one tool message"
+    
+    tool_message = tool_messages.first
+    assert_equal "call_456", tool_message.action_id
+    assert_equal "search", tool_message.action_name
+    assert_equal "call_456", tool_message.generation_id
   end
 
   test "tool schema uses flat parameter structure" do
