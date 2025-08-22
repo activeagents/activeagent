@@ -218,7 +218,8 @@ module ActiveAgent
       def handle_response(response)
         return response unless response.message.requested_actions.present?
 
-        # Perform the requested actions
+        # The assistant message with tool_calls is already added by update_context in the provider
+        # Now perform the requested actions which will add tool response messages
         perform_actions(requested_actions: response.message.requested_actions)
 
         # Continue generation with updated context
@@ -252,13 +253,20 @@ module ActiveAgent
           self.params = original_params
         end
 
+        # Process the action, which will create a new message in context.message
         process(action.name)
-        context.message.role = :tool
-        context.message.action_id = action.id
-        context.message.action_name = action.name
-        context.message.generation_id = action.id
-        current_context.message = context.message
-        current_context.messages << context.message
+        
+        # Create a tool message from the action's response
+        tool_message = context.message.dup
+        tool_message.role = :tool
+        tool_message.action_id = action.id
+        tool_message.action_name = action.name
+        tool_message.generation_id = action.id
+        
+        # Add the tool message to the current context's messages
+        current_context.messages << tool_message
+        
+        # Restore the context without overwriting the message
         self.context = current_context
       end
 
