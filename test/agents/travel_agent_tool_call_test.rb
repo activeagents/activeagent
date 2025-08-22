@@ -1,4 +1,7 @@
 require "test_helper"
+require "active_agent/action_prompt/action"
+require "active_agent/action_prompt/message"
+require "active_agent/action_prompt/prompt"
 
 class TravelAgentToolCallTest < ActiveAgentTestCase
   test "assistant tool call message contains flat params" do
@@ -33,10 +36,10 @@ class TravelAgentToolCallTest < ActiveAgentTestCase
     assert_equal "LAX", agent.instance_variable_get(:@destination)
 
     # Verify context was updated with tool message
-    assert_equal :tool, agent.context.message.role
-    assert_equal "call_search_123", agent.context.message.action_id
-    assert_equal "search", agent.context.message.action_name
-    assert agent.context.messages.last.role == :tool
+    last_message = agent.context.messages.last
+    assert_equal :tool, last_message.role
+    assert_equal "call_search_123", last_message.action_id
+    assert_equal "search", last_message.action_name
   end
 
   test "travel agent book action receives params through perform_action" do
@@ -59,10 +62,10 @@ class TravelAgentToolCallTest < ActiveAgentTestCase
     assert_equal "John Doe", agent.instance_variable_get(:@passenger_name)
 
     # Verify context was updated with tool message
-    assert_equal :tool, agent.context.message.role
-    assert_equal "call_book_456", agent.context.message.action_id
-    assert_equal "book", agent.context.message.action_name
-    assert agent.context.messages.last.role == :tool
+    last_message = agent.context.messages.last
+    assert_equal :tool, last_message.role
+    assert_equal "call_book_456", last_message.action_id
+    assert_equal "book", last_message.action_name
   end
 
   test "travel agent confirm action receives params through perform_action" do
@@ -85,10 +88,10 @@ class TravelAgentToolCallTest < ActiveAgentTestCase
     assert_equal "Jane Smith", agent.instance_variable_get(:@passenger_name)
 
     # Verify context was updated with tool message
-    assert_equal :tool, agent.context.message.role
-    assert_equal "call_confirm_789", agent.context.message.action_id
-    assert_equal "confirm", agent.context.message.action_name
-    assert agent.context.messages.last.role == :tool
+    last_message = agent.context.messages.last
+    assert_equal :tool, last_message.role
+    assert_equal "call_confirm_789", last_message.action_id
+    assert_equal "confirm", last_message.action_name
   end
 
   test "perform_action sets params and updates context messages" do

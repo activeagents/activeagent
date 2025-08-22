@@ -2,6 +2,8 @@ require "active_agent/collector"
 require "active_support/core_ext/string/inflections"
 require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
+require "active_agent/action_prompt/message"
+require "active_agent/action_prompt/action"
 
 # require "active_agent/log_subscriber"
 require "active_agent/rescuable"
