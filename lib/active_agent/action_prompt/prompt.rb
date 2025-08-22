@@ -30,7 +30,12 @@ module ActiveAgent
         @action_name = attributes.fetch(:action_name, nil)
         @mcp_servers = attributes.fetch(:mcp_servers, [])
         set_message if attributes[:message].is_a?(String) || @body.is_a?(String) && @message&.content
-        set_messages if @instructions.present?
+        # Ensure we have a system message with instructions at the start
+        if @messages.empty? || @messages[0].role != :system
+          @messages.unshift(instructions_message)
+        elsif @instructions.present?
+          @messages[0] = instructions_message
+        end
       end
 
       def multimodal?
@@ -39,17 +44,22 @@ module ActiveAgent
 
       def messages=(messages)
         @messages = messages
-        set_messages
+        # Only add system message if we have instructions and don't already have a system message
+        if @instructions.present? && (@messages.empty? || @messages.first&.role != :system)
+          set_messages
+        end
       end
 
       def instructions=(instructions)
-        return if instructions.blank?
+        # Store the instructions even if blank (will use empty string)
+        @instructions = instructions || ""
 
-        @instructions = instructions
+        # Update or add the system message
         if @messages[0].present? && @messages[0].role == :system
           @messages[0] = instructions_message
-        else
-          set_messages
+        elsif @messages.empty? || @messages[0].role != :system
+          # Only add system message if we don't have one at the start
+          @messages.unshift(instructions_message)
         end
       end
 
