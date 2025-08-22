@@ -9,7 +9,6 @@ module Erb # :nodoc:
       def create_agent_layouts
         if behavior == :invoke
           formats.each do |format|
-            puts format
             layout_path = File.join("app/views/layouts", filename_with_extensions("agent", format))
             template filename_with_extensions(:layout, format), layout_path unless File.exist?(layout_path)
           end

@@ -1,0 +1,15 @@
+<%= {
+    type: :function,
+    function: {
+      name: action_name,
+      description: "This action takes no parameters and returns a string with the current page contents",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+      returns: {
+        type: "string",
+        description: "A textual representation of the current page contents"
+      }
+    }
+  }.to_json.html_safe %>

@@ -1,0 +1,381 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":""},{"role":"user","content":"Are
+        there any notices on the Google homepage?"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"read_current_page","description":"This
+        action takes no parameters and returns a string with the current page contents","parameters":{"type":"object","properties":{}},"returns":{"type":"string","description":"A
+        textual representation of the current page contents"}}},{"type":"function","function":{"name":"visit","description":"Navigates
+        the browser to the provided URL","parameters":{"type":"object","properties":{"url":{"type":"string","description":"The
+        url to visit"}},"required":["url"]},"returns":{"type":"string","description":"The
+        status of the response"}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 22 Aug 2025 05:02:46 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '546'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '630'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199985'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 4ms
+      X-Request-Id:
+      - req_455a91d365ad4c0ab026f9093fc0c3a4
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=GcIvSJ4qSyr45k7nhImNZykNFIYYr7vZ1ey46QA2kQY-1755838966-1.0.1.1-QGtIm15nPKJpo1AV7KCARedK6IreU.leVSokXh3_c19yGWnL23KQRldbeJt9QeNVxLI9DuAidXgV3t6ah2XpFwb8aFGCb6PPKGtTmZ_IZRk;
+        path=/; expires=Fri, 22-Aug-25 05:32:46 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=bRd4cO2wbaJZShEoAF.GJ8ToSdoLt1mLMPUecKhh2FU-1755838966828-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 972fd1e1eb60232c-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C7EDGDdIyBJb6ghW4aflB61eNeAHX",
+          "object": "chat.completion",
+          "created": 1755838966,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_5Vc81ghRcIxKAvFThkrIhMQY",
+                    "type": "function",
+                    "function": {
+                      "name": "visit",
+                      "arguments": "{\"url\":\"https://www.google.com\"}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 85,
+            "completion_tokens": 17,
+            "total_tokens": 102,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
+        }
+  recorded_at: Fri, 22 Aug 2025 05:02:46 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":""},{"role":"system","content":""},{"role":"user","content":"Are
+        there any notices on the Google homepage?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_5Vc81ghRcIxKAvFThkrIhMQY","type":"function","function":{"name":"visit","arguments":"{\"url\":\"https://www.google.com\"}"}}]},{"role":"tool","content":"Navigation
+        resulted in 200 status code.\n","tool_call_id":"call_5Vc81ghRcIxKAvFThkrIhMQY","name":"visit"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"read_current_page","description":"This
+        action takes no parameters and returns a string with the current page contents","parameters":{"type":"object","properties":{}},"returns":{"type":"string","description":"A
+        textual representation of the current page contents"}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 22 Aug 2025 05:02:47 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '390'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '477'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199972'
+      X-Ratelimit-Reset-Requests:
+      - 16.475s
+      X-Ratelimit-Reset-Tokens:
+      - 8ms
+      X-Request-Id:
+      - req_874a9c7838da49d69eb86419400f13ba
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=quyNdkkCS9SLNx2luRBki7IKqkiIhuXNSPI8r2.KqnE-1755838967-1.0.1.1-h5iSo1bLllfA4PIUV5X_Y8ARQMnw4wNWYMP_vMFNC6gK8IoT0kB5g5uUYgEOqA9clKve7834nGsybfvFtGh8sxy2ujvMSU_4edxSuqVmE_0;
+        path=/; expires=Fri, 22-Aug-25 05:32:47 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=_qbwtt_MoQ.CJquhuAk8ePUINLdKfHxp0dL1bwzSI_c-1755838967380-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 972fd1e6fd7ced40-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C7EDHcqu4PjQIb9QwiEUNfFvRjEFL",
+          "object": "chat.completion",
+          "created": 1755838967,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_G6w0rViCJWyZC0qfOPjOVBHO",
+                    "type": "function",
+                    "function": {
+                      "name": "read_current_page",
+                      "arguments": "{}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 93,
+            "completion_tokens": 11,
+            "total_tokens": 104,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
+        }
+  recorded_at: Fri, 22 Aug 2025 05:02:47 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":""},{"role":"system","content":""},{"role":"system","content":""},{"role":"user","content":"Are
+        there any notices on the Google homepage?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_5Vc81ghRcIxKAvFThkrIhMQY","type":"function","function":{"name":"visit","arguments":"{\"url\":\"https://www.google.com\"}"}}]},{"role":"tool","content":"Navigation
+        resulted in 200 status code.\n","tool_call_id":"call_5Vc81ghRcIxKAvFThkrIhMQY","name":"visit"},{"role":"assistant","content":"","tool_calls":[{"id":"call_G6w0rViCJWyZC0qfOPjOVBHO","type":"function","function":{"name":"read_current_page","arguments":"{}"}}]},{"role":"tool","content":"Title:
+        Google\nBody: Welcome to Google! Google is under maintenance until 13:15 UTC.\n","tool_call_id":"call_G6w0rViCJWyZC0qfOPjOVBHO","name":"read_current_page"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"visit","description":"Navigates
+        the browser to the provided URL","parameters":{"type":"object","properties":{"url":{"type":"string","description":"The
+        url to visit"}},"required":["url"]},"returns":{"type":"string","description":"The
+        status of the response"}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 22 Aug 2025 05:02:48 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '565'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '580'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9997'
+      X-Ratelimit-Remaining-Tokens:
+      - '199948'
+      X-Ratelimit-Reset-Requests:
+      - 24.628s
+      X-Ratelimit-Reset-Tokens:
+      - 15ms
+      X-Request-Id:
+      - req_d6bc7d4f6f4349b29454b61b47ccec4e
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=mWPghSgLDGYxGv_wkXwwbh1TIGC8Ej1AJZGbZgISpqU-1755838968-1.0.1.1-rhJAKVmCjXyt6ijN0T.DDATj1s3fZY6kM58Wqrl6vs6UXCVmh.._TPtGuGWmpaa7V1DlP10UlvQvG9etI68YjeL5CC1nq5lRlxt.97vxFpc;
+        path=/; expires=Fri, 22-Aug-25 05:32:48 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=KiXZuMpgjt74Nh.IKNhETRQ8PLbCUc9c6MWnpIcVExE-1755838968036-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 972fd1ea7dd99435-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C7EDHgnmaGwJw3t6VrXK05zYEJnyi",
+          "object": "chat.completion",
+          "created": 1755838967,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Yes, there is a notice on the Google homepage stating that Google is under maintenance until 13:15 UTC.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 142,
+            "completion_tokens": 24,
+            "total_tokens": 166,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
+        }
+  recorded_at: Fri, 22 Aug 2025 05:02:47 GMT
+recorded_with: VCR 6.3.1

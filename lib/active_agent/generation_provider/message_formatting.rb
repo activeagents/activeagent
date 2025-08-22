@@ -94,12 +94,12 @@ module ActiveAgent
       def format_single_tool_call(action)
         # Default tool call format (OpenAI style)
         {
+          id: action.id,
           type: "function",
           function: {
             name: action.name,
             arguments: action.params.is_a?(String) ? action.params : action.params.to_json
-          },
-          id: action.id
+          }
         }
       end
     end

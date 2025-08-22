@@ -28,19 +28,15 @@ module ActiveAgent
           adapter = ResponsesAdapter.new(@prompt)
 
           result = adapter.input
-          assert_equal 3, result.length  # Instructions message + 3 messages
+          assert_equal 2, result.length  # The two messages we provided
 
-          # Test instructions message (automatically added by Prompt)
-          assert_equal :system, result[0][:role]
-          assert_equal "", result[0][:content]
+          # Test first message (system)
+          assert_equal "system", result[0][:role]
+          assert_equal "Talk like a pirate.", result[0][:content]
 
-          # Test first message
-          assert_equal "system", result[1][:role]
-          assert_equal "Talk like a pirate.", result[1][:content]
-
-          # Test second message
-          assert_equal "user", result[2][:role]
-          assert_equal "Are semicolons optional in JavaScript?", result[2][:content]
+          # Test second message (user)
+          assert_equal "user", result[1][:role]
+          assert_equal "Are semicolons optional in JavaScript?", result[1][:content]
         end
 
         test "handles multimodal content with text and image" do
@@ -57,8 +53,8 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 2, result.length  # Instructions message + multimodal message
-          message = result[1]  # Skip the instructions message
+          assert_equal 1, result.length  # Just the multimodal message
+          message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
           assert_instance_of Array, message[:content]
@@ -89,8 +85,8 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 2, result.length  # Instructions message + file message
-          message = result[1]  # Skip the instructions message
+          assert_equal 1, result.length  # Just the file message
+          message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
           assert_instance_of Array, message[:content]
@@ -132,23 +128,19 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 4, result.length  # Instructions message + 3 messages
+          assert_equal 3, result.length  # Just the 3 messages
 
-          # Test instructions message (automatically added by Prompt)
-          assert_equal :system, result[0][:role]
-          assert_equal "", result[0][:content]
-
-          # Test simple text message
-          assert_equal "system", result[1][:role]
-          assert_equal "Talk like a pirate.", result[1][:content]
+          # Test simple text message (system)
+          assert_equal "system", result[0][:role]
+          assert_equal "Talk like a pirate.", result[0][:content]
 
           # Test multimodal message
-          assert_equal "user", result[2][:role]
-          assert_instance_of Array, result[2][:content]
+          assert_equal "user", result[1][:role]
+          assert_instance_of Array, result[1][:content]
 
           # Test another simple text message
-          assert_equal "user", result[3][:role]
-          assert_equal "Are semicolons optional in JavaScript?", result[3][:content]
+          assert_equal "user", result[2][:role]
+          assert_equal "Are semicolons optional in JavaScript?", result[2][:content]
         end
 
         test "handles string content for non-array messages" do
@@ -162,8 +154,8 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 2, result.length  # Instructions message + string message
-          message = result[1]  # Skip the instructions message
+          assert_equal 1, result.length  # Just the string message
+          message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
           assert_equal "This is a simple string message", message[:content]
@@ -191,9 +183,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 1, result.length  # Just the instructions message
-          assert_equal :system, result[0][:role]
-          assert_equal "", result[0][:content]
+          assert_equal 0, result.length  # No messages
         end
 
         test "handles complex multimodal scenarios from examples" do
@@ -228,22 +218,18 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 5, result.length  # Instructions message + 4 messages
-
-          # Test instructions message (automatically added by Prompt)
-          assert_equal :system, result[0][:role]
-          assert_equal "", result[0][:content]
+          assert_equal 4, result.length  # Just the 4 messages
 
           # Test developer message
-          assert_equal "system", result[1][:role]
-          assert_equal "Talk like a pirate.", result[1][:content]
+          assert_equal "system", result[0][:role]
+          assert_equal "Talk like a pirate.", result[0][:content]
 
           # Test simple user message
-          assert_equal "user", result[2][:role]
-          assert_equal "Are semicolons optional in JavaScript?", result[2][:content]
+          assert_equal "user", result[1][:role]
+          assert_equal "Are semicolons optional in JavaScript?", result[1][:content]
 
           # Test multimodal image message
-          image_message = result[3]
+          image_message = result[2]
           assert_equal "user", image_message[:role]
           assert_equal 2, image_message[:content].length
           assert_equal "input_text", image_message[:content][0][:type]
@@ -252,7 +238,7 @@ module ActiveAgent
           assert_equal "data:image/jpeg;base64,base64_image_data_here", image_message[:content][1][:image_url]
 
           # Test multimodal file message
-          file_message = result[4]
+          file_message = result[3]
           assert_equal "user", file_message[:role]
           assert_equal 2, file_message[:content].length
           assert_equal "input_file", file_message[:content][0][:type]

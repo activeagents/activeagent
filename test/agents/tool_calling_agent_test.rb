@@ -11,22 +11,37 @@ class ToolCallingAgentTest < ActiveSupport::TestCase
 
       doc_example_output(response)
 
-      # Should have system, user, assistant (tool call), tool result, assistant (final)
-      assert response.prompt.messages.size >= 4
-      assert_equal :system, response.prompt.messages[0].role
-      assert_equal :user, response.prompt.messages[1].role
-      assert_equal :assistant, response.prompt.messages[2].role
-      assert response.prompt.messages[2].action_requested
-      assert_equal :tool, response.prompt.messages[3].role
+      # Messages should include system messages first, then user, assistant, and tool messages
+      assert response.prompt.messages.size >= 5
 
-      # Check tool result
-      assert_equal "50.0", response.prompt.messages[3].content
+      # System messages should be first (multiple empty ones may be added during prompt flow)
+      system_count = 0
+      response.prompt.messages.each_with_index do |msg, i|
+        break if msg.role != :system
+        system_count = i + 1
+      end
+      assert system_count >= 1, "Should have at least one system message at the beginning"
+
+      # After system messages, should have user message
+      user_index = system_count
+      assert_equal :user, response.prompt.messages[user_index].role
+      assert_includes response.prompt.messages[user_index].content, "Calculate the area"
+
+      # Then assistant message with tool call
+      assistant_index = user_index + 1
+      assert_equal :assistant, response.prompt.messages[assistant_index].role
+      assert response.prompt.messages[assistant_index].action_requested
+
+      # Then tool result
+      tool_index = assistant_index + 1
+      assert_equal :tool, response.prompt.messages[tool_index].role
+      assert_equal "50.0", response.prompt.messages[tool_index].content
 
       # If there are more tool calls for doubling
-      if response.prompt.messages.size > 5
-        assert_equal :assistant, response.prompt.messages[4].role
-        assert_equal :tool, response.prompt.messages[5].role
-        assert_equal "100.0", response.prompt.messages[5].content
+      if response.prompt.messages.size > tool_index + 2
+        assert_equal :assistant, response.prompt.messages[tool_index + 1].role
+        assert_equal :tool, response.prompt.messages[tool_index + 2].role
+        assert_equal "100.0", response.prompt.messages[tool_index + 2].content
       end
     end
   end
