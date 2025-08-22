@@ -2,6 +2,8 @@ require "active_agent/collector"
 require "active_support/core_ext/string/inflections"
 require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
+require "active_agent/action_prompt/message"
+require "active_agent/action_prompt/action"
 
 # require "active_agent/log_subscriber"
 require "active_agent/rescuable"
@@ -218,7 +220,8 @@ module ActiveAgent
       def handle_response(response)
         return response unless response.message.requested_actions.present?
 
-        # Perform the requested actions
+        # The assistant message with tool_calls is already added by update_context in the provider
+        # Now perform the requested actions which will add tool response messages
         perform_actions(requested_actions: response.message.requested_actions)
 
         # Continue generation with updated context
@@ -242,9 +245,9 @@ module ActiveAgent
       end
 
       def perform_action(action)
-        current_context = context.clone
-        # Merge action params with original params to preserve context
-        original_params = current_context.params || {}
+        # Save the current messages to preserve conversation history
+        original_messages = context.messages.dup
+        original_params = context.params || {}
 
         if action.params.is_a?(Hash)
           self.params = original_params.merge(action.params)
@@ -252,14 +255,26 @@ module ActiveAgent
           self.params = original_params
         end
 
+        # Save the current prompt_was_called state and reset it so the action can render
+        original_prompt_was_called = @_prompt_was_called
+        @_prompt_was_called = false
+
+        # Process the action, which will render the view and populate context
         process(action.name)
-        context.message.role = :tool
-        context.message.action_id = action.id
-        context.message.action_name = action.name
-        context.message.generation_id = action.id
-        current_context.message = context.message
-        current_context.messages << context.message
-        self.context = current_context
+
+        # The action should have called prompt which populates context.message
+        # Create a tool message from the rendered response
+        tool_message = context.message.dup
+        tool_message.role = :tool
+        tool_message.action_id = action.id
+        tool_message.action_name = action.name
+        tool_message.generation_id = action.id
+
+        # Restore the messages with the new tool message
+        context.messages = original_messages + [ tool_message ]
+
+        # Restore the prompt_was_called state
+        @_prompt_was_called = original_prompt_was_called
       end
 
       def initialize # :nodoc:

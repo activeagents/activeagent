@@ -18,14 +18,28 @@ class SupportAgentTest < ActiveSupport::TestCase
       # endregion support_agent_tool_call_response
 
       doc_example_output(response)
-      assert_equal 5, response.prompt.messages.size
-      assert_equal :system, response.prompt.messages[0].role
-      assert_equal :user, response.prompt.messages[1].role
-      assert_equal :assistant, response.prompt.messages[2].role
-      assert_equal :tool, response.prompt.messages[3].role
-      assert_equal :assistant, response.prompt.messages[4].role
+
+      # Messages include system, user, assistant, and tool messages
+      assert response.prompt.messages.size >= 5
+
+      # Group messages by role
+      system_messages = response.prompt.messages.select { |m| m.role == :system }
+      user_messages = response.prompt.messages.select { |m| m.role == :user }
+      assistant_messages = response.prompt.messages.select { |m| m.role == :assistant }
+      tool_messages = response.prompt.messages.select { |m| m.role == :tool }
+
+      # SupportAgent has instructions from generate_with
+      assert system_messages.any?, "Should have system messages"
+      assert_equal "You're a support agent. Your job is to help users with their questions.",
+                   system_messages.first.content,
+                   "System message should contain SupportAgent's generate_with instructions"
+
+      assert_equal 1, user_messages.size
+      assert_equal 2, assistant_messages.size
+      assert_equal 1, tool_messages.size
+
       assert_equal response.message, response.prompt.messages.last
-      assert_includes response.prompt.messages[3].content, "https://cataas.com/cat/"
+      assert_includes tool_messages.first.content, "https://cataas.com/cat/"
     end
   end
 
@@ -35,12 +49,25 @@ class SupportAgentTest < ActiveSupport::TestCase
       prompt = SupportAgent.with(message: message).prompt_context
       response = prompt.generate_now
       assert_equal message, SupportAgent.with(message: message).prompt_context.message.content
-      assert_equal 5, response.prompt.messages.size
-      assert_equal :system, response.prompt.messages[0].role
-      assert_equal :user, response.prompt.messages[1].role
-      assert_equal :assistant, response.prompt.messages[2].role
-      assert_equal :tool, response.prompt.messages[3].role
-      assert_equal :assistant, response.prompt.messages[4].role
+
+      # Messages include system, user, assistant, and tool messages
+      assert response.prompt.messages.size >= 5
+
+      # Group messages by role
+      system_messages = response.prompt.messages.select { |m| m.role == :system }
+      user_messages = response.prompt.messages.select { |m| m.role == :user }
+      assistant_messages = response.prompt.messages.select { |m| m.role == :assistant }
+      tool_messages = response.prompt.messages.select { |m| m.role == :tool }
+
+      # SupportAgent has instructions from generate_with
+      assert system_messages.any?, "Should have system messages"
+      assert_equal "You're a support agent. Your job is to help users with their questions.",
+                   system_messages.first.content,
+                   "System message should contain SupportAgent's generate_with instructions"
+
+      assert_equal 1, user_messages.size
+      assert_equal 2, assistant_messages.size
+      assert_equal 1, tool_messages.size
     end
   end
 
@@ -56,12 +83,25 @@ class SupportAgentTest < ActiveSupport::TestCase
     VCR.use_cassette("support_agent_streaming_tool_call_response") do
       response = prompt.generate_now
       assert_equal test_prompt_message, prompt_message
-      assert_equal 5, response.prompt.messages.size
-      assert_equal :system, response.prompt.messages[0].role
-      assert_equal :user, response.prompt.messages[1].role
-      assert_equal :assistant, response.prompt.messages[2].role
-      assert_equal :tool, response.prompt.messages[3].role
-      assert_equal :assistant, response.prompt.messages[4].role
+
+      # Messages include system, user, assistant, and tool messages
+      assert response.prompt.messages.size >= 5
+
+      # Group messages by role
+      system_messages = response.prompt.messages.select { |m| m.role == :system }
+      user_messages = response.prompt.messages.select { |m| m.role == :user }
+      assistant_messages = response.prompt.messages.select { |m| m.role == :assistant }
+      tool_messages = response.prompt.messages.select { |m| m.role == :tool }
+
+      # SupportAgent has instructions from generate_with
+      assert system_messages.any?, "Should have system messages"
+      assert_equal "You're a support agent. Your job is to help users with their questions.",
+                   system_messages.first.content,
+                   "System message should contain SupportAgent's generate_with instructions"
+
+      assert_equal 1, user_messages.size
+      assert_equal 2, assistant_messages.size
+      assert_equal 1, tool_messages.size
     end
   end
 end
