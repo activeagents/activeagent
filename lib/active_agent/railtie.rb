@@ -20,6 +20,15 @@ module ActiveAgent
       ActiveSupport.on_load(:active_agent) { self.logger ||= Rails.logger }
     end
 
+    initializer "active_agent.active_job", before: :load_environment_config do
+      # Lazy load ActiveJob and GenerationJob only when needed
+      if defined?(ActiveJob)
+        require "active_job"
+        require "active_agent/generation_job"
+        ActiveAgent::GenerationJob.require_active_job!
+      end
+    end
+
     initializer "active_agent.set_configs" do |app|
       paths = app.config.paths
       options = app.config.active_agent
