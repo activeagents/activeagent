@@ -36,9 +36,12 @@ module ActiveAgent
       end
 
       def chat_prompt(parameters: prompt_parameters)
-        parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
+        if prompt.options[:stream] || config["stream"]
+          parameters[:stream] = provider_stream
+          @streaming_request_params = parameters
+        end
 
-        chat_response(@client.messages(parameters: parameters))
+        chat_response(@client.messages(parameters: parameters), parameters)
       end
 
       protected
@@ -120,7 +123,7 @@ module ActiveAgent
         end
       end
 
-      def chat_response(response)
+      def chat_response(response, request_params = nil)
         return @response if prompt.options[:stream]
 
         content = response["content"].first["text"]
@@ -137,7 +140,8 @@ module ActiveAgent
         @response = ActiveAgent::GenerationProvider::Response.new(
           prompt: prompt,
           message: message,
-          raw_response: response
+          raw_response: response,
+          raw_request: request_params
         )
       end
 
