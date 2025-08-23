@@ -43,17 +43,17 @@ module ActiveAgent
           multimodal_message = ActiveAgent::ActionPrompt::Message.new(
             role: "user",
             content: [
-              ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "what's in this image?" }),
-              ActiveAgent::ActionPrompt::Message.new({ content_type: "image_data", content: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..." })
+              ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "what's in this image?"}),
+              ActiveAgent::ActionPrompt::Message.new({content_type: "image_data", content: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..."})
             ]
           )
 
-          @prompt.messages = [ multimodal_message ]
+          @prompt.messages = [multimodal_message]
           adapter = ResponsesAdapter.new(@prompt)
 
           result = adapter.input
 
-          assert_equal 1, result.length  # Just the multimodal message
+          assert_equal 1, result.length # Just the multimodal message
           message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
@@ -75,17 +75,17 @@ module ActiveAgent
           file_message = ActiveAgent::ActionPrompt::Message.new(
             role: "user",
             content: [
-              ActiveAgent::ActionPrompt::Message.new({ content_type: "file_data", metadata: { filename: "pdf_test_file.pdf" }, content: "data:application/pdf;base64,JVBERi0xLj..." }),
-              ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "What is the first dragon in the book?" })
+              ActiveAgent::ActionPrompt::Message.new({content_type: "file_data", metadata: {filename: "pdf_test_file.pdf"}, content: "data:application/pdf;base64,JVBERi0xLj..."}),
+              ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "What is the first dragon in the book?"})
             ]
           )
 
-          @prompt.messages = [ file_message ]
+          @prompt.messages = [file_message]
           adapter = ResponsesAdapter.new(@prompt)
 
           result = adapter.input
 
-          assert_equal 1, result.length  # Just the file message
+          assert_equal 1, result.length # Just the file message
           message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
@@ -113,8 +113,8 @@ module ActiveAgent
             ActiveAgent::ActionPrompt::Message.new(
               role: "user",
               content: [
-                ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "what's in this image?" }),
-                ActiveAgent::ActionPrompt::Message.new({ content_type: "image_data", content: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..." })
+                ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "what's in this image?"}),
+                ActiveAgent::ActionPrompt::Message.new({content_type: "image_data", content: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..."})
               ]
             ),
             ActiveAgent::ActionPrompt::Message.new(
@@ -128,7 +128,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 3, result.length  # Just the 3 messages
+          assert_equal 3, result.length # Just the 3 messages
 
           # Test simple text message (system)
           assert_equal "system", result[0][:role]
@@ -149,12 +149,12 @@ module ActiveAgent
             content: "This is a simple string message"
           )
 
-          @prompt.messages = [ string_message ]
+          @prompt.messages = [string_message]
           adapter = ResponsesAdapter.new(@prompt)
 
           result = adapter.input
 
-          assert_equal 1, result.length  # Just the string message
+          assert_equal 1, result.length # Just the string message
           message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
@@ -165,11 +165,11 @@ module ActiveAgent
           unsupported_message = ActiveAgent::ActionPrompt::Message.new(
             role: "user",
             content: [
-              ActiveAgent::ActionPrompt::Message.new({ content_type: "unsupported_type", content: "some data" })
+              ActiveAgent::ActionPrompt::Message.new({content_type: "unsupported_type", content: "some data"})
             ]
           )
 
-          @prompt.messages = [ unsupported_message ]
+          @prompt.messages = [unsupported_message]
           adapter = ResponsesAdapter.new(@prompt)
 
           assert_raises(ArgumentError, "Unsupported content type in message") do
@@ -183,7 +183,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 0, result.length  # No messages
+          assert_equal 0, result.length # No messages
         end
 
         test "handles complex multimodal scenarios from examples" do
@@ -200,15 +200,15 @@ module ActiveAgent
             ActiveAgent::ActionPrompt::Message.new(
               role: "user",
               content: [
-                ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "what's in this image?" }),
-                ActiveAgent::ActionPrompt::Message.new({ content_type: "image_data", content: "data:image/jpeg;base64,base64_image_data_here" })
+                ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "what's in this image?"}),
+                ActiveAgent::ActionPrompt::Message.new({content_type: "image_data", content: "data:image/jpeg;base64,base64_image_data_here"})
               ]
             ),
             ActiveAgent::ActionPrompt::Message.new(
               role: "user",
               content: [
-                ActiveAgent::ActionPrompt::Message.new({ content_type: "file_data", metadata: { filename: "pdf_test_file.pdf" }, content: "data:application/pdf;base64,base64_pdf_data_here" }),
-                ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "What is the first dragon in the book?" })
+                ActiveAgent::ActionPrompt::Message.new({content_type: "file_data", metadata: {filename: "pdf_test_file.pdf"}, content: "data:application/pdf;base64,base64_pdf_data_here"}),
+                ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "What is the first dragon in the book?"})
               ]
             )
           ]
@@ -218,7 +218,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 4, result.length  # Just the 4 messages
+          assert_equal 4, result.length # Just the 4 messages
 
           # Test developer message
           assert_equal "system", result[0][:role]

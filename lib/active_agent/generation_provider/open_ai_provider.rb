@@ -31,7 +31,7 @@ module ActiveAgent
           organization_id: @organization_id,
           admin_token: @admin_token,
           log_errors: Rails.env.development?
-          )
+        )
 
         @model_name = config["model"] || "gpt-4o-mini"
       end
@@ -92,10 +92,39 @@ module ActiveAgent
 
       private
 
-      # Now using modules, but we can override build_provider_parameters for OpenAI-specific needs
-      # The prompt_parameters method comes from ParameterBuilder module
-      # The format_tools method comes from ToolManagement module
-      # The provider_messages method comes from MessageFormatting module
+      # Override from ParameterBuilder to add web_search_options for Chat API
+      def build_provider_parameters
+        params = {}
+        
+        # Check if we're using a model that supports web_search_options in Chat API
+        if chat_api_web_search_model? && @prompt.options[:web_search]
+          params[:web_search_options] = build_web_search_options(@prompt.options[:web_search])
+        end
+        
+        params
+      end
+      
+      def chat_api_web_search_model?
+        model = @prompt.options[:model] || @model_name
+        ["gpt-4o-search-preview", "gpt-4o-mini-search-preview"].include?(model)
+      end
+      
+      def build_web_search_options(web_search_config)
+        options = {}
+        
+        if web_search_config.is_a?(Hash)
+          options[:search_context_size] = web_search_config[:search_context_size] if web_search_config[:search_context_size]
+          
+          if web_search_config[:user_location]
+            options[:user_location] = {
+              type: "approximate",
+              approximate: web_search_config[:user_location]
+            }
+          end
+        end
+        
+        options
+      end
 
       def chat_response(response, request_params = nil)
         return @response if prompt.options[:stream]
@@ -123,7 +152,7 @@ module ActiveAgent
           role: message_json["role"].intern,
           action_requested: message_json["finish_reason"] == "tool_calls",
           raw_actions: message_json["tool_calls"] || [],
-          content_type: prompt.output_schema.present? ? "application/json" : "text/plain",
+          content_type: prompt.output_schema.present? ? "application/json" : "text/plain"
         )
 
         @response = ActiveAgent::GenerationProvider::Response.new(
@@ -161,12 +190,63 @@ module ActiveAgent
       end
 
       def responses_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, structured_output: @prompt.output_schema)
+        # Build tools array, combining action tools with built-in tools
+        tools_array = build_tools_for_responses(tools)
+
         {
           model: model,
           input: ActiveAgent::GenerationProvider::ResponsesAdapter.new(@prompt).input,
-          tools: tools.presence,
+          tools: tools_array.presence,
           text: structured_output
         }.compact
+      end
+
+      def build_tools_for_responses(action_tools)
+        tools = []
+
+        # Start with action tools (user-defined functions) if any
+        tools.concat(action_tools) if action_tools.present?
+
+        # Add built-in tools if specified in options[:tools]
+        if @prompt.options[:tools].present?
+          built_in_tools = @prompt.options[:tools]
+          built_in_tools = [built_in_tools] unless built_in_tools.is_a?(Array)
+
+          built_in_tools.each do |tool|
+            next unless tool.is_a?(Hash)
+
+            case tool[:type]
+            when "web_search_preview", "web_search"
+              web_search_tool = {type: "web_search_preview"}
+              web_search_tool[:search_context_size] = tool[:search_context_size] if tool[:search_context_size]
+              web_search_tool[:user_location] = tool[:user_location] if tool[:user_location]
+              tools << web_search_tool
+
+            when "image_generation"
+              image_gen_tool = {type: "image_generation"}
+              image_gen_tool[:size] = tool[:size] if tool[:size]
+              image_gen_tool[:quality] = tool[:quality] if tool[:quality]
+              image_gen_tool[:format] = tool[:format] if tool[:format]
+              image_gen_tool[:compression] = tool[:compression] if tool[:compression]
+              image_gen_tool[:background] = tool[:background] if tool[:background]
+              image_gen_tool[:partial_images] = tool[:partial_images] if tool[:partial_images]
+              tools << image_gen_tool
+
+            when "mcp"
+              mcp_tool = {type: "mcp"}
+              mcp_tool[:server_label] = tool[:server_label] if tool[:server_label]
+              mcp_tool[:server_description] = tool[:server_description] if tool[:server_description]
+              mcp_tool[:server_url] = tool[:server_url] if tool[:server_url]
+              mcp_tool[:connector_id] = tool[:connector_id] if tool[:connector_id]
+              mcp_tool[:authorization] = tool[:authorization] if tool[:authorization]
+              mcp_tool[:require_approval] = tool[:require_approval] if tool[:require_approval]
+              mcp_tool[:allowed_tools] = tool[:allowed_tools] if tool[:allowed_tools]
+              tools << mcp_tool
+            end
+          end
+        end
+
+        tools
       end
 
       def embeddings_parameters(input: prompt.message.content, model: "text-embedding-3-large")

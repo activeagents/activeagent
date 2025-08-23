@@ -444,7 +444,10 @@ module ActiveAgent
           :presence_penalty, :response_format, :seed, :stop, :tools_choice, :plugins,
 
           # OpenRouter Provider Settings
-          :data_collection, :require_parameters, :only, :ignore, :quantizations, :sort, :max_price
+          :data_collection, :require_parameters, :only, :ignore, :quantizations, :sort, :max_price,
+          
+          # Built-in Tools Support (OpenAI Responses API)
+          :tools
         )
         # Handle explicit options parameter
         explicit_options = prompt_options[:options] || {}
