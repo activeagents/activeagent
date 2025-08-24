@@ -18,9 +18,9 @@ class WebSearchAgent < ApplicationAgent
   end
   
   # Action for searching with Responses API (more flexible)
-  def search_with_tools
-    @query = params[:query]
-    @context_size = params[:context_size] || "medium"
+  def search_with_tools(query: nil, context_size: nil)
+    @query = query || params[:query]
+    @context_size = context_size || params[:context_size] || "medium"
     
     prompt(
       message: @query,
