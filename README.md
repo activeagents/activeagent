@@ -3,9 +3,8 @@
   <img alt="activeagents_banner" src="https://github.com/user-attachments/assets/0ebbaa2f-c6bf-4d40-bb77-931015a14be3">
 </picture>
 
-*Build AI in Rails*
 
-
+> *Build AI in Rails*
 >
 > *Now Agents are Controllers*
 >
