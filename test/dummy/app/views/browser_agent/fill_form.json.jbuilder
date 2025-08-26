@@ -16,6 +16,5 @@
         json.description "CSS selector for the field (alternative to field name)"
       end
     end
-    json.required ["value"]
+    json.required [ "value" ]
   end
-

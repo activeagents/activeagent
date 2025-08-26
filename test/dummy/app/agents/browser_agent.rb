@@ -274,7 +274,7 @@ class BrowserAgent < ApplicationAgent
 
     begin
       # Build screenshot options
-      options = {path: @path}
+      options = { path: @path }
 
       # If main_content_only is true and no specific selector/area provided, try to detect main content
       if @main_content_only && !@selector && !@area
@@ -404,7 +404,7 @@ class BrowserAgent < ApplicationAgent
       Capybara.register_driver :cuprite_agent do |app|
         Capybara::Cuprite::Driver.new(
           app,
-          window_size: [1920, 1080], # Standard HD resolution
+          window_size: [ 1920, 1080 ], # Standard HD resolution
           browser_options: {
             "no-sandbox": nil,
             "disable-gpu": nil,
