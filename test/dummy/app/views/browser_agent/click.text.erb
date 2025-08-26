@@ -1,0 +1,9 @@
+<% if @success %>
+Successfully clicked on element
+<% if @text %>Text: <%= @text %><% end %>
+<% if @selector %>Selector: <%= @selector %><% end %>
+Current URL: <%= @current_url %>
+<% else %>
+Failed to click element
+Error: <%= @error %>
+<% end %>

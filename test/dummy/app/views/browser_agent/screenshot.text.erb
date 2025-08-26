@@ -1,0 +1,14 @@
+<% if @success %>
+Screenshot saved successfully!
+Page: <%= @title %>
+URL: <%= @current_url %>
+File: <%= @relative_path %>
+<% if @full_page %>
+Type: Full page screenshot
+<% else %>
+Type: Viewport screenshot
+<% end %>
+<% else %>
+Failed to take screenshot
+Error: <%= @error %>
+<% end %>

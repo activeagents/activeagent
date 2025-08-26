@@ -1,0 +1,14 @@
+<% if @success %>
+=== Content from <%= @title %> ===
+URL: <%= @current_url %>
+<% if @selector_used %>Extracted from: <%= @selector_used %><% end %>
+
+<%= @content&.truncate(5000, separator: " ") %>
+
+<% if @content && @content.length > 5000 %>
+[Content truncated - original length: <%= @content.length %> characters]
+<% end %>
+<% else %>
+Failed to extract content
+Error: <%= @error %>
+<% end %>
