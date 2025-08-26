@@ -6,7 +6,7 @@ class AnthropicProviderTest < ActiveAgentTestCase
   test "gem load rescue block provides correct error message" do
     # Since we can't easily simulate the gem not being available without complex mocking,
     # we'll test that the error message is correct by creating a minimal reproduction
-    expected_message = "The 'ruby-anthropic' gem is required for AnthropicProvider. Please add it to your Gemfile and run `bundle install`."
+    expected_message = "The 'ruby-anthropic ~> 0.4.2' gem is required for AnthropicProvider. Please add it to your Gemfile and run `bundle install`."
 
     # Verify the rescue block pattern exists in the source code
     provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/anthropic_provider.rb")

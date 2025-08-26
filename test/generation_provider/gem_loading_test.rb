@@ -4,7 +4,7 @@ require "test_helper"
 class OpenAIProviderGemLoadTest < ActiveSupport::TestCase
   test "gem loading rescue block provides helpful error message" do
     # Test the specific LoadError message from the rescue block
-    expected_message = "The 'ruby-openai' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
+    expected_message = "The 'ruby-openai >= 8.1.0' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
 
     # We can't easily simulate the gem not being available in our test environment
     # since the gem is already loaded, but we can test that the constant exists

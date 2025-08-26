@@ -4,7 +4,7 @@ begin
   gem "ruby-anthropic", "~> 0.4.2"
   require "anthropic"
 rescue LoadError
-  raise LoadError, "The 'ruby-anthropic' gem is required for AnthropicProvider. Please add it to your Gemfile and run `bundle install`."
+  raise LoadError, "The 'ruby-anthropic ~> 0.4.2' gem is required for AnthropicProvider. Please add it to your Gemfile and run `bundle install`."
 end
 
 require "active_agent/action_prompt/action"
