@@ -1,0 +1,20 @@
+<% if @success %>
+Found <%= @links.size %> links with previews from <%= @current_url %>:
+
+<% @links.each_with_index do |link, i| %>
+---
+Link #<%= i + 1 %>:
+Text: <%= link[:text].presence || "[No text]" %>
+URL: <%= link[:href] %>
+Page Title: <%= link[:page_title] || "[No title]" %>
+<% if link[:screenshot] %>
+Screenshot: <%= link[:screenshot] %>
+<% else %>
+Screenshot: [Preview not available]
+<% end %>
+<% end %>
+---
+<% else %>
+Failed to extract links with previews
+Error: <%= @error %>
+<% end %>

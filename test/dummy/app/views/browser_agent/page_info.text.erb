@@ -1,0 +1,12 @@
+<% if @success %>
+Page Information:
+- Current URL: <%= @current_url %>
+- Title: <%= @title %>
+- Elements present:
+<% @has_css.each do |tag, present| %>
+  - <%= tag %>: <%= present ? "✓" : "✗" %>
+<% end %>
+<% else %>
+Failed to get page info
+Error: <%= @error %>
+<% end %>
