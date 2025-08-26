@@ -280,7 +280,7 @@ module ActiveAgent
       def initialize # :nodoc:
         super
         @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options || {}, agent_instance: self)
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options&.deep_dup || {}, agent_instance: self)
       end
 
       def process(method_name, *args) # :nodoc:

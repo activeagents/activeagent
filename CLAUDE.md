@@ -1267,6 +1267,8 @@ When updating documentation:
 4. Replace hardcoded blocks with `<<<` imports
 5. Add `@include` directives for example outputs
 6. Run tests and verify documentation builds correctly
+
+## Importent things to remember
 - when adding new paramters ensure the prompt and merge params method in @lib/active_agent/base.rb allows them to be passed through
 - Use vscode regions for snippets of examples in docs
 - We use Agent classes by loading params `.with` that returns a Parameterized Agent class then calling actions on the parameterized agent like `ApplicationAgent.with(message:'hi').prompt_context` this creates the ActiveAgent Generation object that we can then run `generate_now` or `generate_later` on
@@ -1294,3 +1296,6 @@ When updating documentation:
   4. Return the context with the actual prompt and response
 
   This lazy evaluation pattern allows for queueing generations with generate_later for background processing, which is why the Generation class has that safety check (lines 62-70) to prevent accessing the context before enqueueing.
+
+- VCR cassettes need to be removed and tests run again to record new cassettes when the request params change
+
