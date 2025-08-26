@@ -77,6 +77,8 @@ export default defineConfig({
           { text: 'Active Agent', link: '/docs/framework/active-agent' },
           { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
           { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
+          { text: 'Using Concerns', link: '/docs/framework/concerns' },
+          { text: 'Testing', link: '/docs/framework/testing' },
         ]
       },
       {
