@@ -8,5 +8,5 @@ json.parameters do
       json.description "The URL to navigate to"
     end
   end
-  json.required ["url"]
+  json.required [ "url" ]
 end

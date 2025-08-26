@@ -137,7 +137,7 @@ class BrowserAgentTest < ActiveSupport::TestCase
       # Check that screenshot was taken
       tool_messages = response.prompt.messages.select { |m| m.role == :tool }
       assert tool_messages.any? { |m| m.content.include?("screenshot") }, "Should have taken a screenshot"
-      
+
       # Check that the agent navigated to Wikipedia
       assert tool_messages.any? { |m| m.content.include?("wikipedia") }, "Should have navigated to Wikipedia"
       # endregion main_content_crop_example
