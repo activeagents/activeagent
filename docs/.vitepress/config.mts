@@ -100,6 +100,7 @@ export default defineConfig({
       },
       { text: 'Agents',
         items: [
+          { text: 'Browser User', link: '/docs/agents/browser-use-agent' },
           { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
           { text: 'Translation', link: '/docs/agents/translation-agent' },
         ]
