@@ -1,0 +1,118 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o","messages":[{"role":"user","content":"Generate an
+        image: A serene landscape with mountains and a lake at sunset"}],"temperature":0.7}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 17:05:30 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1934'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '1980'
+      X-Ratelimit-Limit-Requests:
+      - '500'
+      X-Ratelimit-Limit-Tokens:
+      - '30000'
+      X-Ratelimit-Remaining-Requests:
+      - '499'
+      X-Ratelimit-Remaining-Tokens:
+      - '29667'
+      X-Ratelimit-Reset-Requests:
+      - 120ms
+      X-Ratelimit-Reset-Tokens:
+      - 665ms
+      X-Request-Id:
+      - req_5a11513c86cb41f494765ff220a0759f
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=rZRMswu.a8MB35ednTCjqFVqHKM.F7K.EpO2HR9JSxQ-1756227930-1.0.1.1-n1i_8OR9F.LX1VLUDzb9P_hsF7mA65TLQcso1zC3.ix5G6kT7942U7XXlwoxDZiHxdPTBZcCCWc02eoRA8_LmB.b.3Bakybkg_ox1woMwxg;
+        path=/; expires=Tue, 26-Aug-25 17:35:30 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=wB.kR1CtJMWGDEN_G77PV_5N0g7HWuVhMDbdpfTJo.Y-1756227930532-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9754ea09295d1736-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C8rOqZhjtyfswC0bwXgC2ylwis0V4",
+          "object": "chat.completion",
+          "created": 1756227928,
+          "model": "gpt-4o-2024-08-06",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I'm unable to generate images directly, but I can help you visualize your serene landscape. Picture a calm lake reflecting the vibrant colors of a sunset, with hues of orange, pink, and purple painting the sky. In the background, majestic mountains rise, their peaks dusted with snow, contrasting against the warm sky. The foreground features lush greenery and a few scattered wildflowers, completing the tranquil scene. The overall atmosphere is peaceful and calming, inviting you to imagine the gentle sounds of nature.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 21,
+            "completion_tokens": 98,
+            "total_tokens": 119,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_07871e2ad8"
+        }
+  recorded_at: Tue, 26 Aug 2025 17:05:30 GMT
+recorded_with: VCR 6.3.1

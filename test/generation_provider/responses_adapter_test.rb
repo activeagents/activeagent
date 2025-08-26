@@ -53,7 +53,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 1, result.length  # Just the multimodal message
+          assert_equal 1, result.length # Just the multimodal message
           message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
@@ -85,7 +85,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 1, result.length  # Just the file message
+          assert_equal 1, result.length # Just the file message
           message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
@@ -128,7 +128,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 3, result.length  # Just the 3 messages
+          assert_equal 3, result.length # Just the 3 messages
 
           # Test simple text message (system)
           assert_equal "system", result[0][:role]
@@ -154,7 +154,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 1, result.length  # Just the string message
+          assert_equal 1, result.length # Just the string message
           message = result[0]  # Get the single message
 
           assert_equal "user", message[:role]
@@ -183,7 +183,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 0, result.length  # No messages
+          assert_equal 0, result.length # No messages
         end
 
         test "handles complex multimodal scenarios from examples" do
@@ -218,7 +218,7 @@ module ActiveAgent
 
           result = adapter.input
 
-          assert_equal 4, result.length  # Just the 4 messages
+          assert_equal 4, result.length # Just the 4 messages
 
           # Test developer message
           assert_equal "system", result[0][:role]

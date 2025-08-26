@@ -41,11 +41,23 @@ OPENAI_ORGANIZATION_ID=your-org-id  # Optional
 
 ## Supported Models
 
+### Chat Completions API Models
 - **GPT-4o** - Most capable model with vision capabilities
 - **GPT-4o-mini** - Smaller, faster version of GPT-4o
+- **GPT-4o-search-preview** - GPT-4o with built-in web search
+- **GPT-4o-mini-search-preview** - GPT-4o-mini with built-in web search
 - **GPT-4 Turbo** - Latest GPT-4 with 128k context
 - **GPT-4** - Original GPT-4 model
 - **GPT-3.5 Turbo** - Fast and cost-effective
+
+### Responses API Models
+- **GPT-5** - Advanced model with support for all built-in tools
+- **GPT-4.1** - Enhanced GPT-4 with tool support
+- **GPT-4.1-mini** - Efficient version with tool support
+- **o3** - Reasoning model with advanced capabilities
+- **o4-mini** - Compact reasoning model
+
+Note: Built-in tools like MCP and image generation require the Responses API and compatible models.
 
 ## Features
 
@@ -130,6 +142,73 @@ class StructuredAgent < ApplicationAgent
 end
 ```
 
+### Built-in Tools (Responses API)
+
+OpenAI's Responses API provides powerful built-in tools for web search, image generation, and MCP integration:
+
+#### Web Search
+
+Enable web search capabilities using the `web_search_preview` tool:
+
+<<< @/../test/dummy/app/agents/web_search_agent.rb#17-36{ruby:line-numbers}
+
+For Chat Completions API with specific models, use `web_search_options`:
+
+<<< @/../test/dummy/app/agents/web_search_agent.rb#52-72{ruby:line-numbers}
+
+#### Image Generation
+
+Generate and edit images using the `image_generation` tool:
+
+<<< @/../test/dummy/app/agents/multimodal_agent.rb#6-26{ruby:line-numbers}
+
+#### MCP (Model Context Protocol) Integration
+
+Connect to external services and MCP servers:
+
+<<< @/../test/dummy/app/agents/mcp_integration_agent.rb#6-29{ruby:line-numbers}
+
+Connect to custom MCP servers:
+
+<<< @/../test/dummy/app/agents/mcp_integration_agent.rb#31-50{ruby:line-numbers}
+
+Available MCP Connectors:
+- **Dropbox** - `connector_dropbox`
+- **Gmail** - `connector_gmail`
+- **Google Calendar** - `connector_googlecalendar`
+- **Google Drive** - `connector_googledrive`
+- **Microsoft Teams** - `connector_microsoftteams`
+- **Outlook Calendar** - `connector_outlookcalendar`
+- **Outlook Email** - `connector_outlookemail`
+- **SharePoint** - `connector_sharepoint`
+- **GitHub** - Use server URL: `https://api.githubcopilot.com/mcp/`
+
+#### Combining Multiple Tools
+
+Use multiple built-in tools together:
+
+<<< @/../test/dummy/app/agents/multimodal_agent.rb#28-49{ruby:line-numbers}
+
+### Using Concerns for Shared Tools
+
+Create reusable tool configurations with concerns:
+
+<<< @/../test/dummy/app/agents/concerns/research_tools.rb#1-61{ruby:line-numbers}
+
+Use the concern in your agents:
+
+<<< @/../test/dummy/app/agents/research_agent.rb#1-14{ruby:line-numbers}
+
+### Tool Configuration Example
+
+Here's how built-in tools are configured in the prompt options:
+
+<<< @/../test/agents/builtin_tools_doc_test.rb#tool_configuration_example{ruby:line-numbers}
+
+::: details Configuration Output
+<!-- @include: @/parts/examples/builtin-tools-doc-test.rb-test-tool-configuration-in-prompt-options.md -->
+:::
+
 ## Provider-Specific Parameters
 
 ### Model Parameters
@@ -151,9 +230,12 @@ end
 ### Advanced Options
 
 - **`stream`** - Enable streaming responses (true/false)
-- **`tools`** - Explicitly define available tools
+- **`tools`** - Array of built-in tools for Responses API (web_search_preview, image_generation, mcp)
 - **`tool_choice`** - Control tool usage ("auto", "required", "none", or specific tool)
 - **`parallel_tool_calls`** - Allow parallel tool execution (true/false)
+- **`use_responses_api`** - Force use of Responses API (true/false)
+- **`web_search`** - Web search configuration for Chat API with search-preview models
+- **`web_search_options`** - Alternative parameter name for web search in Chat API
 
 ## Azure OpenAI
 

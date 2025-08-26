@@ -1,0 +1,251 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o","messages":[{"role":"user","content":"Research query:
+        Ruby on Rails best practices"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"search_academic_papers","description":"Search
+        for academic papers on a given topic with optional filters","parameters":{"type":"object","properties":{"query":{"type":"string","description":"The
+        search query for academic papers"},"year_from":{"type":"integer","description":"Start
+        year for publication date filter"},"year_to":{"type":"integer","description":"End
+        year for publication date filter"},"field":{"type":"string","description":"Academic
+        field or discipline","enum":["computer_science","medicine","physics","biology","chemistry","mathematics","engineering","social_sciences"]}},"required":["query"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 17:04:16 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1252'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '1368'
+      X-Ratelimit-Limit-Requests:
+      - '500'
+      X-Ratelimit-Limit-Tokens:
+      - '30000'
+      X-Ratelimit-Remaining-Requests:
+      - '499'
+      X-Ratelimit-Remaining-Tokens:
+      - '29987'
+      X-Ratelimit-Reset-Requests:
+      - 120ms
+      X-Ratelimit-Reset-Tokens:
+      - 26ms
+      X-Request-Id:
+      - req_dbafeae028594a3eba096a6366693492
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Ol_t4WHikxz8hMR.Om6h4C4zjIRpp2HMC288RzrvE6c-1756227856-1.0.1.1-tsXfkFLONZyX_ED_FtnKCL_eJ77LMggdWJzsajjVhhR_4wx48frj9IDY6.3Kqnbm2wMaIkuWgEBr3i51PnZ_ad6fiQUm0_O.Ro_K7HXPLck;
+        path=/; expires=Tue, 26-Aug-25 17:34:16 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=lE7RoX6OpMzF8FEqNGp1S7VNc9xrFFqhZpXjPUf.RXo-1756227856246-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9754e83badbe67d9-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C8rNfMBAX8HK2rjVnFoXcZas1Qlad",
+          "object": "chat.completion",
+          "created": 1756227855,
+          "model": "gpt-4o-2024-08-06",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_ggDvLWEEHeaW3oLNJdO0Ux9a",
+                    "type": "function",
+                    "function": {
+                      "name": "search_academic_papers",
+                      "arguments": "{\"query\":\"Ruby on Rails best practices\",\"field\":\"computer_science\"}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 137,
+            "completion_tokens": 27,
+            "total_tokens": 164,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_46bff0e0c8"
+        }
+  recorded_at: Tue, 26 Aug 2025 17:04:16 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o","messages":[{"role":"user","content":"Research query:
+        Ruby on Rails best practices"},{"role":"assistant","content":"","tool_calls":[{"id":"call_ggDvLWEEHeaW3oLNJdO0Ux9a","type":"function","function":{"name":"search_academic_papers","arguments":"{\"query\":\"Ruby
+        on Rails best practices\",\"field\":\"computer_science\"}"}}]},{"role":"tool","content":"Academic
+        papers search: Ruby on Rails best practices\nField: computer_science\nInclude
+        citations and abstracts","tool_call_id":"call_ggDvLWEEHeaW3oLNJdO0Ux9a","name":"search_academic_papers"}],"temperature":0.7}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 17:04:32 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '15798'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '15888'
+      X-Ratelimit-Limit-Requests:
+      - '500'
+      X-Ratelimit-Limit-Tokens:
+      - '30000'
+      X-Ratelimit-Remaining-Requests:
+      - '499'
+      X-Ratelimit-Remaining-Tokens:
+      - '29958'
+      X-Ratelimit-Reset-Requests:
+      - 120ms
+      X-Ratelimit-Reset-Tokens:
+      - 84ms
+      X-Request-Id:
+      - req_fd87602be3394f50b89b19dafd632702
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=bZnhgXgi2U2TyyfzTgDjXjN0uB28cMh3FMWsdXgbkXc-1756227872-1.0.1.1-8BmtsDfFlEMDVQXB64UoJ04hvuRyUtg17zNQSYN03oot_fTszJGRNNzaWyXBvvIEN9X8l_QMhqtCrI.iITyrrvGZ9.mk2VAReSC5J1d.1Go;
+        path=/; expires=Tue, 26-Aug-25 17:34:32 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=5SuJxHUHjf5ELnbFAhzccY_w61PleToC0upyPskCNLY-1756227872427-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9754e845ca8e9e6e-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C8rNgLwSQTx22OtquHstEbdRGX6l3",
+          "object": "chat.completion",
+          "created": 1756227856,
+          "model": "gpt-4o-2024-08-06",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I couldn't find specific academic papers focused solely on \"Ruby on Rails best practices.\" However, I can provide you with an overview of some widely recognized best practices and resources related to Ruby on Rails development. These practices are often discussed in developer communities, blogs, and technical books rather than in academic papers.\n\n### Ruby on Rails Best Practices\n\n1. **Convention Over Configuration**: Rails emphasizes convention over configuration, meaning that developers should follow standardized naming conventions and file structures, which reduces the need for configuration files and boilerplate code. This practice helps in maintaining code consistency and readability.\n\n2. **RESTful Architecture**: Utilize RESTful design patterns for organizing your application. Rails promotes RESTful architecture by providing resources and controllers that align with REST principles, making your application more intuitive and easier to maintain.\n\n3. **Model-View-Controller (MVC) Pattern**: Stick to the MVC architecture to separate concerns. Models handle data and business logic, Views manage the presentation layer, and Controllers handle the user input and interaction.\n\n4. **DRY Principle (Don't Repeat Yourself)**: Avoid code duplication by extracting reusable pieces of code into helpers, partials, or concerns. This improves maintainability and reduces the risk of errors.\n\n5. **Automated Testing**: Use automated tests to ensure the correctness of your application. Rails comes with a built-in testing framework, and tools like RSpec and Capybara can enhance testing capabilities.\n\n6. **Security Best Practices**: Protect against common web application vulnerabilities by using Rails' built-in security features, such as strong parameter filtering, CSRF protection, and output encoding to prevent XSS attacks.\n\n7. **Performance Optimization**: Optimize performance by using caching strategies (e.g., fragment caching, low-level caching), optimizing database queries, and reducing asset load times with tools like the Asset Pipeline.\n\n8. **Version Control**: Use version control systems like Git to track changes, collaborate with other developers, and maintain a history of your codebase.\n\n9. **Code Reviews and Pair Programming**: Engage in code reviews and pair programming to improve code quality, share knowledge, and catch potential issues early.\n\n10. **Continuous Integration/Continuous Deployment (CI/CD)**: Implement CI/CD pipelines to automate testing and deployment, ensuring that your application is always in a deployable state.\n\n### Resources for Further Learning\n\n- **Books**: \"Agile Web Development with Rails\" by Sam Ruby et al. is a popular resource for learning Rails best practices.\n- **Online Courses**: Platforms like Udemy, Coursera, and RailsCasts offer courses and tutorials on Rails development.\n- **Documentation**: The official Ruby on Rails Guides and API documentation are invaluable resources for understanding Rails conventions and functionalities.\n- **Community and Forums**: Engage with the Rails community through forums like Stack Overflow, the Ruby on Rails Subreddit, and the RailsConf conference.\n\nFor more detailed and specific studies, you might want to look into technical blogs, case studies, or books that delve into software engineering practices in the context of Ruby on Rails.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 73,
+            "completion_tokens": 617,
+            "total_tokens": 690,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_46bff0e0c8"
+        }
+  recorded_at: Tue, 26 Aug 2025 17:04:32 GMT
+recorded_with: VCR 6.3.1
