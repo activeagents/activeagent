@@ -77,12 +77,4 @@ class PrivacyFocusedAgentTest < ActiveSupport::TestCase
       # endregion medical_records_test
     end
   end
-
-  private
-
-  def has_openrouter_credentials?
-    Rails.application.credentials.dig(:open_router, :access_token).present? ||
-    Rails.application.credentials.dig(:open_router, :api_key).present? ||
-    ENV["OPENROUTER_API_KEY"].present?
-  end
 end

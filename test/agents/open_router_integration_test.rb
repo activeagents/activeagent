@@ -7,12 +7,6 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     @agent = OpenRouterIntegrationAgent.new
   end
 
-  def has_openrouter_credentials?
-    Rails.application.credentials.dig(:open_router, :access_token).present? ||
-    Rails.application.credentials.dig(:open_router, :api_key).present? ||
-    ENV["OPENROUTER_API_KEY"].present?
-  end
-
   test "analyzes image with structured output schema" do
     skip "Requires actual OpenRouter API key and credits" unless has_openrouter_credentials?
 

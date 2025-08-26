@@ -1,0 +1,118 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o","messages":[{"role":"user","content":"Latest Ruby
+        on Rails 8 features"}],"temperature":0.7}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 17:05:28 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '11325'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '11366'
+      X-Ratelimit-Limit-Requests:
+      - '500'
+      X-Ratelimit-Limit-Tokens:
+      - '30000'
+      X-Ratelimit-Remaining-Requests:
+      - '499'
+      X-Ratelimit-Remaining-Tokens:
+      - '29990'
+      X-Ratelimit-Reset-Requests:
+      - 120ms
+      X-Ratelimit-Reset-Tokens:
+      - 20ms
+      X-Request-Id:
+      - req_3d355c0e5cef469f87bd24962ac04d35
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=w3omHvtK9KO7bwuX1EfSwnSiIndRtrm1ULgINB_AeOg-1756227928-1.0.1.1-O0ro3Xk3XqepidSIR3o.7x6zhIewSqtkFPvSOL6yWvqT50ZSWyfnMz5AnuAiQb0v8LhmCHUANFSbhn5LKsYJh1eRbVyRMbPNalo2gwO5mng;
+        path=/; expires=Tue, 26-Aug-25 17:35:28 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=ti7HQ2TbdZOUJnNe2Lo6CBJ9UUf.8BSG2WRP4iL_bH0-1756227928470-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9754e9c1bc258b9e-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C8rOfFhUNcxlSQhp4sdJaOdgDUmIv",
+          "object": "chat.completion",
+          "created": 1756227917,
+          "model": "gpt-4o-2024-08-06",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "As of my last update in October 2023, there is no Ruby on Rails version 8. The latest stable release of Ruby on Rails is version 7.1, which introduced several new features and improvements over the previous versions. Here are some of the noteworthy features and enhancements that were included in Rails 7 and 7.1:\n\n1. **Hotwire Integration**: Rails 7 introduced Hotwire by default, which allows developers to build modern web applications with less JavaScript by using Turbo and Stimulus.\n\n2. **Async Query Loading**: This feature lets you run database queries asynchronously, which can improve performance by allowing other processes to run while waiting for the database response.\n\n3. **Attributive API**: Improved support for handling attributes in Active Record, making it easier to define and manage database fields.\n\n4. **Zeitwerk Exclusively**: Rails 7 made Zeitwerk the default and only code loader, ensuring a more efficient and organized way of loading code.\n\n5. **Easier Encryption**: Rails 7 introduced a simpler API for handling encryption in applications, making it easier to secure sensitive data.\n\n6. **New JavaScript Approach**: The importmap feature allows you to manage JavaScript dependencies without using Node.js, simplifying the stack for smaller applications.\n\n7. **Multiple Database Improvements**: Continued enhancements for applications using multiple databases, improving reliability and ease of use.\n\n8. **Action Mailbox and Action Text**: These features were further refined to enhance handling of rich text content and incoming emails.\n\nIf a Ruby on Rails 8 were released after my last update, I recommend checking the official Ruby on Rails blog or the Rails GitHub repository for the most recent updates and feature sets.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 14,
+            "completion_tokens": 350,
+            "total_tokens": 364,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_46bff0e0c8"
+        }
+  recorded_at: Tue, 26 Aug 2025 17:05:28 GMT
+recorded_with: VCR 6.3.1
