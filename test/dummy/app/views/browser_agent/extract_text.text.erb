@@ -1,0 +1,9 @@
+<% if @success %>
+Extracted text from <%= @selector %>:
+---
+<%= @text %>
+---
+<% else %>
+Failed to extract text
+Error: <%= @error %>
+<% end %>

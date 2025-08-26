@@ -1,0 +1,7 @@
+<% if @success %>
+Successfully followed link to <%= @current_url %>
+Page title: <%= @title %>
+<% else %>
+Failed to follow link
+Error: <%= @error %>
+<% end %>

@@ -1,0 +1,9 @@
+<% if @success %>
+Successfully filled form field
+<% if @field %>Field: <%= @field %><% end %>
+<% if @selector %>Selector: <%= @selector %><% end %>
+Value: <%= @value %>
+<% else %>
+Failed to fill form field
+Error: <%= @error %>
+<% end %>

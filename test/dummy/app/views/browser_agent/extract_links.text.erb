@@ -1,0 +1,9 @@
+<% if @success %>
+Found <%= @links.size %> links at <%= @current_url %>:
+<% @links.each_with_index do |link, i| %>
+<%= i + 1 %>. <%= link[:text].presence || "[No text]" %> -> <%= link[:href] %>
+<% end %>
+<% else %>
+Failed to extract links
+Error: <%= @error %>
+<% end %>

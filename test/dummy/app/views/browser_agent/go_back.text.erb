@@ -1,0 +1,7 @@
+<% if @success %>
+Navigated back to <%= @current_url %>
+Page title: <%= @title %>
+<% else %>
+Failed to go back
+Error: <%= @error %>
+<% end %>
