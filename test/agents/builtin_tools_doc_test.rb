@@ -6,65 +6,65 @@ class BuiltinToolsDocTest < ActiveSupport::TestCase
   # region web_search_example
   test "web search with responses API example" do
     skip "Requires API credentials" unless has_openai_credentials?
-    
+
     VCR.use_cassette("doc_web_search_responses") do
       generation = WebSearchAgent.with(
         query: "Latest Ruby on Rails 8 features",
         context_size: "high"
       ).search_with_tools
-      
+
       result = generation.generate_now
-      
+
       # The response includes web search results
       assert result.message.content.present?
       assert result.message.content.include?("Rails")
-      
+
       doc_example_output(result)
     end
   end
   # endregion web_search_example
-  
+
   # region image_generation_example
   test "image generation with responses API example" do
     skip "Requires API credentials" unless has_openai_credentials?
-    
+
     VCR.use_cassette("doc_image_generation") do
       generation = MultimodalAgent.with(
         description: "A serene landscape with mountains and a lake at sunset",
         size: "1024x1024",
         quality: "high"
       ).create_image
-      
+
       result = generation.generate_now
-      
+
       # The response includes the generated image
       assert result.message.content.present?
-      
+
       doc_example_output(result)
     end
   end
   # endregion image_generation_example
-  
+
   # region combined_tools_example
   test "combining multiple built-in tools example" do
     skip "Requires API credentials" unless has_openai_credentials?
-    
+
     VCR.use_cassette("doc_combined_tools") do
       generation = MultimodalAgent.with(
         topic: "Climate Change Impact",
         style: "modern"
       ).create_infographic
-      
+
       result = generation.generate_now
-      
+
       # The response uses both web search and image generation
       assert result.message.content.present?
-      
+
       doc_example_output(result)
     end
   end
   # endregion combined_tools_example
-  
+
   # region tool_configuration_example
   test "tool configuration in prompt options" do
     # Example showing how to configure built-in tools

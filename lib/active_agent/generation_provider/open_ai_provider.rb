@@ -95,26 +95,26 @@ module ActiveAgent
       # Override from ParameterBuilder to add web_search_options for Chat API
       def build_provider_parameters
         params = {}
-        
+
         # Check if we're using a model that supports web_search_options in Chat API
         if chat_api_web_search_model? && @prompt.options[:web_search]
           params[:web_search_options] = build_web_search_options(@prompt.options[:web_search])
         end
-        
+
         params
       end
-      
+
       def chat_api_web_search_model?
         model = @prompt.options[:model] || @model_name
-        ["gpt-4o-search-preview", "gpt-4o-mini-search-preview"].include?(model)
+        [ "gpt-4o-search-preview", "gpt-4o-mini-search-preview" ].include?(model)
       end
-      
+
       def build_web_search_options(web_search_config)
         options = {}
-        
+
         if web_search_config.is_a?(Hash)
           options[:search_context_size] = web_search_config[:search_context_size] if web_search_config[:search_context_size]
-          
+
           if web_search_config[:user_location]
             options[:user_location] = {
               type: "approximate",
@@ -122,7 +122,7 @@ module ActiveAgent
             }
           end
         end
-        
+
         options
       end
 
@@ -210,20 +210,20 @@ module ActiveAgent
         # Add built-in tools if specified in options[:tools]
         if @prompt.options[:tools].present?
           built_in_tools = @prompt.options[:tools]
-          built_in_tools = [built_in_tools] unless built_in_tools.is_a?(Array)
+          built_in_tools = [ built_in_tools ] unless built_in_tools.is_a?(Array)
 
           built_in_tools.each do |tool|
             next unless tool.is_a?(Hash)
 
             case tool[:type]
             when "web_search_preview", "web_search"
-              web_search_tool = {type: "web_search_preview"}
+              web_search_tool = { type: "web_search_preview" }
               web_search_tool[:search_context_size] = tool[:search_context_size] if tool[:search_context_size]
               web_search_tool[:user_location] = tool[:user_location] if tool[:user_location]
               tools << web_search_tool
 
             when "image_generation"
-              image_gen_tool = {type: "image_generation"}
+              image_gen_tool = { type: "image_generation" }
               image_gen_tool[:size] = tool[:size] if tool[:size]
               image_gen_tool[:quality] = tool[:quality] if tool[:quality]
               image_gen_tool[:format] = tool[:format] if tool[:format]
@@ -233,7 +233,7 @@ module ActiveAgent
               tools << image_gen_tool
 
             when "mcp"
-              mcp_tool = {type: "mcp"}
+              mcp_tool = { type: "mcp" }
               mcp_tool[:server_label] = tool[:server_label] if tool[:server_label]
               mcp_tool[:server_description] = tool[:server_description] if tool[:server_description]
               mcp_tool[:server_url] = tool[:server_url] if tool[:server_url]

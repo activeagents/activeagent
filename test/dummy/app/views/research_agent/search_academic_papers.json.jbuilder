@@ -20,9 +20,9 @@ json.function do
       json.field do
         json.type "string"
         json.description "Academic field or discipline"
-        json.enum ["computer_science", "medicine", "physics", "biology", "chemistry", "mathematics", "engineering", "social_sciences"]
+        json.enum [ "computer_science", "medicine", "physics", "biology", "chemistry", "mathematics", "engineering", "social_sciences" ]
       end
     end
-    json.required ["query"]
+    json.required [ "query" ]
   end
 end

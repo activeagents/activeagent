@@ -43,12 +43,12 @@ module ActiveAgent
           multimodal_message = ActiveAgent::ActionPrompt::Message.new(
             role: "user",
             content: [
-              ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "what's in this image?"}),
-              ActiveAgent::ActionPrompt::Message.new({content_type: "image_data", content: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..."})
+              ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "what's in this image?" }),
+              ActiveAgent::ActionPrompt::Message.new({ content_type: "image_data", content: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..." })
             ]
           )
 
-          @prompt.messages = [multimodal_message]
+          @prompt.messages = [ multimodal_message ]
           adapter = ResponsesAdapter.new(@prompt)
 
           result = adapter.input
@@ -75,12 +75,12 @@ module ActiveAgent
           file_message = ActiveAgent::ActionPrompt::Message.new(
             role: "user",
             content: [
-              ActiveAgent::ActionPrompt::Message.new({content_type: "file_data", metadata: {filename: "pdf_test_file.pdf"}, content: "data:application/pdf;base64,JVBERi0xLj..."}),
-              ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "What is the first dragon in the book?"})
+              ActiveAgent::ActionPrompt::Message.new({ content_type: "file_data", metadata: { filename: "pdf_test_file.pdf" }, content: "data:application/pdf;base64,JVBERi0xLj..." }),
+              ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "What is the first dragon in the book?" })
             ]
           )
 
-          @prompt.messages = [file_message]
+          @prompt.messages = [ file_message ]
           adapter = ResponsesAdapter.new(@prompt)
 
           result = adapter.input
@@ -113,8 +113,8 @@ module ActiveAgent
             ActiveAgent::ActionPrompt::Message.new(
               role: "user",
               content: [
-                ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "what's in this image?"}),
-                ActiveAgent::ActionPrompt::Message.new({content_type: "image_data", content: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..."})
+                ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "what's in this image?" }),
+                ActiveAgent::ActionPrompt::Message.new({ content_type: "image_data", content: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..." })
               ]
             ),
             ActiveAgent::ActionPrompt::Message.new(
@@ -149,7 +149,7 @@ module ActiveAgent
             content: "This is a simple string message"
           )
 
-          @prompt.messages = [string_message]
+          @prompt.messages = [ string_message ]
           adapter = ResponsesAdapter.new(@prompt)
 
           result = adapter.input
@@ -165,11 +165,11 @@ module ActiveAgent
           unsupported_message = ActiveAgent::ActionPrompt::Message.new(
             role: "user",
             content: [
-              ActiveAgent::ActionPrompt::Message.new({content_type: "unsupported_type", content: "some data"})
+              ActiveAgent::ActionPrompt::Message.new({ content_type: "unsupported_type", content: "some data" })
             ]
           )
 
-          @prompt.messages = [unsupported_message]
+          @prompt.messages = [ unsupported_message ]
           adapter = ResponsesAdapter.new(@prompt)
 
           assert_raises(ArgumentError, "Unsupported content type in message") do
@@ -200,15 +200,15 @@ module ActiveAgent
             ActiveAgent::ActionPrompt::Message.new(
               role: "user",
               content: [
-                ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "what's in this image?"}),
-                ActiveAgent::ActionPrompt::Message.new({content_type: "image_data", content: "data:image/jpeg;base64,base64_image_data_here"})
+                ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "what's in this image?" }),
+                ActiveAgent::ActionPrompt::Message.new({ content_type: "image_data", content: "data:image/jpeg;base64,base64_image_data_here" })
               ]
             ),
             ActiveAgent::ActionPrompt::Message.new(
               role: "user",
               content: [
-                ActiveAgent::ActionPrompt::Message.new({content_type: "file_data", metadata: {filename: "pdf_test_file.pdf"}, content: "data:application/pdf;base64,base64_pdf_data_here"}),
-                ActiveAgent::ActionPrompt::Message.new({content_type: "input_text", content: "What is the first dragon in the book?"})
+                ActiveAgent::ActionPrompt::Message.new({ content_type: "file_data", metadata: { filename: "pdf_test_file.pdf" }, content: "data:application/pdf;base64,base64_pdf_data_here" }),
+                ActiveAgent::ActionPrompt::Message.new({ content_type: "input_text", content: "What is the first dragon in the book?" })
               ]
             )
           ]

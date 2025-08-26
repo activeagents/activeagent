@@ -10,7 +10,7 @@ module WebSearchable
   def search_web
     @query = params[:query]
     @search_options = params[:search_options] || {}
-    
+
     # This would be the prompt that triggers web search
     prompt(
       message: "Search the web for: #{@query}",
