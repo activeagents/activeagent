@@ -261,6 +261,9 @@ class BrowserAgent < ApplicationAgent
 
     @filename = params[:filename] || "screenshot_#{Time.now.to_i}.png"
     @full_page = params[:full_page] || false
+    @selector = params[:selector]
+    @area = params[:area] # { x: 0, y: 0, width: 400, height: 300 }
+    @main_content_only = params[:main_content_only] != false # Default to true
 
     # Ensure tmp/screenshots directory exists
     screenshot_dir = Rails.root.join("tmp", "screenshots")
@@ -270,13 +273,38 @@ class BrowserAgent < ApplicationAgent
     Rails.logger.info "Taking screenshot: #{@filename}"
 
     begin
-      if @full_page
-        # Take full page screenshot
-        self.class.browser_session.save_screenshot(@path, full: true)
+      # Build screenshot options
+      options = {path: @path}
+
+      # If main_content_only is true and no specific selector/area provided, try to detect main content
+      if @main_content_only && !@selector && !@area
+        main_area = detect_main_content_area
+        if main_area
+          options[:area] = main_area
+          Rails.logger.info "Auto-cropping to main content area: #{main_area.inspect}"
+        end
       else
-        # Take viewport screenshot
-        self.class.browser_session.save_screenshot(@path)
+        # Add full page option
+        options[:full] = true if @full_page
+
+        # Add selector option (for element screenshots)
+        options[:selector] = @selector if @selector.present?
+
+        # Add area option (for specific region screenshots)
+        if @area.present?
+          # Ensure area has the required keys and convert to symbol keys
+          area_hash = {}
+          area_hash[:x] = @area["x"] || @area[:x] if @area["x"] || @area[:x]
+          area_hash[:y] = @area["y"] || @area[:y] if @area["y"] || @area[:y]
+          area_hash[:width] = @area["width"] || @area[:width] if @area["width"] || @area[:width]
+          area_hash[:height] = @area["height"] || @area[:height] if @area["height"] || @area[:height]
+
+          options[:area] = area_hash if area_hash.any?
+        end
       end
+
+      # Take the screenshot with options
+      self.class.browser_session.save_screenshot(**options)
 
       @success = true
       @filepath = @path.to_s
@@ -376,7 +404,7 @@ class BrowserAgent < ApplicationAgent
       Capybara.register_driver :cuprite_agent do |app|
         Capybara::Cuprite::Driver.new(
           app,
-          window_size: [ 1280, 800 ],
+          window_size: [1920, 1080], # Standard HD resolution
           browser_options: {
             "no-sandbox": nil,
             "disable-gpu": nil,
@@ -390,5 +418,67 @@ class BrowserAgent < ApplicationAgent
 
     # Create a shared session for this agent class
     self.class.browser_session = Capybara::Session.new(:cuprite_agent)
+  end
+
+  def detect_main_content_area
+    # Try to detect main content area based on common selectors
+    main_selectors = [
+      "main",                    # HTML5 main element
+      "[role='main']",          # ARIA role
+      "#main-content",          # Common ID
+      "#main",                  # Common ID
+      "#content",               # Common ID
+      ".main-content",          # Common class
+      ".content",              # Common class
+      "article",               # Article element
+      "#mw-content-text",      # Wikipedia
+      ".container",            # Bootstrap/common framework
+      "#root > div > main",    # React apps
+      "body > div:nth-child(2)" # Fallback to second div
+    ]
+
+    main_selectors.each do |selector|
+      if self.class.browser_session.has_css?(selector, wait: 0)
+        begin
+          # Get element position and dimensions using JavaScript
+          rect = self.class.browser_session.evaluate_script(<<-JS)
+            (function() {
+              var elem = document.querySelector('#{selector}');
+              if (!elem) return null;
+              var rect = elem.getBoundingClientRect();
+              return {
+                x: Math.round(rect.left + window.scrollX),
+                y: Math.round(rect.top + window.scrollY),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height)
+              };
+            })()
+          JS
+
+          if rect && rect["width"] > 0 && rect["height"] > 0
+            # Start from the element's Y position or skip header if element is at top
+            start_y = (rect["y"] < 100) ? 150 : rect["y"]
+
+            # Always use full viewport width and height from start_y
+            return {
+              x: 0,
+              y: start_y,
+              width: 1920,
+              height: 1080 - start_y  # Full height minus the offset
+            }
+          end
+        rescue => e
+          Rails.logger.warn "Failed to get dimensions for #{selector}: #{e.message}"
+        end
+      end
+    end
+
+    # Default fallback: skip typical header area but keep full height
+    {
+      x: 0,
+      y: 150,  # Skip typical header height
+      width: 1920,
+      height: 930  # 1080 - 150 = 930 to stay within viewport
+    }
   end
 end
