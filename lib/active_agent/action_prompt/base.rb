@@ -445,7 +445,7 @@ module ActiveAgent
 
           # OpenRouter Provider Settings
           :data_collection, :require_parameters, :only, :ignore, :quantizations, :sort, :max_price,
-          
+
           # Built-in Tools Support (OpenAI Responses API)
           :tools
         )

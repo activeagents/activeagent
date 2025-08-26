@@ -15,14 +15,14 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
   test "builds tools array with web_search_preview" do
     @prompt.options = {
       tools: [
-        {type: "web_search_preview"}
+        { type: "web_search_preview" }
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 1, tools.length
     assert_equal "web_search_preview", tools[0][:type]
   end
@@ -42,27 +42,27 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 1, tools.length
     assert_equal "web_search_preview", tools[0][:type]
     assert_equal "high", tools[0][:search_context_size]
-    assert_equal({type: "approximate", country: "US", city: "San Francisco"}, tools[0][:user_location])
+    assert_equal({ type: "approximate", country: "US", city: "San Francisco" }, tools[0][:user_location])
   end
 
   test "builds tools array with image_generation" do
     @prompt.options = {
       tools: [
-        {type: "image_generation"}
+        { type: "image_generation" }
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 1, tools.length
     assert_equal "image_generation", tools[0][:type]
   end
@@ -82,10 +82,10 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 1, tools.length
     assert_equal "image_generation", tools[0][:type]
     assert_equal "1024x1024", tools[0][:size]
@@ -109,10 +109,10 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 1, tools.length
     assert_equal "mcp", tools[0][:type]
     assert_equal "dmcp", tools[0][:server_label]
@@ -130,22 +130,22 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
           connector_id: "connector_dropbox",
           authorization: "oauth_token_here",
           require_approval: "always",
-          allowed_tools: ["search", "fetch"]
+          allowed_tools: [ "search", "fetch" ]
         }
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 1, tools.length
     assert_equal "mcp", tools[0][:type]
     assert_equal "Dropbox", tools[0][:server_label]
     assert_equal "connector_dropbox", tools[0][:connector_id]
     assert_equal "oauth_token_here", tools[0][:authorization]
     assert_equal "always", tools[0][:require_approval]
-    assert_equal ["search", "fetch"], tools[0][:allowed_tools]
+    assert_equal [ "search", "fetch" ], tools[0][:allowed_tools]
   end
 
   test "combines action tools with built-in tools" do
@@ -157,18 +157,18 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
         "parameters" => {}
       }
     }
-    
+
     @prompt.options = {
       tools: [
-        {type: "web_search_preview"},
-        {type: "image_generation"}
+        { type: "web_search_preview" },
+        { type: "image_generation" }
       ]
     }
-    @prompt.actions = [action_tool]
-    
+    @prompt.actions = [ action_tool ]
+
     @provider.instance_variable_set(:@prompt, @prompt)
-    tools = @provider.send(:build_tools_for_responses, [action_tool])
-    
+    tools = @provider.send(:build_tools_for_responses, [ action_tool ])
+
     assert_equal 3, tools.length
     # First should be the action tool
     assert_equal "function", tools[0]["type"]
@@ -181,8 +181,8 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
   test "handles multiple built-in tools" do
     @prompt.options = {
       tools: [
-        {type: "web_search_preview", search_context_size: "low"},
-        {type: "image_generation", size: "512x512"},
+        { type: "web_search_preview", search_context_size: "low" },
+        { type: "image_generation", size: "512x512" },
         {
           type: "mcp",
           server_label: "test",
@@ -191,10 +191,10 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 3, tools.length
     assert_equal "web_search_preview", tools[0][:type]
     assert_equal "low", tools[0][:search_context_size]
@@ -208,22 +208,22 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
   test "handles empty tools option" do
     @prompt.options = {}
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 0, tools.length
   end
 
   test "handles nil action tools" do
     @prompt.options = {
-      tools: [{type: "web_search_preview"}]
+      tools: [ { type: "web_search_preview" } ]
     }
     @prompt.actions = nil
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, nil)
-    
+
     assert_equal 1, tools.length
     assert_equal "web_search_preview", tools[0][:type]
   end
@@ -231,15 +231,15 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
   test "ignores invalid tool types" do
     @prompt.options = {
       tools: [
-        {type: "invalid_tool"},
-        {type: "web_search_preview"}
+        { type: "invalid_tool" },
+        { type: "web_search_preview" }
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     # Should only include the valid web_search_preview tool
     assert_equal 1, tools.length
     assert_equal "web_search_preview", tools[0][:type]
@@ -249,15 +249,15 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
     @prompt.options = {
       tools: [
         "not_a_hash",
-        {type: "web_search_preview"},
+        { type: "web_search_preview" },
         nil
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     # Should only include the valid tool
     assert_equal 1, tools.length
     assert_equal "web_search_preview", tools[0][:type]
@@ -266,14 +266,14 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
   test "normalizes web_search to web_search_preview" do
     @prompt.options = {
       tools: [
-        {type: "web_search", search_context_size: "medium"}
+        { type: "web_search", search_context_size: "medium" }
       ]
     }
     @prompt.actions = []
-    
+
     @provider.instance_variable_set(:@prompt, @prompt)
     tools = @provider.send(:build_tools_for_responses, [])
-    
+
     assert_equal 1, tools.length
     assert_equal "web_search_preview", tools[0][:type]
     assert_equal "medium", tools[0][:search_context_size]

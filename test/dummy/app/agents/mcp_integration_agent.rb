@@ -2,28 +2,28 @@
 # MCP allows connecting to external services and tools
 class McpIntegrationAgent < ApplicationAgent
   generate_with :openai, model: "gpt-5"  # Responses API required for MCP
-  
+
   # Use MCP connectors for cloud storage services
   def search_cloud_storage
     @query = params[:query]
     @service = params[:service] || "dropbox"
     @auth_token = params[:auth_token]
-    
+
     prompt(
       message: "Search for: #{@query}",
       options: {
         use_responses_api: true,
-        tools: [build_connector_tool(@service, @auth_token)]
+        tools: [ build_connector_tool(@service, @auth_token) ]
       }
     )
   end
-  
+
   # Use custom MCP server for specialized functionality
   def use_custom_mcp
     @query = params[:query]
     @server_url = params[:server_url]
     @allowed_tools = params[:allowed_tools]
-    
+
     prompt(
       message: @query,
       options: {
@@ -41,13 +41,13 @@ class McpIntegrationAgent < ApplicationAgent
       }
     )
   end
-  
+
   # Combine multiple MCP servers for comprehensive search
   def multi_source_search
     @query = params[:query]
-    @sources = params[:sources] || ["github", "dropbox"]
+    @sources = params[:sources] || [ "github", "dropbox" ]
     @auth_tokens = params[:auth_tokens] || {}
-    
+
     tools = @sources.map do |source|
       case source
       when "github"
@@ -64,7 +64,7 @@ class McpIntegrationAgent < ApplicationAgent
         build_connector_tool("google_drive", @auth_tokens["google_drive"])
       end
     end.compact
-    
+
     prompt(
       message: "Search across multiple sources: #{@query}",
       options: {
@@ -73,12 +73,12 @@ class McpIntegrationAgent < ApplicationAgent
       }
     )
   end
-  
+
   # Use MCP with approval workflow
   def sensitive_operation
     @operation = params[:operation]
     @mcp_config = params[:mcp_config]
-    
+
     prompt(
       message: "Perform operation: #{@operation}",
       options: {
@@ -91,7 +91,7 @@ class McpIntegrationAgent < ApplicationAgent
             authorization: @mcp_config[:auth],
             require_approval: {
               never: {
-                tool_names: ["read", "search"]  # Safe operations
+                tool_names: [ "read", "search" ]  # Safe operations
               }
             }
             # All other operations will require approval
@@ -100,9 +100,9 @@ class McpIntegrationAgent < ApplicationAgent
       }
     )
   end
-  
+
   private
-  
+
   def build_connector_tool(service, auth_token)
     connector_configs = {
       "dropbox" => {
@@ -126,10 +126,10 @@ class McpIntegrationAgent < ApplicationAgent
         label: "Outlook Email"
       }
     }
-    
+
     config = connector_configs[service]
     return nil unless config && auth_token
-    
+
     {
       type: "mcp",
       server_label: config[:label],

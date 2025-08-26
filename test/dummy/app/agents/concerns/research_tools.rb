@@ -10,24 +10,24 @@ module ResearchTools
 
   # Action methods that become function tools in Chat API
   # These are standard ActiveAgent actions that get converted to tool schemas
-  
+
   def search_academic_papers
     @query = params[:query]
     @year_from = params[:year_from]
     @year_to = params[:year_to]
     @field = params[:field]
-    
+
     prompt(
       message: build_academic_search_query,
       # For Responses API - add web search as built-in tool
-      tools: responses_api? ? [{type: "web_search_preview", search_context_size: "high"}] : nil
+      tools: responses_api? ? [ { type: "web_search_preview", search_context_size: "high" } ] : nil
     )
   end
 
   def analyze_research_data
     @data = params[:data]
     @analysis_type = params[:analysis_type]
-    
+
     prompt(
       message: "Analyze the following research data:\n#{@data}\nAnalysis type: #{@analysis_type}",
       content_type: :json
@@ -38,7 +38,7 @@ module ResearchTools
     @data = params[:data]
     @chart_type = params[:chart_type] || "bar"
     @title = params[:title]
-    
+
     prompt(
       message: "Create a #{@chart_type} chart visualization for: #{@title}\nData: #{@data}",
       # For Responses API - add image generation as built-in tool
@@ -55,10 +55,10 @@ module ResearchTools
   def search_with_mcp_sources
     @query = params[:query]
     @sources = params[:sources] || []
-    
+
     # Build MCP tools configuration based on requested sources
     mcp_tools = build_mcp_tools(@sources)
-    
+
     prompt(
       message: "Research query: #{@query}",
       tools: responses_api? ? mcp_tools : nil
@@ -68,7 +68,7 @@ module ResearchTools
   private
 
   def build_academic_search_query
-    query_parts = ["Academic papers search: #{@query}"]
+    query_parts = [ "Academic papers search: #{@query}" ]
     query_parts << "Published between #{@year_from} and #{@year_to}" if @year_from && @year_to
     query_parts << "Field: #{@field}" if @field
     query_parts << "Include citations and abstracts"
@@ -77,7 +77,7 @@ module ResearchTools
 
   def build_mcp_tools(sources)
     tools = []
-    
+
     sources.each do |source|
       case source
       when "arxiv"
@@ -87,7 +87,7 @@ module ResearchTools
           server_url: "https://arxiv-mcp.example.com/sse",
           server_description: "Search and retrieve academic papers from ArXiv",
           require_approval: "never",
-          allowed_tools: ["search_papers", "get_paper", "get_citations"]
+          allowed_tools: [ "search_papers", "get_paper", "get_citations" ]
         }
       when "pubmed"
         tools << {
@@ -107,7 +107,7 @@ module ResearchTools
         }
       end
     end
-    
+
     tools
   end
 
