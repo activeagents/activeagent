@@ -50,6 +50,18 @@ module ActiveAgent
       end
     end
 
+    def embed_now
+      processed_agent.handle_exceptions do
+        processed_agent.run_callbacks(:embedding) do
+          processed_agent.embed
+        end
+      end
+    end
+
+    def embed_later(options = {})
+      enqueue_generation :embed_now, options
+    end
+
     private
 
     def processed_agent

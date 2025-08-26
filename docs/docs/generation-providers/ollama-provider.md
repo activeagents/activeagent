@@ -176,11 +176,55 @@ class StreamingOllamaAgent < ApplicationAgent
 end
 ```
 
+### Embeddings Support
+
+Generate embeddings locally using Ollama's embedding models. See the [Embeddings Framework Documentation](/docs/framework/embeddings) for comprehensive coverage.
+
+#### Basic Embedding Generation
+
+<<< @/../test/generation_provider/ollama_provider_test.rb#ollama_provider_embed{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/ollama-provider-test-test-embed-method-works-with-ollama-provider.md -->
+:::
+
+::: warning Connection Required
+Ollama must be running locally. If you see connection errors, start Ollama with:
+```bash
+ollama serve
+```
+:::
+
+#### Available Embedding Models
+
+- **nomic-embed-text** - High-quality text embeddings (768 dimensions)
+- **mxbai-embed-large** - Large embedding model (1024 dimensions)
+- **all-minilm** - Lightweight embeddings (384 dimensions)
+
+#### Pull Embedding Models
+
+```bash
+# Install embedding models
+ollama pull nomic-embed-text
+ollama pull mxbai-embed-large
+```
+
+#### Error Handling
+
+Ollama provides helpful error messages when the service is not available:
+
+<<< @/../test/generation_provider/ollama_provider_test.rb#113-136{ruby:line-numbers}
+
+This ensures developers get clear feedback about connection issues.
+
+For more embedding patterns and examples, see the [Embeddings Documentation](/docs/framework/embeddings).
+
 ## Provider-Specific Parameters
 
 ### Model Parameters
 
 - **`model`** - Model name (e.g., "llama3", "mistral")
+- **`embedding_model`** - Embedding model name (e.g., "nomic-embed-text")
 - **`temperature`** - Controls randomness (0.0 to 1.0)
 - **`top_p`** - Nucleus sampling
 - **`top_k`** - Top-k sampling
@@ -456,7 +500,10 @@ end
 
 ## Related Documentation
 
+- [Embeddings Framework](/docs/framework/embeddings) - Complete guide to embeddings
 - [Generation Provider Overview](/docs/framework/generation-provider)
+- [OpenAI Provider](/docs/generation-providers/openai-provider) - Cloud-based alternative with more models
 - [Configuration Guide](/docs/getting-started#configuration)
 - [Ollama Documentation](https://ollama.ai/docs)
+- [Ollama Model Library](https://ollama.ai/library) - Available models including embedding models
 - [OpenRouter Provider](/docs/generation-providers/open-router-provider) - For cloud alternative

@@ -207,6 +207,74 @@ Here's how built-in tools are configured in the prompt options:
 
 ::: details Configuration Output
 <!-- @include: @/parts/examples/builtin-tools-doc-test.rb-test-tool-configuration-in-prompt-options.md -->
+### Embeddings
+
+Generate high-quality text embeddings using OpenAI's embedding models. See the [Embeddings Framework Documentation](/docs/framework/embeddings) for comprehensive coverage.
+
+#### Basic Embedding Generation
+
+<<< @/../test/agents/embedding_agent_test.rb#embedding_openai_model_config{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/embedding-agent-test-test-uses-configured-openai-embedding-model.md -->
+:::
+
+#### Available Embedding Models
+
+- **text-embedding-3-large** - Highest quality (3072 dimensions, configurable down to 256)
+- **text-embedding-3-small** - Balanced performance (1536 dimensions, configurable)
+- **text-embedding-ada-002** - Legacy model (1536 dimensions, fixed)
+
+For detailed model comparisons and benchmarks, see [OpenAI's Embeddings Documentation](https://platform.openai.com/docs/guides/embeddings).
+
+#### Similarity Search Example
+
+<<< @/../test/agents/embedding_agent_test.rb#embedding_similarity_search{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/embedding-agent-test-test-performs-similarity-search-with-embeddings.md -->
+:::
+
+For more advanced embedding patterns, see the [Embeddings Documentation](/docs/framework/embeddings).
+
+#### Dimension Configuration
+
+OpenAI's text-embedding-3 models support configurable dimensions:
+
+<<< @/../test/agents/embedding_agent_test.rb#embedding_dimension_test{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/embedding-agent-test-test-verifies-embedding-dimensions-for-different-models.md -->
+:::
+
+::: tip Dimension Reduction
+OpenAI's text-embedding-3-large and text-embedding-3-small models support native dimension reduction by specifying a `dimensions` parameter. This can significantly reduce storage costs while maintaining good performance.
+:::
+
+#### Batch Processing
+
+Efficiently process multiple embeddings:
+
+<<< @/../test/agents/embedding_agent_test.rb#embedding_batch_processing{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/embedding-agent-test-test-batch-processes-multiple-embeddings.md -->
+:::
+
+#### Cost Optimization for Embeddings
+
+Choose the right model based on your needs:
+
+| Model | Dimensions | Cost per 1M tokens | Best for |
+|-------|------------|-------------------|----------|
+| text-embedding-3-large | 3072 (configurable) | $0.13 | Highest quality, semantic search |
+| text-embedding-3-small | 1536 (configurable) | $0.02 | Good balance, most applications |
+| text-embedding-ada-002 | 1536 | $0.10 | Legacy support |
+
+::: tip Cost Savings
+- Use text-embedding-3-small for most applications (85% cheaper than large)
+- Cache embeddings aggressively - they don't change for the same input
+- Consider dimension reduction for large-scale applications
 :::
 
 ## Provider-Specific Parameters
@@ -214,6 +282,8 @@ Here's how built-in tools are configured in the prompt options:
 ### Model Parameters
 
 - **`model`** - Model identifier (e.g., "gpt-4o", "gpt-3.5-turbo")
+- **`embedding_model`** - Embedding model (e.g., "text-embedding-3-large")
+- **`dimensions`** - Reduced dimensions for embeddings (for 3-large and 3-small models)
 - **`temperature`** - Controls randomness (0.0 to 2.0)
 - **`max_tokens`** - Maximum tokens in response
 - **`top_p`** - Nucleus sampling parameter

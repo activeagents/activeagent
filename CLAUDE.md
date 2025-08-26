@@ -1299,3 +1299,4 @@ When updating documentation:
 
 - VCR cassettes need to be removed and tests run again to record new cassettes when the request params change
 
+- Do not hardcode examples and make sure to use vscode regions and vite-press code snippets imports

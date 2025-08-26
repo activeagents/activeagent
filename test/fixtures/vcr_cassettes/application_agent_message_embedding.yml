@@ -23,7 +23,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 11 Aug 2025 22:50:58 GMT
+      - Tue, 26 Aug 2025 18:16:58 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -39,17 +39,17 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '279'
+      - '85'
       Openai-Project:
-      - proj_pcPHiweuB88laiGDTaN3nH2M
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
       Openai-Version:
       - '2020-10-01'
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - envoy-router-5df48d76cd-l4z66
+      - envoy-router-74b9c68cd4-g655l
       X-Envoy-Upstream-Service-Time:
-      - '493'
+      - '724'
       X-Ratelimit-Limit-Requests:
       - '3000'
       X-Ratelimit-Limit-Tokens:
@@ -63,21 +63,21 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_4a011fc02f0049b6a189de34189c3464
+      - req_cb1d1a13ed234a019ab124b6566c93ae
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=y_1y8DSGi2QGtOQChkv7_jAe3JYZWKQFHXp6rnErDbM-1754952658-1.0.1.1-Nf2Gj9tQ2pgEXgWt_k.Wfb3W0N9zf92amgCcoXvv9bZgoGfI1Cd.7y7BRIRpIncqjxcLG.VPKyDEhbRMLsjxjuInYeXdbg61U6bcYyjg.sc;
-        path=/; expires=Mon, 11-Aug-25 23:20:58 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=q9wR42obfH1DhDzznsAByFXteqRoHgdVtjWAEvGMJbQ-1756232218-1.0.1.1-vXZ8aevfoLPzcDEc87Ne1L.N4dA4c18fpWvN52L7Om1N88r4uTdy3Fcr2A1Q1o3sNUdTRxJLwVqNiW8esBMx_C1yViKasPIhKftoVdv7BZ8;
+        path=/; expires=Tue, 26-Aug-25 18:46:58 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=YnUmpIoX4xaPWN4zdmYzlNjJ4kxiHjRkCJS2zghCSuU-1754952658933-0.0.1.1-604800000;
+      - _cfuvid=MqlrdihYxN0WkwbbuM7nZnep_ftaZGZ7dDR84nfFsqY-1756232218714-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 96db4b80be32ce64-SJC
+      - 975552b8bd611694-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
@@ -3171,5 +3171,5 @@ http_interactions:
             "total_tokens": 4
           }
         }
-  recorded_at: Mon, 11 Aug 2025 22:50:58 GMT
+  recorded_at: Tue, 26 Aug 2025 18:16:58 GMT
 recorded_with: VCR 6.3.1

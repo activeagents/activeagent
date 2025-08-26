@@ -60,7 +60,7 @@ module ActiveAgent
       end
 
       def format_error_message(error)
-        message = if error.respond_to?(:response)
+        message = if error.respond_to?(:response) && error.response
           error.response[:body]
         elsif error.respond_to?(:message)
           error.message

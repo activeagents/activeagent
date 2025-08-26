@@ -122,6 +122,78 @@ For a complete example showing all three levels working together, see:
 
 <<< @/../test/agents/configuration_precedence_test.rb#test_configuration_precedence{ruby:line-numbers}
 
+## Embeddings Support
+
+Generation providers support creating text embeddings for semantic search, clustering, and similarity matching. Embeddings transform text into numerical vectors that capture semantic meaning.
+
+### Generating Embeddings Synchronously
+
+Use `embed_now` to generate embeddings immediately:
+
+<<< @/../test/agents/embedding_agent_test.rb#embedding_sync_generation{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/embedding-agent-test.rb-test-generates-embeddings-synchronously-with-embed-now.md -->
+:::
+
+### Asynchronous Embedding Generation
+
+Use `embed_later` for background processing of embeddings:
+
+<<< @/../test/agents/embedding_agent_test.rb#embedding_async_generation{ruby:line-numbers}
+
+### Embedding Callbacks
+
+Process embeddings with before and after callbacks:
+
+<<< @/../test/agents/embedding_agent_test.rb#embedding_with_callbacks{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/embedding-agent-test.rb-test-processes-embeddings-with-callbacks.md -->
+:::
+
+### Similarity Search
+
+Use embeddings to find semantically similar content:
+
+<<< @/../test/agents/embedding_agent_test.rb#embedding_similarity_search{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/embedding-agent-test.rb-test-performs-similarity-search-with-embeddings.md -->
+:::
+
+### Provider-Specific Embedding Models
+
+Different providers offer various embedding models:
+
+- **OpenAI**: `text-embedding-3-large`, `text-embedding-3-small`, `text-embedding-ada-002`
+- **Ollama**: `nomic-embed-text`, `mxbai-embed-large`, `all-minilm`
+- **Anthropic**: Does not natively support embeddings (use a dedicated embedding provider)
+
+### Configuration
+
+Configure embedding models in your agent:
+
+```ruby
+class EmbeddingAgent < ApplicationAgent
+  generate_with :openai,
+    model: "gpt-4",  # For text generation
+    embedding_model: "text-embedding-3-large"  # For embeddings
+end
+```
+
+Or in your configuration file:
+
+```yaml
+development:
+  openai:
+    model: gpt-4
+    embedding_model: text-embedding-3-large
+    dimensions: 256  # Optional: reduce embedding dimensions
+```
+
+For more details on embeddings, see the [Embeddings Guide](/docs/framework/embeddings).
+
 ## Provider-Specific Documentation
 
 For detailed documentation on specific providers and their features:
