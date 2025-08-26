@@ -51,7 +51,7 @@ class BrowserAgentTest < ActiveSupport::TestCase
 
       # Execute the generation
       result = navigate_response.generate_now
-      puts "Response content: #{result.message.content}"
+
       assert result.message.content.include?("navigated") || result.message.content.include?("Failed") || result.message.content.include?("Example")
       # endregion direct_action_example
 
@@ -96,9 +96,51 @@ class BrowserAgentTest < ActiveSupport::TestCase
       end
       tool_names.uniq!
 
-      puts "Tools used: #{tool_names}" if tool_names.any?
       assert tool_names.length > 2, "Should use at least 3 different tools for comprehensive research"
       # endregion wikipedia_research_example
+
+      doc_example_output(response)
+    end
+  end
+
+  test "browser agent takes area screenshot" do
+    skip "Cuprite/Chrome not configured for CI" if ENV["CI"]
+
+    VCR.use_cassette("browser_agent_area_screenshot") do
+      # region area_screenshot_example
+      response = BrowserAgent.with(
+        message: "Navigate to https://www.example.com and take a screenshot of just the header area (top 200 pixels)"
+      ).prompt_context.generate_now
+
+      assert response.message.content.present?
+
+      # Check that screenshot tool was used
+      tool_messages = response.prompt.messages.select { |m| m.role == :tool }
+      assert tool_messages.any? { |m| m.content.include?("screenshot") }, "Should have taken a screenshot"
+      # endregion area_screenshot_example
+
+      doc_example_output(response)
+    end
+  end
+
+  test "browser agent auto-crops main content" do
+    skip "Cuprite/Chrome not configured for CI" if ENV["CI"]
+
+    VCR.use_cassette("browser_agent_main_content_crop") do
+      # region main_content_crop_example
+      response = BrowserAgent.with(
+        message: "Navigate to Wikipedia's Apollo 11 page and take a screenshot of the main content (should automatically exclude navigation/header)"
+      ).prompt_context.generate_now
+
+      assert response.message.content.present?
+
+      # Check that screenshot was taken
+      tool_messages = response.prompt.messages.select { |m| m.role == :tool }
+      assert tool_messages.any? { |m| m.content.include?("screenshot") }, "Should have taken a screenshot"
+      
+      # Check that the agent navigated to Wikipedia
+      assert tool_messages.any? { |m| m.content.include?("wikipedia") }, "Should have navigated to Wikipedia"
+      # endregion main_content_crop_example
 
       doc_example_output(response)
     end
