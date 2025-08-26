@@ -38,4 +38,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "sqlite3"
   spec.add_development_dependency "vcr"
   spec.add_development_dependency "webmock"
+  spec.add_development_dependency "cuprite", "~> 0.15"
+  spec.add_development_dependency "capybara", "~> 3.40"
 end

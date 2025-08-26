@@ -1,0 +1,758 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: http://127.0.0.1:61851/json/version
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:61851
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Security-Policy:
+      - frame-ancestors 'none'
+      Content-Length:
+      - '430'
+      Content-Type:
+      - application/json; charset=UTF-8
+    body:
+      encoding: UTF-8
+      string: |
+        {
+           "Browser": "Chrome/139.0.7258.139",
+           "Protocol-Version": "1.3",
+           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/139.0.0.0 Safari/537.36",
+           "V8-Version": "13.9.205.20",
+           "WebKit-Version": "537.36 (@54b87fe5881df381307c2ef806b8e5e87e8a6790)",
+           "webSocketDebuggerUrl": "ws://127.0.0.1:61851/devtools/browser/f11485b3-6991-45ce-b78f-3fa83637045c"
+        }
+  recorded_at: Tue, 26 Aug 2025 14:39:41 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a browser automation agent that can navigate web pages and interact with
+        web elements using Cuprite/Chrome.\n\nYou have access to the following browser
+        actions:\n- go_back: Go back to the previous page in browser history\n- extract_main_content:
+        Extract the main content from the current page (article text, Wikipedia content,
+        etc.)\n- screenshot: Take a screenshot of the current page\n- click: Click
+        on an element in the page\n- extract_links_with_previews: Extract links from
+        the current page and take preview screenshots of each\n- fill_form: Fill in
+        a form field\n- extract_text: Extract text content from the page or a specific
+        element\n- page_info: Get information about the current page\n- extract_links:
+        Extract links from the current page\n- follow_link: Follow a link on the current
+        page\n\nStarting URL: https://www.example.com\nYou should navigate to this
+        URL first to begin your research.\n\nUse these tools to help users automate
+        web browsing tasks, extract information from websites, and perform user interactions.\n\nWhen
+        researching a topic:\n1. Navigate to the provided URL or search for relevant
+        pages\n2. Extract the main content to understand the topic\n3. Use the click
+        action with specific text to navigate to related pages (e.g., click text:
+        \"Neil Armstrong\")\n4. Use go_back to return to previous pages when needed\n5.
+        Provide a comprehensive summary with reference URLs\n\nTips for efficient
+        browsing:\n- Use click with text parameter for navigating to specific links
+        rather than extract_links_with_previews\n- For Wikipedia: Use selector \"#mw-content-text\"
+        when extracting links to focus on article content\n- Extract main content
+        before navigating away from important pages\n\nScreenshot tips (browser is
+        1920x1080 HD resolution):\n- To capture main content without headers, use
+        the area parameter: { \"x\": 0, \"y\": 150, \"width\": 1920, \"height\": 930
+        }\n- For Wikipedia articles, consider: { \"x\": 0, \"y\": 200, \"width\":
+        1920, \"height\": 880 } to skip navigation\n- For specific elements, use the
+        selector parameter (e.g., selector: \"#mw-content-text\")\n- Full page screenshots
+        capture everything, but cropped areas often look cleaner\n- Default screenshots
+        automatically try to crop to main content, but you can override with main_content_only:
+        false"},{"role":"user","content":"Successfully navigated to https://www.example.com\nCurrent
+        URL: https://www.example.com/\nPage Title: Example Domain\n\n"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"go_back","description":"Go
+        back to the previous page in browser history","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"extract_main_content","description":"Extract
+        the main content from the current page (article text, Wikipedia content, etc.)","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"screenshot","description":"Take
+        a screenshot of the current page","parameters":{"type":"object","properties":{"filename":{"type":"string","description":"Name
+        for the screenshot file"},"full_page":{"type":"boolean","description":"Whether
+        to capture the full page (true) or just viewport (false)"},"main_content_only":{"type":"boolean","description":"Automatically
+        detect and crop to main content area, excluding headers (default: true)"},"selector":{"type":"string","description":"CSS
+        selector for a specific element to screenshot (optional)"},"area":{"type":"object","description":"Specific
+        area of the page to capture (optional)","properties":{"x":{"type":"integer","description":"X
+        coordinate of the top-left corner"},"y":{"type":"integer","description":"Y
+        coordinate of the top-left corner"},"width":{"type":"integer","description":"Width
+        of the area to capture"},"height":{"type":"integer","description":"Height
+        of the area to capture"}}}}}}},{"type":"function","function":{"name":"click","description":"Click
+        on an element in the page","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector for the element to click"},"text":{"type":"string","description":"Text
+        of the link or button to click (alternative to selector)"}}}}},{"type":"function","function":{"name":"extract_links_with_previews","description":"Extract
+        links from the current page and take preview screenshots of each","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector to extract links from (default: body)"},"limit":{"type":"integer","description":"Maximum
+        number of links to preview (default: 5)"}}}}},{"type":"function","function":{"name":"fill_form","description":"Fill
+        in a form field","parameters":{"type":"object","properties":{"field":{"type":"string","description":"Name
+        or label of the field to fill"},"value":{"type":"string","description":"Value
+        to fill in the field"},"selector":{"type":"string","description":"CSS selector
+        for the field (alternative to field name)"}},"required":["value"]}}},{"type":"function","function":{"name":"extract_text","description":"Extract
+        text content from the page or a specific element","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector for the element to extract text from (default: body)"}}}}},{"type":"function","function":{"name":"page_info","description":"Get
+        information about the current page","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"extract_links","description":"Extract
+        links from the current page","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector to extract links from (default: body)"},"limit":{"type":"integer","description":"Maximum
+        number of links to extract (default: 10)"}}}}},{"type":"function","function":{"name":"follow_link","description":"Follow
+        a link on the current page","parameters":{"type":"object","properties":{"text":{"type":"string","description":"Text
+        of the link to follow"},"href":{"type":"string","description":"Partial href
+        to match and follow"}}}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 14:39:42 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '511'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '599'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199406'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 178ms
+      X-Request-Id:
+      - req_41dc4c16e914438baca7e37af6371558
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=IW3kCwnmucJJs9_9228ktEDJwJeRS4R.PSpI1NrVECc-1756219182-1.0.1.1-zOcxCt3vn2g63r6um_uMCH3X3CuYt3Y.kKKo6CCJk77JnP7jeP7XAaBO5dF9Od2Yt2YUtXLVFFfsr.ImICbaRa1Ba8eB4y0yY0IRxf.wTbg;
+        path=/; expires=Tue, 26-Aug-25 15:09:42 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=GQhISc_g8SVJEJze.MQ8PNZsUXw7XaW6nJNzMUWgaAo-1756219182456-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9754147d2c1efad2-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C8p7m3uFsP1ROosQxep3L5hEKKc7K",
+          "object": "chat.completion",
+          "created": 1756219182,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_JOGk9Nqs2UkK8MQddIclhfRO",
+                    "type": "function",
+                    "function": {
+                      "name": "extract_links",
+                      "arguments": "{}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1031,
+            "completion_tokens": 10,
+            "total_tokens": 1041,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
+        }
+  recorded_at: Tue, 26 Aug 2025 14:39:42 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a browser automation agent that can navigate web pages and interact with
+        web elements using Cuprite/Chrome.\n\nYou have access to the following browser
+        actions:\n- go_back: Go back to the previous page in browser history\n- extract_main_content:
+        Extract the main content from the current page (article text, Wikipedia content,
+        etc.)\n- screenshot: Take a screenshot of the current page\n- click: Click
+        on an element in the page\n- extract_links_with_previews: Extract links from
+        the current page and take preview screenshots of each\n- fill_form: Fill in
+        a form field\n- extract_text: Extract text content from the page or a specific
+        element\n- page_info: Get information about the current page\n- extract_links:
+        Extract links from the current page\n- follow_link: Follow a link on the current
+        page\n\nStarting URL: https://www.example.com\nYou should navigate to this
+        URL first to begin your research.\n\nUse these tools to help users automate
+        web browsing tasks, extract information from websites, and perform user interactions.\n\nWhen
+        researching a topic:\n1. Navigate to the provided URL or search for relevant
+        pages\n2. Extract the main content to understand the topic\n3. Use the click
+        action with specific text to navigate to related pages (e.g., click text:
+        \"Neil Armstrong\")\n4. Use go_back to return to previous pages when needed\n5.
+        Provide a comprehensive summary with reference URLs\n\nTips for efficient
+        browsing:\n- Use click with text parameter for navigating to specific links
+        rather than extract_links_with_previews\n- For Wikipedia: Use selector \"#mw-content-text\"
+        when extracting links to focus on article content\n- Extract main content
+        before navigating away from important pages\n\nScreenshot tips (browser is
+        1920x1080 HD resolution):\n- To capture main content without headers, use
+        the area parameter: { \"x\": 0, \"y\": 150, \"width\": 1920, \"height\": 930
+        }\n- For Wikipedia articles, consider: { \"x\": 0, \"y\": 200, \"width\":
+        1920, \"height\": 880 } to skip navigation\n- For specific elements, use the
+        selector parameter (e.g., selector: \"#mw-content-text\")\n- Full page screenshots
+        capture everything, but cropped areas often look cleaner\n- Default screenshots
+        automatically try to crop to main content, but you can override with main_content_only:
+        false"},{"role":"user","content":"Successfully navigated to https://www.example.com\nCurrent
+        URL: https://www.example.com/\nPage Title: Example Domain\n\n"},{"role":"assistant","content":"","tool_calls":[{"id":"call_JOGk9Nqs2UkK8MQddIclhfRO","type":"function","function":{"name":"extract_links","arguments":"{}"}}]},{"role":"tool","content":"Found
+        1 links at https://www.example.com/:\n1. More information... -\u003e https://www.iana.org/domains/example\n\n","tool_call_id":"call_JOGk9Nqs2UkK8MQddIclhfRO","name":"extract_links"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"go_back","description":"Go
+        back to the previous page in browser history","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"extract_main_content","description":"Extract
+        the main content from the current page (article text, Wikipedia content, etc.)","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"navigate","description":"Navigate
+        to a URL in the browser","parameters":{"type":"object","properties":{"url":{"type":"string","description":"The
+        URL to navigate to"}},"required":["url"]}}},{"type":"function","function":{"name":"screenshot","description":"Take
+        a screenshot of the current page","parameters":{"type":"object","properties":{"filename":{"type":"string","description":"Name
+        for the screenshot file"},"full_page":{"type":"boolean","description":"Whether
+        to capture the full page (true) or just viewport (false)"},"main_content_only":{"type":"boolean","description":"Automatically
+        detect and crop to main content area, excluding headers (default: true)"},"selector":{"type":"string","description":"CSS
+        selector for a specific element to screenshot (optional)"},"area":{"type":"object","description":"Specific
+        area of the page to capture (optional)","properties":{"x":{"type":"integer","description":"X
+        coordinate of the top-left corner"},"y":{"type":"integer","description":"Y
+        coordinate of the top-left corner"},"width":{"type":"integer","description":"Width
+        of the area to capture"},"height":{"type":"integer","description":"Height
+        of the area to capture"}}}}}}},{"type":"function","function":{"name":"click","description":"Click
+        on an element in the page","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector for the element to click"},"text":{"type":"string","description":"Text
+        of the link or button to click (alternative to selector)"}}}}},{"type":"function","function":{"name":"extract_links_with_previews","description":"Extract
+        links from the current page and take preview screenshots of each","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector to extract links from (default: body)"},"limit":{"type":"integer","description":"Maximum
+        number of links to preview (default: 5)"}}}}},{"type":"function","function":{"name":"fill_form","description":"Fill
+        in a form field","parameters":{"type":"object","properties":{"field":{"type":"string","description":"Name
+        or label of the field to fill"},"value":{"type":"string","description":"Value
+        to fill in the field"},"selector":{"type":"string","description":"CSS selector
+        for the field (alternative to field name)"}},"required":["value"]}}},{"type":"function","function":{"name":"extract_text","description":"Extract
+        text content from the page or a specific element","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector for the element to extract text from (default: body)"}}}}},{"type":"function","function":{"name":"page_info","description":"Get
+        information about the current page","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"follow_link","description":"Follow
+        a link on the current page","parameters":{"type":"object","properties":{"text":{"type":"string","description":"Text
+        of the link to follow"},"href":{"type":"string","description":"Partial href
+        to match and follow"}}}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 14:39:43 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '830'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '918'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199377'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 186ms
+      X-Request-Id:
+      - req_4af51d62201e4054a0ef4d91d7bd4c85
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=TJUJxHqFL5KtfEdNqoKT98B9l6vjZyd2wLn0LRKLrls-1756219183-1.0.1.1-tY8KmSrkkxqwniRWAY8KxwDBrV.CU.RMlclSagzOMXhVRcZNXwvefiZuejQtqF4CoUEoQCBAJUHKSwMsMCEu70tVLtZSdYG.HbWMLI1La5g;
+        path=/; expires=Tue, 26-Aug-25 15:09:43 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=t9b1PWNL.bQqSucxsqGgPCpdzeXozQzW1D2rP_3jl08-1756219183844-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 97541482b8f66893-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C8p7nd7of5fmynoXFtngj3q1OI0os",
+          "object": "chat.completion",
+          "created": 1756219183,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_xCgsV2893WAEXcBcAJq9Kwz9",
+                    "type": "function",
+                    "function": {
+                      "name": "follow_link",
+                      "arguments": "{\"text\":\"More information...\"}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1056,
+            "completion_tokens": 16,
+            "total_tokens": 1072,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
+        }
+  recorded_at: Tue, 26 Aug 2025 14:39:43 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a browser automation agent that can navigate web pages and interact with
+        web elements using Cuprite/Chrome.\n\nYou have access to the following browser
+        actions:\n- go_back: Go back to the previous page in browser history\n- extract_main_content:
+        Extract the main content from the current page (article text, Wikipedia content,
+        etc.)\n- screenshot: Take a screenshot of the current page\n- click: Click
+        on an element in the page\n- extract_links_with_previews: Extract links from
+        the current page and take preview screenshots of each\n- fill_form: Fill in
+        a form field\n- extract_text: Extract text content from the page or a specific
+        element\n- page_info: Get information about the current page\n- extract_links:
+        Extract links from the current page\n- follow_link: Follow a link on the current
+        page\n\nStarting URL: https://www.example.com\nYou should navigate to this
+        URL first to begin your research.\n\nUse these tools to help users automate
+        web browsing tasks, extract information from websites, and perform user interactions.\n\nWhen
+        researching a topic:\n1. Navigate to the provided URL or search for relevant
+        pages\n2. Extract the main content to understand the topic\n3. Use the click
+        action with specific text to navigate to related pages (e.g., click text:
+        \"Neil Armstrong\")\n4. Use go_back to return to previous pages when needed\n5.
+        Provide a comprehensive summary with reference URLs\n\nTips for efficient
+        browsing:\n- Use click with text parameter for navigating to specific links
+        rather than extract_links_with_previews\n- For Wikipedia: Use selector \"#mw-content-text\"
+        when extracting links to focus on article content\n- Extract main content
+        before navigating away from important pages\n\nScreenshot tips (browser is
+        1920x1080 HD resolution):\n- To capture main content without headers, use
+        the area parameter: { \"x\": 0, \"y\": 150, \"width\": 1920, \"height\": 930
+        }\n- For Wikipedia articles, consider: { \"x\": 0, \"y\": 200, \"width\":
+        1920, \"height\": 880 } to skip navigation\n- For specific elements, use the
+        selector parameter (e.g., selector: \"#mw-content-text\")\n- Full page screenshots
+        capture everything, but cropped areas often look cleaner\n- Default screenshots
+        automatically try to crop to main content, but you can override with main_content_only:
+        false"},{"role":"user","content":"Successfully navigated to https://www.example.com\nCurrent
+        URL: https://www.example.com/\nPage Title: Example Domain\n\n"},{"role":"assistant","content":"","tool_calls":[{"id":"call_JOGk9Nqs2UkK8MQddIclhfRO","type":"function","function":{"name":"extract_links","arguments":"{}"}}]},{"role":"tool","content":"Found
+        1 links at https://www.example.com/:\n1. More information... -\u003e https://www.iana.org/domains/example\n\n","tool_call_id":"call_JOGk9Nqs2UkK8MQddIclhfRO","name":"extract_links"},{"role":"assistant","content":"","tool_calls":[{"id":"call_xCgsV2893WAEXcBcAJq9Kwz9","type":"function","function":{"name":"follow_link","arguments":"{\"text\":\"More
+        information...\"}"}}]},{"role":"tool","content":"Successfully followed link
+        to https://www.iana.org/help/example-domains\nPage title: Example Domains\n\n","tool_call_id":"call_xCgsV2893WAEXcBcAJq9Kwz9","name":"follow_link"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"go_back","description":"Go
+        back to the previous page in browser history","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"extract_main_content","description":"Extract
+        the main content from the current page (article text, Wikipedia content, etc.)","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"navigate","description":"Navigate
+        to a URL in the browser","parameters":{"type":"object","properties":{"url":{"type":"string","description":"The
+        URL to navigate to"}},"required":["url"]}}},{"type":"function","function":{"name":"screenshot","description":"Take
+        a screenshot of the current page","parameters":{"type":"object","properties":{"filename":{"type":"string","description":"Name
+        for the screenshot file"},"full_page":{"type":"boolean","description":"Whether
+        to capture the full page (true) or just viewport (false)"},"main_content_only":{"type":"boolean","description":"Automatically
+        detect and crop to main content area, excluding headers (default: true)"},"selector":{"type":"string","description":"CSS
+        selector for a specific element to screenshot (optional)"},"area":{"type":"object","description":"Specific
+        area of the page to capture (optional)","properties":{"x":{"type":"integer","description":"X
+        coordinate of the top-left corner"},"y":{"type":"integer","description":"Y
+        coordinate of the top-left corner"},"width":{"type":"integer","description":"Width
+        of the area to capture"},"height":{"type":"integer","description":"Height
+        of the area to capture"}}}}}}},{"type":"function","function":{"name":"click","description":"Click
+        on an element in the page","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector for the element to click"},"text":{"type":"string","description":"Text
+        of the link or button to click (alternative to selector)"}}}}},{"type":"function","function":{"name":"extract_links_with_previews","description":"Extract
+        links from the current page and take preview screenshots of each","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector to extract links from (default: body)"},"limit":{"type":"integer","description":"Maximum
+        number of links to preview (default: 5)"}}}}},{"type":"function","function":{"name":"fill_form","description":"Fill
+        in a form field","parameters":{"type":"object","properties":{"field":{"type":"string","description":"Name
+        or label of the field to fill"},"value":{"type":"string","description":"Value
+        to fill in the field"},"selector":{"type":"string","description":"CSS selector
+        for the field (alternative to field name)"}},"required":["value"]}}},{"type":"function","function":{"name":"extract_text","description":"Extract
+        text content from the page or a specific element","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector for the element to extract text from (default: body)"}}}}},{"type":"function","function":{"name":"page_info","description":"Get
+        information about the current page","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"extract_links","description":"Extract
+        links from the current page","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector to extract links from (default: body)"},"limit":{"type":"integer","description":"Maximum
+        number of links to extract (default: 10)"}}}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 14:39:45 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '661'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '777'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199350'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 195ms
+      X-Request-Id:
+      - req_a315285094e345bcbb8d6652a592a08e
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=a7M2.uMaSONxQ8VNzn9Nta3EQE0Xv3tFRxvUu_D6hJ0-1756219185-1.0.1.1-ffsXBGelTOAWCPRXNKH8it6dS6lclVRpESiBBoKHeYJvsSTsZ0tfoNk4FxJ7pBk672gyW_AbNg3m93P6AcMw8A3tXDj3PAwcHNPGXpM0Rvc;
+        path=/; expires=Tue, 26-Aug-25 15:09:45 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=weiG4Kfw9s0xxs2vvYFfc9j.Jk0gsvqQd2hb6qfleE4-1756219185800-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 975414922de0d438-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C8p7p5KYRUzusWNXcdufHXD41NcSB",
+          "object": "chat.completion",
+          "created": 1756219185,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_ZBzfzckeLtRD9rdmexY5ZU0m",
+                    "type": "function",
+                    "function": {
+                      "name": "extract_main_content",
+                      "arguments": "{}"
+                    }
+                  }
+                ],
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1109,
+            "completion_tokens": 11,
+            "total_tokens": 1120,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
+        }
+  recorded_at: Tue, 26 Aug 2025 14:39:45 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a browser automation agent that can navigate web pages and interact with
+        web elements using Cuprite/Chrome.\n\nYou have access to the following browser
+        actions:\n- go_back: Go back to the previous page in browser history\n- extract_main_content:
+        Extract the main content from the current page (article text, Wikipedia content,
+        etc.)\n- screenshot: Take a screenshot of the current page\n- click: Click
+        on an element in the page\n- extract_links_with_previews: Extract links from
+        the current page and take preview screenshots of each\n- fill_form: Fill in
+        a form field\n- extract_text: Extract text content from the page or a specific
+        element\n- page_info: Get information about the current page\n- extract_links:
+        Extract links from the current page\n- follow_link: Follow a link on the current
+        page\n\nStarting URL: https://www.example.com\nYou should navigate to this
+        URL first to begin your research.\n\nUse these tools to help users automate
+        web browsing tasks, extract information from websites, and perform user interactions.\n\nWhen
+        researching a topic:\n1. Navigate to the provided URL or search for relevant
+        pages\n2. Extract the main content to understand the topic\n3. Use the click
+        action with specific text to navigate to related pages (e.g., click text:
+        \"Neil Armstrong\")\n4. Use go_back to return to previous pages when needed\n5.
+        Provide a comprehensive summary with reference URLs\n\nTips for efficient
+        browsing:\n- Use click with text parameter for navigating to specific links
+        rather than extract_links_with_previews\n- For Wikipedia: Use selector \"#mw-content-text\"
+        when extracting links to focus on article content\n- Extract main content
+        before navigating away from important pages\n\nScreenshot tips (browser is
+        1920x1080 HD resolution):\n- To capture main content without headers, use
+        the area parameter: { \"x\": 0, \"y\": 150, \"width\": 1920, \"height\": 930
+        }\n- For Wikipedia articles, consider: { \"x\": 0, \"y\": 200, \"width\":
+        1920, \"height\": 880 } to skip navigation\n- For specific elements, use the
+        selector parameter (e.g., selector: \"#mw-content-text\")\n- Full page screenshots
+        capture everything, but cropped areas often look cleaner\n- Default screenshots
+        automatically try to crop to main content, but you can override with main_content_only:
+        false"},{"role":"user","content":"Successfully navigated to https://www.example.com\nCurrent
+        URL: https://www.example.com/\nPage Title: Example Domain\n\n"},{"role":"assistant","content":"","tool_calls":[{"id":"call_JOGk9Nqs2UkK8MQddIclhfRO","type":"function","function":{"name":"extract_links","arguments":"{}"}}]},{"role":"tool","content":"Found
+        1 links at https://www.example.com/:\n1. More information... -\u003e https://www.iana.org/domains/example\n\n","tool_call_id":"call_JOGk9Nqs2UkK8MQddIclhfRO","name":"extract_links"},{"role":"assistant","content":"","tool_calls":[{"id":"call_xCgsV2893WAEXcBcAJq9Kwz9","type":"function","function":{"name":"follow_link","arguments":"{\"text\":\"More
+        information...\"}"}}]},{"role":"tool","content":"Successfully followed link
+        to https://www.iana.org/help/example-domains\nPage title: Example Domains\n\n","tool_call_id":"call_xCgsV2893WAEXcBcAJq9Kwz9","name":"follow_link"},{"role":"assistant","content":"","tool_calls":[{"id":"call_ZBzfzckeLtRD9rdmexY5ZU0m","type":"function","function":{"name":"extract_main_content","arguments":"{}"}}]},{"role":"tool","content":"===
+        Content from Example Domains ===\nURL: https://www.iana.org/help/example-domains\nExtracted
+        from: main\n\nExample Domains\nAs described in RFC 2606 and RFC 6761, a number
+        of domains such as example.com and example.org are maintained for documentation
+        purposes. These domains may be used as illustrative examples in documents
+        without prior coordination with us. They are not available for registration
+        or transfer.\nWe provide a web service on the example domain hosts to provide
+        basic information on the purpose of the domain. These web services are provided
+        as best effort, but are not designed to support production applications. While
+        incidental traffic for incorrectly configured applications is expected, please
+        do not design applications that require the example domains to have operating
+        HTTP service.\nFurther Reading\nIANA-managed Reserved Domains\nLast revised
+        2017-05-13.\n\n\n","tool_call_id":"call_ZBzfzckeLtRD9rdmexY5ZU0m","name":"extract_main_content"}],"temperature":0.7,"tools":[{"type":"function","function":{"name":"go_back","description":"Go
+        back to the previous page in browser history","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"navigate","description":"Navigate
+        to a URL in the browser","parameters":{"type":"object","properties":{"url":{"type":"string","description":"The
+        URL to navigate to"}},"required":["url"]}}},{"type":"function","function":{"name":"screenshot","description":"Take
+        a screenshot of the current page","parameters":{"type":"object","properties":{"filename":{"type":"string","description":"Name
+        for the screenshot file"},"full_page":{"type":"boolean","description":"Whether
+        to capture the full page (true) or just viewport (false)"},"main_content_only":{"type":"boolean","description":"Automatically
+        detect and crop to main content area, excluding headers (default: true)"},"selector":{"type":"string","description":"CSS
+        selector for a specific element to screenshot (optional)"},"area":{"type":"object","description":"Specific
+        area of the page to capture (optional)","properties":{"x":{"type":"integer","description":"X
+        coordinate of the top-left corner"},"y":{"type":"integer","description":"Y
+        coordinate of the top-left corner"},"width":{"type":"integer","description":"Width
+        of the area to capture"},"height":{"type":"integer","description":"Height
+        of the area to capture"}}}}}}},{"type":"function","function":{"name":"click","description":"Click
+        on an element in the page","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector for the element to click"},"text":{"type":"string","description":"Text
+        of the link or button to click (alternative to selector)"}}}}},{"type":"function","function":{"name":"extract_links_with_previews","description":"Extract
+        links from the current page and take preview screenshots of each","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector to extract links from (default: body)"},"limit":{"type":"integer","description":"Maximum
+        number of links to preview (default: 5)"}}}}},{"type":"function","function":{"name":"fill_form","description":"Fill
+        in a form field","parameters":{"type":"object","properties":{"field":{"type":"string","description":"Name
+        or label of the field to fill"},"value":{"type":"string","description":"Value
+        to fill in the field"},"selector":{"type":"string","description":"CSS selector
+        for the field (alternative to field name)"}},"required":["value"]}}},{"type":"function","function":{"name":"extract_text","description":"Extract
+        text content from the page or a specific element","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector for the element to extract text from (default: body)"}}}}},{"type":"function","function":{"name":"page_info","description":"Get
+        information about the current page","parameters":{"type":"object","properties":{}}}},{"type":"function","function":{"name":"extract_links","description":"Extract
+        links from the current page","parameters":{"type":"object","properties":{"selector":{"type":"string","description":"CSS
+        selector to extract links from (default: body)"},"limit":{"type":"integer","description":"Maximum
+        number of links to extract (default: 10)"}}}}},{"type":"function","function":{"name":"follow_link","description":"Follow
+        a link on the current page","parameters":{"type":"object","properties":{"text":{"type":"string","description":"Text
+        of the link to follow"},"href":{"type":"string","description":"Partial href
+        to match and follow"}}}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 14:39:52 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '3957'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '4026'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199128'
+      X-Ratelimit-Reset-Requests:
+      - 13.458s
+      X-Ratelimit-Reset-Tokens:
+      - 261ms
+      X-Request-Id:
+      - req_eb4413b9089348438d5a47a3ec6780ac
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Yf4qniuKuiiGTd2ARYW9Y8LDMcBd4b43JK4sY7k5H_Q-1756219192-1.0.1.1-cxIhuhU6Wq4.6lmjlzQsAotJvqKQL9MSj3gehvrspwP_2vCtacQiIIO7dh7oKE9H8FR4Lve3yP7dJYerF4lBEE8o6ojdlxma4mySM115cHo;
+        path=/; expires=Tue, 26-Aug-25 15:09:52 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=1KU0FBA.Y1mKmc8hTJezHjwkv5p9IrYrRewNxbJIC7w-1756219192934-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 975414a45f388486-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        ewogICJpZCI6ICJjaGF0Y21wbC1DOHA3dHBUSDRPY2RTN2daVEJ6Yk53YVVpTmUzUCIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc1NjIxOTE4OSwKICAibW9kZWwiOiAiZ3B0LTRvLW1pbmktMjAyNC0wNy0xOCIsCiAgImNob2ljZXMiOiBbCiAgICB7CiAgICAgICJpbmRleCI6IDAsCiAgICAgICJtZXNzYWdlIjogewogICAgICAgICJyb2xlIjogImFzc2lzdGFudCIsCiAgICAgICAgImNvbnRlbnQiOiAiSSBuYXZpZ2F0ZWQgdG8gdGhlIGxpbmsgcHJvdmlkZWQgb24gdGhlIEV4YW1wbGUgRG9tYWluIHBhZ2UgYW5kIGV4dHJhY3RlZCB0aGUgbWFpbiBjb250ZW50IGZyb20gdGhlIFwiRXhhbXBsZSBEb21haW5zXCIgcGFnZS4gSGVyZeKAmXMgYSBzdW1tYXJ5IG9mIHRoZSBpbmZvcm1hdGlvbiBmb3VuZDpcblxuIyMjIEV4YW1wbGUgRG9tYWluc1xuLSAqKlVSTCoqOiBbRXhhbXBsZSBEb21haW5zXShodHRwczovL3d3dy5pYW5hLm9yZy9oZWxwL2V4YW1wbGUtZG9tYWlucylcbi0gKipQdXJwb3NlKio6IEFzIG91dGxpbmVkIGluIFJGQyAyNjA2IGFuZCBSRkMgNjc2MSwgZG9tYWlucyBsaWtlIGV4YW1wbGUuY29tIGFuZCBleGFtcGxlLm9yZyBhcmUgcmVzZXJ2ZWQgZm9yIGRvY3VtZW50YXRpb24gcHVycG9zZXMuIFRoZXkgY2FuIGJlIHVzZWQgaW4gZG9jdW1lbnRzIGFzIGlsbHVzdHJhdGl2ZSBleGFtcGxlcyB3aXRob3V0IGFueSBwcmlvciBjb29yZGluYXRpb24uXG4tICoqQXZhaWxhYmlsaXR5Kio6IFRoZXNlIGRvbWFpbnMgYXJlIG5vdCBhdmFpbGFibGUgZm9yIHJlZ2lzdHJhdGlvbiBvciB0cmFuc2Zlci5cbi0gKipXZWIgU2VydmljZXMqKjogQmFzaWMgaW5mb3JtYXRpb24gc2VydmljZXMgYXJlIGF2YWlsYWJsZSBvbiB0aGUgZXhhbXBsZSBkb21haW4gaG9zdHMuIEhvd2V2ZXIsIHRoZXNlIGFyZSBub3QgZGVzaWduZWQgZm9yIHByb2R1Y3Rpb24gYXBwbGljYXRpb25zLCBhbmQgdHJhZmZpYyBmcm9tIG1pc2NvbmZpZ3VyZWQgYXBwbGljYXRpb25zIGlzIGV4cGVjdGVkLiBBcHBsaWNhdGlvbnMgc2hvdWxkIG5vdCBkZXBlbmQgb24gdGhlc2UgZG9tYWlucyBmb3Igb3BlcmF0aW9uYWwgSFRUUCBzZXJ2aWNlcy5cbi0gKipGdXJ0aGVyIFJlYWRpbmcqKjogSUFOQS1tYW5hZ2VkIFJlc2VydmVkIERvbWFpbnNcbi0gKipMYXN0IFJldmlzZWQqKjogMjAxNy0wNS0xM1xuXG5JZiB5b3UgbmVlZCBhZGRpdGlvbmFsIGluZm9ybWF0aW9uIG9yIGZ1cnRoZXIgbmF2aWdhdGlvbiwgcGxlYXNlIGxldCBtZSBrbm93ISIsCiAgICAgICAgInJlZnVzYWwiOiBudWxsLAogICAgICAgICJhbm5vdGF0aW9ucyI6IFtdCiAgICAgIH0sCiAgICAgICJsb2dwcm9icyI6IG51bGwsCiAgICAgICJmaW5pc2hfcmVhc29uIjogInN0b3AiCiAgICB9CiAgXSwKICAidXNhZ2UiOiB7CiAgICAicHJvbXB0X3Rva2VucyI6IDEzMTIsCiAgICAiY29tcGxldGlvbl90b2tlbnMiOiAyMDcsCiAgICAidG90YWxfdG9rZW5zIjogMTUxOSwKICAgICJwcm9tcHRfdG9rZW5zX2RldGFpbHMiOiB7CiAgICAgICJjYWNoZWRfdG9rZW5zIjogMCwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAKICAgIH0sCiAgICAiY29tcGxldGlvbl90b2tlbnNfZGV0YWlscyI6IHsKICAgICAgInJlYXNvbmluZ190b2tlbnMiOiAwLAogICAgICAiYXVkaW9fdG9rZW5zIjogMCwKICAgICAgImFjY2VwdGVkX3ByZWRpY3Rpb25fdG9rZW5zIjogMCwKICAgICAgInJlamVjdGVkX3ByZWRpY3Rpb25fdG9rZW5zIjogMAogICAgfQogIH0sCiAgInNlcnZpY2VfdGllciI6ICJkZWZhdWx0IiwKICAic3lzdGVtX2ZpbmdlcnByaW50IjogImZwXzU2MGFmNmU1NTkiCn0K
+  recorded_at: Tue, 26 Aug 2025 14:39:52 GMT
+recorded_with: VCR 6.3.1
