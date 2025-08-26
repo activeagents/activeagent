@@ -1269,3 +1269,28 @@ When updating documentation:
 6. Run tests and verify documentation builds correctly
 - when adding new paramters ensure the prompt and merge params method in @lib/active_agent/base.rb allows them to be passed through
 - Use vscode regions for snippets of examples in docs
+- We use Agent classes by loading params `.with` that returns a Parameterized Agent class then calling actions on the parameterized agent like `ApplicationAgent.with(message:'hi').prompt_context` this creates the ActiveAgent Generation object that we can then run `generate_now` or `generate_later` on
+- 1. The Generation is a lazy wrapper - It doesn't create the actual agent or context until needed (see line 56-58 in processed_agent method)
+  2. It delegates to the context - The __getobj__ method (line 14) returns @context ||= processed_agent.context, which means it delegates all method calls to the underlying context object
+  3. The context comes from the processed agent - When you call generate_now, it:
+    - Creates a new agent instance (@agent_class.new)
+    - Calls agent.process(@action, *@args) to set up the agent with the action and arguments
+    - Runs callbacks and performs the generation
+    - Returns the context which contains the prompt and response
+
+  So in our test, when we do:
+  generation = ResearchAgent.with(topic: "Ruby performance").comprehensive_research
+
+  We get a Generation object that:
+  - Knows the agent class (ResearchAgent)
+  - Knows the action (:comprehensive_research)
+  - Has the args from with(topic: "Ruby performance")
+  - But hasn't actually created the agent or context yet
+
+  Only when we call generation.generate_now does it:
+  1. Create the agent instance
+  2. Process the action with the parameters
+  3. Execute the generation
+  4. Return the context with the actual prompt and response
+
+  This lazy evaluation pattern allows for queueing generations with generate_later for background processing, which is why the Generation class has that safety check (lines 62-70) to prevent accessing the context before enqueueing.

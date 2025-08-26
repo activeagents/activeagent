@@ -140,3 +140,50 @@ class ActiveAgentTestCase < ActiveSupport::TestCase
     ActiveAgent.instance_variable_set(:@config, old_config)
   end
 end
+
+# Add credential check helpers to all tests
+class ActiveSupport::TestCase
+  # Check if credentials are available for a given provider
+  def has_provider_credentials?(provider)
+    case provider.to_sym
+    when :openai
+      has_openai_credentials?
+    when :anthropic
+      has_anthropic_credentials?
+    when :open_router, :openrouter
+      has_openrouter_credentials?
+    when :ollama
+      has_ollama_credentials?
+    else
+      false
+    end
+  end
+
+  def has_openai_credentials?
+    Rails.application.credentials.dig(:openai, :access_token).present? ||
+      ENV["OPENAI_ACCESS_TOKEN"].present? ||
+      ENV["OPENAI_API_KEY"].present?
+  end
+
+  def has_anthropic_credentials?
+    Rails.application.credentials.dig(:anthropic, :access_token).present? ||
+      ENV["ANTHROPIC_ACCESS_TOKEN"].present? ||
+      ENV["ANTHROPIC_API_KEY"].present?
+  end
+
+  def has_openrouter_credentials?
+    Rails.application.credentials.dig(:open_router, :access_token).present? ||
+      Rails.application.credentials.dig(:open_router, :api_key).present? ||
+      ENV["OPENROUTER_API_KEY"].present?
+  end
+
+  def has_ollama_credentials?
+    # Ollama typically runs locally, so check if it's accessible
+    config = ActiveAgent.config.dig("ollama") || {}
+    host = config["host"] || "http://localhost:11434"
+
+    # For test purposes, we assume Ollama is available if configured
+    # In real tests, you might want to actually ping the server
+    host.present?
+  end
+end

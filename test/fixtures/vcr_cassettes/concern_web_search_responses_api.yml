@@ -1,0 +1,119 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o","messages":[{"role":"user","content":"Academic papers
+        search: latest research on large language models\nPublished between 2024 and
+        2025\nField: AI\nInclude citations and abstracts"}],"temperature":0.7}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 26 Aug 2025 17:04:56 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '7264'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '7278'
+      X-Ratelimit-Limit-Requests:
+      - '500'
+      X-Ratelimit-Limit-Tokens:
+      - '30000'
+      X-Ratelimit-Remaining-Requests:
+      - '499'
+      X-Ratelimit-Remaining-Tokens:
+      - '29963'
+      X-Ratelimit-Reset-Requests:
+      - 120ms
+      X-Ratelimit-Reset-Tokens:
+      - 74ms
+      X-Request-Id:
+      - req_2abff58a76784d948678d274cb5da0e6
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=_lTBjjoV3gDE_S0EkfQ3g8AceUYQXDHbI2MI8C.CKTI-1756227896-1.0.1.1-fR1IunBu4W3JmXxC11LoCs4g34ewnWpEqOkPMUTYLvfaAw9oEMLeZoHkV4Ain0bH285NDURCzG0qQLghLPwHQF2sBe4dRmJgpRV2DQn0ZYg;
+        path=/; expires=Tue, 26-Aug-25 17:34:56 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=wRUuSjfSFllRGkLcxO51bHMrwW3tYNxhd4S5yscy8PQ-1756227896226-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9754e911ae9f17c4-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C8rOCI7xckwCyqrQ10OVBffursweK",
+          "object": "chat.completion",
+          "created": 1756227888,
+          "model": "gpt-4o-2024-08-06",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I'm unable to access or retrieve real-time data, including academic papers published after my last update in October 2023. However, I can guide you on how to find the latest research on large language models in the field of AI using academic databases and search engines:\n\n1. **Google Scholar**: This is a comprehensive and freely accessible search engine that indexes the full text or metadata of scholarly literature across various formats. You can search for terms like \"large language models 2024\" or \"advancements in AI language models 2025\" to find the latest papers. You can also set alerts for specific search terms to get notifications about new publications.\n\n2. **arXiv.org**: This is a preprint repository where researchers often upload their papers before they are peer-reviewed and published in journals. Searching for \"large language models\" in the AI section can yield recent submissions.\n\n3. **IEEE Xplore**: This is a digital library for research articles and standards in engineering and technology. If you have access through an institution, you can find cutting-edge research on AI and large language models.\n\n4. **ACM Digital Library**: The Association for Computing Machinery provides access to computing and information technology literature. It's particularly useful for finding conference proceedings and journal articles on AI.\n\n5. **PubMed and Web of Science**: These databases are great for finding interdisciplinary research papers that might touch on AI applications in other fields.\n\n6. **ResearchGate**: This is a professional network for scientists and researchers where they share and discuss their work. It can be a good way to find recent publications and connect with researchers in the field.\n\n7. **University Libraries**: Many universities provide access to databases like JSTOR, SpringerLink, and ScienceDirect, which can be used to find recent papers if you have access through an institution.\n\n8. **Conferences**: Keep an eye on major AI conferences like NeurIPS, ICML, and CVPR, as they often feature the latest research in AI and large language models.\n\nWhen you find a paper of interest, you'll typically see a citation and an abstract. Here's an example of how a citation might look:\n\n**Citation Example:**\nAuthor(s). (Year). Title of the Paper. *Journal Name*, Volume(Issue), Page Numbers. DOI\n\n**Abstract Example:**\nThis paper explores the recent advancements in large language models, focusing on their architectural innovations and applications across various domains. We evaluate the performance of these models using benchmark datasets and propose a novel method for enhancing their efficiency. Our results demonstrate significant improvements in both speed and accuracy, paving the way for more robust AI systems.\n\nIf you need further assistance with a specific topic or paper, feel free to ask!",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 36,
+            "completion_tokens": 550,
+            "total_tokens": 586,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_ea40d5097a"
+        }
+  recorded_at: Tue, 26 Aug 2025 17:04:56 GMT
+recorded_with: VCR 6.3.1

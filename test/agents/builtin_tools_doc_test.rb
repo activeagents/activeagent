@@ -5,16 +5,15 @@ require_relative "../dummy/app/agents/multimodal_agent"
 class BuiltinToolsDocTest < ActiveSupport::TestCase
   # region web_search_example
   test "web search with responses API example" do
-    skip "Requires API credentials" unless ENV["OPENAI_ACCESS_TOKEN"]
+    skip "Requires API credentials" unless has_openai_credentials?
     
     VCR.use_cassette("doc_web_search_responses") do
-      agent = WebSearchAgent.new
-      response = agent.search_with_tools(
+      generation = WebSearchAgent.with(
         query: "Latest Ruby on Rails 8 features",
         context_size: "high"
-      )
+      ).search_with_tools
       
-      result = response.generate_now
+      result = generation.generate_now
       
       # The response includes web search results
       assert result.message.content.present?
@@ -27,17 +26,16 @@ class BuiltinToolsDocTest < ActiveSupport::TestCase
   
   # region image_generation_example
   test "image generation with responses API example" do
-    skip "Requires API credentials" unless ENV["OPENAI_ACCESS_TOKEN"]
+    skip "Requires API credentials" unless has_openai_credentials?
     
     VCR.use_cassette("doc_image_generation") do
-      agent = MultimodalAgent.new
-      response = agent.create_image(
+      generation = MultimodalAgent.with(
         description: "A serene landscape with mountains and a lake at sunset",
         size: "1024x1024",
         quality: "high"
-      )
+      ).create_image
       
-      result = response.generate_now
+      result = generation.generate_now
       
       # The response includes the generated image
       assert result.message.content.present?
@@ -49,16 +47,15 @@ class BuiltinToolsDocTest < ActiveSupport::TestCase
   
   # region combined_tools_example
   test "combining multiple built-in tools example" do
-    skip "Requires API credentials" unless ENV["OPENAI_ACCESS_TOKEN"]
+    skip "Requires API credentials" unless has_openai_credentials?
     
     VCR.use_cassette("doc_combined_tools") do
-      agent = MultimodalAgent.new
-      response = agent.create_infographic(
+      generation = MultimodalAgent.with(
         topic: "Climate Change Impact",
         style: "modern"
-      )
+      ).create_infographic
       
-      result = response.generate_now
+      result = generation.generate_now
       
       # The response uses both web search and image generation
       assert result.message.content.present?

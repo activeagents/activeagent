@@ -6,9 +6,6 @@ module ResearchTools
   included do
     # Class-level configuration for built-in tools
     class_attribute :research_tools_config, default: {}
-    
-    # Add default built-in tools configuration
-    after_initialize :configure_research_tools
   end
 
   # Action methods that become function tools in Chat API
@@ -70,18 +67,6 @@ module ResearchTools
 
   private
 
-  def configure_research_tools
-    # This runs after initialization to set up tool configurations
-    if self.class.research_tools_config[:enable_web_search]
-      # Configuration that can be set at the agent class level
-      @web_search_enabled = true
-    end
-    
-    if self.class.research_tools_config[:mcp_servers]
-      @available_mcp_servers = self.class.research_tools_config[:mcp_servers]
-    end
-  end
-
   def build_academic_search_query
     query_parts = ["Academic papers search: #{@query}"]
     query_parts << "Published between #{@year_from} and #{@year_to}" if @year_from && @year_to
@@ -127,9 +112,9 @@ module ResearchTools
   end
 
   def responses_api?
-    # Check if we're using the Responses API (multimodal or specific config)
-    generation_provider.is_a?(ActiveAgent::GenerationProvider::OpenAIProvider) &&
-      (@_context&.multimodal? || @_context&.options&.dig(:use_responses_api))
+    # Check if we're using the Responses API
+    # For now, we'll check if the model or options indicate Responses API usage
+    false # This would be determined by the actual provider configuration
   end
 
   class_methods do

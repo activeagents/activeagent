@@ -1,7 +1,8 @@
 # Example agent demonstrating multimodal capabilities with built-in tools
 # This agent uses the Responses API to access advanced tools
 class MultimodalAgent < ApplicationAgent
-  generate_with :openai, model: "gpt-5"
+  # Use default temperature for Responses API compatibility
+  generate_with :openai, model: "gpt-4o", temperature: nil
   
   # Generate an image based on a description
   def create_image
