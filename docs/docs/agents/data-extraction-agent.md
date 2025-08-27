@@ -57,6 +57,42 @@ When using structured output:
 - The response content will be valid JSON matching your schema
 - Parse the response with `JSON.parse(response.message.content)`
 
+#### Generating Schemas from Models
+
+ActiveAgent provides a `SchemaGenerator` module that can automatically create JSON schemas from your ActiveRecord and ActiveModel classes. This makes it easy to ensure extracted data matches your application's data models.
+
+##### Basic Usage
+
+::: code-group
+<<< @/../test/schema_generator_test.rb#basic_user_model {ruby:line-numbers}
+<<< @/../test/schema_generator_test.rb#basic_schema_generation {ruby:line-numbers}
+:::
+
+The `to_json_schema` method generates a JSON schema from your model's attributes and validations.
+
+##### Schema with Validations
+
+Model validations are automatically included in the generated schema:
+
+<<< @/../test/schema_generator_test.rb#schema_with_validations {ruby:line-numbers}
+
+##### Strict Schema for Structured Output
+
+For use with AI providers that support structured output, generate a strict schema:
+
+::: code-group
+<<< @/../test/schema_generator_test.rb#blog_post_model {ruby:line-numbers}
+<<< @/../test/schema_generator_test.rb#strict_schema_generation {ruby:line-numbers}
+:::
+
+##### Using Generated Schemas in Agents
+
+Agents can use the schema generator to create structured output schemas dynamically:
+
+<<< @/../test/schema_generator_test.rb#agent_using_schema {ruby:line-numbers}
+
+This allows you to maintain a single source of truth for your data models and automatically generate schemas for AI extraction.
+
 ::: info Provider Support
 Structured output requires a generation provider that supports JSON schemas. Currently supported providers include:
 - **OpenAI** - GPT-4o, GPT-4o-mini, GPT-3.5-turbo variants
