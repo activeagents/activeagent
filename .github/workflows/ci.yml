@@ -56,13 +56,14 @@ jobs:
       env:
         RAILS_ENV: test
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+      working-directory: test/dummy
       run: |
-        cd test/dummy
         bin/rails db:create
         bin/rails db:migrate
-        cd ../..
     - name: Run tests
       env:
         RAILS_ENV: test
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-      run: bin/test
+      run: |
+        cd ../..
+        bin/test
