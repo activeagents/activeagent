@@ -102,7 +102,7 @@ export default defineConfig({
       },
       { text: 'Agents',
         items: [
-          { text: 'Browser User', link: '/docs/agents/browser-use-agent' },
+          { text: 'Browser Use', link: '/docs/agents/browser-use-agent' },
           { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
           { text: 'Translation', link: '/docs/agents/translation-agent' },
         ]
@@ -110,7 +110,7 @@ export default defineConfig({
       { text: 'Active Agent',
         items: [
           // { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
-          { text: 'Structured Output', link: '/docs/agents/data-extraction-agent#structured-output' },
+          { text: 'Structured Output', link: '/docs/active-agent/structured-output' },
           { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
           { text: 'Generation', link: '/docs/active-agent/generation' },
           { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },

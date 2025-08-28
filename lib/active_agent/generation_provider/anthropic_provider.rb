@@ -130,6 +130,7 @@ module ActiveAgent
 
         message = ActiveAgent::ActionPrompt::Message.new(
           content: content,
+          content_type: prompt.output_schema.present? ? "application/json" : "text/plain",
           role: "assistant",
           action_requested: response["stop_reason"] == "tool_use",
           requested_actions: handle_actions(response["content"].map { |c| c if c["type"] == "tool_use" }.reject { |m| m.blank? }.to_a),

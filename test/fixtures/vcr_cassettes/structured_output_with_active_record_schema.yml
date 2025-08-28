@@ -1,0 +1,125 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Extract
+        user data from: Alice Johnson, 28 years old, email: alice@example.com, bio:
+        Software engineer"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"user_data","schema":{"type":"object","properties":{"name":{"type":"string","description":"Name
+        field","minLength":2,"maxLength":100},"email":{"type":"string","description":"Email
+        field","format":"email"},"age":{"type":"integer","description":"Age field","exclusiveMaximum":120,"minimum":18},"role":{"type":"string","description":"Role
+        field","default":"user","enum":["admin","moderator","user"]},"active":{"type":"boolean","description":"Active
+        field","default":"1"},"created_at":{"type":"string","description":"Created
+        at field","format":"date-time"},"updated_at":{"type":"string","description":"Updated
+        at field","format":"date-time"}},"required":["active","age","created_at","email","name","role","updated_at"],"additionalProperties":false},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 27 Aug 2025 03:06:39 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '1350'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '1478'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199972'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 8ms
+      X-Request-Id:
+      - req_e49e856668e344fcaaf8ac570bc1060c
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=bSMtZB_3GuHnO.qIJRelAaalh4Y.N_eGLEDMUYJ3x_M-1756263999-1.0.1.1-hAK6kUXlY_CsVuiUMN6bwwkcSnAKcDBFD7xp6rPht_K4ArqU2J5w_yVhj1erZ3DQX0hVJYtHsclVq.WbdtcZW_8tNke7zoqhqGN.4aGe_FQ;
+        path=/; expires=Wed, 27-Aug-25 03:36:39 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=QbFfQqf9.SnbB2CzVEYHHOMrqyl2bAybYEY0tx2b5Ws-1756263999209-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 97585a9f7c6b7ae8-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-C90mbzvXAAnXEfuEhpXUqCrzT7xOb",
+          "object": "chat.completion",
+          "created": 1756263997,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"name\":\"Alice Johnson\",\"email\":\"alice@example.com\",\"age\":28,\"role\":\"user\",\"active\":true,\"created_at\":\"2023-10-01T00:00:00Z\",\"updated_at\":\"2023-10-01T00:00:00Z\"}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 150,
+            "completion_tokens": 58,
+            "total_tokens": 208,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_51db84afab"
+        }
+  recorded_at: Wed, 27 Aug 2025 03:06:39 GMT
+recorded_with: VCR 6.3.1

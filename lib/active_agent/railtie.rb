@@ -5,6 +5,7 @@ require "active_agent"
 # require "active_agent/engine"
 require "rails"
 require "abstract_controller/railties/routes_helpers"
+require "active_agent/railtie/schema_generator_extension"
 
 module ActiveAgent
   class Railtie < Rails::Railtie # :nodoc:

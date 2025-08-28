@@ -14,21 +14,13 @@ Configure Anthropic in your agent:
 
 Set up Anthropic credentials in `config/active_agent.yml`:
 
-```yaml
-development:
-  anthropic:
-    access_token: <%= Rails.application.credentials.dig(:anthropic, :api_key) %>
-    model: claude-3-5-sonnet-latest
-    max_tokens: 4096
-    temperature: 0.7
-    
-production:
-  anthropic:
-    access_token: <%= Rails.application.credentials.dig(:anthropic, :api_key) %>
-    model: claude-3-5-sonnet-latest
-    max_tokens: 2048
-    temperature: 0.3
-```
+::: code-group
+
+<<< @/../test/dummy/config/active_agent.yml#anthropic_anchor{yaml:line-numbers}
+
+<<< @/../test/dummy/config/active_agent.yml#anthropic_dev_config{yaml:line-numbers}
+
+:::
 
 ### Environment Variables
 
@@ -133,6 +125,122 @@ class StreamingClaudeAgent < ApplicationAgent
   end
 end
 ```
+
+### Structured Output
+
+While Anthropic doesn't provide native structured output like OpenAI's JSON mode, Claude models excel at following JSON format instructions and producing well-structured outputs.
+
+#### Approach
+
+Claude's strong instruction-following capabilities make it reliable for JSON generation:
+
+```ruby
+class AnthropicStructuredAgent < ApplicationAgent
+  generate_with :anthropic, model: "claude-3-5-sonnet-latest"
+  
+  def extract_data
+    @text = params[:text]
+    @schema = params[:schema]
+    
+    prompt(
+      instructions: build_json_instructions,
+      message: @text
+    )
+  end
+  
+  private
+  
+  def build_json_instructions
+    <<~INSTRUCTIONS
+      You must respond with valid JSON that conforms to this schema:
+      #{@schema.to_json}
+      
+      Ensure your response:
+      - Is valid JSON without any markdown formatting
+      - Includes all required fields
+      - Uses the exact property names from the schema
+      - Contains appropriate data types for each field
+    INSTRUCTIONS
+  end
+end
+```
+
+#### With Schema Generator
+
+Use ActiveAgent's schema generator with Claude:
+
+```ruby
+# Define your model
+class ExtractedData
+  include ActiveModel::Model
+  include ActiveAgent::SchemaGenerator
+  
+  attribute :name, :string
+  attribute :email, :string
+  attribute :age, :integer
+  
+  validates :name, presence: true
+  validates :email, format: { with: URI::MailTo::EMAIL_REGEXP }
+end
+
+# Generate and use the schema
+schema = ExtractedData.to_json_schema
+response = AnthropicAgent.with(
+  text: "John Doe, 30 years old, john@example.com",
+  schema: schema
+).extract_data.generate_now
+
+# Parse the JSON response
+data = JSON.parse(response.message.content)
+```
+
+#### Best Practices for Structured Output with Claude
+
+1. **Clear Instructions**: Provide explicit JSON formatting instructions in the system message
+2. **Schema in Prompt**: Include the schema definition directly in the prompt
+3. **Example Output**: Consider providing an example of the expected JSON format
+4. **Validation**: Always validate the returned JSON against your schema
+5. **Error Handling**: Implement fallback logic for malformed responses
+
+#### Example with Validation
+
+```ruby
+class ValidatedAnthropicAgent < ApplicationAgent
+  generate_with :anthropic, model: "claude-3-5-sonnet-latest"
+  
+  def extract_with_validation
+    response = prompt(
+      instructions: json_instructions,
+      message: params[:text]
+    )
+    
+    # Validate and parse response
+    begin
+      json_data = JSON.parse(response.message.content)
+      validate_against_schema(json_data)
+      json_data
+    rescue JSON::ParserError => e
+      handle_invalid_json(e)
+    end
+  end
+  
+  private
+  
+  def validate_against_schema(data)
+    # Implement schema validation logic
+    JSON::Validator.validate!(schema, data)
+  end
+end
+```
+
+#### Advantages with Claude
+
+- **Reliability**: Claude consistently follows formatting instructions
+- **Flexibility**: Can handle complex nested schemas
+- **Context**: Excellent at understanding context for accurate extraction
+- **Reasoning**: Can explain extraction decisions when needed
+
+See the [Structured Output guide](/docs/active-agent/structured-output) for more examples and patterns.
 
 ### Vision Capabilities
 
