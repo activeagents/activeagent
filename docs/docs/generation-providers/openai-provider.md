@@ -14,21 +14,13 @@ Configure OpenAI in your agent:
 
 Set up OpenAI credentials in `config/active_agent.yml`:
 
-```yaml
-development:
-  openai:
-    access_token: <%= Rails.application.credentials.dig(:openai, :api_key) %>
-    model: gpt-4o
-    temperature: 0.7
-    max_tokens: 4096
-    
-production:
-  openai:
-    access_token: <%= Rails.application.credentials.dig(:openai, :api_key) %>
-    model: gpt-4o
-    temperature: 0.3
-    max_tokens: 2048
-```
+::: code-group
+
+<<< @/../test/dummy/config/active_agent.yml#openai_anchor{yaml:line-numbers}
+
+<<< @/../test/dummy/config/active_agent.yml#openai_dev_config{yaml:line-numbers}
+
+:::
 
 ### Environment Variables
 
@@ -124,7 +116,19 @@ end
 
 ### Structured Output
 
-Use JSON mode for structured responses:
+OpenAI provides native structured output support, ensuring responses conform to specified JSON schemas. This feature is available with GPT-4o, GPT-4o-mini, and GPT-3.5-turbo models.
+
+#### Supported Models
+
+Models with full structured output support:
+- **GPT-4o** - Vision + structured output
+- **GPT-4o-mini** - Vision + structured output  
+- **GPT-4-turbo** - Structured output only (no vision)
+- **GPT-3.5-turbo** - Structured output only
+
+#### Basic Usage
+
+Enable JSON mode with a schema:
 
 ```ruby
 class StructuredAgent < ApplicationAgent
@@ -141,6 +145,68 @@ class StructuredAgent < ApplicationAgent
   end
 end
 ```
+
+#### With Schema Generator
+
+Use ActiveAgent's schema generator for automatic schema creation:
+
+<<< @/../test/integration/structured_output_json_parsing_test.rb#34-70{ruby:line-numbers}
+
+#### Strict Mode
+
+OpenAI supports strict schema validation to guarantee output format:
+
+```ruby
+schema = {
+  name: "user_data",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      age: { type: "integer" },
+      email: { type: "string", format: "email" }
+    },
+    required: ["name", "age", "email"],
+    additionalProperties: false
+  }
+}
+
+response = agent.prompt(
+  message: "Extract user information",
+  output_schema: schema
+).generate_now
+```
+
+#### Response Handling
+
+Structured output responses are automatically parsed:
+
+```ruby
+response = OpenAIAgent.with(
+  message: "Extract data from: John Doe, 30, john@example.com"
+).extract_with_schema.generate_now
+
+# Automatic JSON parsing
+response.message.content_type # => "application/json"
+response.message.content # => {"name" => "John Doe", "age" => 30, "email" => "john@example.com"}
+response.message.raw_content # => '{"name":"John Doe","age":30,"email":"john@example.com"}'
+```
+
+#### Best Practices
+
+1. **Use strict mode** for production applications requiring guaranteed format
+2. **Leverage model schemas** from ActiveRecord/ActiveModel for consistency
+3. **Test with VCR** to ensure schemas work with actual API responses
+4. **Handle edge cases** like empty or invalid inputs gracefully
+
+#### Limitations
+
+- Maximum schema complexity varies by model
+- Very large schemas may impact token limits
+- Not all JSON Schema features are supported (check OpenAI docs for specifics)
+
+See the [Structured Output guide](/docs/active-agent/structured-output) for comprehensive documentation and examples.
 
 ### Built-in Tools (Responses API)
 

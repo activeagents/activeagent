@@ -195,9 +195,16 @@ This repository follows a strict documentation process to ensure all code exampl
 ### Key Principles
 
 1. **No hardcoded code blocks** - All code must come from tested files
+   - NEVER use ``` code blocks in docs/docs/ directory
+   - ALL code examples must use `<<<` imports from tested files
+   - Code blocks (```) should ONLY appear in deterministically generated docs/parts/ files from test helper
 2. **Use `<<<` imports only** - Import code from actual tested implementation and test files
 3. **Test everything** - If it's in docs, it must have a test
 4. **Include outputs** - Use `doc_example_output` for response examples
+5. **Configuration examples** - Must come from actual config files with proper regions
+   - ALWAYS include the `service:` key in provider configurations
+   - Use regions in config files (e.g., test/dummy/config/active_agent.yml)
+   - Import config examples using VitePress snippets with regions
 
 ### Import Patterns
 
@@ -1302,3 +1309,30 @@ When updating documentation:
 - Do not hardcode examples and make sure to use vscode regions and vite-press code snippets imports
 
 - use `bin/rubocop -a` to autofix linting issues
+- Follow the testing procedures to have deterministic tested code examples; never hardcode code examples in docs; always use the vite-press snippets along with the test helper for example outputs
+
+## Critical Documentation Rules (MUST FOLLOW)
+
+### NEVER Hardcode Examples
+- ❌ NEVER write ```ruby, ```yaml, ```bash or any ``` code blocks in docs/docs/
+- ✅ ALWAYS use <<< imports from tested files
+- ✅ Use regions in test files for specific snippets
+- ✅ Generated examples go in docs/parts/examples/ via doc_example_output
+
+### Configuration Documentation
+- ❌ NEVER hardcode config examples like:
+  ```yaml
+  openai:
+    access_token: ...
+  ```
+- ✅ ALWAYS use actual config files with regions:
+  - Add regions to test/dummy/config/active_agent.yml
+  - Import with: `<<< @/../test/dummy/config/active_agent.yml#region_name{yaml}`
+- ⚠️ REMEMBER: All provider configs MUST have `service:` key or they won't load
+
+### Testing Before Documenting
+1. Write the test first
+2. Add regions for important snippets
+3. Call doc_example_output for response examples
+4. Import in docs using VitePress snippets
+5. Verify with `npm run docs:build` - no hardcoded blocks should exist

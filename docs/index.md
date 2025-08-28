@@ -51,7 +51,7 @@ features:
     icon: 🔄
     details: Callbacks enable contextual prompting using retrieval before_action or persistence after_generation.
   - title: Structured Output
-    link: /docs/agents/data-extraction-agent#structured-output
+    link: /docs/active-agent/structured-output
     icon: 📊
     details: Structured Output allows agents to return structured data in JSON format, enabling easier parsing and integration with other systems.
   # - title: Generative UI

@@ -105,6 +105,6 @@ Each action is defined as a public instance method that can call `prompt` to bui
 
 ### Instruction messages
 ### Prompt messages The views define:
-- **JSON views**: [Tool schemas for function calling](/docs/action-prompt/tools) or [output schemas for structured responses](/docs/agents/data-extraction-agent#structured-output)
+- **JSON views**: [Tool schemas for function calling](/docs/action-prompt/tools) or [output schemas for structured responses](/docs/active-agent/structured-output)
 - **HTML views**: Web-friendly formatted responses  
 - **Text views**: Plain text responses

@@ -2,35 +2,58 @@
 # Each provider can have its own settings, such as API keys and model configurations.
 # Make sure to set the API keys in your Rails credentials for each generation provider before using them
 # in your agent's `generate_with` config.
+
+# region config_anchors
+# region anthropic_anchor
 anthropic: &anthropic
   service: "Anthropic"
   access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
+# endregion anthropic_anchor
+# region openai_anchor
 openai: &openai
   service: "OpenAI"
   access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
+# endregion openai_anchor
+# region open_router_anchor
 open_router: &open_router
   service: "OpenRouter"
   access_token: <%= Rails.application.credentials.dig(:open_router, :access_token) || Rails.application.credentials.dig(:open_router, :api_key) %>
+# endregion open_router_anchor
+# region ollama_anchor
 ollama: &ollama
   service: "Ollama"
   access_token: ""
   host: "http://localhost:11434"
   model: "gemma3:latest"
   temperature: 0.7
+# endregion ollama_anchor
+# endregion config_anchors
 
+# region config_development
 development:
+  # region openai_dev_config
   openai:
     <<: *openai
     model: "gpt-4o-mini"
     temperature: 0.7
+  # endregion openai_dev_config
+  # region open_router_dev_config
   open_router:
     <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
     temperature: 0.7
+  # endregion open_router_dev_config
+  # region ollama_dev_config
   ollama:
     <<: *ollama
+  # endregion ollama_dev_config
+  # region anthropic_dev_config
   anthropic:
     <<: *anthropic
+  # endregion anthropic_dev_config
+# endregion config_development
+
+# region config_test
 test:
   openai:
     <<: *openai
@@ -44,3 +67,4 @@ test:
     <<: *ollama
   anthropic:
     <<: *anthropic
+# endregion config_test
