@@ -52,6 +52,15 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
+    - name: Setup database
+      env:
+        RAILS_ENV: test
+        RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+      run: |
+        cd test/dummy
+        bin/rails db:create
+        bin/rails db:migrate
+        cd ../..
     - name: Run tests
       env:
         RAILS_ENV: test
