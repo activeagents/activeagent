@@ -58,8 +58,8 @@ jobs:
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
       working-directory: test/dummy
       run: |
-        bin/rails db:create
-        bin/rails db:migrate
+        bundle exec rails db:create
+        bundle exec rails db:migrate
     - name: Run tests
       env:
         RAILS_ENV: test
