@@ -56,11 +56,11 @@ jobs:
       env:
         RAILS_ENV: test
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
       run: |
         cd test/dummy
-        BUNDLE_GEMFILE=../../${{ matrix.gemfile }} bundle install
-        bin/rails db:create
-        bin/rails db:migrate
+        bundle exec rails db:create
+        bundle exec rails db:migrate
         cd ../..
     - name: Run tests
       env:
