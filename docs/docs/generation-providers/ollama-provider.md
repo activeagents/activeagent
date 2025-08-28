@@ -14,19 +14,13 @@ Configure Ollama in your agent:
 
 Set up Ollama in `config/active_agent.yml`:
 
-```yaml
-development:
-  ollama:
-    host: http://localhost:11434  # Default Ollama host
-    model: llama3
-    temperature: 0.7
-    
-production:
-  ollama:
-    host: <%= ENV['OLLAMA_HOST'] || 'http://localhost:11434' %>
-    model: llama3
-    temperature: 0.3
-```
+::: code-group
+
+<<< @/../test/dummy/config/active_agent.yml#ollama_anchor{yaml:line-numbers}
+
+<<< @/../test/dummy/config/active_agent.yml#ollama_dev_config{yaml:line-numbers}
+
+:::
 
 ### Environment Variables
 
@@ -153,6 +147,67 @@ class CustomModelAgent < ApplicationAgent
   end
 end
 ```
+
+### Structured Output
+
+Ollama can generate JSON-formatted responses through careful prompting and model selection. While Ollama doesn't have native structured output like OpenAI, many models can reliably produce JSON when properly instructed.
+
+#### Approach
+
+To get structured output from Ollama:
+
+1. **Choose the right model** - Models like Llama 3, Mixtral, and Mistral are good at following formatting instructions
+2. **Use clear prompts** - Explicitly request JSON format in your instructions
+3. **Set low temperature** - Use values like 0.1-0.3 for more consistent formatting
+4. **Parse and validate** - Always validate the response as it may not be valid JSON
+
+#### Example Approach
+
+```ruby
+class OllamaAgent < ApplicationAgent
+  generate_with :ollama,
+    model: "llama3",
+    temperature: 0.1  # Lower temperature for consistency
+  
+  def extract_with_json_prompt
+    prompt(
+      instructions: <<~INST,
+        You must respond ONLY with valid JSON.
+        Extract the key information and format as:
+        {"field1": "value", "field2": "value"}
+        No explanation, just the JSON object.
+      INST
+      message: params[:text]
+    )
+  end
+end
+
+# Usage - parse with error handling
+response = agent.extract_with_json_prompt.generate_now
+begin
+  data = JSON.parse(response.message.content)
+rescue JSON::ParserError
+  # Handle malformed JSON
+end
+```
+
+#### Best Practices
+
+1. **Model Selection**: Test different models to find which works best for your use case
+2. **Prompt Engineering**: Be very explicit about JSON requirements
+3. **Validation**: Always validate and handle parsing errors
+4. **Local Processing**: Ideal for sensitive data that must stay on-premise
+
+#### Limitations
+
+- No guaranteed JSON output like OpenAI's strict mode
+- Quality varies significantly by model
+- May require multiple attempts or fallback logic
+- Complex schemas may be challenging
+
+For reliable structured output, consider using [OpenAI](/docs/generation-providers/openai-provider#structured-output) or [OpenRouter](/docs/generation-providers/open-router-provider#structured-output-support) providers. For local processing requirements where Ollama is necessary, implement robust validation and error handling.
+
+See the [Structured Output guide](/docs/active-agent/structured-output) for more information about structured output patterns.
 
 ### Streaming Responses
 

@@ -4,15 +4,15 @@
 
 ```ruby
 # Response object
-#<ActiveAgent::GenerationProvider::Response:0x3944
-  @message=#<ActiveAgent::ActionPrompt::Message:0x3958
+#<ActiveAgent::GenerationProvider::Response:0x4ec0
+  @message=#<ActiveAgent::ActionPrompt::Message:0x4ed4
     @action_id=nil,
     @action_name=nil,
     @action_requested=false,
     @charset="UTF-8",
     @content="The capital of France is Paris.",
     @role=:assistant>
-  @prompt=#<ActiveAgent::ActionPrompt::Prompt:0x396c ...>
+  @prompt=#<ActiveAgent::ActionPrompt::Prompt:0x4ee8 ...>
   @content_type="text/plain"
   @raw_response={...}>
 

@@ -20,19 +20,16 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       assert_not_nil response
       assert_not_nil response.message
 
-      # Parse the structured output
-      if response.message.content.is_a?(String)
       # When output_schema is present, content is already parsed
       result = response.message.content
 
-        # Verify the structure matches our schema
-        assert result.key?("description")
-        assert result.key?("objects")
-        assert result.key?("scene_type")
-        assert result.key?("primary_colors")
-        assert result["objects"].is_a?(Array)
-        assert [ "indoor", "outdoor", "abstract", "document", "photo", "illustration" ].include?(result["scene_type"])
-      end
+      # Verify the structure matches our schema
+      assert result.key?("description")
+      assert result.key?("objects")
+      assert result.key?("scene_type")
+      assert result.key?("primary_colors")
+      assert result["objects"].is_a?(Array)
+      assert [ "indoor", "outdoor", "abstract", "document", "photo", "illustration" ].include?(result["scene_type"])
     end
   end
 
