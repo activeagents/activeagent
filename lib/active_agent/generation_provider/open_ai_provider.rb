@@ -170,7 +170,8 @@ module ActiveAgent
           role: message_json["role"].intern,
           action_requested: message_json["finish_reason"] == "tool_calls",
           raw_actions: message_json["tool_calls"] || [],
-          requested_actions: handle_actions(message_json["tool_calls"])
+          requested_actions: handle_actions(message_json["tool_calls"]),
+          content_type: prompt.output_schema.present? ? "application/json" : "text/plain"
         )
       end
 

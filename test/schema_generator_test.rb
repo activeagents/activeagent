@@ -86,12 +86,13 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     schema = TestBlogPost.to_json_schema(strict: true, name: "blog_post_schema")
     # endregion strict_schema_generation
 
-    assert_equal "json_schema", schema[:format][:type]
-    assert_equal "blog_post_schema", schema[:format][:name]
-    assert schema[:format][:strict]
-    assert_equal "object", schema[:format][:schema][:type]
-    assert schema[:format][:schema][:properties].key?("title")
-    assert schema[:format][:schema][:properties].key?("content")
+    assert_equal "blog_post_schema", schema[:name]
+    assert schema[:strict]
+    assert_equal "object", schema[:schema][:type]
+    assert schema[:schema][:properties].key?("title")
+    assert schema[:schema][:properties].key?("content")
+    # In strict mode, all properties should be required
+    assert_equal schema[:schema][:properties].keys.sort, schema[:schema][:required].sort
 
     doc_example_output(schema)
   end
@@ -130,8 +131,9 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     # endregion agent_using_schema
 
     assert user_schema.is_a?(Hash)
-    assert_equal "json_schema", user_schema[:format][:type]
-    assert_equal "object", user_schema[:format][:schema][:type]
+    assert_equal "user_extraction", user_schema[:name]
+    assert user_schema[:strict]
+    assert_equal "object", user_schema[:schema][:type]
 
     doc_example_output(user_schema)
   end

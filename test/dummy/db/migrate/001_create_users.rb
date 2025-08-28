@@ -8,10 +8,10 @@ class CreateUsers < ActiveRecord::Migration[7.0]
       t.integer :age
       t.string :role, default: "user"
       t.boolean :active, default: true
-      
+
       t.timestamps
     end
-    
+
     add_index :users, :email, unique: true
   end
 end

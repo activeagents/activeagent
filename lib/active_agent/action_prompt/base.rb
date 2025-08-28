@@ -36,6 +36,9 @@ module ActiveAgent
 
       helper ActiveAgent::PromptHelper
 
+      # Delegate response to generation_provider for easy access in callbacks
+      delegate :response, to: :generation_provider, allow_nil: true
+
       class_attribute :options
 
       class_attribute :default_params, default: {

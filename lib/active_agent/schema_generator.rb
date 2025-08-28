@@ -45,13 +45,14 @@ module ActiveAgent
         end
 
         if options[:strict]
+          # OpenAI strict mode requires all properties to be in the required array
+          # So we add all properties to required if strict mode is enabled
+          schema[:required] = schema[:properties].keys.map(&:to_s).sort
+
           {
-            format: {
-              type: "json_schema",
-              name: options[:name] || model_class.name.underscore,
-              schema: schema,
-              strict: true
-            }
+            name: options[:name] || model_class.name.underscore,
+            schema: schema,
+            strict: true
           }
         else
           schema

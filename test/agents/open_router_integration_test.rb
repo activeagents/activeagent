@@ -22,7 +22,8 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
       # Parse the structured output
       if response.message.content.is_a?(String)
-        result = JSON.parse(response.message.content)
+      # When output_schema is present, content is already parsed
+      result = response.message.content
 
         # Verify the structure matches our schema
         assert result.key?("description")
@@ -73,7 +74,8 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       assert_not_nil response
       assert_not_nil response.message
 
-      result = JSON.parse(response.message.content)
+      # When output_schema is present, content is already parsed
+      result = response.message.content
 
       assert_equal result["merchant"]["name"], "Corner Mart"
       assert_equal result["total"]["amount"], 14.83
@@ -132,7 +134,8 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       assert_not_nil response.message
       assert response.message.content.present?
 
-      result = JSON.parse(response.message.content)
+      # When output_schema is present, content is already parsed
+      result = response.message.content
 
       assert_equal result["name"], "John Doe"
       assert_equal result["email"], "john.doe@example.com"
@@ -260,7 +263,8 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
       # MUST return valid JSON - no fallback allowed
       raw_response = response.raw_response
-      result = JSON.parse(response.message.content)
+      # When output_schema is present, content is already parsed
+      result = response.message.content
 
       assert_equal result["name"], "John Doe"
       assert_equal result["email"], "john.doe@example.com"
