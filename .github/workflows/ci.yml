@@ -58,7 +58,7 @@ jobs:
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
       run: |
         cd test/dummy
-        bundle install
+        BUNDLE_GEMFILE=../../${{ matrix.gemfile }} bundle install
         bin/rails db:create
         bin/rails db:migrate
         cd ../..
