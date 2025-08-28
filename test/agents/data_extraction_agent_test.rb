@@ -45,8 +45,10 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       response = prompt.generate_now
       doc_example_output(response)
 
-      assert response.message.content.include?("John Doe")
-      assert response.message.content.include?("Software Engineer")
+      # When output_schema IS present (:resume_schema), content is auto-parsed
+      assert response.message.content.is_a?(Hash)
+      assert response.message.content["name"].include?("John Doe")
+      assert response.message.content["experience"].any? { |exp| exp["job_title"].include?("Software Engineer") }
     end
   end
 
@@ -71,7 +73,8 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       response = prompt.generate_now
       # endregion data_extraction_agent_parse_resume_with_structured_output_response
       # region data_extraction_agent_parse_resume_with_structured_output_json
-      json_response = JSON.parse(response.message.content)
+      # When output_schema is present, content is already parsed
+      json_response = response.message.content
       # endregion data_extraction_agent_parse_resume_with_structured_output_json
       doc_example_output(response)
       doc_example_output(json_response, "parse-resume-json-response")
@@ -80,9 +83,11 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       assert_equal "resume_schema", response.prompt.output_schema["format"]["name"]
       assert_equal json_response["name"], "John Doe"
       assert_equal json_response["email"], "john.doe@example.com"
-      assert_equal response.message.content, "{\"name\":\"John Doe\",\"email\":\"john.doe@example.com\",\"phone\":\"(555) 123-4567\",\"education\":[{\"degree\":\"BS Computer Science\",\"institution\":\"Stanford University\",\"year\":2020}],\"experience\":[{\"job_title\":\"Senior Software Engineer\",\"company\":\"TechCorp\",\"duration\":\"2020-2024\"}]}"
-      assert response.message.content.include?("John Doe")
-      assert response.message.content.include?("Software Engineer")
+      # Verify raw_content contains the JSON string
+      assert_equal response.message.raw_content, "{\"name\":\"John Doe\",\"email\":\"john.doe@example.com\",\"phone\":\"(555) 123-4567\",\"education\":[{\"degree\":\"BS Computer Science\",\"institution\":\"Stanford University\",\"year\":2020}],\"experience\":[{\"job_title\":\"Senior Software Engineer\",\"company\":\"TechCorp\",\"duration\":\"2020-2024\"}]}"
+      # Verify parsed content
+      assert json_response["name"].include?("John Doe")
+      assert json_response["experience"].any? { |exp| exp["job_title"].include?("Software Engineer") }
     end
   end
 
@@ -133,7 +138,8 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       # endregion data_extraction_agent_parse_chart_with_structured_output_response
 
       # region data_extraction_agent_parse_chart_with_structured_output_json
-      json_response = JSON.parse(response.message.content)
+      # When output_schema is present, content is already parsed
+      json_response = response.message.content
       # endregion data_extraction_agent_parse_chart_with_structured_output_json
 
       doc_example_output(response)

@@ -18,7 +18,7 @@ module ActiveAgent
       end
       VALID_ROLES = %w[system assistant user tool].freeze
 
-      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :role, :action_requested, :requested_actions, :content_type, :charset, :metadata
+      attr_accessor :action_id, :action_name, :raw_actions, :generation_id, :content, :raw_content, :role, :action_requested, :requested_actions, :content_type, :charset, :metadata
 
       def initialize(attributes = {})
         @action_id = attributes[:action_id]
@@ -26,8 +26,9 @@ module ActiveAgent
         @generation_id = attributes[:generation_id]
         @metadata = attributes[:metadata] || {}
         @charset = attributes[:charset] || "UTF-8"
-        @content = attributes[:content] || ""
+        @raw_content = attributes[:content] || ""
         @content_type = detect_content_type(attributes)
+        @content = parse_content(@raw_content, @content_type)
         @role = attributes[:role] || :user
         @raw_actions = attributes[:raw_actions]
         @requested_actions = attributes[:requested_actions] || []
@@ -84,6 +85,20 @@ module ActiveAgent
       end
 
       private
+
+      def parse_content(content, content_type)
+        # Auto-parse JSON content if content_type indicates JSON
+        if content_type&.match?(/json/i) && content.is_a?(String) && !content.empty?
+          begin
+            JSON.parse(content)
+          rescue JSON::ParserError
+            # If parsing fails, return the raw content
+            content
+          end
+        else
+          content
+        end
+      end
 
       def detect_content_type(attributes)
         # If content_type is explicitly provided, use it

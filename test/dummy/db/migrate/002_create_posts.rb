@@ -8,10 +8,10 @@ class CreatePosts < ActiveRecord::Migration[7.0]
       t.references :user, foreign_key: true
       t.boolean :published, default: false
       t.datetime :published_at
-      
+
       t.timestamps
     end
-    
+
     add_index :posts, :published
   end
 end
