@@ -1,0 +1,22 @@
+--title "ActiveAgent API Documentation"
+--readme README.md
+--markup markdown
+--markup-provider kramdown
+--output-dir doc/api
+--protected
+--private
+--embed-mixins
+--no-highlight
+--asset docs/assets/logo.png:logo.png
+--template-path doc/templates
+--plugin activesupport-concern
+--exclude test/
+--exclude docs/
+--exclude bin/
+--files CHANGELOG.md,LICENSE.md,CLAUDE.md
+lib/**/*.rb
+app/**/*.rb
+-
+CHANGELOG.md
+LICENSE.md
+CLAUDE.md
