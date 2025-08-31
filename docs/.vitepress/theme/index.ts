@@ -5,6 +5,7 @@ import DefaultTheme from 'vitepress/theme'
 import './style.css'
 import 'virtual:group-icons.css'
 import FeatureCards from './components/FeatureCards.vue'
+import CursorGradient from './components/CursorGradient.vue'
 import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 
 export default {
@@ -13,11 +14,13 @@ export default {
     return h(DefaultTheme.Layout, null, {
       // https://vitepress.dev/guide/extending-default-theme#layout-slots
       // 'nav-bar-content-after': () => h(GitHubStars)
+      'layout-top': () => h(CursorGradient)
     })
   },
   enhanceApp({ app, router, siteData }) {
     // Register components globally if needed
     app.component('FeatureCards', FeatureCards)
+    app.component('CursorGradient', CursorGradient)
     enhanceAppWithTabs(app)
   }
 } satisfies Theme
