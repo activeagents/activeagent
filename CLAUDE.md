@@ -170,6 +170,58 @@ prompt(
 )
 ```
 
+## Understanding ActionPrompt
+
+ActionPrompt is the core messaging and prompt management system within ActiveAgent. It provides the foundation for agent-to-AI communication through a structured messaging system that bridges Rails views with AI generation.
+
+### ActionPrompt Architecture
+
+ActionPrompt consists of four main components:
+
+1. **ActionPrompt::Base** (`lib/active_agent/action_prompt/base.rb`)
+   - Extends AbstractController::Base from Rails
+   - Manages the prompt lifecycle and generation flow
+   - Handles view rendering and message composition
+   - Integrates with generation providers for AI interactions
+
+2. **ActionPrompt::Prompt** (`lib/active_agent/action_prompt/prompt.rb`)
+   - The central context object containing all prompt data
+   - Manages messages, instructions, actions, and metadata
+   - Handles multimodal content (text, images, files)
+   - Maintains conversation history and context
+
+3. **ActionPrompt::Message** (`lib/active_agent/action_prompt/message.rb`)
+   - Represents individual messages in the conversation
+   - Supports four roles: system, user, assistant, tool
+   - Handles multipart content and content type detection
+   - Manages action requests and tool call results
+
+4. **ActionPrompt::Action** (`lib/active_agent/action_prompt/action.rb`)
+   - Represents tool calls requested by the AI
+   - Contains action name, parameters, and ID
+   - Used for executing agent methods as tools
+
+### How ActionPrompt Works
+
+The ActionPrompt system follows this flow:
+
+1. **Prompt Creation**: When an agent action is called, it uses the `prompt` method to create a Prompt object
+2. **View Rendering**: Rails views are rendered to generate message content
+3. **Message Composition**: Messages are assembled with proper roles and metadata
+4. **Tool Schema Loading**: JSON views define available tools/actions for the AI
+5. **Generation**: The prompt is sent to the AI provider for generation
+6. **Tool Execution**: If the AI requests tool calls, actions are executed
+7. **Response Handling**: Results are added as tool messages and generation continues
+
+### Key Features of ActionPrompt
+
+- **Rails Integration**: Leverages Action View for templating
+- **Multimodal Support**: Handles text, images, and files in messages
+- **Tool/Function Calling**: Supports OpenAI-style function calling
+- **Streaming**: Real-time response streaming capability
+- **Observers/Interceptors**: Hooks for monitoring and modifying prompts
+- **Structured Output**: JSON schema validation for responses
+
 ## Repository Structure
 
 ```
@@ -178,6 +230,10 @@ activeagent/
 │   ├── base.rb              # Base agent class
 │   ├── generation.rb        # Generation logic
 │   ├── action_prompt/       # Prompt system components
+│   │   ├── base.rb          # ActionPrompt base controller
+│   │   ├── prompt.rb        # Prompt context object
+│   │   ├── message.rb       # Message representation
+│   │   └── action.rb        # Tool call actions
 │   └── generation_provider/ # AI provider adapters
 ├── test/                    # Test suite with examples
 │   ├── dummy/               # Rails test app
@@ -1252,6 +1308,155 @@ class CachedAgent < ApplicationAgent
 end
 ```
 
+## Planned Features: SolidAgent and Development Tools
+
+### SolidAgent: ActiveRecord Backend for Prompt Engineering
+
+SolidAgent will provide a persistent storage layer for managing prompts, conversations, and agent evaluations in production Rails applications.
+
+#### Core Components
+
+1. **Models**
+   - `SolidAgent::Prompt` - Stores prompt templates and versions
+   - `SolidAgent::Conversation` - Tracks conversation threads
+   - `SolidAgent::Message` - Persists individual messages
+   - `SolidAgent::Generation` - Records generation metadata and costs
+   - `SolidAgent::Evaluation` - Stores quality metrics and feedback
+   - `SolidAgent::AgentConfig` - Manages agent configurations
+
+2. **Features**
+   - Version control for prompts with rollback capability
+   - A/B testing for prompt variations
+   - Cost tracking and usage analytics
+   - Performance metrics (latency, token usage)
+   - Human-in-the-loop feedback collection
+   - Conversation branching and replay
+
+3. **Integration with ActiveAgent**
+   ```ruby
+   class CustomerSupportAgent < ApplicationAgent
+     # Automatically persist conversations
+     solid_agent_config do
+       track_conversations true
+       store_evaluations true
+       version_prompts true
+     end
+   end
+   ```
+
+### Rails Engine: ActiveAgent Dashboard
+
+A mountable Rails engine providing a web UI for managing agents in production.
+
+#### Features
+
+1. **Agent Management**
+   - List all agents in the application
+   - View agent schemas and available actions
+   - Test agents with live preview
+   - Monitor agent performance metrics
+
+2. **Prompt Engineering UI**
+   - Visual prompt editor with syntax highlighting
+   - Template variable management
+   - Version history and comparison
+   - Rollback to previous versions
+
+3. **Conversation Browser**
+   - View all conversations
+   - Filter by agent, user, or date
+   - Replay conversations
+   - Export conversation data
+
+4. **Analytics Dashboard**
+   - Token usage charts
+   - Cost breakdown by agent/model
+   - Response time metrics
+   - Error rate monitoring
+
+5. **Evaluation Tools**
+   - Manual quality scoring
+   - Automated evaluation pipelines
+   - Comparison across prompt versions
+   - Export evaluation datasets
+
+#### Mounting the Engine
+
+```ruby
+# config/routes.rb
+Rails.application.routes.draw do
+  mount ActiveAgent::Dashboard => '/admin/agents'
+end
+```
+
+### Electron App: ActionPrompt Studio
+
+A desktop application similar to Postman but designed specifically for testing and developing AI agents.
+
+#### Core Features
+
+1. **Agent Explorer**
+   - Connect to Rails applications
+   - Auto-discover available agents
+   - View agent documentation
+   - Browse action schemas
+
+2. **Prompt Composer**
+   - Rich text editor with syntax highlighting
+   - Template variable injection
+   - Multimodal content support (images, files)
+   - Message role management
+
+3. **Generation Testing**
+   - Send prompts to agents
+   - View streaming responses
+   - Inspect tool calls
+   - Debug conversation flow
+
+4. **Collections & Environments**
+   - Save prompt collections
+   - Environment variables for different deployments
+   - Share collections with team
+   - Import/export functionality
+
+5. **Advanced Features**
+   - Request history with search
+   - Response mocking for testing
+   - Performance benchmarking
+   - Diff view for comparing responses
+
+#### Architecture
+
+```
+ActionPrompt Studio/
+├── main/                    # Electron main process
+│   ├── api-client.js       # Rails API communication
+│   ├── file-manager.js     # Collection storage
+│   └── window-manager.js   # Window lifecycle
+├── renderer/               # React-based UI
+│   ├── components/         # UI components
+│   ├── features/          # Feature modules
+│   └── services/          # API services
+└── shared/                # Shared utilities
+    ├── schemas/           # JSON schemas
+    └── types/            # TypeScript definitions
+```
+
+### Integration Between Components
+
+The three components work together:
+
+1. **ActiveAgent** provides the core agent framework
+2. **SolidAgent** adds persistence and evaluation capabilities
+3. **Rails Dashboard** offers web-based management
+4. **ActionPrompt Studio** enables desktop-based development
+
+Data flows between them:
+- Studio discovers agents via Rails API
+- Dashboard reads/writes via SolidAgent models
+- ActiveAgent triggers SolidAgent persistence hooks
+- Studio can import/export to Dashboard collections
+
 ## Best Practices
 
 1. **Always test code examples** - Never add untested code to docs
@@ -1265,6 +1470,101 @@ end
 9. **Version your prompts** - Track prompt changes like code changes
 10. **Monitor usage** - Track API costs and performance metrics
 
+## API Documentation Strategy
+
+### YARD Documentation
+
+ActiveAgent uses YARD for comprehensive API documentation. This provides:
+- Type annotations for better IDE support
+- Custom tags for Rails/Agent-specific concepts
+- Automatic API documentation generation
+- Integration with rubydoc.info
+
+#### YARD Setup
+
+```ruby
+# Gemfile
+group :development do
+  gem 'yard'
+  gem 'yard-activesupport-concern'  # For Rails concerns
+end
+```
+
+#### Documentation Standards
+
+All public APIs should be documented with:
+
+1. **Method Documentation**
+```ruby
+# @param message [String, ActiveAgent::ActionPrompt::Message] the input message
+# @param options [Hash] generation options
+# @option options [Symbol] :model the AI model to use
+# @option options [Float] :temperature (0.7) the temperature setting
+# @return [ActiveAgent::GenerationProvider::Response] the AI response
+# @raise [ActiveAgent::GenerationError] if generation fails
+# @example Basic usage
+#   agent.generate(message: "Hello")
+# @example With options
+#   agent.generate(message: "Hello", options: { model: :gpt4 })
+def generate(message:, options: {})
+  # implementation
+end
+```
+
+2. **Class Documentation**
+```ruby
+# The base class for all agents in ActiveAgent
+# 
+# @abstract Subclass and implement {#prompt} to create a custom agent
+# @since 0.1.0
+# @see ActiveAgent::ActionPrompt::Base
+class ActiveAgent::Base
+```
+
+3. **Custom Tags for Agents**
+```ruby
+# @action answer_question
+# @tool_schema answer_question.json
+# @streaming true
+# @multimodal true
+def answer_question
+  prompt
+end
+```
+
+#### Generating Documentation
+
+```bash
+# Generate YARD docs
+bundle exec yard doc
+
+# Start YARD server
+bundle exec yard server
+
+# Generate with custom template
+bundle exec yard doc --template-path ./doc/templates
+```
+
+### Documentation Types
+
+1. **User Documentation** (VitePress)
+   - Getting started guides
+   - Tutorials and examples
+   - Best practices
+   - Located in `docs/`
+
+2. **API Documentation** (YARD)
+   - Method signatures
+   - Parameter descriptions
+   - Return types
+   - Located inline in source code
+
+3. **Developer Documentation** (CLAUDE.md)
+   - Architecture overview
+   - Development setup
+   - Contributing guidelines
+   - Internal implementation details
+
 ## Next Steps for Documentation
 
 When updating documentation:
@@ -1274,9 +1574,11 @@ When updating documentation:
 4. Replace hardcoded blocks with `<<<` imports
 5. Add `@include` directives for example outputs
 6. Run tests and verify documentation builds correctly
+7. Add YARD comments to new methods and classes
+8. Ensure all public APIs have complete YARD documentation
 
-## Importent things to remember
-- when adding new paramters ensure the prompt and merge params method in @lib/active_agent/base.rb allows them to be passed through
+## Important things to remember
+- when adding new parameters ensure the prompt and merge params method in @lib/active_agent/base.rb allows them to be passed through
 - Use vscode regions for snippets of examples in docs
 - We use Agent classes by loading params `.with` that returns a Parameterized Agent class then calling actions on the parameterized agent like `ApplicationAgent.with(message:'hi').prompt_context` this creates the ActiveAgent Generation object that we can then run `generate_now` or `generate_later` on
 - 1. The Generation is a lazy wrapper - It doesn't create the actual agent or context until needed (see line 56-58 in processed_agent method)
@@ -1336,3 +1638,4 @@ When updating documentation:
 3. Call doc_example_output for response examples
 4. Import in docs using VitePress snippets
 5. Verify with `npm run docs:build` - no hardcoded blocks should exist
+- RTFM: [https://docs.activeagents.ai](Active Agent Docs)

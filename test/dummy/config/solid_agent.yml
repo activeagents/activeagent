@@ -1,0 +1,20 @@
+# region configuration
+default: &default
+  # Automatic persistence - no config needed!
+  auto_persist: true
+  persist_in_background: false
+  retention_days: 90
+  
+development:
+  <<: *default
+  # Everything works out of the box
+  
+test:
+  <<: *default
+  auto_persist: true  # Enable for testing
+  
+production:
+  <<: *default
+  persist_in_background: true  # Better performance
+  redact_sensitive_data: true  # Privacy protection
+# endregion configuration

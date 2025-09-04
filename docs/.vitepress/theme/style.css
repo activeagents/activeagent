@@ -104,6 +104,7 @@
     rgb(255, 100, 100) 60%,
     rgb(250, 52, 59) 100%
   );
+  --vp-home-hero-name-background-animation: background 0.5s ease-in-out;
 
   --vp-home-hero-image-background-image: radial-gradient(
     circle at var(--cursor-x) var(--cursor-y),
