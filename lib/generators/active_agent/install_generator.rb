@@ -26,8 +26,6 @@ module ActiveAgent
       hook_for :template_engine
 
       def create_template_engine_layouts
-        return unless behavior == :invoke
-
         invoke Erb::Generators::InstallGenerator, options[:formats]
       end
 
