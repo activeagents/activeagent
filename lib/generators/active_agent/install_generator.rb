@@ -28,18 +28,10 @@ module ActiveAgent
       def create_template_engine_layouts
         return unless behavior == :invoke
 
-        if erb_generator_overridden?
-          invoke Erb::Generators::InstallGenerator, options[:formats]
-        end
+        invoke Erb::Generators::InstallGenerator, options[:formats]
       end
 
       private
-
-      def erb_generator_overridden?
-        return false unless Rails::Generators.respond_to?(:find_by_namespace)
-
-        Rails::Generators.options[:rails][:template_engine] != :erb
-      end
 
       def formats
         options[:formats].map(&:to_sym)
