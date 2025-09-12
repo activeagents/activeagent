@@ -104,4 +104,19 @@ class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCas
     assert_no_file "app/views/layouts/agent.html.erb"
     assert_no_file "app/views/layouts/agent.json.erb"
   end
+
+  test "handles erb generator override with proactive detection" do
+    original_template_engine = Rails::Generators.options[:rails][:template_engine]
+    Rails::Generators.options[:rails][:template_engine] = :nonexistent
+
+    begin
+      run_generator
+
+      # Verify proactive detection created the layout file
+      assert_file "app/views/layouts/agent.text.erb"
+    ensure
+      # Restore original template engine
+      Rails::Generators.options[:rails][:template_engine] = original_template_engine
+    end
+  end
 end
