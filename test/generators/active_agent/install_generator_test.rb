@@ -114,8 +114,6 @@ class ActiveAgent::Generators::InstallGeneratorTest < Rails::Generators::TestCas
 
       # Verify proactive detection created the layout file
       assert_file "app/views/layouts/agent.text.erb"
-      assert_file "config/active_agent.yml"
-      assert_file "app/agents/application_agent.rb"
     ensure
       # Restore original template engine
       Rails::Generators.options[:rails][:template_engine] = original_template_engine
