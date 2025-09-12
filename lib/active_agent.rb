@@ -13,7 +13,6 @@ require "active_support/core_ext/class"
 require "active_support/core_ext/module/attr_internal"
 require "active_support/core_ext/string/inflections"
 require "active_support/lazy_load_hooks"
-
 module ActiveAgent
   include ActiveAgent::Sanitizers
   extend ActiveSupport::Autoload
