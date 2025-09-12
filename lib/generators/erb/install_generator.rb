@@ -6,6 +6,14 @@ module Erb # :nodoc:
       source_root File.expand_path("templates", __dir__)
       class_option :formats, type: :array, default: [ "text" ], desc: "Specify formats to generate (text, html, json)"
 
+      def initialize(*args, **kwargs)
+        super(*args, **kwargs)
+
+        # We must duplicate due to immutable hash
+        dup_options = options.dup
+        @options = dup_options.merge(template_engine: :erb)
+      end
+
       def create_agent_layouts
         if behavior == :invoke
           formats.each do |format|
