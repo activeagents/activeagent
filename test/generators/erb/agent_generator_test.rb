@@ -55,4 +55,18 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     assert_directory "app/views/user_agent"
     assert_file "app/views/user_agent/instructions.text.erb"
   end
+
+  test "handles erb generator override with proactive detection" do
+    original_template_engine = Rails::Generators.options[:rails][:template_engine]
+    Rails::Generators.options[:rails][:template_engine] = :nonexistent
+
+    begin
+      run_generator %w[user create]
+
+      assert_file "app/views/user_agent/create.text.erb"
+    ensure
+      # Restore original template engine
+      Rails::Generators.options[:rails][:template_engine] = original_template_engine
+    end
+  end
 end

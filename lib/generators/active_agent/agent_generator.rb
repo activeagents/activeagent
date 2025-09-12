@@ -9,6 +9,14 @@ module ActiveAgent
 
       check_class_collision suffix: "Agent"
 
+      def initialize(*args, **kwargs)
+        super(*args, **kwargs)
+
+        # We must duplicate due to immutable hash
+        dup_options = options.dup
+        @options = dup_options.merge(template_engine: :erb)
+      end
+
       def create_agent_file
         template "agent.rb", File.join("app/agents", class_path, "#{file_name}_agent.rb")
 
