@@ -6,6 +6,14 @@ module ActiveAgent
       class_option :skip_config, type: :boolean, default: false, desc: "Skip configuration file generation"
       class_option :formats, type: :array, default: [ "text" ], desc: "Specify formats to generate (text, html, json)"
 
+      def initialize(*args, **kwargs)
+        super(*args, **kwargs)
+
+        # We must duplicate due to immutable hash
+        dup_options = options.dup
+        @options = dup_options.merge(template_engine: :erb)
+      end
+
       def self.usage_path
         @usage_path ||= File.expand_path("../USAGE", __dir__)
       end
@@ -24,10 +32,6 @@ module ActiveAgent
       end
 
       hook_for :template_engine
-
-      def create_template_engine_layouts
-        invoke Erb::Generators::InstallGenerator, options[:formats]
-      end
 
       private
 
