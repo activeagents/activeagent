@@ -18,3 +18,4 @@ lib/libtorch
 gemfiles/*.lock
 Gemfile.lock
 *.onnx
+*.zip

@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  activeagent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/activeagent
+      - bundle_cache:/usr/local/bundle
+      - model_cache:/activeagent/models
+    environment:
+      - BUNDLE_PATH=/usr/local/bundle
+      - RAILS_ENV=development
+      - OMP_NUM_THREADS=4
+      - MKL_NUM_THREADS=4
+      - ONNX_RUNTIME_EXECUTION_PROVIDERS=CoreMLExecutionProvider,CPUExecutionProvider
+    command: bash -c "bundle install && bin/rails server -b 0.0.0.0"
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    tty: true
+
+  # Service for running tests with GPU support
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/activeagent
+      - bundle_cache:/usr/local/bundle
+      - model_cache:/activeagent/models
+    environment:
+      - BUNDLE_PATH=/usr/local/bundle
+      - RAILS_ENV=test
+      - TEST_MODEL_DOWNLOAD=true
+      - RUN_FULL_GPU_TEST=true
+      - OMP_NUM_THREADS=4
+      - MKL_NUM_THREADS=4
+    command: bash -c "bundle install && bin/test"
+    stdin_open: true
+    tty: true
+
+  # Service for downloading models
+  model_downloader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/activeagent
+      - model_cache:/activeagent/models
+    environment:
+      - BUNDLE_PATH=/usr/local/bundle
+    command: bash -c "bundle install && bin/download_models download-all"
+    stdin_open: true
+    tty: true
+
+volumes:
+  bundle_cache:
+  model_cache:

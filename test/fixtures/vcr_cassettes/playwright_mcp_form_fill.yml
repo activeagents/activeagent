@@ -1,0 +1,78 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Navigate
+        to: https://httpbin.org/forms/post\n\nFill the form with this data:\n- custname:
+        John Doe\n- custtel: 555-1234\n- custemail: john@example.com\n- size: large\n-
+        topping: bacon, cheese\n- delivery: 19:00\n- comments: Please ring the doorbell
+        twice\n\nSubmit the form after filling all fields.\n\nUse Playwright MCP tools
+        to:\n1. Navigate to the URL\n2. Identify the form fields\n3. Fill each field
+        with the provided data\n4. Submit the form\n5. Verify the form was submitted
+        successfully\n"}],"temperature":0.7}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 401
+      message: Unauthorized
+    headers:
+      Date:
+      - Fri, 12 Sep 2025 04:40:06 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '414'
+      Connection:
+      - keep-alive
+      Vary:
+      - Origin
+      X-Request-Id:
+      - req_2ab8d30d634e4b8a870fb49a4d354279
+      X-Envoy-Upstream-Service-Time:
+      - '1'
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=iANm7njfcoPVtyF7tXhtNFGuaGEuV4YPsp9fEJcvgVU-1757652006-1.0.1.1-d_07XdQwqHIKCZLuE6oKPAlcvzyEe1z5flfKCY8ki4qMM0MZm4LG56vWbBK2F7Xwdw5i_iT5KWabHBDpgQNSg2wfzQ_ewCgDjh7qUChZJ.w;
+        path=/; expires=Fri, 12-Sep-25 05:10:06 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=YXDii1C1CDUNdlpIfLTo_Dp8cfnRSpLhmiajymGZ_K4-1757652006031-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 97dcb98d8b30cf12-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |
+        {
+            "error": {
+                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
+                "type": "invalid_request_error",
+                "param": null,
+                "code": "invalid_api_key"
+            }
+        }
+  recorded_at: Fri, 12 Sep 2025 04:40:06 GMT
+recorded_with: VCR 6.3.1
