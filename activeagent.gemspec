@@ -30,6 +30,7 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "ruby-openai", ">= 8.1.0"
   spec.add_development_dependency "ruby-anthropic", "~> 0.4.2"
+  spec.add_development_dependency "ruby_llm", ">= 0.1.0"
 
   spec.add_development_dependency "standard"
   spec.add_development_dependency "rubocop-rails-omakase"

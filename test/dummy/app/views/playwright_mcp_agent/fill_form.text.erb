@@ -1,0 +1,19 @@
+Navigate to: <%= @url %>
+
+Fill the form with this data:
+<% @form_data.each do |field, value| %>
+- <%= field %>: <%= value.is_a?(Array) ? value.join(", ") : value %>
+<% end %>
+
+<% if @submit %>
+Submit the form after filling all fields.
+<% else %>
+Fill the form but DO NOT submit it.
+<% end %>
+
+Use Playwright MCP tools to:
+1. Navigate to the URL
+2. Identify the form fields
+3. Fill each field with the provided data
+4. <%= @submit ? "Submit the form" : "Leave the form unsubmitted" %>
+5. Verify the form was <%= @submit ? "submitted successfully" : "filled correctly" %>

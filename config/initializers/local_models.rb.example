@@ -1,0 +1,159 @@
+# frozen_string_literal: true
+
+# Example configuration for local model providers
+# Copy this file to config/initializers/local_models.rb and customize for your needs
+
+Rails.application.config.after_initialize do
+  # Configure default paths for model storage
+  ActiveAgent.configure do |config|
+    # Set up logging for generation providers
+    config.generation_provider_logger = Rails.logger
+  end
+  
+  # Configure ONNX Runtime provider defaults
+  if defined?(ActiveAgent::GenerationProvider::OnnxRuntimeProvider)
+    # Set default cache directory for downloaded models
+    ENV["ONNX_MODEL_CACHE"] ||= Rails.root.join("storage", "models", "onnx").to_s
+    
+    # Configure Informers (ONNX models from HuggingFace)
+    if defined?(Informers)
+      Informers.cache_dir = ENV["ONNX_MODEL_CACHE"]
+      # Optional: Set up model download progress callback
+      Informers.on_download_progress = ->(progress) {
+        Rails.logger.info "Downloading model: #{progress[:percent]}% complete"
+      }
+    end
+  end
+  
+  # Configure Transformers provider defaults
+  if defined?(ActiveAgent::GenerationProvider::TransformersProvider)
+    # Set cache directory for Transformers models
+    ENV["TRANSFORMERS_CACHE"] ||= Rails.root.join("storage", "models", "transformers").to_s
+    
+    # Configure transformers-ruby if available
+    if defined?(Transformers)
+      Transformers.cache_dir = ENV["TRANSFORMERS_CACHE"]
+      
+      # Optional: Configure default device
+      Transformers.default_device = if ENV["CUDA_VISIBLE_DEVICES"].present?
+        "cuda"
+      elsif RUBY_PLATFORM.include?("darwin")
+        "mps"  # Apple Silicon
+      else
+        "cpu"
+      end
+    end
+  end
+  
+  # Define reusable model configurations
+  ActiveAgent::MODEL_CONFIGS = {
+    # ONNX models
+    onnx_gpt2: {
+      "service" => "OnnxRuntime",
+      "model_type" => "generation",
+      "model" => "Xenova/gpt2",
+      "model_source" => "huggingface",
+      "task" => "text-generation",
+      "cache_dir" => ENV["ONNX_MODEL_CACHE"]
+    },
+    
+    onnx_embeddings: {
+      "service" => "OnnxRuntime",
+      "model_type" => "embedding",
+      "model" => "Xenova/all-MiniLM-L6-v2",
+      "model_source" => "huggingface",
+      "use_informers" => true,
+      "cache_dir" => ENV["ONNX_MODEL_CACHE"]
+    },
+    
+    # Transformer models
+    transformers_chat: {
+      "service" => "Transformers",
+      "model_type" => "generation",
+      "model" => "microsoft/DialoGPT-small",
+      "model_source" => "huggingface",
+      "task" => "text-generation",
+      "cache_dir" => ENV["TRANSFORMERS_CACHE"],
+      "do_sample" => true,
+      "temperature" => 0.7
+    },
+    
+    transformers_sentiment: {
+      "service" => "Transformers",
+      "model_type" => "sentiment",
+      "model" => "distilbert-base-uncased-finetuned-sst-2-english",
+      "model_source" => "huggingface",
+      "cache_dir" => ENV["TRANSFORMERS_CACHE"]
+    },
+    
+    transformers_summarization: {
+      "service" => "Transformers",
+      "model_type" => "summarization",
+      "model" => "facebook/bart-large-cnn",
+      "model_source" => "huggingface",
+      "cache_dir" => ENV["TRANSFORMERS_CACHE"],
+      "max_length" => 150,
+      "min_length" => 30
+    },
+    
+    # Local file system models
+    local_custom_model: {
+      "service" => "OnnxRuntime",
+      "model_type" => "custom",
+      "model_source" => "local",
+      "model_path" => Rails.root.join("lib", "models", "custom.onnx").to_s,
+      "tokenizer_path" => Rails.root.join("lib", "models", "tokenizer.json").to_s
+    }
+  }.freeze
+  
+  # Helper method to preload models (optional - for production)
+  if Rails.env.production?
+    Rails.application.config.after_initialize do
+      ActiveAgent::ModelPreloader.preload_models([
+        :onnx_embeddings,  # Always preload embeddings model
+        :transformers_sentiment  # Preload sentiment model
+      ])
+    end
+  end
+end
+
+# Optional: Model preloader class
+module ActiveAgent
+  class ModelPreloader
+    def self.preload_models(model_keys)
+      model_keys.each do |key|
+        config = ActiveAgent::MODEL_CONFIGS[key]
+        next unless config
+        
+        Rails.logger.info "Preloading model: #{key}"
+        
+        case config["service"]
+        when "OnnxRuntime"
+          preload_onnx_model(config)
+        when "Transformers"
+          preload_transformers_model(config)
+        end
+      rescue => e
+        Rails.logger.error "Failed to preload model #{key}: #{e.message}"
+      end
+    end
+    
+    private
+    
+    def self.preload_onnx_model(config)
+      if config["model_source"] == "huggingface" && config["model"]
+        # Trigger model download by initializing
+        provider = ActiveAgent::GenerationProvider::OnnxRuntimeProvider.new(config)
+        Rails.logger.info "ONNX model ready: #{config["model"]}"
+      end
+    end
+    
+    def self.preload_transformers_model(config)
+      if config["model_source"] == "huggingface" && config["model"]
+        # Trigger model download by initializing
+        provider = ActiveAgent::GenerationProvider::TransformersProvider.new(config)
+        Rails.logger.info "Transformers model ready: #{config["model"]}"
+      end
+    end
+  end
+end
