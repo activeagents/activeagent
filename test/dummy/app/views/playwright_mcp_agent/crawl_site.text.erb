@@ -1,0 +1,22 @@
+Starting URL: <%= @start_url %>
+URL Pattern: <%= @pattern %>
+Maximum Depth: <%= @max_depth %> levels
+Maximum Pages: <%= @max_pages %>
+
+Crawling Instructions:
+1. Start at <%= @start_url %>
+2. Find all links matching pattern: <%= @pattern %>
+3. Visit each matching link
+4. Extract content and find more links
+5. Continue up to <%= @max_depth %> levels deep
+6. Visit maximum <%= @max_pages %> total pages
+7. Create a site map of visited pages
+8. Summarize the content structure
+
+Track:
+- Page titles and URLs
+- Main content themes
+- Navigation structure
+- Common elements across pages
+
+Use Playwright MCP tools to systematically crawl and analyze the site.

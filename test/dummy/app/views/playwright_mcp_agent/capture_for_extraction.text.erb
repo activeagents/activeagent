@@ -1,0 +1,25 @@
+Navigate to: <%= @url %>
+
+Capture the page content for structured data extraction:
+
+1. Navigate to the URL
+2. Wait for the page to fully load
+3. Use browser_snapshot to capture the accessibility tree
+4. Extract all text content
+5. Identify all interactive elements (links, buttons, forms)
+6. Note the page structure and hierarchy
+<% if @capture_screenshots %>
+7. Take a screenshot for reference
+<% end %>
+
+Return a comprehensive description of the page content that can be used for structured data extraction.
+Include:
+- Page title
+- All headings and their hierarchy
+- Main content areas
+- All links with their text and destinations
+- Form fields if present
+- Any data tables or lists
+- Important metadata
+
+Use Playwright MCP tools to gather this information systematically.

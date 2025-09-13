@@ -111,6 +111,7 @@ export default defineConfig({
         items: [
           // { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
           { text: 'Structured Output', link: '/docs/active-agent/structured-output' },
+          { text: 'Local Models', link: '/docs/active-agent/local-models' },
           { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
           { text: 'Generation', link: '/docs/active-agent/generation' },
           { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },

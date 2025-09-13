@@ -27,6 +27,55 @@ ollama: &ollama
   model: "gemma3:latest"
   temperature: 0.7
 # endregion ollama_anchor
+# region onnx_runtime_anchor
+onnx_runtime: &onnx_runtime
+  service: "OnnxRuntime"
+  model_type: "generation"
+  model: "Xenova/gpt2"
+  task: "text-generation"
+  max_tokens: 50
+  temperature: 0.7
+# endregion onnx_runtime_anchor
+# region onnx_embedding_anchor
+onnx_embedding: &onnx_embedding
+  service: "OnnxRuntime"
+  model_type: "embedding"
+  model: "Xenova/all-MiniLM-L6-v2"
+  use_informers: true
+# endregion onnx_embedding_anchor
+# region transformers_anchor
+transformers: &transformers
+  service: "Transformers"
+  model_type: "generation"
+  model: "gpt2"
+  task: "text-generation"
+  max_tokens: 50
+  temperature: 0.7
+  do_sample: true
+# endregion transformers_anchor
+# region transformers_embedding_anchor
+transformers_embedding: &transformers_embedding
+  service: "Transformers"
+  model_type: "embedding"
+  model: "bert-base-uncased"
+  task: "feature-extraction"
+# endregion transformers_embedding_anchor
+# region transformers_sentiment_anchor
+transformers_sentiment: &transformers_sentiment
+  service: "Transformers"
+  model_type: "sentiment"
+  model: "distilbert-base-uncased-finetuned-sst-2-english"
+# endregion transformers_sentiment_anchor
+# region ruby_llm_anchor
+ruby_llm: &ruby_llm
+  service: "RubyLLM"
+  openai_api_key: <%= Rails.application.credentials.dig(:openai, :access_token) %>
+  anthropic_api_key: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
+  default_provider: "openai"
+  model: "gpt-4o-mini"
+  temperature: 0.7
+  enable_image_generation: false
+# endregion ruby_llm_anchor
 # endregion config_anchors
 
 # region config_development
@@ -51,6 +100,10 @@ development:
   anthropic:
     <<: *anthropic
   # endregion anthropic_dev_config
+  # region ruby_llm_dev_config
+  ruby_llm:
+    <<: *ruby_llm
+  # endregion ruby_llm_dev_config
 # endregion config_development
 
 # region config_test
@@ -67,4 +120,6 @@ test:
     <<: *ollama
   anthropic:
     <<: *anthropic
+  ruby_llm:
+    <<: *ruby_llm
 # endregion config_test

@@ -1,3 +1,4 @@
+
 # Structured Output
 
 Structured output allows agents to return responses in a predefined JSON format, ensuring consistent and reliable data extraction. ActiveAgent provides comprehensive support for structured output through JSON schemas and automatic model schema generation.
@@ -28,7 +29,7 @@ ActiveAgent includes a `SchemaGenerator` module that creates JSON schemas from:
 
 ### Using Model Schema Generation
 
-ActiveAgent can automatically generate schemas from your Rails models:
+Active Agent can automatically generate schemas from your Rails models:
 
 <<< @/../test/schema_generator_test.rb#agent_using_schema {ruby:line-numbers}
 
