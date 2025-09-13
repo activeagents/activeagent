@@ -1,0 +1,80 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Research
+        Topic: Apollo 11 moon landing mission\nStarting URL: https://en.wikipedia.org/wiki/Apollo_11\nResearch
+        Depth: 2 levels\nMaximum Pages: 5\n\nInstructions:\n1. Navigate to the starting
+        URL\n2. Extract the main content about the topic\n3. Identify relevant links
+        to explore further\n4. Follow links up to 2 levels deep\n5. Visit up to 5
+        total pages\n6. Take screenshots of important information\n7. Compile a comprehensive
+        summary of your findings\n\nFocus on:\n- Key facts and dates\n- Important
+        people or entities\n- Related topics and connections\n- Historical context\n-
+        Current relevance\n\nUse Playwright MCP tools to navigate, extract content,
+        and document your research.\n"}],"temperature":0.7}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 401
+      message: Unauthorized
+    headers:
+      Date:
+      - Fri, 12 Sep 2025 04:40:05 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '414'
+      Connection:
+      - keep-alive
+      Vary:
+      - Origin
+      X-Request-Id:
+      - req_daf40c6fb6914d57bf6fa9cff18f9b11
+      X-Envoy-Upstream-Service-Time:
+      - '38'
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Rc676XVLI0QD7e7zky6KU5pts5_wFmZFIoCa5veG6ZM-1757652005-1.0.1.1-_HekVlyrDTOsI5W.vrXD.0rZJYLgvTOVj96eWiEc._O.rrCcLC59Hm9e53CAYXFTxWYGUi3sDUSOQTSmW6GN9m6VOaQljb0jIs0R1OiWGLM;
+        path=/; expires=Fri, 12-Sep-25 05:10:05 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=yeS3VGPcbNljm.hN3Z89J._bQy4r5DcKaEyItraBM4Y-1757652005414-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 97dcb9890ffa239e-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |
+        {
+            "error": {
+                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
+                "type": "invalid_request_error",
+                "param": null,
+                "code": "invalid_api_key"
+            }
+        }
+  recorded_at: Fri, 12 Sep 2025 04:40:05 GMT
+recorded_with: VCR 6.3.1

@@ -1,0 +1,81 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Navigate
+        to: https://httpbin.org/forms/post\n\nCapture the page content for structured
+        data extraction:\n\n1. Navigate to the URL\n2. Wait for the page to fully
+        load\n3. Use browser_snapshot to capture the accessibility tree\n4. Extract
+        all text content\n5. Identify all interactive elements (links, buttons, forms)\n6.
+        Note the page structure and hierarchy\n\nReturn a comprehensive description
+        of the page content that can be used for structured data extraction.\nInclude:\n-
+        Page title\n- All headings and their hierarchy\n- Main content areas\n- All
+        links with their text and destinations\n- Form fields if present\n- Any data
+        tables or lists\n- Important metadata\n\nUse Playwright MCP tools to gather
+        this information systematically.\n"}],"temperature":0.7}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 401
+      message: Unauthorized
+    headers:
+      Date:
+      - Fri, 12 Sep 2025 04:40:12 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '414'
+      Connection:
+      - keep-alive
+      Vary:
+      - Origin
+      X-Request-Id:
+      - req_44a56969ef914b159a324311f0351064
+      X-Envoy-Upstream-Service-Time:
+      - '49'
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=GPjZk7qQ_YtrUe8rKPJcCkdKY2k2arJMFKkd_zWrKnI-1757652012-1.0.1.1-BUP6WwkpxSnWSJxDi1tyUBl4461d1tvRV5_.g8gNN1X667PYbIMSHmfwFYyymGrBQJb1CvofvzJ4yvCM1mD8Fz2J1N2Gubc0oGO7buEwtH4;
+        path=/; expires=Fri, 12-Sep-25 05:10:12 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=h0HhdIEfDAr17mFbKFp6IOlXt3HQXXXdtT8cQEBGCYs-1757652012072-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 97dcb9b2ab923ad4-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |
+        {
+            "error": {
+                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
+                "type": "invalid_request_error",
+                "param": null,
+                "code": "invalid_api_key"
+            }
+        }
+  recorded_at: Fri, 12 Sep 2025 04:40:12 GMT
+recorded_with: VCR 6.3.1
