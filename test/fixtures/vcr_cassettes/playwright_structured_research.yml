@@ -28,32 +28,52 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 401
-      message: Unauthorized
+      code: 200
+      message: OK
     headers:
       Date:
-      - Fri, 12 Sep 2025 04:40:12 GMT
+      - Sat, 13 Sep 2025 23:17:25 GMT
       Content-Type:
-      - application/json; charset=utf-8
-      Content-Length:
-      - '414'
+      - application/json
+      Transfer-Encoding:
+      - chunked
       Connection:
       - keep-alive
-      Vary:
-      - Origin
-      X-Request-Id:
-      - req_9d18985955c745da9e9abebfedb09e0b
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '6576'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '3'
+      - '6607'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199826'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 52ms
+      X-Request-Id:
+      - req_e050ebb18b3f40a7bb8d69a621d61208
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=qBgiKz_HIHwz.6mtKHfiaMaCoObwqTD8XA9wvs32Ud8-1757652012-1.0.1.1-.zd5gRIAJm_7XF.efhfAZU04sT2jNPXZOrEnCVNcCk.vA8RJDtbnEJqjA1pfS.ERJgU4T9r8wZZ0M2UTeQpy82i9K2bE9fTiVUlkmiixJO4;
-        path=/; expires=Fri, 12-Sep-25 05:10:12 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=5hJ.1oFtELDbrzptgyXjgzUbm6McXXwBTee4pj1crnU-1757805445-1.0.1.1-d14u96mbpkHhFrLIchPkku07cIsF2lNaBslgrrqGVTQz86SH3bW1S5l3_iSO3AFIpQ5vzNs2o4s1pRnVd8ufO4PoL9.pWXOKl0FHG9V.xvs;
+        path=/; expires=Sat, 13-Sep-25 23:47:25 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=IxebmbDlDqp_5oX.lkzWEjW3iQ6WJY3DXOTa2FCJ4fM-1757652012143-0.0.1.1-604800000;
+      - _cfuvid=q.TWGxWxcbTI4gs4spf_Hfox9yT7h6YkY2q5l1NTjEk-1757805445828-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -62,19 +82,186 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 97dcb9b3ad42ced9-SJC
+      - 97eb5b7ad834eb20-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-CFTmZMXAiFOfEEsXXKuPLNLoSdWgf",
+          "object": "chat.completion",
+          "created": 1757805439,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I understand your request for a detailed exploration of the history of the Ruby programming language, including key facts, important figures, and related topics. However, I cannot directly browse the internet or execute web scraping tasks. Instead, I can provide you with a comprehensive summary based on existing knowledge about Ruby's history.\n\n### Summary of Ruby Programming Language History\n\n**1. Overview:**\nRuby is an open-source, dynamic programming language that emphasizes simplicity and productivity. It was designed for developer happiness and has a syntax that is natural to read and easy to write.\n\n**2. Key Facts and Dates:**\n- **Creation:** Ruby was created in the mid-1990s by Yukihiro \"Matz\" Matsumoto in Japan. The first public release (version 0.95) was in 1995.\n- **Official Release:** Ruby 1.0 was released in December 1996.\n- **Ruby on Rails:** In the early 2000s, Ruby gained significant popularity with the introduction of the Ruby on Rails framework in 2004, which revolutionized web development.\n\n**3. Important People:**\n- **Yukihiro Matsumoto:** The creator of Ruby, Matsumoto aimed to create a language that balanced functional and imperative programming styles and was influenced by Perl, Smalltalk, Eiffel, Ada, and Lisp.\n\n**4. Historical Context:**\n- **Influences:** Ruby's design was influenced by many programming languages, emphasizing a mix of functional and object-oriented programming paradigms. It was created during a time when programming languages were evolving rapidly, responding to the needs for greater abstraction and ease of use.\n- **Community Growth:** The growth of the Ruby community was catalyzed by the release of Ruby on Rails, which introduced conventions that simplified web development.\n\n**5. Current Relevance:**\n- Ruby remains popular for web development, particularly due to Ruby on Rails. It is also used in various domains such as automation, data analysis, and increasingly in DevOps practices.\n- The language continues to evolve, with regular updates and a dedicated community contributing to its libraries and frameworks.\n\n**6. Related Topics and Connections:**\n- **Ruby on Rails:** A key framework that significantly increased Ruby's popularity.\n- **Programming Paradigms:** Ruby embodies principles from multiple paradigms, particularly object-oriented programming.\n- **Open Source Philosophy:** Ruby is part of the open-source movement, contributing to its widespread use and community involvement.\n\n### Conclusion\nRuby's history reflects a blend of innovation and community collaboration, resulting in a language that prioritizes developer satisfaction. Its influence on web development, particularly through Ruby on Rails, has cemented its relevance in the programming landscape.\n\nIf you need further details on specific aspects or additional topics related to Ruby, feel free to ask!",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 157,
+            "completion_tokens": 564,
+            "total_tokens": 721,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
+        }
+  recorded_at: Sat, 13 Sep 2025 23:17:25 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"system","content":"You
+        are a data extraction specialist that transforms unstructured content into
+        structured JSON data.\n\nYour role is to:\n1. Analyze the provided content
+        carefully\n2. Extract relevant information according to the schema\n3. Return
+        well-structured JSON that matches the schema exactly\n4. Handle missing data
+        gracefully with null or empty values\n5. Ensure all required fields are populated\n\nGuidelines:\n-
+        Be precise and accurate in your extraction\n- Don''t invent data that isn''t
+        present\n- Use reasonable defaults only when explicitly allowed by the schema\n-
+        Maintain consistency in data formatting\n- Follow the schema''s type requirements
+        strictly"},{"role":"user","content":"Extract structured data from the following
+        content:\n\n---\nI understand your request for a detailed exploration of the
+        history of the Ruby programming language, including key facts, important figures,
+        and related topics. However, I cannot directly browse the internet or execute
+        web scraping tasks. Instead, I can provide you with a comprehensive summary
+        based on existing knowledge about Ruby''s history.\n\n### Summary of Ruby
+        Programming Language History\n\n**1. Overview:**\nRuby is an open-source,
+        dynamic programming language that emphasizes simplicity and productivity.
+        It was designed for developer happiness and has a syntax that is natural to
+        read and easy to write.\n\n**2. Key Facts and Dates:**\n- **Creation:** Ruby
+        was created in the mid-1990s by Yukihiro \"Matz\" Matsumoto in Japan. The
+        first public release (version 0.95) was in 1995.\n- **Official Release:**
+        Ruby 1.0 was released in December 1996.\n- **Ruby on Rails:** In the early
+        2000s, Ruby gained significant popularity with the introduction of the Ruby
+        on Rails framework in 2004, which revolutionized web development.\n\n**3.
+        Important People:**\n- **Yukihiro Matsumoto:** The creator of Ruby, Matsumoto
+        aimed to create a language that balanced functional and imperative programming
+        styles and was influenced by Perl, Smalltalk, Eiffel, Ada, and Lisp.\n\n**4.
+        Historical Context:**\n- **Influences:** Ruby''s design was influenced by
+        many programming languages, emphasizing a mix of functional and object-oriented
+        programming paradigms. It was created during a time when programming languages
+        were evolving rapidly, responding to the needs for greater abstraction and
+        ease of use.\n- **Community Growth:** The growth of the Ruby community was
+        catalyzed by the release of Ruby on Rails, which introduced conventions that
+        simplified web development.\n\n**5. Current Relevance:**\n- Ruby remains popular
+        for web development, particularly due to Ruby on Rails. It is also used in
+        various domains such as automation, data analysis, and increasingly in DevOps
+        practices.\n- The language continues to evolve, with regular updates and a
+        dedicated community contributing to its libraries and frameworks.\n\n**6.
+        Related Topics and Connections:**\n- **Ruby on Rails:** A key framework that
+        significantly increased Ruby''s popularity.\n- **Programming Paradigms:**
+        Ruby embodies principles from multiple paradigms, particularly object-oriented
+        programming.\n- **Open Source Philosophy:** Ruby is part of the open-source
+        movement, contributing to its widespread use and community involvement.\n\n###
+        Conclusion\nRuby''s history reflects a blend of innovation and community collaboration,
+        resulting in a language that prioritizes developer satisfaction. Its influence
+        on web development, particularly through Ruby on Rails, has cemented its relevance
+        in the programming landscape.\n\nIf you need further details on specific aspects
+        or additional topics related to Ruby, feel free to ask!\n---\n\nAdditional
+        Instructions: Extract and structure the research findings about Ruby programming
+        language\n\nReturn the data in JSON format that strictly conforms to the provided
+        schema.\nOnly include data that is actually present in the content.\nFor required
+        fields that are missing, use appropriate null or empty values.\n"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"research_findings","strict":true,"schema":{"type":"object","properties":{"topic":{"type":"string"},"summary":{"type":"string"},"key_facts":{"type":"array","items":{"type":"string"}},"important_dates":{"type":"array","items":{"type":"object","properties":{"date":{"type":"string"},"event":{"type":"string"}},"required":["date","event"],"additionalProperties":false}},"key_people":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"role":{"type":"string"}},"required":["name"],"additionalProperties":false}},"sources":{"type":"array","items":{"type":"string"}}},"required":["topic","summary","key_facts"],"additionalProperties":false}}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 400
+      message: Bad Request
+    headers:
+      Date:
+      - Sat, 13 Sep 2025 23:17:26 GMT
+      Content-Type:
+      - application/json
+      Content-Length:
+      - '338'
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '30'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '59'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199028'
+      X-Ratelimit-Reset-Requests:
+      - 10.403s
+      X-Ratelimit-Reset-Tokens:
+      - 291ms
+      X-Request-Id:
+      - req_c0f8adc788344c0bb3af341c7457eace
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Hzuzmh2._lt0BAhwwSYttM7_kOhO8I3WW_Bz.V9iEYs-1757805446-1.0.1.1-4GTF_w8Sb4Ba05FhWNCLnofzpUxXfF8fPDTDsjPZTu8T3BDmDgIKo600WLGPnkMLpW488x4.VHX__Nxz38W.fcNRATZHt1v7sXIcdWf1j4w;
+        path=/; expires=Sat, 13-Sep-25 23:47:26 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=B8yPSFfCEOGXhB1nGxvI2NUi6p9KcuvbRREZDYShNDg-1757805446155-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 97eb5ba5b9628075-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: UTF-8
-      string: |
+      string: |-
         {
-            "error": {
-                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
-                "type": "invalid_request_error",
-                "param": null,
-                "code": "invalid_api_key"
-            }
+          "error": {
+            "message": "Invalid schema for response_format 'research_findings': In context=('properties', 'key_people', 'items'), 'required' is required to be supplied and to be an array including every key in properties. Missing 'role'.",
+            "type": "invalid_request_error",
+            "param": "response_format",
+            "code": null
+          }
         }
-  recorded_at: Fri, 12 Sep 2025 04:40:12 GMT
+  recorded_at: Sat, 13 Sep 2025 23:17:26 GMT
 recorded_with: VCR 6.3.1

@@ -5,12 +5,8 @@ http_interactions:
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Navigate
-        to: https://www.example.com\n\nExtract structured data from the page according
-        to this schema:\n{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"},\"headings\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"links\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"},\"href\":{\"type\":\"string\"}}}},\"main_content\":{\"type\":\"string\"}},\"required\":[\"title\",\"headings\",\"main_content\"]}\n\n\nUse
-        Playwright MCP tools to:\n1. Navigate to the URL\n2. Capture the page structure
-        with browser_snapshot\n3. Extract the required data matching the schema\n4.
-        Return the data in the specified JSON format\n"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"type":"object","properties":{"title":{"type":"string"},"headings":{"type":"array","items":{"type":"string"}},"links":{"type":"array","items":{"type":"object","properties":{"text":{"type":"string"},"href":{"type":"string"}}}},"main_content":{"type":"string"}},"required":["title","headings","main_content"]}}}'
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Create
+        a todo: Buy groceries"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"type":"object","properties":{"title":{"type":"string"},"completed":{"type":"boolean"}},"required":["title","completed"],"strict":true}}}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +24,7 @@ http_interactions:
       message: Bad Request
     headers:
       Date:
-      - Tue, 02 Sep 2025 04:54:28 GMT
+      - Sat, 13 Sep 2025 23:14:42 GMT
       Content-Type:
       - application/json
       Content-Length:
@@ -40,34 +36,36 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '25'
+      - '9'
       Openai-Project:
       - proj_KAJGwI6N1x3lWSKGr0zi2zcu
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '78'
+      - '31'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9999'
+      - '9998'
       X-Ratelimit-Remaining-Tokens:
-      - '199844'
+      - '199991'
       X-Ratelimit-Reset-Requests:
-      - 8.64s
+      - 16.996s
       X-Ratelimit-Reset-Tokens:
-      - 46ms
+      - 2ms
       X-Request-Id:
-      - req_39e893a758de4b8c8164814980a1d985
+      - req_4350f1c001d04dc3a60efce015903ba8
+      X-Openai-Proxy-Wasm:
+      - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=o5sGoOFlyoRADo7nL1_qy99.TntIS6Bf17q2QlvbFZ0-1756788868-1.0.1.1-QOx4UMVHYwaRrEqXOZ6VoUqCCvMo893RI03EckD_CSZ_MLJATk2ZEb._YR5vKvf2UFc4e1g7lGltRMZJYApcqfJ7KWXhqgugRXO1eH2uyZ4;
-        path=/; expires=Tue, 02-Sep-25 05:24:28 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=WExMelARpISMbMR.T_mPiZWdotUqrzCqZ8feGDu4OSI-1757805282-1.0.1.1-OnA6DThBs4E9H.DtZ4neShqi_o1R3296.fzj6bGLm7rs1FAQWkaFski.yxLLOijTOGrbUOjahWBSqYwuGGt.IUBeJMx_lsOQCzjPFIodJOQ;
+        path=/; expires=Sat, 13-Sep-25 23:44:42 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=tJ0GeHHCAnwuWnmrGelg5Q8Ged6OJIFCPJKd6f9oNQQ-1756788868976-0.0.1.1-604800000;
+      - _cfuvid=OWpWkel6U8envLhcBueUfjLsjMxp2GXJQp7JImgNjE0-1757805282592-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -76,7 +74,7 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 978a68d6e9d12f45-LAX
+      - 97eb57a79fb52349-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
@@ -90,5 +88,5 @@ http_interactions:
             "code": "missing_required_parameter"
           }
         }
-  recorded_at: Tue, 02 Sep 2025 04:54:28 GMT
+  recorded_at: Sat, 13 Sep 2025 23:14:42 GMT
 recorded_with: VCR 6.3.1

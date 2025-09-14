@@ -23,32 +23,52 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 401
-      message: Unauthorized
+      code: 200
+      message: OK
     headers:
       Date:
-      - Fri, 12 Sep 2025 04:40:05 GMT
+      - Sat, 13 Sep 2025 23:16:11 GMT
       Content-Type:
-      - application/json; charset=utf-8
-      Content-Length:
-      - '414'
+      - application/json
+      Transfer-Encoding:
+      - chunked
       Connection:
       - keep-alive
-      Vary:
-      - Origin
-      X-Request-Id:
-      - req_87b2df57e4364f73ad19a60ac80b2256
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '7662'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '49'
+      - '7683'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199917'
+      X-Ratelimit-Reset-Requests:
+      - 8.702s
+      X-Ratelimit-Reset-Tokens:
+      - 24ms
+      X-Request-Id:
+      - req_3737a65c4e0e4a90afb9cb6db85169f0
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=XET.B3ZjydZ8kJhnTmMSfxHdMeMQsKXLehMx5WL8LE4-1757652005-1.0.1.1-7BWVf33rNjc.A2bwTw9ZFcTpZRorGwO82vsrRi7HqwXZ90nAh2epuLnNkIERsqWr_zfQ5baFM2h4jIv4hmz1QeKtTsKIIPUZCeK6op90Mg4;
-        path=/; expires=Fri, 12-Sep-25 05:10:05 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=dwWP533yr6p2c_lh_yFUF_dpLwzRM9CZlqpWKTgEsOg-1757805371-1.0.1.1-g5EkDFJGZ2bTuSFH2Eednj.phWm1itedCEwjpLuQV6oSSjj.FzQ1FBtJp.ifAvxLaYPGw5qqI0Ee4LtqLCDPXGQX72EW84sRc67pnKUWHsM;
+        path=/; expires=Sat, 13-Sep-25 23:46:11 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=K3Ud1C3ZpudWrRbxow8TV73eIcLc.cVb0wzCI4No5gA-1757652005580-0.0.1.1-604800000;
+      - _cfuvid=0lzeSkXwuTgnxDOiIzVpYrNmC3_L7yqtF6MmSJHjulg-1757805371198-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -57,19 +77,47 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 97dcb98a1a3e9e6e-SJC
+      - 97eb59a189d69459-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
-      encoding: UTF-8
+      encoding: ASCII-8BIT
       string: |
         {
-            "error": {
-                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
-                "type": "invalid_request_error",
-                "param": null,
-                "code": "invalid_api_key"
+          "id": "chatcmpl-CFTlL1n6ViivNMrFHEGo7HfdbcVdU",
+          "object": "chat.completion",
+          "created": 1757805363,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "To monitor a webpage for changes using Playwright, you can follow these steps in a script format. Below is a conceptual example of how you might implement this using Playwright in a Node.js environment. This example assumes you have Playwright installed and set up.\n\n### Step-by-Step Script\n\n1. **Install Playwright** (if you haven't already):\n   ```bash\n   npm install playwright\n   ```\n\n2. **Create a Script** (e.g., `monitorTime.js`):\n\n```javascript\nconst { chromium } = require('playwright');\n\n(async () => {\n    // Launch the browser\n    const browser = await chromium.launch();\n    const context = await browser.newContext();\n    const page = await context.newPage();\n\n    // Navigate to the URL\n    await page.goto('https://time.is/');\n\n    // Variable to store the current time\n    let currentTime = await page.innerText('#twd'); // Adjust the selector based on the actual time display element\n\n    console.log(`Initial time: ${currentTime}`);\n\n    // Monitor for time updates\n    const timeout = 5000; // timeout in milliseconds\n    const startTime = Date.now();\n\n    while (Date.now() - startTime < timeout) {\n        // Wait for a short duration before checking again\n        await page.waitForTimeout(1000); // Check every second\n\n        // Get the updated time\n        const updatedTime = await page.innerText('#twd'); // Adjust the selector as necessary\n\n        // Check if the time has changed\n        if (updatedTime !== currentTime) {\n            console.log(`Time updated: ${updatedTime}`);\n            currentTime = updatedTime;\n\n            // Take a snapshot of the current page\n            await page.screenshot({ path: `snapshot-${Date.now()}.png` });\n            console.log('Snapshot taken.');\n        }\n    }\n\n    // Close the browser\n    await browser.close();\n})();\n```\n\n### Explanation of the Script\n\n1. **Launch Browser**: The script launches a Chromium browser instance using Playwright.\n2. **Navigate to URL**: It navigates to `https://time.is/`.\n3. **Initial Time Capture**: It captures the initial time displayed on the page.\n4. **Monitoring Loop**: The script enters a loop where it checks for changes in the time displayed every second for a maximum of 5 seconds.\n5. **Condition Check**: If the time changes, it logs the updated time and takes a screenshot.\n6. **Timeout Handling**: The loop will exit if the timeout is reached.\n7. **Close Browser**: Finally, it closes the browser.\n\n### Running the Script\nTo run the script, use the following command in your terminal:\n```bash\nnode monitorTime.js\n```\n\n### Note\n- Make sure to adjust the selector (`#twd`) to match the actual HTML element that displays the time on `time.is`. You can inspect the page to find the correct selector.\n- This script is a basic example. You might want to add error handling and more sophisticated logging based on your needs.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
             }
+          ],
+          "usage": {
+            "prompt_tokens": 85,
+            "completion_tokens": 634,
+            "total_tokens": 719,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
         }
-  recorded_at: Fri, 12 Sep 2025 04:40:05 GMT
+  recorded_at: Sat, 13 Sep 2025 23:16:11 GMT
 recorded_with: VCR 6.3.1

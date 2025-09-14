@@ -25,32 +25,52 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 401
-      message: Unauthorized
+      code: 200
+      message: OK
     headers:
       Date:
-      - Fri, 12 Sep 2025 04:40:05 GMT
+      - Sat, 13 Sep 2025 23:18:22 GMT
       Content-Type:
-      - application/json; charset=utf-8
-      Content-Length:
-      - '414'
+      - application/json
+      Transfer-Encoding:
+      - chunked
       Connection:
       - keep-alive
-      Vary:
-      - Origin
-      X-Request-Id:
-      - req_8c8809708f584d90bc5d6290ec257573
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '7654'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '2'
+      - '7714'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199892'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 32ms
+      X-Request-Id:
+      - req_70e6378cd23c4f578b360d69b25efd6e
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=XWX.9AlghC1vPLAMlieGnXHHVXghVsOeJPKPF_lSNNQ-1757652005-1.0.1.1-VXVinyUEFlGl_xu_jXmtFTi.olXiD.rodPP9PE1GjpqqT.1EiBW9THf4eGvR8sfc.nc0sCaVbBZ8UoEe38jhoVKEc7YOHunCnhDGVHOSpLQ;
-        path=/; expires=Fri, 12-Sep-25 05:10:05 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=y9xpG13kut8Qwb3KWePaPELbUc8gYK5TrYmPgBIcQoI-1757805502-1.0.1.1-LkxbcWEPCRqDU4f4Z3bKPwPYTJhQn4mtTeAyYWRzp0me_wVQnxboqWBENqBme8U_PrnKdDrSgQRMYc_AjaxOmr2p4hOdml3Q7aB2jxIV_eU;
+        path=/; expires=Sat, 13-Sep-25 23:48:22 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=ly_PzYiZ7p4WICJJmUPQGI7s0wlV38sn.XCc0LfECqU-1757652005973-0.0.1.1-604800000;
+      - _cfuvid=VtJM18uOEDT1Ngo.exeQjwMNjEGudkqEZweTmpQ6.MU-1757805502185-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -59,19 +79,47 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 97dcb98d1d7ecf5d-SJC
+      - 97eb5cd3ef54fa32-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
-      encoding: UTF-8
+      encoding: ASCII-8BIT
       string: |
         {
-            "error": {
-                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
-                "type": "invalid_request_error",
-                "param": null,
-                "code": "invalid_api_key"
+          "id": "chatcmpl-CFTnSBx2LRVCEyAgJXrN9uhuJ2On1",
+          "object": "chat.completion",
+          "created": 1757805494,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I'm unable to browse the internet or take screenshots directly. However, I can guide you on how to perform the visual comparison using Playwright or similar tools.\n\n### Steps to Compare Two Web Pages Using Playwright\n\n1. **Set Up Playwright**:\n   - Install Playwright by running:\n     ```bash\n     npm install playwright\n     ```\n\n2. **Capture Full Page Screenshots**:\n   - Create a JavaScript file (e.g., `captureScreenshots.js`) and use the following code to capture screenshots of both pages:\n\n   ```javascript\n   const { chromium } = require('playwright');\n\n   (async () => {\n       const browser = await chromium.launch();\n       const context = await browser.newContext();\n       const page1 = await context.newPage();\n       const page2 = await context.newPage();\n\n       // Navigate to the first URL and take a screenshot\n       await page1.goto('https://www.example.com');\n       await page1.screenshot({ path: 'example_com.png', fullPage: true });\n\n       // Navigate to the second URL and take a screenshot\n       await page2.goto('https://www.example.org');\n       await page2.screenshot({ path: 'example_org.png', fullPage: true });\n\n       await browser.close();\n   })();\n   ```\n\n3. **Run the Script**:\n   - Execute the script using Node.js:\n     ```bash\n     node captureScreenshots.js\n     ```\n\n4. **Analyze the Screenshots**:\n   - Open the screenshots (`example_com.png` and `example_org.png`) in an image viewer or editor.\n   - Compare the two images side by side.\n\n### Visual Comparison Checklist\n\n1. **Layout Differences**:\n   - Note the placement of headers, footers, navigation menus, and main content areas.\n   - Check for differences in spacing, alignment, and overall structure.\n\n2. **Content Structure**:\n   - Identify how headings, paragraphs, images, and other elements are organized on each page.\n   - Look for differences in font styles, sizes, and colors.\n\n3. **Unique Elements**:\n   - Identify any unique features such as forms, buttons, or interactive elements.\n   - Note differences in imagery, graphics, or branding elements (logos, colors).\n\n4. **Responsive Design**:\n   - If possible, resize the window to see how each page adapts to different screen sizes.\n\n### Summary of Comparison\n\n- **Visual Style**: Describe the overall aesthetic of each page. Is one more modern and minimalist, while the other is more traditional?\n- **Functionality**: Discuss any interactive elements like buttons or forms, and how they differ in functionality or design.\n- **User Interface**: Note the intuitiveness of navigation and how easily a user can find information on each page.\n\nBy following these steps and using the checklist, you can create a thorough visual comparison of the two web pages. If you have any specific elements you want to compare or need further guidance, feel free to ask!",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
             }
+          ],
+          "usage": {
+            "prompt_tokens": 101,
+            "completion_tokens": 613,
+            "total_tokens": 714,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
         }
-  recorded_at: Fri, 12 Sep 2025 04:40:05 GMT
+  recorded_at: Sat, 13 Sep 2025 23:18:22 GMT
 recorded_with: VCR 6.3.1

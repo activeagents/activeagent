@@ -26,32 +26,52 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 401
-      message: Unauthorized
+      code: 200
+      message: OK
     headers:
       Date:
-      - Fri, 12 Sep 2025 04:40:06 GMT
+      - Sat, 13 Sep 2025 23:16:19 GMT
       Content-Type:
-      - application/json; charset=utf-8
-      Content-Length:
-      - '414'
+      - application/json
+      Transfer-Encoding:
+      - chunked
       Connection:
       - keep-alive
-      Vary:
-      - Origin
-      X-Request-Id:
-      - req_277e8096a0d24b578f571a82c785942d
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '7644'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '4'
+      - '7664'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199867'
+      X-Ratelimit-Reset-Requests:
+      - 9.379s
+      X-Ratelimit-Reset-Tokens:
+      - 39ms
+      X-Request-Id:
+      - req_b47e9cb4adf1418a8b1c82ad858d665c
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=ns9kRC7asoVm6eLz4oZaXfofranSxT8Qv345XQLGmV8-1757652006-1.0.1.1-cqSbgXMqVbxDVjts6O.yp6x06J4BS1G5F5EYDqmhJO.ErtmQoFOJNuxbHFe94hpLRSvni_mRoDGDdCMnSkgHyV0DUow5ZjiDlgMDrAp6.s4;
-        path=/; expires=Fri, 12-Sep-25 05:10:06 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=CvnMUhCYnVKHnEp370wCNx_bAFQK2Uw69x33t6titDo-1757805379-1.0.1.1-a9fS9H7mU5dgzOspijN9Tp.aTZidESFdH8OqSBlYnexvCaJZyg2_qk0yksXKPAwGR_g7Ek4bJHbOGUwKTp5vRaxxUD7m0iBGEqrd.8U1Z6o;
+        path=/; expires=Sat, 13-Sep-25 23:46:19 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=XLUMZODVgAuxrqr0vvNEJDSNmE.rur0oirlyXNLtBw4-1757652006530-0.0.1.1-604800000;
+      - _cfuvid=Zrdz.CROUqDQeCmPza9Odc9dpEjkvOJUFeiUo5lXsg8-1757805379149-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -60,19 +80,47 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 97dcb9909f98fb4c-SJC
+      - 97eb59d3695eed35-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
-      encoding: UTF-8
+      encoding: ASCII-8BIT
       string: |
         {
-            "error": {
-                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
-                "type": "invalid_request_error",
-                "param": null,
-                "code": "invalid_api_key"
+          "id": "chatcmpl-CFTlTorL4KmBRDHUZRAGGcR3n4NmC",
+          "object": "chat.completion",
+          "created": 1757805371,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "To accomplish the test steps you've outlined using Playwright, here's a sample code snippet that implements each of your requirements. This script will navigate to the homepage, verify the page title, check for links, take a screenshot, and report any failures.\n\n### Prerequisites:\nMake sure you have Node.js and Playwright installed. You can install Playwright with the following command:\n\n```bash\nnpm init -y\nnpm install playwright\n```\n\n### Sample Test Script\n\n```javascript\nconst { chromium } = require('playwright');\n\n(async () => {\n    // Step 1: Launch the browser and navigate to the homepage\n    const browser = await chromium.launch();\n    const page = await browser.newPage();\n    await page.goto('https://www.example.com');\n    \n    // Step 2: Verify the page title contains 'Example'\n    const pageTitle = await page.title();\n    const titleAssertion = pageTitle.includes('Example');\n    \n    if (titleAssertion) {\n        console.log('Title assertion passed: ', pageTitle);\n    } else {\n        console.error('Title assertion failed: ', pageTitle);\n    }\n\n    // Step 3: Check that there is at least one link on the page\n    const links = await page.$$('a'); // Select all anchor tags\n    const linksAssertion = links.length > 0;\n\n    if (linksAssertion) {\n        console.log('Navigation elements assertion passed: At least one link is present.');\n    } else {\n        console.error('Navigation elements assertion failed: No links found on the page.');\n    }\n\n    // Step 4: Take a screenshot for documentation\n    await page.screenshot({ path: 'screenshot.png' });\n    console.log('Screenshot taken: screenshot.png');\n\n    // Step 5: Report any failures or issues found\n    if (!titleAssertion || !linksAssertion) {\n        console.error('One or more assertions failed. Please check the logs for details.');\n    } else {\n        console.log('All assertions passed successfully.');\n    }\n\n    // Closing the browser\n    await browser.close();\n})();\n```\n\n### Summary of the Code:\n1. **Launch Browser**: The script launches a Chromium browser instance and navigates to the specified URL.\n2. **Verify Title**: It checks if the page title contains the word \"Example\" and logs the result.\n3. **Check Links**: It checks for the presence of at least one link (anchor tag) on the page and logs the result.\n4. **Take Screenshot**: A screenshot is taken and saved as `screenshot.png`.\n5. **Error Reporting**: If any assertion fails, an error message is logged; otherwise, a success message is printed.\n6. **Close Browser**: Finally, it closes the browser.\n\n### Running the Script\nTo run the script, save it to a file named `test.js`, and execute it using Node.js:\n\n```bash\nnode test.js\n```\n\nThis will perform the test steps as described and output the results to the console. Adjust the URL or assertions as needed for your specific testing requirements.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
             }
+          ],
+          "usage": {
+            "prompt_tokens": 125,
+            "completion_tokens": 628,
+            "total_tokens": 753,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_51db84afab"
         }
-  recorded_at: Fri, 12 Sep 2025 04:40:06 GMT
+  recorded_at: Sat, 13 Sep 2025 23:16:19 GMT
 recorded_with: VCR 6.3.1
