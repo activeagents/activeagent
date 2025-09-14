@@ -33,7 +33,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 02 Sep 2025 05:16:43 GMT
+      - Sat, 13 Sep 2025 23:17:34 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -45,34 +45,36 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '9815'
+      - '8000'
       Openai-Project:
       - proj_KAJGwI6N1x3lWSKGr0zi2zcu
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '9821'
+      - '8103'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9999'
+      - '9998'
       X-Ratelimit-Remaining-Tokens:
       - '199820'
       X-Ratelimit-Reset-Requests:
-      - 8.64s
+      - 10.083s
       X-Ratelimit-Reset-Tokens:
       - 54ms
       X-Request-Id:
-      - req_abdc40693022403db46fe12960a82526
+      - req_0f29cd9af1124ce89fb85d3e694a20e9
+      X-Openai-Proxy-Wasm:
+      - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=rBc1XM8kHWCkBqhfrL4jRRu9EhHx6yfRN_ZfFqvqZEE-1756790203-1.0.1.1-rCNY54fpdlp7qcp6s8HuP.lBCWW4P_tSXsFo_ttIGjM3invziVUmKOYNWCmlaxglqkl1oyDCZRXGxM24Wac9Uvk7f4AK3lAOCvxd9vrmNL4;
-        path=/; expires=Tue, 02-Sep-25 05:46:43 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=iKXG700AEqs2b7AKeDHbjdMUVGhnmNTsZApitu8YgdA-1757805454-1.0.1.1-oUkJ5K8KglAZl4W0G5PqI39dc00CukOekPsov6OFmZPBJy6EDEprq3kGQ8vhgRBsSJARymum5YiPglH1NOdatyRenoU.YSnTeDu1H.bOKZk;
+        path=/; expires=Sat, 13-Sep-25 23:47:34 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=ssrDa5hSx7eDh1sU25j4glQPjrFMHc4Pm5NVkRooeeY-1756790203245-0.0.1.1-604800000;
+      - _cfuvid=TYiKRyGg4xSjn_s4k2Q5rvSm8sNEHF1Fw5VOcRuIRmU-1757805454529-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -81,14 +83,49 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 978a892faf0ff7db-LAX
+      - 97eb5ba7add6cfdd-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
-      string: !binary |-
-        ewogICJpZCI6ICJjaGF0Y21wbC1DQkRmZGZPSXFFYUFGTUNrdG00cGMwb1FnRFowSiIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc1Njc5MDE5MywKICAibW9kZWwiOiAiZ3B0LTRvLW1pbmktMjAyNC0wNy0xOCIsCiAgImNob2ljZXMiOiBbCiAgICB7CiAgICAgICJpbmRleCI6IDAsCiAgICAgICJtZXNzYWdlIjogewogICAgICAgICJyb2xlIjogImFzc2lzdGFudCIsCiAgICAgICAgImNvbnRlbnQiOiAiSSdtIHVuYWJsZSB0byBuYXZpZ2F0ZSB0byBleHRlcm5hbCB3ZWJzaXRlcyBvciBwZXJmb3JtIHdlYiBzY3JhcGluZyB0YXNrcyBkaXJlY3RseS4gSG93ZXZlciwgSSBjYW4gcHJvdmlkZSB5b3Ugd2l0aCBhIHN0cnVjdHVyZWQgYXBwcm9hY2ggb24gaG93IHRvIGNhcHR1cmUgYW5kIGV4dHJhY3QgZGF0YSBmcm9tIGEgd2VicGFnZSB1c2luZyBQbGF5d3JpZ2h0IG9yIHNpbWlsYXIgdG9vbHMuIEhlcmXigJlzIGEgc3RlcC1ieS1zdGVwIGd1aWRlIG9uIGhvdyB0byBhY2hpZXZlIHRoaXM6XG5cbiMjIyBTdGVwLWJ5LVN0ZXAgR3VpZGUgVXNpbmcgUGxheXdyaWdodFxuXG4xLiAqKk5hdmlnYXRlIHRvIHRoZSBVUkwqKjpcbiAgIFVzZSBQbGF5d3JpZ2h0IHRvIG5hdmlnYXRlIHRvIHRoZSBkZXNpcmVkIHdlYnBhZ2UuXG4gICBgYGBqYXZhc2NyaXB0XG4gICBjb25zdCB7IGNocm9taXVtIH0gPSByZXF1aXJlKCdwbGF5d3JpZ2h0Jyk7XG5cbiAgIChhc3luYyAoKSA9PiB7XG4gICAgICAgY29uc3QgYnJvd3NlciA9IGF3YWl0IGNocm9taXVtLmxhdW5jaCgpO1xuICAgICAgIGNvbnN0IHBhZ2UgPSBhd2FpdCBicm93c2VyLm5ld1BhZ2UoKTtcbiAgICAgICBhd2FpdCBwYWdlLmdvdG8oJ2h0dHBzOi8vd3d3LmV4YW1wbGUuY29tJyk7XG4gICBgYGBcblxuMi4gKipXYWl0IGZvciB0aGUgUGFnZSB0byBGdWxseSBMb2FkKio6XG4gICBFbnN1cmUgdGhlIHBhZ2UgaXMgZnVsbHkgbG9hZGVkIGJlZm9yZSBjYXB0dXJpbmcgY29udGVudC5cbiAgIGBgYGphdmFzY3JpcHRcbiAgICAgICBhd2FpdCBwYWdlLndhaXRGb3JMb2FkU3RhdGUoJ25ldHdvcmtpZGxlJyk7XG4gICBgYGBcblxuMy4gKipDYXB0dXJlIHRoZSBBY2Nlc3NpYmlsaXR5IFRyZWUqKjpcbiAgIFVzZSB0aGUgUGxheXdyaWdodCBidWlsdC1pbiBmdW5jdGlvbnMgdG8gY2FwdHVyZSB0aGUgYWNjZXNzaWJpbGl0eSB0cmVlLlxuICAgYGBgamF2YXNjcmlwdFxuICAgICAgIGNvbnN0IGFjY2Vzc2liaWxpdHlUcmVlID0gYXdhaXQgcGFnZS5hY2Nlc3NpYmlsaXR5LnNuYXBzaG90KCk7XG4gICBgYGBcblxuNC4gKipFeHRyYWN0IEFsbCBUZXh0IENvbnRlbnQqKjpcbiAgIFJldHJpZXZlIHRoZSB0ZXh0IGNvbnRlbnQgb2YgdGhlIHBhZ2UuXG4gICBgYGBqYXZhc2NyaXB0XG4gICAgICAgY29uc3QgcGFnZVRleHQgPSBhd2FpdCBwYWdlLmV2YWx1YXRlKCgpID0+IGRvY3VtZW50LmJvZHkuaW5uZXJUZXh0KTtcbiAgIGBgYFxuXG41LiAqKklkZW50aWZ5IEFsbCBJbnRlcmFjdGl2ZSBFbGVtZW50cyoqOlxuICAgRmluZCBhbGwgbGlua3MsIGJ1dHRvbnMsIGFuZCBmb3JtIGVsZW1lbnRzLlxuICAgYGBgamF2YXNjcmlwdFxuICAgICAgIGNvbnN0IGxpbmtzID0gYXdhaXQgcGFnZS4kJGV2YWwoJ2EnLCBhbmNob3JzID0+IGFuY2hvcnMubWFwKGFuY2hvciA9PiAoe1xuICAgICAgICAgICB0ZXh0OiBhbmNob3IuaW5uZXJUZXh0LFxuICAgICAgICAgICBocmVmOiBhbmNob3IuaHJlZlxuICAgICAgIH0pKSk7XG4gICAgICAgXG4gICAgICAgY29uc3QgYnV0dG9ucyA9IGF3YWl0IHBhZ2UuJCRldmFsKCdidXR0b24nLCBidG5zID0+IGJ0bnMubWFwKGJ0biA9PiAoe1xuICAgICAgICAgICB0ZXh0OiBidG4uaW5uZXJUZXh0XG4gICAgICAgfSkpKTtcblxuICAgICAgIGNvbnN0IGZvcm1zID0gYXdhaXQgcGFnZS4kJGV2YWwoJ2Zvcm0nLCBmb3JtcyA9PiBmb3Jtcy5tYXAoZm9ybSA9PiAoe1xuICAgICAgICAgICBhY3Rpb246IGZvcm0uYWN0aW9uLFxuICAgICAgICAgICBtZXRob2Q6IGZvcm0ubWV0aG9kXG4gICAgICAgfSkpKTtcbiAgIGBgYFxuXG42LiAqKk5vdGUgdGhlIFBhZ2UgU3RydWN0dXJlIGFuZCBIaWVyYXJjaHkqKjpcbiAgIEV4dHJhY3QgaGVhZGluZ3MgYW5kIHRoZWlyIGhpZXJhcmNoeS5cbiAgIGBgYGphdmFzY3JpcHRcbiAgICAgICBjb25zdCBoZWFkaW5ncyA9IGF3YWl0IHBhZ2UuJCRldmFsKCdoMSwgaDIsIGgzLCBoNCwgaDUsIGg2JywgaGVhZHMgPT4gaGVhZHMubWFwKGhlYWQgPT4gKHtcbiAgICAgICAgICAgdGV4dDogaGVhZC5pbm5lclRleHQsXG4gICAgICAgICAgIGxldmVsOiBoZWFkLnRhZ05hbWVcbiAgICAgICB9KSkpO1xuICAgYGBgXG5cbjcuICoqUmV0dXJuIGEgQ29tcHJlaGVuc2l2ZSBEZXNjcmlwdGlvbioqOlxuICAgRm9ybWF0IHRoZSBleHRyYWN0ZWQgZGF0YSBpbnRvIGEgY29tcHJlaGVuc2l2ZSByZXBvcnQuXG4gICBgYGBqYXZhc2NyaXB0XG4gICAgICAgY29uc29sZS5sb2coe1xuICAgICAgICAgICB0aXRsZTogYXdhaXQgcGFnZS50aXRsZSgpLFxuICAgICAgICAgICBoZWFkaW5ncyxcbiAgICAgICAgICAgcGFnZVRleHQsXG4gICAgICAgICAgIGxpbmtzLFxuICAgICAgICAgICBidXR0b25zLFxuICAgICAgICAgICBmb3JtcyxcbiAgICAgICAgICAgYWNjZXNzaWJpbGl0eVRyZWUsXG4gICAgICAgfSk7XG5cbiAgICAgICBhd2FpdCBicm93c2VyLmNsb3NlKCk7XG4gICB9KSgpO1xuICAgYGBgXG5cbiMjIyBFeHBlY3RlZCBPdXRwdXQgU3RydWN0dXJlXG5cbi0gKipQYWdlIFRpdGxlKio6IFRoZSB0aXRsZSBvZiB0aGUgd2VicGFnZS5cbi0gKipIZWFkaW5ncyoqOiBMaXN0IG9mIGhlYWRpbmdzIHdpdGggdGhlaXIgbGV2ZWxzLlxuLSAqKk1haW4gQ29udGVudCBBcmVhcyoqOiBUZXh0IGNvbnRlbnQgZXh0cmFjdGVkIGZyb20gdGhlIGJvZHkgb2YgdGhlIHBhZ2UuXG4tICoqTGlua3MqKjogQXJyYXkgb2Ygb2JqZWN0cyBjb250YWluaW5nIHRleHQgYW5kIGRlc3RpbmF0aW9uIFVSTHMgZm9yIGFsbCBsaW5rcy5cbi0gKipCdXR0b25zKio6IEFycmF5IG9mIGJ1dHRvbiB0ZXh0cy5cbi0gKipGb3JtcyoqOiBBcnJheSB3aXRoIGRldGFpbHMgb2YgZm9ybXMgaW5jbHVkaW5nIGFjdGlvbiBhbmQgbWV0aG9kLlxuLSAqKkFjY2Vzc2liaWxpdHkgVHJlZSoqOiBBIHN0cnVjdHVyZWQgcmVwcmVzZW50YXRpb24gb2YgdGhlIHBhZ2UncyBhY2Nlc3NpYmlsaXR5IGRhdGEuXG4tICoqTWV0YWRhdGEqKjogQW55IHJlbGV2YW50IG1ldGEgdGFncyB0aGF0IG1pZ2h0IGJlIGluY2x1ZGVkIGluIHRoZSBgPGhlYWQ+YCBzZWN0aW9uIG9mIHRoZSBIVE1MLlxuXG4jIyMgSW1wb3J0YW50IE1ldGFkYXRhXG5JZiB5b3UgbmVlZCB0byBjYXB0dXJlIG1ldGFkYXRhOlxuYGBgamF2YXNjcmlwdFxuY29uc3QgbWV0YWRhdGEgPSBhd2FpdCBwYWdlLiQkZXZhbCgnbWV0YScsIG1ldGFzID0+IG1ldGFzLm1hcChtZXRhID0+ICh7XG4gICAgbmFtZTogbWV0YS5nZXRBdHRyaWJ1dGUoJ25hbWUnKSxcbiAgICBjb250ZW50OiBtZXRhLmdldEF0dHJpYnV0ZSgnY29udGVudCcpXG59KSkpO1xuYGBgXG5cblRoaXMgZ3VpZGUgc2hvdWxkIGhlbHAgeW91IHN5c3RlbWF0aWNhbGx5IGV4dHJhY3Qgc3RydWN0dXJlZCBkYXRhIGZyb20gYW55IHdlYnBhZ2UgdXNpbmcgUGxheXdyaWdodC4gQWRqdXN0IHNlbGVjdG9ycyBhY2NvcmRpbmcgdG8gdGhlIHNwZWNpZmljIEhUTUwgc3RydWN0dXJlIG9mIHRoZSBwYWdlIHlvdSBhcmUgd29ya2luZyB3aXRoLiIsCiAgICAgICAgInJlZnVzYWwiOiBudWxsLAogICAgICAgICJhbm5vdGF0aW9ucyI6IFtdCiAgICAgIH0sCiAgICAgICJsb2dwcm9icyI6IG51bGwsCiAgICAgICJmaW5pc2hfcmVhc29uIjogInN0b3AiCiAgICB9CiAgXSwKICAidXNhZ2UiOiB7CiAgICAicHJvbXB0X3Rva2VucyI6IDE1NCwKICAgICJjb21wbGV0aW9uX3Rva2VucyI6IDczOSwKICAgICJ0b3RhbF90b2tlbnMiOiA4OTMsCiAgICAicHJvbXB0X3Rva2Vuc19kZXRhaWxzIjogewogICAgICAiY2FjaGVkX3Rva2VucyI6IDAsCiAgICAgICJhdWRpb190b2tlbnMiOiAwCiAgICB9LAogICAgImNvbXBsZXRpb25fdG9rZW5zX2RldGFpbHMiOiB7CiAgICAgICJyZWFzb25pbmdfdG9rZW5zIjogMCwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAsCiAgICAgICJhY2NlcHRlZF9wcmVkaWN0aW9uX3Rva2VucyI6IDAsCiAgICAgICJyZWplY3RlZF9wcmVkaWN0aW9uX3Rva2VucyI6IDAKICAgIH0KICB9LAogICJzZXJ2aWNlX3RpZXIiOiAiZGVmYXVsdCIsCiAgInN5c3RlbV9maW5nZXJwcmludCI6ICJmcF81MWRiODRhZmFiIgp9Cg==
-  recorded_at: Tue, 02 Sep 2025 05:16:42 GMT
+      string: |
+        {
+          "id": "chatcmpl-CFTmgzrhXnhMhmTWi1KLcCPQmgKj2",
+          "object": "chat.completion",
+          "created": 1757805446,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I'm unable to directly navigate to URLs or interact with web pages in real-time, including capturing page content or using browser automation tools like Playwright. However, I can guide you through the process of how you can do this yourself.\n\nHere's a step-by-step outline on how to use Playwright to extract structured data from a webpage:\n\n### Step 1: Set Up Playwright\n\n1. **Install Playwright**: If you haven't already, you can install Playwright using npm:\n   ```bash\n   npm install playwright\n   ```\n\n### Step 2: Create a Script\n\n2. **Create a new JavaScript file** (e.g., `extractData.js`) and include the following code structure:\n\n```javascript\nconst { chromium } = require('playwright');\n\n(async () => {\n    // Step 3: Launch the browser and navigate to the URL\n    const browser = await chromium.launch();\n    const page = await browser.newPage();\n    await page.goto('https://www.example.com');\n\n    // Step 4: Wait for the page to fully load\n    await page.waitForLoadState('load');\n\n    // Step 5: Capture the accessibility tree\n    const accessibilityTree = await page.accessibility.snapshot();\n\n    // Step 6: Extract all text content\n    const textContent = await page.evaluate(() => document.body.innerText);\n\n    // Step 7: Identify interactive elements\n    const interactiveElements = await page.$$eval('a, button, input, select, textarea', elements => {\n        return elements.map(el => ({\n            text: el.innerText,\n            tag: el.tagName,\n            href: el.tagName === 'A' ? el.href : null,\n            type: el.type || null,\n        }));\n    });\n\n    // Step 8: Note the page structure and hierarchy\n    const headings = await page.$$eval('h1, h2, h3, h4, h5, h6', headings => {\n        return headings.map(h => ({\n            text: h.innerText,\n            level: h.tagName,\n        }));\n    });\n\n    // Step 9: Form fields if present\n    const formFields = await page.$$eval('input, select, textarea', fields => {\n        return fields.map(field => ({\n            name: field.name,\n            type: field.type,\n            placeholder: field.placeholder,\n        }));\n    });\n\n    // Step 10: Data tables or lists\n    const lists = await page.$$eval('ul, ol', lists => {\n        return lists.map(list => ({\n            items: Array.from(list.children).map(item => item.innerText),\n        }));\n    });\n\n    // Step 11: Important metadata\n    const metadata = await page.evaluate(() => {\n        const metaTags = Array.from(document.getElementsByTagName('meta'));\n        return metaTags.map(tag => ({\n            name: tag.getAttribute('name'),\n            content: tag.getAttribute('content'),\n        }));\n    });\n\n    // Output gathered data\n    console.log({\n        textContent,\n        accessibilityTree,\n        interactiveElements,\n        headings,\n        formFields,\n        lists,\n        metadata,\n    });\n\n    // Close the browser\n    await browser.close();\n})();\n```\n\n### Step 3: Run the Script\n\n3. **Run your script** from the terminal:\n   ```bash\n   node extractData.js\n   ```\n\n### Expected Output\n\nThe script will output a JavaScript object containing:\n\n- **textContent**: All the text on the page.\n- **accessibilityTree**: The accessibility information for the page.\n- **interactiveElements**: An array of interactive elements with their text and destinations.\n- **headings**: An array of headings with their hierarchy.\n- **formFields**: An array of form field details.\n- **lists**: Any lists found on the page.\n- **metadata**: Important metadata elements.\n\n### Summary\n\nYou can modify the selectors and extraction logic based on the specific needs of the webpage you are working with. This script gives you a comprehensive overview of the page's content, which is suitable for structured data extraction.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 154,
+            "completion_tokens": 838,
+            "total_tokens": 992,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_51db84afab"
+        }
+  recorded_at: Sat, 13 Sep 2025 23:17:34 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/chat/completions
@@ -104,51 +141,57 @@ http_interactions:
         present\n- Use reasonable defaults only when explicitly allowed by the schema\n-
         Maintain consistency in data formatting\n- Follow the schema''s type requirements
         strictly"},{"role":"user","content":"Extract structured data from the following
-        content:\n\n---\nI''m unable to navigate to external websites or perform web
-        scraping tasks directly. However, I can provide you with a structured approach
-        on how to capture and extract data from a webpage using Playwright or similar
-        tools. Here’s a step-by-step guide on how to achieve this:\n\n### Step-by-Step
-        Guide Using Playwright\n\n1. **Navigate to the URL**:\n   Use Playwright to
-        navigate to the desired webpage.\n   ```javascript\n   const { chromium }
-        = require(''playwright'');\n\n   (async () =\u003e {\n       const browser
-        = await chromium.launch();\n       const page = await browser.newPage();\n       await
-        page.goto(''https://www.example.com'');\n   ```\n\n2. **Wait for the Page
-        to Fully Load**:\n   Ensure the page is fully loaded before capturing content.\n   ```javascript\n       await
-        page.waitForLoadState(''networkidle'');\n   ```\n\n3. **Capture the Accessibility
-        Tree**:\n   Use the Playwright built-in functions to capture the accessibility
-        tree.\n   ```javascript\n       const accessibilityTree = await page.accessibility.snapshot();\n   ```\n\n4.
-        **Extract All Text Content**:\n   Retrieve the text content of the page.\n   ```javascript\n       const
-        pageText = await page.evaluate(() =\u003e document.body.innerText);\n   ```\n\n5.
-        **Identify All Interactive Elements**:\n   Find all links, buttons, and form
-        elements.\n   ```javascript\n       const links = await page.$$eval(''a'',
-        anchors =\u003e anchors.map(anchor =\u003e ({\n           text: anchor.innerText,\n           href:
-        anchor.href\n       })));\n       \n       const buttons = await page.$$eval(''button'',
-        btns =\u003e btns.map(btn =\u003e ({\n           text: btn.innerText\n       })));\n\n       const
-        forms = await page.$$eval(''form'', forms =\u003e forms.map(form =\u003e ({\n           action:
-        form.action,\n           method: form.method\n       })));\n   ```\n\n6. **Note
-        the Page Structure and Hierarchy**:\n   Extract headings and their hierarchy.\n   ```javascript\n       const
-        headings = await page.$$eval(''h1, h2, h3, h4, h5, h6'', heads =\u003e heads.map(head
-        =\u003e ({\n           text: head.innerText,\n           level: head.tagName\n       })));\n   ```\n\n7.
-        **Return a Comprehensive Description**:\n   Format the extracted data into
-        a comprehensive report.\n   ```javascript\n       console.log({\n           title:
-        await page.title(),\n           headings,\n           pageText,\n           links,\n           buttons,\n           forms,\n           accessibilityTree,\n       });\n\n       await
-        browser.close();\n   })();\n   ```\n\n### Expected Output Structure\n\n- **Page
-        Title**: The title of the webpage.\n- **Headings**: List of headings with
-        their levels.\n- **Main Content Areas**: Text content extracted from the body
-        of the page.\n- **Links**: Array of objects containing text and destination
-        URLs for all links.\n- **Buttons**: Array of button texts.\n- **Forms**: Array
-        with details of forms including action and method.\n- **Accessibility Tree**:
-        A structured representation of the page''s accessibility data.\n- **Metadata**:
-        Any relevant meta tags that might be included in the `\u003chead\u003e` section
-        of the HTML.\n\n### Important Metadata\nIf you need to capture metadata:\n```javascript\nconst
-        metadata = await page.$$eval(''meta'', metas =\u003e metas.map(meta =\u003e
-        ({\n    name: meta.getAttribute(''name''),\n    content: meta.getAttribute(''content'')\n})));\n```\n\nThis
-        guide should help you systematically extract structured data from any webpage
-        using Playwright. Adjust selectors according to the specific HTML structure
-        of the page you are working with.\n---\n\n\nReturn the data in JSON format
-        that strictly conforms to the provided schema.\nOnly include data that is
-        actually present in the content.\nFor required fields that are missing, use
-        appropriate null or empty values.\n"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"webpage_info","strict":true,"schema":{"type":"object","properties":{"title":{"type":"string"},"main_heading":{"type":"string"},"links_count":{"type":"integer"},"has_forms":{"type":"boolean"},"main_content_summary":{"type":"string"}},"required":["title","main_heading","links_count","has_forms","main_content_summary"],"additionalProperties":false}}}}'
+        content:\n\n---\nI''m unable to directly navigate to URLs or interact with
+        web pages in real-time, including capturing page content or using browser
+        automation tools like Playwright. However, I can guide you through the process
+        of how you can do this yourself.\n\nHere''s a step-by-step outline on how
+        to use Playwright to extract structured data from a webpage:\n\n### Step 1:
+        Set Up Playwright\n\n1. **Install Playwright**: If you haven''t already, you
+        can install Playwright using npm:\n   ```bash\n   npm install playwright\n   ```\n\n###
+        Step 2: Create a Script\n\n2. **Create a new JavaScript file** (e.g., `extractData.js`)
+        and include the following code structure:\n\n```javascript\nconst { chromium
+        } = require(''playwright'');\n\n(async () =\u003e {\n    // Step 3: Launch
+        the browser and navigate to the URL\n    const browser = await chromium.launch();\n    const
+        page = await browser.newPage();\n    await page.goto(''https://www.example.com'');\n\n    //
+        Step 4: Wait for the page to fully load\n    await page.waitForLoadState(''load'');\n\n    //
+        Step 5: Capture the accessibility tree\n    const accessibilityTree = await
+        page.accessibility.snapshot();\n\n    // Step 6: Extract all text content\n    const
+        textContent = await page.evaluate(() =\u003e document.body.innerText);\n\n    //
+        Step 7: Identify interactive elements\n    const interactiveElements = await
+        page.$$eval(''a, button, input, select, textarea'', elements =\u003e {\n        return
+        elements.map(el =\u003e ({\n            text: el.innerText,\n            tag:
+        el.tagName,\n            href: el.tagName === ''A'' ? el.href : null,\n            type:
+        el.type || null,\n        }));\n    });\n\n    // Step 8: Note the page structure
+        and hierarchy\n    const headings = await page.$$eval(''h1, h2, h3, h4, h5,
+        h6'', headings =\u003e {\n        return headings.map(h =\u003e ({\n            text:
+        h.innerText,\n            level: h.tagName,\n        }));\n    });\n\n    //
+        Step 9: Form fields if present\n    const formFields = await page.$$eval(''input,
+        select, textarea'', fields =\u003e {\n        return fields.map(field =\u003e
+        ({\n            name: field.name,\n            type: field.type,\n            placeholder:
+        field.placeholder,\n        }));\n    });\n\n    // Step 10: Data tables or
+        lists\n    const lists = await page.$$eval(''ul, ol'', lists =\u003e {\n        return
+        lists.map(list =\u003e ({\n            items: Array.from(list.children).map(item
+        =\u003e item.innerText),\n        }));\n    });\n\n    // Step 11: Important
+        metadata\n    const metadata = await page.evaluate(() =\u003e {\n        const
+        metaTags = Array.from(document.getElementsByTagName(''meta''));\n        return
+        metaTags.map(tag =\u003e ({\n            name: tag.getAttribute(''name''),\n            content:
+        tag.getAttribute(''content''),\n        }));\n    });\n\n    // Output gathered
+        data\n    console.log({\n        textContent,\n        accessibilityTree,\n        interactiveElements,\n        headings,\n        formFields,\n        lists,\n        metadata,\n    });\n\n    //
+        Close the browser\n    await browser.close();\n})();\n```\n\n### Step 3: Run
+        the Script\n\n3. **Run your script** from the terminal:\n   ```bash\n   node
+        extractData.js\n   ```\n\n### Expected Output\n\nThe script will output a
+        JavaScript object containing:\n\n- **textContent**: All the text on the page.\n-
+        **accessibilityTree**: The accessibility information for the page.\n- **interactiveElements**:
+        An array of interactive elements with their text and destinations.\n- **headings**:
+        An array of headings with their hierarchy.\n- **formFields**: An array of
+        form field details.\n- **lists**: Any lists found on the page.\n- **metadata**:
+        Important metadata elements.\n\n### Summary\n\nYou can modify the selectors
+        and extraction logic based on the specific needs of the webpage you are working
+        with. This script gives you a comprehensive overview of the page''s content,
+        which is suitable for structured data extraction.\n---\n\n\nReturn the data
+        in JSON format that strictly conforms to the provided schema.\nOnly include
+        data that is actually present in the content.\nFor required fields that are
+        missing, use appropriate null or empty values.\n"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"name":"webpage_info","strict":true,"schema":{"type":"object","properties":{"title":{"type":"string"},"main_heading":{"type":"string"},"links_count":{"type":"integer"},"has_forms":{"type":"boolean"},"main_content_summary":{"type":"string"}},"required":["title","main_heading","links_count","has_forms","main_content_summary"],"additionalProperties":false}}}}'
     headers:
       Content-Type:
       - application/json
@@ -166,7 +209,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 02 Sep 2025 05:16:47 GMT
+      - Sat, 13 Sep 2025 23:17:38 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -178,34 +221,36 @@ http_interactions:
       Openai-Organization:
       - user-lwlf4w2yvortlzept3wqx7li
       Openai-Processing-Ms:
-      - '1551'
+      - '1716'
       Openai-Project:
       - proj_KAJGwI6N1x3lWSKGr0zi2zcu
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '1560'
+      - '2912'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
       - '200000'
       X-Ratelimit-Remaining-Requests:
-      - '9999'
+      - '9997'
       X-Ratelimit-Remaining-Tokens:
-      - '198915'
+      - '198826'
       X-Ratelimit-Reset-Requests:
-      - 8.64s
+      - 17.343s
       X-Ratelimit-Reset-Tokens:
-      - 325ms
+      - 352ms
       X-Request-Id:
-      - req_6124d67623ea4fb89e6074213aec8e3e
+      - req_412cac7f629e44f4b0dbd6c0ff9aec4e
+      X-Openai-Proxy-Wasm:
+      - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=vm7arhwrkeX__P4CvjIaFetnzhMEkyjQEr3qkEhbfV8-1756790207-1.0.1.1-8ATrwufX0r02xhNPRaUTrPmBvFEbQa_WAJdj1AihRcpZaekoZGKNAdCaLR1NoliiQag1gZuvMG5UKCtnTcKkpcHsupTLjyhinH_6No_i3Ww;
-        path=/; expires=Tue, 02-Sep-25 05:46:47 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=OPMVEUYCviLP_ffGCX_FqxTXa.rz1fZ8Mu1bSkv7b0k-1757805458-1.0.1.1-_w169oUhsRK8X8J4qzgX4_126DEJTwNl2SXbhpJeFIp.qo4P9_cK2sM4eEDA9PYOmIYWRdRJNqAdeZUcQfMZfhSKZ4OIdIC_lJJHUY.aRqc;
+        path=/; expires=Sat, 13-Sep-25 23:47:38 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=ORhxYgDZhI4XnC9NSMlxkRW45ArkbnHrGLmD47vS8jk-1756790207775-0.0.1.1-604800000;
+      - _cfuvid=w_kzJxivGW2qGnr1xCPwRzQlevY_CtGIs99gLf3vfp0-1757805458169-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -214,23 +259,23 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 978a897e0b1ff7b1-LAX
+      - 97eb5bdd2e78cf6d-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-CBDfq3B1UemalTGPf0Ur3KtA62q7S",
+          "id": "chatcmpl-CFTmqannnmK8xDAXmy8tOiTeIeLuP",
           "object": "chat.completion",
-          "created": 1756790206,
+          "created": 1757805456,
           "model": "gpt-4o-mini-2024-07-18",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "{\"title\":\"\" ,\"main_heading\":\"\" ,\"links_count\":0 ,\"has_forms\":false ,\"main_content_summary\":\"I'm unable to navigate to external websites or perform web scraping tasks directly. However, I can provide you with a structured approach on how to capture and extract data from a webpage using Playwright or similar tools.\"}",
+                "content": "{\"title\":\"\" ,\"main_heading\":\"\" ,\"links_count\":0 ,\"has_forms\":false ,\"main_content_summary\":\"This content provides a step-by-step guide on how to use Playwright for extracting structured data from a webpage, including setting up Playwright, creating a script, and running it to gather various types of data such as text content, accessibility trees, interactive elements, headings, form fields, lists, and metadata.\"}",
                 "refusal": null,
                 "annotations": []
               },
@@ -239,9 +284,9 @@ http_interactions:
             }
           ],
           "usage": {
-            "prompt_tokens": 981,
-            "completion_tokens": 66,
-            "total_tokens": 1047,
+            "prompt_tokens": 1080,
+            "completion_tokens": 87,
+            "total_tokens": 1167,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -254,7 +299,7 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_8bda4d3a2c"
+          "system_fingerprint": "fp_560af6e559"
         }
-  recorded_at: Tue, 02 Sep 2025 05:16:47 GMT
+  recorded_at: Sat, 13 Sep 2025 23:17:38 GMT
 recorded_with: VCR 6.3.1

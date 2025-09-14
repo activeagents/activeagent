@@ -21,32 +21,52 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 401
-      message: Unauthorized
+      code: 200
+      message: OK
     headers:
       Date:
-      - Fri, 12 Sep 2025 04:40:06 GMT
+      - Sat, 13 Sep 2025 23:16:23 GMT
       Content-Type:
-      - application/json; charset=utf-8
-      Content-Length:
-      - '414'
+      - application/json
+      Transfer-Encoding:
+      - chunked
       Connection:
       - keep-alive
-      Vary:
-      - Origin
-      X-Request-Id:
-      - req_22642e5db0a146debc19e404884c8985
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '3913'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '43'
+      - '3938'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199961'
+      X-Ratelimit-Reset-Requests:
+      - 10.15s
+      X-Ratelimit-Reset-Tokens:
+      - 11ms
+      X-Request-Id:
+      - req_9a3b21fdf7024c7d89e0f50dc06944fa
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=rS6Wzh54eoSqTutigVVfBX94fJQRNoO0PeSH5SXYEHI-1757652006-1.0.1.1-DykdjdTzhGj_D1GqtpRl32I3lZ0D1a8mWp45VRFB4VqaojVbI5chcXrFi3SHszMq0AFMWD9LPthhkH8HaLwICe1HC.gGOLLtm7hIijhTQRI;
-        path=/; expires=Fri, 12-Sep-25 05:10:06 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=k0OECioc2FcEzq7T0H_EiqR_4pyESsHDY8CC9QQwkKA-1757805383-1.0.1.1-_S6z5yHB01f72HZoGBHE4K4ztJmQEEPein7gQR7ovBsr80nthsDzUCXzkDDZOkM.1Wggnf7hWSDshKyy4UFyhcMxPgLlD.CVHERX6M98iK4;
+        path=/; expires=Sat, 13-Sep-25 23:46:23 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=ArCOd3VLrrNiMca_LbBx91ERfKN4r9KOvmNIPdiFmSg-1757652006222-0.0.1.1-604800000;
+      - _cfuvid=ao408mvK9e5OOGQfh6lYcke70vzq0cSlhwA12oC0V50-1757805383284-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -55,19 +75,47 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 97dcb98de9b01566-SJC
+      - 97eb5a04aa862343-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
-      encoding: UTF-8
+      encoding: ASCII-8BIT
       string: |
         {
-            "error": {
-                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
-                "type": "invalid_request_error",
-                "param": null,
-                "code": "invalid_api_key"
+          "id": "chatcmpl-CFTlbSgSeWOxkDxtHfU7BOIgTzP6s",
+          "object": "chat.completion",
+          "created": 1757805379,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I can't directly navigate the internet or use tools like Playwright MCP. However, I can provide you with a general description of the Ruby programming language website based on my training data. \n\nThe Ruby official website (https://www.ruby-lang.org) typically features:\n\n1. **Home Page**: An introduction to Ruby, highlighting its simplicity and productivity. It often displays a prominent download link for the latest version of Ruby.\n\n2. **Documentation**: A section dedicated to comprehensive documentation for Ruby, including guides, API references, and tutorials for both beginners and advanced users.\n\n3. **Community**: Information about the Ruby community, including links to forums, mailing lists, and events like Ruby conferences.\n\n4. **Downloads**: A straightforward section where users can download the latest stable version of Ruby for various operating systems.\n\n5. **News**: Updates on releases, events, and other significant announcements related to Ruby.\n\n6. **Learning Resources**: Links to tutorials, courses, and guides aimed at helping new users learn Ruby.\n\n7. **Contributing**: Information on how to contribute to the Ruby language, including guidelines for reporting issues, submitting code, and participating in discussions.\n\n8. **Blog**: Occasionally, the site may feature a blog or articles about Ruby's development, new features, and community stories.\n\nIf you need a specific feature or section, let me know, and I can provide a more detailed description based on what I know!",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
             }
+          ],
+          "usage": {
+            "prompt_tokens": 38,
+            "completion_tokens": 294,
+            "total_tokens": 332,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_560af6e559"
         }
-  recorded_at: Fri, 12 Sep 2025 04:40:06 GMT
+  recorded_at: Sat, 13 Sep 2025 23:16:23 GMT
 recorded_with: VCR 6.3.1

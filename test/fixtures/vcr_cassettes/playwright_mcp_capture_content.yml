@@ -29,32 +29,52 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 401
-      message: Unauthorized
+      code: 200
+      message: OK
     headers:
       Date:
-      - Fri, 12 Sep 2025 04:40:06 GMT
+      - Sat, 13 Sep 2025 23:16:03 GMT
       Content-Type:
-      - application/json; charset=utf-8
-      Content-Length:
-      - '414'
+      - application/json
+      Transfer-Encoding:
+      - chunked
       Connection:
       - keep-alive
-      Vary:
-      - Origin
-      X-Request-Id:
-      - req_d1e166be801695ab92dff8a502ff2843
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '8103'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '43'
+      - '8451'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199820'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 54ms
+      X-Request-Id:
+      - req_65ae621aea2a481ab1bc395e15233a64
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=1xF5pZ8KLL9FYWypamg1Y3Izp4gGwwJVXw91v1h2xdU-1757652006-1.0.1.1-52ov0zmxhf.Egk4dnhzWmBPNKGsQPU7sfnV6QgGA07izQYPwL4JIgA96qhgIofKfCtbDXzzyEa6VVXjFQq8S8g4FPY.y0Ez49T.f2pGGtjk;
-        path=/; expires=Fri, 12-Sep-25 05:10:06 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=LRkInZOQB21eQ5Q.YuWJ9_q_wxdhASFRkG9D5Ynebks-1757805363-1.0.1.1-8k8jV1UTUGhxptvxp_AN5nJldIdlUwq9vZNfbtSKIul78CbPjUWR8P7hT1swA8o5g4Sb9X_MY_vAOIZJaSNroBCa3S7RwlzkUu_mZGHO9PI;
+        path=/; expires=Sat, 13-Sep-25 23:46:03 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=Hi5S3Siz8PSjxDDDtDz1xeFEooyM7BbGTjeNg6oQFo4-1757652006434-0.0.1.1-604800000;
+      - _cfuvid=LDBb6KDyynYMuGm7GoRl6U8nHpMqskRMaTRbpLdiJ24-1757805363075-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -63,19 +83,47 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 97dcb98f3f2aeb21-SJC
+      - 97eb5966dc1267bf-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
-      encoding: UTF-8
+      encoding: ASCII-8BIT
       string: |
         {
-            "error": {
-                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
-                "type": "invalid_request_error",
-                "param": null,
-                "code": "invalid_api_key"
+          "id": "chatcmpl-CFTlDI6e0WD2ITd1CIznqunF2KIXs",
+          "object": "chat.completion",
+          "created": 1757805355,
+          "model": "gpt-4o-mini-2024-07-18",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I'm unable to navigate to URLs or capture live web content. However, I can guide you on how to perform these actions using Playwright and help you understand the structure of the web page for structured data extraction.\n\n### Steps to Capture Page Content Using Playwright\n\n1. **Navigate to the URL**: Use Playwright to open the desired page.\n   \n   ```javascript\n   const { chromium } = require('playwright');\n   \n   (async () => {\n       const browser = await chromium.launch();\n       const page = await browser.newPage();\n       await page.goto('https://www.example.com');\n       await page.waitForLoadState('load'); // Ensure the page is fully loaded\n   })();\n   ```\n\n2. **Capture the Accessibility Tree**: Use the accessibility API to capture the accessibility tree.\n\n   ```javascript\n   const accessibilityTree = await page.accessibility.snapshot();\n   console.log(accessibilityTree);\n   ```\n\n3. **Extract All Text Content**: Retrieve text for structured data extraction.\n\n   ```javascript\n   const textContent = await page.evaluate(() => document.body.innerText);\n   console.log(textContent);\n   ```\n\n4. **Identify Interactive Elements**: Extract all links, buttons, and forms.\n\n   ```javascript\n   const links = await page.$$eval('a', anchors => anchors.map(anchor => ({ text: anchor.innerText, href: anchor.href })));\n   const buttons = await page.$$eval('button', buttons => buttons.map(button => ({ text: button.innerText })));\n   const forms = await page.$$eval('form', forms => forms.map(form => ({ action: form.action, method: form.method })));\n   ```\n\n5. **Note the Page Structure and Hierarchy**: Extract headings and their hierarchy.\n\n   ```javascript\n   const headings = await page.$$eval('h1, h2, h3, h4, h5, h6', headings => \n       headings.map(heading => ({ tag: heading.tagName, text: heading.innerText }))\n   );\n   ```\n\n### Comprehensive Description of the Page Content\n\nAfter executing the above code, you'll be able to compile the following information:\n\n- **Page Title**: Extract using `document.title`.\n- **All Headings and Their Hierarchy**: From the headings array captured above.\n- **Main Content Areas**: Identify major `<div>` or similar containers that house the primary content.\n- **All Links**: List of links with their text and destinations from the `links` array.\n- **Form Fields**: List of input fields from the `forms` array, including their types and names.\n- **Data Tables or Lists**: Identify any `<table>` or `<ul>/<ol>` elements and extract their contents.\n- **Important Metadata**: Gather any `<meta>` tags in the `<head>` section for additional context.\n\n### Example Output Structure\n\n```json\n{\n    \"title\": \"Example Page Title\",\n    \"headings\": [\n        {\"tag\": \"H1\", \"text\": \"Main Heading\"},\n        {\"tag\": \"H2\", \"text\": \"Subheading 1\"},\n        {\"tag\": \"H3\", \"text\": \"Sub-subheading\"},\n        ...\n    ],\n    \"mainContent\": \"Text content from the main area of the page.\",\n    \"links\": [\n        {\"text\": \"Link 1\", \"href\": \"https://www.link1.com\"},\n        {\"text\": \"Link 2\", \"href\": \"https://www.link2.com\"},\n        ...\n    ],\n    \"buttons\": [\n        {\"text\": \"Submit\"},\n        {\"text\": \"Cancel\"},\n        ...\n    ],\n    \"forms\": [\n        {\"action\": \"/submit\", \"method\": \"POST\"},\n        ...\n    ],\n    \"tables\": [\n        {\n            \"headers\": [\"Column 1\", \"Column 2\"],\n            \"rows\": [\n                [\"Row 1 Data 1\", \"Row 1 Data 2\"],\n                ...\n            ]\n        }\n    ],\n    \"metadata\": {\n        \"description\": \"This is a sample page.\",\n        \"keywords\": \"example, sample, webpage\"\n    }\n}\n```\n\n### Conclusion\n\nUsing this method, you can systematically gather structured data from any webpage using Playwright. Make sure to adjust the selectors and extraction methods based on the specific structure of the target webpage.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
             }
+          ],
+          "usage": {
+            "prompt_tokens": 154,
+            "completion_tokens": 890,
+            "total_tokens": 1044,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_51db84afab"
         }
-  recorded_at: Fri, 12 Sep 2025 04:40:06 GMT
+  recorded_at: Sat, 13 Sep 2025 23:16:03 GMT
 recorded_with: VCR 6.3.1

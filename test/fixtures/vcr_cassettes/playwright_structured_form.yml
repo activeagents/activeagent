@@ -29,32 +29,52 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 401
-      message: Unauthorized
+      code: 200
+      message: OK
     headers:
       Date:
-      - Fri, 12 Sep 2025 04:40:12 GMT
+      - Sat, 13 Sep 2025 23:16:59 GMT
       Content-Type:
-      - application/json; charset=utf-8
-      Content-Length:
-      - '414'
+      - application/json
+      Transfer-Encoding:
+      - chunked
       Connection:
       - keep-alive
-      Vary:
-      - Origin
-      X-Request-Id:
-      - req_44a56969ef914b159a324311f0351064
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '9950'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '49'
+      - '9975'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '199818'
+      X-Ratelimit-Reset-Requests:
+      - 8.64s
+      X-Ratelimit-Reset-Tokens:
+      - 54ms
+      X-Request-Id:
+      - req_b9f67103e6f048f3995449e3889dd12b
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=GPjZk7qQ_YtrUe8rKPJcCkdKY2k2arJMFKkd_zWrKnI-1757652012-1.0.1.1-BUP6WwkpxSnWSJxDi1tyUBl4461d1tvRV5_.g8gNN1X667PYbIMSHmfwFYyymGrBQJb1CvofvzJ4yvCM1mD8Fz2J1N2Gubc0oGO7buEwtH4;
-        path=/; expires=Fri, 12-Sep-25 05:10:12 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=g0U6clSheL8PXHchAP1m0Ztru9LeZtCji_gKwza8QM4-1757805419-1.0.1.1-ROhvLbGvk.Z.7e6d5hQiqTV85dgb5dCNBxMRh7yM16S1TZKQ.BFVZTnAIqGm8vSAM1pQJh1uuI6nZ5JIytqnE61_62I5tIMg3Nsp86SKHcw;
+        path=/; expires=Sat, 13-Sep-25 23:46:59 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=h0HhdIEfDAr17mFbKFp6IOlXt3HQXXXdtT8cQEBGCYs-1757652012072-0.0.1.1-604800000;
+      - _cfuvid=LEYzKZVuANlmbAWFPANVN.mXTIzwkh0xGrlxluZdRQU-1757805419933-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -63,19 +83,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 97dcb9b2ab923ad4-SJC
+      - 97eb5ac40c0535d6-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
-      encoding: UTF-8
-      string: |
-        {
-            "error": {
-                "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************ab0A. You can find your API key at https://platform.openai.com/account/api-keys.",
-                "type": "invalid_request_error",
-                "param": null,
-                "code": "invalid_api_key"
-            }
-        }
-  recorded_at: Fri, 12 Sep 2025 04:40:12 GMT
+      encoding: ASCII-8BIT
+      string: !binary |-
+        ewogICJpZCI6ICJjaGF0Y21wbC1DRlRtNjlaNlVkQWNUNjlHMGdIbVF3MHllUWVkeCIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc1NzgwNTQxMCwKICAibW9kZWwiOiAiZ3B0LTRvLW1pbmktMjAyNC0wNy0xOCIsCiAgImNob2ljZXMiOiBbCiAgICB7CiAgICAgICJpbmRleCI6IDAsCiAgICAgICJtZXNzYWdlIjogewogICAgICAgICJyb2xlIjogImFzc2lzdGFudCIsCiAgICAgICAgImNvbnRlbnQiOiAiSSdtIHVuYWJsZSB0byBkaXJlY3RseSBicm93c2UgdGhlIGludGVybmV0IG9yIG5hdmlnYXRlIHRvIHNwZWNpZmljIFVSTHMuIEhvd2V2ZXIsIEkgY2FuIGd1aWRlIHlvdSBvbiBob3cgdG8gdXNlIFBsYXl3cmlnaHQncyBjYXBhYmlsaXRpZXMgdG8gZXh0cmFjdCBzdHJ1Y3R1cmVkIGRhdGEgZnJvbSBhIHdlYnBhZ2UgbGlrZSB0aGUgb25lIGF0IGh0dHBzOi8vaHR0cGJpbi5vcmcvZm9ybXMvcG9zdC4gQmVsb3cgaXMgYSBzdGVwLWJ5LXN0ZXAgZ3VpZGUgb24gaG93IHRvIGdhdGhlciB0aGUgaW5mb3JtYXRpb24geW91IG5lZWQgdXNpbmcgUGxheXdyaWdodC5cblxuIyMjIFN0ZXAtYnktU3RlcCBHdWlkZSBmb3IgRGF0YSBFeHRyYWN0aW9uXG5cbjEuICoqU2V0dXAgUGxheXdyaWdodCoqOiBFbnN1cmUgeW91IGhhdmUgUGxheXdyaWdodCBpbnN0YWxsZWQgaW4geW91ciBwcm9qZWN0LiBZb3UgY2FuIGluc3RhbGwgaXQgdmlhIG5wbTpcbiAgIGBgYGJhc2hcbiAgIG5wbSBpbnN0YWxsIHBsYXl3cmlnaHRcbiAgIGBgYFxuXG4yLiAqKk5hdmlnYXRlIHRvIHRoZSBVUkwqKjogVXNlIFBsYXl3cmlnaHQgdG8gb3BlbiBhIGJyb3dzZXIgYW5kIG5hdmlnYXRlIHRvIHRoZSBVUkwuXG4gICBcbjMuICoqV2FpdCBmb3IgdGhlIFBhZ2UgdG8gRnVsbHkgTG9hZCoqOiBVc2UgdGhlIGFwcHJvcHJpYXRlIHdhaXQgZnVuY3Rpb25zIHRvIGVuc3VyZSB0aGF0IHRoZSBwYWdlIGlzIGZ1bGx5IGxvYWRlZCBiZWZvcmUgY2FwdHVyaW5nIGRhdGEuXG5cbjQuICoqQ2FwdHVyZSB0aGUgQWNjZXNzaWJpbGl0eSBUcmVlKio6IFVzZSBQbGF5d3JpZ2h0J3MgYWNjZXNzaWJpbGl0eSBmZWF0dXJlcyB0byBjYXB0dXJlIHRoZSBhY2Nlc3NpYmlsaXR5IHRyZWUsIHdoaWNoIGNhbiBoZWxwIGlkZW50aWZ5IGVsZW1lbnRzIG9uIHRoZSBwYWdlLlxuXG41LiAqKkV4dHJhY3QgQWxsIFRleHQgQ29udGVudCoqOiBVc2UgUGxheXdyaWdodCB0byByZXRyaWV2ZSBhbGwgdGhlIHRleHQgY29udGVudCBmcm9tIHRoZSBwYWdlLlxuXG42LiAqKklkZW50aWZ5IEludGVyYWN0aXZlIEVsZW1lbnRzKio6IFNlYXJjaCBmb3IgbGlua3MsIGJ1dHRvbnMsIGFuZCBmb3JtIGVsZW1lbnRzIG9uIHRoZSBwYWdlLlxuXG43LiAqKk5vdGUgdGhlIFBhZ2UgU3RydWN0dXJlIGFuZCBIaWVyYXJjaHkqKjogS2VlcCB0cmFjayBvZiBoZWFkaW5ncyBhbmQgdGhlaXIgaGllcmFyY2h5LCBtYWluIGNvbnRlbnQgYXJlYXMsIGFuZCBhbnkgbGlzdHMgb3IgdGFibGVzIHByZXNlbnQuXG5cbiMjIyBFeGFtcGxlIENvZGVcblxuSGVyZeKAmXMgYSBzYW1wbGUgY29kZSBzbmlwcGV0IHRoYXQgZGVtb25zdHJhdGVzIGhvdyB0byBhY2NvbXBsaXNoIHRoZXNlIHRhc2tzIHVzaW5nIFBsYXl3cmlnaHQ6XG5cbmBgYGphdmFzY3JpcHRcbmNvbnN0IHsgY2hyb21pdW0gfSA9IHJlcXVpcmUoJ3BsYXl3cmlnaHQnKTtcblxuKGFzeW5jICgpID0+IHtcbiAgY29uc3QgYnJvd3NlciA9IGF3YWl0IGNocm9taXVtLmxhdW5jaCgpO1xuICBjb25zdCBwYWdlID0gYXdhaXQgYnJvd3Nlci5uZXdQYWdlKCk7XG4gIFxuICAvLyBTdGVwIDE6IE5hdmlnYXRlIHRvIHRoZSBVUkxcbiAgYXdhaXQgcGFnZS5nb3RvKCdodHRwczovL2h0dHBiaW4ub3JnL2Zvcm1zL3Bvc3QnKTtcbiAgXG4gIC8vIFN0ZXAgMjogV2FpdCBmb3IgdGhlIHBhZ2UgdG8gZnVsbHkgbG9hZFxuICBhd2FpdCBwYWdlLndhaXRGb3JMb2FkU3RhdGUoJ25ldHdvcmtpZGxlJyk7XG5cbiAgLy8gU3RlcCAzOiBDYXB0dXJlIHRoZSBhY2Nlc3NpYmlsaXR5IHRyZWVcbiAgY29uc3QgYWNjZXNzaWJpbGl0eVRyZWUgPSBhd2FpdCBwYWdlLmFjY2Vzc2liaWxpdHkuc25hcHNob3QoKTtcblxuICAvLyBTdGVwIDQ6IEV4dHJhY3QgYWxsIHRleHQgY29udGVudFxuICBjb25zdCB0ZXh0Q29udGVudCA9IGF3YWl0IHBhZ2UuZXZhbHVhdGUoKCkgPT4ge1xuICAgIHJldHVybiBkb2N1bWVudC5ib2R5LmlubmVyVGV4dDtcbiAgfSk7XG5cbiAgLy8gU3RlcCA1OiBJZGVudGlmeSBhbGwgaW50ZXJhY3RpdmUgZWxlbWVudHNcbiAgY29uc3QgbGlua3MgPSBhd2FpdCBwYWdlLiQkZXZhbCgnYScsIGFuY2hvcnMgPT4gYW5jaG9ycy5tYXAoYW5jaG9yID0+ICh7XG4gICAgdGV4dDogYW5jaG9yLmlubmVyVGV4dCxcbiAgICBocmVmOiBhbmNob3IuaHJlZlxuICB9KSkpO1xuXG4gIGNvbnN0IGJ1dHRvbnMgPSBhd2FpdCBwYWdlLiQkZXZhbCgnYnV0dG9uJywgYnV0dG9ucyA9PiBidXR0b25zLm1hcChidXR0b24gPT4gYnV0dG9uLmlubmVyVGV4dCkpO1xuICBcbiAgY29uc3QgZm9ybXMgPSBhd2FpdCBwYWdlLiQkKCdmb3JtJyk7XG5cbiAgLy8gU3RlcCA2OiBOb3RlIHRoZSBwYWdlIHN0cnVjdHVyZSBhbmQgaGllcmFyY2h5XG4gIGNvbnN0IGhlYWRpbmdzID0gYXdhaXQgcGFnZS4kJGV2YWwoJ2gxLCBoMiwgaDMsIGg0LCBoNSwgaDYnLCBoZWFkaW5ncyA9PiBcbiAgICBoZWFkaW5ncy5tYXAoaCA9PiAoeyB0ZXh0OiBoLmlubmVyVGV4dCwgbGV2ZWw6IGgudGFnTmFtZSB9KSlcbiAgKTtcbiAgXG4gIC8vIFN0ZXAgNzogTG9nIHRoZSBleHRyYWN0ZWQgaW5mb3JtYXRpb25cbiAgY29uc29sZS5sb2coJ0FjY2Vzc2liaWxpdHkgVHJlZTonLCBhY2Nlc3NpYmlsaXR5VHJlZSk7XG4gIGNvbnNvbGUubG9nKCdUZXh0IENvbnRlbnQ6JywgdGV4dENvbnRlbnQpO1xuICBjb25zb2xlLmxvZygnTGlua3M6JywgbGlua3MpO1xuICBjb25zb2xlLmxvZygnQnV0dG9uczonLCBidXR0b25zKTtcbiAgY29uc29sZS5sb2coJ0Zvcm1zOicsIGZvcm1zLmxlbmd0aCk7IC8vIGp1c3QgdGhlIGNvdW50IG9mIGZvcm1zIGZvciBzaW1wbGljaXR5XG4gIGNvbnNvbGUubG9nKCdIZWFkaW5nczonLCBoZWFkaW5ncyk7XG4gIFxuICBhd2FpdCBicm93c2VyLmNsb3NlKCk7XG59KSgpO1xuYGBgXG5cbiMjIyBFeHBlY3RlZCBPdXRwdXQgRGVzY3JpcHRpb25cblxuT25jZSB5b3UgcnVuIHRoZSBhYm92ZSBjb2RlLCB5b3Ugc2hvdWxkIHJlY2VpdmUgc3RydWN0dXJlZCBkYXRhIHRoYXQgaW5jbHVkZXM6XG5cbi0gKipQYWdlIFRpdGxlKio6IFRoZSB0aXRsZSBvZiB0aGUgd2VicGFnZSwgd2hpY2ggeW91IGNhbiBleHRyYWN0IHVzaW5nIGBkb2N1bWVudC50aXRsZWAuXG4tICoqQWxsIEhlYWRpbmdzIGFuZCBUaGVpciBIaWVyYXJjaHkqKjogQSBsaXN0IG9mIGFsbCBoZWFkaW5ncyAoaDEsIGgyLCBldGMuKSBhbmQgdGhlaXIgcmVzcGVjdGl2ZSBsZXZlbHMuXG4tICoqTWFpbiBDb250ZW50IEFyZWFzKio6IFRoZSBtYWluIGJvZHkgdGV4dCBvciBzZWN0aW9ucyBvZiB0aGUgcGFnZS5cbi0gKipBbGwgTGlua3MqKjogRWFjaCBsaW5rIHdpdGggaXRzIGRpc3BsYXllZCB0ZXh0IGFuZCBkZXN0aW5hdGlvbiBVUkwuXG4tICoqRm9ybSBGaWVsZHMqKjogQW55IGlucHV0IGZpZWxkcywgY2hlY2tib3hlcywgb3Igc2VsZWN0cyBmb3VuZCB3aXRoaW4gdGhlIGZvcm1zLlxuLSAqKkRhdGEgVGFibGVzIG9yIExpc3RzKio6IEFueSB0YWJsZXMgb3IgbGlzdHMgZm91bmQgb24gdGhlIHBhZ2UuXG4tICoqSW1wb3J0YW50IE1ldGFkYXRhKio6IEFueSByZWxldmFudCBtZXRhZGF0YSB0aGF0IGNvdWxkIGJlIGZvdW5kIHdpdGhpbiB0aGUgYDxoZWFkPmAgc2VjdGlvbiBvZiB0aGUgZG9jdW1lbnQuXG5cblRoaXMgcHJvY2VzcyB3aWxsIGhlbHAgeW91IHN5c3RlbWF0aWNhbGx5IGdhdGhlciB0aGUgcmVxdWlyZWQgaW5mb3JtYXRpb24gZm9yIHN0cnVjdHVyZWQgZGF0YSBleHRyYWN0aW9uIGZyb20gdGhlIHNwZWNpZmllZCB3ZWJwYWdlLiIsCiAgICAgICAgInJlZnVzYWwiOiBudWxsLAogICAgICAgICJhbm5vdGF0aW9ucyI6IFtdCiAgICAgIH0sCiAgICAgICJsb2dwcm9icyI6IG51bGwsCiAgICAgICJmaW5pc2hfcmVhc29uIjogInN0b3AiCiAgICB9CiAgXSwKICAidXNhZ2UiOiB7CiAgICAicHJvbXB0X3Rva2VucyI6IDE1NiwKICAgICJjb21wbGV0aW9uX3Rva2VucyI6IDgzMywKICAgICJ0b3RhbF90b2tlbnMiOiA5ODksCiAgICAicHJvbXB0X3Rva2Vuc19kZXRhaWxzIjogewogICAgICAiY2FjaGVkX3Rva2VucyI6IDAsCiAgICAgICJhdWRpb190b2tlbnMiOiAwCiAgICB9LAogICAgImNvbXBsZXRpb25fdG9rZW5zX2RldGFpbHMiOiB7CiAgICAgICJyZWFzb25pbmdfdG9rZW5zIjogMCwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAsCiAgICAgICJhY2NlcHRlZF9wcmVkaWN0aW9uX3Rva2VucyI6IDAsCiAgICAgICJyZWplY3RlZF9wcmVkaWN0aW9uX3Rva2VucyI6IDAKICAgIH0KICB9LAogICJzZXJ2aWNlX3RpZXIiOiAiZGVmYXVsdCIsCiAgInN5c3RlbV9maW5nZXJwcmludCI6ICJmcF81NjBhZjZlNTU5Igp9Cg==
+  recorded_at: Sat, 13 Sep 2025 23:17:00 GMT
 recorded_with: VCR 6.3.1
