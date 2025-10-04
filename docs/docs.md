@@ -38,7 +38,7 @@ The Prompt object is the core data model that contains the runtime context messa
 <FeatureCards :cards="$frontmatter.model" />
 
 ## View: Message templates
-Messages are rendered by the Agent's actions when `prompt` is called. This `prompt` method triggers Action Prompt to render Action View templates into the formatted prompt's messages.  are responsible for presenting the prompt context and its associated data to the agent and user. They define the structure and layout of the messages that are displayed in the user interface. Message templates can be customized to fit the specific needs of your application and can include dynamic content based on the prompt context.
+Messages are rendered by the Agent's actions when `prompt` is called. This `prompt` method triggers Action Prompt to render Action View templates into the formatted prompt's messages. These templates are responsible for presenting the prompt context and its associated data to the agent and user. They define the structure and layout of the messages that are displayed in the user interface. Message templates can be customized to fit the specific needs of your application and can include dynamic content based on the prompt context.
 
 <FeatureCards :cards="$frontmatter.view" />
 
