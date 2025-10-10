@@ -1,0 +1,92 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Create
+        a todo: Buy groceries"}],"temperature":0.7,"response_format":{"type":"json_schema","json_schema":{"type":"object","properties":{"title":{"type":"string"},"completed":{"type":"boolean"}},"required":["title","completed"],"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer <OPENAI_ACCESS_TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 400
+      message: Bad Request
+    headers:
+      Date:
+      - Sat, 13 Sep 2025 23:14:42 GMT
+      Content-Type:
+      - application/json
+      Content-Length:
+      - '229'
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - user-lwlf4w2yvortlzept3wqx7li
+      Openai-Processing-Ms:
+      - '9'
+      Openai-Project:
+      - proj_KAJGwI6N1x3lWSKGr0zi2zcu
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '31'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '200000'
+      X-Ratelimit-Remaining-Requests:
+      - '9998'
+      X-Ratelimit-Remaining-Tokens:
+      - '199991'
+      X-Ratelimit-Reset-Requests:
+      - 16.996s
+      X-Ratelimit-Reset-Tokens:
+      - 2ms
+      X-Request-Id:
+      - req_4350f1c001d04dc3a60efce015903ba8
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=WExMelARpISMbMR.T_mPiZWdotUqrzCqZ8feGDu4OSI-1757805282-1.0.1.1-OnA6DThBs4E9H.DtZ4neShqi_o1R3296.fzj6bGLm7rs1FAQWkaFski.yxLLOijTOGrbUOjahWBSqYwuGGt.IUBeJMx_lsOQCzjPFIodJOQ;
+        path=/; expires=Sat, 13-Sep-25 23:44:42 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=OWpWkel6U8envLhcBueUfjLsjMxp2GXJQp7JImgNjE0-1757805282592-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 97eb57a79fb52349-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |-
+        {
+          "error": {
+            "message": "Missing required parameter: 'response_format.json_schema.name'.",
+            "type": "invalid_request_error",
+            "param": "response_format.json_schema.name",
+            "code": "missing_required_parameter"
+          }
+        }
+  recorded_at: Sat, 13 Sep 2025 23:14:42 GMT
+recorded_with: VCR 6.3.1

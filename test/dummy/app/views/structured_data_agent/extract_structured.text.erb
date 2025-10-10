@@ -1,0 +1,13 @@
+Extract structured data from the following content:
+
+---
+<%= @content %>
+---
+
+<% if @instructions.present? %>
+Additional Instructions: <%= @instructions %>
+<% end %>
+
+Return the data in JSON format that strictly conforms to the provided schema.
+Only include data that is actually present in the content.
+For required fields that are missing, use appropriate null or empty values.

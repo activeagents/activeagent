@@ -1,0 +1,17 @@
+Navigate to: <%= @url %>
+
+Extract structured data from the page according to this schema:
+<%= @schema.to_json %>
+
+<% if @selectors.present? %>
+Focus on these selectors:
+<% @selectors.each do |selector| %>
+- <%= selector %>
+<% end %>
+<% end %>
+
+Use Playwright MCP tools to:
+1. Navigate to the URL
+2. Capture the page structure with browser_snapshot
+3. Extract the required data matching the schema
+4. Return the data in the specified JSON format

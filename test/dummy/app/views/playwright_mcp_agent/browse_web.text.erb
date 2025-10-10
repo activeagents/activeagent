@@ -1,0 +1,11 @@
+<% if @url.present? %>
+Navigate to: <%= @url %>
+<% end %>
+
+Task: <%= @task %>
+
+<% if @screenshot %>
+Please take screenshots to document your findings.
+<% end %>
+
+Use Playwright MCP tools to complete this task efficiently.

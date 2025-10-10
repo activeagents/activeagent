@@ -1,0 +1,29 @@
+# Development Procfile for ActiveAgent
+# Start with: foreman start -f Procfile.dev
+# Or use overmind: overmind start -f Procfile.dev
+
+# Rails server (optional - uncomment if needed)
+# web: bin/rails server -p 3000
+
+# MCP Services
+# These need to be running for MCP-based tests and agents to work
+
+# Playwright MCP - Browser automation
+playwright: npx @anthropic/playwright-mcp
+
+# GitHub MCP - GitHub API integration (if needed)
+# github: npx @anthropic/github-mcp
+
+# Hugging Face MCP - Model hub access (if needed)
+# huggingface: npx @anthropic/huggingface-mcp
+
+# Local AI Services (uncomment as needed)
+
+# Ollama - Local LLM inference
+# ollama: ollama serve
+
+# Transformers server (if using local transformers)
+# transformers: python -m transformers_server --port 8000
+
+# ONNX Runtime server (if using ONNX models)
+# onnx: python -m onnx_server --port 8001

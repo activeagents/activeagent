@@ -1336,3 +1336,8 @@ When updating documentation:
 3. Call doc_example_output for response examples
 4. Import in docs using VitePress snippets
 5. Verify with `npm run docs:build` - no hardcoded blocks should exist
+- use playwright mcp for The documentation is running at http://localhost:5173/ and shows the Active Agent homepage with its key features. The Slidev
+  presentation is at http://localhost:3035/ displaying the Rails World 2025 lightning talk about "AI on Rails with Active Agent". Screenshots have been saved:
+  - docs-homepage.png - Full page documentation site
+  - slidev-presentation-slide1.png - First slide of the presentation
+- remember to reference https://docs.activeagents.ai

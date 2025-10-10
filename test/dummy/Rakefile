@@ -4,3 +4,6 @@
 require_relative "config/application"
 
 Rails.application.load_tasks
+
+# Load ActiveAgent tasks
+Dir[File.join(File.dirname(__FILE__), '../../lib/tasks/*.rake')].each { |f| load f }

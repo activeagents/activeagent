@@ -4,15 +4,15 @@
 
 ```ruby
 # Response object
-#<ActiveAgent::GenerationProvider::Response:0x36b0
-  @message=#<ActiveAgent::ActionPrompt::Message:0x36c4
+#<ActiveAgent::GenerationProvider::Response:0x41b4
+  @message=#<ActiveAgent::ActionPrompt::Message:0x41c8
     @action_id=nil,
     @action_name=nil,
     @action_requested=false,
     @charset="UTF-8",
     @content={"name"=>"John Doe", "age"=>30, "email"=>"john@example.com"},
     @role=:assistant>
-  @prompt=#<ActiveAgent::ActionPrompt::Prompt:0x36d8 ...>
+  @prompt=#<ActiveAgent::ActionPrompt::Prompt:0x41dc ...>
   @content_type="application/json"
   @raw_response={...}>
 

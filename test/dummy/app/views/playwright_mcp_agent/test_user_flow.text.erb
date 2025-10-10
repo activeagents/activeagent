@@ -1,0 +1,18 @@
+Base URL: <%= @base_url %>
+
+Test Steps:
+<% @test_steps.each_with_index do |step, index| %>
+<%= index + 1 %>. <%= step %>
+<% end %>
+
+Expected Assertions:
+<% @assertions.each do |assertion| %>
+- <%= assertion %>
+<% end %>
+
+Use Playwright MCP tools to:
+1. Execute each test step in sequence
+2. Verify the assertions
+3. Take screenshots for documentation
+4. Report any failures or issues found
+5. Provide a summary of the test results

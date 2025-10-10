@@ -1,0 +1,529 @@
+#!/usr/bin/env ruby
+
+require "optparse"
+require "net/http"
+require "json"
+require "fileutils"
+require "open-uri"
+require "digest"
+
+class ModelDownloader
+  MODELS_DIR = File.expand_path("../models", __dir__)
+  
+  # Pre-configured model sources
+  MODELS = {
+    # Text generation models
+    "gpt2-onnx" => {
+      source: "huggingface",
+      repo: "onnx-community/gpt2",
+      files: ["model.onnx", "tokenizer.json", "tokenizer_config.json"],
+      description: "GPT-2 ONNX model for text generation"
+    },
+    "phi-2-onnx" => {
+      source: "huggingface",
+      repo: "microsoft/phi-2",
+      files: ["model.onnx"],
+      description: "Microsoft Phi-2 small language model"
+    },
+    "distilgpt2-onnx" => {
+      source: "huggingface",
+      repo: "distilgpt2",
+      files: ["onnx/model.onnx", "tokenizer.json"],
+      description: "DistilGPT-2 - smaller, faster GPT-2"
+    },
+    
+    # Embedding models
+    "all-minilm-onnx" => {
+      source: "huggingface",
+      repo: "sentence-transformers/all-MiniLM-L6-v2",
+      files: ["onnx/model.onnx", "tokenizer.json"],
+      description: "Sentence embedding model"
+    },
+    "bge-small-onnx" => {
+      source: "huggingface",
+      repo: "BAAI/bge-small-en-v1.5",
+      files: ["onnx/model.onnx"],
+      description: "BGE small embedding model"
+    },
+    
+    # Vision models
+    "mobilenet-onnx" => {
+      source: "github",
+      repo: "onnx/models",
+      branch: "main",
+      files: ["validated/vision/classification/mobilenet/model/mobilenetv2-12.onnx"],
+      description: "MobileNet V2 for image classification"
+    },
+    "resnet50-onnx" => {
+      source: "github",
+      repo: "onnx/models",
+      branch: "main",
+      files: ["validated/vision/classification/resnet/model/resnet50-v2-7.onnx"],
+      description: "ResNet-50 for image classification"
+    },
+    
+    # Quantized models for Apple Silicon
+    "gpt2-quantized-coreml" => {
+      source: "custom",
+      url: "https://huggingface.co/apple/coreml-gpt2/resolve/main/gpt2-coreml.mlpackage.zip",
+      description: "GPT-2 optimized for CoreML on Apple Silicon",
+      post_process: :extract_zip
+    },
+    
+    # Multimodal models
+    "clip-onnx" => {
+      source: "huggingface",
+      repo: "openai/clip-vit-base-patch32",
+      files: ["onnx/model.onnx"],
+      description: "CLIP model for image-text matching"
+    }
+  }
+  
+  def initialize
+    @options = {}
+    @verbose = false
+  end
+  
+  def run(args)
+    parse_options(args)
+    
+    case @options[:command]
+    when :list
+      list_models
+    when :download
+      download_model(@options[:model])
+    when :download_all
+      download_all_models
+    when :info
+      show_model_info(@options[:model])
+    when :verify
+      verify_gpu_support
+    else
+      puts "No command specified. Use --help for usage information."
+      exit 1
+    end
+  end
+  
+  private
+  
+  def parse_options(args)
+    parser = OptionParser.new do |opts|
+      opts.banner = "Usage: bin/download_models [command] [options]"
+      opts.separator ""
+      opts.separator "Commands:"
+      opts.separator "  list                    List available models"
+      opts.separator "  download MODEL_NAME     Download a specific model"
+      opts.separator "  download-all            Download all models"
+      opts.separator "  info MODEL_NAME         Show model information"
+      opts.separator "  verify                  Verify GPU/hardware acceleration support"
+      opts.separator ""
+      opts.separator "Options:"
+      
+      opts.on("-v", "--verbose", "Verbose output") do
+        @verbose = true
+      end
+      
+      opts.on("-d", "--dir DIR", "Download directory (default: models/)") do |dir|
+        @download_dir = File.expand_path(dir)
+      end
+      
+      opts.on("-f", "--force", "Force re-download even if files exist") do
+        @options[:force] = true
+      end
+      
+      opts.on("-q", "--quantized", "Prefer quantized models when available") do
+        @options[:quantized] = true
+      end
+      
+      opts.on("-h", "--help", "Show this help message") do
+        puts opts
+        exit
+      end
+    end
+    
+    parser.parse!(args)
+    
+    # Parse command
+    command = args.shift
+    @options[:command] = case command
+    when "list" then :list
+    when "download" then :download
+    when "download-all" then :download_all
+    when "info" then :info
+    when "verify" then :verify
+    else
+      nil
+    end
+    
+    # Get model name for download/info commands
+    if [:download, :info].include?(@options[:command])
+      @options[:model] = args.shift
+      unless @options[:model]
+        puts "Error: Model name required for #{command} command"
+        exit 1
+      end
+    end
+    
+    @download_dir ||= MODELS_DIR
+  end
+  
+  def list_models
+    puts "\n📦 Available Models for Download:\n\n"
+    
+    # Group models by type
+    text_models = MODELS.select { |_, info| info[:description].downcase.include?("text") || info[:description].downcase.include?("language") }
+    embedding_models = MODELS.select { |_, info| info[:description].downcase.include?("embedding") }
+    vision_models = MODELS.select { |_, info| info[:description].downcase.include?("image") || info[:description].downcase.include?("vision") }
+    multimodal_models = MODELS.select { |_, info| info[:description].downcase.include?("multimodal") || info[:description].downcase.include?("clip") }
+    
+    print_model_group("Text Generation", text_models)
+    print_model_group("Embeddings", embedding_models)
+    print_model_group("Vision", vision_models)
+    print_model_group("Multimodal", multimodal_models)
+    
+    puts "\n💡 To download a model, run: bin/download_models download MODEL_NAME"
+    puts "   Example: bin/download_models download gpt2-onnx"
+  end
+  
+  def print_model_group(title, models)
+    return if models.empty?
+    
+    puts "#{title}:"
+    models.each do |name, info|
+      status = model_downloaded?(name) ? "✅" : "⬇️"
+      puts "  #{status} #{name.ljust(25)} - #{info[:description]}"
+    end
+    puts ""
+  end
+  
+  def download_model(model_name)
+    unless MODELS.key?(model_name)
+      puts "❌ Unknown model: #{model_name}"
+      puts "   Run 'bin/download_models list' to see available models"
+      exit 1
+    end
+    
+    model_info = MODELS[model_name]
+    model_dir = File.join(@download_dir, model_name)
+    
+    if model_downloaded?(model_name) && !@options[:force]
+      puts "✅ Model '#{model_name}' is already downloaded"
+      puts "   Use --force to re-download"
+      return
+    end
+    
+    puts "\n📥 Downloading #{model_name}..."
+    puts "   #{model_info[:description]}"
+    
+    FileUtils.mkdir_p(model_dir)
+    
+    case model_info[:source]
+    when "huggingface"
+      download_from_huggingface(model_info, model_dir)
+    when "github"
+      download_from_github(model_info, model_dir)
+    when "custom"
+      download_custom(model_info, model_dir)
+    else
+      puts "❌ Unknown source: #{model_info[:source]}"
+      exit 1
+    end
+    
+    puts "✅ Successfully downloaded #{model_name} to #{model_dir}"
+    
+    # Verify the download
+    verify_model_files(model_name, model_dir)
+  end
+  
+  def download_from_huggingface(model_info, model_dir)
+    repo = model_info[:repo]
+    files = model_info[:files]
+    
+    files.each do |file|
+      url = "https://huggingface.co/#{repo}/resolve/main/#{file}"
+      local_path = File.join(model_dir, File.basename(file))
+      
+      puts "   Downloading #{file}..." if @verbose
+      
+      begin
+        download_file(url, local_path)
+      rescue => e
+        puts "   ⚠️  Failed to download #{file}: #{e.message}"
+        # Try alternative URL formats
+        alt_url = "https://huggingface.co/#{repo}/blob/main/#{file}?raw=true"
+        puts "   Trying alternative URL..." if @verbose
+        download_file(alt_url, local_path)
+      end
+    end
+  end
+  
+  def download_from_github(model_info, model_dir)
+    repo = model_info[:repo]
+    branch = model_info[:branch] || "main"
+    files = model_info[:files]
+    
+    files.each do |file|
+      url = "https://github.com/#{repo}/raw/#{branch}/#{file}"
+      local_path = File.join(model_dir, File.basename(file))
+      
+      puts "   Downloading #{file}..." if @verbose
+      download_file(url, local_path)
+    end
+  end
+  
+  def download_custom(model_info, model_dir)
+    url = model_info[:url]
+    filename = File.basename(url)
+    local_path = File.join(model_dir, filename)
+    
+    puts "   Downloading from #{url}..." if @verbose
+    download_file(url, local_path)
+    
+    # Post-process if needed
+    if model_info[:post_process] == :extract_zip
+      puts "   Extracting archive..." if @verbose
+      system("unzip -q -o '#{local_path}' -d '#{model_dir}'")
+      FileUtils.rm(local_path) if File.exist?(local_path)
+    end
+  end
+  
+  def download_file(url, path)
+    FileUtils.mkdir_p(File.dirname(path))
+    
+    URI.open(url) do |remote_file|
+      File.open(path, "wb") do |local_file|
+        local_file.write(remote_file.read)
+      end
+    end
+    
+    puts "   ✓ Downloaded #{File.basename(path)} (#{format_size(File.size(path))})" if @verbose
+  rescue => e
+    puts "❌ Failed to download #{url}: #{e.message}"
+    raise e
+  end
+  
+  def download_all_models
+    puts "\n📦 Downloading all models...\n"
+    
+    MODELS.keys.each do |model_name|
+      download_model(model_name) unless model_downloaded?(model_name)
+    end
+    
+    puts "\n✅ All models downloaded successfully!"
+  end
+  
+  def show_model_info(model_name)
+    unless MODELS.key?(model_name)
+      puts "❌ Unknown model: #{model_name}"
+      exit 1
+    end
+    
+    info = MODELS[model_name]
+    model_dir = File.join(@download_dir, model_name)
+    
+    puts "\n📋 Model Information: #{model_name}\n"
+    puts "   Description: #{info[:description]}"
+    puts "   Source: #{info[:source]}"
+    puts "   Repository: #{info[:repo] || info[:url]}" if info[:repo] || info[:url]
+    
+    if model_downloaded?(model_name)
+      puts "\n   Status: ✅ Downloaded"
+      puts "   Location: #{model_dir}"
+      
+      # List files
+      puts "\n   Files:"
+      Dir.glob(File.join(model_dir, "**/*")).each do |file|
+        next if File.directory?(file)
+        rel_path = file.sub(model_dir + "/", "")
+        size = format_size(File.size(file))
+        puts "     - #{rel_path} (#{size})"
+      end
+      
+      # Calculate total size
+      total_size = Dir.glob(File.join(model_dir, "**/*"))
+                      .reject { |f| File.directory?(f) }
+                      .sum { |f| File.size(f) }
+      puts "\n   Total size: #{format_size(total_size)}"
+    else
+      puts "\n   Status: ⬇️ Not downloaded"
+      puts "   To download: bin/download_models download #{model_name}"
+    end
+  end
+  
+  def verify_gpu_support
+    puts "\n🔍 Verifying GPU/Hardware Acceleration Support\n\n"
+    
+    # Check platform
+    platform = RUBY_PLATFORM
+    puts "Platform: #{platform}"
+    
+    if platform.include?("darwin")
+      verify_macos_acceleration
+    elsif platform.include?("linux")
+      verify_linux_acceleration
+    elsif platform.include?("mingw") || platform.include?("mswin")
+      verify_windows_acceleration
+    else
+      puts "⚠️  Unknown platform: #{platform}"
+    end
+    
+    # Check Ruby gems
+    puts "\n📦 Ruby Gem Support:"
+    check_gem("onnxruntime")
+    check_gem("transformers-ruby")
+    check_gem("informers")
+    check_gem("ruby-openai")
+    
+    # Check ONNX Runtime providers
+    check_onnx_providers
+  end
+  
+  def verify_macos_acceleration
+    puts "\n🍎 macOS Hardware Acceleration:"
+    
+    # Check for Apple Silicon
+    cpu_info = `sysctl -n machdep.cpu.brand_string 2>/dev/null`.strip
+    is_apple_silicon = cpu_info.include?("Apple")
+    
+    if is_apple_silicon
+      puts "  ✅ Apple Silicon detected: #{cpu_info}"
+      puts "  ✅ CoreML support available for ONNX Runtime"
+      puts "  ✅ Metal Performance Shaders available"
+      
+      # Check for CoreML models
+      coreml_models = MODELS.select { |name, _| name.include?("coreml") }
+      if coreml_models.any?
+        puts "\n  Recommended CoreML-optimized models:"
+        coreml_models.each do |name, info|
+          status = model_downloaded?(name) ? "✅" : "⬇️"
+          puts "    #{status} #{name}"
+        end
+      end
+    else
+      puts "  ℹ️  Intel Mac detected: #{cpu_info}"
+      puts "  ⚠️  Limited GPU acceleration available"
+      puts "  💡 Consider using quantized models for better performance"
+    end
+  end
+  
+  def verify_linux_acceleration
+    puts "\n🐧 Linux Hardware Acceleration:"
+    
+    # Check for NVIDIA GPU
+    nvidia_check = system("nvidia-smi > /dev/null 2>&1")
+    if nvidia_check
+      puts "  ✅ NVIDIA GPU detected"
+      puts "  ✅ CUDA support available for ONNX Runtime"
+      
+      # Get CUDA version
+      cuda_version = `nvidia-smi | grep "CUDA Version" | awk '{print $9}'`.strip
+      puts "  ℹ️  CUDA Version: #{cuda_version}" unless cuda_version.empty?
+    else
+      puts "  ⚠️  No NVIDIA GPU detected"
+    end
+    
+    # Check for AMD GPU
+    amd_check = system("rocm-smi > /dev/null 2>&1")
+    if amd_check
+      puts "  ✅ AMD GPU detected"
+      puts "  ✅ ROCm support potentially available"
+    end
+  end
+  
+  def verify_windows_acceleration
+    puts "\n🪟 Windows Hardware Acceleration:"
+    puts "  ℹ️  DirectML support available for ONNX Runtime"
+    puts "  💡 Install DirectML provider for GPU acceleration"
+  end
+  
+  def check_gem(gem_name)
+    require gem_name
+    version = Gem.loaded_specs[gem_name]&.version
+    puts "  ✅ #{gem_name} (#{version})"
+  rescue LoadError
+    puts "  ❌ #{gem_name} (not installed)"
+    puts "     Install with: gem install #{gem_name}"
+  end
+  
+  def check_onnx_providers
+    begin
+      require "onnxruntime"
+      puts "\n🚀 ONNX Runtime Execution Providers:"
+      
+      providers = OnnxRuntime::InferenceSession.providers
+      providers.each do |provider|
+        emoji = case provider
+        when "CoreMLExecutionProvider" then "🍎"
+        when "CUDAExecutionProvider" then "🎮"
+        when "DirectMLExecutionProvider" then "🪟"
+        when "CPUExecutionProvider" then "💻"
+        else "🔧"
+        end
+        puts "  #{emoji} #{provider}"
+      end
+      
+      if providers.size == 1 && providers.first == "CPUExecutionProvider"
+        puts "\n  ⚠️  Only CPU provider available"
+        puts "  💡 Install platform-specific ONNX Runtime for GPU acceleration"
+      end
+    rescue LoadError
+      puts "\n  ⚠️  ONNX Runtime not installed"
+    rescue => e
+      puts "\n  ❌ Error checking ONNX providers: #{e.message}"
+    end
+  end
+  
+  def model_downloaded?(model_name)
+    model_dir = File.join(@download_dir, model_name)
+    return false unless File.directory?(model_dir)
+    
+    # Check if directory has files
+    !Dir.glob(File.join(model_dir, "**/*")).reject { |f| File.directory?(f) }.empty?
+  end
+  
+  def verify_model_files(model_name, model_dir)
+    files = Dir.glob(File.join(model_dir, "**/*")).reject { |f| File.directory?(f) }
+    
+    if files.empty?
+      puts "  ⚠️  Warning: No files found in model directory"
+      return false
+    end
+    
+    puts "\n  📁 Downloaded files:" if @verbose
+    files.each do |file|
+      rel_path = file.sub(model_dir + "/", "")
+      size = format_size(File.size(file))
+      puts "     ✓ #{rel_path} (#{size})" if @verbose
+    end
+    
+    # Check for essential files
+    has_model = files.any? { |f| f.include?(".onnx") || f.include?(".mlpackage") }
+    
+    if has_model
+      puts "  ✅ Model files verified"
+      true
+    else
+      puts "  ⚠️  Warning: No model file (.onnx or .mlpackage) found"
+      false
+    end
+  end
+  
+  def format_size(bytes)
+    units = ["B", "KB", "MB", "GB"]
+    size = bytes.to_f
+    unit_index = 0
+    
+    while size >= 1024 && unit_index < units.length - 1
+      size /= 1024
+      unit_index += 1
+    end
+    
+    "#{size.round(2)} #{units[unit_index]}"
+  end
+end
+
+# Run the downloader
+if __FILE__ == $0
+  downloader = ModelDownloader.new
+  downloader.run(ARGV)
+end

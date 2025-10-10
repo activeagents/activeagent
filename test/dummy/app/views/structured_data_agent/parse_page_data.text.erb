@@ -1,0 +1,28 @@
+Parse the following web page content and extract structured data:
+
+URL: <%= @url %>
+
+<% if @html_content.present? %>
+HTML Content:
+---
+<%= @html_content %>
+---
+<% end %>
+
+<% if @text_content.present? %>
+Text Content:
+---
+<%= @text_content %>
+---
+<% end %>
+
+Extract:
+- Page title
+- Main heading (H1)
+- All headings
+- All links with their text and href
+- All images with alt text and src
+- Main content text
+- Metadata including word count and presence of forms/tables
+
+Return the data as structured JSON following the schema.

@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Setup script for MCP services required by ActiveAgent
+
+set -e
+
+echo "=== ActiveAgent MCP Services Setup ==="
+echo
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Check if npm is installed
+if ! command -v npm &> /dev/null; then
+    echo -e "${RED}❌ npm is not installed. Please install Node.js and npm first.${NC}"
+    echo "   Visit: https://nodejs.org/"
+    exit 1
+fi
+
+echo "📦 Installing MCP services..."
+echo
+
+# Install Playwright MCP (required for browser automation tests)
+echo "🎭 Installing Playwright MCP..."
+if npm list -g @anthropic/playwright-mcp &> /dev/null; then
+    echo -e "${GREEN}✓ Playwright MCP already installed${NC}"
+else
+    npm install -g @anthropic/playwright-mcp
+    echo -e "${GREEN}✓ Playwright MCP installed${NC}"
+fi
+
+# Optional: Install GitHub MCP
+echo
+read -p "Would you like to install GitHub MCP? (y/N) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "🐙 Installing GitHub MCP..."
+    npm install -g @anthropic/github-mcp
+    echo -e "${GREEN}✓ GitHub MCP installed${NC}"
+fi
+
+# Optional: Install Hugging Face MCP
+echo
+read -p "Would you like to install Hugging Face MCP? (y/N) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "🤗 Installing Hugging Face MCP..."
+    npm install -g @anthropic/huggingface-mcp
+    echo -e "${GREEN}✓ Hugging Face MCP installed${NC}"
+fi
+
+echo
+echo "=== Process Management Tools ==="
+echo
+
+# Check for foreman or overmind
+if command -v foreman &> /dev/null; then
+    echo -e "${GREEN}✓ foreman is installed${NC}"
+    PROC_MANAGER="foreman"
+elif command -v overmind &> /dev/null; then
+    echo -e "${GREEN}✓ overmind is installed${NC}"
+    PROC_MANAGER="overmind"
+else
+    echo -e "${YELLOW}⚠ Neither foreman nor overmind is installed${NC}"
+    echo "  Install one of these to manage services easily:"
+    echo "    gem install foreman"
+    echo "    brew install overmind (macOS)"
+    PROC_MANAGER=""
+fi
+
+echo
+echo "=== MCP Configuration ==="
+echo
+
+# Create MCP config directory if it doesn't exist
+MCP_CONFIG_DIR="$HOME/.config/mcp"
+if [ ! -d "$MCP_CONFIG_DIR" ]; then
+    mkdir -p "$MCP_CONFIG_DIR"
+    echo "Created MCP config directory: $MCP_CONFIG_DIR"
+fi
+
+# Check if MCP config exists
+MCP_CONFIG_FILE="$MCP_CONFIG_DIR/servers.json"
+if [ ! -f "$MCP_CONFIG_FILE" ]; then
+    echo "Creating default MCP servers configuration..."
+    cat > "$MCP_CONFIG_FILE" << 'EOF'
+{
+  "servers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@anthropic/playwright-mcp"],
+      "env": {}
+    }
+  }
+}
+EOF
+    echo -e "${GREEN}✓ Created MCP servers config at $MCP_CONFIG_FILE${NC}"
+else
+    echo -e "${GREEN}✓ MCP servers config exists at $MCP_CONFIG_FILE${NC}"
+fi
+
+echo
+echo "=== Setup Complete! ==="
+echo
+echo "To start MCP services for development:"
+if [ "$PROC_MANAGER" = "foreman" ]; then
+    echo "  ${GREEN}foreman start -f Procfile.dev${NC}"
+elif [ "$PROC_MANAGER" = "overmind" ]; then
+    echo "  ${GREEN}overmind start -f Procfile.dev${NC}"
+else
+    echo "  Install foreman or overmind first, then run:"
+    echo "  ${YELLOW}foreman start -f Procfile.dev${NC}"
+fi
+
+echo
+echo "To run tests that require MCP services:"
+echo "  1. Start MCP services (see above)"
+echo "  2. Run tests: ${GREEN}bin/test${NC}"
+
+echo
+echo "For individual MCP service:"
+echo "  Playwright: ${GREEN}npx @anthropic/playwright-mcp${NC}"
+
+echo
+echo "Note: Some tests may be skipped if MCP services are not running."
+echo "      Check test output for skip messages."

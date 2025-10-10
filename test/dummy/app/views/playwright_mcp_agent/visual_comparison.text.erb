@@ -1,0 +1,18 @@
+Compare these pages visually:
+<% @urls.each_with_index do |url, index| %>
+<%= index + 1 %>. <%= url %>
+<% end %>
+
+Screenshot Settings:
+- Full Page: <%= @full_page ? "Yes" : "No" %>
+
+Instructions:
+1. Navigate to each URL
+2. Take <%= @full_page ? "full page" : "viewport" %> screenshots
+3. Analyze the visual differences
+4. Note layout differences
+5. Compare content structure
+6. Identify unique elements on each page
+7. Provide a detailed comparison summary
+
+Use Playwright MCP tools to capture and compare the pages.
