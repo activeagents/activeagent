@@ -9,7 +9,6 @@ module ActiveAgent
       # Provider preferences for routing requests to specific providers
       # See: https://openrouter.ai/docs/provider-routing
       class ProviderPreferences < Common::Options
-
         # Whether to allow backup providers to serve requests
         # - true: (default) when primary provider is unavailable, use next best provider
         # - false: use only primary/custom provider, return upstream error if unavailable
@@ -52,7 +51,7 @@ module ActiveAgent
         validates :data_collection, inclusion: { in: %w[deny allow] }, allow_nil: true
         validates :sort, inclusion: { in: %w[price throughput latency] }, allow_nil: true
         validates :quantizations, inclusion: {
-          in: [%w[int4 int8 fp4 fp6 fp8 fp16 bf16 fp32 unknown].freeze],
+          in: [ %w[int4 int8 fp4 fp6 fp8 fp16 bf16 fp32 unknown].freeze ],
           message: "must contain valid quantization levels"
         }, allow_nil: true, if: -> { quantizations.is_a?(Array) && quantizations.any? }
 

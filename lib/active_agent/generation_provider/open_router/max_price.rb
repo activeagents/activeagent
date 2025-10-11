@@ -7,7 +7,6 @@ module ActiveAgent
       # Specifies USD price per million tokens for different operations
       # See: https://openrouter.ai/docs/provider-routing
       class MaxPrice < Common::Options
-
         attribute :prompt,     :float # Price per million prompt tokens (input)
         attribute :completion, :float # Price per million completion tokens (output)
         attribute :image,      :float # Price per image

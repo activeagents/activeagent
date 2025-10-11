@@ -29,12 +29,9 @@ module ActiveAgent
 
       def namespace = OpenRouter
 
+      # OpenAI + OpenRouter
       def build_provider_parameters
-        # Start with base OpenAI parameters
-        params = super
-
-        # Add OpenRouter-specific parameters
-        add_openrouter_params(params)
+        super.merge(options.chat_parameters)
       end
 
       def format_content_item(item)
@@ -80,37 +77,6 @@ module ActiveAgent
         else
           provider_chat_parameters
         end
-      end
-
-      def add_openrouter_params(params)
-        # Add OpenRouter-specific routing parameters
-        if @fallback_models.present?
-          params[:models] = @fallback_models
-          params[:route] = @route
-        end
-
-        # Add transforms
-        params[:transforms] = @transforms if @transforms.present?
-
-        # Add provider configuration (always include if we have data_collection or other settings)
-        # Check both configured and runtime data_collection/require_parameters values
-        runtime_data_collection = prompt&.options&.key?(:data_collection)
-        runtime_require_parameters = prompt&.options&.key?(:require_parameters)
-        runtime_provider_options = prompt&.options&.keys&.any? { |k| [ :only, :ignore, :quantizations, :sort, :max_price ].include?(k) }
-
-        if options.provider.present? || @data_collection != "allow" || @require_parameters != false ||
-           @only_providers.present? || @ignore_providers.present? || @quantizations.present? ||
-           @sort_preference.present? || @max_price.present? ||
-           runtime_data_collection || runtime_require_parameters || runtime_provider_options
-          params[:provider] = build_provider_preferences
-        end
-
-        # Add plugins (e.g., for PDF processing)
-        if prompt.options[:plugins].present?
-          params[:plugins] = prompt.options[:plugins]
-        end
-
-        params
       end
 
       def execute_with_fallback(parameters)

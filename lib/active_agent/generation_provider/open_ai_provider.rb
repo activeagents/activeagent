@@ -86,7 +86,7 @@ module ActiveAgent
 
       # Override from ParameterBuilder to add web_search_options for Chat API
       def build_provider_parameters
-        params = {}
+        params = super
 
         # Check if we're using a model that supports web_search_options in Chat API
         if chat_api_web_search_model? && @prompt.options[:web_search]

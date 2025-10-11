@@ -8,7 +8,6 @@ require_relative "ollama/options"
 module ActiveAgent
   module GenerationProvider
     class OllamaProvider < OpenAIProvider
-
       def initialize(config)
         @api_version     = config.delete("api_version") || "v1"
         @embedding_model = config.delete("embedding_model")

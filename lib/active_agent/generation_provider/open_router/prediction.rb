@@ -4,7 +4,6 @@ module ActiveAgent
   module GenerationProvider
     module OpenRouter
       class Prediction < Common::Options
-
         attribute :type, :string
         attribute :content, :string
 
