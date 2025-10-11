@@ -15,6 +15,13 @@ module ActiveAgent
         }
       end
 
+      test "provider requires openai gem" do
+        provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/open_router_provider.rb")
+        provider_source    = File.read(provider_file_path)
+
+        assert_includes provider_source, "require_gem!(:openai, __FILE__)"
+      end
+
       test "initializes with basic configuration" do
         provider = OpenRouterProvider.new(@base_config)
 

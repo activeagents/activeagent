@@ -1,4 +1,7 @@
-require "openai"
+require_relative "_base_provider"
+
+require_gem!(:openai, __FILE__)
+
 require_relative "open_ai_provider"
 
 module ActiveAgent

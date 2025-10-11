@@ -2,37 +2,11 @@ require "test_helper"
 
 # Test for OpenAI Provider gem loading and configuration
 class OpenAIProviderTest < ActiveAgentTestCase
-  # Test the gem load rescue block
-  test "gem load rescue block provides correct error message" do
-    # Since we can't easily simulate the gem not being available without complex mocking,
-    # we'll test that the error message is correct by creating a minimal reproduction
-    expected_message = "The 'ruby-openai >= 8.1.0' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
-
-    # Verify the rescue block pattern exists in the source code
+  test "provider requires openai gem" do
     provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/open_ai_provider.rb")
-    provider_source = File.read(provider_file_path)
+    provider_source    = File.read(provider_file_path)
 
-    assert_includes provider_source, "begin"
-    assert_includes provider_source, 'gem "ruby-openai"'
-    assert_includes provider_source, 'require "openai"'
-    assert_includes provider_source, "rescue LoadError"
-    assert_includes provider_source, expected_message
-
-    # Test the actual error by creating a minimal scenario
-    test_code = <<~RUBY
-      begin
-        gem "nonexistent-openai-gem"
-        require "nonexistent-openai-gem"
-      rescue LoadError
-        raise LoadError, "#{expected_message}"
-      end
-    RUBY
-
-    error = assert_raises(LoadError) do
-      eval(test_code)
-    end
-
-    assert_equal expected_message, error.message
+    assert_includes provider_source, "require_gem!(:openai, __FILE__)"
   end
 
   test "loads successfully when ruby-openai gem is available" do
