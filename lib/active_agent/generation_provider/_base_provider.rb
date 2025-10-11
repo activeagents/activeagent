@@ -1,7 +1,5 @@
-# lib/active_agent/generation_provider/base.rb
-
-require_relative "error_handling"
-require_relative "parameter_builder"
+require_relative "concerns/error_handling"
+require_relative "concerns/parameter_builder"
 
 module ActiveAgent
   module GenerationProvider

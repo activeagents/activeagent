@@ -242,19 +242,19 @@ module ActiveAgent
 
         # Test rate limit error
         error = StandardError.new("rate limit exceeded")
-        assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+        assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
           provider.send(:handle_openrouter_error, error)
         end
 
         # Test insufficient credits error
         error = StandardError.new("insufficient credits")
-        assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+        assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
           provider.send(:handle_openrouter_error, error)
         end
 
         # Test no provider error
         error = StandardError.new("no available provider")
-        assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+        assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
           provider.send(:handle_openrouter_error, error)
         end
       end

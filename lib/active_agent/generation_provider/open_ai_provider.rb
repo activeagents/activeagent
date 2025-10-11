@@ -9,9 +9,9 @@ require "active_agent/action_prompt/action"
 require_relative "_base_provider"
 require_relative "response"
 require_relative "responses_adapter"
-require_relative "stream_processing"
-require_relative "message_formatting"
-require_relative "tool_management"
+require_relative "concerns/stream_processing"
+require_relative "concerns/message_formatting"
+require_relative "concerns/tool_management"
 
 module ActiveAgent
   module GenerationProvider
