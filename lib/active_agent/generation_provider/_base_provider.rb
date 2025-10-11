@@ -5,7 +5,7 @@ require_relative "parameter_builder"
 
 module ActiveAgent
   module GenerationProvider
-    class Base
+    class BaseProvider
       include ErrorHandling
       include ParameterBuilder
 

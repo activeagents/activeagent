@@ -6,7 +6,7 @@ rescue LoadError
 end
 
 require "active_agent/action_prompt/action"
-require_relative "base"
+require_relative "_base_provider"
 require_relative "response"
 require_relative "responses_adapter"
 require_relative "stream_processing"
@@ -15,7 +15,7 @@ require_relative "tool_management"
 
 module ActiveAgent
   module GenerationProvider
-    class OpenAIProvider < Base
+    class OpenAIProvider < BaseProvider
       include StreamProcessing
       include MessageFormatting
       include ToolManagement
