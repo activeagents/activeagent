@@ -35,7 +35,7 @@ class OpenAIClientTest < ActiveAgentTestCase
       end
 
       client = OpenAI::Client.new
-      assert_equal OpenAIClientAgent.generation_provider.access_token, client.access_token
+      assert_equal OpenAIClientAgent.generation_provider.options.access_token, client.access_token
     end
   end
 end

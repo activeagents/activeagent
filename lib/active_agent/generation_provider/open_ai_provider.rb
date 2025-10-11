@@ -1,4 +1,5 @@
 require_relative "_base_provider"
+require_relative "open_ai/options"
 
 require_gem!(:openai, __FILE__)
 
@@ -9,21 +10,20 @@ module ActiveAgent
       include MessageFormatting
       include ToolManagement
 
-      def initialize(config)
-        super
-        @host = config["host"] || nil
-        @access_token ||= config["api_key"] || config["access_token"] || OpenAI.configuration.access_token || ENV["OPENAI_ACCESS_TOKEN"]
-        @organization_id = config["organization_id"] || OpenAI.configuration.organization_id || ENV["OPENAI_ORGANIZATION_ID"]
-        @admin_token = config["admin_token"] || OpenAI.configuration.admin_token || ENV["OPENAI_ADMIN_TOKEN"]
-        @client = OpenAI::Client.new(
-          access_token: @access_token,
-          uri_base: @host,
-          organization_id: @organization_id,
-          admin_token: @admin_token,
-          log_errors: Rails.env.development?
-        )
+      attr_reader :options
 
-        @model_name = config["model"] || "gpt-4o-mini"
+      def initialize(options)
+        super
+        @options = namespace::Options.new(**options.except("service"))
+      end
+
+      # @return [OpenAI::Client]
+      def client(prompt_options = nil)
+        if prompt_options
+          ::OpenAI::Client.new(namespace::Options.new(prompt_options).client_options)
+        else
+          @client ||= ::OpenAI::Client.new(@options.client_options)
+        end
       end
 
       def generate(prompt)
@@ -47,6 +47,8 @@ module ActiveAgent
       end
 
       protected
+
+      def namespace = OpenAI
 
       # Override from StreamProcessing module
       def process_stream_chunk(chunk, message, agent_stream)
@@ -167,17 +169,19 @@ module ActiveAgent
 
       # handle_actions is now provided by ToolManagement module
 
+      # @todo prompt_parameters client options overriding
       def chat_prompt(parameters: prompt_parameters)
-        if prompt.options[:stream] || config["stream"]
+        if prompt.options[:stream] || options.stream
           parameters[:stream] = provider_stream
           @streaming_request_params = parameters
         end
-        chat_response(@client.chat(parameters: parameters), parameters)
+        chat_response(client.chat(parameters: parameters), parameters)
       end
 
+      # @todo prompt_parameters client options overriding
       def responses_prompt(parameters: responses_parameters)
         # parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
-        responses_response(@client.responses.create(parameters: parameters), parameters)
+        responses_response(client.responses.create(parameters: parameters), parameters)
       end
 
       def responses_parameters(model: @prompt.options[:model] || @model_name, messages: @prompt.messages, temperature: @prompt.options[:temperature] || @config["temperature"] || 0.7, tools: @prompt.actions, structured_output: @prompt.output_schema)
@@ -258,9 +262,10 @@ module ActiveAgent
         )
       end
 
+      # @todo prompt_parameters client options overriding
       def embeddings_prompt(parameters:)
         params = embeddings_parameters
-        embeddings_response(@client.embeddings(parameters: params), params)
+        embeddings_response(client.embeddings(parameters: params), params)
       end
     end
   end
