@@ -8,7 +8,7 @@ rescue LoadError
 end
 
 require "active_agent/action_prompt/action"
-require_relative "base"
+require_relative "_base_provider"
 require_relative "response"
 require_relative "stream_processing"
 require_relative "message_formatting"
@@ -16,7 +16,7 @@ require_relative "tool_management"
 
 module ActiveAgent
   module GenerationProvider
-    class AnthropicProvider < Base
+    class AnthropicProvider < BaseProvider
       include StreamProcessing
       include MessageFormatting
       include ToolManagement
