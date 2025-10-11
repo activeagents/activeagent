@@ -2,8 +2,7 @@
 
 require "test_helper"
 require "active_support/rescuable"
-require "active_agent/generation_provider/base"
-require "active_agent/generation_provider/error_handling"
+require "active_agent/generation_provider/_base_provider"
 
 class ErrorHandlingTest < ActiveSupport::TestCase
   class TestError < StandardError; end
@@ -42,7 +41,7 @@ class ErrorHandlingTest < ActiveSupport::TestCase
 
   test "with_error_handling uses rescue_with_handler" do
     # The default rescue_from StandardError handler will convert to GenerationProviderError
-    error = assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+    error = assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
       @provider.with_error_handling do
         @provider.operation_that_fails
       end
@@ -53,7 +52,7 @@ class ErrorHandlingTest < ActiveSupport::TestCase
 
   test "preserves original backtrace" do
     original_line = nil
-    error = assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+    error = assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
       @provider.with_error_handling do
         original_line = __LINE__ + 1
         raise TestError, "With backtrace"
@@ -79,7 +78,7 @@ class ErrorHandlingTest < ActiveSupport::TestCase
     @provider.class.retry_on_errors = [ TestError ]
     @provider.class.max_retries = 2
 
-    assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+    assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
       @provider.with_error_handling do
         @provider.operation_that_fails
       end
@@ -243,7 +242,7 @@ class ErrorHandlingTest < ActiveSupport::TestCase
     @provider.class.retry_on_errors = []
     @provider.class.max_retries = 3
 
-    assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+    assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
       @provider.with_error_handling do
         @provider.operation_that_fails
       end
@@ -293,7 +292,7 @@ class ErrorHandlingTest < ActiveSupport::TestCase
     @provider.config = { "logger" => logger }
 
     error = TestError.new("Original error")
-    assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+    assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
       @provider.send(:handle_generation_error, error)
     end
 
@@ -304,7 +303,7 @@ class ErrorHandlingTest < ActiveSupport::TestCase
     # This test would require mocking ActiveSupport::Notifications
     # For now, just ensure the method doesn't error
     error = TestError.new("Test")
-    wrapped = ActiveAgent::GenerationProvider::Base::GenerationProviderError.new("Wrapped")
+    wrapped = ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError.new("Wrapped")
 
     assert_nothing_raised do
       @provider.send(:instrument_error, error, wrapped)

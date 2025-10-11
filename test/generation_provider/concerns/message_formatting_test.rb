@@ -2,8 +2,7 @@
 
 require "test_helper"
 require "active_agent/action_prompt/message"
-require "active_agent/action_prompt/action"
-require "active_agent/generation_provider/message_formatting"
+require "active_agent/generation_provider/_base_provider"
 
 class MessageFormattingTest < ActiveSupport::TestCase
   class TestProvider
