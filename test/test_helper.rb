@@ -3,6 +3,7 @@ ENV["RAILS_ENV"] = "test"
 
 begin
   require "debug"
+  require "pry"
 rescue LoadError
 end
 

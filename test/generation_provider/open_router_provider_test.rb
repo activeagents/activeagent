@@ -25,10 +25,10 @@ module ActiveAgent
       test "initializes with basic configuration" do
         provider = OpenRouterProvider.new(@base_config)
 
-        assert_equal "test_api_key", provider.instance_variable_get(:@access_token)
-        assert_equal "openai/gpt-4o", provider.instance_variable_get(:@model_name)
-        assert_equal "TestApp", provider.instance_variable_get(:@app_name)
-        assert_equal "https://test.app", provider.instance_variable_get(:@site_url)
+        assert_equal "test_api_key", provider.instance_variable_get(:@options).access_token
+        assert_equal "openai/gpt-4o", provider.instance_variable_get(:@options).model
+        assert_equal "TestApp", provider.instance_variable_get(:@options).app_name
+        assert_equal "https://test.app", provider.instance_variable_get(:@options).site_url
       end
 
       test "initializes with fallback models configuration" do
@@ -40,8 +40,8 @@ module ActiveAgent
         provider = OpenRouterProvider.new(config)
 
         assert_equal [ "anthropic/claude-3-opus", "google/gemini-pro" ],
-                     provider.instance_variable_get(:@fallback_models)
-        assert provider.instance_variable_get(:@enable_fallbacks)
+                     provider.instance_variable_get(:@options).models
+        assert provider.instance_variable_get(:@options).provider.allow_fallbacks
       end
 
       test "initializes with provider preferences" do
@@ -54,11 +54,11 @@ module ActiveAgent
         )
 
         provider = OpenRouterProvider.new(config)
-        prefs = provider.instance_variable_get(:@provider_preferences)
+        prefs = provider.instance_variable_get(:@options).provider
 
-        assert_equal [ "OpenAI", "Anthropic" ], prefs["order"]
-        assert prefs["require_parameters"]
-        assert_equal "deny", prefs["data_collection"]
+        assert_equal [ "OpenAI", "Anthropic" ], prefs.order
+        assert prefs.require_parameters
+        assert_equal "deny", prefs.data_collection
       end
 
       test "initializes with transforms" do
@@ -68,22 +68,21 @@ module ActiveAgent
 
         provider = OpenRouterProvider.new(config)
 
-        assert_equal [ "middle-out" ], provider.instance_variable_get(:@transforms)
+        assert_equal [ "middle-out" ], provider.instance_variable_get(:@options).transforms
       end
 
       test "sets correct OpenRouter headers" do
         provider = OpenRouterProvider.new(@base_config)
-        client = provider.instance_variable_get(:@client)
 
-        assert_not_nil client
+        assert_not_nil provider.client
         # The client should be configured with OpenRouter base URL
-        assert_equal "https://openrouter.ai/api/v1", client.instance_variable_get(:@uri_base)
+        assert_equal "https://openrouter.ai/api/v1", provider.client.instance_variable_get(:@uri_base)
 
         # Verify extra headers are set
-        extra_headers = client.instance_variable_get(:@extra_headers)
+        extra_headers = provider.client.instance_variable_get(:@extra_headers)
         assert_not_nil extra_headers
-        assert_equal "TestApp", extra_headers["X-Title"]
-        assert_equal "https://test.app", extra_headers["HTTP-Referer"]
+        assert_equal "TestApp", extra_headers["x-title"]
+        assert_equal "https://test.app", extra_headers["http-referer"]
       end
 
       test "uses default app name when not configured" do
@@ -91,12 +90,11 @@ module ActiveAgent
         config.delete("app_name")
 
         provider = OpenRouterProvider.new(config)
-        client = provider.instance_variable_get(:@client)
-        extra_headers = client.instance_variable_get(:@extra_headers)
+        extra_headers = provider.client.instance_variable_get(:@extra_headers)
 
         # Should use Rails app name or "ActiveAgent" as default
-        assert_not_nil extra_headers["X-Title"]
-        assert_includes [ "ActiveAgent", "Dummy" ], extra_headers["X-Title"]
+        assert_not_nil extra_headers["x-title"]
+        assert_includes [ "ActiveAgent", "Dummy" ], extra_headers["x-title"]
       end
 
       test "uses default site URL from Rails config when not provided" do
@@ -104,52 +102,51 @@ module ActiveAgent
         config.delete("site_url")
 
         provider = OpenRouterProvider.new(config)
-        client = provider.instance_variable_get(:@client)
+        client = provider.client
         extra_headers = client.instance_variable_get(:@extra_headers)
 
-        # Should either be localhost or no HTTP-Referer header
-        referer = extra_headers["HTTP-Referer"]
+        # Should either be localhost or no http-referer header
+        referer = extra_headers["http-referer"]
         assert(referer.nil? || referer.include?("localhost") || referer.include?("example.com"))
       end
 
       test "headers are present when both app_name and site_url are configured" do
         provider = OpenRouterProvider.new(@base_config)
-        headers = provider.send(:openrouter_headers)
+        headers = provider.instance_variable_get(:@options).send(:client_options_extra_headers)
 
-        assert_equal "TestApp", headers["X-Title"]
-        assert_equal "https://test.app", headers["HTTP-Referer"]
+        assert_equal "TestApp", headers["x-title"]
+        assert_equal "https://test.app", headers["http-referer"]
       end
 
       test "headers handle nil app_name gracefully" do
         config = @base_config.merge("app_name" => nil)
         provider = OpenRouterProvider.new(config)
-        headers = provider.send(:openrouter_headers)
+        headers = provider.instance_variable_get(:@options).send(:client_options_extra_headers)
 
         # Should still have a header, using default
-        assert_not_nil headers["X-Title"]
+        assert_not_nil headers["x-title"]
       end
 
       test "headers handle nil site_url gracefully" do
         config = @base_config.merge("site_url" => nil)
         provider = OpenRouterProvider.new(config)
-        headers = provider.send(:openrouter_headers)
+        headers = provider.instance_variable_get(:@options).send(:client_options_extra_headers)
 
-        # HTTP-Referer might be nil or use default
+        # http-referer might be nil or use default
         # The key should exist but value might be nil
-        assert headers.key?("HTTP-Referer")
+        assert headers.key?("http-referer")
       end
 
       test "headers are passed to OpenAI client on initialization" do
         provider = OpenRouterProvider.new(@base_config)
-        client = provider.instance_variable_get(:@client)
 
         # The OpenAI::Client should receive the extra_headers
-        assert_not_nil client
-        extra_headers = client.instance_variable_get(:@extra_headers)
+        assert_not_nil provider.client
+        extra_headers = provider.client.instance_variable_get(:@extra_headers)
 
         assert_equal({
-          "X-Title" => "TestApp",
-          "HTTP-Referer" => "https://test.app"
+          "x-title" => "TestApp",
+          "http-referer" => "https://test.app"
         }, extra_headers)
       end
 
@@ -173,7 +170,8 @@ module ActiveAgent
 
         params = provider.send(:build_openrouter_parameters)
 
-        assert_equal [ "openai/gpt-4o", "anthropic/claude-3-opus" ], params[:models]
+        assert_equal "openai/gpt-4o", params[:model]
+        assert_equal [ "anthropic/claude-3-opus" ], params[:models]
         assert_equal "fallback", params[:route]
       end
 
@@ -196,11 +194,11 @@ module ActiveAgent
         assert_equal "deny", prefs[:data_collection]
       end
 
-      test "data_collection parameter defaults to allow" do
+      test "data_collection parameter defaults to nil" do
         provider = OpenRouterProvider.new(@base_config)
         prefs = provider.send(:build_provider_preferences)
 
-        assert_equal "allow", prefs[:data_collection]
+        assert_nil prefs[:data_collection]
       end
 
       test "data_collection parameter can be set to deny" do
@@ -209,14 +207,6 @@ module ActiveAgent
         prefs = provider.send(:build_provider_preferences)
 
         assert_equal "deny", prefs[:data_collection]
-      end
-
-      test "data_collection parameter can be array of provider names" do
-        config = @base_config.merge("data_collection" => [ "OpenAI", "Anthropic" ])
-        provider = OpenRouterProvider.new(config)
-        prefs = provider.send(:build_provider_preferences)
-
-        assert_equal [ "OpenAI", "Anthropic" ], prefs[:data_collection]
       end
 
       test "data_collection parameter can be set in provider preferences" do
@@ -229,19 +219,6 @@ module ActiveAgent
         prefs = provider.send(:build_provider_preferences)
 
         assert_equal "deny", prefs[:data_collection]
-      end
-
-      test "top-level data_collection overrides provider preferences" do
-        config = @base_config.merge(
-          "data_collection" => "allow",
-          "provider" => {
-            "data_collection" => "deny"
-          }
-        )
-        provider = OpenRouterProvider.new(config)
-        prefs = provider.send(:build_provider_preferences)
-
-        assert_equal "allow", prefs[:data_collection]
       end
 
       test "handles OpenRouter-specific errors" do
@@ -328,9 +305,9 @@ module ActiveAgent
         assert_equal "99", response.metadata[:ratelimit][:requests_remaining]
       end
 
-      test "defaults enable_fallbacks to true" do
+      test "defaults enable_fallbacks to nil" do
         provider = OpenRouterProvider.new(@base_config)
-        assert provider.instance_variable_get(:@enable_fallbacks)
+        assert_nil provider.instance_variable_get(:@options).provider&.allow_fallbacks
       end
 
       test "defaults track_costs to true" do
@@ -340,7 +317,7 @@ module ActiveAgent
 
       test "defaults route to fallback" do
         provider = OpenRouterProvider.new(@base_config)
-        assert_equal "fallback", provider.instance_variable_get(:@route)
+        assert_equal "fallback", provider.instance_variable_get(:@options).route
       end
 
       test "environment variables fallback for API key" do
@@ -350,7 +327,7 @@ module ActiveAgent
         config.delete("api_key")
 
         provider = OpenRouterProvider.new(config)
-        assert_equal "env_api_key", provider.instance_variable_get(:@access_token)
+        assert_equal "env_api_key", provider.instance_variable_get(:@options).access_token
       ensure
         ENV.delete("OPENROUTER_API_KEY")
       end
@@ -362,7 +339,7 @@ module ActiveAgent
         config.delete("api_key")
 
         provider = OpenRouterProvider.new(config)
-        assert_equal "env_access_token", provider.instance_variable_get(:@access_token)
+        assert_equal "env_access_token", provider.instance_variable_get(:@options).access_token
       ensure
         ENV.delete("OPENROUTER_ACCESS_TOKEN")
       end
@@ -371,28 +348,28 @@ module ActiveAgent
         config = @base_config.merge("only" => [ "openai", "anthropic" ])
         provider = OpenRouterProvider.new(config)
 
-        assert_equal [ "openai", "anthropic" ], provider.instance_variable_get(:@only_providers)
+        assert_equal [ "openai", "anthropic" ], provider.instance_variable_get(:@options).provider.only
       end
 
       test "initializes with ignore providers configuration" do
         config = @base_config.merge("ignore" => [ "google", "cohere" ])
         provider = OpenRouterProvider.new(config)
 
-        assert_equal [ "google", "cohere" ], provider.instance_variable_get(:@ignore_providers)
+        assert_equal [ "google", "cohere" ], provider.instance_variable_get(:@options).provider.ignore
       end
 
       test "initializes with quantizations configuration" do
         config = @base_config.merge("quantizations" => [ "int4", "int8" ])
         provider = OpenRouterProvider.new(config)
 
-        assert_equal [ "int4", "int8" ], provider.instance_variable_get(:@quantizations)
+        assert_equal [ "int4", "int8" ], provider.instance_variable_get(:@options).provider.quantizations
       end
 
       test "initializes with sort configuration" do
         config = @base_config.merge("sort" => "price")
         provider = OpenRouterProvider.new(config)
 
-        assert_equal "price", provider.instance_variable_get(:@sort_preference)
+        assert_equal "price", provider.instance_variable_get(:@options).provider.sort
       end
 
       test "initializes with max_price configuration" do
@@ -400,7 +377,7 @@ module ActiveAgent
         config = @base_config.merge("max_price" => max_price)
         provider = OpenRouterProvider.new(config)
 
-        assert_equal max_price, provider.instance_variable_get(:@max_price)
+        assert_equal({ prompt: 0.001, completion: 0.002 }, provider.instance_variable_get(:@options).provider.max_price.to_h)
       end
 
       test "initializes with provider preferences containing new options" do
@@ -415,13 +392,13 @@ module ActiveAgent
         )
 
         provider = OpenRouterProvider.new(config)
-        prefs = provider.instance_variable_get(:@provider_preferences)
+        prefs = provider.instance_variable_get(:@options).provider_parameters
 
-        assert_equal [ "openai", "anthropic" ], prefs["only"]
-        assert_equal [ "google" ], prefs["ignore"]
-        assert_equal [ "int4" ], prefs["quantizations"]
-        assert_equal "throughput", prefs["sort"]
-        assert_equal({ "prompt_tokens" => 0.001 }, prefs["max_price"])
+        assert_equal [ "openai", "anthropic" ], prefs[:only]
+        assert_equal [ "google" ], prefs[:ignore]
+        assert_equal [ "int4" ], prefs[:quantizations]
+        assert_equal "throughput", prefs[:sort]
+        assert_equal({ prompt: 0.001 }, prefs[:max_price].to_h)
       end
 
       test "builds provider preferences with only providers" do
@@ -488,7 +465,7 @@ module ActiveAgent
         provider.instance_variable_set(:@prompt, prompt)
 
         prefs = provider.send(:build_provider_preferences)
-        assert_equal max_price, prefs[:max_price]
+        assert_equal({ prompt: 0.001, completion: 0.002 }, prefs[:max_price])
       end
 
       test "runtime options override configured provider preferences" do
@@ -542,7 +519,7 @@ module ActiveAgent
         assert_equal [ "google" ], params[:provider][:ignore]
         assert_equal [ "int4" ], params[:provider][:quantizations]
         assert_equal "price", params[:provider][:sort]
-        assert_equal({ "prompt_tokens" => 0.001 }, params[:provider][:max_price])
+        assert_equal({ prompt: 0.001 }, params[:provider][:max_price])
       end
     end
   end

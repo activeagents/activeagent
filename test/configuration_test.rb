@@ -158,14 +158,13 @@ class ActiveAgentConfigurationTest < ActiveAgentTestCase
     ENV["RAILS_ENV"] = "test"
 
     # Test configuration with additional options
-    provider = ApplicationAgent.configuration(:openai, temperature: 0.9, custom_option: "test")
+    provider = ApplicationAgent.configuration(:openai, temperature: 0.9)
 
     # Check the provider's config which should contain the merged configuration
     # Original config uses string keys, merged options use symbol keys
     assert_equal "test-key", provider.config["api_key"]
     assert_equal "gpt-4o-mini", provider.config["model"]
     assert_equal 0.9, provider.config[:temperature]  # Merged options use symbol keys
-    assert_equal "test", provider.config[:custom_option]  # Merged options use symbol keys
   end
 
   test "configuration file structure matches expected format" do

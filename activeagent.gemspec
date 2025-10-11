@@ -40,4 +40,9 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "webmock"
   spec.add_development_dependency "cuprite", "~> 0.15"
   spec.add_development_dependency "capybara", "~> 3.40"
+
+  spec.add_development_dependency "pry"
+  spec.add_development_dependency "pry-byebug"
+  spec.add_development_dependency "pry-doc"
+  spec.add_development_dependency "pry-stack_explorer"
 end

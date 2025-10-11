@@ -205,6 +205,6 @@ class OpenAIProviderTest < ActiveAgentTestCase
     }
 
     provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
-    assert_equal "https://custom-openai-host.com", provider.instance_variable_get(:@host)
+    assert_equal "https://custom-openai-host.com", provider.instance_variable_get(:@options).uri_base
   end
 end

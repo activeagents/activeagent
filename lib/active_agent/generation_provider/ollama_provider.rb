@@ -3,20 +3,21 @@ require_relative "_base_provider"
 require_gem!(:openai, __FILE__)
 
 require_relative "open_ai_provider"
+require_relative "ollama/options"
 
 module ActiveAgent
   module GenerationProvider
     class OllamaProvider < OpenAIProvider
+
       def initialize(config)
-        @config = config
-        @access_token ||= config["api_key"] || config["access_token"] || ENV["OLLAMA_API_KEY"] || ENV["OLLAMA_ACCESS_TOKEN"]
-        @model_name = config["model"]
-        @host = config["host"] || "http://localhost:11434"
-        @api_version = config["api_version"] || "v1"
-        @client = OpenAI::Client.new(uri_base: @host, access_token: @access_token, log_errors: Rails.env.development?, api_version: @api_version)
+        @api_version     = config.delete("api_version") || "v1"
+        @embedding_model = config.delete("embedding_model")
+        super
       end
 
       protected
+
+      def namespace = Ollama
 
       def format_error_message(error)
         # Check for various connection-related errors
@@ -33,7 +34,7 @@ module ActiveAgent
         if connection_errors.any? { |klass| error.is_a?(klass) } ||
             (error.message&.include?("Failed to open TCP connection") ||
              error.message&.include?("Connection refused"))
-          "Unable to connect to Ollama at #{@host}. Please ensure Ollama is running on the configured host and port.\n" \
+          "Unable to connect to Ollama at #{@options.uri_base}. Please ensure Ollama is running on the configured host and port.\n" \
           "You can start Ollama with: `ollama serve`\n" \
           "Or update your configuration to point to the correct host."
         else
@@ -43,7 +44,7 @@ module ActiveAgent
 
       def embeddings_parameters(input: prompt.message.content, model: "nomic-embed-text")
         {
-          model: @config["embedding_model"] || model,
+          model: @embedding_model || model,
           input: input
         }
       end

@@ -31,12 +31,11 @@ class OllamaProviderTest < ActiveSupport::TestCase
   end
 
   test "initializes with correct configuration" do
-    assert_equal "gemma3:latest", @provider.instance_variable_get(:@model_name)
-    assert_equal "http://localhost:11434", @provider.instance_variable_get(:@host)
+    assert_equal "gemma3:latest", @provider.instance_variable_get(:@options).model
+    assert_equal "http://localhost:11434", @provider.instance_variable_get(:@options).uri_base
     assert_equal "v1", @provider.instance_variable_get(:@api_version)
 
-    client = @provider.instance_variable_get(:@client)
-    assert_instance_of OpenAI::Client, client
+    assert_instance_of OpenAI::Client, @provider.client
   end
 
   test "uses default values when config values not provided" do
@@ -46,7 +45,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
     }
     provider = ActiveAgent::GenerationProvider::OllamaProvider.new(minimal_config)
 
-    assert_equal "http://localhost:11434", provider.instance_variable_get(:@host)
+    assert_equal "http://localhost:11434", provider.options.uri_base
     assert_equal "v1", provider.instance_variable_get(:@api_version)
   end
 

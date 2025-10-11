@@ -227,12 +227,12 @@ class ConfigurationPrecedenceTest < ActiveSupport::TestCase
     prompt_with_runtime = agent.prompt(
       message: "test",
       options: {
-        data_collection: [ "OpenAI" ]  # Override both agent and config
+        data_collection: "deny"  # Override both agent and config
       }
     )
     provider.instance_variable_set(:@prompt, prompt_with_runtime)
     prefs = provider.send(:build_provider_preferences)
-    assert_equal [ "OpenAI" ], prefs[:data_collection], "Runtime data_collection should override everything"
+    assert_equal "deny", prefs[:data_collection], "Runtime data_collection should override everything"
   end
   # endregion test_data_collection_precedence
 

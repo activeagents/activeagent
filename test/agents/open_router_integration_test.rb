@@ -359,10 +359,10 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     )
 
     # Get the headers that would be sent
-    headers = provider.send(:openrouter_headers)
+    headers = provider.send(:options).send(:client_options_extra_headers)
 
-    assert_equal "https://test.example.com", headers["HTTP-Referer"]
-    assert_equal "TestApp", headers["X-Title"]
+    assert_equal "https://test.example.com", headers["http-referer"]
+    assert_equal "TestApp", headers["x-title"]
   end
 
   test "builds provider preferences correctly" do
@@ -393,20 +393,12 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     prefs_deny = provider_deny.send(:build_provider_preferences)
     assert_equal "deny", prefs_deny[:data_collection]
 
-    # Test allow all data collection (default)
+    # Test nil all data collection (default)
     provider_allow = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
       "model" => "openai/gpt-4o"
     )
     prefs_allow = provider_allow.send(:build_provider_preferences)
-    assert_equal "allow", prefs_allow[:data_collection]
-
-    # Test selective provider data collection
-    provider_selective = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
-      "model" => "openai/gpt-4o",
-      "data_collection" => [ "OpenAI", "Google" ]
-    )
-    prefs_selective = provider_selective.send(:build_provider_preferences)
-    assert_equal [ "OpenAI", "Google" ], prefs_selective[:data_collection]
+    assert_nil prefs_allow[:data_collection]
   end
 
   test "handles multimodal content correctly" do
@@ -452,7 +444,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       "site_url" => "https://configured.example.com"
     )
 
-    assert_equal "https://configured.example.com", provider.instance_variable_get(:@site_url)
+    assert_equal "https://configured.example.com", provider.instance_variable_get(:@options).site_url
 
     # Test with default_url_options in config
     provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
@@ -462,7 +454,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       }
     )
 
-    assert_equal "fromconfig.example.com", provider.instance_variable_get(:@site_url)
+    assert_equal "fromconfig.example.com", provider.instance_variable_get(:@options).site_url
   end
 
   test "handles rate limit information in metadata" do

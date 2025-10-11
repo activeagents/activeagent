@@ -11,6 +11,8 @@ module ActiveAgent
       include MessageFormatting
       include ToolManagement
 
+      attr_reader :access_token
+
       def initialize(config)
         super
         @access_token ||= config["api_key"] || config["access_token"] || Anthropic.configuration.access_token || ENV["ANTHROPIC_ACCESS_TOKEN"]
