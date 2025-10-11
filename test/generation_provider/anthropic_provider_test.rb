@@ -2,37 +2,11 @@ require "test_helper"
 
 # Test for Anthropic Provider gem loading and configuration
 class AnthropicProviderTest < ActiveAgentTestCase
-  # Test the gem load rescue block
-  test "gem load rescue block provides correct error message" do
-    # Since we can't easily simulate the gem not being available without complex mocking,
-    # we'll test that the error message is correct by creating a minimal reproduction
-    expected_message = "The 'ruby-anthropic ~> 0.4.2' gem is required for AnthropicProvider. Please add it to your Gemfile and run `bundle install`."
-
-    # Verify the rescue block pattern exists in the source code
+  test "provider requires anthropic gem" do
     provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/anthropic_provider.rb")
-    provider_source = File.read(provider_file_path)
+    provider_source    = File.read(provider_file_path)
 
-    assert_includes provider_source, "begin"
-    assert_includes provider_source, 'gem "ruby-anthropic"'
-    assert_includes provider_source, 'require "anthropic"'
-    assert_includes provider_source, "rescue LoadError"
-    assert_includes provider_source, expected_message
-
-    # Test the actual error by creating a minimal scenario
-    test_code = <<~RUBY
-      begin
-        gem "nonexistent-anthropic-gem"
-        require "nonexistent-anthropic-gem"
-      rescue LoadError
-        raise LoadError, "#{expected_message}"
-      end
-    RUBY
-
-    error = assert_raises(LoadError) do
-      eval(test_code)
-    end
-
-    assert_equal expected_message, error.message
+    assert_includes provider_source, "require_gem!(:anthropic, __FILE__)"
   end
 
   test "loads successfully when ruby-anthropic gem is available" do

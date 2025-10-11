@@ -164,7 +164,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       # https://platform.openai.com/docs/guides/pdf-files#file-urls
       # Accept either the OpenAI error directly or our wrapped error
       # Suppress ruby-openai gem's error output to STDERR
-      error = assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError, OpenAI::Error) do
+      error = assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError, OpenAI::Error) do
         prompt.generate_now
       end
 

@@ -1,7 +1,10 @@
 require "test_helper"
 require "openai"
 require "active_agent/action_prompt"
+require "active_agent/action_prompt/prompt"
 require "active_agent/generation_provider/ollama_provider"
+require "active_agent/generation_provider/open_router_provider"
+require "active_agent/generation_provider/response"
 
 class OllamaProviderTest < ActiveSupport::TestCase
   setup do
@@ -18,6 +21,13 @@ class OllamaProviderTest < ActiveSupport::TestCase
       message: ActiveAgent::ActionPrompt::Message.new(content: "Test content for embedding"),
       instructions: "You are a test agent"
     )
+  end
+
+  test "provider requires openai gem" do
+    provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/ollama_provider.rb")
+    provider_source    = File.read(provider_file_path)
+
+    assert_includes provider_source, "require_gem!(:openai, __FILE__)"
   end
 
   test "initializes with correct configuration" do
@@ -123,7 +133,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
       instructions: "Test agent"
     )
 
-    error = assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+    error = assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
       provider.embed(prompt)
     end
 

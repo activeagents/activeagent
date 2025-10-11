@@ -1,5 +1,29 @@
 require_relative "concerns/error_handling"
+require_relative "concerns/message_formatting"
 require_relative "concerns/parameter_builder"
+require_relative "concerns/stream_processing"
+require_relative "concerns/tool_management"
+
+require_relative "../action_prompt/action"
+require_relative "response"
+require_relative "responses_adapter"
+
+GEM_LOADERS = {
+  anthropic: [ "ruby-anthropic", "~> 0.4.2", "anthropic" ],
+  openai:    [ "ruby-openai", ">= 8.1.0", "openai" ]
+}
+
+def require_gem!(type, file_name)
+  gem_name, requirement, package_name = GEM_LOADERS.fetch(type)
+  provider_name = file_name.split("/").last.delete_suffix(".rb").camelize
+
+  begin
+    gem(gem_name, requirement)
+    require(package_name)
+  rescue LoadError
+    raise LoadError, "The '#{gem_name}' gem is required for #{provider_name}. Please add it to your Gemfile and run `bundle install`."
+  end
+end
 
 module ActiveAgent
   module GenerationProvider

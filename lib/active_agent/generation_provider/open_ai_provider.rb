@@ -1,17 +1,6 @@
-begin
-  gem "ruby-openai", ">= 8.1.0"
-  require "openai"
-rescue LoadError
-  raise LoadError, "The 'ruby-openai >= 8.1.0' gem is required for OpenAIProvider. Please add it to your Gemfile and run `bundle install`."
-end
-
-require "active_agent/action_prompt/action"
 require_relative "_base_provider"
-require_relative "response"
-require_relative "responses_adapter"
-require_relative "concerns/stream_processing"
-require_relative "concerns/message_formatting"
-require_relative "concerns/tool_management"
+
+require_gem!(:openai, __FILE__)
 
 module ActiveAgent
   module GenerationProvider
@@ -19,6 +8,7 @@ module ActiveAgent
       include StreamProcessing
       include MessageFormatting
       include ToolManagement
+
       def initialize(config)
         super
         @host = config["host"] || nil
