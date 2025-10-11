@@ -2,8 +2,7 @@
 
 require "test_helper"
 require "active_agent/action_prompt/message"
-require "active_agent/generation_provider/response"
-require "active_agent/generation_provider/stream_processing"
+require "active_agent/generation_provider/_base_provider"
 
 class StreamProcessingTest < ActiveSupport::TestCase
   class TestProvider

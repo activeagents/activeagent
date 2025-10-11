@@ -28,12 +28,12 @@ class DataCollectionOverrideTest < ActiveSupport::TestCase
     assert_equal "deny", prefs[:data_collection]
   end
 
-  test "runtime data_collection with selective providers" do
+  test "runtime only with selective providers" do
     # Create an agent with "deny" configuration
     agent_class = Class.new(ApplicationAgent) do
       generate_with :open_router,
         model: "openai/gpt-4o-mini",
-        data_collection: "deny"
+        only: [ "OpenAI" ]
     end
 
     agent = agent_class.new
@@ -42,7 +42,7 @@ class DataCollectionOverrideTest < ActiveSupport::TestCase
     # Create a prompt with runtime override to selective providers
     prompt_context = agent.prompt(
       message: "test message",
-      options: { data_collection: [ "OpenAI", "Google" ] }
+      options: { only: [ "OpenAI", "Google" ] }
     )
 
     # Set the prompt on the provider
@@ -50,7 +50,7 @@ class DataCollectionOverrideTest < ActiveSupport::TestCase
 
     # Verify runtime override with array of providers
     prefs = provider.send(:build_provider_preferences)
-    assert_equal [ "OpenAI", "Google" ], prefs[:data_collection]
+    assert_equal [ "OpenAI", "Google" ], prefs[:only]
   end
 
   test "no runtime override uses configured value" do

@@ -1,7 +1,10 @@
 require "test_helper"
 require "openai"
 require "active_agent/action_prompt"
+require "active_agent/action_prompt/prompt"
 require "active_agent/generation_provider/ollama_provider"
+require "active_agent/generation_provider/open_router_provider"
+require "active_agent/generation_provider/response"
 
 class OllamaProviderTest < ActiveSupport::TestCase
   setup do
@@ -20,13 +23,19 @@ class OllamaProviderTest < ActiveSupport::TestCase
     )
   end
 
+  test "provider requires openai gem" do
+    provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/ollama_provider.rb")
+    provider_source    = File.read(provider_file_path)
+
+    assert_includes provider_source, "require_gem!(:openai, __FILE__)"
+  end
+
   test "initializes with correct configuration" do
-    assert_equal "gemma3:latest", @provider.instance_variable_get(:@model_name)
-    assert_equal "http://localhost:11434", @provider.instance_variable_get(:@host)
+    assert_equal "gemma3:latest", @provider.instance_variable_get(:@options).model
+    assert_equal "http://localhost:11434", @provider.instance_variable_get(:@options).uri_base
     assert_equal "v1", @provider.instance_variable_get(:@api_version)
 
-    client = @provider.instance_variable_get(:@client)
-    assert_instance_of OpenAI::Client, client
+    assert_instance_of OpenAI::Client, @provider.client
   end
 
   test "uses default values when config values not provided" do
@@ -36,7 +45,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
     }
     provider = ActiveAgent::GenerationProvider::OllamaProvider.new(minimal_config)
 
-    assert_equal "http://localhost:11434", provider.instance_variable_get(:@host)
+    assert_equal "http://localhost:11434", provider.options.uri_base
     assert_equal "v1", provider.instance_variable_get(:@api_version)
   end
 
@@ -123,7 +132,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
       instructions: "Test agent"
     )
 
-    error = assert_raises(ActiveAgent::GenerationProvider::Base::GenerationProviderError) do
+    error = assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
       provider.embed(prompt)
     end
 

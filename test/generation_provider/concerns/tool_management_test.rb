@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "active_agent/action_prompt/action"
-require "active_agent/generation_provider/tool_management"
+require "active_agent/generation_provider/_base_provider"
 
 class ToolManagementTest < ActiveSupport::TestCase
   class TestProvider

@@ -2,9 +2,7 @@
 
 require "test_helper"
 require "active_agent/action_prompt/message"
-require "active_agent/generation_provider/parameter_builder"
-require "active_agent/generation_provider/message_formatting"
-require "active_agent/generation_provider/tool_management"
+require "active_agent/generation_provider/_base_provider"
 
 class ParameterBuilderTest < ActiveSupport::TestCase
   MockPrompt = Data.define(:messages, :options, :actions, :output_schema, :message) do

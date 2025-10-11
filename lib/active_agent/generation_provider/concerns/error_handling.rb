@@ -47,7 +47,7 @@ module ActiveAgent
       def handle_generation_error(error)
         error_message = format_error_message(error)
         # Create new error with original backtrace preserved
-        new_error = ActiveAgent::GenerationProvider::Base::GenerationProviderError.new(error_message)
+        new_error = ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError.new(error_message)
         new_error.set_backtrace(error.backtrace) if error.respond_to?(:backtrace)
 
         # Log detailed error if verbose mode is enabled
