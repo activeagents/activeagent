@@ -193,9 +193,8 @@ class AnthropicProviderTest < ActiveAgentTestCase
     }
 
     require "active_agent/generation_provider/anthropic_provider"
-    assert_raises(Anthropic::ConfigurationError) do
-      provider = ActiveAgent::GenerationProvider::AnthropicProvider.new(config)
-      assert_nil provider.instance_variable_get(:@access_token)
-    end
+
+    provider = ActiveAgent::GenerationProvider::AnthropicProvider.new(config)
+    assert_nil provider.instance_variable_get(:@options).access_token
   end
 end

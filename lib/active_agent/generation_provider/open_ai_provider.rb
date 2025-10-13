@@ -10,20 +10,14 @@ module ActiveAgent
       include MessageFormatting
       include ToolManagement
 
-      attr_reader :options
-
       def initialize(options)
         super
         @options = namespace::Options.new(**options.except("service"))
       end
 
       # @return [OpenAI::Client]
-      def client(prompt_options = nil)
-        if prompt_options
-          ::OpenAI::Client.new(namespace::Options.new(prompt_options).client_options)
-        else
-          @client ||= ::OpenAI::Client.new(@options.client_options)
-        end
+      def client
+        ::OpenAI::Client.new(@options.client_options)
       end
 
       def generate(prompt)

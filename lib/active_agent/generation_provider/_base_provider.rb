@@ -33,7 +33,8 @@ module ActiveAgent
 
       class GenerationProviderError < StandardError; end
 
-      attr_reader :client, :config, :prompt, :response, :access_token, :model_name
+      attr_reader :options
+      attr_reader :config, :prompt, :response, :model_name
 
       def initialize(config)
         @config     = config

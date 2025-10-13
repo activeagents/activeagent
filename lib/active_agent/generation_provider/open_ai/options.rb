@@ -69,35 +69,35 @@ module ActiveAgent
 
         def resolve_access_token(settings)
           settings[:api_key] ||
-            openai_settings_access_token ||
+            openai_configuration_access_token ||
             ENV["OPENAI_ACCESS_TOKEN"]
         end
 
         def resolve_organization_id(settings)
-            openai_settings_organization_id ||
+            openai_configuration_organization_id ||
             ENV["OPENAI_ORGANIZATION_ID"]
         end
 
         def resolve_admin_token(settings)
-            openai_settings_admin_token ||
+            openai_configuration_admin_token ||
             ENV["OPENAI_ADMIN_TOKEN"]
         end
 
-        def openai_settings_access_token
+        def openai_configuration_access_token
           return nil unless defined?(::OpenAI)
           ::OpenAI.configuration.access_token
         rescue
           nil
         end
 
-        def openai_settings_organization_id
+        def openai_configuration_organization_id
           return nil unless defined?(::OpenAI)
           ::OpenAI.configuration.organization_id
         rescue
           nil
         end
 
-        def openai_settings_admin_token
+        def openai_configuration_admin_token
           return nil unless defined?(::OpenAI)
           ::OpenAI.configuration.admin_token
         rescue
