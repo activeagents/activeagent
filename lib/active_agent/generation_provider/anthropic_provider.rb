@@ -1,30 +1,26 @@
 # lib/active_agent/generation_provider/anthropic_provider.rb
 
-begin
-  gem "ruby-anthropic", "~> 0.4.2"
-  require "anthropic"
-rescue LoadError
-  raise LoadError, "The 'ruby-anthropic ~> 0.4.2' gem is required for AnthropicProvider. Please add it to your Gemfile and run `bundle install`."
-end
+require_relative "_base_provider"
 
-require "active_agent/action_prompt/action"
-require_relative "base"
-require_relative "response"
-require_relative "stream_processing"
-require_relative "message_formatting"
-require_relative "tool_management"
+require_gem!(:anthropic, __FILE__)
+
+require_relative 'anthropic/options'
 
 module ActiveAgent
   module GenerationProvider
-    class AnthropicProvider < Base
+    class AnthropicProvider < BaseProvider
       include StreamProcessing
       include MessageFormatting
       include ToolManagement
+
       def initialize(config)
         super
-        @access_token ||= config["api_key"] || config["access_token"] || Anthropic.configuration.access_token || ENV["ANTHROPIC_ACCESS_TOKEN"]
-        @extra_headers = config["extra_headers"] || {}
-        @client = Anthropic::Client.new(access_token: @access_token, extra_headers: @extra_headers)
+        @options = ActiveAgent::GenerationProvider::Anthropic::Options.new(**(options || {}).except("service"))
+      end
+
+      # @return [Anthropic::Client]
+      def client
+        ::Anthropic::Client.new(@options.client_options)
       end
 
       def generate(prompt)
@@ -41,7 +37,7 @@ module ActiveAgent
           @streaming_request_params = parameters
         end
 
-        chat_response(@client.messages(parameters: parameters), parameters)
+        chat_response(client.messages(parameters: parameters), parameters)
       end
 
       protected
@@ -158,6 +154,7 @@ module ActiveAgent
       end
 
       private
+
     end
   end
 end
