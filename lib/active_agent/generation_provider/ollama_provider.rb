@@ -10,7 +10,8 @@ module ActiveAgent
         @model_name = config["model"]
         @host = config["host"] || "http://localhost:11434"
         @api_version = config["api_version"] || "v1"
-        @client = OpenAI::Client.new(uri_base: @host, access_token: @access_token, log_errors: Rails.env.development?, api_version: @api_version)
+        @api_type = config["api_type"] || nil
+        @client = OpenAI::Client.new(uri_base: @host, access_token: @access_token, log_errors: Rails.env.development?, api_version: @api_version, api_type: @api_type)
       end
 
       protected

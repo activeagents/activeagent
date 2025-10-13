@@ -22,6 +22,7 @@ module ActiveAgent
       def initialize(config)
         super
         @host = config["host"] || nil
+        @api_type = config["api_type"] || nil
         @access_token ||= config["api_key"] || config["access_token"] || OpenAI.configuration.access_token || ENV["OPENAI_ACCESS_TOKEN"]
         @organization_id = config["organization_id"] || OpenAI.configuration.organization_id || ENV["OPENAI_ORGANIZATION_ID"]
         @admin_token = config["admin_token"] || OpenAI.configuration.admin_token || ENV["OPENAI_ADMIN_TOKEN"]
@@ -30,6 +31,7 @@ module ActiveAgent
           uri_base: @host,
           organization_id: @organization_id,
           admin_token: @admin_token,
+          api_type: @api_type,
           log_errors: Rails.env.development?
         )
 
