@@ -1,0 +1,212 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What was a positive news story from today?","model":"gpt-4.1","tools":[{"type":"web_search_preview"}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 14 Oct 2025 23:34:56 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999671'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_5e6b28295cd341b1b485d01dbc48a416
+      Openai-Processing-Ms:
+      - '12543'
+      X-Envoy-Upstream-Service-Time:
+      - '12548'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=YdnapjgOSKJbCTWGGFu9KaE50qq7yDFfC.gjzmB5lvQ-1760484896-1.0.1.1-OcRCjR_keA7QdYyr1_Q8sNskWzpdomu6MCphaJSQBrFg0oYysR1112OJXGv.ihooTDac8NhxF3BJKujZ1NDa1NsIBVek7QI1JIYVZuptNZg;
+        path=/; expires=Wed, 15-Oct-25 00:04:56 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=DW5NeVrZLS_Z.rNkETe2_vHIlcNEmjxz3gAilzUiyhE-1760484896023-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 98eae3954a5a679e-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0679d2dca9762cf80068eede1376a4819390590d40a08c5ba2",
+          "object": "response",
+          "created_at": 1760484883,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "ws_0679d2dca9762cf80068eede14d4a08193812e0849e4abef79",
+              "type": "web_search_call",
+              "status": "completed",
+              "action": {
+                "type": "search",
+                "query": "positive news stories June 6, 2024"
+              }
+            },
+            {
+              "id": "msg_0679d2dca9762cf80068eede166d3c8193af3fd18ef50fc725",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [
+                    {
+                      "type": "url_citation",
+                      "end_index": 661,
+                      "start_index": 430,
+                      "title": "GNR for Tuesday, October 14, 2025 \u2014 Good Resistance news from Portland, and much more!",
+                      "url": "https://www.dailykos.com/stories/2025/10/14/2347841/-GNR-for-Tuesday-October-14-2025-Good-Resistance-news-from-Portland-and-much-more?pm_campaign=front_page&pm_medium=web&pm_source=more_community&utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 1243,
+                      "start_index": 1012,
+                      "title": "GNR for Tuesday, October 14, 2025 \u2014 Good Resistance news from Portland, and much more!",
+                      "url": "https://www.dailykos.com/stories/2025/10/14/2347841/-GNR-for-Tuesday-October-14-2025-Good-Resistance-news-from-Portland-and-much-more?pm_campaign=front_page&pm_medium=web&pm_source=more_community&utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 1799,
+                      "start_index": 1568,
+                      "title": "GNR for Tuesday, October 14, 2025 \u2014 Good Resistance news from Portland, and much more!",
+                      "url": "https://www.dailykos.com/stories/2025/10/14/2347841/-GNR-for-Tuesday-October-14-2025-Good-Resistance-news-from-Portland-and-much-more?pm_campaign=front_page&pm_medium=web&pm_source=more_community&utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 2310,
+                      "start_index": 2079,
+                      "title": "GNR for Tuesday, October 14, 2025 \u2014 Good Resistance news from Portland, and much more!",
+                      "url": "https://www.dailykos.com/stories/2025/10/14/2347841/-GNR-for-Tuesday-October-14-2025-Good-Resistance-news-from-Portland-and-much-more?pm_campaign=front_page&pm_medium=web&pm_source=more_community&utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 2756,
+                      "start_index": 2634,
+                      "title": "Tuesday, October 14, 2025 - California Healthline",
+                      "url": "https://californiahealthline.org/morning-briefing/tuesday-october-14-2025/?utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 3077,
+                      "start_index": 2978,
+                      "title": "Stream Uplifting and Positive News October 13th, 2025 by The Positive Truth| Uplifting News| Positive News | Listen online for free on SoundCloud",
+                      "url": "https://soundcloud.com/user-423075597/uplifting-and-771571133?utm_source=openai"
+                    }
+                  ],
+                  "logprobs": [],
+                  "text": "On October 14, 2025, several positive developments were reported:\n\n**Advancements in Scientific Research**\n\n- **AI-Powered Data Management**: Frontiers introduced FAIR\u00b2 Data Management, an AI-driven service designed to enhance the reusability and crediting of scientific data. This innovation aims to accelerate progress in health, sustainability, and technology by ensuring that research investments lead to faster advancements. ([dailykos.com](https://www.dailykos.com/stories/2025/10/14/2347841/-GNR-for-Tuesday-October-14-2025-Good-Resistance-news-from-Portland-and-much-more?pm_campaign=front_page&pm_medium=web&pm_source=more_community&utm_source=openai))\n\n- **Efficient Cooling Technology**: Researchers at Johns Hopkins Applied Physics Laboratory developed a solid-state thermoelectric refrigeration technology using nano-engineered materials. This breakthrough nearly doubles the efficiency of existing devices, offering a scalable and energy-efficient alternative to traditional refrigeration methods. ([dailykos.com](https://www.dailykos.com/stories/2025/10/14/2347841/-GNR-for-Tuesday-October-14-2025-Good-Resistance-news-from-Portland-and-much-more?pm_campaign=front_page&pm_medium=web&pm_source=more_community&utm_source=openai))\n\n**Environmental Initiatives**\n\n- **Biodegradable Bamboo Plastic**: A new method for creating durable, biodegradable plastic from bamboo cellulose has been developed. This material outperforms traditional plastics in strength and thermo-mechanical properties, providing an eco-friendly alternative for various applications. ([dailykos.com](https://www.dailykos.com/stories/2025/10/14/2347841/-GNR-for-Tuesday-October-14-2025-Good-Resistance-news-from-Portland-and-much-more?pm_campaign=front_page&pm_medium=web&pm_source=more_community&utm_source=openai))\n\n- **European Green Capital Award**: Heilbronn, Germany, was named the European Green Capital for 2027. The city was recognized for its comprehensive urban planning, ambitious environmental targets, and regional collaborations aimed at improving air quality and noise reduction. ([dailykos.com](https://www.dailykos.com/stories/2025/10/14/2347841/-GNR-for-Tuesday-October-14-2025-Good-Resistance-news-from-Portland-and-much-more?pm_campaign=front_page&pm_medium=web&pm_source=more_community&utm_source=openai))\n\n**Community Support and Philanthropy**\n\n- **Benioffs' Generous Donation**: Marc and Lynne Benioff donated $100 million to UCSF\u2019s children\u2019s hospital. Additionally, Salesforce pledged $39 million to support artificial intelligence education initiatives, including programs within the San Francisco Unified School District. ([californiahealthline.org](https://californiahealthline.org/morning-briefing/tuesday-october-14-2025/?utm_source=openai))\n\n- **Community Acts of Kindness**: In Flowery Branch, a high school community rallied to support a security guard in financial need by providing her with a new car, detailed by students and supported by local businesses. ([soundcloud.com](https://soundcloud.com/user-423075597/uplifting-and-771571133?utm_source=openai))\n\nThese stories highlight significant strides in science, environmental sustainability, and community support, reflecting positive developments on October 14, 2025. "
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "web_search_preview",
+              "search_context_size": "medium",
+              "user_location": {
+                "type": "approximate",
+                "city": null,
+                "country": "US",
+                "region": null,
+                "timezone": null
+              }
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 310,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 745,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 1055
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 14 Oct 2025 23:34:55 GMT
+recorded_with: VCR 6.3.1

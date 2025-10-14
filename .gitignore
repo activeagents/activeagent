@@ -1,4 +1,5 @@
 .env*
+.ruby-version
 *.onnx
 **/.DS_Store
 /.bundle/

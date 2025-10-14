@@ -7,15 +7,13 @@ require_relative "open_router/options"
 
 module ActiveAgent
   module GenerationProvider
-    class OpenRouterProvider < OpenAIProvider
+    class OpenRouterProvider < OpenAI::ChatProvider
       def initialize(config)
         @track_costs = config.delete("track_costs") != false
         super
       end
 
       def generate(prompt)
-        @prompt = prompt
-
         with_error_handling do
           parameters = build_openrouter_parameters
           response = execute_with_fallback(parameters)
@@ -26,13 +24,6 @@ module ActiveAgent
       end
 
       protected
-
-      def namespace = OpenRouter
-
-      # OpenAI + OpenRouter
-      def build_provider_parameters
-        super.merge(options.chat_parameters)
-      end
 
       def format_content_item(item)
         # Handle OpenRouter-specific content formats
@@ -63,10 +54,10 @@ module ActiveAgent
       private
 
       def build_openrouter_parameters
-        prompt_parameters.deep_merge(options.chat_parameters)
+        generate_prompt_parameters(prompt).deep_merge(options.prompt_parameters)
       end
 
-      # @todo Refactor out
+      # TODO: Refactor out
       def build_provider_preferences
         provider_chat_parameters = options.provider_parameters || {}
 

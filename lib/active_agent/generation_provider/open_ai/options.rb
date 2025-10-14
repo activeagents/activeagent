@@ -15,17 +15,15 @@ module ActiveAgent
 
         # Prompting Options
         attribute :model,           :string,  default: "gpt-4o-mini"
-        attribute :temperature,     :float,   default: 0.7
+        attribute :temperature,     :float
         attribute :stream,          :boolean, default: false
 
-        validates :model, presence: true
         validates :temperature, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 2 }, allow_nil: true
-        validates :access_token, presence: true, if: :require_access_token?
+        validates :access_token, presence: true
 
         # Backwards Compatibility
         alias_attribute :host, :uri_base
         alias_attribute :api_key, :access_token
-        alias_attribute :model_name, :model
 
         # Initialize from a hash (settings) with fallback to environment variables and OpenAI gem configuration
         def initialize(**settings)
@@ -50,7 +48,7 @@ module ActiveAgent
         end
 
         # Returns parameters for chat completion requests
-        def chat_parameters
+        def prompt_parameters
           deep_compact(
             model:,
             temperature:
@@ -70,17 +68,20 @@ module ActiveAgent
         def resolve_access_token(settings)
           settings[:api_key] ||
             openai_configuration_access_token ||
-            ENV["OPENAI_ACCESS_TOKEN"]
+            ENV["OPENAI_ACCESS_TOKEN"] ||
+            ENV["OPEN_AI_ACCESS_TOKEN"]
         end
 
         def resolve_organization_id(settings)
             openai_configuration_organization_id ||
-            ENV["OPENAI_ORGANIZATION_ID"]
+            ENV["OPENAI_ORGANIZATION_ID"] ||
+            ENV["OPEN_AI_ORGANIZATION_ID"]
         end
 
         def resolve_admin_token(settings)
             openai_configuration_admin_token ||
-            ENV["OPENAI_ADMIN_TOKEN"]
+            ENV["OPENAI_ADMIN_TOKEN"] ||
+            ENV["OPEN_AI_ADMIN_TOKEN"]
         end
 
         def openai_configuration_access_token
@@ -102,11 +103,6 @@ module ActiveAgent
           ::OpenAI.configuration.admin_token
         rescue
           nil
-        end
-
-        # Only require access token if no other authentication method is available
-        def require_access_token?
-          resolved_access_token.blank?
         end
       end
     end

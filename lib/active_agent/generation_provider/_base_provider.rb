@@ -6,7 +6,6 @@ require_relative "concerns/tool_management"
 
 require_relative "../action_prompt/action"
 require_relative "response"
-require_relative "responses_adapter"
 
 GEM_LOADERS = {
   anthropic: [ "ruby-anthropic", "~> 0.4.2", "anthropic" ],
@@ -34,13 +33,11 @@ module ActiveAgent
       class GenerationProviderError < StandardError; end
 
       attr_reader :options
-      attr_reader :config, :prompt, :response, :model_name
 
-      def initialize(config)
-        @config     = config
-        @prompt     = nil
-        @response   = nil
-        @model_name = config["model"] if config
+      def initialize(options = {})
+        fail "Unexpected Service Name: #{options["service"]} != #{service_name}" if options["service"] && options["service"] != service_name
+
+        @options = options_type.new(**(options || {}).except("service"))
       end
 
       def generate(prompt)
@@ -52,26 +49,25 @@ module ActiveAgent
         raise NotImplementedError, "#{self.class.name} does not support embeddings"
       end
 
+      # @return [String] Name of service, e.g., Anthropic
+      def service_name
+        self.class.name.split("::").last.delete_suffix("Provider")
+      end
+
       private
 
+      # @return [Class] The Options class for the specific provider, e.g., Anthropic::Options
+      def options_type
+        self.class.module_parent.const_get("#{service_name}::Options", false)
+      end
+
       def handle_response(response)
-        @response = ActiveAgent::GenerationProvider::Response.new(message:, raw_response: response)
         raise NotImplementedError, "Subclasses must implement the 'handle_response' method"
       end
 
       def update_context(prompt:, message:, response:)
         prompt.message = message
         prompt.messages << message
-      end
-
-      protected
-
-      # This method is now provided by ParameterBuilder module
-      # but can still be overridden if needed
-      def build_provider_parameters
-        # Base implementation returns empty hash
-        # Providers override this to add their specific parameters
-        {}
       end
     end
   end

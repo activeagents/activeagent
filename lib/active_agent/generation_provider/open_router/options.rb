@@ -71,7 +71,7 @@ module ActiveAgent
           )))
         end
 
-        def chat_parameters
+        def prompt_parameters
           deep_compact(
             super.merge(
               response_format: response_format&.to_h,

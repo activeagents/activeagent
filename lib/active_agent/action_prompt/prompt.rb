@@ -4,7 +4,8 @@ module ActiveAgent
   module ActionPrompt
     class Prompt
       attr_reader :messages, :instructions
-      attr_accessor :actions, :body, :content_type, :context_id, :message, :options, :mime_version, :charset, :context, :parts, :params, :action_choice, :agent_class, :output_schema, :action_name, :agent_instance, :mcp_servers
+      attr_accessor :actions, :body, :content_type, :context_id, :message, :options, :mime_version, :charset, :context,
+      :parts, :params, :action_choice, :agent_class, :output_schema, :action_name, :agent_instance, :mcp_servers
 
       def initialize(attributes = {})
         @options = attributes.fetch(:options, {})

@@ -7,6 +7,10 @@ require "active_agent/action_prompt/action"
 
 # require "active_agent/log_subscriber"
 require "active_agent/rescuable"
+
+require_relative "resolver"
+require_relative "null_prompt"
+
 module ActiveAgent
   module ActionPrompt
     class Base < AbstractController::Base
@@ -35,9 +39,6 @@ module ActiveAgent
       PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
 
       helper ActiveAgent::PromptHelper
-
-      # Delegate response to generation_provider for easy access in callbacks
-      delegate :response, to: :generation_provider, allow_nil: true
 
       class_attribute :options
 
@@ -108,16 +109,31 @@ module ActiveAgent
         private :observer_class_for
 
         # Define how the agent should generate content
-        def generate_with(provider, **options)
+        # Sets up the generation provider and options for the agent.
+        #
+        # This is the main method called when defining an agent class to configure
+        # how prompts will be generated. It allows specifying the AI provider and
+        # any generation options.
+        #
+        # @param provider [Symbol, String] The generation provider to use (e.g., :openai, :anthropic)
+        # @param options [Hash] Configuration options that are shared across the actions
+        #
+        # @return [void]
+        #
+        # @example Basic setup with provider
+        #   generate_with :openai
+        #
+        # @example With custom instructions
+        #   generate_with :openai, instructions: "You are a helpful assistant"
+        #
+        # @example With additional options
+        #   generate_with :anthropic, temperature: 0.7, model: "claude-3"
+        def generate_with(provider, **provided_options)
           self.generation_provider = provider
-          if options.has_key?(:instructions) || (self.options || {}).empty?
-            # Either instructions explicitly provided, or no inherited options exist
-            self.options = (self.options || {}).merge(options)
-          else
-            # Don't inherit instructions from parent if not explicitly set
-            inherited_options = (self.options || {}).except(:instructions)
-            self.options = inherited_options.merge(options)
-          end
+
+          # Don't inherit instructions from parent
+          inherited_options = (self.options || {}).except(:instructions)
+          self.options      = (inherited_options).merge(provided_options)
         end
 
         def stream_with(&stream)
@@ -129,6 +145,7 @@ module ActiveAgent
         def agent_name
           @agent_name ||= anonymous? ? "anonymous" : name.underscore
         end
+
         # Allows to set the name of current agent.
         attr_writer :agent_name
         alias_method :controller_path, :agent_name
@@ -183,7 +200,88 @@ module ActiveAgent
         end
       end
 
+      delegate :agent_name, to: :class
+      # Delegate response to generation_provider for easy access in callbacks
+      delegate :response, to: :generation_provider, allow_nil: true
+
+      attr_internal :raw_context
       attr_internal :context
+
+      # @return [void]
+      def initialize # :nodoc:
+        super
+        @_raw_context = self.class.options&.deep_dup
+
+        @_prompt_was_called = false
+        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options&.deep_dup || {}, agent_instance: self)
+      end
+
+      # Entry point for action execution
+      # Processes an agent action and instruments it for monitoring.
+      #
+      # This method wraps the action execution with ActiveSupport::Notifications instrumentation
+      # and ensures a Prompt instance is created if no prompt was explicitly called during processing.
+      #
+      # @param method_name [Symbol, String] the name of the action method to process
+      # @param args [Array] variable arguments to pass to the action method
+      #
+      # @return [void]
+      def process(method_name, *args) # :nodoc:
+        payload = {
+          agent:  self.class.name,
+          action: method_name,
+          args:   args
+        }
+
+        ActiveSupport::Notifications.instrument("process.active_agent", payload) do
+          super
+          @_context = ActiveAgent::ActionPrompt::Prompt.new(agent_instance: self) unless @_prompt_was_called
+        end
+      end
+
+      # Applies action-level parameters for the agent.
+      #
+      # This method is called from within an action to apply action-level parameters
+      # for the agent. Processing of the parameters is deferred until execution to
+      # maximize the context available to the provider.
+      #
+      # @param options [Hash] the parameters to merge into the raw context
+      # @param block [Proc] optional block for additional processing
+      # @return [void]
+      def prompt(options = {}, &block)
+        raw_context.merge!(options)
+      end
+
+      # Executes the prompt generation using the configured generation provider.
+      #
+      # This method is the core execution point for prompt generation, triggered by either
+      # the +generate_now+ or +generate_later+ workflows.
+      #
+      # @return [void]
+      #
+      # @example
+      #   Agent.action.generation_now
+      #   # => Generates the prompt and handles the response
+      #
+      def perform_generation
+        return unless context && generation_provider # TODO: Should this be strict? Or Do we even need this?
+
+        response = generation_provider.generate(raw_context)
+        handle_response(response)
+      end
+
+      private
+
+      def handle_response(response)
+        return response unless response.message.requested_actions.present?
+
+        # The assistant message with tool_calls is already added by update_context in the provider
+        # Now perform the requested actions which will add tool response messages
+        perform_actions(requested_actions: response.message.requested_actions)
+
+        # Continue generation with updated context
+        perform_generation
+      end
 
       def agent_stream
         proc do |message, delta, stop, action_name|
@@ -212,42 +310,19 @@ module ActiveAgent
         end
       end
 
-      # Make context accessible for chaining
-      # attr_accessor :context
-
-      def perform_generation
-        generation_provider.generate(context) if context && generation_provider
-        handle_response(generation_provider.response)
-      end
-
-      def handle_response(response)
-        return response unless response.message.requested_actions.present?
-
-        # The assistant message with tool_calls is already added by update_context in the provider
-        # Now perform the requested actions which will add tool response messages
-        perform_actions(requested_actions: response.message.requested_actions)
-
-        # Continue generation with updated context
-        continue_generation
-      end
-
-      def continue_generation
-        # Continue generating with the updated context that includes tool results
-        generation_provider.generate(context) if context && generation_provider
-        handle_response(generation_provider.response)
-      end
-
       def update_context(response)
         ActiveAgent::GenerationProvider::Response.new(prompt: context)
       end
 
       def perform_actions(requested_actions:)
+        puts "perform_actions"
         requested_actions.each do |action|
           perform_action(action)
         end
       end
 
       def perform_action(action)
+        puts "perform_action"
         # Save the current messages to preserve conversation history
         original_messages = context.messages.dup
         original_params = context.params || {}
@@ -280,50 +355,8 @@ module ActiveAgent
         @_prompt_was_called = original_prompt_was_called
       end
 
-      def initialize # :nodoc:
-        super
-        @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options&.deep_dup || {}, agent_instance: self)
-      end
-
-      def process(method_name, *args) # :nodoc:
-        payload = {
-          agent: self.class.name,
-          action: method_name,
-          args: args
-        }
-
-        ActiveSupport::Notifications.instrument("process.active_agent", payload) do
-          super
-          @_context = ActiveAgent::ActionPrompt::Prompt.new(agent_instance: self) unless @_prompt_was_called
-        end
-      end
-      ruby2_keywords(:process)
-
-      class NullPrompt # :nodoc:
-        def message
-          ""
-        end
-
-        def header
-          {}
-        end
-
-        def respond_to?(string, include_all = false)
-          true
-        end
-
-        def method_missing(...)
-          nil
-        end
-      end
-
-      # Returns the name of the agent object.
-      def agent_name
-        self.class.agent_name
-      end
-
       def headers(args = nil)
+        binding.pry
         if args
           @_context.headers(args)
         else
@@ -335,46 +368,51 @@ module ActiveAgent
         context.update_context(*)
       end
 
-      def prompt(headers = {}, &block)
-        return context if @_prompt_was_called && headers.blank? && !block
-        # Apply option hierarchy: prompt options > agent options > config options
-        merged_options = merge_options(headers[:options] || {})
+      # def prompt(args = {}, &block)
+      #   return context if @_prompt_was_called && args.blank? && !block
 
-        raw_instructions = headers.has_key?(:instructions) ? headers[:instructions] : context.options[:instructions]
+      #   # There are many sins in this function, this input hack is to support raw OpenAI format until prompt resolving
+      #   # can be refactored into the context of a provider.
+      #   args[:message] ||= args.delete(:input)
 
-        context.instructions = prepare_instructions(raw_instructions)
+      #   # Apply option hierarchy: prompt options > agent options > config options
+      #   merged_options = merge_options(args[:options] || {})
 
-        context.options.merge!(merged_options)
-        context.options[:stream] = agent_stream if context.options[:stream]
-        content_type = headers[:content_type]
+      #   raw_instructions = args.has_key?(:instructions) ? args[:instructions] : context.options[:instructions]
 
-        headers = apply_defaults(headers)
-        context.messages = headers[:messages] || []
-        context.mcp_servers = headers[:mcp_servers] || []
-        context.context_id = headers[:context_id]
-        context.params = params
-        context.action_name = action_name
+      #   context.instructions = prepare_instructions(raw_instructions)
 
-        context.output_schema = render_schema(headers[:output_schema], set_prefixes(headers[:output_schema], lookup_context.prefixes))
+      #   context.options.merge!(merged_options)
+      #   context.options[:stream] = agent_stream if context.options[:stream]
+      #   content_type = args[:content_type]
 
-        context.charset = charset = headers[:charset]
+      #   args = apply_defaults(args)
+      #   context.messages = args[:messages] || []
+      #   context.mcp_servers = args[:mcp_servers] || []
+      #   context.context_id = args[:context_id]
+      #   context.params = params
+      #   context.action_name = action_name
 
-        headers = prepare_message(headers)
-        # wrap_generation_behavior!(headers[:generation_method], headers[:generation_method_options])
-        # assign_headers_to_context(context, headers)
-        responses = collect_responses(headers, &block)
+      #   context.output_schema = render_schema(args[:output_schema], set_prefixes(args[:output_schema], lookup_context.prefixes))
 
-        @_prompt_was_called = true
+      #   context.charset = charset = args[:charset]
 
-        create_parts_from_responses(context, responses)
+      #   args = prepare_message(args)
+      #   # wrap_generation_behavior!(args[:generation_method], args[:generation_method_options])
+      #   # assign_args_to_context(context, args)
+      #   responses = collect_responses(args, &block)
 
-        context.content_type = set_content_type(context, content_type, headers[:content_type])
+      #   @_prompt_was_called = true
 
-        context.charset = charset
-        context.actions = headers[:actions] || action_schemas
+      #   create_parts_from_responses(context, responses)
 
-        context
-      end
+      #   context.content_type = set_content_type(context, content_type, args[:content_type])
+
+      #   context.charset = charset
+      #   context.actions = args[:actions] || action_schemas
+
+      #   context
+      # end
 
       def action_methods
         super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s) - [ action_name ]
@@ -388,37 +426,40 @@ module ActiveAgent
         end.compact
       end
 
-      private
-      def prepare_message(headers)
-        if headers[:message].present? && headers[:message].is_a?(ActiveAgent::ActionPrompt::Message)
-          headers[:body] = headers[:message].content
-          headers[:role] = headers[:message].role
-        elsif headers[:message].present? && headers[:message].is_a?(Array)
-          # Handle array of multipart content like [{type: "text", text: "..."}, {type: "file", file: {...}}]
-          headers[:body] = headers[:message]
-          headers[:role] = :user
-        elsif headers[:message].present? && headers[:message].is_a?(String)
-          headers[:body] = headers[:message]
-          headers[:role] = :user
+      def prepare_message(args)
+        if args[:message].present?
+          case args[:message]
+          when Hash # RIP Switch Cascading
+            message = ActiveAgent::ActionPrompt::Message.new(args[:message])
+            args[:body] = message.content
+            args[:role] = message.role
+          when ActiveAgent::ActionPrompt::Message
+            args[:body] = args[:message].content
+            args[:role] = args[:message].role
+          when Array, String
+            # Handle array of multipart content like [{type: "text", text: "..."}, {type: "file", file: {...}}]
+            args[:body] = args[:message]
+            args[:role] = :user
+          end
         end
-        load_input_data(headers)
+        load_input_data(args)
 
-        headers
+        args
       end
 
-      def load_input_data(headers)
-        if headers[:image_data].present?
-          headers[:body] = [
-            ActiveAgent::ActionPrompt::Message.new(content: headers[:image_data], content_type: "image_data"),
-            ActiveAgent::ActionPrompt::Message.new(content: headers[:body], content_type: "input_text")
+      def load_input_data(args)
+        if args[:image_data].present?
+          args[:body] = [
+            ActiveAgent::ActionPrompt::Message.new(content: args[:image_data], content_type: "image_data"),
+            ActiveAgent::ActionPrompt::Message.new(content: args[:body], content_type: "input_text")
           ]
-        elsif headers[:file_data].present?
-          headers[:body] = [
-            ActiveAgent::ActionPrompt::Message.new(content: headers[:file_data], metadata: { filename: "resume.pdf" }, content_type: "file_data"),
-            ActiveAgent::ActionPrompt::Message.new(content: headers[:body], content_type: "input_text")
+        elsif args[:file_data].present?
+          args[:body] = [
+            ActiveAgent::ActionPrompt::Message.new(content: args[:file_data], metadata: { filename: "resume.pdf" }, content_type: "file_data"),
+            ActiveAgent::ActionPrompt::Message.new(content: args[:body], content_type: "input_text")
           ]
         end
-        headers
+        args
       end
 
       def set_prefixes(action, prefixes)
@@ -436,7 +477,7 @@ module ActiveAgent
       end
 
       def merge_options(prompt_options)
-        config_options = generation_provider&.config || {}
+        config_options = generation_provider&.options&.to_h || {}
         agent_options = (self.class.options || {}).deep_dup  # Defensive copy to prevent mutation
 
         parent_options = self.class.superclass.respond_to?(:options) ? (self.class.superclass.options || {}) : {}
@@ -492,12 +533,12 @@ module ActiveAgent
         I18n.t(:subject, **interpolations.merge(scope: [ agent_scope, action_name ], default: action_name.humanize))
       end
 
-      def apply_defaults(headers)
-        default_values = self.class.default.except(*headers.keys).transform_values do |value|
+      def apply_defaults(args)
+        default_values = self.class.default.except(*args.keys).transform_values do |value|
           compute_default(value)
         end
 
-        headers.reverse_merge(default_values)
+        args.reverse_merge(default_values)
       end
 
       def compute_default(value)
@@ -510,42 +551,42 @@ module ActiveAgent
         end
       end
 
-      def assign_headers_to_context(context, headers)
-        assignable = headers.except(:parts_order, :content_type, :body, :role, :template_name,
+      def assign_args_to_context(context, args)
+        assignable = args.except(:parts_order, :content_type, :body, :role, :template_name,
           :template_path, :delivery_method, :delivery_method_options)
 
         assignable.each { |k, v| context.send(k, v) if context.respond_to?(k) }
       end
 
-      def collect_responses(headers, &)
+      def collect_responses(args, &)
         if block_given?
-          collect_responses_from_block(headers, &)
-        elsif headers[:body]
-          collect_responses_from_text(headers)
+          collect_responses_from_block(args, &)
+        elsif args[:body]
+          collect_responses_from_text(args)
         else
-          collect_responses_from_templates(headers)
+          collect_responses_from_templates(args)
         end
       end
 
-      def collect_responses_from_block(headers)
-        templates_name = headers[:template_name] || action_name
+      def collect_responses_from_block(args)
+        templates_name = args[:template_name] || action_name
         collector = ActiveAgent::Collector.new(lookup_context) { render(templates_name) }
         yield(collector)
         collector.responses
       end
 
-      def collect_responses_from_text(headers)
+      def collect_responses_from_text(args)
         [ {
-          body: headers.delete(:body),
-          content_type: headers[:content_type] || "text/plain"
+          body: args.delete(:body),
+          content_type: args[:content_type] || "text/plain"
         } ]
       end
 
-      def collect_responses_from_templates(headers)
-        templates_path = headers[:template_path] || self.class.agent_name
-        templates_name = headers[:template_name] || action_name
+      def collect_responses_from_templates(args)
+        templates_path = args[:template_path] || self.class.agent_name
+        templates_name = args[:template_name] || action_name
         each_template(Array(templates_path), templates_name).map do |template|
-          next if template.format == :json && headers[:format] != :json
+          next if template.format == :json && args[:format] != :json
           format = template.format || formats.first
           {
             body: render(template: template, formats: [ format ]),

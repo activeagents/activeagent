@@ -61,12 +61,12 @@ class OpenAIProviderTest < ActiveAgentTestCase
     rails_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "test"
 
-    config = ApplicationAgent.configuration(:openai)
+    provider = ApplicationAgent.configuration(:openai)
 
-    assert_equal "OpenAI", config.config["service"]
-    assert_equal "test-api-key", config.config["api_key"]
-    assert_equal "gpt-4o-mini", config.config["model"]
-    assert_equal 0.7, config.config["temperature"]
+    assert_equal "OpenAI", provider.service_name
+    assert_equal "test-api-key", provider.options.api_key
+    assert_equal "gpt-4o-mini", provider.options.model
+    assert_equal 0.7, provider.options.temperature
 
     # Restore original environment
     ENV["RAILS_ENV"] = rails_env
@@ -96,13 +96,13 @@ class OpenAIProviderTest < ActiveAgentTestCase
     original_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "development"
 
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "dev-api-key", config.config["api_key"]
+    provider = ApplicationAgent.configuration(:openai)
+    assert_equal "dev-api-key", provider.options.access_token
 
     # Test test configuration
     ENV["RAILS_ENV"] = "test"
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "test-api-key", config.config["api_key"]
+    provider = ApplicationAgent.configuration(:openai)
+    assert_equal "test-api-key", provider.options.access_token
 
     ENV["RAILS_ENV"] = original_env
   end
@@ -131,9 +131,9 @@ class OpenAIProviderTest < ActiveAgentTestCase
     original_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "test"
 
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "file-based-key", config.config["api_key"]
-    assert_equal 0.8, config.config["temperature"]
+    provider = ApplicationAgent.configuration(:openai)
+    assert_equal "file-based-key", provider.options.access_token
+    assert_equal 0.8, provider.options.temperature
 
     ENV["RAILS_ENV"] = original_env
     temp_file.unlink
@@ -177,23 +177,12 @@ class OpenAIProviderTest < ActiveAgentTestCase
     original_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "test"
 
-    config = ApplicationAgent.configuration(:openai)
-    assert_equal "erb-processed-key", config.config["api_key"]
-    assert_equal 0.7, config.config["temperature"]
+    provider = ApplicationAgent.configuration(:openai)
+    assert_equal "erb-processed-key", provider.options.access_token
+    assert_equal 0.7, provider.options.temperature
 
     ENV["RAILS_ENV"] = original_env
     temp_file.unlink
-  end
-
-  test "OpenAI provider initialization with missing API key" do
-    config = {
-      "service" => "OpenAI",
-      "model" => "gpt-4o-mini"
-      # Missing api_key
-    }
-
-    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
-    assert_nil provider.instance_variable_get(:@api_key)
   end
 
   test "OpenAI provider initialization with custom host" do

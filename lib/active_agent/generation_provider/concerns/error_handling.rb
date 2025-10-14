@@ -13,6 +13,15 @@ module ActiveAgent
 
         # Use rescue_from for provider-specific error handling
         rescue_from StandardError, with: :handle_generation_error
+
+        attr_reader :_verbose_errors_enabled, :_logger
+      end
+
+      def initialize(options)
+        @_verbose_errors_enabled = options.delete("verbose_errors") || options.delete("verbose_errors_enabled")
+        @_logger                 = options.delete("logger")
+
+        super
       end
 
       def with_error_handling
@@ -81,7 +90,7 @@ module ActiveAgent
       def verbose_errors?
         # Check multiple sources for verbose setting (in priority order)
         # 1. Instance config (highest priority)
-        return true if @config&.dig("verbose_errors")
+        return true if _verbose_errors_enabled
 
         # 2. Class-level setting
         return true if self.class.verbose_errors_enabled
@@ -116,7 +125,7 @@ module ActiveAgent
       def find_logger
         # Try multiple logger sources (in priority order)
         # 1. Instance config
-        return @config["logger"] if @config&.dig("logger")
+        return _logger if _logger
 
         # 2. ActiveAgent configuration logger
         if defined?(ActiveAgent) && ActiveAgent.respond_to?(:configuration)

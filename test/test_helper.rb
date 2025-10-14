@@ -4,6 +4,8 @@ ENV["RAILS_ENV"] = "test"
 begin
   require "debug"
   require "pry"
+  require "pry-doc"
+  require "pry-byebug"
 rescue LoadError
 end
 
@@ -12,6 +14,7 @@ require_relative "../test/dummy/config/environment"
 ActiveRecord::Migrator.migrations_paths = [ File.expand_path("../test/dummy/db/migrate", __dir__) ]
 require "rails/test_help"
 require "vcr"
+require "webmock/minitest"
 require "minitest/mock"
 
 # Extract full path and relative path from caller_info
@@ -101,6 +104,12 @@ VCR.configure do |config|
   ActiveAgent.sanitizers.each do |secret, placeholder|
     config.filter_sensitive_data(placeholder) { secret }
   end
+
+  config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["OPEN_AI_ACCESS_TOKEN"] }
+  config.filter_sensitive_data("ORGANIZATION_ID") { ENV["OPEN_AI_ORGANIZATION_ID"] }
+  config.filter_sensitive_data("PROJECT_ID")      { ENV["OPEN_AI_PROJECT_ID"] }
+
+  config.filter_sensitive_data("ACCESS_TOKEN") { ENV["OPEN_ROUTER_ACCESS_TOKEN"] }
 end
 
 # Load fixtures from the engine

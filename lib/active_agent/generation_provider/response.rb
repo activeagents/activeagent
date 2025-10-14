@@ -7,11 +7,11 @@ module ActiveAgent
       attr_accessor :metadata
 
       def initialize(prompt:, message: nil, raw_response: nil, raw_request: nil, metadata: nil)
-        @prompt = prompt
-        @message = message || prompt.message
+        @prompt       = prompt
+        @message      = message || prompt.message
         @raw_response = raw_response
-        @raw_request = sanitize_request(raw_request)
-        @metadata = metadata || {}
+        @raw_request  = sanitize_request(raw_request)
+        @metadata     = metadata || {}
       end
 
       # Extract usage statistics from the raw response

@@ -6,7 +6,7 @@ module ActiveAgent
 
     included do
       class_attribute :_generation_provider_name, instance_accessor: false, instance_predicate: false
-      class_attribute :_generation_provider, instance_accessor: false, instance_predicate: false
+      class_attribute :_generation_provider,      instance_accessor: false, instance_predicate: false
 
       delegate :generation_provider, to: :class
     end
@@ -56,7 +56,7 @@ module ActiveAgent
 
       def assign_provider(provider_name, generation_provider)
         self._generation_provider_name = provider_name
-        self._generation_provider = generation_provider
+        self._generation_provider      = generation_provider
       end
     end
 

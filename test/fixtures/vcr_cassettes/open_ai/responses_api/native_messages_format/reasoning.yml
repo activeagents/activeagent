@@ -1,0 +1,153 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"How much wood would a woodchuck chuck?","model":"o3-mini","reasoning":{"effort":"high"}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 14 Oct 2025 23:35:51 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '30000'
+      X-Ratelimit-Limit-Tokens:
+      - '150000000'
+      X-Ratelimit-Remaining-Requests:
+      - '29999'
+      X-Ratelimit-Remaining-Tokens:
+      - '149998827'
+      X-Ratelimit-Reset-Requests:
+      - 2ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_5716426fc8c34ba4979ae61bebea9d0a
+      Openai-Processing-Ms:
+      - '16762'
+      X-Envoy-Upstream-Service-Time:
+      - '16764'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Mu4JtZrarpwgszGLxyLy1Ni_AUn53xmIFVZTI2D3fIU-1760484951-1.0.1.1-Y5O7rSCIPAMor2jK8p1qjumxpp64KBPYNaVtUO7q4hxRfVuBCmUa0WTXUxF4nKqg055gCzTIJXOgLIlET4lrwJaQe8x5jjGRUwnAOCG_kcQ;
+        path=/; expires=Wed, 15-Oct-25 00:05:51 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=iMxj4oSbxiwdwwGjn7N3.1B07BwD3IILvLfXfGGul4k-1760484951604-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 98eae4da1e2e9e6a-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_042aa6c31e1845230068eede46d3a48197bc28362d11a069e4",
+          "object": "response",
+          "created_at": 1760484934,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "o3-mini-2025-01-31",
+          "output": [
+            {
+              "id": "rs_042aa6c31e1845230068eede50c828819783b31e256ba3c430",
+              "type": "reasoning",
+              "summary": []
+            },
+            {
+              "id": "msg_042aa6c31e1845230068eede5254a88197b37a14dbd79459da",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "That's the classic tongue twister! Traditionally, the answer goes: \n\n\u2003\u2003\"A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood!\"\n\nFun fact: Although woodchucks (or groundhogs) don't actually chuck wood at all\u2014they mostly dig soil\u2014one playful calculation by a wildlife expert estimated that if a woodchuck could chuck wood, it might be able to move roughly 700 pounds of it. \n\nSo whether you enjoy the playful wording or the quirky \u201cfact,\u201d it all comes down to having a bit of fun with words!"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": "high",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 16,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 1148,
+            "output_tokens_details": {
+              "reasoning_tokens": 1024
+            },
+            "total_tokens": 1164
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 14 Oct 2025 23:35:51 GMT
+recorded_with: VCR 6.3.1

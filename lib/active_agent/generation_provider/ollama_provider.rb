@@ -7,7 +7,7 @@ require_relative "ollama/options"
 
 module ActiveAgent
   module GenerationProvider
-    class OllamaProvider < OpenAIProvider
+    class OllamaProvider < OpenAI::ChatProvider
       def initialize(config)
         @api_version     = config.delete("api_version") || "v1"
         @embedding_model = config.delete("embedding_model")
@@ -15,8 +15,6 @@ module ActiveAgent
       end
 
       protected
-
-      def namespace = Ollama
 
       def format_error_message(error)
         # Check for various connection-related errors

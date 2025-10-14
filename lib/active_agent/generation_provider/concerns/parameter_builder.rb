@@ -5,79 +5,32 @@ module ActiveAgent
     module ParameterBuilder
       extend ActiveSupport::Concern
 
-      def prompt_parameters(overrides = {})
-        base_params = build_base_parameters
-        provider_params = build_provider_parameters
-
-        # Merge parameters with proper precedence:
-        # 1. Overrides (highest priority)
-        # 2. Prompt options
-        # 3. Provider-specific parameters
-        # 4. Base parameters (lowest priority)
-        base_params
-          .merge(provider_params)
-          .merge(extract_prompt_options)
-          .merge(overrides)
-          .compact
-      end
-
       protected
 
-      def build_base_parameters
-        {
-          model: determine_model,
-          messages: provider_messages(@prompt.messages),
-          temperature: determine_temperature
-        }.tap do |params|
-          # Add optional parameters if present
-          params[:max_tokens] = determine_max_tokens if determine_max_tokens
-          params[:tools] = format_tools(@prompt.actions) if @prompt.actions.present?
-        end
+      # Merge parameters with proper precedence:
+      # 1. ??? Action Overrides (highest priority)
+      # 2. Prompt
+      # 3. Provider [via Provider Setup]
+      # 4. Default (lowest priority) [Applied via Options Attribute Defaults]
+      def generate_prompt_parameters(prompt)
+        agent_params   = options.prompt_parameters                   # Agent-Provider Level Params
+        action_params  = options_type.new(**(prompt.options || {}))  # Action-Prompt Level Params
+        message_params = generate_prompt_parameters_messages(prompt) # Action-Prompt Messages
+
+        # Merge together the simple parameters
+        request_payload = agent_params.merge(action_params).merge(message_params)
+
+        # @TODO - Add Middleware Style Injection to make it easier extend
+        request_payload
       end
 
-      def build_provider_parameters
-        # Override in provider for specific parameters
-        # For example, Anthropic needs 'system' parameter instead of system message
-        {}
+      def generate_prompt_parameters_messages(prompt)
+        { messages: provider_messages(prompt.messages) }
       end
 
-      def extract_prompt_options
-        # Extract relevant options from prompt
-        options = {}
-
-        # Common options that map directly
-        [ :stream, :top_p, :frequency_penalty, :presence_penalty, :seed, :stop, :user, :plugins ].each do |key|
-          options[key] = @prompt.options[key] if @prompt.options.key?(key)
-        end
-
-        # Handle response format for structured output
-        if @prompt.output_schema.present?
-          options[:response_format] = build_response_format
-        end
-
-        options
-      end
-
-      def determine_model
-        @prompt.options[:model] || @model_name || @config["model"]
-      end
-
-      def determine_temperature
-        @prompt.options[:temperature] || @config["temperature"] || 0.7
-      end
-
-      def determine_max_tokens
-        @prompt.options[:max_tokens] || @config["max_tokens"]
-      end
-
-      def build_response_format
-        # Default OpenAI-style response format
-        # Override in provider for different formats
-        {
-          type: "json_schema",
-          json_schema: @prompt.output_schema
-        }
-      end
+      # Base
+      # # Add optional parameters if present
+      # params[:tools] = format_tools(prompt.actions) if prompt.actions.present?
 
       # Embedding-specific parameters
       def embeddings_parameters(input: nil, model: nil, **options)
@@ -89,29 +42,18 @@ module ActiveAgent
         }.compact
       end
 
-      def determine_embedding_model
-        @prompt.options[:embedding_model] || @config["embedding_model"] || "text-embedding-3-small"
+      def determine_embedding_model(prompt)
+        prompt.options[:embedding_model] || @config["embedding_model"] || "text-embedding-3-small"
       end
 
-      def format_embedding_input
+      def format_embedding_input(prompt)
         # Handle single or batch embedding inputs
-        if @prompt.message
-          @prompt.message.content
-        elsif @prompt.messages
-          @prompt.messages.map(&:content)
+        if prompt.message
+          prompt.message.content
+        elsif prompt.messages
+          prompt.messages.map(&:content)
         else
           nil
-        end
-      end
-
-      module ClassMethods
-        # Class-level configuration for default parameters
-        def default_parameters(params = {})
-          @default_parameters = params
-        end
-
-        def get_default_parameters
-          @default_parameters || {}
         end
       end
     end

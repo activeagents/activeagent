@@ -4,7 +4,7 @@ require_relative "_base_provider"
 
 require_gem!(:anthropic, __FILE__)
 
-require_relative 'anthropic/options'
+require_relative "anthropic/options"
 
 module ActiveAgent
   module GenerationProvider
@@ -13,25 +13,18 @@ module ActiveAgent
       include MessageFormatting
       include ToolManagement
 
-      def initialize(config)
-        super
-        @options = ActiveAgent::GenerationProvider::Anthropic::Options.new(**(options || {}).except("service"))
-      end
-
       # @return [Anthropic::Client]
       def client
-        ::Anthropic::Client.new(@options.client_options)
+        ::Anthropic::Client.new(options.client_options)
       end
 
       def generate(prompt)
-        @prompt = prompt
-
         with_error_handling do
-          chat_prompt(parameters: prompt_parameters)
+          prompt_with_chat(parameters: generate_prompt_parameters(prompt))
         end
       end
 
-      def chat_prompt(parameters: prompt_parameters)
+      def prompt_with_chat(parameters)
         if prompt.options[:stream] || config["stream"]
           parameters[:stream] = provider_stream
           @streaming_request_params = parameters
@@ -42,6 +35,19 @@ module ActiveAgent
 
       protected
 
+      # Override from ParameterBuilder to handle Anthropic-specific requirements
+      # Anthropic requires system message separately and no system role in messages
+      def generate_prompt_parameters_messages(prompt)
+        system_messages, action_messages = prompt.messages.partition { |m| m.role == :system }
+
+        fail "Unexpected Extra System Messages" if system_messages.count > 1
+
+        {
+          system:   provider_messages(system_messages.first&.content || prompt.options[:instructions]),
+          messages: provider_messages(action_messages)
+        }
+      end
+
       # Override from StreamProcessing module for Anthropic-specific streaming
       def process_stream_chunk(chunk, message, agent_stream)
         if new_content = chunk.dig(:delta, :text)
@@ -51,31 +57,6 @@ module ActiveAgent
 
         if chunk[:type] == "message_stop"
           finalize_stream(message, agent_stream)
-        end
-      end
-
-      # Override from ParameterBuilder to handle Anthropic-specific requirements
-      def build_provider_parameters
-        # Anthropic requires system message separately and no system role in messages
-        filtered_messages = @prompt.messages.reject { |m| m.role == :system }
-        system_message = @prompt.messages.find { |m| m.role == :system }
-
-        params = {
-          system: system_message&.content || @prompt.options[:instructions]
-        }
-
-        # Override messages to use filtered version
-        @filtered_messages = filtered_messages
-
-        params
-      end
-
-      def build_base_parameters
-        super.tap do |params|
-          # Use filtered messages if available (set by build_provider_parameters)
-          params[:messages] = provider_messages(@filtered_messages || @prompt.messages)
-          # Anthropic requires max_tokens
-          params[:max_tokens] ||= 4096
         end
       end
 
@@ -154,7 +135,6 @@ module ActiveAgent
       end
 
       private
-
     end
   end
 end
