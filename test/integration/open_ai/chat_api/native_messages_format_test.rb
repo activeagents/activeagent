@@ -212,6 +212,25 @@ module Integration
             )
           end
 
+          WEB_SEARCH = {
+            "model": "gpt-4o-search-preview",
+            "web_search_options": {},
+            "messages": [ {
+                "role": "user",
+                "content": "What was a positive news story from today?"
+            } ]
+          }
+          def web_search
+            prompt(
+              model: "gpt-4o-search-preview",
+              web_search_options: {},
+              messages: [ {
+                  role: "user",
+                  content: "What was a positive news story from today?"
+              } ],
+            )
+          end
+
           ###############################################################
           # Extended Example
           ###############################################################
@@ -262,8 +281,9 @@ module Integration
           :image_input,
           :streaming,
           :functions,
-          :functions_with_streaming,
-          :logprobs
+          :logprobs,
+          :web_search,
+          :functions_with_streaming
         ].each do |action_name|
           test_request_builder(TestAgent, action_name)
         end

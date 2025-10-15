@@ -30,7 +30,6 @@ module ActiveAgent
             ActiveAgent::ActionPrompt::Message.new(content: raw_response, role: :assistant)
           else
             message_json = raw_response.dig("choices", 0, "message")
-
             ActiveAgent::ActionPrompt::Message.new(
               generate_id:       message_json["id"] || raw_response["id"],
               content:           message_json["content"],
@@ -82,53 +81,16 @@ module ActiveAgent
           resolver.stream_callback.call(message, content, finished) if content || finished
         end
 
-        ###
+        # def embeddings_response(response, request_params = nil)
+        #   message = ActiveAgent::ActionPrompt::Message.new(content: response.dig("data", 0, "embedding"), role: "assistant")
 
-        # Override from MessageFormatting module to handle OpenAI image format
-        def format_image_content(message)
-          [ {
-            type: "image_url",
-            image_url: { url: message.content }
-          } ]
-        end
-
-        # Override from ParameterBuilder to add web_search_options for Chat API
-        def build_provider_parameters(prompt)
-          # Check if we're using a model that supports web_search_options in Chat API
-          if WEB_SEARCH_MODELS.include?(prompt.options[:model] || options.model) && prompt.options[:web_search]
-            params[:web_search_options] = build_web_search_options(prompt.options[:web_search])
-          end
-
-          params
-        end
-
-        def build_web_search_options(web_search_config)
-          options = {}
-
-          if web_search_config.is_a?(Hash)
-            options[:search_context_size] = web_search_config[:search_context_size] if web_search_config[:search_context_size]
-
-            if web_search_config[:user_location]
-              options[:user_location] = {
-                type: "approximate",
-                approximate: web_search_config[:user_location]
-              }
-            end
-          end
-
-          options
-        end
-
-        def embeddings_response(response, request_params = nil)
-          message = ActiveAgent::ActionPrompt::Message.new(content: response.dig("data", 0, "embedding"), role: "assistant")
-
-          @response = ActiveAgent::GenerationProvider::Response.new(
-            prompt: prompt,
-            message: message,
-            raw_response: response,
-            raw_request: request_params
-          )
-        end
+        #   @response = ActiveAgent::GenerationProvider::Response.new(
+        #     prompt: prompt,
+        #     message: message,
+        #     raw_response: response,
+        #     raw_request: request_params
+        #   )
+        # end
       end
     end
   end
