@@ -19,13 +19,13 @@ module ActiveAgent
       end
 
       # @see https://platform.openai.com/docs/guides/migrate-to-responses
-      def generate(prompt_context)
-        provider_context = options.merge(prompt_context)
+      def generate(resolver)
+        provider_context = options.merge(resolver.context)
 
-        if provider_context[:api_version] == :chat || prompt_has_audio?(prompt_context)
-          OpenAI::ChatProvider.new(options.to_h).generate(prompt_context)
+        if provider_context[:api_version] == :chat || prompt_has_audio?(resolver.context)
+          OpenAI::ChatProvider.new(options.to_h).generate(resolver)
         else # options[:api_version] == :responses || default(true)
-          OpenAI::ResponsesProvider.new(options.to_h).generate(prompt_context)
+          OpenAI::ResponsesProvider.new(options.to_h).generate(resolver)
         end
       end
 

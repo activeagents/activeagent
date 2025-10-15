@@ -91,7 +91,7 @@ module ActiveAgent
         # Extract standard response
         message_json = response.dig("choices", 0, "message")
         message_json["id"] = response.dig("id") if message_json && message_json["id"].blank?
-        message = handle_message(message_json) if message_json
+        message = parse_response_message(message_json) if message_json
 
         update_context(prompt: prompt, message: message, response: response) if message
         # Create response with OpenRouter metadata

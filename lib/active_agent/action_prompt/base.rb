@@ -137,6 +137,7 @@ module ActiveAgent
         end
 
         def stream_with(&stream)
+          binding.pry
           self.options = (options || {}).merge(stream: stream)
         end
 
@@ -202,7 +203,7 @@ module ActiveAgent
 
       delegate :agent_name, to: :class
       # Delegate response to generation_provider for easy access in callbacks
-      delegate :response, to: :generation_provider, allow_nil: true
+      # delegate :response, to: :generation_provider, allow_nil: true
 
       attr_internal :raw_context
       attr_internal :context
@@ -264,26 +265,31 @@ module ActiveAgent
       #   # => Generates the prompt and handles the response
       #
       def perform_generation
-        response = generation_provider.generate(raw_context)
-        handle_response(response)
+        resolver = Resolver.new(
+          context:         raw_context,
+          stream_callback: raw_context[:stream] ? perform_streaming : nil
+        )
+
+        generation_provider.generate(resolver)
+        # handle_response(result)
       end
 
       private
 
-      def handle_response(response)
-        return response unless response.message.requested_actions.present?
+      # def handle_response(result)
+      #   return result unless result.message.requested_actions.present?
 
-        # The assistant message with tool_calls is already added by update_context in the provider
-        # Now perform the requested actions which will add tool response messages
-        perform_actions(requested_actions: response.message.requested_actions)
+      #   # The assistant message with tool_calls is already added by update_context in the provider
+      #   # Now perform the requested actions which will add tool response messages
+      #   perform_actions(requested_actions: result.message.requested_actions)
 
-        # Continue generation with updated context
-        perform_generation
-      end
+      #   # Continue generation with updated context
+      #   perform_generation
+      # end
 
-      def agent_stream
-        proc do |message, delta, stop, action_name|
-          @_action_name = action_name
+      def perform_streaming
+        proc do |message, delta, stop|
+          # @_action_name = action_name
 
           run_stream_callbacks(message, delta, stop) do |message, delta, stop|
             yield message, delta, stop if block_given?
@@ -363,6 +369,7 @@ module ActiveAgent
       end
 
       def prompt_with(*)
+        binding.pry
         context.update_context(*)
       end
 
@@ -381,7 +388,7 @@ module ActiveAgent
       #   context.instructions = prepare_instructions(raw_instructions)
 
       #   context.options.merge!(merged_options)
-      #   context.options[:stream] = agent_stream if context.options[:stream]
+      #   context.options[:stream] = perform_stream if context.options[:stream]
       #   content_type = args[:content_type]
 
       #   args = apply_defaults(args)

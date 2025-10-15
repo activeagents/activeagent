@@ -7,61 +7,94 @@ module ActiveAgent
       class ChatProvider < BaseProvider
         protected
 
-        def generate_prompt(prompt_context)
-          request = Chat::Request.new    # Default Options
-          request.merge!(options.to_hc)  # Agent Options
-          request.merge!(prompt_context) # Action Options
+        def generate_prompt(resolver)
+          request = Chat::Request.new      # Default Options
+          request.merge!(options.to_hc)    # Agent Options
+          request.merge!(resolver.context) # Action Options
 
-          api_response = client.chat(parameters: request.to_hc)
-          response(prompt_context, api_response, request.to_hc)
+          # @todo Validation?
+          parameters = request.to_hc
 
-          # if prompt.options[:stream] || options.stream
-          #   parameters[:stream] = provider_stream
-          #   @streaming_request_params = parameters
-          # end
+          # Streaming
+          if request.stream
+            parameters[:stream] = proc do |chunk|
+              stream_process(resolver, chunk)
+            end
+          end
+
+          api_response = client.chat(parameters:)
+
+          response(resolver, request, api_response)
         end
 
-        def response(prompt_context, raw_response, raw_request)
-          # return @response if prompt.options[:stream]
+        def response(resolver, request, raw_response)
+          message  = if request.stream
+            ActiveAgent::ActionPrompt::Message.new(content: raw_response, role: :assistant)
+          else
+            message_json = raw_response.dig("choices", 0, "message")
 
-          message_json       = raw_response.dig("choices", 0, "message")
-          message_json["id"] = raw_response.dig("id") if message_json["id"].blank?
-
-          # update_context(prompt: prompt, message: message, response: response)
-
-          @response = ActiveAgent::GenerationProvider::Response.new(
-            prompt: prompt_context,
-            message: handle_message(prompt_context, message_json),
-            raw_response:,
-            raw_request:
-          )
-        end
-
-        ####
-
-        # Override from StreamProcessing module
-        def process_stream_chunk(chunk, message, agent_stream)
-          new_content = chunk.dig("choices", 0, "delta", "content")
-          if new_content && !new_content.blank?
-            message.generation_id = chunk.dig("id")
-            message.content += new_content
-            # Call agent_stream directly without the block to avoid double execution
-            agent_stream&.call(message, new_content, false, prompt.action_name)
-          elsif chunk.dig("choices", 0, "delta", "tool_calls") && chunk.dig("choices", 0, "delta", "role")
-            message = handle_message(chunk.dig("choices", 0, "delta"))
-            prompt.messages << message
-            @response = ActiveAgent::GenerationProvider::Response.new(
-              prompt:,
-              message:,
-              raw_response: chunk,
-              raw_request: @streaming_request_params
+            ActiveAgent::ActionPrompt::Message.new(
+              generate_id:       message_json["id"] || raw_response["id"],
+              content:           message_json["content"],
+              role:              message_json["role"].intern,
+              action_requested:  message_json["finish_reason"] == "tool_calls",
+              raw_actions:       message_json["tool_calls"] || [],
+              requested_actions: handle_actions(message_json["tool_calls"]),
+              content_type:      resolver.context[:output_schema].present? ? "application/json" : "text/plain"
             )
           end
 
-          if chunk.dig("choices", 0, "finish_reason")
-            finalize_stream(message, agent_stream)
-          end
+          # update_context(prompt: prompt, message: message, response: response)
+
+          ActiveAgent::GenerationProvider::Response.new(
+            prompt: resolver,
+            message: message,
+            raw_request: request,
+            raw_response: raw_response,
+          )
         end
+
+        # Override from StreamProcessing module
+        def stream_process(resolver, chunk)
+          choice = chunk.dig("choices", 0)
+          return unless choice
+
+          # If this is the last chunk to be processed
+          finished = choice.dig("finish_reason")
+
+          # If we have a delta, we need to update a message in the stack
+          if (delta = choice.dig("delta"))
+            message = resolver.streaming_message
+
+            # If we have content, append it to the message
+            if (content = delta.dig("content")) && !content.blank?
+              message.generation_id = chunk.dig("id")
+              message.content       += content
+
+            # if we have a tool call, we push a new message
+            elsif delta.dig("tool_calls") && delta.dig("role")
+              resolver.stream_messages << ActiveAgent::ActionPrompt::Message.new(
+                generate_id:       chunk.fetch("id"),
+                role:              delta.fetch("role").intern,
+                action_requested:  choice.fetch("finish_reason") == "tool_calls",
+                raw_actions:       delta.fetch("tool_calls") || [],
+                requested_actions: handle_actions(delta.fetch("tool_calls")),
+                content_type:      resolver.context[:output_schema].present? ? "application/json" : "text/plain"
+              )
+
+              # @response = ActiveAgent::GenerationProvider::Response.new(
+              #   prompt: resolver,
+              #   message:,
+              #   raw_response: chunk,
+              #   raw_request: @streaming_request_params
+              # )
+            end
+          end
+
+          resolver.stream_callback.call(message, content, finished) if content || finished
+        end
+
+        ###
 
         # Override from MessageFormatting module to handle OpenAI image format
         def format_image_content(message)

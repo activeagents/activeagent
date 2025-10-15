@@ -64,7 +64,7 @@ The `with` method is a **class method** that allows you to pass parameters to ag
 # CORRECT - with is called on the class
 response = MyAgent.with(param: value).my_action.generate_now
 
-# INCORRECT - with is NOT an instance method  
+# INCORRECT - with is NOT an instance method
 agent = MyAgent.new
 response = agent.with(param: value).my_action  # This will error!
 ```
@@ -97,7 +97,7 @@ class TranslationAgent < ApplicationAgent
   def translate
     @message = params[:message]
     @locale = params[:locale]
-    
+
     prompt  # Renders translate.text.erb as a user message
   end
 end
@@ -354,8 +354,8 @@ class MessagesController < ApplicationController
   def create
     agent = SupportAgent.new
     response = agent.generate(prompt: params[:message])
-    
-    render json: { 
+
+    render json: {
       reply: response.message.content,
       actions_taken: response.prompt.requested_actions
     }
@@ -395,7 +395,7 @@ Process long-running AI tasks asynchronously:
 ```ruby
 class DataAnalysisAgent < ApplicationAgent
   self.queue_adapter = :sidekiq
-  
+
   def analyze_dataset
     @data = params[:dataset]
     prompt content_type: :json
@@ -501,28 +501,28 @@ class CustomerSupportService
     @user = user
     @agent = SupportAgent.new
   end
-  
-  def handle_message(content, ticket = nil)
+
+  def parse_response_message(content, ticket = nil)
     # Build conversation context
     messages = ticket ? build_history(ticket) : []
-    
+
     # Generate response with context
     response = @agent.generate(
       prompt: content,
       messages: messages,
       context: { user_id: @user.id, ticket_id: ticket&.id }
     )
-    
+
     # Process any tool calls
     if response.requested_actions.any?
       process_tool_calls(response.requested_actions)
     end
-    
+
     response
   end
-  
+
   private
-  
+
   def build_history(ticket)
     ticket.messages.map do |msg|
       ActiveAgent::Message.new(
@@ -546,7 +546,7 @@ class Article < ApplicationRecord
       max_length: 200
     ).summarize.generate_now
   end
-  
+
   def translate_to(locale)
     TranslationAgent.with(
       message: content,
@@ -563,20 +563,20 @@ Create reusable agent helpers:
 # app/controllers/concerns/agent_helpers.rb
 module AgentHelpers
   extend ActiveSupport::Concern
-  
+
   included do
     helper_method :chat_agent
   end
-  
+
   private
-  
+
   def chat_agent
     @chat_agent ||= ChatAgent.new.with(
       user_id: current_user&.id,
       session_id: session.id
     )
   end
-  
+
   def generate_with_agent(agent_class, action, params = {})
     agent_class.with(params).public_send(action).generate_now
   end
@@ -590,14 +590,14 @@ end
 # config/active_agent.yml
 default: &default
   logger: <%= Rails.logger %>
-  
+
 development:
   <<: *default
   openai:
     access_token: <%= Rails.application.credentials.dig(:openai, :api_key) %>
     model: gpt-4o
     temperature: 0.7
-    
+
 production:
   <<: *default
   openai:
@@ -649,26 +649,26 @@ This creates:
 # app/agents/blog_writer_agent.rb
 class BlogWriterAgent < ApplicationAgent
   generate_with :openai, model: "gpt-4o"
-  
+
   before_action :set_blog_context
-  
+
   def write_post
     @topic = params[:topic]
     @style = params[:style] || "professional"
     @length = params[:length] || 500
-    
+
     prompt
   end
-  
+
   def edit_post
     @content = params[:content]
     @instructions = params[:instructions]
-    
+
     prompt
   end
-  
+
   private
-  
+
   def set_blog_context
     @blog_name = "My Rails Blog"
     @author = current_user&.name || "Guest Author"
@@ -761,7 +761,7 @@ class BlogPostsController < ApplicationController
   def new
     @post = BlogPost.new
   end
-  
+
   def generate
     # Generate a blog post
     response = BlogWriterAgent.with(
@@ -769,34 +769,34 @@ class BlogPostsController < ApplicationController
       style: params[:style],
       length: params[:length]
     ).write_post.generate_now
-    
+
     @generated_content = response.message.content
     @post = BlogPost.new(
       title: extract_title(@generated_content),
       content: @generated_content,
       author: current_user
     )
-    
+
     render :new
   end
-  
+
   def edit_with_ai
     @post = BlogPost.find(params[:id])
-    
+
     response = BlogWriterAgent.with(
       content: @post.content,
       instructions: params[:instructions]
     ).edit_post.generate_now
-    
+
     @post.content = response.message.content
     render :edit
   end
-  
+
   private
-  
+
   def extract_title(content)
     # Extract first H1 or first line as title
-    content.match(/^#\s+(.+)$/)&.captures&.first || 
+    content.match(/^#\s+(.+)$/)&.captures&.first ||
     content.lines.first.strip
   end
 end
@@ -808,7 +808,7 @@ class BlogGenerationService
   def initialize(user)
     @user = user
   end
-  
+
   def generate_weekly_posts(topics)
     topics.map do |topic|
       response = BlogWriterAgent.with(
@@ -816,7 +816,7 @@ class BlogGenerationService
         style: "professional",
         length: 800
       ).write_post.generate_now
-      
+
       BlogPost.create!(
         title: extract_title(response.message.content),
         content: response.message.content,
@@ -825,13 +825,13 @@ class BlogGenerationService
       )
     end
   end
-  
+
   def improve_seo(post)
     response = BlogWriterAgent.with(
       content: post.content,
       instructions: "Improve SEO by adding relevant keywords, meta description, and improving headings"
     ).edit_post.generate_now
-    
+
     post.update!(content: response.message.content)
   end
 end
@@ -847,7 +847,7 @@ class BlogWriterAgentTest < ActiveSupport::TestCase
   setup do
     @agent = BlogWriterAgent.new
   end
-  
+
   test "writes blog post about Rails" do
     VCR.use_cassette("blog_writer_rails_post") do
       response = BlogWriterAgent.with(
@@ -855,24 +855,24 @@ class BlogWriterAgentTest < ActiveSupport::TestCase
         style: "technical",
         length: 600
       ).write_post.generate_now
-      
+
       assert response.message.content.include?("Rails")
       assert response.message.content.length > 400
-      
+
       # Generate documentation example
       doc_example_output(response)
     end
   end
-  
+
   test "edits post for clarity" do
     original = "Rails is framework. It make web app easy."
-    
+
     VCR.use_cassette("blog_writer_edit_grammar") do
       response = BlogWriterAgent.with(
         content: original,
         instructions: "Fix grammar and improve clarity"
       ).edit_post.generate_now
-      
+
       assert response.message.content != original
       assert response.message.content.include?("Rails")
     end
@@ -961,14 +961,14 @@ class DocumentProcessingService
       file_path: file_path,
       schema: :document_schema
     ).extract.generate_now
-    
+
     # Summarize content
     summarizer = SummaryAgent.new
     summary = summarizer.with(
       content: extracted_data.content,
       max_length: 200
     ).summarize
-    
+
     # Translate if needed
     if needs_translation?(extracted_data)
       translator = TranslationAgent.new
@@ -978,7 +978,7 @@ class DocumentProcessingService
       ).translate
       summary = translated
     end
-    
+
     # Store results
     ProcessedDocument.create!(
       original_path: file_path,
@@ -999,18 +999,18 @@ class ConversationAgent < ApplicationAgent
   def respond
     @message = params[:message]
     @conversation_id = params[:conversation_id]
-    
+
     # Load conversation history
     @messages = load_conversation_history
-    
+
     prompt(
       messages: @messages,  # Provide full context
       instructions: { template: "conversational" }
     )
   end
-  
+
   private
-  
+
   def load_conversation_history
     Conversation.find(@conversation_id).messages.map do |msg|
       ActiveAgent::Message.new(
@@ -1032,40 +1032,40 @@ class AdaptiveAgent < ApplicationAgent
   def assist
     @query = params[:query]
     @user = current_user
-    
+
     # Dynamically select available actions
     available_actions = determine_available_actions
-    
+
     prompt(
       actions: available_actions,
       instructions: build_contextual_instructions
     )
   end
-  
+
   private
-  
+
   def determine_available_actions
     actions = [:search, :calculate]
-    
+
     # Add user-specific actions
     if @user.admin?
       actions += [:modify_system, :access_logs]
     end
-    
+
     if @query.match?(/weather|temperature/)
       actions << :get_weather
     end
-    
+
     actions
   end
-  
+
   def build_contextual_instructions
     base_instructions = "You are a helpful assistant."
-    
+
     if @user.preferences[:technical]
       base_instructions += " Provide technical details when relevant."
     end
-    
+
     base_instructions
   end
 end
@@ -1078,17 +1078,17 @@ Handle real-time streaming for better UX:
 ```ruby
 class StreamingChatController < ApplicationController
   include ActionController::Live
-  
+
   def stream
     response.headers["Content-Type"] = "text/event-stream"
     response.headers["Cache-Control"] = "no-cache"
-    
+
     agent = ChatAgent.new
-    
+
     agent.on_message_chunk do |chunk|
       response.stream.write("data: #{chunk.to_json}\n\n")
     end
-    
+
     agent.generate(
       prompt: params[:message],
       stream: true
@@ -1107,7 +1107,7 @@ Ensure consistent response formats:
 class DataAgent < ApplicationAgent
   def analyze_sales
     @data = params[:sales_data]
-    
+
     prompt(
       content_type: :json,
       output_schema: :sales_analysis
@@ -1154,20 +1154,20 @@ Build resilient agent interactions:
 
 ```ruby
 class ResilientAgent < ApplicationAgent
-  generate_with :openai, 
+  generate_with :openai,
     model: "gpt-4o",
     max_retries: 3,
     retry_on: [OpenAI::RateLimitError]
-  
+
   def process
     @data = params[:data]
-    
+
     begin
       prompt
     rescue ActiveAgent::GenerationError => e
       # Log error
       Rails.logger.error "Generation failed: #{e.message}"
-      
+
       # Fallback to simpler model
       self.class.generate_with :openai, model: "gpt-3.5-turbo"
       retry
@@ -1188,9 +1188,9 @@ class ComplexAgentTest < ActiveSupport::TestCase
       extracted = DataExtractionAgent.with(
         content: file_fixture("report.pdf").read
       ).extract.generate_now
-      
+
       assert extracted.message.content.present?
-      
+
       # Step 2: Analyze with context
       analyzer = AnalysisAgent.new
       analysis = analyzer.generate(
@@ -1206,9 +1206,9 @@ class ComplexAgentTest < ActiveSupport::TestCase
           )
         ]
       )
-      
+
       assert analysis.requested_actions.any?
-      
+
       # Step 3: Execute requested actions
       analysis.requested_actions.each do |action|
         result = analyzer.public_send(
@@ -1217,7 +1217,7 @@ class ComplexAgentTest < ActiveSupport::TestCase
         )
         assert result.success?
       end
-      
+
       doc_example_output(analysis)
     end
   end
@@ -1232,19 +1232,19 @@ Cache expensive operations:
 class CachedAgent < ApplicationAgent
   def analyze_trends
     @timeframe = params[:timeframe]
-    
+
     # Cache analysis results
     Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       prompt
     end
   end
-  
+
   private
-  
+
   def cache_key
     "agent_analysis/#{self.class.name}/#{@timeframe}/#{cache_version}"
   end
-  
+
   def cache_version
     # Invalidate cache when data changes
     DataPoint.maximum(:updated_at).to_i

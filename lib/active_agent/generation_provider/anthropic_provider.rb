@@ -9,7 +9,6 @@ require_relative "anthropic/options"
 module ActiveAgent
   module GenerationProvider
     class AnthropicProvider < BaseProvider
-      include StreamProcessing
       include MessageFormatting
       include ToolManagement
 
@@ -49,16 +48,34 @@ module ActiveAgent
       end
 
       # Override from StreamProcessing module for Anthropic-specific streaming
-      def process_stream_chunk(chunk, message, agent_stream)
+      def stream_process(prompt_context, message, callback, chunk)
         if new_content = chunk.dig(:delta, :text)
           message.content += new_content
-          agent_stream&.call(message, new_content, false, prompt.action_name)
+          callback&.call(message, new_content, false, prompt.action_name)
         end
 
         if chunk[:type] == "message_stop"
-          finalize_stream(message, agent_stream)
+          stream_finalize(message, callback)
         end
       end
+
+        # def provider_stream(resolver)
+        #   message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
+
+        #   proc do |chunk|
+        #     stream_process(resolver, message, chunk)
+        #   end
+        # end
+
+        # protected
+
+        # def stream_process(resolver, message, chunk)
+        #   resolver.stream_callback.call(message, chunk, false)
+        # end
+
+        # def stream_finalize(resolver, message)
+        #   resolver.stream_callback.call(message, nil, true)
+        # end
 
       # Override from ToolManagement for Anthropic-specific tool format
       def format_single_tool(tool)

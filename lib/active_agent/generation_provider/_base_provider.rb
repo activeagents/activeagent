@@ -1,7 +1,6 @@
 require_relative "concerns/error_handling"
 require_relative "concerns/message_formatting"
 require_relative "concerns/parameter_builder"
-require_relative "concerns/stream_processing"
 require_relative "concerns/tool_management"
 
 require_relative "../action_prompt/action"
