@@ -195,6 +195,37 @@ module Integration
               }
             )
           end
+
+          ###############################################################
+          # Extended Example
+          ###############################################################
+          FUNCTIONS_WITH_STREAMING = FUNCTIONS.merge(stream: true)
+          def functions_with_streaming
+            prompt(
+              input: "What is the weather like in Boston today?",
+              tools: [ {
+                type: "function",
+                name: "get_current_weather",
+                description: "Get the current weather in a given location",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    location: {
+                      type: "string",
+                      description: "The city and state, e.g. San Francisco, CA"
+                    },
+                    unit: {
+                      type: "string",
+                      enum: [ "celsius", "fahrenheit" ]
+                    }
+                  },
+                  required: [ "location", "unit" ]
+                }
+              } ],
+              tool_choice: "auto",
+              stream: true
+            )
+          end
         end
 
         ################################################################################
@@ -206,9 +237,10 @@ module Integration
           :file_input,
           :web_search,
           # :file_search,
-          # :streaming,
-          # :functions,
-          :reasoning
+          :streaming,
+          :functions,
+          :reasoning,
+          :functions_with_streaming
         ].each do |action_name|
           test_request_builder(TestAgent, action_name)
         end

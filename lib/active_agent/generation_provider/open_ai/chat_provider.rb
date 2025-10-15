@@ -17,26 +17,25 @@ module ActiveAgent
 
           # Streaming
           if request.stream
-            parameters[:stream] = ->(chunk) { stream_process(resolver, chunk) }
+            parameters[:stream] = ->(api_response_chunk) { process_stream(resolver, api_response_chunk) }
           end
 
           api_response = client.chat(parameters:)
-
-          response(resolver, request, api_response)
+          process_response(resolver, request, api_response)
         end
 
-        def response(resolver, request, raw_response)
+        def process_response(resolver, request, api_response)
           message  = if request.stream
-            ActiveAgent::ActionPrompt::Message.new(content: raw_response, role: :assistant)
+            ActiveAgent::ActionPrompt::Message.new(content: api_response, role: :assistant)
           else
-            message_json = raw_response.dig("choices", 0, "message")
+            api_message = api_response.dig("choices", 0, "message")
             ActiveAgent::ActionPrompt::Message.new(
-              generate_id:       message_json["id"] || raw_response["id"],
-              content:           message_json["content"],
-              role:              message_json["role"].intern,
-              action_requested:  message_json["finish_reason"] == "tool_calls",
-              raw_actions:       message_json["tool_calls"] || [],
-              requested_actions: handle_actions(message_json["tool_calls"]),
+              generation_id:     api_message["id"] || api_response["id"],
+              content:           api_message["content"],
+              role:              api_message["role"].intern,
+              action_requested:  api_message["finish_reason"] == "tool_calls",
+              raw_actions:       api_message["tool_calls"] || [],
+              requested_actions: handle_actions(api_message["tool_calls"]),
               content_type:      resolver.context[:output_schema].present? ? "application/json" : "text/plain"
             )
           end
@@ -45,38 +44,36 @@ module ActiveAgent
             prompt: resolver,
             message: message,
             raw_request: request,
-            raw_response: raw_response,
+            raw_response: api_response,
           )
         end
 
-        def stream_process(resolver, chunk)
-          choice = chunk.dig("choices", 0)
-          return unless choice
-
-          # If this is the last chunk to be processed
-          finished = choice.dig("finish_reason")
+        def process_stream(resolver, api_response_chunk)
+          return unless api_response_chunk.dig("choices", 0)
 
           # If we have a delta, we need to update a message in the stack
-          if (delta = choice.dig("delta"))
-            message = resolver.streaming_message
-
+          if (api_message = api_response_chunk.dig("choices", 0, "delta"))
             # If we have content, append it to the message
-            if (content = delta.dig("content")) && !content.blank?
-              message.generation_id = chunk.dig("id")
+            if (content = api_message.dig("content")) && !content.blank?
+              message               = resolver.streaming_message
+              message.generation_id = api_response_chunk.dig("id")
               message.content       += content
 
             # if we have a tool call, we push a new message
-            elsif delta.dig("tool_calls") && delta.dig("role")
+            elsif api_message.dig("tool_calls") && api_message.dig("role")
               resolver.stream_messages << ActiveAgent::ActionPrompt::Message.new(
-                generate_id:       chunk.fetch("id"),
-                role:              delta.fetch("role").intern,
-                action_requested:  choice.fetch("finish_reason") == "tool_calls",
-                raw_actions:       delta.fetch("tool_calls") || [],
-                requested_actions: handle_actions(delta.fetch("tool_calls")),
+                generation_id:     api_response_chunk.fetch("id"),
+                role:              api_message.dig("role").intern,
+                action_requested:  api_response_chunk.dig("choices", 0, "finish_reason") == "tool_calls",
+                raw_actions:       api_message.dig("tool_calls") || [],
+                requested_actions: handle_actions(api_message.fetch("tool_calls")),
                 content_type:      resolver.context[:output_schema].present? ? "application/json" : "text/plain"
               )
             end
           end
+
+          # If this is the last api_response_chunk to be processed
+          finished = api_response_chunk.dig("choices", 0, "finish_reason")
 
           resolver.stream_callback.call(message, content, finished) if content || finished
         end

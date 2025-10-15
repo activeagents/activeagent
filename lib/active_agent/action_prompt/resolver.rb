@@ -11,14 +11,27 @@ module ActiveAgent
         @stream_messages = []
       end
 
+      # Returns the current streaming message being built, creating a new one if needed.
+      #
+      # This method manages the streaming message stack by tracking messages as they are
+      # being constructed during the streaming response process. It ensures there is always
+      # a valid message available to append streamed content to.
+      #
+      # A new message is created when:
+      # - No messages exist in the stream yet (@stream_messages is empty)
+      # - The last message is a completed tool message (indicated by the presence of raw_actions)
+      #
+      # @return [ActiveAgent::ActionPrompt::Message] The current streaming message being built
       def streaming_message
-        # If we don't have any messages yet, or the last message is complete because it's a tool
-        # call response, start a new blank message for the stack.
         if @stream_messages.empty? || @stream_messages.last.raw_actions.present?
           @stream_messages << blank_message
         end
 
         @stream_messages.last
+      end
+
+      def streaming_message_find(id)
+        @stream_messages.find { it.generation_id == id }
       end
 
       private

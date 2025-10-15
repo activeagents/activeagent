@@ -1,0 +1,172 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What is the weather like in Boston today?","model":"gpt-4.1","tool_choice":"auto","tools":[{"type":"function","name":"get_current_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location","unit"]}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 15 Oct 2025 19:21:07 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999708'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_b63afe34b4b34efdab6ffe7825ecd867
+      Openai-Processing-Ms:
+      - '3270'
+      X-Envoy-Upstream-Service-Time:
+      - '3486'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=I3hnDfwYDVEFo_K4TxQhaXWZygcsmpJz2q6YhP3KAhM-1760556067-1.0.1.1-vUyG1vT_z4iN9s3ySjhG_ENE3ZltxiKpKaBynyKM.5ZQ7GYUMKcqcQSPpEgBRqaOFazr6aNKpzKFsyhcW36ijIA3A3cpCflYtW_xQr7IkNw;
+        path=/; expires=Wed, 15-Oct-25 19:51:07 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=g4z8X7htCWJK5EfbuG0KcyYgmPGKrwrjgezrkveSK6U-1760556067867-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 98f1ad60bfd9679a-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0dd601ba8a1a79470068eff4210984819b948baabcd6270cee",
+          "object": "response",
+          "created_at": 1760556065,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "fc_0dd601ba8a1a79470068eff4230d88819bbc68d20d0e9d0bd9",
+              "type": "function_call",
+              "status": "completed",
+              "arguments": "{\"location\":\"Boston, MA\",\"unit\":\"celsius\"}",
+              "call_id": "call_2J4pwLoPcEUu7Qybrt4nrOiX",
+              "name": "get_current_weather"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "function",
+              "description": "Get the current weather in a given location",
+              "name": "get_current_weather",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "type": "string",
+                    "description": "The city and state, e.g. San Francisco, CA"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "celsius",
+                      "fahrenheit"
+                    ]
+                  }
+                },
+                "required": [
+                  "location",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 75,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 23,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 98
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 15 Oct 2025 19:21:07 GMT
+recorded_with: VCR 6.3.1

@@ -1,0 +1,126 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What is the weather like in Boston today?","model":"gpt-4.1","stream":true,"tool_choice":"auto","tools":[{"type":"function","name":"get_current_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location","unit"]}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 15 Oct 2025 19:25:00 GMT
+      Content-Type:
+      - text/event-stream; charset=utf-8
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_b36d804938494f50912262c1ea22cf24
+      Openai-Processing-Ms:
+      - '449'
+      X-Envoy-Upstream-Service-Time:
+      - '519'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=X8zW46s.uLW1AgngSiFkZZgEqUzjTp5qcIGwufnxXXk-1760556300-1.0.1.1-sSr2Eeap81wTpICAcrjVTd8gCSc9Jth4tvG96E0mBD4AtAZUZ9JWmJGfZJzDVLn60KkWEQvQmhB5cwYzVgLYslx_IyGspmxu3R5gr1IAkSU;
+        path=/; expires=Wed, 15-Oct-25 19:55:00 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=pzzT8BMqxe9Vo4z6pNwZxfoCMIiM7LIH3jhDzcCBg8k-1760556300023-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 98f1b3274ad1cf65-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |+
+        event: response.created
+        data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_0b50c2fb76f8ab7b0068eff50b82d0819b9d61c528f20a67fe","object":"response","created_at":1760556299,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4.1-2025-04-14","output":[],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[{"type":"function","description":"Get the current weather in a given location","name":"get_current_weather","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location","unit"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+        event: response.in_progress
+        data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_0b50c2fb76f8ab7b0068eff50b82d0819b9d61c528f20a67fe","object":"response","created_at":1760556299,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4.1-2025-04-14","output":[],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[{"type":"function","description":"Get the current weather in a given location","name":"get_current_weather","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location","unit"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+        event: response.output_item.added
+        data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","type":"function_call","status":"in_progress","arguments":"","call_id":"call_xvuhMsAHLEImux5sPLKHS9R0","name":"get_current_weather"}}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":3,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"{\"","obfuscation":"IzzAco05Oqq0PS"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":4,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"location","obfuscation":"MB0Padca"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":5,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"\":\"","obfuscation":"nEgfzZNo6iVUc"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":6,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"Boston","obfuscation":"dOLtEd9Ja4"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":7,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":",","obfuscation":"VCY8VunHjyTcWff"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":8,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":" MA","obfuscation":"f9y757Gflwyzz"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":9,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"\",\"","obfuscation":"ZSw91y4azQoEQ"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":10,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"unit","obfuscation":"OEiFwNK5STm0"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":11,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"\":\"","obfuscation":"q1m2u58wfHiJt"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":12,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"c","obfuscation":"ebsEz1wHwktT6MO"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":13,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"elsius","obfuscation":"Da4NBAdfJ8"}
+
+        event: response.function_call_arguments.delta
+        data: {"type":"response.function_call_arguments.delta","sequence_number":14,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"delta":"\"}","obfuscation":"UQnLobiRyyRSvS"}
+
+        event: response.function_call_arguments.done
+        data: {"type":"response.function_call_arguments.done","sequence_number":15,"item_id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","output_index":0,"arguments":"{\"location\":\"Boston, MA\",\"unit\":\"celsius\"}"}
+
+        event: response.output_item.done
+        data: {"type":"response.output_item.done","sequence_number":16,"output_index":0,"item":{"id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","type":"function_call","status":"completed","arguments":"{\"location\":\"Boston, MA\",\"unit\":\"celsius\"}","call_id":"call_xvuhMsAHLEImux5sPLKHS9R0","name":"get_current_weather"}}
+
+        event: response.completed
+        data: {"type":"response.completed","sequence_number":17,"response":{"id":"resp_0b50c2fb76f8ab7b0068eff50b82d0819b9d61c528f20a67fe","object":"response","created_at":1760556299,"status":"completed","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4.1-2025-04-14","output":[{"id":"fc_0b50c2fb76f8ab7b0068eff50cb414819b82c243acd00b6d5d","type":"function_call","status":"completed","arguments":"{\"location\":\"Boston, MA\",\"unit\":\"celsius\"}","call_id":"call_xvuhMsAHLEImux5sPLKHS9R0","name":"get_current_weather"}],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[{"type":"function","description":"Get the current weather in a given location","name":"get_current_weather","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location","unit"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":75,"input_tokens_details":{"cached_tokens":0},"output_tokens":23,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":98},"user":null,"metadata":{}}}
+
+  recorded_at: Wed, 15 Oct 2025 19:25:01 GMT
+recorded_with: VCR 6.3.1
+...

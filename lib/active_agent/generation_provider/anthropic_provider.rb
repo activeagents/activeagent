@@ -48,7 +48,7 @@ module ActiveAgent
       end
 
       # Override from StreamProcessing module for Anthropic-specific streaming
-      def stream_process(prompt_context, message, callback, chunk)
+      def process_stream(prompt_context, message, callback, chunk)
         if new_content = chunk.dig(:delta, :text)
           message.content += new_content
           callback&.call(message, new_content, false, prompt.action_name)
@@ -59,23 +59,23 @@ module ActiveAgent
         end
       end
 
-        # def provider_stream(resolver)
-        #   message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
+      # def provider_stream(resolver)
+      #   message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
 
-        #   proc do |chunk|
-        #     stream_process(resolver, message, chunk)
-        #   end
-        # end
+      #   proc do |chunk|
+      #     process_stream(resolver, message, chunk)
+      #   end
+      # end
 
-        # protected
+      # protected
 
-        # def stream_process(resolver, message, chunk)
-        #   resolver.stream_callback.call(message, chunk, false)
-        # end
+      # def process_stream(resolver, message, chunk)
+      #   resolver.stream_callback.call(message, chunk, false)
+      # end
 
-        # def stream_finalize(resolver, message)
-        #   resolver.stream_callback.call(message, nil, true)
-        # end
+      # def stream_finalize(resolver, message)
+      #   resolver.stream_callback.call(message, nil, true)
+      # end
 
       # Override from ToolManagement for Anthropic-specific tool format
       def format_single_tool(tool)
