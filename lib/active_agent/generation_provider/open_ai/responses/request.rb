@@ -133,11 +133,11 @@ module ActiveAgent
 
           # To handle Common Message [input] format
           def message=(value)
-            case value.role
+            case value.try(:role) || value[:role]
             when :system
-              self.instructions = value.content
+              self.instructions = value.try(:content) || value[:content]
             when :user
-              self.input = value.content
+              self.input        = value.try(:content) || value[:content]
             end
 
             # self.input = [

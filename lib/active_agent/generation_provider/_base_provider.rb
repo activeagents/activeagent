@@ -32,12 +32,12 @@ module ActiveAgent
 
       class GenerationProviderError < StandardError; end
 
-      attr_reader :options
+      attr_internal :options
 
       def initialize(options = {})
         fail "Unexpected Service Name: #{options["service"]} != #{service_name}" if options["service"] && options["service"] != service_name
 
-        @options = options_type.new(**(options || {}).except("service"))
+        self.options = options_type.new(**(options || {}).except("service"))
       end
 
       def generate(prompt)

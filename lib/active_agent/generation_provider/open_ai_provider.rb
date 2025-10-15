@@ -10,12 +10,22 @@ module ActiveAgent
   module GenerationProvider
     # Thin wrapper to router between the different versions of OpenAI's API based on supported features
     class OpenAIProvider < OpenAI::BaseProvider
+      # Since we are routing between two different API versions that may/will have different
+      # available options, we keep them as untyped hashes until generation which will route.
+      def initialize(options = {})
+        fail "Unexpected Service Name: #{options["service"]} != #{service_name}" if options["service"] && options["service"] != service_name
+
+        self.options = (options || {}).except("service").deep_symbolize_keys
+      end
+
       # @see https://platform.openai.com/docs/guides/migrate-to-responses
-      def generate(prompt)
-        if prompt_has_audio?(prompt)
-          OpenAI::ChatProvider.new(@options.to_h).generate(prompt)
-        else
-          OpenAI::ResponsesProvider.new(@options.to_h).generate(prompt)
+      def generate(prompt_context)
+        provider_context = options.merge(prompt_context)
+
+        if provider_context[:api_version] == :chat || prompt_has_audio?(prompt_context)
+          OpenAI::ChatProvider.new(options.to_h).generate(prompt_context)
+        else # options[:api_version] == :responses || default(true)
+          OpenAI::ResponsesProvider.new(options.to_h).generate(prompt_context)
         end
       end
 
@@ -42,7 +52,7 @@ module ActiveAgent
 
       private
 
-      def prompt_has_audio?(prompt)
+      def prompt_has_audio?(prompt_context)
         false
       end
     end

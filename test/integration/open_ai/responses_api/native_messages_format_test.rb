@@ -201,11 +201,6 @@ module Integration
           "open_ai/responses_api/native_messages_format/#{action_name}"
         end
 
-        def compare_cassette(action_name)
-                    expected_body = TestAgent.const_get(action_name.to_s.upcase, false)
-          assert_equal expected_body.deep_stringify_keys, JSON.parse(request_body)
-        end
-
         def cassette_load(action_name)
           filename = "test/fixtures/vcr_cassettes/#{cassette_name(action_name)}.yml"
           cassette = YAML.load_file(filename)

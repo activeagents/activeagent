@@ -133,7 +133,7 @@ module ActiveAgent
 
           # Don't inherit instructions from parent
           inherited_options = (self.options || {}).except(:instructions)
-          self.options      = (inherited_options).merge(provided_options)
+          self.options      = inherited_options.merge(provided_options)
         end
 
         def stream_with(&stream)
@@ -264,8 +264,6 @@ module ActiveAgent
       #   # => Generates the prompt and handles the response
       #
       def perform_generation
-        return unless context && generation_provider # TODO: Should this be strict? Or Do we even need this?
-
         response = generation_provider.generate(raw_context)
         handle_response(response)
       end

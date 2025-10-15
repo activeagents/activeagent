@@ -1,4 +1,5 @@
 require_relative "../_base_provider"
+require_relative "chat/request"
 
 module ActiveAgent
   module GenerationProvider
@@ -6,16 +7,37 @@ module ActiveAgent
       class ChatProvider < BaseProvider
         protected
 
-        def generate_prompt(prompt)
-          parameters = generate_prompt_parameters(prompt)
+        def generate_prompt(prompt_context)
+          request = Chat::Request.new    # Default Options
+          request.merge!(options.to_hc)  # Agent Options
+          request.merge!(prompt_context) # Action Options
 
-          if prompt.options[:stream] || options.stream
-            parameters[:stream] = provider_stream
-            @streaming_request_params = parameters
-          end
+          api_response = client.chat(parameters: request.to_hc)
+          response(prompt_context, api_response, request.to_hc)
 
-          response(client.chat(parameters:), parameters)
+          # if prompt.options[:stream] || options.stream
+          #   parameters[:stream] = provider_stream
+          #   @streaming_request_params = parameters
+          # end
         end
+
+        def response(prompt_context, raw_response, raw_request)
+          # return @response if prompt.options[:stream]
+
+          message_json       = raw_response.dig("choices", 0, "message")
+          message_json["id"] = raw_response.dig("id") if message_json["id"].blank?
+
+          # update_context(prompt: prompt, message: message, response: response)
+
+          @response = ActiveAgent::GenerationProvider::Response.new(
+            prompt: prompt_context,
+            message: handle_message(prompt_context, message_json),
+            raw_response:,
+            raw_request:
+          )
+        end
+
+        ####
 
         # Override from StreamProcessing module
         def process_stream_chunk(chunk, message, agent_stream)
@@ -74,34 +96,6 @@ module ActiveAgent
           end
 
           options
-        end
-
-        def response(response, request_params = nil)
-          return @response if prompt.options[:stream]
-          message_json = response.dig("choices", 0, "message")
-          message_json["id"] = response.dig("id") if message_json["id"].blank?
-          message = handle_message(message_json)
-
-          update_context(prompt: prompt, message: message, response: response)
-
-          @response = ActiveAgent::GenerationProvider::Response.new(
-            prompt: prompt,
-            message: message,
-            raw_response: response,
-            raw_request: request_params
-          )
-        end
-
-        def handle_message(message_json)
-          ActiveAgent::ActionPrompt::Message.new(
-            generation_id: message_json["id"],
-            content: message_json["content"],
-            role: message_json["role"].intern,
-            action_requested: message_json["finish_reason"] == "tool_calls",
-            raw_actions: message_json["tool_calls"] || [],
-            requested_actions: handle_actions(message_json["tool_calls"]),
-            content_type: prompt.output_schema.present? ? "application/json" : "text/plain"
-          )
         end
 
         def embeddings_response(response, request_params = nil)
