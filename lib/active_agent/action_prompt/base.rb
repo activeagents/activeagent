@@ -202,8 +202,6 @@ module ActiveAgent
       end
 
       delegate :agent_name, to: :class
-      # Delegate response to generation_provider for easy access in callbacks
-      # delegate :response, to: :generation_provider, allow_nil: true
 
       attr_internal :raw_context
       attr_internal :context

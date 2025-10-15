@@ -5,10 +5,7 @@ http_interactions:
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"messages":[{"role":"user","content":"What is the weather like in
-        Boston today?"}],"model":"gpt-4.1","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
-        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
-        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}'
+      string: '{"messages":[{"role":"developer","content":"You are a helpful assistant."},{"role":"user","content":"Hello!"}],"model":"gpt-5"}'
     headers:
       Content-Type:
       - application/json
@@ -28,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 15 Oct 2025 06:57:21 GMT
+      - Wed, 15 Oct 2025 17:58:30 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,36 +37,36 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '592'
+      - '1362'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '778'
+      - '1537'
       X-Ratelimit-Limit-Requests:
-      - '10000'
+      - '15000'
       X-Ratelimit-Limit-Tokens:
-      - '30000000'
+      - '40000000'
       X-Ratelimit-Remaining-Requests:
-      - '9999'
+      - '14999'
       X-Ratelimit-Remaining-Tokens:
-      - '29999987'
+      - '39999988'
       X-Ratelimit-Reset-Requests:
-      - 6ms
+      - 4ms
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_4ee1abb1b9534af2bed600318c65a1c4
+      - req_c55ec60e67a44cb18db15fd51b4e5b6e
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=4SDW8EwFLLj0PCbqW.KkMzIBRF.1FI8hsHXGwhqqELY-1760511441-1.0.1.1-JGu0bBbO99gzWumYCL3vJjc0lt6JFd589iPndFHdgiz9CJXf1zixRSSxzrgLMnko2HGpq122Tu4z8LKznjYmdtqZ_HENbllhgrqQPoM4sFo;
-        path=/; expires=Wed, 15-Oct-25 07:27:21 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=coQJAsF7CBT4GbmmIFNRk3MmuBrogkxapiNsBESSbNw-1760551110-1.0.1.1-im1apnYfCYheNYuWZEg_os.AFzjH8hcV_4aJdwJP2zDtibg2GVi1oz3IX1aqBlTYylXuvBN5D01HLcumRbwEoRmmRVRYSj4GFD0q2UNbEJg;
+        path=/; expires=Wed, 15-Oct-25 18:28:30 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=pmuqXQ6ZAFr9NMDXy3BQMS1cpnevwuNmHCrK_1e3GDI-1760511441940-0.0.1.1-604800000;
+      - _cfuvid=QauagBs8HpuybBIhHMIm6wDG6wBo0rbxldhrzRsfM44-1760551110308-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -78,44 +75,33 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98ed6bf938677ac8-SJC
+      - 98f134697dd615ce-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-CQpjl0CwHZXuEfBZf4qxWFNxZXzmX",
+          "id": "chatcmpl-CR03ZLD5ErGd9jVaPvujk9nDX0dEQ",
           "object": "chat.completion",
-          "created": 1760511441,
-          "model": "gpt-4.1-2025-04-14",
+          "created": 1760551109,
+          "model": "gpt-5-2025-08-07",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": null,
-                "tool_calls": [
-                  {
-                    "id": "call_yN43LNbyzwLNjCJy73mmKPPS",
-                    "type": "function",
-                    "function": {
-                      "name": "get_current_weather",
-                      "arguments": "{\"location\":\"Boston, MA\"}"
-                    }
-                  }
-                ],
+                "content": "Hi there! How can I help you today?",
                 "refusal": null,
                 "annotations": []
               },
-              "logprobs": null,
-              "finish_reason": "tool_calls"
+              "finish_reason": "stop"
             }
           ],
           "usage": {
-            "prompt_tokens": 81,
-            "completion_tokens": 17,
-            "total_tokens": 98,
+            "prompt_tokens": 18,
+            "completion_tokens": 19,
+            "total_tokens": 37,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -128,7 +114,7 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_e24a1fec47"
+          "system_fingerprint": null
         }
-  recorded_at: Wed, 15 Oct 2025 06:57:21 GMT
+  recorded_at: Wed, 15 Oct 2025 17:58:30 GMT
 recorded_with: VCR 6.3.1

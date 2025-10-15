@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require_relative "../test_helper"
 
 module Integration
   module OpenAI
     module ChatAPI
       class NativeMessagesFormatTest < ActiveSupport::TestCase
-        include WebMock
+        include Integration::OpenAI::TestHelper
 
         class TestAgent < ActiveAgent::Base
           generate_with :openai, model: "gpt-5", api_version: :chat
@@ -254,58 +254,18 @@ module Integration
           end
         end
 
-        def cassette_name(action_name)
-          "open_ai/chat_api/native_messages_format/#{action_name}"
-        end
-
-        def cassette_load(cassette_name)
-          filename = "test/fixtures/vcr_cassettes/#{cassette_name}.yml"
-          cassette = YAML.load_file(filename)
-
-          cassette.dig("http_interactions")
-        end
-
         ################################################################################
         # This automatically runs all the tests for these the test actions
         ################################################################################
-        def runner(cassette_name, request_body, &block)
-          # Run Once to Record Response & Smoke Test
-          VCR.use_cassette(cassette_name) do
-            response = block.call
-
-            if request_body[:stream]
-              assert_nil response.message.content.presence
-            else
-              assert_not_nil response.message.content.presence
-            end
-          end
-
-          # Run Again to Validate that the Request is well formed and not mutated
-          cassette = cassette_load(cassette_name)
-          request_method = cassette.dig(0, "request", "method").to_sym
-          request_uri    = cassette.dig(0, "request", "uri")
-          response_body  = cassette.dig(0, "response", "body", "string")
-
-          stub_request(request_method, request_uri).to_return(body: response_body)
-          block.call
-          assert_requested request_method, request_uri, body: request_body, times: 2
-        end
-
         [
-          # :text_input,
-          # :image_input,
-          # :streaming,
-          :functions
-          # :functions_with_streaming
-          # :logprobs
+          :text_input,
+          :image_input,
+          :streaming,
+          :functions,
+          :functions_with_streaming,
+          :logprobs
         ].each do |action_name|
-          test "#{action_name}" do
-            cassette_name = cassette_name(action_name)
-            request_body  = TestAgent.const_get(action_name.to_s.upcase, false)
-            runner(cassette_name, request_body) do
-              TestAgent.send(action_name).generate_now
-            end
-          end
+          test_request_builder(TestAgent, action_name)
         end
       end
     end

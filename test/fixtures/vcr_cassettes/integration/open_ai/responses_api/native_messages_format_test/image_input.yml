@@ -5,7 +5,8 @@ http_interactions:
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"input":"How much wood would a woodchuck chuck?","model":"o3-mini","reasoning":{"effort":"high"}}'
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"what
+        is in this image?"},{"type":"input_image","image_url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}]}],"model":"gpt-4.1"}'
     headers:
       Content-Type:
       - application/json
@@ -25,7 +26,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 14 Oct 2025 23:35:51 GMT
+      - Wed, 15 Oct 2025 17:53:52 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -33,17 +34,17 @@ http_interactions:
       Connection:
       - keep-alive
       X-Ratelimit-Limit-Requests:
-      - '30000'
+      - '10000'
       X-Ratelimit-Limit-Tokens:
-      - '150000000'
+      - '30000000'
       X-Ratelimit-Remaining-Requests:
-      - '29999'
+      - '9999'
       X-Ratelimit-Remaining-Tokens:
-      - '149998827'
+      - '29999235'
       X-Ratelimit-Reset-Requests:
-      - 2ms
+      - 6ms
       X-Ratelimit-Reset-Tokens:
-      - 0s
+      - 1ms
       Openai-Version:
       - '2020-10-01'
       Openai-Organization:
@@ -51,18 +52,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_5716426fc8c34ba4979ae61bebea9d0a
+      - req_8d2f33fb9af541809307a70b5f0581a8
       Openai-Processing-Ms:
-      - '16762'
+      - '7464'
       X-Envoy-Upstream-Service-Time:
-      - '16764'
+      - '7474'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=Mu4JtZrarpwgszGLxyLy1Ni_AUn53xmIFVZTI2D3fIU-1760484951-1.0.1.1-Y5O7rSCIPAMor2jK8p1qjumxpp64KBPYNaVtUO7q4hxRfVuBCmUa0WTXUxF4nKqg055gCzTIJXOgLIlET4lrwJaQe8x5jjGRUwnAOCG_kcQ;
-        path=/; expires=Wed, 15-Oct-25 00:05:51 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=U9sf.tqfUbkG5X.XxPXa1tggxStVQPcBIZ6z8_ZqnJQ-1760550832-1.0.1.1-RnW40etrk6lVKR0uhXIeYON.34_ndDfqVeax3xqjfug98QOACV6oTwns71sUZUGln8Fd2R8epQA7MkIS5spw.QhnBhzeyLP1h9kcg5c1h7E;
+        path=/; expires=Wed, 15-Oct-25 18:23:52 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=iMxj4oSbxiwdwwGjn7N3.1B07BwD3IILvLfXfGGul4k-1760484951604-0.0.1.1-604800000;
+      - _cfuvid=FQXdEgx81gBTHsyifoMD2lu7XabtMJ9t.CH0JN22iEM-1760550832592-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +72,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98eae4da1e2e9e6a-SJC
+      - 98f12d7bee09ed37-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_042aa6c31e1845230068eede46d3a48197bc28362d11a069e4",
+          "id": "resp_016364874f6fd9630068efdfa9281c8199a4d8220fab867162",
           "object": "response",
-          "created_at": 1760484934,
+          "created_at": 1760550825,
           "status": "completed",
           "background": false,
           "billing": {
@@ -91,15 +92,10 @@ http_interactions:
           "instructions": null,
           "max_output_tokens": null,
           "max_tool_calls": null,
-          "model": "o3-mini-2025-01-31",
+          "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "rs_042aa6c31e1845230068eede50c828819783b31e256ba3c430",
-              "type": "reasoning",
-              "summary": []
-            },
-            {
-              "id": "msg_042aa6c31e1845230068eede5254a88197b37a14dbd79459da",
+              "id": "msg_016364874f6fd9630068efdfadcccc8199bbd102a302af314d",
               "type": "message",
               "status": "completed",
               "content": [
@@ -107,7 +103,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "That's the classic tongue twister! Traditionally, the answer goes: \n\n\u2003\u2003\"A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood!\"\n\nFun fact: Although woodchucks (or groundhogs) don't actually chuck wood at all\u2014they mostly dig soil\u2014one playful calculation by a wildlife expert estimated that if a woodchuck could chuck wood, it might be able to move roughly 700 pounds of it. \n\nSo whether you enjoy the playful wording or the quirky \u201cfact,\u201d it all comes down to having a bit of fun with words!"
+                  "text": "This image shows a wooden boardwalk path stretching through a grassy field or wetland. The area is lush and green, with tall grasses and some bushes and trees in the background. The sky above is mostly blue with some streaks of clouds, creating a serene and open atmosphere. The scene appears peaceful and natural, likely a nature reserve or park."
                 }
               ],
               "role": "assistant"
@@ -117,7 +113,7 @@ http_interactions:
           "previous_response_id": null,
           "prompt_cache_key": null,
           "reasoning": {
-            "effort": "high",
+            "effort": null,
             "summary": null
           },
           "safety_identifier": null,
@@ -136,18 +132,18 @@ http_interactions:
           "top_p": 1.0,
           "truncation": "disabled",
           "usage": {
-            "input_tokens": 16,
+            "input_tokens": 1118,
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 1148,
+            "output_tokens": 71,
             "output_tokens_details": {
-              "reasoning_tokens": 1024
+              "reasoning_tokens": 0
             },
-            "total_tokens": 1164
+            "total_tokens": 1189
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 14 Oct 2025 23:35:51 GMT
+  recorded_at: Wed, 15 Oct 2025 17:53:52 GMT
 recorded_with: VCR 6.3.1

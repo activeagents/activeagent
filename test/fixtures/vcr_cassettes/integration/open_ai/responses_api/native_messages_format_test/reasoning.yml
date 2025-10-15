@@ -5,8 +5,7 @@ http_interactions:
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"what
-        is in this image?"},{"type":"input_image","image_url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}]}],"model":"gpt-4.1"}'
+      string: '{"input":"How much wood would a woodchuck chuck?","model":"o3-mini","reasoning":{"effort":"high"}}'
     headers:
       Content-Type:
       - application/json
@@ -26,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 14 Oct 2025 23:35:31 GMT
+      - Wed, 15 Oct 2025 17:54:08 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -34,17 +33,17 @@ http_interactions:
       Connection:
       - keep-alive
       X-Ratelimit-Limit-Requests:
-      - '10000'
+      - '30000'
       X-Ratelimit-Limit-Tokens:
-      - '30000000'
+      - '150000000'
       X-Ratelimit-Remaining-Requests:
-      - '9999'
+      - '29999'
       X-Ratelimit-Remaining-Tokens:
-      - '29999235'
+      - '149998965'
       X-Ratelimit-Reset-Requests:
-      - 6ms
+      - 2ms
       X-Ratelimit-Reset-Tokens:
-      - 1ms
+      - 0s
       Openai-Version:
       - '2020-10-01'
       Openai-Organization:
@@ -52,18 +51,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_5a1dbf1cd3a342578e5a99198325735f
+      - req_937abf7130004fdea66c3f43842616e3
       Openai-Processing-Ms:
-      - '6495'
+      - '15807'
       X-Envoy-Upstream-Service-Time:
-      - '6500'
+      - '15810'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=moeRXsy989Rn_18..Zf4F7O9Aw_E3609Ng_K.fvq6_E-1760484931-1.0.1.1-UKap_XKEA2CmZxQFWdQcUpxQI2.UTqcaWR8M9otPvhlmiz8zR9XZQQ_7N633nTh.3IxuqBTZjv2G9rJyA0ovvNeM6WfJjDrf2t.0gIRXXGU;
-        path=/; expires=Wed, 15-Oct-25 00:05:31 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=xK51sCOWn9MN_Lms9eMr09NF276XHda0KQ8iYuMPTb4-1760550848-1.0.1.1-rUGK4PL_0Y1tUjqsRtKIBqjcqbsMjDFgoZQdfIrRoYWHHwEdIlVOhfU_Dg_sosaU.DDj1Lc2FTs0jw3G0M8Q3.q4uWvqSy.2GxYHtnL43Tw;
+        path=/; expires=Wed, 15-Oct-25 18:24:08 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=FQJY7B9bspELqsp6GBz4N0B29xDiyEyMkXfiP7TR_nA-1760484931106-0.0.1.1-604800000;
+      - _cfuvid=k2pUKjmnDJdXk5zxnLRBR2gIsJJfoh4HA9FbTEhbsqg-1760550848825-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +71,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98eae4963a0a67fe-SJC
+      - 98f12db069f1ed37-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_05748b439b32a7640068eede3c97f0819abcb8b46419d44466",
+          "id": "resp_0c12da79c421ebf00068efdfb100c0819797fcdae2a922e491",
           "object": "response",
-          "created_at": 1760484924,
+          "created_at": 1760550833,
           "status": "completed",
           "background": false,
           "billing": {
@@ -92,10 +91,15 @@ http_interactions:
           "instructions": null,
           "max_output_tokens": null,
           "max_tool_calls": null,
-          "model": "gpt-4.1-2025-04-14",
+          "model": "o3-mini-2025-01-31",
           "output": [
             {
-              "id": "msg_05748b439b32a7640068eede411a1c819a94494cc6508e7789",
+              "id": "rs_0c12da79c421ebf00068efdfbce1088197b25e8a12cc706d09",
+              "type": "reasoning",
+              "summary": []
+            },
+            {
+              "id": "msg_0c12da79c421ebf00068efdfbf337081978eba99c9943accbd",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +107,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "This image shows a scenic outdoor landscape featuring a wooden boardwalk path that stretches forward into the distance. The boardwalk is surrounded by lush green grass and vegetation on both sides. In the background, there are more trees and shrubs, and above, the sky is mostly clear with some wispy clouds and a bright blue hue. The overall setting appears to be a peaceful natural area, such as a meadow, prairie, or nature reserve."
+                  "text": "The tongue twister is more about fun with words than a scientific inquiry. Traditionally, the playful answer goes:\n\n\u2003\u2003\"A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood!\"\n\nThat said, in 1988 a wildlife biologist named Richard Thomas once playfully estimated that if a woodchuck could chuck wood (by comparing it to the amount of dirt a woodchuck moves when digging its burrow), it might be able to move roughly 700 pounds of wood. This calculation, of course, is all in good fun rather than science.\n\nSo whether you prefer the tongue-twister answer or the humorous \u201c700 pounds\u201d estimate, the question remains one of whimsy and wordplay!"
                 }
               ],
               "role": "assistant"
@@ -113,7 +117,7 @@ http_interactions:
           "previous_response_id": null,
           "prompt_cache_key": null,
           "reasoning": {
-            "effort": null,
+            "effort": "high",
             "summary": null
           },
           "safety_identifier": null,
@@ -132,18 +136,18 @@ http_interactions:
           "top_p": 1.0,
           "truncation": "disabled",
           "usage": {
-            "input_tokens": 1118,
+            "input_tokens": 16,
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 88,
+            "output_tokens": 1051,
             "output_tokens_details": {
-              "reasoning_tokens": 0
+              "reasoning_tokens": 896
             },
-            "total_tokens": 1206
+            "total_tokens": 1067
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 14 Oct 2025 23:35:31 GMT
+  recorded_at: Wed, 15 Oct 2025 17:54:08 GMT
 recorded_with: VCR 6.3.1

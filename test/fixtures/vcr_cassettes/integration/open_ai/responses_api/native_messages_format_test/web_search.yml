@@ -1,0 +1,191 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What was a positive news story from today?","model":"gpt-4.1","tools":[{"type":"web_search_preview"}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 15 Oct 2025 17:54:21 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999671'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_c15b75f12ef24c45b3d6c0ca7aef8da9
+      Openai-Processing-Ms:
+      - '9293'
+      X-Envoy-Upstream-Service-Time:
+      - '9297'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=RJoHFvhu.VdQcm85quHLYPf_db.yPypbIksE26cX7Jc-1760550861-1.0.1.1-0W13uLzdnZo8pvReRBQK_3X2j7gd9Tl94wakNNzikUlBauPidJ.RaW7FaUCPd0B_UMCXiRq8Wwv8GZ3L6ytealafMJWPHxj7g6Hj5drZr3c;
+        path=/; expires=Wed, 15-Oct-25 18:24:21 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=nY2vYpk5GH3Y32QzHUh6GeB1RKow._MpqqPHzuSCfzM-1760550861189-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 98f12e26be616af7-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_019aff3714b149170068efdfc3e168819aa6a983aeb770cedd",
+          "object": "response",
+          "created_at": 1760550851,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "ws_019aff3714b149170068efdfc50cf8819ab956fac3c0d2b4fb",
+              "type": "web_search_call",
+              "status": "completed",
+              "action": {
+                "type": "search",
+                "query": "positive news story June 10, 2024"
+              }
+            },
+            {
+              "id": "msg_019aff3714b149170068efdfc76108819a984f13cb4f2334e1",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [
+                    {
+                      "type": "url_citation",
+                      "end_index": 553,
+                      "start_index": 439,
+                      "title": "The Good News October 15-21, 2025 \u2013 CCN \u2013 Columbus County News",
+                      "url": "https://columbuscountynews.com/2025/10/the-good-news-oct-15-21-2025/?utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 987,
+                      "start_index": 888,
+                      "title": "Stream Uplifting and Positive News October 14th, 2025 by The Positive Truth| Uplifting News| Positive News | Listen online for free on SoundCloud",
+                      "url": "https://soundcloud.com/user-423075597/uplifting-and-340167313?utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 1367,
+                      "start_index": 1268,
+                      "title": "Stream Uplifting and Positive News October 14th, 2025 by The Positive Truth| Uplifting News| Positive News | Listen online for free on SoundCloud",
+                      "url": "https://soundcloud.com/user-423075597/uplifting-and-340167313?utm_source=openai"
+                    }
+                  ],
+                  "logprobs": [],
+                  "text": "As of October 15, 2025, here are some uplifting news stories:\n\n**Community Support in Whiteville, North Carolina**\n\nResidents of Columbus County and neighboring Brunswick County came together to assist local businesses in Whiteville affected by recent flooding. Volunteers donated equipment, manpower, and cleaning supplies to help restore these establishments. This collective effort highlights the community's resilience and generosity. ([columbuscountynews.com](https://columbuscountynews.com/2025/10/the-good-news-oct-15-21-2025/?utm_source=openai))\n\n**Anonymous Donation Clears School Lunch Debt in Taylor, Texas**\n\nAn anonymous donor paid off the school lunch debt for an entire district in Taylor, Texas, ensuring that students can eat for free for the rest of the school year. This act of kindness alleviates financial burdens for many families and supports students' well-being. ([soundcloud.com](https://soundcloud.com/user-423075597/uplifting-and-340167313?utm_source=openai))\n\n**Premature Baby Goes Home After Nearly a Year in NICU**\n\nA premature baby named Gabriel, who spent almost a year in the Neonatal Intensive Care Unit (NICU), has been able to go home. This milestone underscores the dedication of NICU nurses and the resilience of young patients. ([soundcloud.com](https://soundcloud.com/user-423075597/uplifting-and-340167313?utm_source=openai))\n\nThese stories reflect the positive actions and compassionate efforts taking place in communities today. "
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "web_search_preview",
+              "search_context_size": "medium",
+              "user_location": {
+                "type": "approximate",
+                "city": null,
+                "country": "US",
+                "region": null,
+                "timezone": null
+              }
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 310,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 331,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 641
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 15 Oct 2025 17:54:21 GMT
+recorded_with: VCR 6.3.1

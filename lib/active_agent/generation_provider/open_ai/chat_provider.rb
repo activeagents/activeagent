@@ -12,14 +12,12 @@ module ActiveAgent
           request.merge!(options.to_hc)    # Agent Options
           request.merge!(resolver.context) # Action Options
 
-          # @todo Validation?
+          # @todo Request Validation?
           parameters = request.to_hc
 
           # Streaming
           if request.stream
-            parameters[:stream] = proc do |chunk|
-              stream_process(resolver, chunk)
-            end
+            parameters[:stream] = ->(chunk) { stream_process(resolver, chunk) }
           end
 
           api_response = client.chat(parameters:)
@@ -44,8 +42,6 @@ module ActiveAgent
             )
           end
 
-          # update_context(prompt: prompt, message: message, response: response)
-
           ActiveAgent::GenerationProvider::Response.new(
             prompt: resolver,
             message: message,
@@ -54,7 +50,6 @@ module ActiveAgent
           )
         end
 
-        # Override from StreamProcessing module
         def stream_process(resolver, chunk)
           choice = chunk.dig("choices", 0)
           return unless choice
@@ -81,13 +76,6 @@ module ActiveAgent
                 requested_actions: handle_actions(delta.fetch("tool_calls")),
                 content_type:      resolver.context[:output_schema].present? ? "application/json" : "text/plain"
               )
-
-              # @response = ActiveAgent::GenerationProvider::Response.new(
-              #   prompt: resolver,
-              #   message:,
-              #   raw_response: chunk,
-              #   raw_request: @streaming_request_params
-              # )
             end
           end
 

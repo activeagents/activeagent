@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"what
+        is in this file?"},{"type":"input_file","file_url":"https://www.berkshirehathaway.com/letters/2024ltr.pdf"}]}],"model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 15 Oct 2025 17:53:44 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29991543'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 16ms
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_e8e4f44aa6d643b39f3978dc6c286083
+      Openai-Processing-Ms:
+      - '26095'
+      X-Envoy-Upstream-Service-Time:
+      - '26103'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=f2LVxBfEkqGyUZ2VTMX9w6bZA_sARVUPpJrMBjhP4kA-1760550824-1.0.1.1-7.WfmYi1pdgBLVomyLJZzAU.wq0rzDSOETNb.tQt_ZCaYBDeA4_stgF4xnr9TP3nquxgACWojaAd.t8v4zxAIs3u7a7PkG.Cgl2vJI.nl2U;
+        path=/; expires=Wed, 15-Oct-25 18:23:44 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=cHMfPinB7LLIEQtdTrxYVGhMDLDk06DrOEA6PDd0yyU-1760550824245-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 98f12cd49ae8171e-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0f1203fafe6f1f750068efdf8e28708199a0ba7549ec6cb626",
+          "object": "response",
+          "created_at": 1760550798,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_0f1203fafe6f1f750068efdf8fec688199aa6abe1bb7e26e57",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "This file is the **2024 annual shareholder letter** from Warren E. Buffett, Chairman of Berkshire Hathaway Inc. It appears to be the primary feature of Berkshire Hathaway\u2019s annual report to shareholders, likely distributed in early 2025.\n\n---\n\n### Key Contents and Highlights:\n\n#### 1. **Purpose of the Letter**\n- Warren Buffett addresses shareholders, aiming to go beyond simply required financial figures by providing candid commentary on the company\u2019s business, values, and decision-making processes.\n- He emphasizes honest communication, acknowledging both successes and mistakes, following the \u201cpraise by name, criticize by category\u201d principle.\n\n#### 2. **Mistakes & Management Philosophy**\n- Buffett candidly discusses the inevitability of mistakes in capital allocation and hiring, invoking Charlie Munger\u2019s advice to deal directly and promptly with problems.\n- He reflects on the importance of acting when mistakes occur, rather than \u201cthumb-sucking\u201d (delayed action).\n- Buffett explains his aversion to using pedigree (schools attended) as a criterion for management selection \u2014 citing examples of successful individuals with little or no formal education.\n\n#### 3. **Business Performance in 2024**\n- **2024 exceeded expectations** for Berkshire, though over half of its 189 operating businesses saw earnings decline.\n- **Insurance and investment income** were the biggest positives, especially through improvements at GEICO under Todd Combs' leadership.\n- The company booked **$47.4 billion in operating earnings** (excluding capital gains/losses on investments).\n- **BNSF (railroad) and Berkshire Hathaway Energy** increased earnings, and Berkshire acquired the remaining 8% of the utility business for $3.9 billion.\n\n#### 4. **Tax Contributions**\n- Berkshire paid a record **$26.8 billion** in U.S. federal income tax in 2024, a milestone Buffett contrasts with the company\u2019s origins as a failing textile mill.\n- Buffett highlights Berkshire\u2019s history of almost never paying dividends (except for once in 1967), a practice enabling continuous reinvestment and compounding.\n\n#### 5. **Investment Portfolio**\n- Berkshire splits its investments between wholly-owned businesses and large minority stakes in major companies such as Apple, Coca-Cola, American Express, and Moody\u2019s.\n- At yearend, minority equity holdings were **$272 billion**; although down from $354 billion, controlled non-public businesses are worth even more.\n- Buffett reiterates his preference for equities over cash or fixed-income securities in the long term.\n\n#### 6. **Capitalism and America**\n- Buffett offers reflections on the strengths and weaknesses of capitalism and the extraordinary compounding effect of continuous saving and wise reinvestment in America.\n- He notes that Berkshire\u2019s success is deeply tied to the success of the country itself.\n\n#### 7. **Insurance Operations**\n- Detailed explanation of the unique economics of property-casualty (P/C) insurance, including the \u201cfloat\u201d (investable premiums received before claims are paid).\n- Berkshire\u2019s insurance under Ajit Jain is a world leader, and the business is central to Berkshire\u2019s ongoing strategy.\n\n#### 8. **Japanese Investments**\n- Berkshire has built \u201cvery long-term\u201d positions in five large Japanese trading companies: ITOCHU, Marubeni, Mitsubishi, Mitsui, and Sumitomo.\n- As of yearend, these investments cost $13.8B and were valued at $23.5B.\n\n#### 9. **Annual Meeting**\n- Description of the 2025 \u201cWoodstock for Capitalists\u201d annual gathering in Omaha, including changes to the schedule, products available, and charity initiatives.\n- Special limited-edition books and fundraising for the Stephen Center.\n\n#### 10. **Performance Table**\n- Comprehensive table comparing Berkshire\u2019s annual gain in market value per share versus the S&P 500 (with dividends) from 1965 through 2024.\n- Berkshire\u2019s compounded annual gain over this period was **19.9%**, against the S&P 500\u2019s **10.4%**. Overall gain: **5,502,284%** for Berkshire, **39,054%** for the S&P 500.\n\n---\n\n### Notable Individuals Mentioned\n- **Greg Abel** \u2014 designated successor as CEO.\n- **Ajit Jain** \u2014 head of insurance operations.\n- **Todd Combs** \u2014 improved GEICO.\n- **Charlie Munger** \u2014 late Vice-Chairman, Buffett\u2019s long-time partner.\n- **Pete Liegl** \u2014 founder of Forest River, celebrated as an exemplary Berkshire manager.\n\n---\n\n### Tone & Style\n- The letter shows Warren Buffett\u2019s customary blend of humility, frankness, wit, and optimism about the future of Berkshire Hathaway and the broader American economy. He continues themes of stewardship, long-term thinking, and shareholder alignment.\n\n---\n\n### Takeaway\nThis file is a classic Warren Buffett shareholder letter: a mix of financial analysis, investment philosophy, company updates, personal stories, and reflections on management and economic principles. It\u2019s meant to report to shareholders what they own, how their company is being run, and how Berkshire approaches risks, mistakes, triumphs, and the future."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 8438,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 1047,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 9485
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 15 Oct 2025 17:53:44 GMT
+recorded_with: VCR 6.3.1

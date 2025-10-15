@@ -25,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 14 Oct 2025 23:35:34 GMT
+      - Wed, 15 Oct 2025 17:54:11 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -51,18 +51,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_2f57120c38a642d5a94a6878488d86ee
+      - req_399064bb7bb74f998a8d931abd675e0e
       Openai-Processing-Ms:
-      - '1750'
+      - '2619'
       X-Envoy-Upstream-Service-Time:
-      - '1753'
+      - '2635'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=ZCKq0rEjKje2hF9U1oWCHNEPo8L.Bv8fJgE8bMUdGFk-1760484934-1.0.1.1-zOMTb5If1uTZkkuSP60GFHiU3rwNWZSKT9MrVOhmfbAQDT7pnCb.PfWdIZrMtY7z3clG3nIQ4jELmuXdcHT5oqKOheBIWaCkuZfDgxG7jqQ;
-        path=/; expires=Wed, 15-Oct-25 00:05:34 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=pnrK9RstK2rsqXtuImR071HD0XvoMyXjpKkWkjUDDiU-1760550851-1.0.1.1-BAG2CK1cbhKpoqQE80KKIn2sBwWhh7z8jWZEnW6iE_tRLNeaRdjCsdWwGD0GTnAe3PDHYYURSG05mBm_mi2.ZWXnrOhzcijv50BHtErjKMs;
+        path=/; expires=Wed, 15-Oct-25 18:24:11 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=s87HLnhaboRTNmWCIxMYFuosru_FBxv.dASaKHbdVRk-1760484934647-0.0.1.1-604800000;
+      - _cfuvid=E3wYd3hNhGanIDUgoxgbC3wq.yWv4Ox9iliC5ecZNoU-1760550851582-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +71,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98eae4cceb91d883-SJC
+      - 98f12e1588911f2f-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_06deb6acb6cae9d40068eede44e2508197a43040874195d81a",
+          "id": "resp_083cb7240608b5bd0068efdfc0f92c819b93c587606cd6c95d",
           "object": "response",
-          "created_at": 1760484933,
+          "created_at": 1760550849,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,7 +94,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_06deb6acb6cae9d40068eede4568dc81978d8f06d8a26ffc70",
+              "id": "msg_083cb7240608b5bd0068efdfc1e490819b805653cc31d3ba1b",
               "type": "message",
               "status": "completed",
               "content": [
@@ -102,7 +102,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "Under the silver glow of the moon, a gentle unicorn named Luna danced through a field of sparkling stars. She used her magical horn to grant sweet dreams to every sleeping child in the village. As dawn approached, Luna curled up under a rainbow and drifted off, her heart filled with happiness and hope."
+                  "text": "In a quiet, moonlit forest, a gentle unicorn named Luna sprinkled sparkling stardust everywhere she trotted. Each night, she granted sweet dreams to every creature who smiled as they slept. Thanks to Luna\u2019s magic, the world was always filled with kindness and wonder by morning."
                 }
               ],
               "role": "assistant"
@@ -135,14 +135,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 62,
+            "output_tokens": 58,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 80
+            "total_tokens": 76
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 14 Oct 2025 23:35:34 GMT
+  recorded_at: Wed, 15 Oct 2025 17:54:11 GMT
 recorded_with: VCR 6.3.1
