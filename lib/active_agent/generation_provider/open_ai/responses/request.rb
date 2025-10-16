@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 require_relative "../../common/_base_model"
-require_relative "types"
-require_relative "conversation"
-require_relative "prompt_reference"
-require_relative "reasoning"
-require_relative "stream_options"
-require_relative "text"
+require_relative "requests/types"
+require_relative "requests/conversation"
+require_relative "requests/prompt_reference"
+require_relative "requests/reasoning"
+require_relative "requests/stream_options"
+require_relative "requests/text"
 
 module ActiveAgent
   module GenerationProvider
@@ -17,7 +17,7 @@ module ActiveAgent
           attribute :background, :boolean, default: false
 
           # Conversation
-          attribute :conversation, Types::ConversationType.new
+          attribute :conversation, Requests::Types::ConversationType.new
 
           # Include additional output data
           attribute :include, default: -> { [] } # Array of strings
@@ -45,13 +45,13 @@ module ActiveAgent
           attribute :previous_response_id, :string
 
           # Prompt template reference
-          attribute :prompt, Types::PromptReferenceType.new
+          attribute :prompt, Requests::Types::PromptReferenceType.new
 
           # Cache key for optimization
           attribute :prompt_cache_key, :string
 
           # Reasoning configuration (for o-series and gpt-5 models)
-          attribute :reasoning, Types::ReasoningType.new
+          attribute :reasoning, Requests::Types::ReasoningType.new
 
           # Safety identifier for usage policy detection
           attribute :safety_identifier, :string
@@ -64,13 +64,13 @@ module ActiveAgent
 
           # Streaming
           attribute :stream, :boolean, default: false
-          attribute :stream_options, Types::StreamOptionsType.new
+          attribute :stream_options, Requests::Types::StreamOptionsType.new
 
           # Temperature sampling
           attribute :temperature, :float, default: 1
 
           # Text response configuration
-          attribute :text, Types::TextType.new
+          attribute :text, Requests::Types::TextType.new
 
           # Tool choice
           attribute :tool_choice # Can be string or object
@@ -111,11 +111,11 @@ module ActiveAgent
           def to_h
             super.tap do |hash|
               # Convert nested objects to hashes
-              hash[:conversation]   = conversation.to_h   if conversation.is_a?(Conversation)
-              hash[:prompt]         = prompt.to_h         if prompt.is_a?(PromptReference)
-              hash[:reasoning]      = reasoning.to_h      if reasoning.is_a?(Reasoning)
-              hash[:stream_options] = stream_options.to_h if stream_options.is_a?(StreamOptions)
-              hash[:text]           = text.to_h           if text.is_a?(Text)
+              hash[:conversation]   = conversation.to_h   if conversation.is_a?(Requests::Conversation)
+              hash[:prompt]         = prompt.to_h         if prompt.is_a?(Requests::PromptReference)
+              hash[:reasoning]      = reasoning.to_h      if reasoning.is_a?(Requests::Reasoning)
+              hash[:stream_options] = stream_options.to_h if stream_options.is_a?(Requests::StreamOptions)
+              hash[:text]           = text.to_h           if text.is_a?(Requests::Text)
             end
           end
 
@@ -128,6 +128,16 @@ module ActiveAgent
               super([ value ])
             else
               fail "Unexpected Input Type for #{value}"
+            end
+          end
+
+          # For the message stack
+          def input_list
+            case input
+            when String
+              [ { role: "user", content: input } ]
+            when Array
+              input.map { it.to_hc }
             end
           end
 

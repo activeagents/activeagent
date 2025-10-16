@@ -187,6 +187,10 @@ module Integration
             )
           end
 
+          def get_current_weather(location:, unit: "fahrenheit")
+            { location:, unit:, temperature: "22" }
+          end
+
           LOGPROBS = {
             "model": "gpt-4",
             "messages": [

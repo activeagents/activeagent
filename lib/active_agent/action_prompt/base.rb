@@ -215,26 +215,26 @@ module ActiveAgent
         @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options&.deep_dup || {}, agent_instance: self)
       end
 
-      # Entry point for action execution
+      # Entry point for action execution.
       # Processes an agent action and instruments it for monitoring.
       #
       # This method wraps the action execution with ActiveSupport::Notifications instrumentation
       # and ensures a Prompt instance is created if no prompt was explicitly called during processing.
       #
+      # Actions can be triggered in two ways:
+      # - Externally through the public API (e.g., Agent.action_name.generate_now)
+      # - Internally through tool calls during AI generation workflows
+      #
       # @param method_name [Symbol, String] the name of the action method to process
       # @param args [Array] variable arguments to pass to the action method
       #
       # @return [void]
-      def process(method_name, *args) # :nodoc:
-        payload = {
-          agent:  self.class.name,
-          action: method_name,
-          args:   args
-        }
+      def process(method_name, *args, **kwargs) # :nodoc:
+        payload = { agent: self.class.name, action: method_name, args:, kwargs: }
 
         ActiveSupport::Notifications.instrument("process.active_agent", payload) do
           super
-          @_context = ActiveAgent::ActionPrompt::Prompt.new(agent_instance: self) unless @_prompt_was_called
+          # @_context = ActiveAgent::ActionPrompt::Prompt.new(agent_instance: self) unless @_prompt_was_called
         end
       end
 
@@ -265,7 +265,8 @@ module ActiveAgent
       def perform_generation
         resolver = Resolver.new(
           context:         raw_context,
-          stream_callback: raw_context[:stream] ? perform_streaming : nil
+          stream_callback: raw_context[:stream] ? perform_streaming : nil,
+          tool_callback:   raw_context[:tools]  ? perform_tooling   : nil
         )
 
         generation_provider.generate(resolver)
@@ -287,13 +288,59 @@ module ActiveAgent
 
       def perform_streaming
         proc do |message, delta, stop|
-          # @_action_name = action_name
-
           run_stream_callbacks(message, delta, stop) do |message, delta, stop|
             yield message, delta, stop if block_given?
           end
         end
       end
+
+      def perform_tooling
+        proc do |action_name, *args, **kwargs|
+          process(action_name, *args, **kwargs)
+        end
+      end
+
+      # def perform_actions(requested_actions:)
+      #   puts "perform_actions"
+      #   requested_actions.each do |action|
+      #     perform_action(action)
+      #   end
+      # end
+
+      # def perform_action(action)
+      #   puts "perform_action"
+      #   # Save the current messages to preserve conversation history
+      #   original_messages = context.messages.dup
+      #   original_params = context.params || {}
+
+      #   if action.params.is_a?(Hash)
+      #     self.params = original_params.merge(action.params)
+      #   else
+      #     self.params = original_params
+      #   end
+
+      #   # Save the current prompt_was_called state and reset it so the action can render
+      #   original_prompt_was_called = @_prompt_was_called
+      #   @_prompt_was_called = false
+
+      #   # Process the action, which will render the view and populate context
+      #   process(action.name)
+
+      #   # The action should have called prompt which populates context.message
+      #   # Create a tool message from the rendered response
+      #   tool_message = context.message.dup
+      #   tool_message.role = :tool
+      #   tool_message.action_id = action.id
+      #   tool_message.action_name = action.name
+      #   tool_message.generation_id = action.id
+
+      #   # Restore the messages with the new tool message
+      #   context.messages = original_messages + [ tool_message ]
+
+      #   # Restore the prompt_was_called state
+      #   @_prompt_was_called = original_prompt_was_called
+      # end
+
 
       def embed
         context.options.merge(options)
@@ -314,47 +361,6 @@ module ActiveAgent
 
       def update_context(response)
         ActiveAgent::GenerationProvider::Response.new(prompt: context)
-      end
-
-      def perform_actions(requested_actions:)
-        puts "perform_actions"
-        requested_actions.each do |action|
-          perform_action(action)
-        end
-      end
-
-      def perform_action(action)
-        puts "perform_action"
-        # Save the current messages to preserve conversation history
-        original_messages = context.messages.dup
-        original_params = context.params || {}
-
-        if action.params.is_a?(Hash)
-          self.params = original_params.merge(action.params)
-        else
-          self.params = original_params
-        end
-
-        # Save the current prompt_was_called state and reset it so the action can render
-        original_prompt_was_called = @_prompt_was_called
-        @_prompt_was_called = false
-
-        # Process the action, which will render the view and populate context
-        process(action.name)
-
-        # The action should have called prompt which populates context.message
-        # Create a tool message from the rendered response
-        tool_message = context.message.dup
-        tool_message.role = :tool
-        tool_message.action_id = action.id
-        tool_message.action_name = action.name
-        tool_message.generation_id = action.id
-
-        # Restore the messages with the new tool message
-        context.messages = original_messages + [ tool_message ]
-
-        # Restore the prompt_was_called state
-        @_prompt_was_called = original_prompt_was_called
       end
 
       def headers(args = nil)

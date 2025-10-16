@@ -16,9 +16,9 @@ module ActiveAgent
           ::OpenAI::Client.new(options.client_options)
         end
 
-        def generate(prompt_context)
+        def generate(resolver)
           with_error_handling do
-            generate_prompt(prompt_context)
+            resolve_prompt(resolver)
           end
         end
 
@@ -29,6 +29,12 @@ module ActiveAgent
 
         # @return [Class] The Options class for the specific provider, e.g., Anthropic::Options
         def options_type = OpenAI::Options
+
+        def process_stream(resolver)
+          proc do |api_response_chunk|
+            process_stream_chunk(resolver, api_response_chunk.deep_symbolize_keys)
+          end
+        end
       end
     end
   end
