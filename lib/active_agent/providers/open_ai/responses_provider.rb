@@ -6,13 +6,10 @@ module ActiveAgent
     module OpenAI
       # @see https://platform.openai.com/docs/api-reference/responses
       class ResponsesProvider < BaseProvider
-        def initialize(...)
-          super
-
-          self.request = Responses::Request.new(context)
-        end
-
         protected
+
+        def request_klass = Responses::Request
+        def options_klass = Options
 
         def client_request_create(parameters:)
           client.responses.create(parameters:)

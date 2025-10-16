@@ -15,12 +15,6 @@ module ActiveAgent
 
               validate :validate_function_structure
 
-              def to_h
-                super.tap do |hash|
-                  hash[:function] = function if function.present?
-                end
-              end
-
               private
 
               def validate_function_structure

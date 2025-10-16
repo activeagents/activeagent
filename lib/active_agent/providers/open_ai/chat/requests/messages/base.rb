@@ -13,10 +13,6 @@ module ActiveAgent
               attribute :role, :string
 
               validates :role, presence: true
-
-              def to_h
-                super.compact
-              end
             end
           end
         end

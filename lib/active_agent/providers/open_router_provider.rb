@@ -4,26 +4,27 @@ require_gem!(:openai, __FILE__)
 
 require_relative "open_ai_provider"
 require_relative "open_router/options"
+require_relative "open_router/request"
 
 module ActiveAgent
   module Providers
     class OpenRouterProvider < OpenAI::ChatProvider
-      #######
+      # Overloads the OpenAI ChatProvider to use Ollama-specific options and defaults.
+      def service_name  = "OpenRouter"
+      def options_klass = namespace::Options
+      def request_klass = namespace::Request
 
       # def initialize(config)
       #   @track_costs = config.delete("track_costs") != false
       #   super
       # end
 
-      def call
-        with_error_handling do
-          resolve_prompt
-        end
-        # rescue StandardError => exception
-        #   handle_openrouter_error(exception)
-      end
-
-      def service_name = "OpenRouter"
+      #   with_error_handling do
+      #     resolve_prompt
+      #   end
+      #   rescue StandardError => exception
+      #     handle_openrouter_error(exception)
+      # end
 
       protected
 

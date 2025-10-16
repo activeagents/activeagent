@@ -15,12 +15,6 @@ module ActiveAgent
 
               validate :validate_custom_structure
 
-              def to_h
-                super.tap do |hash|
-                  hash[:custom] = custom if custom.present?
-                end
-              end
-
               private
 
               def validate_custom_structure

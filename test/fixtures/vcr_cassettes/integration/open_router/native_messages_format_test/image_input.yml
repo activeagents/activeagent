@@ -2,18 +2,20 @@
 http_interactions:
 - request:
     method: post
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://openrouter.ai/api/v1/chat/completions
     body:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What
-        is in this image?"},{"type":"image_url","image_url":{"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}}]}],"model":"gpt-4.1","max_tokens":300}'
+        is in this image?"},{"type":"image_url","image_url":{"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}}]}],"model":"openai/gpt-5"}'
     headers:
       Content-Type:
       - application/json
       Authorization:
       - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
@@ -26,103 +28,48 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Thu, 16 Oct 2025 16:59:58 GMT
+      - Thu, 16 Oct 2025 21:35:58 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
       - chunked
       Connection:
       - keep-alive
-      Access-Control-Expose-Headers:
-      - X-Request-ID
-      Openai-Organization:
-      - ORGANIZATION_ID
-      Openai-Processing-Ms:
-      - '5510'
-      Openai-Project:
-      - PROJECT_ID
-      Openai-Version:
-      - '2020-10-01'
-      X-Envoy-Upstream-Service-Time:
-      - '5545'
-      X-Ratelimit-Limit-Input-Images:
-      - '250000'
-      X-Ratelimit-Limit-Requests:
-      - '10000'
-      X-Ratelimit-Limit-Tokens:
-      - '30000000'
-      X-Ratelimit-Remaining-Input-Images:
-      - '249999'
-      X-Ratelimit-Remaining-Requests:
-      - '9999'
-      X-Ratelimit-Remaining-Tokens:
-      - '29999227'
-      X-Ratelimit-Reset-Input-Images:
-      - 0s
-      X-Ratelimit-Reset-Requests:
-      - 6ms
-      X-Ratelimit-Reset-Tokens:
-      - 1ms
-      X-Request-Id:
-      - req_4f90074b14f04d68b7da38c0046754dd
-      X-Openai-Proxy-Wasm:
-      - v0.1
-      Cf-Cache-Status:
-      - DYNAMIC
-      Set-Cookie:
-      - __cf_bm=KjOezTmygKk9r2t3ynZAufkUbpbsKmQHGk2YUuO0Z.M-1760633998-1.0.1.1-xon3bMCcbfCrjxJylyA87E7yTZzmAFvi0jCRle1KpoORhezKixoFKaLNSbWI4MzYtpTJykF01wgNd91NLYhbgAtiqckox7LyRammpyeJ2jI;
-        path=/; expires=Thu, 16-Oct-25 17:29:58 GMT; domain=.api.openai.com; HttpOnly;
-        Secure; SameSite=None
-      - _cfuvid=mcj57MeVH_118IZz1sGZXE_IXiksLt10P4KOm70_e6A-1760633998249-0.0.1.1-604800000;
-        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f91bf5f95ccf13-SJC
-      Alt-Svc:
-      - h3=":443"; ma=86400
+      - 98fab0588ffbcfc4-SJC
     body:
       encoding: ASCII-8BIT
-      string: |
-        {
-          "id": "chatcmpl-CRLcQ0DKTsZE5a1eRfcZQ656UcxxR",
-          "object": "chat.completion",
-          "created": 1760633994,
-          "model": "gpt-4.1-2025-04-14",
-          "choices": [
-            {
-              "index": 0,
-              "message": {
-                "role": "assistant",
-                "content": "This image shows a wooden boardwalk path extending through a green grassy field or marshland. On either side of the boardwalk, there is lush, tall grass, along with some bushes and trees in the distance. The sky above is blue with scattered white clouds, creating a serene and picturesque landscape scene, likely taken on a clear day.",
-                "refusal": null,
-                "annotations": []
-              },
-              "logprobs": null,
-              "finish_reason": "stop"
-            }
-          ],
-          "usage": {
-            "prompt_tokens": 1118,
-            "completion_tokens": 68,
-            "total_tokens": 1186,
-            "prompt_tokens_details": {
-              "cached_tokens": 0,
-              "audio_tokens": 0
-            },
-            "completion_tokens_details": {
-              "reasoning_tokens": 0,
-              "audio_tokens": 0,
-              "accepted_prediction_tokens": 0,
-              "rejected_prediction_tokens": 0
-            }
-          },
-          "service_tier": "default",
-          "system_fingerprint": "fp_e24a1fec47"
-        }
-  recorded_at: Thu, 16 Oct 2025 16:59:58 GMT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n{\"id\":\"gen-1760650556-xLwZjGadb0hp37dBg54y\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-5\",\"object\":\"chat.completion\",\"created\":1760650557,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"completed\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        wooden boardwalk path runs through a lush green meadow or marsh, with tall
+        grass and bushes on both sides under a blue sky with scattered clouds. Trees
+        are visible in the distance.\",\"refusal\":null,\"reasoning\":\"**Describing
+        the image**\\n\\nI need to describe the image content clearly and concisely.
+        It features a wooden boardwalk path winding through a green grassy field or
+        marsh, set against a blue sky with some clouds. In the background, there are
+        trees and bushes, all illuminated by pleasant sunlight. There aren't any people
+        in the scene. In my description, I might mention elements like meadow, wetland,
+        path, and walkway for simplicity. Alright, let's create that brief description!\",\"reasoning_details\":[{\"type\":\"reasoning.summary\",\"summary\":\"**Describing
+        the image**\\n\\nI need to describe the image content clearly and concisely.
+        It features a wooden boardwalk path winding through a green grassy field or
+        marsh, set against a blue sky with some clouds. In the background, there are
+        trees and bushes, all illuminated by pleasant sunlight. There aren't any people
+        in the scene. In my description, I might mention elements like meadow, wetland,
+        path, and walkway for simplicity. Alright, let's create that brief description!\",\"format\":\"openai-responses-v1\",\"index\":0},{\"type\":\"reasoning.encrypted\",\"data\":\"gAAAAABo8WVDRZXawTFcndvuQWNtZCrQac65nSLN7hTZoaoCQbZe9_mrel-Aq3rUbgFBKi57BaxJLAivqtwAZRjXqEkKbKbwq-BgzR2qVsiEPvnB_RDYkB-GfXFFlgipjvfyosknF3QFA-dAMslmIpBWd9y3HuLp3C537-LjDgZGT9cqt-ZLA7eFf_tuXtq-OcAdYhzw6-wcxddx3dpstss-tX1xOjiNkGBqOy9Igy2KzfJcrzHeAZzleBey1XTosN77e6aIEvaSFpUYhTRMcKdR40PwWANN5fUO7qJ2MUlHDxIUWK053Ug785D4ZXqHjHL1bPF2JB-DQux0PwJvBsPzNqZy7Tb7XxOJxLk79LxpDMqPImjDURrO9hv4PCl5Si0t_7Qkp6jUrj3_lJUVBjGwMvfNskq69hzRHZ3QHSb-P3thOv2k5gdf1ElRhMY4HD4GBxvlhGfbp2CqGR7jOHBrtKFY4BMzHwIwWvfABPSVNrolaUu8C_xp9jUwE54FXVHvpmSFCia4YvnisBETkRntJIoc1v6caYqzYkHQ5kUBeFgUFt2nxgV1h538Cy7-aAPig1aEOKnM2jW8_JRaB26ieqXrtmN2j5O5kaGwzGf2whqQEsdBeZkIA7OcKZy0HMPs103trP_Tdnals_E_IomE4H9lhyikmBs1EoBmeWfxyUB5m2PyPAU22CWJxzW2ySnbFOjriZCy5I6kZ0aimcmDoPCgloMdsGcYI8PsxsNx1z_21yDA95v-OunZK8MzdRzLIaXz2n57SU_V1zTKe9DfeYfCYvJwijV0814kfLviHEylIMbpyS8wsWwa1x3CMQHEcm-wayImU1BS9TQqumS_gac2EWwuRGGUMO1vXPtf_169UZXCP1_lGkObAmQYZSMltlCkgoP5sH_snme9l2xGiLwIEeTpVr1gwMu-JElx_PpuZ-mZEiXlCsqBjy6JrFF00uA_b8a80COIKAGAmgO5drXLpg78Ecx5L_Bt2bKkX-0weGcL-EBpOsPQu66bM8HxL-pauFRuRz7LWEM1k7T8jOz4m4k-9s3UPH3z5u1jFfwe-5R-x9LVhvxAGCtCejskpXQIzyIkVJTBXuvhY9jAtYZHfJ7oIN10Jua-eza3uyj5A3MxRUwuKFbjt4T4yeBTlzf1gtOqoVEvodXIDJpGotzMzZQDeHh7gZU8Gef8vyrO-Cci2bzk4hRCFDONm2hl8dnT-UDGMqjpxklJiZWqLDd8ogdeb7dSiDehpTBLsXw51XgMUp9KZ-G7hxFoj9n8MVSb0goM6scWbnZoUti_kKUYjm_FI2qGuzzK5YQD_gZ3RLI948w=\",\"id\":\"rs_035003a53c3094020168f1653f55308195bab37bf258bf3af9\",\"format\":\"openai-responses-v1\",\"index\":0}]}}],\"usage\":{\"prompt_tokens\":922,\"completion_tokens\":107,\"total_tokens\":1029,\"completion_tokens_details\":{\"reasoning_tokens\":64}}}"
+  recorded_at: Thu, 16 Oct 2025 21:36:04 GMT
 recorded_with: VCR 6.3.1

@@ -8,7 +8,6 @@ require "active_agent/action_prompt/action"
 # require "active_agent/log_subscriber"
 require "active_agent/rescuable"
 
-require_relative "resolver"
 require_relative "null_prompt"
 require_relative "concerns/provider"
 
@@ -42,7 +41,6 @@ module ActiveAgent
       helper ActiveAgent::PromptHelper
 
       class_attribute :options
-
       class_attribute :default_params, default: {
         mime_version: "1.0",
         charset: "UTF-8",
@@ -171,28 +169,7 @@ module ActiveAgent
         #    config.action_agent.default_options = { from: "no-reply@example.org" }
         alias_method :default_options=, :default
 
-        # Wraps a prompt generation inside of ActiveSupport::Notifications instrumentation.
-        #
-        # This method is actually called by the +ActionPrompt::Prompt+ object itself
-        # through a callback when you call <tt>:generate_prompt</tt> on the +ActionPrompt::Prompt+,
-        # calling +generate_prompt+ directly and passing an +ActionPrompt::Prompt+ will do
-        # nothing except tell the logger you generated the prompt.
-        def generate_prompt(prompt) # :nodoc:
-          ActiveSupport::Notifications.instrument("deliver.active_agent") do |payload|
-            set_payload_for_prompt(payload, prompt)
-            yield # Let Prompt do the generation actions
-          end
-        end
-
         private
-
-        def set_payload_for_prompt(payload, prompt)
-          payload[:prompt] = prompt.encoded
-          payload[:agent] = agent_name
-          payload[:message_id] = prompt.message_id
-          payload[:date] = prompt.date
-          payload[:perform_generations] = prompt.perform_generations
-        end
 
         def method_missing(method_name, ...)
           if action_methods.include?(method_name.name)
@@ -210,15 +187,11 @@ module ActiveAgent
       delegate :agent_name, to: :class
 
       attr_internal :options # Action-level options merged with agent options
-      attr_internal :context
 
       # @return [void]
       def initialize # :nodoc:
         super
         self.options = self.class.options&.deep_dup
-
-        @_prompt_was_called = false
-        @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options&.deep_dup || {}, agent_instance: self)
       end
 
       # Entry point for action execution.
@@ -303,47 +276,7 @@ module ActiveAgent
         end
       end
 
-      # def perform_actions(requested_actions:)
-      #   puts "perform_actions"
-      #   requested_actions.each do |action|
-      #     perform_action(action)
-      #   end
-      # end
-
-      # def perform_action(action)
-      #   puts "perform_action"
-      #   # Save the current messages to preserve conversation history
-      #   original_messages = context.messages.dup
-      #   original_params = context.params || {}
-
-      #   if action.params.is_a?(Hash)
-      #     self.params = original_params.merge(action.params)
-      #   else
-      #     self.params = original_params
-      #   end
-
-      #   # Save the current prompt_was_called state and reset it so the action can render
-      #   original_prompt_was_called = @_prompt_was_called
-      #   @_prompt_was_called = false
-
-      #   # Process the action, which will render the view and populate context
-      #   process(action.name)
-
-      #   # The action should have called prompt which populates context.message
-      #   # Create a tool message from the rendered response
-      #   tool_message = context.message.dup
-      #   tool_message.role = :tool
-      #   tool_message.action_id = action.id
-      #   tool_message.action_name = action.name
-      #   tool_message.generation_id = action.id
-
-      #   # Restore the messages with the new tool message
-      #   context.messages = original_messages + [ tool_message ]
-
-      #   # Restore the prompt_was_called state
-      #   @_prompt_was_called = original_prompt_was_called
-      # end
-
+      ###
 
       def embed
         context.options.merge(options)
@@ -487,44 +420,6 @@ module ActiveAgent
 
         JSON.parse render_to_string(locals: { action_name: schema_or_action }, action: schema_or_action, formats: :json)
       end
-
-      # def merge_options(prompt_options)
-      #   config_options = provider_type&.options&.to_h || {}
-      #   agent_options = (self.class.options || {}).deep_dup  # Defensive copy to prevent mutation
-
-      #   parent_options = self.class.superclass.respond_to?(:options) ? (self.class.superclass.options || {}) : {}
-
-      #   # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
-      #   runtime_options = prompt_options.slice(
-      #     :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
-      #     :presence_penalty, :response_format, :seed, :stop, :tools_choice, :plugins,
-
-      #     # OpenRouter Provider Settings
-      #     :data_collection, :require_parameters, :only, :ignore, :quantizations, :sort, :max_price,
-
-      #     # Built-in Tools Support (OpenAI Responses API)
-      #     :tools
-      #   )
-      #   # Handle explicit options parameter
-      #   explicit_options = prompt_options[:options] || {}
-
-      #   # Merge with proper precedence: config < agent < explicit_options
-      #   # Don't include instructions in automatic merging as it has special template fallback logic
-      #   config_options_filtered = config_options.except(:instructions)
-      #   agent_options_filtered = agent_options.except(:instructions)
-      #   explicit_options_filtered = explicit_options.except(:instructions)
-
-      #   merged = config_options_filtered.merge(agent_options_filtered).merge(explicit_options_filtered)
-
-      #   # Only merge runtime options that are actually present (not nil)
-      #   runtime_options.each do |key, value|
-      #     next if value.nil?
-
-      #     merged[key] = value
-      #   end
-
-      #   merged
-      # end
 
       def set_content_type(prompt_context, user_content_type, class_default) # :doc:
         if user_content_type.present?

@@ -22,8 +22,6 @@ open_router: &open_router
 # region ollama_anchor
 ollama: &ollama
   service: "Ollama"
-  access_token: ""
-  host: "http://localhost:11434"
   model: "gemma3:latest"
   temperature: 0.7
 # endregion ollama_anchor

@@ -138,36 +138,10 @@ module ActiveAgent
           validate :validate_logit_bias_format
           validate :validate_stop_sequences
 
-          def to_h
-            super.tap do |hash|
-              # Convert nested objects to hashes
-              hash[:audio]              = audio.to_h              if audio.is_a?(Requests::Audio)
-              hash[:response_format]    = response_format.to_h    if response_format.is_a?(Requests::ResponseFormat)
-              hash[:prediction]         = prediction.to_h         if prediction.is_a?(Requests::Prediction)
-              hash[:stream_options]     = stream_options.to_h     if stream_options.is_a?(Requests::StreamOptions)
-              hash[:web_search_options] = web_search_options.to_h if web_search_options.is_a?(Requests::WebSearchOptions)
-              hash[:tool_choice]        = tool_choice.to_h        if tool_choice.is_a?(Requests::ToolChoice)
-
-              # Convert messages array
-              if messages.is_a?(Array)
-                hash[:messages] = messages.map do |message|
-                  message.is_a?(Requests::Messages::Base) ? message.to_h : message
-                end
-              end
-
-              # Convert tools array
-              if tools.is_a?(Array)
-                hash[:tools] = tools.map do |tool|
-                  tool.is_a?(Requests::Tools::Base) ? tool.to_h : tool
-                end
-              end
-            end
-          end
-
-          def to_hc
+          def to_hash_compressed
             super.tap do |hash|
               # Can be an empty hash, to enable the feature
-              hash[:web_search_options] = web_search_options.to_h if web_search_options.is_a?(Requests::WebSearchOptions)
+              hash[:web_search_options] ||= {} if web_search_options
             end
           end
 

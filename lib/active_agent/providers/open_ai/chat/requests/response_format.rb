@@ -19,15 +19,6 @@ module ActiveAgent
             # Validate that json_schema is present when type is json_schema
             validate :validate_json_schema_presence
 
-            def to_h
-              super.tap do |hash|
-                # Ensure json_schema nested structure is properly handled
-                if json_schema.is_a?(Hash)
-                  hash[:json_schema] = json_schema
-                end
-              end
-            end
-
             private
 
             def validate_json_schema_presence

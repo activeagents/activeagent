@@ -14,7 +14,7 @@ module ActiveAgent
       # 4. Default (lowest priority) [Applied via Options Attribute Defaults]
       def generate_prompt_parameters(prompt)
         agent_params   = options.prompt_parameters                   # Agent-Provider Level Params
-        action_params  = options_type.new(**(prompt.options || {}))  # Action-Prompt Level Params
+        action_params  = options_klass.new(**(prompt.options || {}))  # Action-Prompt Level Params
         message_params = generate_prompt_parameters_messages(prompt) # Action-Prompt Messages
 
         # Merge together the simple parameters

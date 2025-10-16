@@ -52,7 +52,7 @@ module ActiveAgent
       def initialize(kwargs = {})
         assert_service!(kwargs.delete(:service))
 
-        self.options = options_type.new(kwargs.extract!(options_type.keys))
+        self.options = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context = kwargs
       end
 
@@ -77,7 +77,7 @@ module ActiveAgent
       end
 
       # @return [Class] The Options class for the specific provider, e.g., Anthropic::Options
-      def options_type
+      def options_klass
         self.class.module_parent.const_get("#{service_name}::Options", false)
       end
 

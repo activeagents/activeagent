@@ -6,8 +6,8 @@ module ActiveAgent
   module Providers
     module Ollama
       class Options < ActiveAgent::Providers::OpenAI::Options
-        # Client Options
-        attribute :uri_base, :string, default: "http://localhost:11434"
+        attribute :uri_base,     :string, fallback: "http://127.0.0.1:11434"
+        attribute :access_token, :string, fallback: "ollama"
 
         private
 

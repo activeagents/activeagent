@@ -18,7 +18,7 @@ module ActiveAgent
     #
     # @example Basic usage
     #   provider = ActiveAgent::Providers::OpenAIProvider.new(...)
-    #   result = provider.generate(resolver)
+    #   result = provider.generate
     #
     # @see https://platform.openai.com/docs/guides/migrate-to-responses
     class OpenAIProvider < OpenAI::BaseProvider
@@ -37,7 +37,6 @@ module ActiveAgent
       # - Uses Chat API if +api_version: :chat+ is specified or audio is present
       # - Uses Responses API otherwise (default)
       #
-      # @param resolver [Object] The resolver containing the prompt context and configuration
       # @return [Object] The generation result from the selected API provider
       #
       # @see https://platform.openai.com/docs/guides/migrate-to-responses

@@ -16,7 +16,7 @@ module ActiveAgent
         validates :access_token, presence: true
 
         # Backwards Compatibility
-        alias_attribute :host, :uri_base
+        alias_attribute :host,    :uri_base
         alias_attribute :api_key, :access_token
 
         # Initialize from a hash (kwargs) with fallback to environment variables and OpenAI gem configuration

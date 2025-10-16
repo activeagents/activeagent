@@ -168,7 +168,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
   test "different runtime option types are supported" do
     test_agent_class = create_test_agent
 
-    # region runtime_options_types
+    # region runtime_options_klasss
     parameterized_agent = test_agent_class.with(
       message: "test",
       options: {
@@ -184,7 +184,7 @@ class OptionHierarchyTest < ActiveSupport::TestCase
     )
 
     prompt = parameterized_agent.prompt_context
-    # endregion runtime_options_types
+    # endregion runtime_options_klasss
 
     assert_equal 0.95, prompt.options[:top_p]
     assert_equal 0.1, prompt.options[:frequency_penalty]

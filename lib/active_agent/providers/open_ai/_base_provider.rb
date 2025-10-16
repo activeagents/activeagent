@@ -39,6 +39,8 @@ module ActiveAgent
           self.message_stack     = []
 
           super(kwargs)
+
+          self.request = request_klass.new(context)
         end
 
         # Main entry point for executing the provider call.
@@ -70,8 +72,9 @@ module ActiveAgent
 
         protected
 
-        # @return [Class] The Options class for the specific provider, e.g., Anthropic::Options
-        def options_type = OpenAI::Options
+        def namespace     = "#{self.class.name.deconstantize}::#{service_name}".safe_constantize
+        def options_klass = namespace::Options
+        def request_klass = namespace::Request
 
         # @return response [ActiveAgent::Providers::Response]
         def resolve_prompt

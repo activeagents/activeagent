@@ -11,8 +11,8 @@ module ActiveAgent
     module OpenRouter
       class Options < ActiveAgent::Providers::OpenAI::Options
         attribute :uri_base, :string, as: "https://openrouter.ai/api/v1"
-        attribute :app_name, :string
-        attribute :site_url, :string
+        attribute :app_name, :string, fallback: "ActiveAgent"
+        attribute :site_url, :string, fallback: "https://activeagents.ai/"
 
         def initialize(kwargs = {})
           kwargs = kwargs.deep_symbolize_keys if kwargs.respond_to?(:deep_symbolize_keys)
@@ -23,15 +23,18 @@ module ActiveAgent
           )))
         end
 
-        def to_hc
-          super.tap do |hash|
-            if site_url || app_name
-              hash[:extra_headers] = {
-                "http-referer" => site_url,
-                "x-title"      => app_name
-              }.compact
-            end
+        def to_hash_compressed
+          super.except(:app_name, :site_url).tap do |hash|
+            hash[:extra_headers] = extra_headers unless extra_headers.blank?
           end
+        end
+
+        # We fallback to ActiveAgent but allow empty strings to unset
+        def extra_headers
+          deep_compact(
+            "http-referer" => site_url.presence,
+            "x-title"      => app_name.presence
+          )
         end
 
         private
@@ -51,8 +54,6 @@ module ActiveAgent
         def resolve_app_name(settings)
           if defined?(Rails) && Rails.application
             Rails.application.class.name.split("::").first
-          else
-            "ActiveAgent"
           end
         end
 
@@ -87,7 +88,7 @@ module ActiveAgent
             end
           end
 
-          "https://activeagents.ai/"
+          nil
         end
       end
     end

@@ -1,15 +1,276 @@
 # frozen_string_literal: true
 
 require_relative "../test_helper"
-require_relative "../open_ai/chat_api/native_messages_format_test"
 
 module Integration
   module OpenRouter
     class NativeMessagesFormatTest < ActiveSupport::TestCase
       include Integration::TestHelper
 
-      class TestAgent < OpenAI::ChatAPI::NativeMessagesFormatTest::TestAgent
-        generate_with :open_router, model: "gpt-5", temperature: nil
+      class TestAgent < ActiveAgent::Base
+        generate_with :open_router, model: nil, temperature: nil
+
+        ###############################################################
+        # OpenAI Provided Example
+        ###############################################################
+        TEXT_INPUT = {
+          "model": "openrouter/auto",
+          "messages": [
+            {
+              "role": "developer",
+              "content": "You are a helpful assistant."
+            },
+            {
+              "role": "user",
+              "content": "Hello!"
+            }
+          ]
+        }
+        def text_input
+          prompt(
+            messages: [
+              {
+                role: "developer",
+                content: "You are a helpful assistant."
+              },
+              {
+                role: "user",
+                content: "Hello!"
+              }
+            ]
+          )
+        end
+
+        IMAGE_INPUT = {
+          "model": "openai/gpt-5",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "What is in this image?"
+                },
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+        def image_input
+          prompt(
+            model: "openai/gpt-5",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "What is in this image?"
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                    }
+                  }
+                ]
+              }
+            ]
+          )
+        end
+
+        STREAMING = {
+          "model": "openrouter/auto",
+          "messages": [
+            {
+              "role": "developer",
+              "content": "You are a helpful assistant."
+            },
+            {
+              "role": "user",
+              "content": "Hello!"
+            }
+          ],
+          "stream": true
+        }
+        def streaming
+          prompt(
+            messages: [
+              {
+                role: "developer",
+                content: "You are a helpful assistant."
+              },
+              {
+                role: "user",
+                content: "Hello!"
+              }
+            ],
+            stream: true
+          )
+        end
+
+        FUNCTIONS = {
+          "model": "google/gemini-2.0-flash-001",
+          "messages": [
+            {
+              "role": "user",
+              "content": "What is the weather like in Boston today?"
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "get_current_weather",
+                "description": "Get the current weather in a given location",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "location": {
+                      "type": "string",
+                      "description": "The city and state, e.g. San Francisco, CA"
+                    },
+                    "unit": {
+                      "type": "string",
+                      "enum": [ "celsius", "fahrenheit" ]
+                    }
+                  },
+                  "required": [ "location" ]
+                }
+              }
+            }
+          ],
+          "tool_choice": "auto"
+        }
+        def functions
+          prompt(
+            model: "google/gemini-2.0-flash-001",
+            messages: [
+                {
+                role: "user",
+                content: "What is the weather like in Boston today?"
+              }
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "get_current_weather",
+                  description: "Get the current weather in a given location",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                    location: {
+                      type: "string",
+                      description: "The city and state, e.g. San Francisco, CA"
+                    },
+                    unit: {
+                      type: "string",
+                      enum: [ "celsius", "fahrenheit" ]
+                    }
+                  },
+                  required: [ "location" ]
+                }
+                }
+              }
+            ],
+            tool_choice: "auto"
+          )
+        end
+
+        def get_current_weather(location:, unit: "fahrenheit")
+          { location:, unit:, temperature: "22" }
+        end
+
+        LOGPROBS = {
+          "model": "gpt-4",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Hello!"
+            }
+          ],
+          "logprobs": true,
+          "top_logprobs": 2
+        }
+        def logprobs
+          prompt(
+            model: "gpt-4",
+            messages: [
+              {
+                role: "user",
+                content: "Hello!"
+              }
+            ],
+            logprobs: true,
+            top_logprobs: 2
+          )
+        end
+
+        WEB_SEARCH = {
+          "model": "openrouter/auto",
+          "web_search_options": {},
+          "messages": [ {
+              "role": "user",
+              "content": "What was a positive news story from today?"
+          } ]
+        }
+        def web_search
+          prompt(
+            model: "openrouter/auto",
+            web_search_options: {},
+            messages: [ {
+                role: "user",
+                content: "What was a positive news story from today?"
+            } ],
+          )
+        end
+
+        ###############################################################
+        # Extended Example
+        ###############################################################
+        FUNCTIONS_WITH_STREAMING = FUNCTIONS.merge(stream: true)
+        def functions_with_streaming
+          prompt(
+            model: "google/gemini-2.0-flash-001",
+            messages: [
+            {
+              role: "user",
+              content: "What is the weather like in Boston today?"
+            }
+            ],
+            tools: [
+            {
+              type: "function",
+              function: {
+              name: "get_current_weather",
+              description: "Get the current weather in a given location",
+              parameters: {
+                type: "object",
+                properties: {
+                location: {
+                  type: "string",
+                  description: "The city and state, e.g. San Francisco, CA"
+                },
+                unit: {
+                  type: "string",
+                  enum: [ "celsius", "fahrenheit" ]
+                }
+                },
+                required: [ "location" ]
+              }
+              }
+            }
+            ],
+            tool_choice: "auto",
+            stream: true
+          )
+        end
       end
 
       ################################################################################

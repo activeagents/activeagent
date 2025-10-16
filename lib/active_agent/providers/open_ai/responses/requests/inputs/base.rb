@@ -19,8 +19,9 @@ module ActiveAgent
                 allow_nil: true
               }
 
-              def to_hc
+              def to_hash_compressed
                 super.tap do |hash|
+                  # If there is a only a single input_text we can compress down to a string
                   if content.is_a?(Array) && content.one? && content.first.type == "input_text"
                     hash[:content] = content.first.text
                   end

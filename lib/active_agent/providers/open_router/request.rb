@@ -4,6 +4,7 @@ require_relative "../open_ai/options"
 require_relative "requests/response_format"
 require_relative "requests/prediction"
 require_relative "requests/provider_preferences"
+require_relative "requests/message"
 require_relative "requests/types"
 
 module ActiveAgent
@@ -11,10 +12,13 @@ module ActiveAgent
     module OpenRouter
       class Request < OpenAI::Chat::Request
         # Prompting Options
-        attribute :model,           :string,  default: "openrouter/auto"
+        attribute :model,           :string, fallback: "openrouter/auto"
         attribute :response_format, Requests::Types::ResponseFormatType.new
         attribute :max_tokens,      :integer
         attribute :stop # Can be string or array
+
+        # Messages array (required)
+        attribute :messages, Requests::Types::MessagesType.new
 
         # LLM Parameters
         attribute :seed,               :integer

@@ -102,33 +102,9 @@ module ActiveAgent
           validates :service_tier,      inclusion: { in: %w[auto default flex priority] },                        allow_nil: true
           validates :truncation,        inclusion: { in: %w[auto disabled] },                                     allow_nil: true
 
-          # Custom validation: conversation and previous_response_id are mutually exclusive
           validate :validate_conversation_exclusivity
-
-          # Custom validation: metadata keys and values length
           validate :validate_metadata_format
-
-          # Custom validation: include array values
           validate :validate_include_values
-
-          def to_h
-            super.tap do |hash|
-              # Convert nested objects to hashes
-              hash[:conversation]   = conversation.to_h   if conversation.is_a?(Requests::Conversation)
-              hash[:prompt]         = prompt.to_h         if prompt.is_a?(Requests::PromptReference)
-              hash[:reasoning]      = reasoning.to_h      if reasoning.is_a?(Requests::Reasoning)
-              hash[:stream_options] = stream_options.to_h if stream_options.is_a?(Requests::StreamOptions)
-              hash[:text]           = text.to_h           if text.is_a?(Requests::Text)
-              hash[:tool_choice]    = tool_choice.to_h    if tool_choice.is_a?(Requests::ToolChoice)
-
-              # Convert tools array
-              if tools.is_a?(Array)
-                hash[:tools] = tools.map do |tool|
-                  tool.respond_to?(:to_h) ? tool.to_h : tool
-                end
-              end
-            end
-          end
 
           # Always store in the expanded mode, we can compress it out later
           def input=(value)
@@ -149,7 +125,6 @@ module ActiveAgent
               value
             end
           end
-
 
           # For the message stack
           def messages

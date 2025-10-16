@@ -5,13 +5,10 @@ module ActiveAgent
   module Providers
     module OpenAI
       class ChatProvider < BaseProvider
-        def initialize(...)
-          super
-
-          self.request = Chat::Request.new(context)
-        end
-
         protected
+
+        def request_klass = Chat::Request
+        def options_klass = Options
 
         def client_request_create(parameters:)
           client.chat(parameters:)
@@ -93,6 +90,11 @@ module ActiveAgent
         #   )
         # end
 
+        # NOTE: This is seperated from hash_merge_delta to allow Ollama to patch the role resolving
+        def message_merge_delta(message, delta)
+          hash_merge_delta(message, delta)
+        end
+
         private
 
         # @return message [Hash]
@@ -105,32 +107,32 @@ module ActiveAgent
         end
 
         # This to handle the poor design of the chat streaming API. They redesigned it for a reason, and it shows.
-        def message_merge_delta(message, delta)
+        def hash_merge_delta(hash, delta)
           delta.each do |key, value|
-            case message[key]
+            case hash[key]
             when Hash
-              message[key] = message_merge_delta(message[key], value)
+              hash[key] = hash_merge_delta(hash[key], value)
             when Array
               value.each do |delta_item|
                 if delta_item.is_a?(Hash) && delta_item[:index]
-                  message_item = message[key].find { |it| it[:index] == delta_item[:index] }
-                  if message_item
-                    message_merge_delta(message_item, delta_item)
+                  hash_item = hash[key].find { |it| it[:index] == delta_item[:index] }
+                  if hash_item
+                    hash_merge_delta(hash_item, delta_item)
                   else
-                    message[key] << delta_item
+                    hash[key] << delta_item
                   end
                 else
-                  message[key] << delta_item
+                  hash[key] << delta_item
                 end
               end
             when String
-              message[key] += value
+              hash[key] += value
             else
-              message[key] = value
+              hash[key] = value
             end
           end
 
-          message
+          hash
         end
       end
     end

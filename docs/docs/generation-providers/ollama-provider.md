@@ -27,7 +27,7 @@ Set up Ollama in `config/active_agent.yml`:
 Configure via environment:
 
 ```bash
-OLLAMA_HOST=http://localhost:11434
+OLLAMA_HOST=http://localhost:11434/v1
 OLLAMA_MODEL=llama3
 ```
 
@@ -81,7 +81,7 @@ class OllamaAdmin < ApplicationAgent
   private
 
   def ollama_host
-    Rails.configuration.active_agent.dig(:ollama, :host) || "http://localhost:11434"
+    Rails.configuration.active_agent.dig(:ollama, :host) || "http://localhost:11434/v1"
   end
 end
 ```

@@ -19,19 +19,12 @@ module ActiveAgent
             validates :mode, inclusion: { in: %w[none auto required] }, allow_nil: true
             validates :type, inclusion: { in: %w[function custom allowed_tools] }, allow_nil: true
 
-            def to_h
+            def to_hash_compressed
               # If it's just a mode string, return the string
               return mode if mode.present? && type.blank? && function.blank? && custom.blank? && allowed_tools.blank?
 
-              # Otherwise return the object structure
-              super.tap do |hash|
-                hash.delete(:mode) if mode.blank?
-                hash[:function] = function if function.present?
-                hash[:custom] = custom if custom.present?
-                hash[:allowed_tools] = allowed_tools if allowed_tools.present?
-              end
+              super
             end
-            def to_hc = to_h
           end
         end
       end

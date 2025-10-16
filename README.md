@@ -60,7 +60,7 @@ Define an application agent:
 
 ```ruby
 class ApplicationAgent < ActiveAgent::Base
-  generate_with :openai, 
+  generate_with :openai,
     instructions: "You are a helpful assistant.",
     model: "gpt-4o-mini",
     temperature: 0.7
@@ -125,7 +125,7 @@ development:
     service: "Ollama"
     model: "llama3.2"
     embeddings_model: "nomic-embed-text"
-    host: "http://localhost:11434"
+    host: "http://localhost:11434/v1"
 ```
 
 ## Features
@@ -156,7 +156,7 @@ Translate text between languages:
 
 ```ruby
 response = TranslationAgent.with(
-  message: "Hi, I'm Justin", 
+  message: "Hi, I'm Justin",
   locale: "japanese"
 ).translate.generate_now
 ```

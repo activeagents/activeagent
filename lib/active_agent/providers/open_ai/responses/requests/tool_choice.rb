@@ -19,7 +19,7 @@ module ActiveAgent
             validates :mode, inclusion: { in: %w[none auto required] }, allow_nil: true
             validates :type, inclusion: { in: %w[function custom] }, allow_nil: true
 
-            def to_hc
+            def to_hash_compressed
               # If it's just a mode string, return the string
               return mode if mode.present? && type.blank? && function.blank? && custom.blank?
 

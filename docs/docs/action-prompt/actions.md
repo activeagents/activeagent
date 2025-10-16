@@ -1,7 +1,7 @@
 # Actions
 Active Agent uses Action View to render Message content for [Prompt](./prompts.md) context objects.
 
-## Prompt 
+## Prompt
 The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller, it allows you to specify the content type and view template for the action's response.
 
 ```ruby
@@ -24,12 +24,12 @@ end
 MyAgent.with(param: value).my_action.generate_now
 ```
 
-These Prompt objects contain the context Messages and available Actions. These actions are the interface that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views. 
+These Prompt objects contain the context Messages and available Actions. These actions are the interface that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views.
 
-Actions can be used to render Prompt objects with `:assistant` [Messages](/docs/action-prompt/messages) back to a user or `:tool` Messages to provide the result of an action back to the Agent. 
+Actions can be used to render Prompt objects with `:assistant` [Messages](/docs/action-prompt/messages) back to a user or `:tool` Messages to provide the result of an action back to the Agent.
 
 ## Defining Actions
-You can define actions in your agent class that can be used to interact with the agent. 
+You can define actions in your agent class that can be used to interact with the agent.
 
 ::: code-group
 <<< @/../test/dummy/app/agents/translation_agent.rb{ruby:line-numbers} [translation_agent.rb]
@@ -91,7 +91,7 @@ Example:
 # Regular parameters and runtime options
 TravelAgent.with(
   destination: "Paris",        # Regular parameter
-  user_id: 123,               # Regular parameter  
+  user_id: 123,               # Regular parameter
   options: {                  # Runtime options
     model: "gpt-4o",
     temperature: 0.7
@@ -150,7 +150,7 @@ Runtime options can be passed to agents in several ways:
 <<< @/../test/option_hierarchy_test.rb#runtime_options_in_prompt{ruby:line-numbers}
 
 3. **Supported runtime option types**:
-<<< @/../test/option_hierarchy_test.rb#runtime_options_types{ruby:line-numbers}
+<<< @/../test/option_hierarchy_test.rb#runtime_options_klasss{ruby:line-numbers}
 
 Available runtime options include:
 - `model`: The model to use for generation (e.g., "gpt-4o", "claude-3")
@@ -173,7 +173,7 @@ Available runtime options include:
 2. Agent-level options (set with `generate_with`)
 3. Explicit options (passed via `:options` parameter)
 4. Runtime options (highest priority)
-  
+
 ## How Agents use Actions
 1. The agent receives a request from the user, which may include a message or an action to be performed.
 2. The agent processes the request and determines if an action needs to be invoked.
@@ -184,7 +184,7 @@ Available runtime options include:
 
 ## How Agents handle responses
 1. The agent receives a response from the generation provider, which includes the generated content and any actions that need to be performed.
-2. The agent processes the response 
+2. The agent processes the response
 3. If there are no `requested_actions` then response is sent back to the user.
 4. If the response includes actions, then agent executes them and updates the context accordingly.
 5. If the resulting context `requested_actions` includes `reiterate`, then context is updated with the new messages, actions, and parameters, and the cycle continues.
@@ -213,7 +213,7 @@ Available runtime options include:
 - Support for multiple Action View template content types (e.g., text, JSON, HTML).
 - Customizable actions with dynamic view templates for Retrieval Augmented Generation (RAG).
 - Prompt method to render the action's content in the prompt context.
-  
+
 ## Tool Definitions
 Tool schema definitions are also view templates that can be rendered to the agent. They are used to define the structure and parameters of the tools that the agent can use. Tool definitions are typically defined in JSON format and can include properties, required fields, and descriptions. They can be represented in various formats, such as jbuilder, JSON, or ERB templates, to provide a structured way to define the tools available to the agent.
 

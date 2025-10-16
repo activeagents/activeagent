@@ -2,18 +2,20 @@
 http_interactions:
 - request:
     method: post
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://openrouter.ai/api/v1/chat/completions
     body:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"What was a positive news story
-        from today?"}],"model":"gpt-4o-search-preview","web_search_options":{}}'
+        from today?"}],"model":"openrouter/auto","web_search_options":{}}'
     headers:
       Content-Type:
       - application/json
       Authorization:
       - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
@@ -26,105 +28,46 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Thu, 16 Oct 2025 17:01:27 GMT
+      - Thu, 16 Oct 2025 19:58:36 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
       - chunked
       Connection:
       - keep-alive
-      Access-Control-Expose-Headers:
-      - X-Request-ID
-      Openai-Organization:
-      - ORGANIZATION_ID
-      Openai-Processing-Ms:
-      - '3575'
-      Openai-Project:
-      - PROJECT_ID
-      Openai-Version:
-      - '2020-10-01'
-      X-Envoy-Upstream-Service-Time:
-      - '3589'
-      X-Ratelimit-Limit-Requests:
-      - '1000'
-      X-Ratelimit-Limit-Tokens:
-      - '3000000'
-      X-Ratelimit-Remaining-Requests:
-      - '999'
-      X-Ratelimit-Remaining-Tokens:
-      - '2999987'
-      X-Ratelimit-Reset-Requests:
-      - 60ms
-      X-Ratelimit-Reset-Tokens:
-      - 0s
-      X-Request-Id:
-      - req_f5ece9dd7350456fb1ade2f4d80b82e8
-      X-Openai-Proxy-Wasm:
-      - v0.1
-      Cf-Cache-Status:
-      - DYNAMIC
-      Set-Cookie:
-      - __cf_bm=Icj4yRzE7hX6K.0..nl324DIt11H4br5gf8rKkFe6nE-1760634087-1.0.1.1-4rwUeVmZZUF0zaIrow89yfXpr_mG4pdW81aAMwsBP1O37.Rz7G7FO_NEdOtyfhvc4jCKW8gx6vZaRhPxy4vW6baanZbdccVTfebKeDEKk44;
-        path=/; expires=Thu, 16-Oct-25 17:31:27 GMT; domain=.api.openai.com; HttpOnly;
-        Secure; SameSite=None
-      - _cfuvid=n78IuctOe_5NXYJ_fLm0zHmAOmhFLEcVvoqhEJKVpps-1760634087970-0.0.1.1-604800000;
-        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f91e32cb3e1682-SJC
-      Alt-Svc:
-      - h3=":443"; ma=86400
+      - 98fa21b36a39fa49-SJC
     body:
       encoding: ASCII-8BIT
-      string: |
-        {
-          "id": "chatcmpl-57154a74-585c-42a4-b647-22d302e6863b",
-          "object": "chat.completion",
-          "created": 1760634084,
-          "model": "gpt-4o-search-preview-2025-03-11",
-          "choices": [
-            {
-              "index": 0,
-              "message": {
-                "role": "assistant",
-                "content": "On October 16, 2025, a significant positive development occurred in India:\n\n**Prime Minister Unveils India's First Hydrogen-Powered Train in Varanasi**\n\nPrime Minister Narendra Modi inaugurated India's first hydrogen-powered train in Varanasi, marking a major advancement toward green mobility. Developed under the 'Make in India' initiative, this train aims to significantly reduce carbon emissions in the rail sector. ([indiatoday.in](https://www.indiatoday.in/education-today/news/story/top-news-headlines-for-school-assembly-october-16-2803648-2025-10-16?utm_source=openai))\n\nThis initiative represents a substantial step forward in sustainable transportation, contributing to environmental conservation efforts. ",
-                "refusal": null,
-                "annotations": [
-                  {
-                    "type": "url_citation",
-                    "url_citation": {
-                      "end_index": 578,
-                      "start_index": 420,
-                      "title": "Top news headlines for school assembly: October 16 - India Today",
-                      "url": "https://www.indiatoday.in/education-today/news/story/top-news-headlines-for-school-assembly-october-16-2803648-2025-10-16?utm_source=openai"
-                    }
-                  }
-                ]
-              },
-              "finish_reason": "stop"
-            }
-          ],
-          "usage": {
-            "prompt_tokens": 9,
-            "completion_tokens": 148,
-            "total_tokens": 157,
-            "prompt_tokens_details": {
-              "cached_tokens": 0,
-              "audio_tokens": 0
-            },
-            "completion_tokens_details": {
-              "reasoning_tokens": 0,
-              "audio_tokens": 0,
-              "accepted_prediction_tokens": 0,
-              "rejected_prediction_tokens": 0
-            }
-          },
-          "system_fingerprint": ""
-        }
-  recorded_at: Thu, 16 Oct 2025 17:01:27 GMT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n{\"id\":\"gen-1760644713-B6CzyUhOcmWYbrhyPEKi\",\"provider\":\"Perplexity\",\"model\":\"perplexity/sonar\",\"object\":\"chat.completion\",\"created\":1760644715,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        positive news story from today is about Jennifer McLaughlin reuniting with
+        Rhonda, a stranger who helped her after a tragic car accident 35 years ago;
+        their reunion was made possible through the power of social media, highlighting
+        human kindness and connection[1]. Another uplifting story is that California
+        has introduced new digital privacy legislation allowing residents to opt out
+        of data collection easily, potentially setting a precedent for other states
+        and empowering citizens regarding their online privacy[1].\\n\\nAdditionally,
+        a notable act of pet safety was inspired by a viral dog reunion during recent
+        wildfires, leading to the enactment of the FOUND act to protect pets during
+        natural disasters[2]. Also, a recent rescue in New Hampshire by a volunteer
+        and his search dog saved a missing 2-year-old girl, illustrating effective
+        community service and teamwork[2].\\n\\nThese stories collectively reflect
+        heartwarming human and community values, new legislative progress, and inspiring
+        animal-related rescues celebrated on October 16, 2025.\",\"refusal\":null,\"reasoning\":null,\"annotations\":[{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"soundcloud.com/user-423075597/uplifting-and-522484740\",\"url\":\"https://soundcloud.com/user-423075597/uplifting-and-522484740\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.sunnyskyz.com/good-news\",\"url\":\"https://www.sunnyskyz.com/good-news\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"globalgoodnews.com/\",\"url\":\"https://globalgoodnews.com\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.onlygoodnewsdaily.com/\",\"url\":\"https://www.onlygoodnewsdaily.com\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.goodnewsnetwork.org/\",\"url\":\"https://www.goodnewsnetwork.org\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.foxnews.com/category/good-news\",\"url\":\"https://www.foxnews.com/category/good-news\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.youtube.com/watch\",\"url\":\"https://www.youtube.com/watch?v=tmQU2qf83Wg\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.goodgoodgood.co/goodnews\",\"url\":\"https://www.goodgoodgood.co/goodnews\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.youtube.com/watch\",\"url\":\"https://www.youtube.com/watch?v=C7BtzwII0g4\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.positive.news/\",\"url\":\"https://www.positive.news\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.youtube.com/watch\",\"url\":\"https://www.youtube.com/watch?v=EWOYfCIMwzs\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.cbsnews.com/uplift/\",\"url\":\"https://www.cbsnews.com/uplift/\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.goodnewsnetwork.org/events061016/\",\"url\":\"https://www.goodnewsnetwork.org/events061016/\"}},{\"type\":\"url_citation\",\"url_citation\":{\"end_index\":0,\"start_index\":0,\"title\":\"www.dailygood.org/\",\"url\":\"https://www.dailygood.org\"}}]}}],\"citations\":[\"https://soundcloud.com/user-423075597/uplifting-and-522484740\",\"https://www.sunnyskyz.com/good-news\",\"https://globalgoodnews.com\",\"https://www.onlygoodnewsdaily.com\",\"https://www.goodnewsnetwork.org\",\"https://www.foxnews.com/category/good-news\",\"https://www.youtube.com/watch?v=tmQU2qf83Wg\",\"https://www.goodgoodgood.co/goodnews\",\"https://www.youtube.com/watch?v=C7BtzwII0g4\",\"https://www.positive.news\",\"https://www.youtube.com/watch?v=EWOYfCIMwzs\",\"https://www.cbsnews.com/uplift/\",\"https://www.goodnewsnetwork.org/events061016/\",\"https://www.dailygood.org\"],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":196,\"total_tokens\":205}}"
+  recorded_at: Thu, 16 Oct 2025 19:58:40 GMT
 recorded_with: VCR 6.3.1

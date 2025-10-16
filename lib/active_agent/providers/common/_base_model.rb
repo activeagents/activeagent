@@ -41,24 +41,30 @@ module ActiveAgent
         # @param subclass [Class] the inheriting class
         def self.inherited(subclass)
           super
-          subclass.instance_variable_set(:@required_attributes, Set.new)
+          subclass.instance_variable_set(:@required_attributes, required_attributes.dup)
         end
 
-        # Defines an attribute with optional default value using the +as+ option.
+        # Defines an attribute on the model with special handling for default values.
         #
-        # When the +as+ option is provided, the attribute becomes read-only with a fixed
-        # default value and is marked as required for compressed serialization.
+        # @param name [Symbol, String] the name of the attribute
+        # @param type [Class, nil] the type of the attribute (optional)
+        # @param options [Hash] additional options for the attribute
+        # @option options [Object] :as A default value that makes the attribute read-only.
+        #   When set, attempts to assign a different value will raise an ArgumentError.
+        #   This attribute will be included in the compressed hash representation.
+        # @option options [Object] :fallback A default value for the attribute.
+        #   This attribute will be included in the compressed hash representation.
         #
-        # @param name [Symbol] the attribute name
-        # @param type [Symbol, nil] the attribute type
-        # @param options [Hash] additional options
-        # @option options [Object] :as default value (makes attribute read-only and required)
+        # @raise [ArgumentError] if attempting to set a value different from the :as default
         #
-        # @example Define a read-only attribute with default
-        #   attribute :role, :string, as: "assistant"
+        # @example Define a read-only attribute with a default value
+        #   attribute :role, :string, as: "user"
+        #
+        # @example Define an attribute with a fallback value
+        #   attribute :temperature, :float, fallback: 0.7
         #
         # @example Define a regular attribute
-        #   attribute :content, :string
+        #   attribute :messages, :array
         def self.attribute(name, type = nil, **options)
           if options.key?(:as)
             default_value = options.delete(:as)
@@ -75,6 +81,12 @@ module ActiveAgent
 
               raise ArgumentError, "Cannot set '#{name}' attribute (read-only with default value)"
             end
+          elsif options.key?(:fallback)
+            default_value = options.delete(:fallback)
+            super(name, type, default: default_value, **options)
+
+            # Track this attribute as required (must be included in compressed hash)
+            required_attributes << name.to_s
           else
             super(name, type, **options)
           end
@@ -105,11 +117,7 @@ module ActiveAgent
         end
 
         def self.keys
-          attribute_types.keys.map(&:to_sym).to_set.tap do |keys|
-            attribute_aliases.each_value do |original_name|
-              keys << original_name.to_sym
-            end
-          end
+          (attribute_types.keys.map(&:to_sym) | attribute_aliases.keys.map(&:to_sym))
         end
 
         # Initializes a new instance with the given attributes.
@@ -186,14 +194,14 @@ module ActiveAgent
             value = public_send(name)
 
             hash[name.to_sym] = case value
-            when BaseModel then value.to_h
-            when Array     then value.map { it.is_a?(BaseModel) ? it.to_h : it }
+            when BaseModel then value.to_hash
+            when Array     then value.map { it.is_a?(BaseModel) ? it.to_hash : it }
             else
               value
             end
           end)
         end
-        alias_method :to_h, :to_hash
+        def to_h = to_hash
 
         # Converts the model to a compressed hash representation.
         #
@@ -227,14 +235,14 @@ module ActiveAgent
             next if value == default_values[name] && !required_attrs.include?(name)
 
             hash[name.to_sym] = case value
-            when BaseModel then value.to_hc
-            when Array     then value.map { it.is_a?(BaseModel) ? it.to_hc : it }
+            when BaseModel then value.to_hash_compressed
+            when Array     then value.map { it.is_a?(BaseModel) ? it.to_hash_compressed : it }
             else
               value
             end
           end)
         end
-        alias_method :to_hc, :to_hash_compressed
+        def to_hc = to_hash_compressed
 
         # Returns a hash representation for inspection.
         #
