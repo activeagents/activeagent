@@ -219,6 +219,45 @@ module ActiveAgent
               end
             end
 
+            class ContentType < ActiveModel::Type::Value
+              def initialize
+                super
+                @content_part_type = ContentPartType.new
+              end
+
+              def cast(value)
+                case value
+                when String
+                  # Plain text string - keep as string
+                  value
+                when Array
+                  # Array of content parts - cast each part
+                  value.map { |part| @content_part_type.cast(part) }
+                when nil
+                  nil
+                else
+                  value
+                end
+              end
+
+              def serialize(value)
+                case value
+                when String
+                  value
+                when Array
+                  value.map { |part| @content_part_type.serialize(part) }
+                when nil
+                  nil
+                else
+                  value
+                end
+              end
+
+              def deserialize(value)
+                cast(value)
+              end
+            end
+
             class InputMessageType < ActiveModel::Type::Value
               def initialize
                 super

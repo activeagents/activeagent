@@ -26,7 +26,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 15 Oct 2025 17:53:44 GMT
+      - Thu, 16 Oct 2025 06:41:25 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +52,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_e8e4f44aa6d643b39f3978dc6c286083
+      - req_10cfa3896e834036a17a539709127285
       Openai-Processing-Ms:
-      - '26095'
+      - '30702'
       X-Envoy-Upstream-Service-Time:
-      - '26103'
+      - '30709'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=f2LVxBfEkqGyUZ2VTMX9w6bZA_sARVUPpJrMBjhP4kA-1760550824-1.0.1.1-7.WfmYi1pdgBLVomyLJZzAU.wq0rzDSOETNb.tQt_ZCaYBDeA4_stgF4xnr9TP3nquxgACWojaAd.t8v4zxAIs3u7a7PkG.Cgl2vJI.nl2U;
-        path=/; expires=Wed, 15-Oct-25 18:23:44 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=hf.aaBvUSpzwx_mXG8_rnTO_Vl1nnJ9_ZYnqAnH_H6g-1760596885-1.0.1.1-gkxsJv9Nbd4BWntZ9Ok6nwilM7oUSea.VsKXdMYi7DUK1qcYDOlDKdAYrJ7Ry7qIRgM36jf7BszNCx533BBw1_1n8lKCULoAmZ5rmxFCcL0;
+        path=/; expires=Thu, 16-Oct-25 07:11:25 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=cHMfPinB7LLIEQtdTrxYVGhMDLDk06DrOEA6PDd0yyU-1760550824245-0.0.1.1-604800000;
+      - _cfuvid=ZxW96mFLu0bcFRnzZTK6sCmA1JWhy2fYUe3ghPz_3D4-1760596885700-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +72,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f12cd49ae8171e-SJC
+      - 98f59146b9f06802-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0f1203fafe6f1f750068efdf8e28708199a0ba7549ec6cb626",
+          "id": "resp_01cb07f2f8c07ddf0068f0937702708199aad8743cea787e33",
           "object": "response",
-          "created_at": 1760550798,
+          "created_at": 1760596855,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +95,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_0f1203fafe6f1f750068efdf8fec688199aa6abe1bb7e26e57",
+              "id": "msg_01cb07f2f8c07ddf0068f09378fbac8199ab10c4c46bd54f42",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +103,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "This file is the **2024 annual shareholder letter** from Warren E. Buffett, Chairman of Berkshire Hathaway Inc. It appears to be the primary feature of Berkshire Hathaway\u2019s annual report to shareholders, likely distributed in early 2025.\n\n---\n\n### Key Contents and Highlights:\n\n#### 1. **Purpose of the Letter**\n- Warren Buffett addresses shareholders, aiming to go beyond simply required financial figures by providing candid commentary on the company\u2019s business, values, and decision-making processes.\n- He emphasizes honest communication, acknowledging both successes and mistakes, following the \u201cpraise by name, criticize by category\u201d principle.\n\n#### 2. **Mistakes & Management Philosophy**\n- Buffett candidly discusses the inevitability of mistakes in capital allocation and hiring, invoking Charlie Munger\u2019s advice to deal directly and promptly with problems.\n- He reflects on the importance of acting when mistakes occur, rather than \u201cthumb-sucking\u201d (delayed action).\n- Buffett explains his aversion to using pedigree (schools attended) as a criterion for management selection \u2014 citing examples of successful individuals with little or no formal education.\n\n#### 3. **Business Performance in 2024**\n- **2024 exceeded expectations** for Berkshire, though over half of its 189 operating businesses saw earnings decline.\n- **Insurance and investment income** were the biggest positives, especially through improvements at GEICO under Todd Combs' leadership.\n- The company booked **$47.4 billion in operating earnings** (excluding capital gains/losses on investments).\n- **BNSF (railroad) and Berkshire Hathaway Energy** increased earnings, and Berkshire acquired the remaining 8% of the utility business for $3.9 billion.\n\n#### 4. **Tax Contributions**\n- Berkshire paid a record **$26.8 billion** in U.S. federal income tax in 2024, a milestone Buffett contrasts with the company\u2019s origins as a failing textile mill.\n- Buffett highlights Berkshire\u2019s history of almost never paying dividends (except for once in 1967), a practice enabling continuous reinvestment and compounding.\n\n#### 5. **Investment Portfolio**\n- Berkshire splits its investments between wholly-owned businesses and large minority stakes in major companies such as Apple, Coca-Cola, American Express, and Moody\u2019s.\n- At yearend, minority equity holdings were **$272 billion**; although down from $354 billion, controlled non-public businesses are worth even more.\n- Buffett reiterates his preference for equities over cash or fixed-income securities in the long term.\n\n#### 6. **Capitalism and America**\n- Buffett offers reflections on the strengths and weaknesses of capitalism and the extraordinary compounding effect of continuous saving and wise reinvestment in America.\n- He notes that Berkshire\u2019s success is deeply tied to the success of the country itself.\n\n#### 7. **Insurance Operations**\n- Detailed explanation of the unique economics of property-casualty (P/C) insurance, including the \u201cfloat\u201d (investable premiums received before claims are paid).\n- Berkshire\u2019s insurance under Ajit Jain is a world leader, and the business is central to Berkshire\u2019s ongoing strategy.\n\n#### 8. **Japanese Investments**\n- Berkshire has built \u201cvery long-term\u201d positions in five large Japanese trading companies: ITOCHU, Marubeni, Mitsubishi, Mitsui, and Sumitomo.\n- As of yearend, these investments cost $13.8B and were valued at $23.5B.\n\n#### 9. **Annual Meeting**\n- Description of the 2025 \u201cWoodstock for Capitalists\u201d annual gathering in Omaha, including changes to the schedule, products available, and charity initiatives.\n- Special limited-edition books and fundraising for the Stephen Center.\n\n#### 10. **Performance Table**\n- Comprehensive table comparing Berkshire\u2019s annual gain in market value per share versus the S&P 500 (with dividends) from 1965 through 2024.\n- Berkshire\u2019s compounded annual gain over this period was **19.9%**, against the S&P 500\u2019s **10.4%**. Overall gain: **5,502,284%** for Berkshire, **39,054%** for the S&P 500.\n\n---\n\n### Notable Individuals Mentioned\n- **Greg Abel** \u2014 designated successor as CEO.\n- **Ajit Jain** \u2014 head of insurance operations.\n- **Todd Combs** \u2014 improved GEICO.\n- **Charlie Munger** \u2014 late Vice-Chairman, Buffett\u2019s long-time partner.\n- **Pete Liegl** \u2014 founder of Forest River, celebrated as an exemplary Berkshire manager.\n\n---\n\n### Tone & Style\n- The letter shows Warren Buffett\u2019s customary blend of humility, frankness, wit, and optimism about the future of Berkshire Hathaway and the broader American economy. He continues themes of stewardship, long-term thinking, and shareholder alignment.\n\n---\n\n### Takeaway\nThis file is a classic Warren Buffett shareholder letter: a mix of financial analysis, investment philosophy, company updates, personal stories, and reflections on management and economic principles. It\u2019s meant to report to shareholders what they own, how their company is being run, and how Berkshire approaches risks, mistakes, triumphs, and the future."
+                  "text": "This file is the **2024 annual letter to shareholders from Warren E. Buffett, Chairman of Berkshire Hathaway Inc.** It is a core part of the Berkshire Hathaway annual report, a widely-followed and highly influential corporate document. Here\u2019s a summary of what\u2019s in the file:\n\n---\n\n### 1. Letter to Shareholders\n\n**Tone and Intent:**  \n- Warren Buffett emphasizes a candid, forthright style, discussing both successes and failures.\n- He references his philosophy, shaped partly by Charlie Munger: \u201cpraise by name, criticize by category\u201d.\n\n**Mistakes Acknowledged:**  \n- Buffett is open about errors he has made in investment decisions and personnel choices, contrasting this with less candid corporate communication elsewhere.\n\n### 2. Management Transition\n\nBuffett notes that **Greg Abel** will soon replace him as CEO and will inherit the responsibility for writing these letters, emphasizing transparency.\n\n### 3. Business Case Study: Pete Liegl / Forest River\n\nA story about Pete Liegl and **the acquisition of Forest River**, illustrating Berkshire's approach to management partnerships, compensation, and corporate culture.\n\n### 4. Buffett\u2019s Investment and Managerial Approach\n\n- Stresses that many business talents are innate, and educational pedigree isn\u2019t his priority.\n\n### 5. 2024 Performance\n\n- Operating earnings: **$47.4 billion**.\n- Over half (53%) of Berkshire\u2019s 189 operating businesses had declining earnings, but investment income and insurance (especially GEICO) performed strongly.\n- Details on specific segments: insurance (with a special focus on property/casualty), railroad, utilities, and non-controlled holdings (e.g., Kraft Heinz, Occidental, etc).\n- Summarized in a breakdown table.\n\n### 6. Tax Payment Record\n\n- Berkshire paid **$26.8 billion** in federal corporate income taxes in 2024 \u2014 more than any other US company that year.\n- Praise for the ongoing reinvestment culture at Berkshire.\n\n### 7. Investment Philosophy and Portfolio\n\n- Discusses divided approach: wholly-owned subsidiaries vs. major minority stakes in outstanding companies (Apple, Coke, AmEx, Moody\u2019s, etc).\n- Reduces holdings in publicly traded equities from $354B to $272B, but controlled private operations\u2019 value rose.\n- Restates commitment to equities as the main investment, especially US equities.\n\n### 8. Capitalism and the \u201cAmerican Miracle\u201d\n\n- Buffett frames Berkshire\u2019s success within the broader context of US capitalism and compounding, crediting the US system for the company\u2019s achievements.\n\n### 9. Property-Casualty Insurance Discussion\n\n- In-depth discussion of **insurance as Berkshire\u2019s core business**.\n- Describes the peculiar float-based business model, risk factors, and emphasis on underwriting profitability.\n- Insurance segment generated $32 billion in after-tax profits over 20 years, float grew from $46 billion to $171 billion.\n\n### 10. Japanese Investments\n\n- Ongoing and growing investments in five Japanese trading houses (ITOCHU, Marubeni, Mitsubishi, Mitsui, Sumitomo).\n- Berkshire holds less than 10%, but this threshold has been relaxed.\n- Yen-denominated borrowing used as a partial currency-hedge.\n- At year-end, market value $23.5 billion (cost $13.8 billion).\n\n### 11. The Annual Meeting in Omaha\n\n- Details on the 2025 shareholder meeting: schedules, book sales, including a new edition of \u201c60 Years of Berkshire Hathaway\u201d focused on Charlie Munger.\n- Anecdotes about family attending.\n\n### 12. Historical Performance Data\n\nA **year-by-year table** comparing Berkshire\u2019s per-share market value change to the S&P 500\u2019s total return (1965\u20132024) showing:\n- Berkshire\u2019s compounded annual gain since 1965: **19.9%**\n- S&P 500 compounded: **10.4%**\n- Overall gain: Berkshire 5,502,284%, S&P 500 39,054% over the period.\n\n---\n\n## In Summary\n\nThis file is essentially **Warren Buffett\u2019s annual shareholders letter for 2024**, including a mix of Berkshire\u2019s business philosophy, operational review, stories and anecdotes, performance tables, and a clear-eyed look at both achievements and errors. \n\n**If you have a particular section or topic you want more detail about, let me know!**"
                 }
               ],
               "role": "assistant"
@@ -136,14 +136,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 1047,
+            "output_tokens": 898,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 9485
+            "total_tokens": 9336
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Wed, 15 Oct 2025 17:53:44 GMT
+  recorded_at: Thu, 16 Oct 2025 06:41:25 GMT
 recorded_with: VCR 6.3.1

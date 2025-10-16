@@ -68,7 +68,11 @@ module ActiveAgent
             required_attributes << name.to_s
 
             define_method("#{name}=") do |value|
-              next if value == default_value
+              normalized_value   = value.is_a?(String)         ? value.to_sym         : value
+              normalized_default = default_value.is_a?(String) ? default_value.to_sym : default_value
+
+              next if normalized_value == normalized_default
+
               raise ArgumentError, "Cannot set '#{name}' attribute (read-only with default value)"
             end
           else
@@ -112,16 +116,15 @@ module ActiveAgent
         #
         # Settings can be provided as a hash or keyword arguments. Hash keys are
         # sorted to prioritize nested objects during initialization for backwards compatibility.
-        #
-        # @param hash [Hash, nil] attribute hash
-        # @param kwargs [Hash] attribute keyword arguments
-        def initialize(hash = nil, **kwargs)
-          settings = hash || kwargs
+        def initialize(kwargs = {})
+          # To allow us to get a list of attribute defaults without initialized overrides
+          return super(nil) if kwargs.key?(:'__default_values')
+
           # Backwards Compatibility: This sorts object construction to the top to protect the assignment
           #   of backward compatibility assignments.
-          settings = settings.sort_by { |k, v| v.is_a?(Hash) ? 0 : 1 }.to_h if settings.is_a?(Hash)
+          kwargs = kwargs.sort_by { |k, v| v.is_a?(Hash) ? 0 : 1 }.to_h if kwargs.is_a?(Hash)
 
-          super(settings)
+          super(kwargs)
         end
 
         # Merges the given attributes into the current instance.
@@ -131,8 +134,8 @@ module ActiveAgent
         # @param hash [Hash, nil] attribute hash to merge
         # @param kwargs [Hash] attribute keyword arguments to merge
         # @return [BaseModel] self for method chaining
-        def merge!(hash = nil, **kwargs)
-          (hash || kwargs).deep_symbolize_keys.each do |key, value|
+        def merge!(kwargs = {})
+          kwargs.deep_symbolize_keys.each do |key, value|
             public_send("#{key}=", value) if respond_to?("#{key}=")
           end
 
@@ -213,7 +216,7 @@ module ActiveAgent
         #   message.to_hash_compressed
         #   #=> { role: "user" }  # content omitted (matches default), role included (required)
         def to_hash_compressed
-          default_values = self.class.new.attributes
+          default_values = self.class.new(__default_values: true).attributes
           required_attrs = self.class.required_attributes
 
           deep_compact(attribute_names.each_with_object({}) do |name, hash|

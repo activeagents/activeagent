@@ -5,34 +5,16 @@ module ActiveAgent
   module Providers
     module OpenAI
       class ChatProvider < BaseProvider
-        attr_internal :request, :message_stack, :stream_finished
-
         def initialize(...)
           super
 
-          self.request       = Chat::Request.new(context)
-          self.message_stack = []
+          self.request = Chat::Request.new(context)
         end
 
         protected
 
-        # @return response [ActiveAgent::Providers::Response]
-        def resolve_prompt
-          # Apply Tool/Function Messages
-          request.messages = message_stack unless message_stack.empty?
-          # @todo Validate Request
-
-          ## Prepare Executation Environment
-          parameters = request.to_hc
-          if request.stream
-            parameters[:stream]  = process_stream
-            self.stream_finished = false
-          end
-          message_stack.replace(parameters[:messages])
-
-          ## Execute
-          api_response = client.chat(parameters:)
-          process_finished(api_response.presence&.deep_symbolize_keys)
+        def client_request_create(parameters:)
+          client.chat(parameters:)
         end
 
         # @return void
@@ -72,17 +54,13 @@ module ActiveAgent
               fail "Unexpected Tool Call Type: #{api_tool_call[:type]}"
             end
 
-            message = Chat::Requests::Messages::Tool.new(tool_call_id: api_tool_call[:id], content: content.to_json)
+            message = Chat::Requests::Messages::Tool.new(
+              tool_call_id: api_tool_call[:id],
+              content: content.to_json
+            )
+
             message_stack.push(message.to_hc)
           end
-        end
-
-        # @return result [Unknown]
-        def process_tool_call_function(api_function_call)
-          name   = api_function_call[:name]
-          kwargs = JSON.parse(api_function_call[:arguments], symbolize_names: true) if api_function_call[:arguments]
-
-          function_callback.call(name, **kwargs)
         end
 
         # @return response [ActiveAgent::Providers::Response]
@@ -103,16 +81,6 @@ module ActiveAgent
             )
           end
         end
-
-        # ActiveAgent::ActionPrompt::Message.new(
-        #     generation_id:     api_message[:id] || api_response[:id],
-        #     content:           api_message[:content],
-        #     role:              api_message[:role].intern,
-        #     action_requested:  api_message[:finish_reason] == "tool_calls",
-        #     raw_actions:       api_message[:tool_calls] || [],
-        #     requested_actions: handle_actions(api_message[:tool_calls]),
-        #     content_type:      context[:output_schema].present? ? "application/json" : "text/plain"
-        # )
 
         # def embeddings_response(response, request_params = nil)
         #   message = ActiveAgent::ActionPrompt::Message.new(content: response.dig("data", 0, "embedding"), role: "assistant")

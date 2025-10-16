@@ -26,7 +26,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 15 Oct 2025 17:53:52 GMT
+      - Thu, 16 Oct 2025 06:35:35 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +52,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_8d2f33fb9af541809307a70b5f0581a8
+      - req_2b74e6aac1164d1aa8dc88f647fd56e5
       Openai-Processing-Ms:
-      - '7464'
+      - '7785'
       X-Envoy-Upstream-Service-Time:
-      - '7474'
+      - '7791'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=U9sf.tqfUbkG5X.XxPXa1tggxStVQPcBIZ6z8_ZqnJQ-1760550832-1.0.1.1-RnW40etrk6lVKR0uhXIeYON.34_ndDfqVeax3xqjfug98QOACV6oTwns71sUZUGln8Fd2R8epQA7MkIS5spw.QhnBhzeyLP1h9kcg5c1h7E;
-        path=/; expires=Wed, 15-Oct-25 18:23:52 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=Rio68gkbMohC_8ZJqw9UEsWeQJFBlLGEM1xZRPJA3VA-1760596535-1.0.1.1-ZKntm9WDZdZFAQ2HD43bYwEmZ1UCezKeiHuKa4Ku0jGA0BLDEgtRsrC.f0bHDekB_VvcKaD_Kqlz7Hnuw2frjIfT9oam2v5zAvub5y_E770;
+        path=/; expires=Thu, 16-Oct-25 07:05:35 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=FQXdEgx81gBTHsyifoMD2lu7XabtMJ9t.CH0JN22iEM-1760550832592-0.0.1.1-604800000;
+      - _cfuvid=Lpl1D1a7tYlPr8A_BaWx_Z9hgxtwDXzxRfpbeHx4yQc-1760596535342-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +72,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f12d7bee09ed37-SJC
+      - 98f58948dda5b976-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_016364874f6fd9630068efdfa9281c8199a4d8220fab867162",
+          "id": "resp_0a3e37c7859f02eb0068f0922f8c0c8196ae38663cb5c89be3",
           "object": "response",
-          "created_at": 1760550825,
+          "created_at": 1760596529,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +95,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_016364874f6fd9630068efdfadcccc8199bbd102a302af314d",
+              "id": "msg_0a3e37c7859f02eb0068f09234cda08196a560c6f5aeafcb80",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +103,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "This image shows a wooden boardwalk path stretching through a grassy field or wetland. The area is lush and green, with tall grasses and some bushes and trees in the background. The sky above is mostly blue with some streaks of clouds, creating a serene and open atmosphere. The scene appears peaceful and natural, likely a nature reserve or park."
+                  "text": "This image depicts a scenic landscape featuring a wooden boardwalk path running through a lush, green meadow or marsh. On either side of the boardwalk, tall grasses and various shrubs can be seen. The sky above is mostly clear with some scattered clouds, and the lighting suggests it is either morning or late afternoon, giving a warm, peaceful atmosphere. Trees and more vegetation are visible in the distance, creating a serene natural setting."
                 }
               ],
               "role": "assistant"
@@ -136,14 +136,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 71,
+            "output_tokens": 86,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 1189
+            "total_tokens": 1204
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Wed, 15 Oct 2025 17:53:52 GMT
+  recorded_at: Thu, 16 Oct 2025 06:35:35 GMT
 recorded_with: VCR 6.3.1

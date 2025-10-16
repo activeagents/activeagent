@@ -236,14 +236,14 @@ module Integration
         # This automatically runs all the tests for these the test actions
         ################################################################################
         [
-          # :text_input,
-          # :image_input,
-          # :file_input,
-          # :web_search,
+          :text_input,
+          :image_input,
+          :file_input,
+          :web_search,
           # :file_search,
-          # :streaming,
-          # :functions,
-          # :reasoning,
+          :streaming,
+          :functions,
+          :reasoning,
           :functions_with_streaming
         ].each do |action_name|
           test_request_builder(TestAgent, action_name)

@@ -12,11 +12,12 @@ module ActiveAgent
               # File content part
               class InputFile < Base
                 attribute :type, :string, as: "input_file"
-                attribute :filename, :string
-                attribute :file_data, :string # Base64 encoded file data
+                attribute :file_data, :string # Optional: content of file to send
+                attribute :file_id, :string # Optional: ID of file to send
+                attribute :file_url, :string # Optional: URL of file to send
+                attribute :filename, :string # Optional: name of file
 
-                validates :filename, presence: true
-                validates :file_data, presence: true
+                validates :type, presence: true
               end
             end
           end

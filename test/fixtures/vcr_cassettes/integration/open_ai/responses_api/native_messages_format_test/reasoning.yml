@@ -25,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 15 Oct 2025 17:54:08 GMT
+      - Thu, 16 Oct 2025 06:36:36 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -39,7 +39,7 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '29999'
       X-Ratelimit-Remaining-Tokens:
-      - '149998965'
+      - '149998752'
       X-Ratelimit-Reset-Requests:
       - 2ms
       X-Ratelimit-Reset-Tokens:
@@ -51,18 +51,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_937abf7130004fdea66c3f43842616e3
+      - req_7b3e562d22704daaae4aa4a9354016d5
       Openai-Processing-Ms:
-      - '15807'
+      - '10679'
       X-Envoy-Upstream-Service-Time:
-      - '15810'
+      - '10683'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=xK51sCOWn9MN_Lms9eMr09NF276XHda0KQ8iYuMPTb4-1760550848-1.0.1.1-rUGK4PL_0Y1tUjqsRtKIBqjcqbsMjDFgoZQdfIrRoYWHHwEdIlVOhfU_Dg_sosaU.DDj1Lc2FTs0jw3G0M8Q3.q4uWvqSy.2GxYHtnL43Tw;
-        path=/; expires=Wed, 15-Oct-25 18:24:08 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=XFcq443IZX1iWg3uTo_sGl13wnLtjrwPjyNjbN6Ui1o-1760596596-1.0.1.1-Tg6brTYMCOWxKxN1tDWxZB3P5SfVaztlJ29RbwyUvYgKqPAmZtIx72OeLcOlULKBnGg9SB7vveEVT7CmPN.gsaNOs36en0Sb_wUhhaMy1vk;
+        path=/; expires=Thu, 16-Oct-25 07:06:36 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=k2pUKjmnDJdXk5zxnLRBR2gIsJJfoh4HA9FbTEhbsqg-1760550848825-0.0.1.1-604800000;
+      - _cfuvid=8MH66h5ckefP3VQDt5W2Jw2qe6hepKuPOFqIe1rHL58-1760596596419-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +71,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f12db069f1ed37-SJC
+      - 98f58ab48e4fcf0a-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0c12da79c421ebf00068efdfb100c0819797fcdae2a922e491",
+          "id": "resp_0da2172bbac395190068f09269b9848190aff112b102af24be",
           "object": "response",
-          "created_at": 1760550833,
+          "created_at": 1760596585,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,12 +94,12 @@ http_interactions:
           "model": "o3-mini-2025-01-31",
           "output": [
             {
-              "id": "rs_0c12da79c421ebf00068efdfbce1088197b25e8a12cc706d09",
+              "id": "rs_0da2172bbac395190068f092712e5081909a9f1eb0cda8a2e1",
               "type": "reasoning",
               "summary": []
             },
             {
-              "id": "msg_0c12da79c421ebf00068efdfbf337081978eba99c9943accbd",
+              "id": "msg_0da2172bbac395190068f09272b4bc8190b72734ebb40f7355",
               "type": "message",
               "status": "completed",
               "content": [
@@ -107,7 +107,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "The tongue twister is more about fun with words than a scientific inquiry. Traditionally, the playful answer goes:\n\n\u2003\u2003\"A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood!\"\n\nThat said, in 1988 a wildlife biologist named Richard Thomas once playfully estimated that if a woodchuck could chuck wood (by comparing it to the amount of dirt a woodchuck moves when digging its burrow), it might be able to move roughly 700 pounds of wood. This calculation, of course, is all in good fun rather than science.\n\nSo whether you prefer the tongue-twister answer or the humorous \u201c700 pounds\u201d estimate, the question remains one of whimsy and wordplay!"
+                  "text": "The tongue twister goes: \"How much wood would a woodchuck chuck if a woodchuck could chuck wood?\" The classic playful answer is:\n\n\u2003\u2003\"A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood!\"\n\nOf course, in reality, woodchucks (also known as groundhogs) don\u2019t actually chuck wood\u2014they\u2019re known for digging burrows in the soil, not for moving logs. \n\nInterestingly, a tongue-in-cheek study by wildlife biologist Richard Thomas estimated that if a woodchuck did indeed chuck wood, it might be able to move about 700 pounds on a good day (roughly the same amount of dirt it typically moves while digging its burrow). \n\nSo while the tongue twister is really just for fun, it has sparked a humorous \"scientific\" answer over the years!"
                 }
               ],
               "role": "assistant"
@@ -140,14 +140,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 1051,
+            "output_tokens": 1334,
             "output_tokens_details": {
-              "reasoning_tokens": 896
+              "reasoning_tokens": 1152
             },
-            "total_tokens": 1067
+            "total_tokens": 1350
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Wed, 15 Oct 2025 17:54:08 GMT
+  recorded_at: Thu, 16 Oct 2025 06:36:36 GMT
 recorded_with: VCR 6.3.1

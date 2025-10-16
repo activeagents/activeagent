@@ -25,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 15 Oct 2025 17:54:21 GMT
+      - Thu, 16 Oct 2025 06:36:22 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -51,18 +51,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_c15b75f12ef24c45b3d6c0ca7aef8da9
+      - req_a60b0150a97c48f1bca3089832bfb0a3
       Openai-Processing-Ms:
-      - '9293'
+      - '4447'
       X-Envoy-Upstream-Service-Time:
-      - '9297'
+      - '4452'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=RJoHFvhu.VdQcm85quHLYPf_db.yPypbIksE26cX7Jc-1760550861-1.0.1.1-0W13uLzdnZo8pvReRBQK_3X2j7gd9Tl94wakNNzikUlBauPidJ.RaW7FaUCPd0B_UMCXiRq8Wwv8GZ3L6ytealafMJWPHxj7g6Hj5drZr3c;
-        path=/; expires=Wed, 15-Oct-25 18:24:21 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=DDPrLJFv7jQMrIUuW0Mjw2XMoNhoEUUt1pbdE93zNSw-1760596582-1.0.1.1-n1V7D9XFcxjvbeO6f.DohzPo1D6iVe2M_kC6qtoJ2mRwrLx6eA9Yaem752J3lNAPxSBtM4VuHVWRX_7BQhosY2BY2fxKJWDVrXoGnADFMrI;
+        path=/; expires=Thu, 16-Oct-25 07:06:22 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=nY2vYpk5GH3Y32QzHUh6GeB1RKow._MpqqPHzuSCfzM-1760550861189-0.0.1.1-604800000;
+      - _cfuvid=Ndkhd5pFsN80_pUDTtvWfuc8EyVvy78qsGhXsW.TAT0-1760596582441-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +71,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f12e26be616af7-SJC
+      - 98f58a843aa5ce94-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_019aff3714b149170068efdfc3e168819aa6a983aeb770cedd",
+          "id": "resp_07e8456842b435880068f09261fe888199a6b5978b1650bfcf",
           "object": "response",
-          "created_at": 1760550851,
+          "created_at": 1760596578,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,16 +94,16 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "ws_019aff3714b149170068efdfc50cf8819ab956fac3c0d2b4fb",
+              "id": "ws_07e8456842b435880068f09262e010819993fdc8bb412a5241",
               "type": "web_search_call",
               "status": "completed",
               "action": {
                 "type": "search",
-                "query": "positive news story June 10, 2024"
+                "query": "positive news stories today"
               }
             },
             {
-              "id": "msg_019aff3714b149170068efdfc76108819a984f13cb4f2334e1",
+              "id": "msg_07e8456842b435880068f0926528e481999805b561df52ff36",
               "type": "message",
               "status": "completed",
               "content": [
@@ -112,28 +112,14 @@ http_interactions:
                   "annotations": [
                     {
                       "type": "url_citation",
-                      "end_index": 553,
-                      "start_index": 439,
-                      "title": "The Good News October 15-21, 2025 \u2013 CCN \u2013 Columbus County News",
-                      "url": "https://columbuscountynews.com/2025/10/the-good-news-oct-15-21-2025/?utm_source=openai"
-                    },
-                    {
-                      "type": "url_citation",
-                      "end_index": 987,
-                      "start_index": 888,
-                      "title": "Stream Uplifting and Positive News October 14th, 2025 by The Positive Truth| Uplifting News| Positive News | Listen online for free on SoundCloud",
-                      "url": "https://soundcloud.com/user-423075597/uplifting-and-340167313?utm_source=openai"
-                    },
-                    {
-                      "type": "url_citation",
-                      "end_index": 1367,
-                      "start_index": 1268,
-                      "title": "Stream Uplifting and Positive News October 14th, 2025 by The Positive Truth| Uplifting News| Positive News | Listen online for free on SoundCloud",
-                      "url": "https://soundcloud.com/user-423075597/uplifting-and-340167313?utm_source=openai"
+                      "end_index": 456,
+                      "start_index": 298,
+                      "title": "Top news headlines for school assembly: October 16 - India Today",
+                      "url": "https://www.indiatoday.in/education-today/news/story/top-news-headlines-for-school-assembly-october-16-2803648-2025-10-16?utm_source=openai"
                     }
                   ],
                   "logprobs": [],
-                  "text": "As of October 15, 2025, here are some uplifting news stories:\n\n**Community Support in Whiteville, North Carolina**\n\nResidents of Columbus County and neighboring Brunswick County came together to assist local businesses in Whiteville affected by recent flooding. Volunteers donated equipment, manpower, and cleaning supplies to help restore these establishments. This collective effort highlights the community's resilience and generosity. ([columbuscountynews.com](https://columbuscountynews.com/2025/10/the-good-news-oct-15-21-2025/?utm_source=openai))\n\n**Anonymous Donation Clears School Lunch Debt in Taylor, Texas**\n\nAn anonymous donor paid off the school lunch debt for an entire district in Taylor, Texas, ensuring that students can eat for free for the rest of the school year. This act of kindness alleviates financial burdens for many families and supports students' well-being. ([soundcloud.com](https://soundcloud.com/user-423075597/uplifting-and-340167313?utm_source=openai))\n\n**Premature Baby Goes Home After Nearly a Year in NICU**\n\nA premature baby named Gabriel, who spent almost a year in the Neonatal Intensive Care Unit (NICU), has been able to go home. This milestone underscores the dedication of NICU nurses and the resilience of young patients. ([soundcloud.com](https://soundcloud.com/user-423075597/uplifting-and-340167313?utm_source=openai))\n\nThese stories reflect the positive actions and compassionate efforts taking place in communities today. "
+                  "text": "On October 16, 2025, Prime Minister Narendra Modi inaugurated India's first hydrogen-powered train in Varanasi, marking a significant advancement in the country's green mobility efforts. Developed under the 'Make in India' initiative, this train aims to reduce carbon emissions in the rail sector. ([indiatoday.in](https://www.indiatoday.in/education-today/news/story/top-news-headlines-for-school-assembly-october-16-2803648-2025-10-16?utm_source=openai)) "
                 }
               ],
               "role": "assistant"
@@ -178,14 +164,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 331,
+            "output_tokens": 124,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 641
+            "total_tokens": 434
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Wed, 15 Oct 2025 17:54:21 GMT
+  recorded_at: Thu, 16 Oct 2025 06:36:22 GMT
 recorded_with: VCR 6.3.1

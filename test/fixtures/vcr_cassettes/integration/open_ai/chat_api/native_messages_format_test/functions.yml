@@ -28,7 +28,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 15 Oct 2025 23:28:17 GMT
+      - Thu, 16 Oct 2025 06:46:14 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,13 +40,13 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '669'
+      - '645'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '684'
+      - '1982'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -54,22 +54,22 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '9999'
       X-Ratelimit-Remaining-Tokens:
-      - '29999986'
+      - '29999987'
       X-Ratelimit-Reset-Requests:
       - 6ms
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_65983e5ac2d3482baa60d14d1c37b25f
+      - req_d837cedbbcb7416d9028a023bf73bf4a
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=zhf71qfkmH_IxDN39_UCucKbWVn4AZCM7VD6ciDDat4-1760570897-1.0.1.1-GNtyYyfV.NqYk.knYHEwwKrkQTXQrJvrm1JWfs1WTKZwwHZ3MnJB5_BZNQpAiAZcjyTUo3LEWDHjQPwcuorb0AagcMKunbA4q7px_ZmsXYs;
-        path=/; expires=Wed, 15-Oct-25 23:58:17 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=MkY2qCaTDL4jYp8kXiPQzKUQlVDfn6nzrzgquMQQarQ-1760597174-1.0.1.1-Hyx2J0RgB6TJ5wdSzuDIcu9ZEN9_xRnJ9PJUbz1hFxSLWNx1yISOusBf4w8tc4NvPBBCbaXicNIp9q0PipDYlVxTNK9frbQdBrA603HiEVs;
+        path=/; expires=Thu, 16-Oct-25 07:16:14 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=Z4yr0mOu9EHNKYM_cVlEcYkNj2zUkOF8Cblyo7EYCWc-1760570897646-0.0.1.1-604800000;
+      - _cfuvid=17XFSODrdtgM71pgjRkIbWhgNO35DpbkiIyu5P2iHO8-1760597174230-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -78,16 +78,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f31788dcc4679d-SJC
+      - 98f599040c42ce84-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-CR5Ci3oYzknYriREj2uT7e9jXnGlf",
+          "id": "chatcmpl-CRC2XFcUJUYRpNCsmWm0O7a8fZ2V9",
           "object": "chat.completion",
-          "created": 1760570896,
+          "created": 1760597173,
           "model": "gpt-4.1-2025-04-14",
           "choices": [
             {
@@ -97,7 +97,7 @@ http_interactions:
                 "content": null,
                 "tool_calls": [
                   {
-                    "id": "call_GyghzwUEoCLjWsJaU1QOU9xK",
+                    "id": "call_NdxLgX3N3u4DmYyXnjkJht4d",
                     "type": "function",
                     "function": {
                       "name": "get_current_weather",
@@ -130,15 +130,15 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": "fp_e24a1fec47"
         }
-  recorded_at: Wed, 15 Oct 2025 23:28:17 GMT
+  recorded_at: Thu, 16 Oct 2025 06:46:14 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"What is the weather like in
-        Boston today?"},{"role":"assistant","tool_calls":[{"id":"call_GyghzwUEoCLjWsJaU1QOU9xK","type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"Boston,
-        MA\"}"}}]},{"role":"tool","content":"{\"location\":\"Boston, MA\",\"unit\":\"fahrenheit\",\"temperature\":\"22\"}","tool_call_id":"call_GyghzwUEoCLjWsJaU1QOU9xK"}],"model":"gpt-4.1","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
+        Boston today?"},{"role":"assistant","tool_calls":[{"id":"call_NdxLgX3N3u4DmYyXnjkJht4d","type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"Boston,
+        MA\"}"}}]},{"role":"tool","content":"{\"location\":\"Boston, MA\",\"unit\":\"fahrenheit\",\"temperature\":\"22\"}","tool_call_id":"call_NdxLgX3N3u4DmYyXnjkJht4d"}],"model":"gpt-4.1","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
         the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
         city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}'
     headers:
@@ -160,7 +160,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 15 Oct 2025 23:28:18 GMT
+      - Thu, 16 Oct 2025 06:46:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -172,13 +172,13 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '759'
+      - '1626'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '776'
+      - '1649'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -192,16 +192,16 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_5def3e6f81504d28b962a3c66c98c3b8
+      - req_29f008f49aa64b62882dc927b5964dc2
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=C2ov.Fpoo_pngTFYlKLIgrJXFNpOU8A69jC0XkRioIM-1760570898-1.0.1.1-6ED2MzY_6bSgUz72aExBY.JeFn2XUU3cvBn6lvebsPxRLQET6fs4E6IQtXKVDOkRg4KlnF3WoxaeAhYh9HwCsI8upK3dwYnZYh_EcrsvIVI;
-        path=/; expires=Wed, 15-Oct-25 23:58:18 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=psVYPE5wGfOCQmaIPjqYeRw5dlfc8j1u92WuKX9fJP8-1760597176-1.0.1.1-5okO7xzgk_eIVDnvFb2Ryzsd.F2nkaF_UYYH0cdQUHHf.sbuLi4Xca9JcY3VaOv6du2MKwh3zAr9rqsbMgv7rLdkJrHH7YhbCnhJDUHeCmg;
+        path=/; expires=Thu, 16-Oct-25 07:16:16 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=TO3wDoY69BCFUvi6F9A1xk7HHbo0mxmNKEDl_bBldko-1760570898577-0.0.1.1-604800000;
+      - _cfuvid=PBBUG1SdvHu2LqkG6D7Ce8n2QvOivK7Sn0jcVhagMHw-1760597176094-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -210,12 +210,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f3178eaa1c6803-SJC
+      - 98f599139da126b0-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        ewogICJpZCI6ICJjaGF0Y21wbC1DUjVDakxReWdLTnBJeEx6U29TdUdPZ2VuMWNYYiIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc2MDU3MDg5NywKICAibW9kZWwiOiAiZ3B0LTQuMS0yMDI1LTA0LTE0IiwKICAiY2hvaWNlcyI6IFsKICAgIHsKICAgICAgImluZGV4IjogMCwKICAgICAgIm1lc3NhZ2UiOiB7CiAgICAgICAgInJvbGUiOiAiYXNzaXN0YW50IiwKICAgICAgICAiY29udGVudCI6ICJUaGUgd2VhdGhlciBpbiBCb3N0b24gdG9kYXkgaXMgMjLCsEYuIEl0J3MgcXVpdGUgY29sZCwgc28geW91IG1pZ2h0IHdhbnQgdG8gZHJlc3Mgd2FybWx5IGlmIHlvdSdyZSBoZWFkaW5nIG91dHNpZGUuIiwKICAgICAgICAicmVmdXNhbCI6IG51bGwsCiAgICAgICAgImFubm90YXRpb25zIjogW10KICAgICAgfSwKICAgICAgImxvZ3Byb2JzIjogbnVsbCwKICAgICAgImZpbmlzaF9yZWFzb24iOiAic3RvcCIKICAgIH0KICBdLAogICJ1c2FnZSI6IHsKICAgICJwcm9tcHRfdG9rZW5zIjogMTIzLAogICAgImNvbXBsZXRpb25fdG9rZW5zIjogMjcsCiAgICAidG90YWxfdG9rZW5zIjogMTUwLAogICAgInByb21wdF90b2tlbnNfZGV0YWlscyI6IHsKICAgICAgImNhY2hlZF90b2tlbnMiOiAwLAogICAgICAiYXVkaW9fdG9rZW5zIjogMAogICAgfSwKICAgICJjb21wbGV0aW9uX3Rva2Vuc19kZXRhaWxzIjogewogICAgICAicmVhc29uaW5nX3Rva2VucyI6IDAsCiAgICAgICJhdWRpb190b2tlbnMiOiAwLAogICAgICAiYWNjZXB0ZWRfcHJlZGljdGlvbl90b2tlbnMiOiAwLAogICAgICAicmVqZWN0ZWRfcHJlZGljdGlvbl90b2tlbnMiOiAwCiAgICB9CiAgfSwKICAic2VydmljZV90aWVyIjogImRlZmF1bHQiLAogICJzeXN0ZW1fZmluZ2VycHJpbnQiOiAiZnBfZTI0YTFmZWM0NyIKfQo=
-  recorded_at: Wed, 15 Oct 2025 23:28:18 GMT
+        ewogICJpZCI6ICJjaGF0Y21wbC1DUkMyWUVNcDVjSmlOdVQyaWFHUmtUYUUxR3FITCIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc2MDU5NzE3NCwKICAibW9kZWwiOiAiZ3B0LTQuMS0yMDI1LTA0LTE0IiwKICAiY2hvaWNlcyI6IFsKICAgIHsKICAgICAgImluZGV4IjogMCwKICAgICAgIm1lc3NhZ2UiOiB7CiAgICAgICAgInJvbGUiOiAiYXNzaXN0YW50IiwKICAgICAgICAiY29udGVudCI6ICJUaGUgY3VycmVudCB0ZW1wZXJhdHVyZSBpbiBCb3N0b24gdG9kYXkgaXMgMjLCsEYuIElmIHlvdSBuZWVkIG1vcmUgZGV0YWlscyBsaWtlIGNvbmRpdGlvbnMgb3IgYSBmb3JlY2FzdCwgcGxlYXNlIGxldCBtZSBrbm93ISIsCiAgICAgICAgInJlZnVzYWwiOiBudWxsLAogICAgICAgICJhbm5vdGF0aW9ucyI6IFtdCiAgICAgIH0sCiAgICAgICJsb2dwcm9icyI6IG51bGwsCiAgICAgICJmaW5pc2hfcmVhc29uIjogInN0b3AiCiAgICB9CiAgXSwKICAidXNhZ2UiOiB7CiAgICAicHJvbXB0X3Rva2VucyI6IDEyMywKICAgICJjb21wbGV0aW9uX3Rva2VucyI6IDI4LAogICAgInRvdGFsX3Rva2VucyI6IDE1MSwKICAgICJwcm9tcHRfdG9rZW5zX2RldGFpbHMiOiB7CiAgICAgICJjYWNoZWRfdG9rZW5zIjogMCwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAKICAgIH0sCiAgICAiY29tcGxldGlvbl90b2tlbnNfZGV0YWlscyI6IHsKICAgICAgInJlYXNvbmluZ190b2tlbnMiOiAwLAogICAgICAiYXVkaW9fdG9rZW5zIjogMCwKICAgICAgImFjY2VwdGVkX3ByZWRpY3Rpb25fdG9rZW5zIjogMCwKICAgICAgInJlamVjdGVkX3ByZWRpY3Rpb25fdG9rZW5zIjogMAogICAgfQogIH0sCiAgInNlcnZpY2VfdGllciI6ICJkZWZhdWx0IiwKICAic3lzdGVtX2ZpbmdlcnByaW50IjogImZwX2UyNGExZmVjNDciCn0K
+  recorded_at: Thu, 16 Oct 2025 06:46:16 GMT
 recorded_with: VCR 6.3.1

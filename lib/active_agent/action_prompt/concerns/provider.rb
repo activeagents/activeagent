@@ -55,7 +55,6 @@ module ActiveAgent
           ActiveAgent::Providers.const_get("#{service_name.camelize}Provider")
         end
 
-        def provider_name  = _provider_name
         def provider_klass = _provider_klass
       end
     end

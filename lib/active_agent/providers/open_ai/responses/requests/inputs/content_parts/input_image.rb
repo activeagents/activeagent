@@ -12,9 +12,12 @@ module ActiveAgent
               # Image content part
               class InputImage < Base
                 attribute :type, :string, as: "input_image"
-                attribute :image_url # Can be string (URL or data URI) or object with url and detail
+                attribute :detail, :string, default: "auto" # One of: high, low, auto
+                attribute :file_id, :string # Optional: ID of file to send
+                attribute :image_url, :string # Optional: URL or base64 data URL
 
-                validates :image_url, presence: true
+                validates :type, presence: true
+                validates :detail, presence: true
               end
             end
           end

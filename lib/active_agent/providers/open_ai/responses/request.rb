@@ -143,40 +143,21 @@ module ActiveAgent
           def input
             value = super
 
-            if value && value.one? && value.first.is_a?(Requests::Inputs::UserMessage)
+            if value && value.one? && value.first.is_a?(Requests::Inputs::UserMessage) && value.first.content.is_a?(String)
               value.first.content
             else
               value
             end
           end
 
+
           # For the message stack
-          def input_list
+          def messages
             attributes["input"]&.map { |it| it.to_h }
           end
 
-          # To handle Common Message [input] format
-          def message=(value)
-            case value.try(:role) || value[:role]
-            when :system
-              self.instructions = value.try(:content) || value[:content]
-            when :user
-              self.input        = value.try(:content) || value[:content]
-            end
-
-            # self.input = [
-            #   {
-            #     role:    value.role,
-            #     content: message_content(value.content)
-            #   }
-            # ]
-          end
-
-          # To handle Common Messages [input] format
-          def messages=(value)
-            value.each do |message|
-              self.message = message
-            end
+          def messages=(values)
+            self.input = values
           end
 
           private

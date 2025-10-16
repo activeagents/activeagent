@@ -25,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 15 Oct 2025 17:58:43 GMT
+      - Thu, 16 Oct 2025 06:46:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -37,13 +37,13 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '740'
+      - '558'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '915'
+      - '590'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -57,16 +57,16 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_f38fbd9cca414b9fb8cbe9af0edee4ca
+      - req_f17ded6410b94e7e970a475e9c0322d8
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=nWk8xPX592p3UPhnKS85hkqVKeagMD7.Pmcba705Uxo-1760551123-1.0.1.1-C7yc5VzogyE3vZ2v8HzdVzJPjiiL7RWovix.JG3qXsowWEbZDHcDyK9M_3_Vt1xBN69bhhLr5MRYQ23PQ01Dwl5MknJLjDjRUYrLLG4xVTc;
-        path=/; expires=Wed, 15-Oct-25 18:28:43 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=aGnjLRwJmM3g7uWZkaxy_S8R_0w58HcUttmgkT5koeg-1760597176-1.0.1.1-7cdTfMUOXiuonqS6w4vtgnmeju9wnb3RfmIDKcyR1DWu8QSFfsVeejOF5ouuNmHTs2pwDL_hvJ0Vy_FXQ8Ft2AvXtD2l8BrtPqSqV2.2KP8;
+        path=/; expires=Thu, 16-Oct-25 07:16:16 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=aKnh84cPN3nC92GQKkcOCBAN1CCxM6z3kfSjBOoXZfs-1760551123741-0.0.1.1-604800000;
+      - _cfuvid=hzzOJ3kJFmTZvqRNUArtl2tUQBnTArM4RgH7oXfDJ2o-1760597176839-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -75,23 +75,23 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 98f134c2d984ed3c-SJC
+      - 98f5991f2ae97ae5-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-CR03m4WCTeahTenE1UIdsXfScdYz2",
+          "id": "chatcmpl-CRC2agDc9T0Wv1vbHWqndavTHbG8N",
           "object": "chat.completion",
-          "created": 1760551122,
+          "created": 1760597176,
           "model": "gpt-4-0613",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "Hello! How can I assist you today?\n",
+                "content": "Hello! How can I assist you today?",
                 "refusal": null,
                 "annotations": []
               },
@@ -99,7 +99,7 @@ http_interactions:
                 "content": [
                   {
                     "token": "Hello",
-                    "logprob": -0.014495713,
+                    "logprob": -0.019886034,
                     "bytes": [
                       72,
                       101,
@@ -110,7 +110,7 @@ http_interactions:
                     "top_logprobs": [
                       {
                         "token": "Hello",
-                        "logprob": -0.014495713,
+                        "logprob": -0.019886034,
                         "bytes": [
                           72,
                           101,
@@ -121,7 +121,7 @@ http_interactions:
                       },
                       {
                         "token": "Hi",
-                        "logprob": -4.2530956,
+                        "logprob": -3.9401245,
                         "bytes": [
                           72,
                           105
@@ -131,21 +131,21 @@ http_interactions:
                   },
                   {
                     "token": "!",
-                    "logprob": -0.0051797973,
+                    "logprob": -0.003938529,
                     "bytes": [
                       33
                     ],
                     "top_logprobs": [
                       {
                         "token": "!",
-                        "logprob": -0.0051797973,
+                        "logprob": -0.003938529,
                         "bytes": [
                           33
                         ]
                       },
                       {
                         "token": " there",
-                        "logprob": -5.4025817,
+                        "logprob": -5.6809807,
                         "bytes": [
                           32,
                           116,
@@ -159,7 +159,7 @@ http_interactions:
                   },
                   {
                     "token": " How",
-                    "logprob": -0.0001441843,
+                    "logprob": -0.00011498674,
                     "bytes": [
                       32,
                       72,
@@ -169,7 +169,7 @@ http_interactions:
                     "top_logprobs": [
                       {
                         "token": " How",
-                        "logprob": -0.0001441843,
+                        "logprob": -0.00011498674,
                         "bytes": [
                           32,
                           72,
@@ -179,7 +179,7 @@ http_interactions:
                       },
                       {
                         "token": " What",
-                        "logprob": -9.658727,
+                        "logprob": -9.920579,
                         "bytes": [
                           32,
                           87,
@@ -192,7 +192,7 @@ http_interactions:
                   },
                   {
                     "token": " can",
-                    "logprob": -0.0038442556,
+                    "logprob": -0.002235663,
                     "bytes": [
                       32,
                       99,
@@ -202,7 +202,7 @@ http_interactions:
                     "top_logprobs": [
                       {
                         "token": " can",
-                        "logprob": -0.0038442556,
+                        "logprob": -0.002235663,
                         "bytes": [
                           32,
                           99,
@@ -212,7 +212,7 @@ http_interactions:
                       },
                       {
                         "token": " may",
-                        "logprob": -5.569764,
+                        "logprob": -6.111542,
                         "bytes": [
                           32,
                           109,
@@ -224,7 +224,7 @@ http_interactions:
                   },
                   {
                     "token": " I",
-                    "logprob": -0.0005337327,
+                    "logprob": -0.00029863926,
                     "bytes": [
                       32,
                       73
@@ -232,7 +232,7 @@ http_interactions:
                     "top_logprobs": [
                       {
                         "token": " I",
-                        "logprob": -0.0005337327,
+                        "logprob": -0.00029863926,
                         "bytes": [
                           32,
                           73
@@ -240,7 +240,7 @@ http_interactions:
                       },
                       {
                         "token": " assist",
-                        "logprob": -7.5666385,
+                        "logprob": -8.1405115,
                         "bytes": [
                           32,
                           97,
@@ -255,7 +255,7 @@ http_interactions:
                   },
                   {
                     "token": " assist",
-                    "logprob": -0.003762071,
+                    "logprob": -0.0030892978,
                     "bytes": [
                       32,
                       97,
@@ -268,7 +268,7 @@ http_interactions:
                     "top_logprobs": [
                       {
                         "token": " assist",
-                        "logprob": -0.003762071,
+                        "logprob": -0.0030892978,
                         "bytes": [
                           32,
                           97,
@@ -281,7 +281,7 @@ http_interactions:
                       },
                       {
                         "token": " help",
-                        "logprob": -5.596099,
+                        "logprob": -5.790994,
                         "bytes": [
                           32,
                           104,
@@ -294,7 +294,7 @@ http_interactions:
                   },
                   {
                     "token": " you",
-                    "logprob": -0.000027133641,
+                    "logprob": -0.00002129266,
                     "bytes": [
                       32,
                       121,
@@ -304,7 +304,7 @@ http_interactions:
                     "top_logprobs": [
                       {
                         "token": " you",
-                        "logprob": -0.000027133641,
+                        "logprob": -0.00002129266,
                         "bytes": [
                           32,
                           121,
@@ -314,7 +314,7 @@ http_interactions:
                       },
                       {
                         "token": " today",
-                        "logprob": -12.242676,
+                        "logprob": -12.523199,
                         "bytes": [
                           32,
                           116,
@@ -328,7 +328,7 @@ http_interactions:
                   },
                   {
                     "token": " today",
-                    "logprob": -0.00033665422,
+                    "logprob": -0.00028731857,
                     "bytes": [
                       32,
                       116,
@@ -340,7 +340,7 @@ http_interactions:
                     "top_logprobs": [
                       {
                         "token": " today",
-                        "logprob": -0.00033665422,
+                        "logprob": -0.00028731857,
                         "bytes": [
                           32,
                           116,
@@ -352,7 +352,7 @@ http_interactions:
                       },
                       {
                         "token": "?",
-                        "logprob": -8.066236,
+                        "logprob": -8.274102,
                         "bytes": [
                           63
                         ]
@@ -360,23 +360,22 @@ http_interactions:
                     ]
                   },
                   {
-                    "token": "?\n",
-                    "logprob": -2.9219127,
+                    "token": "?",
+                    "logprob": -0.103042066,
                     "bytes": [
-                      63,
-                      10
+                      63
                     ],
                     "top_logprobs": [
                       {
                         "token": "?",
-                        "logprob": -0.055615835,
+                        "logprob": -0.103042066,
                         "bytes": [
                           63
                         ]
                       },
                       {
                         "token": "?\n",
-                        "logprob": -2.9219127,
+                        "logprob": -2.326816,
                         "bytes": [
                           63,
                           10
@@ -408,5 +407,5 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": null
         }
-  recorded_at: Wed, 15 Oct 2025 17:58:43 GMT
+  recorded_at: Thu, 16 Oct 2025 06:46:16 GMT
 recorded_with: VCR 6.3.1

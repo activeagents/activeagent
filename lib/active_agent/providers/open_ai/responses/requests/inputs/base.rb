@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../../../../common/_base_model"
+require_relative "../types"
 
 module ActiveAgent
   module Providers
@@ -11,12 +12,20 @@ module ActiveAgent
             # Base class for input items in Responses API
             class Base < Common::BaseModel
               attribute :role, :string
-              attribute :content # Can be string or array of content parts
+              attribute :content, Types::ContentType.new
 
               validates :role, inclusion: {
-                in: %w[system user assistant tool],
+                in: %w[system user assistant developer tool],
                 allow_nil: true
               }
+
+              def to_hc
+                super.tap do |hash|
+                  if content.is_a?(Array) && content.one? && content.first.type == "input_text"
+                    hash[:content] = content.first.text
+                  end
+                end
+              end
             end
           end
         end
