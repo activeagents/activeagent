@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "active_agent/generation_provider/_base_provider"
+require "active_agent/providers/_base_provider"
 
 class ToolManagementTest < ActiveSupport::TestCase
   class TestProvider
-    include ActiveAgent::GenerationProvider::ToolManagement
+    include ActiveAgent::Providers::ToolManagement
   end
 
   setup do

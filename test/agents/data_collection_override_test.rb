@@ -12,7 +12,7 @@ class DataCollectionOverrideTest < ActiveSupport::TestCase
     provider = agent.send(:generation_provider)
 
     # Verify it's an OpenRouter provider
-    assert_kind_of ActiveAgent::GenerationProvider::OpenRouterProvider, provider
+    assert_kind_of ActiveAgent::Providers::OpenRouterProvider, provider
 
     # Create a prompt with runtime override to "deny"
     prompt_context = agent.prompt(

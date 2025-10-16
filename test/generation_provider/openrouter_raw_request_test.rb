@@ -1,9 +1,9 @@
 require "test_helper"
-require "active_agent/generation_provider/open_router_provider"
+require "active_agent/providers/open_router_provider"
 require "active_agent/action_prompt/prompt"
 
 module ActiveAgent
-  module GenerationProvider
+  module Providers
     class OpenRouterRawRequestTest < ActiveSupport::TestCase
       setup do
         @config = {
@@ -57,7 +57,7 @@ module ActiveAgent
         assert_not_nil response
         assert_equal request_params, response.raw_request
         assert_equal mock_response, response.raw_response
-        assert_instance_of ActiveAgent::GenerationProvider::Response, response
+        assert_instance_of ActiveAgent::Providers::Response, response
       end
 
       test "raw_request includes OpenRouter-specific parameters" do

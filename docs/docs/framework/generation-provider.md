@@ -19,7 +19,7 @@ You can use the following generation providers with Active Agent:
 Generation providers handle the request-response cycle for generating responses based on the provided prompts. They process the prompt context, including messages, actions, and parameters, and return the generated response.
 
 ### Response Object
-The `ActiveAgent::GenerationProvider::Response` class encapsulates the result of a generation request, providing access to both the processed response and debugging information.
+The `ActiveAgent::Providers::Response` class encapsulates the result of a generation request, providing access to both the processed response and debugging information.
 
 #### Attributes
 

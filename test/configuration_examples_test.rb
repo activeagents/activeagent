@@ -64,7 +64,7 @@ class ConfigurationExamplesTest < ActiveAgentTestCase
 
   test "application agent is configured correctly" do
     # _generation_provider returns the provider instance, not symbol
-    assert ExampleApplicationAgent._generation_provider.is_a?(ActiveAgent::GenerationProvider::OpenAIProvider)
+    assert ExampleApplicationAgent._generation_provider.is_a?(ActiveAgent::Providers::OpenAIProvider)
     # The configuration is stored in the provider's config
     provider = ExampleApplicationAgent._generation_provider
     assert_equal "gpt-4o-mini", provider.instance_variable_get(:@options).model

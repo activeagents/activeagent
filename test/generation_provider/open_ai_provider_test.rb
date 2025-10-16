@@ -3,7 +3,7 @@ require "test_helper"
 # Test for OpenAI Provider gem loading and configuration
 class OpenAIProviderTest < ActiveAgentTestCase
   test "provider requires openai gem" do
-    provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/open_ai_provider.rb")
+    provider_file_path = File.join(Rails.root, "../../lib/active_agent/providers/open_ai_provider.rb")
     provider_source    = File.read(provider_file_path)
 
     assert_includes provider_source, "require_gem!(:openai, __FILE__)"
@@ -13,11 +13,11 @@ class OpenAIProviderTest < ActiveAgentTestCase
     # This test ensures the provider loads correctly when the gem is present
     # Since the gem is already loaded in our test environment, this should work
     assert_nothing_raised do
-      require "active_agent/generation_provider/open_ai_provider"
+      require "active_agent/providers/open_ai_provider"
     end
 
     # Verify the class exists and can be instantiated with valid config
-    assert defined?(ActiveAgent::GenerationProvider::OpenAIProvider)
+    assert defined?(ActiveAgent::Providers::OpenAIProvider)
 
     config = {
       "service" => "OpenAI",
@@ -26,7 +26,7 @@ class OpenAIProviderTest < ActiveAgentTestCase
     }
 
     assert_nothing_raised do
-      ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+      ActiveAgent::Providers::OpenAIProvider.new(config)
     end
   end
 
@@ -193,7 +193,7 @@ class OpenAIProviderTest < ActiveAgentTestCase
       "host" => "https://custom-openai-host.com"
     }
 
-    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(config)
+    provider = ActiveAgent::Providers::OpenAIProvider.new(config)
     assert_equal "https://custom-openai-host.com", provider.instance_variable_get(:@options).uri_base
   end
 end

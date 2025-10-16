@@ -1,6 +1,6 @@
 require "test_helper"
 require "active_agent/action_prompt/prompt"
-require "active_agent/generation_provider/open_ai_provider"
+require "active_agent/providers/open_ai_provider"
 
 class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
   setup do
@@ -8,7 +8,7 @@ class OpenAIBuiltinToolsTest < ActiveSupport::TestCase
       "model" => "gpt-5",
       "api_key" => "test-key"
     }
-    @provider = ActiveAgent::GenerationProvider::OpenAIProvider.new(@config)
+    @provider = ActiveAgent::Providers::OpenAIProvider.new(@config)
     @prompt = ActiveAgent::ActionPrompt::Prompt.new
   end
 

@@ -179,6 +179,10 @@ module Integration
             )
           end
 
+          def get_current_weather(location:, unit: "fahrenheit")
+            { location:, unit:, temperature: "22" }
+          end
+
           REASONING = {
             "model": "o3-mini",
             "input": "How much wood would a woodchuck chuck?",

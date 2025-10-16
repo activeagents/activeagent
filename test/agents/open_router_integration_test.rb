@@ -164,7 +164,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
       # https://platform.openai.com/docs/guides/pdf-files#file-urls
       # Accept either the OpenAI error directly or our wrapped error
       # Suppress ruby-openai gem's error output to STDERR
-      error = assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError, OpenAI::Error) do
+      error = assert_raises(ActiveAgent::Providers::BaseProvider::ProvidersError, OpenAI::Error) do
         prompt.generate_now
       end
 
@@ -352,7 +352,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
   end
 
   test "includes OpenRouter headers in requests" do
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o",
       "app_name" => "TestApp",
       "site_url" => "https://test.example.com"
@@ -366,7 +366,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
   end
 
   test "builds provider preferences correctly" do
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o",
       "enable_fallbacks" => true,
       "provider" => {
@@ -386,7 +386,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
   test "configures data collection policies" do
     # Test deny all data collection
-    provider_deny = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider_deny = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o",
       "data_collection" => "deny"
     )
@@ -394,7 +394,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     assert_equal "deny", prefs_deny[:data_collection]
 
     # Test nil all data collection (default)
-    provider_allow = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider_allow = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o"
     )
     prefs_allow = provider_allow.send(:build_provider_preferences)
@@ -419,7 +419,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
   end
 
   test "converts file type to image_url for OpenRouter PDF support" do
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o"
     )
 
@@ -439,7 +439,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
 
   test "respects configuration hierarchy for site_url" do
     # Test with explicit site_url config
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o",
       "site_url" => "https://configured.example.com"
     )
@@ -447,7 +447,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
     assert_equal "https://configured.example.com", provider.instance_variable_get(:@options).site_url
 
     # Test with default_url_options in config
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o",
       "default_url_options" => {
         "host" => "fromconfig.example.com"
@@ -458,13 +458,13 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
   end
 
   test "handles rate limit information in metadata" do
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o"
     )
 
     # Create a mock response
     prompt = ActiveAgent::ActionPrompt::Prompt.new(message: "test")
-    response = ActiveAgent::GenerationProvider::Response.new(prompt: prompt)
+    response = ActiveAgent::Providers::Response.new(prompt: prompt)
 
     headers = {
       "x-provider" => "OpenAI",
@@ -484,7 +484,7 @@ class OpenRouterIntegrationTest < ActiveSupport::TestCase
   end
 
   test "includes plugins parameter when passed in options" do
-    provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(
+    provider = ActiveAgent::Providers::OpenRouterProvider.new(
       "model" => "openai/gpt-4o"
     )
 

@@ -1,9 +1,9 @@
 require "test_helper"
-require "active_agent/generation_provider/anthropic_provider"
+require "active_agent/providers/anthropic_provider"
 require "active_agent/action_prompt/prompt"
 
 module ActiveAgent
-  module GenerationProvider
+  module Providers
     class AnthropicRawRequestTest < ActiveSupport::TestCase
       setup do
         @config = {

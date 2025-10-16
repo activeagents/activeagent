@@ -63,7 +63,7 @@ code_to_include
 - `test/tool_configuration_test.rb` - Created for tool configuration examples
 
 #### Enhanced Framework Files
-- `lib/active_agent/generation_provider/response.rb` - Added `usage` method and token helpers
+- `lib/active_agent/providers/response.rb` - Added `usage` method and token helpers
 
 #### Updated Documentation
 - `docs/docs/agents/data-extraction-agent.md` - Uses test regions, includes tabbed response examples

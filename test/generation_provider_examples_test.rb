@@ -1,6 +1,6 @@
 require "test_helper"
 
-class GenerationProviderExamplesTest < ActiveAgentTestCase
+class ProvidersExamplesTest < ActiveAgentTestCase
   test "provider configuration examples" do
     # Mock configurations for providers that might not be configured
     mock_config = {

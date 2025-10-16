@@ -3,7 +3,7 @@ require "test_helper"
 # Test for Anthropic Provider gem loading and configuration
 class AnthropicProviderTest < ActiveAgentTestCase
   test "provider requires anthropic gem" do
-    provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/anthropic_provider.rb")
+    provider_file_path = File.join(Rails.root, "../../lib/active_agent/providers/anthropic_provider.rb")
     provider_source    = File.read(provider_file_path)
 
     assert_includes provider_source, "require_gem!(:anthropic, __FILE__)"
@@ -13,11 +13,11 @@ class AnthropicProviderTest < ActiveAgentTestCase
     # This test ensures the provider loads correctly when the gem is present
     # Since the gem is already loaded in our test environment, this should work
     assert_nothing_raised do
-      require "active_agent/generation_provider/anthropic_provider"
+      require "active_agent/providers/anthropic_provider"
     end
 
     # Verify the class exists and can be instantiated with valid config
-    assert defined?(ActiveAgent::GenerationProvider::AnthropicProvider)
+    assert defined?(ActiveAgent::Providers::AnthropicProvider)
 
     config = {
       "service" => "Anthropic",
@@ -26,7 +26,7 @@ class AnthropicProviderTest < ActiveAgentTestCase
     }
 
     assert_nothing_raised do
-      ActiveAgent::GenerationProvider::AnthropicProvider.new(config)
+      ActiveAgent::Providers::AnthropicProvider.new(config)
     end
   end
 
@@ -192,9 +192,9 @@ class AnthropicProviderTest < ActiveAgentTestCase
       # Missing access_token
     }
 
-    require "active_agent/generation_provider/anthropic_provider"
+    require "active_agent/providers/anthropic_provider"
 
-    provider = ActiveAgent::GenerationProvider::AnthropicProvider.new(config)
+    provider = ActiveAgent::Providers::AnthropicProvider.new(config)
     assert_nil provider.instance_variable_get(:@options).access_token
   end
 end

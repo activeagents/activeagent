@@ -4,7 +4,7 @@
 
 ```ruby
 # Response object
-#<ActiveAgent::GenerationProvider::Response:0x1838
+#<ActiveAgent::Providers::Response:0x1838
   @message=#<ActiveAgent::ActionPrompt::Message:0x1840
     @action_id=nil,
     @action_name=nil,

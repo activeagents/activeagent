@@ -1,9 +1,9 @@
 require "test_helper"
-require "active_agent/generation_provider/open_ai_provider"
+require "active_agent/providers/open_ai_provider"
 require "active_agent/action_prompt/prompt"
 
 module ActiveAgent
-  module GenerationProvider
+  module Providers
     class OpenAIRawRequestTest < ActiveSupport::TestCase
       setup do
         @config = {

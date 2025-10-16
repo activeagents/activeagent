@@ -1,7 +1,6 @@
 require "yaml"
 require "abstract_controller"
 require "active_agent/configuration"
-require "active_agent/generation_provider"
 require "active_agent/version"
 require "active_agent/deprecator"
 require "active_agent/railtie" if defined?(Rails)
@@ -27,7 +26,6 @@ module ActiveAgent
   autoload :InlinePreviewInterceptor
   autoload :PromptHelper
   autoload :Generation
-  autoload :GenerationProvider
   autoload :QueuedGeneration
   autoload :Parameterized
   autoload :Preview

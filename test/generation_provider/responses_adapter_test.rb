@@ -1,10 +1,10 @@
 require "test_helper"
 require "active_agent/action_prompt/prompt"
 require "active_agent/action_prompt/message"
-require_relative "../../lib/active_agent/generation_provider/responses_adapter"
+require_relative "../../lib/active_agent/providers/responses_adapter"
 
 module ActiveAgent
-  module GenerationProvider
+  module Providers
     module OpenAIAdapters
       class ResponsesAdapterTest < ActiveSupport::TestCase
         def setup

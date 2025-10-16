@@ -71,15 +71,15 @@ docker exec -it ollama ollama pull llama3
 ```ruby
 class OllamaAdmin < ApplicationAgent
   generate_with :ollama
-  
+
   def list_models
     # Get list of installed models
     response = HTTParty.get("#{ollama_host}/api/tags")
     response["models"]
   end
-  
+
   private
-  
+
   def ollama_host
     Rails.configuration.active_agent.dig(:ollama, :host) || "http://localhost:11434"
   end
@@ -95,7 +95,7 @@ Run models completely offline:
 ```ruby
 class PrivateDataAgent < ApplicationAgent
   generate_with :ollama, model: "llama3"
-  
+
   def process_sensitive_data
     @data = params[:sensitive_data]
     # Data never leaves your infrastructure
@@ -116,7 +116,7 @@ class MultiModelAgent < ApplicationAgent
     @code = params[:code]
     prompt
   end
-  
+
   def general_chat
     # Use general purpose model
     self.class.generate_with :ollama, model: "llama3"
@@ -133,11 +133,11 @@ Use fine-tuned or custom models:
 ```ruby
 class CustomModelAgent < ApplicationAgent
   generate_with :ollama, model: "my-custom-model:latest"
-  
+
   before_action :ensure_model_exists
-  
+
   private
-  
+
   def ensure_model_exists
     # Check if model is available
     models = fetch_available_models
@@ -168,7 +168,7 @@ class OllamaAgent < ApplicationAgent
   generate_with :ollama,
     model: "llama3",
     temperature: 0.1  # Lower temperature for consistency
-  
+
   def extract_with_json_prompt
     prompt(
       instructions: <<~INST,
@@ -215,16 +215,16 @@ Stream responses for better UX:
 
 ```ruby
 class StreamingOllamaAgent < ApplicationAgent
-  generate_with :ollama, 
+  generate_with :ollama,
     model: "llama3",
     stream: true
-  
+
   on_message_chunk do |chunk|
     # Handle streaming chunks
     Rails.logger.info "Chunk: #{chunk}"
     broadcast_to_client(chunk)
   end
-  
+
   def chat
     prompt(message: params[:message])
   end
@@ -322,7 +322,7 @@ class FastOllamaAgent < ApplicationAgent
   generate_with :ollama,
     model: "llama3",
     keep_alive: "5m"  # Keep model loaded for 5 minutes
-  
+
   def quick_response
     @query = params[:query]
     prompt
@@ -369,12 +369,12 @@ Handle Ollama-specific errors:
 ```ruby
 class RobustOllamaAgent < ApplicationAgent
   generate_with :ollama, model: "llama3"
-  
+
   rescue_from Faraday::ConnectionFailed do |error|
     Rails.logger.error "Ollama connection failed: #{error.message}"
     render_ollama_setup_instructions
   end
-  
+
   rescue_from ActiveAgent::GenerationError do |error|
     if error.message.include?("model not found")
       pull_model_and_retry
@@ -382,14 +382,14 @@ class RobustOllamaAgent < ApplicationAgent
       raise
     end
   end
-  
+
   private
-  
+
   def pull_model_and_retry
     system("ollama pull #{generation_provider.model}")
     retry
   end
-  
+
   def render_ollama_setup_instructions
     "Ollama is not running. Start it with: ollama serve"
   end
@@ -405,18 +405,18 @@ class OllamaAgentTest < ActiveSupport::TestCase
   setup do
     skip "Ollama not available" unless ollama_available?
   end
-  
+
   test "generates response with local model" do
     response = OllamaAgent.with(
       message: "Hello"
     ).prompt_context.generate_now
-    
+
     assert_not_nil response.message.content
     doc_example_output(response)
   end
-  
+
   private
-  
+
   def ollama_available?
     response = Net::HTTP.get_response(URI("http://localhost:11434/api/tags"))
     response.code == "200"
@@ -487,13 +487,13 @@ volumes:
 ```ruby
 class PrivacyFirstAgent < ApplicationAgent
   generate_with :ollama, model: "llama3"
-  
+
   def process_pii
     @personal_data = params[:personal_data]
-    
+
     # Data stays local - no external API calls
     Rails.logger.info "Processing PII locally with Ollama"
-    
+
     prompt instructions: "Process this data privately"
   end
 end
@@ -509,18 +509,18 @@ class ModelManager
       pull_model(model_name)
     end
   end
-  
+
   def self.list_models
     response = HTTParty.get("http://localhost:11434/api/tags")
     response["models"].map { |m| m["name"] }
   end
-  
+
   def self.pull_model(model_name)
     system("ollama pull #{model_name}")
   end
-  
+
   def self.delete_model(model_name)
-    HTTParty.delete("http://localhost:11434/api/delete", 
+    HTTParty.delete("http://localhost:11434/api/delete",
       body: { name: model_name }.to_json,
       headers: { 'Content-Type' => 'application/json' }
     )
@@ -534,19 +534,19 @@ end
 # Ensure Ollama is available in production
 class ApplicationAgent < ActiveAgent::Base
   before_action :ensure_ollama_available, if: :using_ollama?
-  
+
   private
-  
+
   def using_ollama?
-    generation_provider.is_a?(ActiveAgent::GenerationProvider::OllamaProvider)
+    generation_provider.is_a?(ActiveAgent::Providers::OllamaProvider)
   end
-  
+
   def ensure_ollama_available
     HTTParty.get("#{ollama_host}/api/tags")
   rescue => e
     raise "Ollama is not available: #{e.message}"
   end
-  
+
   def ollama_host
     Rails.configuration.active_agent.dig(:ollama, :host)
   end

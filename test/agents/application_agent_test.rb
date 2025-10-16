@@ -63,7 +63,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
       response = agent.embed
 
       assert_not_nil response
-      assert_instance_of ActiveAgent::GenerationProvider::Response, response
+      assert_instance_of ActiveAgent::Providers::Response, response
     end
   end
 end

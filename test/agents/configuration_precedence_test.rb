@@ -1,5 +1,5 @@
 require "test_helper"
-require "active_agent/generation_provider/open_router_provider"
+require "active_agent/providers/open_router_provider"
 
 class ConfigurationPrecedenceTest < ActiveSupport::TestCase
   # region test_configuration_precedence
@@ -15,7 +15,7 @@ class ConfigurationPrecedenceTest < ActiveSupport::TestCase
     }
 
     # Create a mock provider that exposes its config for testing
-    mock_provider = ActiveAgent::GenerationProvider::OpenRouterProvider.new(config_options)
+    mock_provider = ActiveAgent::Providers::OpenRouterProvider.new(config_options)
 
     # Step 2: Create agent with generate_with options (medium priority)
     agent_class = Class.new(ApplicationAgent) do

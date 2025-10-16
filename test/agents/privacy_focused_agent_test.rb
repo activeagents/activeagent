@@ -10,7 +10,7 @@ class PrivacyFocusedAgentTest < ActiveSupport::TestCase
     provider = @agent.send(:generation_provider)
 
     # The provider should be an OpenRouter provider
-    assert_kind_of ActiveAgent::GenerationProvider::OpenRouterProvider, provider
+    assert_kind_of ActiveAgent::Providers::OpenRouterProvider, provider
 
     # Create a prompt context to test with
     prompt_context = @agent.prompt(message: "test")

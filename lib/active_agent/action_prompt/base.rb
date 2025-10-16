@@ -10,12 +10,13 @@ require "active_agent/rescuable"
 
 require_relative "resolver"
 require_relative "null_prompt"
+require_relative "concerns/provider"
 
 module ActiveAgent
   module ActionPrompt
     class Base < AbstractController::Base
       include Callbacks
-      include GenerationProvider
+      include Provider
       include Streaming
       include QueuedGeneration
       include Rescuable
@@ -128,12 +129,12 @@ module ActiveAgent
         #
         # @example With additional options
         #   generate_with :anthropic, temperature: 0.7, model: "claude-3"
-        def generate_with(provider, **provided_options)
-          self.generation_provider = provider
+        def generate_with(provider_reference, **agent_options)
+          self.provider = provider_reference
 
-          # Don't inherit instructions from parent
-          inherited_options = (self.options || {}).except(:instructions)
-          self.options      = inherited_options.merge(provided_options)
+          global_options    = provider_config(provider_reference)
+          inherited_options = (self.options || {}).except(:instructions) # Don't inherit instructions from parent
+          self.options      = global_options.merge(inherited_options).merge(agent_options)
         end
 
         def stream_with(&stream)
@@ -203,13 +204,13 @@ module ActiveAgent
 
       delegate :agent_name, to: :class
 
-      attr_internal :raw_context
+      attr_internal :options # Action-level options merged with agent options
       attr_internal :context
 
       # @return [void]
       def initialize # :nodoc:
         super
-        @_raw_context = self.class.options&.deep_dup
+        self.options = self.class.options&.deep_dup
 
         @_prompt_was_called = false
         @_context = ActiveAgent::ActionPrompt::Prompt.new(options: self.class.options&.deep_dup || {}, agent_instance: self)
@@ -234,7 +235,6 @@ module ActiveAgent
 
         ActiveSupport::Notifications.instrument("process.active_agent", payload) do
           super
-          # @_context = ActiveAgent::ActionPrompt::Prompt.new(agent_instance: self) unless @_prompt_was_called
         end
       end
 
@@ -247,8 +247,8 @@ module ActiveAgent
       # @param options [Hash] the parameters to merge into the raw context
       # @param block [Proc] optional block for additional processing
       # @return [void]
-      def prompt(options = {}, &block)
-        raw_context.merge!(options)
+      def prompt(new_options = {}, &block)
+        options.merge!(new_options)
       end
 
       # Executes the prompt generation using the configured generation provider.
@@ -263,14 +263,12 @@ module ActiveAgent
       #   # => Generates the prompt and handles the response
       #
       def perform_generation
-        resolver = Resolver.new(
-          context:         raw_context,
-          stream_callback: raw_context[:stream] ? perform_streaming : nil,
-          tool_callback:   raw_context[:tools]  ? perform_tooling   : nil
-        )
+        parameter = options.merge(
+          stream_callback:   options[:stream] ? perform_streaming : nil,
+          function_callback: options[:tools]  ? perform_tooling   : nil
+        ).compact
 
-        generation_provider.generate(resolver)
-        # handle_response(result)
+        provider_klass.new(**parameter).call
       end
 
       private
@@ -344,8 +342,8 @@ module ActiveAgent
 
       def embed
         context.options.merge(options)
-        generation_provider.embed(context) if context && generation_provider
-        handle_response(generation_provider.response)
+        provider_type.embed(context) if context && provider_type
+        handle_response(provider_type.response)
       end
 
       # Add embedding capability to Message class
@@ -360,7 +358,7 @@ module ActiveAgent
       end
 
       def update_context(response)
-        ActiveAgent::GenerationProvider::Response.new(prompt: context)
+        ActiveAgent::Providers::Response.new(prompt: context)
       end
 
       def headers(args = nil)
@@ -485,43 +483,43 @@ module ActiveAgent
         JSON.parse render_to_string(locals: { action_name: schema_or_action }, action: schema_or_action, formats: :json)
       end
 
-      def merge_options(prompt_options)
-        config_options = generation_provider&.options&.to_h || {}
-        agent_options = (self.class.options || {}).deep_dup  # Defensive copy to prevent mutation
+      # def merge_options(prompt_options)
+      #   config_options = provider_type&.options&.to_h || {}
+      #   agent_options = (self.class.options || {}).deep_dup  # Defensive copy to prevent mutation
 
-        parent_options = self.class.superclass.respond_to?(:options) ? (self.class.superclass.options || {}) : {}
+      #   parent_options = self.class.superclass.respond_to?(:options) ? (self.class.superclass.options || {}) : {}
 
-        # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
-        runtime_options = prompt_options.slice(
-          :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
-          :presence_penalty, :response_format, :seed, :stop, :tools_choice, :plugins,
+      #   # Extract runtime options from prompt_options (exclude instructions as it has special template logic)
+      #   runtime_options = prompt_options.slice(
+      #     :model, :temperature, :max_tokens, :stream, :top_p, :frequency_penalty,
+      #     :presence_penalty, :response_format, :seed, :stop, :tools_choice, :plugins,
 
-          # OpenRouter Provider Settings
-          :data_collection, :require_parameters, :only, :ignore, :quantizations, :sort, :max_price,
+      #     # OpenRouter Provider Settings
+      #     :data_collection, :require_parameters, :only, :ignore, :quantizations, :sort, :max_price,
 
-          # Built-in Tools Support (OpenAI Responses API)
-          :tools
-        )
-        # Handle explicit options parameter
-        explicit_options = prompt_options[:options] || {}
+      #     # Built-in Tools Support (OpenAI Responses API)
+      #     :tools
+      #   )
+      #   # Handle explicit options parameter
+      #   explicit_options = prompt_options[:options] || {}
 
-        # Merge with proper precedence: config < agent < explicit_options
-        # Don't include instructions in automatic merging as it has special template fallback logic
-        config_options_filtered = config_options.except(:instructions)
-        agent_options_filtered = agent_options.except(:instructions)
-        explicit_options_filtered = explicit_options.except(:instructions)
+      #   # Merge with proper precedence: config < agent < explicit_options
+      #   # Don't include instructions in automatic merging as it has special template fallback logic
+      #   config_options_filtered = config_options.except(:instructions)
+      #   agent_options_filtered = agent_options.except(:instructions)
+      #   explicit_options_filtered = explicit_options.except(:instructions)
 
-        merged = config_options_filtered.merge(agent_options_filtered).merge(explicit_options_filtered)
+      #   merged = config_options_filtered.merge(agent_options_filtered).merge(explicit_options_filtered)
 
-        # Only merge runtime options that are actually present (not nil)
-        runtime_options.each do |key, value|
-          next if value.nil?
+      #   # Only merge runtime options that are actually present (not nil)
+      #   runtime_options.each do |key, value|
+      #     next if value.nil?
 
-          merged[key] = value
-        end
+      #     merged[key] = value
+      #   end
 
-        merged
-      end
+      #   merged
+      # end
 
       def set_content_type(prompt_context, user_content_type, class_default) # :doc:
         if user_content_type.present?

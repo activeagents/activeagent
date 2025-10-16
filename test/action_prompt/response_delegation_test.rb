@@ -26,8 +26,8 @@ class ResponseDelegationTest < ActiveSupport::TestCase
     test_provider = Class.new do
       attr_accessor :response
 
-      def generate(prompt)
-        @response = ActiveAgent::GenerationProvider::Response.new(
+      def call
+        @response = ActiveAgent::Providers::Response.new(
           prompt: prompt,
           message: ActiveAgent::ActionPrompt::Message.new(content: "Test response", role: :assistant)
         )

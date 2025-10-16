@@ -1,10 +1,10 @@
 require "test_helper"
-require "active_agent/generation_provider/response"
+require "active_agent/providers/response"
 require "active_agent/action_prompt/prompt"
 require "active_agent/action_prompt/message"
 
 module ActiveAgent
-  module GenerationProvider
+  module Providers
     class ResponseSanitizationTest < ActiveSupport::TestCase
       setup do
         @prompt = ActiveAgent::ActionPrompt::Prompt.new(

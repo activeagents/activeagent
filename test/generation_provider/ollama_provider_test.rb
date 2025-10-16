@@ -2,9 +2,9 @@ require "test_helper"
 require "openai"
 require "active_agent/action_prompt"
 require "active_agent/action_prompt/prompt"
-require "active_agent/generation_provider/ollama_provider"
-require "active_agent/generation_provider/open_router_provider"
-require "active_agent/generation_provider/response"
+require "active_agent/providers/ollama_provider"
+require "active_agent/providers/open_router_provider"
+require "active_agent/providers/response"
 
 class OllamaProviderTest < ActiveSupport::TestCase
   setup do
@@ -15,7 +15,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
       "api_version" => "v1",
       "embedding_model" => "nomic-embed-text"
     }
-    @provider = ActiveAgent::GenerationProvider::OllamaProvider.new(@config)
+    @provider = ActiveAgent::Providers::OllamaProvider.new(@config)
 
     @prompt = ActiveAgent::ActionPrompt::Prompt.new(
       message: ActiveAgent::ActionPrompt::Message.new(content: "Test content for embedding"),
@@ -24,7 +24,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
   end
 
   test "provider requires openai gem" do
-    provider_file_path = File.join(Rails.root, "../../lib/active_agent/generation_provider/ollama_provider.rb")
+    provider_file_path = File.join(Rails.root, "../../lib/active_agent/providers/ollama_provider.rb")
     provider_source    = File.read(provider_file_path)
 
     assert_includes provider_source, "require_gem!(:openai, __FILE__)"
@@ -43,7 +43,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
       "service" => "Ollama",
       "model" => "llama2:latest"
     }
-    provider = ActiveAgent::GenerationProvider::OllamaProvider.new(minimal_config)
+    provider = ActiveAgent::Providers::OllamaProvider.new(minimal_config)
 
     assert_equal "http://localhost:11434", provider.options.uri_base
     assert_equal "v1", provider.instance_variable_get(:@api_version)
@@ -86,7 +86,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
     @provider.instance_variable_set(:@prompt, @prompt)
     response = @provider.send(:embeddings_response, mock_response, request_params)
 
-    assert_instance_of ActiveAgent::GenerationProvider::Response, response
+    assert_instance_of ActiveAgent::Providers::Response, response
     assert_equal @prompt, response.prompt
     assert_instance_of ActiveAgent::ActionPrompt::Message, response.message
     assert_equal [ 0.1, 0.2, 0.3, 0.4, 0.5 ], response.message.content
@@ -98,7 +98,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
   test "embed method works with Ollama provider" do
     VCR.use_cassette("ollama_provider_embed") do
       # region ollama_provider_embed
-      provider = ActiveAgent::GenerationProvider::OllamaProvider.new(@config)
+      provider = ActiveAgent::Providers::OllamaProvider.new(@config)
       prompt = ActiveAgent::ActionPrompt::Prompt.new(
         message: ActiveAgent::ActionPrompt::Message.new(content: "Generate an embedding for this text"),
         instructions: "You are an embedding test agent"
@@ -108,7 +108,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
       # endregion ollama_provider_embed
 
       assert_not_nil response
-      assert_instance_of ActiveAgent::GenerationProvider::Response, response
+      assert_instance_of ActiveAgent::Providers::Response, response
       assert_not_nil response.message.content
       assert_kind_of Array, response.message.content
       assert response.message.content.all? { |val| val.is_a?(Numeric) }
@@ -126,13 +126,13 @@ class OllamaProviderTest < ActiveSupport::TestCase
     WebMock.allow_net_connect!
 
     bad_config = @config.merge("host" => "http://localhost:99999")
-    provider = ActiveAgent::GenerationProvider::OllamaProvider.new(bad_config)
+    provider = ActiveAgent::Providers::OllamaProvider.new(bad_config)
     prompt = ActiveAgent::ActionPrompt::Prompt.new(
       message: ActiveAgent::ActionPrompt::Message.new(content: "Test embedding"),
       instructions: "Test agent"
     )
 
-    error = assert_raises(ActiveAgent::GenerationProvider::BaseProvider::GenerationProviderError) do
+    error = assert_raises(ActiveAgent::Providers::BaseProvider::ProvidersError) do
       provider.embed(prompt)
     end
 
@@ -145,7 +145,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
   end
 
   test "inherits from OpenAIProvider" do
-    assert ActiveAgent::GenerationProvider::OllamaProvider < ActiveAgent::GenerationProvider::OpenAIProvider
+    assert ActiveAgent::Providers::OllamaProvider < ActiveAgent::Providers::OpenAIProvider
   end
 
   test "overrides embeddings methods from parent class" do
@@ -154,7 +154,7 @@ class OllamaProviderTest < ActiveSupport::TestCase
     assert @provider.respond_to?(:embeddings_response, true)
 
     # Verify the methods are defined in OllamaProvider, not just inherited
-    ollama_methods = ActiveAgent::GenerationProvider::OllamaProvider.instance_methods(false)
+    ollama_methods = ActiveAgent::Providers::OllamaProvider.instance_methods(false)
     assert_includes ollama_methods, :embeddings_parameters
     assert_includes ollama_methods, :embeddings_response
   end

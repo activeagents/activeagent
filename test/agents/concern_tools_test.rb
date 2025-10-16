@@ -153,7 +153,7 @@ class ConcernToolsTest < ActiveSupport::TestCase
     }
 
     # Provider should filter out MCP for chat API
-    provider = ActiveAgent::GenerationProvider::OpenAIProvider.new({ "model" => "gpt-4o" })
+    provider = ActiveAgent::Providers::OpenAIProvider.new({ "model" => "gpt-4o" })
     provider.instance_variable_set(:@prompt, chat_prompt)
 
     # When using chat API, MCP tools should not be included

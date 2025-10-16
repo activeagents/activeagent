@@ -17,7 +17,7 @@ class GenerationTest < ActiveSupport::TestCase
       # endregion generation_embed_now
 
       assert_not_nil response
-      assert_instance_of ActiveAgent::GenerationProvider::Response, response
+      assert_instance_of ActiveAgent::Providers::Response, response
 
       # Document the output for documentation purposes
       doc_example_output(response)
@@ -139,13 +139,13 @@ class GenerationTest < ActiveSupport::TestCase
       # Test that embed_now works
       embed_response = generation.embed_now
       assert_not_nil embed_response
-      assert_instance_of ActiveAgent::GenerationProvider::Response, embed_response
+      assert_instance_of ActiveAgent::Providers::Response, embed_response
 
       # Create a new generation for generate_now since we already used the first one
       generation2 = ApplicationAgent.with(message: "Test generate").prompt_context
       generate_response = generation2.generate_now
       assert_not_nil generate_response
-      assert_instance_of ActiveAgent::GenerationProvider::Response, generate_response
+      assert_instance_of ActiveAgent::Providers::Response, generate_response
     end
   end
 end
