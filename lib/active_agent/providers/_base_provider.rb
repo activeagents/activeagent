@@ -57,13 +57,13 @@ module ActiveAgent
       end
 
       def call
-        raise NotImplementedError, "Subclasses must implement the 'generate' method"
+        raise NotImplementedError, "Subclasses must implement the 'call' method"
       end
 
       # Optional embedding support - override in providers that support it
-      def embed(prompt)
-        raise NotImplementedError, "#{self.class.name} does not support embeddings"
-      end
+      # def embed(prompt)
+      #   raise NotImplementedError, "#{self.class.name} does not support embeddings"
+      # end
 
       # @return [String] Name of service, e.g., Anthropic
       def service_name

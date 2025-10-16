@@ -134,11 +134,16 @@ module ActiveAgent
 
           global_options    = provider_config(provider_reference)
           inherited_options = (self.options || {}).except(:instructions) # Don't inherit instructions from parent
-          self.options      = global_options.merge(inherited_options).merge(agent_options)
+
+          # Different Service, different APIs
+          if global_options[:service] != inherited_options[:service]
+            inherited_options.extract!(:service, :api_version)
+          end
+
+          self.options = global_options.merge(inherited_options).merge(agent_options)
         end
 
         def stream_with(&stream)
-          binding.pry
           self.options = (options || {}).merge(stream: stream)
         end
 
@@ -263,12 +268,12 @@ module ActiveAgent
       #   # => Generates the prompt and handles the response
       #
       def perform_generation
-        parameter = options.merge(
+        parameters = options.merge(
           stream_callback:   options[:stream] ? perform_streaming : nil,
           function_callback: options[:tools]  ? perform_tooling   : nil
         ).compact
 
-        provider_klass.new(**parameter).call
+        provider_klass.new(**parameters).call
       end
 
       private

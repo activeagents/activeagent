@@ -3,10 +3,11 @@
 module ActiveAgent
   module Providers
     module OpenRouter
-      # Maximum price configuration for provider routing
-      # Specifies USD price per million tokens for different operations
-      # See: https://openrouter.ai/docs/provider-routing
-      class MaxPrice < Common::Options
+      module Requests
+        # Maximum price configuration for provider routing
+        # Specifies USD price per million tokens for different operations
+        # See: https://openrouter.ai/docs/provider-routing
+        class MaxPrice < Common::Options
         attribute :prompt,     :float # Price per million prompt tokens (input)
         attribute :completion, :float # Price per million completion tokens (output)
         attribute :image,      :float # Price per image
@@ -22,6 +23,7 @@ module ActiveAgent
         # Backwards Compatibility
         alias_attribute :prompt_tokens, :prompt
         alias_attribute :completion_tokens, :completion
+        end
       end
     end
   end

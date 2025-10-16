@@ -1,109 +1,37 @@
 # frozen_string_literal: true
 
 require_relative "../open_ai/options"
-require_relative "response_format"
-require_relative "prediction"
-require_relative "provider_preferences"
-require_relative "types"
+require_relative "requests/response_format"
+require_relative "requests/prediction"
+require_relative "requests/provider_preferences"
+require_relative "requests/types"
 
 module ActiveAgent
   module Providers
     module OpenRouter
       class Options < ActiveAgent::Providers::OpenAI::Options
-        # Client Options
-        attribute :uri_base, :string, default: "https://openrouter.ai/api/v1"
-        attribute :app_name, :string, default: "ActiveAgent"
+        attribute :uri_base, :string, as: "https://openrouter.ai/api/v1"
+        attribute :app_name, :string
         attribute :site_url, :string
 
-        # Prompting Options
-        attribute :model,           :string,  default: "openrouter/auto"
-        attribute :response_format, Types::ResponseFormatType.new
-        attribute :max_tokens,      :integer
-        attribute :stop # Can be string or array
+        def initialize(kwargs = {})
+          kwargs = kwargs.deep_symbolize_keys if kwargs.respond_to?(:deep_symbolize_keys)
 
-        # LLM Parameters
-        attribute :seed,               :integer
-        attribute :top_p,              :float
-        attribute :top_k,              :integer
-        attribute :frequency_penalty,  :float
-        attribute :presence_penalty,   :float
-        attribute :repetition_penalty, :float
-        attribute :top_logprobs,       :integer
-        attribute :min_p,              :float
-        attribute :top_a,              :float
-        attribute :logit_bias # Hash of token_id => bias value
-
-        # Tool calling (inherited from OpenAI but explicitly documented)
-        # attribute :tools, :json
-        # attribute :tool_choice, :json
-
-        # Predicted outputs
-        attribute :prediction, Types::PredictionType.new
-
-        # OpenRouter-specific parameters
-        attribute :transforms,                                   default: -> { [] } # Array of strings
-        attribute :models,                                       default: -> { [] } # Array of model strings for fallback
-        attribute :route,    :string,                            default: "fallback"
-        attribute :provider, Types::ProviderPreferencesType.new, default: {}
-        attribute :user,     :string # Stable identifier for end-users
-
-        # Validations for parameters with specific ranges
-        validates :max_tokens,         numericality: { greater_than_or_equal_to: 1 },                            allow_nil: true
-        validates :top_p,              numericality: { greater_than: 0, less_than_or_equal_to: 1 },              allow_nil: true
-        validates :top_k,              numericality: { greater_than_or_equal_to: 1 },                            allow_nil: true
-        validates :frequency_penalty,  numericality: { greater_than_or_equal_to: -2, less_than_or_equal_to: 2 }, allow_nil: true
-        validates :presence_penalty,   numericality: { greater_than_or_equal_to: -2, less_than_or_equal_to: 2 }, allow_nil: true
-        validates :repetition_penalty, numericality: { greater_than: 0, less_than_or_equal_to: 2 },              allow_nil: true
-        validates :min_p,              numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 },  allow_nil: true
-        validates :top_a,              numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 },  allow_nil: true
-        validates :route,              inclusion:    { in: [ "fallback" ] },                                     allow_nil: true
-
-        # Backwards Compatibility
-        delegate_attributes :data_collection, :enable_fallbacks, :sort, :ignore, :only, :quantizations, :max_price, to: :provider
-        alias_attribute :fallback_models, :models
-
-        def initialize(**settings)
-          settings = settings.deep_symbolize_keys if settings.respond_to?(:deep_symbolize_keys)
-
-          super(**deep_compact(settings.merge(
-            app_name: settings[:app_name] || resolve_app_name(settings),
-            site_url: settings[:site_url] || resolve_site_url(settings),
+          super(**deep_compact(kwargs.merge(
+            app_name: kwargs[:app_name] || resolve_app_name(kwargs),
+            site_url: kwargs[:site_url] || resolve_site_url(kwargs),
           )))
         end
 
-        def prompt_parameters
-          deep_compact(
-            super.merge(
-              response_format: response_format&.to_h,
-              stop:,
-              max_tokens:,
-              seed:,
-              top_p:,
-              top_k:,
-              frequency_penalty:,
-              presence_penalty:,
-              repetition_penalty:,
-              logit_bias:,
-              top_logprobs:,
-              min_p:,
-              top_a:,
-              prediction: prediction&.to_h,
-              transforms:,
-              models:,
-              route:,
-              provider: provider&.to_h,
-              user:
-            )
-          )
-        end
-
-        protected
-
-        def client_options_extra_headers
-          {
-            "http-referer" => site_url,
-            "x-title"      => app_name
-          }
+        def to_hc
+          super.tap do |hash|
+            if site_url || app_name
+              hash[:extra_headers] = {
+                "http-referer" => site_url,
+                "x-title"      => app_name
+              }.compact
+            end
+          end
         end
 
         private
@@ -123,6 +51,8 @@ module ActiveAgent
         def resolve_app_name(settings)
           if defined?(Rails) && Rails.application
             Rails.application.class.name.split("::").first
+          else
+            "ActiveAgent"
           end
         end
 
@@ -157,7 +87,7 @@ module ActiveAgent
             end
           end
 
-          nil
+          "https://activeagents.ai/"
         end
       end
     end

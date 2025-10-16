@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "../test_helper"
+require_relative "../../test_helper"
 
 module Integration
   module OpenAI
     module ChatAPI
       class NativeMessagesFormatTest < ActiveSupport::TestCase
-        include Integration::OpenAI::TestHelper
+        include Integration::TestHelper
 
         class TestAgent < ActiveAgent::Base
           generate_with :openai, model: "gpt-5", api_version: :chat

@@ -6,9 +6,10 @@ require_relative "types"
 module ActiveAgent
   module Providers
     module OpenRouter
-      # Provider preferences for routing requests to specific providers
-      # See: https://openrouter.ai/docs/provider-routing
-      class ProviderPreferences < Common::Options
+      module Requests
+        # Provider preferences for routing requests to specific providers
+        # See: https://openrouter.ai/docs/provider-routing
+        class ProviderPreferences < Common::Options
         # Whether to allow backup providers to serve requests
         # - true: (default) when primary provider is unavailable, use next best provider
         # - false: use only primary/custom provider, return upstream error if unavailable
@@ -57,6 +58,7 @@ module ActiveAgent
 
         # Backwards Compatibility
         alias_attribute :enable_fallbacks, :allow_fallbacks
+        end
       end
     end
   end

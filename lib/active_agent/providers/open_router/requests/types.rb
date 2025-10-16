@@ -3,7 +3,8 @@
 module ActiveAgent
   module Providers
     module OpenRouter
-      module Types
+      module Requests
+        module Types
         class ResponseFormatType < ActiveModel::Type::Value
           def cast(value)
             case value
@@ -132,6 +133,7 @@ module ActiveAgent
           def deserialize(value)
             cast(value)
           end
+        end
         end
       end
     end

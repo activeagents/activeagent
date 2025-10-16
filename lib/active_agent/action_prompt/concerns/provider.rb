@@ -34,7 +34,6 @@ module ActiveAgent
         def configuration(reference, **options)
           type   = reference.to_sym
           config = provider_config(type).merge(options)
-
         raise "Failed to load provider #{type}: configuration not found for provider" if config[:service].nil?
           provider_load(config[:service])
 
