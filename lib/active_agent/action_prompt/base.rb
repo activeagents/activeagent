@@ -27,13 +27,12 @@ module ActiveAgent
       include Provider
       include Streaming
       include Tooling
+      include Rescue
 
       include Callbacks
       include Parameterized
       include Previews
       include QueuedGeneration
-      include Rescuable
-
 
       PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
 
@@ -210,7 +209,7 @@ module ActiveAgent
       def process(method_name, *args, **kwargs) # :nodoc:
         payload = { agent: self.class.name, action: method_name, args:, kwargs: }
 
-        ActiveSupport::Notifications.instrument("process.active_agent", payload) do
+        ActiveSupport::Notifications.instrument("process.action_prompt.active_agent", payload) do
           super
         end
       end
