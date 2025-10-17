@@ -7,8 +7,8 @@ module ActiveAgent
       class ChatProvider < BaseProvider
         protected
 
-        def request_klass = Chat::Request
-        def options_klass = Options
+        def prompt_request_klass = Chat::Request
+        def options_klass        = Options
 
         def api_prompt_execute(parameters)
           client.chat(parameters:).presence&.deep_symbolize_keys
@@ -36,7 +36,7 @@ module ActiveAgent
           return unless api_response_chunk.dig(:choices, 0, :finish_reason)
 
           # Once we are finished, close out and run tooling callbacks (Recursive)
-          process_finished
+          process_prompt_finished
         end
 
         # @return void
@@ -58,14 +58,14 @@ module ActiveAgent
           end
         end
 
-        def process_finished_extract_messages(api_response)
+        def process_prompt_finished_extract_messages(api_response)
           api_message = api_response&.dig(:choices, 0, :message)
 
           [ api_message ] if api_message
         end
 
         # It may be ugly, but...
-        def process_finished_extract_function_calls
+        def process_prompt_finished_extract_function_calls
           message_stack.last[:tool_calls]
         end
 

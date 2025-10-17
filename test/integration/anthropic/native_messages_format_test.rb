@@ -644,7 +644,7 @@ module Integration
         :sampling_parameters,
         :stop_sequences
       ].each do |action_name|
-        test_request_builder(TestAgent, action_name)
+        test_request_builder(TestAgent, action_name, :generate_now)
       end
     end
   end

@@ -41,7 +41,7 @@ class ResponseDelegationTest < ActiveSupport::TestCase
 
       # Simulate generation
       agent.instance_variable_set(:@context, ActiveAgent::ActionPrompt::Prompt.new)
-      agent.send(:perform_generation)
+      agent.send(:process_prompt)
 
       # Now response should be delegated from generation_provider
       assert agent.response.present?

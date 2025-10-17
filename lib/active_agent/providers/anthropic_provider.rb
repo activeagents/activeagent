@@ -22,7 +22,7 @@ module ActiveAgent
 
       # When a tool choice is forced to be used, we need to remove it from the next
       # request to prevent endless looping.
-      def prepare_request_iteration
+      def prepare_prompt_request
         if request.tool_choice
           functions_used = message_stack.pluck(:content).flatten.select { it[:type] == "tool_use" }.pluck(:name)
 
@@ -101,7 +101,7 @@ module ActiveAgent
           self.message_stack[-1] = api_response_chunk.fetch(:message)
 
           # Once we are finished, close out and run tooling callbacks (Recursive)
-          process_finished if message_stack.last[:stop_reason]
+          process_prompt_finished if message_stack.last[:stop_reason]
         when :ping
           # No-Op Keep Awake
         when :overloaded_error
@@ -135,13 +135,13 @@ module ActiveAgent
         )
       end
 
-      def process_finished_extract_messages(api_response)
+      def process_prompt_finished_extract_messages(api_response)
         return unless api_response
 
         [ api_response.as_json.deep_symbolize_keys ]
       end
 
-      def process_finished_extract_function_calls
+      def process_prompt_finished_extract_function_calls
         message_stack.pluck(:content).flatten.select { it in { type: "tool_use" } }.map do |api_function_call|
           json_buf = api_function_call.delete(:json_buf)
           api_function_call[:input] = JSON.parse(json_buf, symbolize_names: true) if json_buf

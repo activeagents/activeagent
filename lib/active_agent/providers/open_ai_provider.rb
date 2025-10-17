@@ -5,6 +5,7 @@ require_gem!(:openai, __FILE__)
 require_relative "open_ai/_base_provider"
 require_relative "open_ai/chat_provider"
 require_relative "open_ai/responses_provider"
+require_relative "open_ai/embedding/request"
 
 module ActiveAgent
   module Providers
@@ -27,8 +28,14 @@ module ActiveAgent
       # Since this layer is just routing based on API version, we want to wait
       # to cast values into their times.
       def initialize(kwargs = {})
+        assert_service!(kwargs.delete(:service))
+
+        # For Routing Prompt APIs
         self.api_version = kwargs.delete(:api_version)
-        self.context     = kwargs
+
+        # For Embedding Support
+        self.options = options_klass.new(kwargs.extract!(*options_klass.keys))
+        self.context = kwargs
       end
 
       # Generates a response by routing to the appropriate OpenAI API version.
@@ -40,34 +47,21 @@ module ActiveAgent
       # @return [Object] The generation result from the selected API provider
       #
       # @see https://platform.openai.com/docs/guides/migrate-to-responses
-      def call
+      def prompt
         if api_version == :chat || context[:audio].present?
-          OpenAI::ChatProvider.new(context).call
+          OpenAI::ChatProvider.new(context).prompt
         else # api_version == :responses || true
-          OpenAI::ResponsesProvider.new(context).call
+          OpenAI::ResponsesProvider.new(context).prompt
         end
       end
 
+      def embed_request_klass = OpenAI::Embedding::Request
+
       protected
 
-      # def embed(prompt)
-      #   with_error_handling do
-      #     prompt_with_embeddings(parameters: embeddings_parameters)
-      #   end
-      # end
-
-      # def prompt_with_embeddings(parameters:)
-      #   params = embeddings_parameters
-      #   embeddings_response(client.embeddings(parameters: params), params)
-      # end
-
-      # def embeddings_parameters(input: prompt.message.content, model: "text-embedding-3-large")
-      #   {
-      #     model: model,
-      #     input: input
-      #   }
-      # end
-      #
+      def api_embed_execute(parameters)
+        client.embeddings(parameters:)
+      end
     end
   end
 end

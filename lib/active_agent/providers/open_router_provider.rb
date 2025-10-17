@@ -12,7 +12,7 @@ module ActiveAgent
       # Overloads the OpenAI ChatProvider to use Ollama-specific options and defaults.
       def service_name  = "OpenRouter"
       def options_klass = namespace::Options
-      def request_klass = namespace::Request
+      def prompt_request_klass = namespace::Request
 
       # def initialize(config)
       #   @track_costs = config.delete("track_costs") != false

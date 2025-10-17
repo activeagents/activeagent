@@ -38,10 +38,10 @@ module ActiveAgent
 
       class ProvidersError < StandardError; end
 
-      attr_internal :options, :context,                                  # Setup
-                    :request, :message_stack,                            # Runtime
+      attr_internal :options, :context,              # Setup
+                    :request, :message_stack,        # Runtime
                     :stream_broadcaster, :streaming, # Callback (Streams)
-                    :tools_function                                   # Callback (Tools)
+                    :tools_function                  # Callback (Tools)
 
       # Initializes the provider.
       #
@@ -61,24 +61,32 @@ module ActiveAgent
 
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context            = kwargs
-        self.request            = request_klass.new(context)
         self.message_stack      = []
       end
 
-      # Executes the provider call with error handling.
+      # Executes the provider prompt with error handling.
       #
       # @return [ActiveAgent::Providers::Response] the prompt resolution result
       # @raise [StandardError] handled by error handling wrapper
-      def call
+      def prompt
+        self.request = prompt_request_klass.new(context)
+
         with_error_handling do
           resolve_prompt
         end
       end
 
-      # Optional embedding support - override in providers that support it
-      # def embed(prompt)
-      #   raise NotImplementedError, "#{self.class.name} does not support embeddings"
-      # end
+      # Executes the provider prompt with error handling.
+      #
+      # @return [ActiveAgent::Providers::Response] the prompt resolution result
+      # @raise [StandardError] handled by error handling wrapper
+      def embed
+        self.request = embed_request_klass.new(context)
+
+        with_error_handling do
+          resolve_embed
+        end
+      end
 
       # Returns the service name for this provider.
       #
@@ -102,9 +110,23 @@ module ActiveAgent
       # Returns the Request class for this provider.
       #
       # @return [Class] provider request class (e.g., ActiveAgent::Providers::OpenAI::Request)
-      def request_klass = namespace::Request
+      def prompt_request_klass = namespace::Request
+
+      # Returns the Request class for this provider.
+      #
+      # @return [Class] provider request class (e.g., ActiveAgent::Providers::OpenAI::Request)
+      def embed_request_klass = fail(NotImplementedError)
 
       protected
+
+      # Validates the service name matches the provider.
+      #
+      # @param name [String, nil] service name to validate
+      # @return [void]
+      # @raise [RuntimeError] if service name mismatch
+      def assert_service!(name)
+        fail "Unexpected Service Name: #{name} != #{service_name}" if name && name != service_name
+      end
 
       # Executes the complete request cycle.
       #
@@ -113,13 +135,21 @@ module ActiveAgent
       #
       # @return [ActiveAgent::Providers::Response] final response
       def resolve_prompt
-        request = prepare_request_iteration
+        request = prepare_prompt_request
 
         # @todo Validate Request
         api_parameters = api_request_build(request)
         api_response   = api_prompt_execute(api_parameters)
 
-        process_finished(api_response)
+        process_prompt_finished(api_response)
+      end
+
+      def resolve_embed
+        # @todo Validate Request
+        api_parameters = api_request_build(self.request)
+        api_response   = api_embed_execute(api_parameters)
+
+        # process_embed_finished(api_response)
       end
 
       # Prepares the request for the next iteration.
@@ -128,11 +158,33 @@ module ActiveAgent
       # the buffer for multi-turn conversations.
       #
       # @return [Request] updated request object
-      def prepare_request_iteration
+      def prepare_prompt_request
         self.request.messages = [ *request.messages, *message_stack ]
         self.message_stack    = []
 
         self.request
+      end
+
+      # Builds API request parameters from the request object.
+      #
+      # Converts the request to a hash and configures streaming if enabled.
+      #
+      # @param request [Request] request object
+      # @return [Hash] API request parameters
+      def api_request_build(request)
+        parameters          = request.to_hc
+        parameters[:stream] = process_stream if request.try(:stream)
+        parameters
+      end
+
+      # Returns a Proc for processing streaming response chunks.
+      #
+      # @return [Proc] streaming callback proc
+      # @see #process_stream_chunk
+      def process_stream
+        proc do |api_response_chunk|
+          process_stream_chunk(api_response_chunk)
+        end
       end
 
       # Executes the API request to the provider.
@@ -142,6 +194,10 @@ module ActiveAgent
       # @return [Object] API response object (format varies by provider)
       # @raise [NotImplementedError] if not implemented by subclass
       def api_prompt_execute(request_parameters)
+        fail NotImplementedError, "Subclass expected to implement"
+      end
+
+      def api_embed_execute(request_parameters)
         fail NotImplementedError, "Subclass expected to implement"
       end
 
@@ -191,12 +247,12 @@ module ActiveAgent
       #
       # @param api_response [Object, nil] completed API response
       # @return [ActiveAgent::Providers::Response] final response or recursive result
-      def process_finished(api_response = nil)
-        if (api_messages = process_finished_extract_messages(api_response))
+      def process_prompt_finished(api_response = nil)
+        if (api_messages = process_prompt_finished_extract_messages(api_response))
           message_stack.push(*api_messages)
         end
 
-        if (tool_calls = process_finished_extract_function_calls)&.any?
+        if (tool_calls = process_prompt_finished_extract_function_calls)&.any?
           process_function_calls(tool_calls)
           resolve_prompt
         else
@@ -221,7 +277,7 @@ module ActiveAgent
       # @param api_response [Object] API response object
       # @return [Array<Message>, nil] message objects or nil
       # @raise [NotImplementedError] if not implemented by subclass
-      def process_finished_extract_messages(api_response)
+      def process_prompt_finished_extract_messages(api_response)
         fail NotImplementedError, "Subclass expected to implement"
       end
 
@@ -230,41 +286,8 @@ module ActiveAgent
       # @abstract Subclasses must implement this method
       # @return [Array<Hash>, nil] function call hashes or nil
       # @raise [NotImplementedError] if not implemented by subclass
-      def process_finished_extract_function_calls
+      def process_prompt_finished_extract_function_calls
         fail NotImplementedError, "Subclass expected to implement"
-      end
-
-      private
-
-      # Validates the service name matches the provider.
-      #
-      # @param name [String, nil] service name to validate
-      # @return [void]
-      # @raise [RuntimeError] if service name mismatch
-      def assert_service!(name)
-        fail "Unexpected Service Name: #{name} != #{service_name}" if name && name != service_name
-      end
-
-      # Builds API request parameters from the request object.
-      #
-      # Converts the request to a hash and configures streaming if enabled.
-      #
-      # @param request [Request] request object
-      # @return [Hash] API request parameters
-      def api_request_build(request)
-        parameters          = request.to_hc
-        parameters[:stream] = process_stream if request.stream
-        parameters
-      end
-
-      # Returns a Proc for processing streaming response chunks.
-      #
-      # @return [Proc] streaming callback proc
-      # @see #process_stream_chunk
-      def process_stream
-        proc do |api_response_chunk|
-          process_stream_chunk(api_response_chunk)
-        end
       end
     end
   end

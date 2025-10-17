@@ -30,6 +30,12 @@ module ActiveAgent
         # end
       end
 
+      def handle_exceptions
+        yield
+      rescue Exception => exception
+        rescue_with_handler(exception) || raise
+      end
+
       private
 
       # Processes the prompt with exception handling.

@@ -38,7 +38,8 @@ module ActiveAgent
 
       helper ActiveAgent::PromptHelper
 
-      class_attribute :options
+      class_attribute :prompt_options
+      class_attribute :embed_options
       class_attribute :default_params, default: {
         mime_version: "1.0",
         charset: "UTF-8",
@@ -46,150 +47,157 @@ module ActiveAgent
         parts_order: [ "text/plain", "text/enriched", "text/html" ]
       }.freeze
 
-      class << self
-        # Register one or more Observers which will be notified when prompt is generated.
-        def register_observers(*observers)
-          observers.flatten.compact.each { |observer| register_observer(observer) }
-        end
+      # Register one or more Observers which will be notified when prompt is generated.
+      def self.register_observers(*observers)
+        observers.flatten.compact.each { |observer| register_observer(observer) }
+      end
 
-        # Unregister one or more previously registered Observers.
-        def unregister_observers(*observers)
-          observers.flatten.compact.each { |observer| unregister_observer(observer) }
-        end
+      # Unregister one or more previously registered Observers.
+      def self.unregister_observers(*observers)
+        observers.flatten.compact.each { |observer| unregister_observer(observer) }
+      end
 
-        # Register one or more Interceptors which will be called before prompt is sent.
-        def register_interceptors(*interceptors)
-          interceptors.flatten.compact.each { |interceptor| register_interceptor(interceptor) }
-        end
+      # Register one or more Interceptors which will be called before prompt is sent.
+      def self.register_interceptors(*interceptors)
+        interceptors.flatten.compact.each { |interceptor| register_interceptor(interceptor) }
+      end
 
-        # Unregister one or more previously registered Interceptors.
-        def unregister_interceptors(*interceptors)
-          interceptors.flatten.compact.each { |interceptor| unregister_interceptor(interceptor) }
-        end
+      # Unregister one or more previously registered Interceptors.
+      def self.unregister_interceptors(*interceptors)
+        interceptors.flatten.compact.each { |interceptor| unregister_interceptor(interceptor) }
+      end
 
-        # Register an Observer which will be notified when prompt is generated.
-        # Either a class, string, or symbol can be passed in as the Observer.
-        # If a string or symbol is passed in it will be camelized and constantized.
-        def register_observer(observer)
-          Prompt.register_observer(observer_class_for(observer))
-        end
+      # Register an Observer which will be notified when prompt is generated.
+      # Either a class, string, or symbol can be passed in as the Observer.
+      # If a string or symbol is passed in it will be camelized and constantized.
+      def self.register_observer(observer)
+        Prompt.register_observer(observer_class_for(observer))
+      end
 
-        # Unregister a previously registered Observer.
-        # Either a class, string, or symbol can be passed in as the Observer.
-        # If a string or symbol is passed in it will be camelized and constantized.
-        def unregister_observer(observer)
-          Prompt.unregister_observer(observer_class_for(observer))
-        end
+      # Unregister a previously registered Observer.
+      # Either a class, string, or symbol can be passed in as the Observer.
+      # If a string or symbol is passed in it will be camelized and constantized.
+      def self.unregister_observer(observer)
+        Prompt.unregister_observer(observer_class_for(observer))
+      end
 
-        # Register an Interceptor which will be called before prompt is sent.
-        # Either a class, string, or symbol can be passed in as the Interceptor.
-        # If a string or symbol is passed in it will be camelized and constantized.
-        def register_interceptor(interceptor)
-          Prompt.register_interceptor(observer_class_for(interceptor))
-        end
+      # Register an Interceptor which will be called before prompt is sent.
+      # Either a class, string, or symbol can be passed in as the Interceptor.
+      # If a string or symbol is passed in it will be camelized and constantized.
+      def self.register_interceptor(interceptor)
+        Prompt.register_interceptor(observer_class_for(interceptor))
+      end
 
-        # Unregister a previously registered Interceptor.
-        # Either a class, string, or symbol can be passed in as the Interceptor.
-        # If a string or symbol is passed in it will be camelized and constantized.
-        def unregister_interceptor(interceptor)
-          Prompt.unregister_interceptor(observer_class_for(interceptor))
-        end
+      # Unregister a previously registered Interceptor.
+      # Either a class, string, or symbol can be passed in as the Interceptor.
+      # If a string or symbol is passed in it will be camelized and constantized.
+      def self.unregister_interceptor(interceptor)
+        Prompt.unregister_interceptor(observer_class_for(interceptor))
+      end
 
-        def observer_class_for(value) # :nodoc:
-          case value
-          when String, Symbol
-            value.to_s.camelize.constantize
-          else
-            value
-          end
-        end
-        private :observer_class_for
-
-        # Define how the agent should generate content
-        # Sets up the generation provider and options for the agent.
-        #
-        # This is the main method called when defining an agent class to configure
-        # how prompts will be generated. It allows specifying the AI provider and
-        # any generation options.
-        #
-        # @param provider [Symbol, String] The generation provider to use (e.g., :openai, :anthropic)
-        # @param options [Hash] Configuration options that are shared across the actions
-        #
-        # @return [void]
-        #
-        # @example Basic setup with provider
-        #   generate_with :openai
-        #
-        # @example With custom instructions
-        #   generate_with :openai, instructions: "You are a helpful assistant"
-        #
-        # @example With additional options
-        #   generate_with :anthropic, temperature: 0.7, model: "claude-3"
-        def generate_with(provider_reference, **agent_options)
-          self.provider = provider_reference
-
-          global_options    = provider_config_load(provider_reference)
-          inherited_options = (self.options || {}).except(:instructions) # Don't inherit instructions from parent
-
-          # Different Service, different APIs
-          if global_options[:service] != inherited_options[:service]
-            inherited_options.extract!(:service, :api_version)
-          end
-
-          self.options = global_options.merge(inherited_options).merge(agent_options)
-        end
-
-        def stream_with(&stream)
-          self.options = (options || {}).merge(stream: stream)
-        end
-
-        # Returns the name of the current agent. This method is also being used as a path for a view lookup.
-        # If this is an anonymous agent, this method will return +anonymous+ instead.
-        def agent_name
-          @agent_name ||= anonymous? ? "anonymous" : name.underscore
-        end
-
-        # Allows to set the name of current agent.
-        attr_writer :agent_name
-        alias_method :controller_path, :agent_name
-
-        # Sets the defaults through app configuration:
-        #
-        #     config.action_agent.default(from: "no-reply@example.org")
-        #
-        # Aliased by ::default_options=
-        def default(value = nil)
-          self.default_params = default_params.merge(value).freeze if value
-          default_params
-        end
-        # Allows to set defaults through app configuration:
-        #
-        #    config.action_agent.default_options = { from: "no-reply@example.org" }
-        alias_method :default_options=, :default
-
-        private
-
-        def method_missing(method_name, ...)
-          if action_methods.include?(method_name.name)
-            Generation.new(self, method_name, ...)
-          else
-            super
-          end
-        end
-
-        def respond_to_missing?(method, include_all = false)
-          action_methods.include?(method.name) || super
+      def self.observer_class_for(value) # :nodoc:
+        case value
+        when String, Symbol
+          value.to_s.camelize.constantize
+        else
+          value
         end
       end
+      private_class_method :observer_class_for
+
+      # Define how the agent should generate content
+      # Sets up the generation provider and options for the agent.
+      #
+      # This is the main method called when defining an agent class to configure
+      # how prompts will be generated. It allows specifying the AI provider and
+      # any generation options.
+      #
+      # @param provider [Symbol, String] The generation provider to use (e.g., :openai, :anthropic)
+      # @param options [Hash] Configuration options that are shared across the actions
+      #
+      # @return [void]
+      #
+      # @example Basic setup with provider
+      #   generate_with :openai
+      #
+      # @example With custom instructions
+      #   generate_with :openai, instructions: "You are a helpful assistant"
+      #
+      # @example With additional options
+      #   generate_with :anthropic, temperature: 0.7, model: "claude-3"
+      def self.generate_with(provider_reference, **agent_options)
+        self.prompt_provider = provider_reference
+
+        global_options    = provider_config_load(provider_reference)
+        inherited_options = (self.prompt_options || {}).except(:instructions) # Don't inherit instructions from parent
+
+        # Different Service, different APIs
+        if global_options[:service] != inherited_options[:service]
+          inherited_options.extract!(:service, :api_version)
+        end
+
+        self.prompt_options = global_options.merge(inherited_options).merge(agent_options)
+      end
+
+      def self.embed_with(provider_reference, **agent_options)
+        self.embed_provider = provider_reference
+
+        global_options    = provider_config_load(provider_reference)
+        inherited_options = self.embed_options || {}
+
+        self.embed_options = global_options.merge(inherited_options).merge(agent_options)
+      end
+
+      # Sets the defaults through app configuration:
+      #
+      #     config.action_agent.default(from: "no-reply@example.org")
+      #
+      # Aliased by ::default_options=
+      def self.default(value = nil)
+        self.default_params = default_params.merge(value).freeze if value
+        default_params
+      end
+      # Allows to set defaults through app configuration:
+      #
+      #    config.action_agent.default_options = { from: "no-reply@example.org" }
+      class << self
+        alias_method :default_options=, :default
+      end
+
+      def self.method_missing(method_name, ...)
+        if action_methods.include?(method_name.name)
+          Generation.new(self, method_name, ...)
+        else
+          super
+        end
+      end
+      private_class_method :method_missing
+
+      def self.respond_to_missing?(method, include_all = false)
+        action_methods.include?(method.name) || super
+      end
+      private_class_method :respond_to_missing?
 
       delegate :agent_name, to: :class
 
-      attr_internal :options # Action-level options merged with agent options
+      # Allows to set the name of current agent.
+      attr_writer :agent_name
+      alias_method :controller_path, :agent_name
+
+      attr_internal :prompt_options # Action-level prompt options merged with agent prompt options
+      attr_internal :embed_options # Action-level embed options merged with agent embed options
 
       # @return [void]
       def initialize # :nodoc:
         super
-        self.options = self.class.options&.deep_dup
+        self.prompt_options = self.class.prompt_options&.deep_dup || {}
+        self.embed_options  = self.class.embed_options&.deep_dup  || {}
+      end
+
+      # Returns the name of the current agent. This method is also being used as a path for a view lookup.
+      # If this is an anonymous agent, this method will return +anonymous+ instead.
+      def agent_name
+        @agent_name ||= anonymous? ? "anonymous" : name.underscore
       end
 
       # Entry point for action execution.
@@ -220,14 +228,17 @@ module ActiveAgent
       # for the agent. Processing of the parameters is deferred until execution to
       # maximize the context available to the provider.
       #
-      # @param options [Hash] the parameters to merge into the raw context
-      # @param block [Proc] optional block for additional processing
+      # @param new_options [Hash] the parameters to merge into the raw context
       # @return [void]
-      def prompt(new_options = {}, &block)
-        options.merge!(new_options)
+      def prompt(new_options = {})
+        prompt_options.merge!(new_options)
       end
 
-      # Executes the prompt generation using the configured generation provider.
+      def embed(new_options = {})
+        embed_options.merge!(new_options)
+      end
+
+      # Executes the prompt using the configured options.
       #
       # This method is the core execution point for prompt generation, triggered by either
       # the +generate_now+ or +generate_later+ workflows.
@@ -238,10 +249,20 @@ module ActiveAgent
       #   Agent.action.generation_now
       #   # => Generates the prompt and handles the response
       #
-      def perform_generation
-        parameters = options.merge(stream_broadcaster:, tools_function:).compact
+      def process_prompt
+        fail "Prompt Provider not Configured" unless prompt_provider_klass
 
-        provider_klass.new(**parameters).call
+        parameters = prompt_options.merge(stream_broadcaster:, tools_function:).compact
+
+        prompt_provider_klass.new(**parameters).prompt
+      end
+
+      def process_embed
+        fail "Embed Provider not Configured" unless embed_provider_klass
+
+        parameters = embed_options.compact
+
+        embed_provider_klass.new(**parameters).embed
       end
 
       private
@@ -254,31 +275,8 @@ module ActiveAgent
       #   perform_actions(requested_actions: result.message.requested_actions)
 
       #   # Continue generation with updated context
-      #   perform_generation
+      #   process_prompt
       # end
-
-      ###
-
-      def embed
-        context.options.merge(options)
-        provider_type.embed(context) if context && provider_type
-        handle_response(provider_type.response)
-      end
-
-      # Add embedding capability to Message class
-      ActiveAgent::ActionPrompt::Message.class_eval do
-        def embed
-          agent_class = ApplicationAgent
-          agent = agent_class.new
-          agent.context = ActiveAgent::ActionPrompt::Prompt.new(message: self, agent_instance: agent)
-          agent.embed
-          self
-        end
-      end
-
-      def update_context(response)
-        ActiveAgent::Providers::Response.new(prompt: context)
-      end
 
       def headers(args = nil)
         binding.pry
@@ -294,52 +292,6 @@ module ActiveAgent
         context.update_context(*)
       end
 
-      # def prompt(args = {}, &block)
-      #   return context if @_prompt_was_called && args.blank? && !block
-
-      #   # There are many sins in this function, this input hack is to support raw OpenAI format until prompt resolving
-      #   # can be refactored into the context of a provider.
-      #   args[:message] ||= args.delete(:input)
-
-      #   # Apply option hierarchy: prompt options > agent options > config options
-      #   merged_options = merge_options(args[:options] || {})
-
-      #   raw_instructions = args.has_key?(:instructions) ? args[:instructions] : context.options[:instructions]
-
-      #   context.instructions = prepare_instructions(raw_instructions)
-
-      #   context.options.merge!(merged_options)
-      #   context.options[:stream] = perform_stream if context.options[:stream]
-      #   content_type = args[:content_type]
-
-      #   args = apply_defaults(args)
-      #   context.messages = args[:messages] || []
-      #   context.mcp_servers = args[:mcp_servers] || []
-      #   context.context_id = args[:context_id]
-      #   context.params = params
-      #   context.action_name = action_name
-
-      #   context.output_schema = render_schema(args[:output_schema], set_prefixes(args[:output_schema], lookup_context.prefixes))
-
-      #   context.charset = charset = args[:charset]
-
-      #   args = prepare_message(args)
-      #   # wrap_generation_behavior!(args[:generation_method], args[:generation_method_options])
-      #   # assign_args_to_context(context, args)
-      #   responses = collect_responses(args, &block)
-
-      #   @_prompt_was_called = true
-
-      #   create_parts_from_responses(context, responses)
-
-      #   context.content_type = set_content_type(context, content_type, args[:content_type])
-
-      #   context.charset = charset
-      #   context.actions = args[:actions] || action_schemas
-
-      #   context
-      # end
-
       def action_methods
         super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s) - [ action_name ]
       end
@@ -351,42 +303,6 @@ module ActiveAgent
           render_schema(action, prefixes)
         end.compact
       end
-
-      # def prepare_message(args)
-      #   if args[:message].present?
-      #     case args[:message]
-      #     when Hash # RIP Switch Cascading
-      #       message = ActiveAgent::ActionPrompt::Message.new(args[:message])
-      #       args[:body] = message.content
-      #       args[:role] = message.role
-      #     when ActiveAgent::ActionPrompt::Message
-      #       args[:body] = args[:message].content
-      #       args[:role] = args[:message].role
-      #     when Array, String
-      #       # Handle array of multipart content like [{type: "text", text: "..."}, {type: "file", file: {...}}]
-      #       args[:body] = args[:message]
-      #       args[:role] = :user
-      #     end
-      #   end
-      #   load_input_data(args)
-
-      #   args
-      # end
-
-      # def load_input_data(args)
-      #   if args[:image_data].present?
-      #     args[:body] = [
-      #       ActiveAgent::ActionPrompt::Message.new(content: args[:image_data], content_type: "image_data"),
-      #       ActiveAgent::ActionPrompt::Message.new(content: args[:body], content_type: "input_text")
-      #     ]
-      #   elsif args[:file_data].present?
-      #     args[:body] = [
-      #       ActiveAgent::ActionPrompt::Message.new(content: args[:file_data], metadata: { filename: "resume.pdf" }, content_type: "file_data"),
-      #       ActiveAgent::ActionPrompt::Message.new(content: args[:body], content_type: "input_text")
-      #     ]
-      #   end
-      #   args
-      # end
 
       def set_prefixes(action, prefixes)
         prefixes = lookup_context.prefixes | [ self.class.agent_name ]

@@ -11,14 +11,14 @@ module Integration
     end
 
     class_methods do
-      def test_request_builder(agent, action_name)
+      def test_request_builder(agent, action_name, trigger_name)
         test "#{action_name} Request Building" do
           cassette_name = [ self.class.name.underscore, action_name ].join("/")
           request_body  = agent.const_get(action_name.to_s.upcase, true)
 
           # Run Once to Record Response & Smoke Test
           VCR.use_cassette(cassette_name) do
-            agent.send(action_name).generate_now
+            agent.send(action_name).send(trigger_name)
           end
 
           # Run Again to Validate that the Request is well formed and not mutated since recording it last
@@ -33,7 +33,7 @@ module Integration
             )
           end
 
-          agent.send(action_name).generate_now
+          agent.send(action_name).send(trigger_name)
 
           cassette_file.dig("http_interactions").each do |interaction|
             request_method = interaction.dig("request", "method").to_sym

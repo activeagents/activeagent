@@ -89,14 +89,14 @@
 
 #       def initialize_test_generations
 #         set_generation_method :test
-#         @old_perform_generations = ActiveAgent::Base.perform_generations
-#         ActiveAgent::Base.perform_generations = true
+#         @old_process_prompts = ActiveAgent::Base.process_prompts
+#         ActiveAgent::Base.process_prompts = true
 #         ActiveAgent::Base.generations.clear
 #       end
 
 #       def restore_test_generations
 #         restore_generation_method
-#         ActiveAgent::Base.perform_generations = @old_perform_generations
+#         ActiveAgent::Base.process_prompts = @old_process_prompts
 #       end
 
 #       def set_generation_method(method)

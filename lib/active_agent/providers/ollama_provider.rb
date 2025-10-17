@@ -4,24 +4,23 @@ require_gem!(:openai, __FILE__)
 
 require_relative "open_ai_provider"
 require_relative "ollama/options"
-require_relative "ollama/request"
+require_relative "ollama/chat/request"
+require_relative "ollama/embedding/request"
 
 module ActiveAgent
   module Providers
     class OllamaProvider < OpenAI::ChatProvider
       # Overloads the OpenAI ChatProvider to use Ollama-specific options and defaults.
-      def service_name  = "Ollama"
-      def options_klass = namespace::Options
-      def request_klass = namespace::Request
-
-
-      # def initialize(config)
-      #   @api_version     = config.delete("api_version") || "v1"
-      #   @embedding_model = config.delete("embedding_model")
-      #   super
-      # end
+      def service_name         = "Ollama"
+      def options_klass        = namespace::Options
+      def prompt_request_klass = namespace::Chat::Request
+      def embed_request_klass  = namespace::Embedding::Request
 
       protected
+
+      def api_embed_execute(parameters)
+        client.embeddings(parameters:)
+      end
 
       def message_merge_delta(message, delta)
         message[:role] = delta.delete(:role) if delta[:role] # Copy a Bad Design (OpenAI's Chat API) Badly, Win Bad Prizes
@@ -50,13 +49,6 @@ module ActiveAgent
       #   else
       #     super
       #   end
-      # end
-
-      # def embeddings_parameters(input: prompt.message.content, model: "nomic-embed-text")
-      #   {
-      #     model: @embedding_model || model,
-      #     input: input
-      #   }
       # end
 
       # def embeddings_response(response, request_params = nil)

@@ -4,7 +4,7 @@ require_relative "../../test_helper"
 
 module Integration
   module OpenAI
-    module ChatAPI
+    module Chat
       class NativeMessagesFormatTest < ActiveSupport::TestCase
         include Integration::TestHelper
 
@@ -289,7 +289,7 @@ module Integration
           :web_search,
           :functions_with_streaming
         ].each do |action_name|
-          test_request_builder(TestAgent, action_name)
+          test_request_builder(TestAgent, action_name, :generate_now)
         end
       end
     end

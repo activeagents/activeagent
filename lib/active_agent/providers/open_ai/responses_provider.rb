@@ -8,8 +8,8 @@ module ActiveAgent
       class ResponsesProvider < BaseProvider
         protected
 
-        def request_klass = Responses::Request
-        def options_klass = Options
+        def prompt_request_klass = Responses::Request
+        def options_klass        = Options
 
         def api_prompt_execute(parameters)
           client.responses.create(parameters:).presence&.deep_symbolize_keys
@@ -56,7 +56,7 @@ module ActiveAgent
           # Response Completed
           when :"response.completed"
             # Once we are finished, close out and run tooling callbacks (Recursive)
-            process_finished
+            process_prompt_finished
           else
             fail "Unexpected Response Chunk Type: #{type}"
           end
@@ -97,11 +97,11 @@ module ActiveAgent
           end
         end
 
-        def process_finished_extract_messages(api_response)
+        def process_prompt_finished_extract_messages(api_response)
           api_response&.dig(:output)
         end
 
-        def process_finished_extract_function_calls
+        def process_prompt_finished_extract_function_calls
           message_stack.select { it[:type] == "function_call" }
         end
       end

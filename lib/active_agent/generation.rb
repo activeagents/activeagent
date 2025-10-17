@@ -37,7 +37,7 @@ module ActiveAgent
     def generate_now!
       processed_agent.handle_exceptions do
         processed_agent.run_callbacks(:generation) do
-          processed_agent.perform_generation!
+          processed_agent.process_prompt!
         end
       end
     end
@@ -45,7 +45,7 @@ module ActiveAgent
     def generate_now
       processed_agent.handle_exceptions do
         processed_agent.run_callbacks(:generation) do
-          processed_agent.perform_generation
+          processed_agent.process_prompt
         end
       end
     end
@@ -53,7 +53,7 @@ module ActiveAgent
     def embed_now
       processed_agent.handle_exceptions do
         processed_agent.run_callbacks(:embedding) do
-          processed_agent.embed
+          processed_agent.process_embed
         end
       end
     end

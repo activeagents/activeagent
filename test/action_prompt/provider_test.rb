@@ -25,61 +25,108 @@ class ProviderTest < ActiveSupport::TestCase
 
   setup do
     @original_config = ActiveAgent.config.deep_dup
-    TestPrompt._provider_klass = nil
+    TestPrompt._prompt_provider_klass = nil
+    TestPrompt._embed_provider_klass = nil
   end
 
   teardown do
     ActiveAgent.config.replace(@original_config)
-    TestPrompt._provider_klass = nil
+    TestPrompt._prompt_provider_klass = nil
+    TestPrompt._embed_provider_klass = nil
   end
 
   # Class method tests
-  test "defines provider class methods" do
-    assert_respond_to TestPrompt, :provider=
+  test "defines prompt provider class methods" do
+    assert_respond_to TestPrompt, :prompt_provider=
     assert_respond_to TestPrompt, :configuration
     assert_respond_to TestPrompt, :provider_config_load
     assert_respond_to TestPrompt, :provider_load
-    assert_respond_to TestPrompt, :provider_klass
+    assert_respond_to TestPrompt, :prompt_provider_klass
+  end
+
+  test "defines embed provider class methods" do
+    assert_respond_to TestPrompt, :embed_provider=
+    assert_respond_to TestPrompt, :embed_provider_klass
   end
 
   # Instance method tests
-  test "includes provider_klass instance delegation" do
+  test "includes prompt_provider_klass instance delegation" do
     instance = TestPrompt.new
-    assert_respond_to instance, :provider_klass
+    assert_respond_to instance, :prompt_provider_klass
   end
 
-  # provider= tests with Symbol/String
-  test "provider= accepts symbol reference" do
+  test "includes embed_provider_klass instance delegation" do
+    instance = TestPrompt.new
+    assert_respond_to instance, :embed_provider_klass
+  end
+
+  # prompt_provider= tests with Symbol/String
+  test "prompt_provider= accepts symbol reference" do
     ActiveAgent.config[:test_provider] = { service: "MockProvider" }
 
     # Stub provider_load to return our mock
     TestPrompt.stub(:provider_load, MockProvider) do
-      TestPrompt.provider = :test_provider
-      assert_equal MockProvider, TestPrompt.provider_klass
+      TestPrompt.prompt_provider = :test_provider
+      assert_equal MockProvider, TestPrompt.prompt_provider_klass
     end
   end
 
-  test "provider= accepts string reference" do
+  test "prompt_provider= accepts string reference" do
     ActiveAgent.config[:test_provider] = { service: "MockProvider" }
 
     TestPrompt.stub(:provider_load, MockProvider) do
-      TestPrompt.provider = "test_provider"
-      assert_equal MockProvider, TestPrompt.provider_klass
+      TestPrompt.prompt_provider = "test_provider"
+      assert_equal MockProvider, TestPrompt.prompt_provider_klass
     end
   end
 
-  # provider= tests with provider instances
-  test "provider= accepts BaseProvider instance" do
+  # prompt_provider= tests with provider instances
+  test "prompt_provider= accepts BaseProvider instance" do
     provider_instance = MockProvider.new
 
-    TestPrompt.provider = provider_instance
+    TestPrompt.prompt_provider = provider_instance
 
-    assert_equal provider_instance, TestPrompt.provider_klass
+    assert_equal provider_instance, TestPrompt.prompt_provider_klass
   end
 
-  test "provider= raises ArgumentError for unsupported type" do
+  test "prompt_provider= raises ArgumentError for unsupported type" do
     assert_raises(ArgumentError) do
-      TestPrompt.provider = 123
+      TestPrompt.prompt_provider = 123
+    end
+  end
+
+  # embed_provider= tests with Symbol/String
+  test "embed_provider= accepts symbol reference" do
+    ActiveAgent.config[:test_provider] = { service: "MockProvider" }
+
+    # Stub provider_load to return our mock
+    TestPrompt.stub(:provider_load, MockProvider) do
+      TestPrompt.embed_provider = :test_provider
+      assert_equal MockProvider, TestPrompt.embed_provider_klass
+    end
+  end
+
+  test "embed_provider= accepts string reference" do
+    ActiveAgent.config[:test_provider] = { service: "MockProvider" }
+
+    TestPrompt.stub(:provider_load, MockProvider) do
+      TestPrompt.embed_provider = "test_provider"
+      assert_equal MockProvider, TestPrompt.embed_provider_klass
+    end
+  end
+
+  # embed_provider= tests with provider instances
+  test "embed_provider= accepts BaseProvider instance" do
+    provider_instance = MockProvider.new
+
+    TestPrompt.embed_provider = provider_instance
+
+    assert_equal provider_instance, TestPrompt.embed_provider_klass
+  end
+
+  test "embed_provider= raises ArgumentError for unsupported type" do
+    assert_raises(ArgumentError) do
+      TestPrompt.embed_provider = 123
     end
   end
 
@@ -184,55 +231,117 @@ class ProviderTest < ActiveSupport::TestCase
     assert_equal "active_agent/providers/open_router_provider", require_called_with
   end
 
-  # provider_klass tests
-  test "provider_klass returns nil when not set" do
-    assert_nil TestPrompt.provider_klass
+  # prompt_provider_klass tests
+  test "prompt_provider_klass returns nil when not set" do
+    assert_nil TestPrompt.prompt_provider_klass
   end
 
-  test "provider_klass returns set provider" do
-    TestPrompt._provider_klass = MockProvider
+  test "prompt_provider_klass returns set provider" do
+    TestPrompt._prompt_provider_klass = MockProvider
 
-    assert_equal MockProvider, TestPrompt.provider_klass
+    assert_equal MockProvider, TestPrompt.prompt_provider_klass
   end
 
-  test "provider_klass is accessible from instance" do
-    TestPrompt._provider_klass = MockProvider
+  test "prompt_provider_klass is accessible from instance" do
+    TestPrompt._prompt_provider_klass = MockProvider
     instance = TestPrompt.new
 
-    assert_equal MockProvider, instance.provider_klass
+    assert_equal MockProvider, instance.prompt_provider_klass
+  end
+
+  # embed_provider_klass tests
+  test "embed_provider_klass returns nil when not set" do
+    assert_nil TestPrompt.embed_provider_klass
+  end
+
+  test "embed_provider_klass returns set provider" do
+    TestPrompt._embed_provider_klass = MockProvider
+
+    assert_equal MockProvider, TestPrompt.embed_provider_klass
+  end
+
+  test "embed_provider_klass is accessible from instance" do
+    TestPrompt._embed_provider_klass = MockProvider
+    instance = TestPrompt.new
+
+    assert_equal MockProvider, instance.embed_provider_klass
   end
 
   # Integration tests
-  test "setting provider by symbol configures class correctly" do
+  test "setting prompt provider by symbol configures class correctly" do
     ActiveAgent.config[:openai] = { service: "OpenAI", api_key: "test-key" }
 
     TestPrompt.stub(:provider_load, MockProvider) do
-      TestPrompt.provider = :openai
+      TestPrompt.prompt_provider = :openai
 
-      assert_equal MockProvider, TestPrompt.provider_klass
-      assert_equal MockProvider, TestPrompt.new.provider_klass
+      assert_equal MockProvider, TestPrompt.prompt_provider_klass
+      assert_equal MockProvider, TestPrompt.new.prompt_provider_klass
     end
   end
 
-  test "provider configuration is inherited by instances" do
+  test "setting embed provider by symbol configures class correctly" do
+    ActiveAgent.config[:openai] = { service: "OpenAI", api_key: "test-key" }
+
+    TestPrompt.stub(:provider_load, MockProvider) do
+      TestPrompt.embed_provider = :openai
+
+      assert_equal MockProvider, TestPrompt.embed_provider_klass
+      assert_equal MockProvider, TestPrompt.new.embed_provider_klass
+    end
+  end
+
+  test "prompt provider configuration is inherited by instances" do
     provider = MockProvider.new
-    TestPrompt.provider = provider
+    TestPrompt.prompt_provider = provider
 
     instance1 = TestPrompt.new
     instance2 = TestPrompt.new
 
-    assert_equal provider, instance1.provider_klass
-    assert_equal provider, instance2.provider_klass
+    assert_equal provider, instance1.prompt_provider_klass
+    assert_equal provider, instance2.prompt_provider_klass
   end
 
-  test "provider can be changed at runtime" do
+  test "embed provider configuration is inherited by instances" do
+    provider = MockProvider.new
+    TestPrompt.embed_provider = provider
+
+    instance1 = TestPrompt.new
+    instance2 = TestPrompt.new
+
+    assert_equal provider, instance1.embed_provider_klass
+    assert_equal provider, instance2.embed_provider_klass
+  end
+
+  test "prompt provider can be changed at runtime" do
     provider1 = MockProvider.new
     provider2 = MockProvider.new
 
-    TestPrompt.provider = provider1
-    assert_equal provider1, TestPrompt.provider_klass
+    TestPrompt.prompt_provider = provider1
+    assert_equal provider1, TestPrompt.prompt_provider_klass
 
-    TestPrompt.provider = provider2
-    assert_equal provider2, TestPrompt.provider_klass
+    TestPrompt.prompt_provider = provider2
+    assert_equal provider2, TestPrompt.prompt_provider_klass
+  end
+
+  test "embed provider can be changed at runtime" do
+    provider1 = MockProvider.new
+    provider2 = MockProvider.new
+
+    TestPrompt.embed_provider = provider1
+    assert_equal provider1, TestPrompt.embed_provider_klass
+
+    TestPrompt.embed_provider = provider2
+    assert_equal provider2, TestPrompt.embed_provider_klass
+  end
+
+  test "prompt and embed providers can be set independently" do
+    prompt_provider = MockProvider.new
+    embed_provider = MockProvider.new
+
+    TestPrompt.prompt_provider = prompt_provider
+    TestPrompt.embed_provider = embed_provider
+
+    assert_equal prompt_provider, TestPrompt.prompt_provider_klass
+    assert_equal embed_provider, TestPrompt.embed_provider_klass
   end
 end
