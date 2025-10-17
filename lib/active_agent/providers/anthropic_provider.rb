@@ -51,18 +51,20 @@ module ActiveAgent
       def process_stream_chunk(api_response_chunk)
         api_response_chunk = api_response_chunk.as_json.deep_symbolize_keys
 
+        broadcast_stream_open
+
         case api_response_chunk[:type].to_sym
         # Message Created
         when :message_start
           api_message = api_response_chunk.fetch(:message)
           self.message_stack.push(api_message)
-          stream_callback.call(message_stack.last, nil, false)
+          broadcast_stream_update(message_stack.last)
 
         # -> Content Block Create
         when :content_block_start
           api_content = api_response_chunk.fetch(:content_block)
           self.message_stack.last[:content].push(api_content)
-          stream_callback.call(message_stack.last, api_content[:text], false)
+          broadcast_stream_update(message_stack.last, api_content[:text])
 
         # -> -> Content Block Append
         when :content_block_delta
@@ -74,7 +76,7 @@ module ActiveAgent
           # -> -> -> Content Text Append
           when :text_delta
             content[:text] += api_delta[:text]
-            stream_callback.call(message_stack.last, api_delta[:text], false)
+            broadcast_stream_update(message_stack.last, api_delta[:text])
 
           # -> -> -> Content Function Call Append
           when :input_json_delta
@@ -99,14 +101,7 @@ module ActiveAgent
           self.message_stack[-1] = api_response_chunk.fetch(:message)
 
           # Once we are finished, close out and run tooling callbacks (Recursive)
-          if message_stack.last[:stop_reason]
-            process_finished
-
-            # Then we can close out the stream
-            return if stream_finished
-            self.stream_finished = true
-            stream_callback.call(message_stack.last, nil, true)
-          end
+          process_finished if message_stack.last[:stop_reason]
         when :ping
           # No-Op Keep Awake
         when :overloaded_error
@@ -130,7 +125,7 @@ module ActiveAgent
       end
 
       def process_tool_call_function(api_function_call)
-        results = function_callback.call(
+        results = tools_function.call(
           api_function_call[:name], **api_function_call[:input]
         )
 

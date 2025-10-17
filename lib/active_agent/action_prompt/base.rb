@@ -1,32 +1,20 @@
-require "active_agent/collector"
-require "active_support/core_ext/string/inflections"
 require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
-require "active_agent/action_prompt/message"
+require "active_support/core_ext/string/inflections"
+
 require "active_agent/action_prompt/action"
+require "active_agent/action_prompt/message"
+require "active_agent/collector"
 
-# require "active_agent/log_subscriber"
-require "active_agent/rescuable"
-
+Dir[File.join(__dir__, "concerns", "*.rb")].each { |file| require file }
 require_relative "null_prompt"
-require_relative "concerns/provider"
 
 module ActiveAgent
   module ActionPrompt
     class Base < AbstractController::Base
-      include Callbacks
-      include Provider
-      include Streaming
-      include QueuedGeneration
-      include Rescuable
-      include Parameterized
-      include Previews
-      # include FormBuilder
-
       abstract!
 
       include AbstractController::Rendering
-
       include AbstractController::Logger
       include AbstractController::Helpers
       include AbstractController::Translation
@@ -35,6 +23,17 @@ module ActiveAgent
       include AbstractController::Caching
 
       include ActionView::Layouts
+
+      include Provider
+      include Streaming
+      include Tooling
+
+      include Callbacks
+      include Parameterized
+      include Previews
+      include QueuedGeneration
+      include Rescuable
+
 
       PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
 
@@ -130,7 +129,7 @@ module ActiveAgent
         def generate_with(provider_reference, **agent_options)
           self.provider = provider_reference
 
-          global_options    = provider_config(provider_reference)
+          global_options    = provider_config_load(provider_reference)
           inherited_options = (self.options || {}).except(:instructions) # Don't inherit instructions from parent
 
           # Different Service, different APIs
@@ -241,10 +240,7 @@ module ActiveAgent
       #   # => Generates the prompt and handles the response
       #
       def perform_generation
-        parameters = options.merge(
-          stream_callback:   options[:stream] ? perform_streaming : nil,
-          function_callback: options[:tools]  ? perform_tooling   : nil
-        ).compact
+        parameters = options.merge(stream_broadcaster:, tools_function:).compact
 
         provider_klass.new(**parameters).call
       end
@@ -261,20 +257,6 @@ module ActiveAgent
       #   # Continue generation with updated context
       #   perform_generation
       # end
-
-      def perform_streaming
-        proc do |message, delta, stop|
-          run_stream_callbacks(message, delta, stop) do |message, delta, stop|
-            yield message, delta, stop if block_given?
-          end
-        end
-      end
-
-      def perform_tooling
-        proc do |action_name, *args, **kwargs|
-          process(action_name, *args, **kwargs)
-        end
-      end
 
       ###
 
@@ -371,41 +353,41 @@ module ActiveAgent
         end.compact
       end
 
-      def prepare_message(args)
-        if args[:message].present?
-          case args[:message]
-          when Hash # RIP Switch Cascading
-            message = ActiveAgent::ActionPrompt::Message.new(args[:message])
-            args[:body] = message.content
-            args[:role] = message.role
-          when ActiveAgent::ActionPrompt::Message
-            args[:body] = args[:message].content
-            args[:role] = args[:message].role
-          when Array, String
-            # Handle array of multipart content like [{type: "text", text: "..."}, {type: "file", file: {...}}]
-            args[:body] = args[:message]
-            args[:role] = :user
-          end
-        end
-        load_input_data(args)
+      # def prepare_message(args)
+      #   if args[:message].present?
+      #     case args[:message]
+      #     when Hash # RIP Switch Cascading
+      #       message = ActiveAgent::ActionPrompt::Message.new(args[:message])
+      #       args[:body] = message.content
+      #       args[:role] = message.role
+      #     when ActiveAgent::ActionPrompt::Message
+      #       args[:body] = args[:message].content
+      #       args[:role] = args[:message].role
+      #     when Array, String
+      #       # Handle array of multipart content like [{type: "text", text: "..."}, {type: "file", file: {...}}]
+      #       args[:body] = args[:message]
+      #       args[:role] = :user
+      #     end
+      #   end
+      #   load_input_data(args)
 
-        args
-      end
+      #   args
+      # end
 
-      def load_input_data(args)
-        if args[:image_data].present?
-          args[:body] = [
-            ActiveAgent::ActionPrompt::Message.new(content: args[:image_data], content_type: "image_data"),
-            ActiveAgent::ActionPrompt::Message.new(content: args[:body], content_type: "input_text")
-          ]
-        elsif args[:file_data].present?
-          args[:body] = [
-            ActiveAgent::ActionPrompt::Message.new(content: args[:file_data], metadata: { filename: "resume.pdf" }, content_type: "file_data"),
-            ActiveAgent::ActionPrompt::Message.new(content: args[:body], content_type: "input_text")
-          ]
-        end
-        args
-      end
+      # def load_input_data(args)
+      #   if args[:image_data].present?
+      #     args[:body] = [
+      #       ActiveAgent::ActionPrompt::Message.new(content: args[:image_data], content_type: "image_data"),
+      #       ActiveAgent::ActionPrompt::Message.new(content: args[:body], content_type: "input_text")
+      #     ]
+      #   elsif args[:file_data].present?
+      #     args[:body] = [
+      #       ActiveAgent::ActionPrompt::Message.new(content: args[:file_data], metadata: { filename: "resume.pdf" }, content_type: "file_data"),
+      #       ActiveAgent::ActionPrompt::Message.new(content: args[:body], content_type: "input_text")
+      #     ]
+      #   end
+      #   args
+      # end
 
       def set_prefixes(action, prefixes)
         prefixes = lookup_context.prefixes | [ self.class.agent_name ]

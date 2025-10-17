@@ -18,6 +18,7 @@ module ActiveAgent
         def process_stream_chunk(api_response_chunk)
           api_response_chunk.deep_symbolize_keys!
 
+          broadcast_stream_open
           return unless api_response_chunk.dig(:choices, 0)
 
           # If we have a delta, we need to update a message in the stack
@@ -27,7 +28,7 @@ module ActiveAgent
 
             # Stream back content changes as they come in
             if api_message.dig(:delta, :content)
-              stream_callback.call(message,  api_message.dig(:delta, :content), false)
+              broadcast_stream_update(message_stack.last, api_message.dig(:delta, :content))
             end
           end
 
@@ -36,11 +37,6 @@ module ActiveAgent
 
           # Once we are finished, close out and run tooling callbacks (Recursive)
           process_finished
-
-          # Then we can close out the stream
-          return if stream_finished
-          self.stream_finished = true
-          stream_callback.call(message_stack.last, nil, true)
         end
 
         # @return void

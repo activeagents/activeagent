@@ -32,12 +32,12 @@ module ActiveAgent
         # @example Processing a tool call
         #   api_call = { name: "get_weather", arguments: '{"location":"NYC"}' }
         #   process_tool_call_function(api_call)
-        #   # => calls function_callback.call("get_weather", location: "NYC")
+        #   # => calls tools_function.call("get_weather", location: "NYC")
         def process_tool_call_function(api_function_call)
           name   = api_function_call[:name]
           kwargs = JSON.parse(api_function_call[:arguments], symbolize_names: true) if api_function_call[:arguments]
 
-          function_callback.call(name, **kwargs)
+          tools_function.call(name, **kwargs)
         end
       end
     end

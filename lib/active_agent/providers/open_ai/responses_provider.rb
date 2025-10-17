@@ -21,6 +21,7 @@ module ActiveAgent
           case (type = api_response_chunk[:type].to_sym)
           # Response Created
           when :"response.created", :"response.in_progress"
+            broadcast_stream_open
 
           # -> Message Created
           when :"response.output_item.added"
@@ -33,13 +34,13 @@ module ActiveAgent
           when :"response.output_text.delta"
             message = message_stack.find { it[:id] == api_response_chunk[:item_id] }
             message[:content] += api_response_chunk[:delta]
-            stream_callback.call(message, api_response_chunk[:delta], false)
+            broadcast_stream_update(message, api_response_chunk[:delta])
 
           # -> -> -> Content Text Completed [Full Text]
           when :"response.output_text.done"
             message = message_stack.find { it[:id] == api_response_chunk[:item_id] }
             message[:content] = api_response_chunk[:text]
-            stream_callback.call(message, api_response_chunk[:text], false)
+            broadcast_stream_update(message, api_response_chunk[:text])
 
           # -> -> -> Content Function Call Append
           when :"response.function_call_arguments.delta", :"response.function_call_arguments.done"
@@ -56,11 +57,6 @@ module ActiveAgent
           when :"response.completed"
             # Once we are finished, close out and run tooling callbacks (Recursive)
             process_finished
-
-            # Then we can close out the stream
-            return if stream_finished
-            self.stream_finished = true
-            stream_callback.call(message_stack.last, nil, true)
           else
             fail "Unexpected Response Chunk Type: #{type}"
           end
