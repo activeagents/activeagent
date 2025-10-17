@@ -515,7 +515,7 @@ class CustomerSupportService
 
     # Process any tool calls
     if response.requested_actions.any?
-      process_tool_calls(response.requested_actions)
+      process_function_calls(response.requested_actions)
     end
 
     response

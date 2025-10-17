@@ -5,153 +5,168 @@ require_relative "_base_provider"
 require_gem!(:anthropic, __FILE__)
 
 require_relative "anthropic/options"
+require_relative "anthropic/request"
 
 module ActiveAgent
   module Providers
     class AnthropicProvider < BaseProvider
-      include MessageFormatting
-      include ToolManagement
-
+      # TODO: Anthropic::BedrockClient.new
+      # TODO: Anthropic::VertexClient.new
+      #
       # @return [Anthropic::Client]
       def client
-        ::Anthropic::Client.new(options.client_options)
-      end
-
-      def call
-        with_error_handling do
-          prompt_with_chat(parameters: generate_prompt_parameters(prompt))
-        end
-      end
-
-      def prompt_with_chat(parameters)
-        if prompt.options[:stream] || config["stream"]
-          parameters[:stream] = provider_stream
-          @streaming_request_params = parameters
-        end
-
-        chat_response(client.messages(parameters: parameters), parameters)
+        ::Anthropic::Client.new(**options.to_hc)
       end
 
       protected
 
-      # Override from ParameterBuilder to handle Anthropic-specific requirements
-      # Anthropic requires system message separately and no system role in messages
-      def generate_prompt_parameters_messages(prompt)
-        system_messages, action_messages = prompt.messages.partition { |m| m.role == :system }
+      # When a tool choice is forced to be used, we need to remove it from the next
+      # request to prevent endless looping.
+      def prepare_request_iteration
+        if request.tool_choice
+          functions_used = message_stack.pluck(:content).flatten.select { it[:type] == "tool_use" }.pluck(:name)
 
-        fail "Unexpected Extra System Messages" if system_messages.count > 1
+          if (request.tool_choice.type == "any" && functions_used.any?) ||
+            (request.tool_choice.type == "tool" && functions_used.include?(request.tool_choice.name))
 
-        {
-          system:   provider_messages(system_messages.first&.content || prompt.options[:instructions]),
-          messages: provider_messages(action_messages)
-        }
-      end
-
-      # Override from StreamProcessing module for Anthropic-specific streaming
-      def process_stream(prompt_context, message, callback, chunk)
-        if new_content = chunk.dig(:delta, :text)
-          message.content += new_content
-          callback&.call(message, new_content, false, prompt.action_name)
+            request.tool_choice = nil
+          end
         end
 
-        if chunk[:type] == "message_stop"
-          stream_finalize(message, callback)
-        end
+        super
       end
 
-      # def provider_stream(resolver)
-      #   message = ActiveAgent::ActionPrompt::Message.new(content: "", role: :assistant)
-
-      #   proc do |chunk|
-      #     process_stream(resolver, message, chunk)
-      #   end
-      # end
-
-      # protected
-
-      # def process_stream(resolver, message, chunk)
-      #   resolver.stream_callback.call(message, chunk, false)
-      # end
-
-      # def stream_finalize(resolver, message)
-      #   resolver.stream_callback.call(message, nil, true)
-      # end
-
-      # Override from ToolManagement for Anthropic-specific tool format
-      def format_single_tool(tool)
-        {
-          name: tool["name"] || tool.dig("function", "name") || tool[:name] || tool.dig(:function, :name),
-          description: tool["description"] || tool.dig("function", "description") || tool[:description] || tool.dig(:function, :description),
-          input_schema: tool["parameters"] || tool.dig("function", "parameters") || tool[:parameters] || tool.dig(:function, :parameters)
-        }
-      end
-
-      # Override from MessageFormatting for Anthropic-specific message format
-      def format_content(message)
-        # Anthropic requires content as an array
-        if message.content_type == "image_url"
-          [ format_image_content(message).first ]
+      def api_prompt_execute(parameters)
+        unless parameters[:stream]
+          client.messages.create(**parameters)
         else
-          [ { type: "text", text: message.content } ]
+          client.messages.stream(**parameters.except(:stream)).each(&parameters[:stream])
+          nil
+        end
+      rescue ::Anthropic::Errors::APIConnectionError => exception
+        raise exception.cause
+      end
+
+      # @return void
+      def process_stream_chunk(api_response_chunk)
+        api_response_chunk = api_response_chunk.as_json.deep_symbolize_keys
+
+        case api_response_chunk[:type].to_sym
+        # Message Created
+        when :message_start
+          api_message = api_response_chunk.fetch(:message)
+          self.message_stack.push(api_message)
+          stream_callback.call(message_stack.last, nil, false)
+
+        # -> Content Block Create
+        when :content_block_start
+          api_content = api_response_chunk.fetch(:content_block)
+          self.message_stack.last[:content].push(api_content)
+          stream_callback.call(message_stack.last, api_content[:text], false)
+
+        # -> -> Content Block Append
+        when :content_block_delta
+          index     = api_response_chunk.fetch(:index)
+          content   = self.message_stack.last[:content][index]
+          api_delta = api_response_chunk.fetch(:delta)
+
+          case api_delta.fetch(:type).to_sym
+          # -> -> -> Content Text Append
+          when :text_delta
+            content[:text] += api_delta[:text]
+            stream_callback.call(message_stack.last, api_delta[:text], false)
+
+          # -> -> -> Content Function Call Append
+          when :input_json_delta
+            # No-Op; Wait for Function call to be complete
+          when :thinking_delta, :signature_delta
+            # TODO: Add with thinking rendering support
+          else
+            fail "Unexpected Delta Type #{api_delta.fetch(:type)}"
+          end
+        # -> Content Block Completed [Full Block]
+        when :content_block_stop
+          index       = api_response_chunk.fetch(:index)
+          api_content = api_response_chunk.fetch(:content_block)
+          self.message_stack.last[:content][index] = api_content
+
+        # Message Delta
+        when :message_delta
+          self.message_stack.last.merge!(api_response_chunk.fetch(:delta))
+
+        # Message Completed [Full Message]
+        when :message_stop
+          self.message_stack[-1] = api_response_chunk.fetch(:message)
+
+          # Once we are finished, close out and run tooling callbacks (Recursive)
+          if message_stack.last[:stop_reason]
+            process_finished
+
+            # Then we can close out the stream
+            return if stream_finished
+            self.stream_finished = true
+            stream_callback.call(message_stack.last, nil, true)
+          end
+        when :ping
+          # No-Op Keep Awake
+        when :overloaded_error
+          # TODO: https://docs.claude.com/en/docs/build-with-claude/streaming#error-events
+        else
+          # No-Op: Looks like internal tracking from gem wrapper
+          return if api_response_chunk.key?(:snapshot)
+          fail "Unexpected Chunk Type: #{api_response_chunk[:type]}"
         end
       end
 
-      def format_image_content(message)
-        [ {
-          type: "image",
-          source: {
-            type: "url",
-            url: message.content
-          }
-        } ]
+      # @return void
+      def process_function_calls(api_function_calls)
+        content = api_function_calls.map do |api_function_call|
+          process_tool_call_function(api_function_call)
+        end
+
+        message = Anthropic::Requests::Messages::User.new(content:)
+
+        message_stack.push(message.to_hc)
       end
 
-      # Override from MessageFormatting for Anthropic role mapping
-      def convert_role(role)
-        case role.to_s
-        when "system" then "system"
-        when "user" then "user"
-        when "assistant" then "assistant"
-        when "tool", "function" then "assistant"
-        else "user"
+      def process_tool_call_function(api_function_call)
+        results = function_callback.call(
+          api_function_call[:name], **api_function_call[:input]
+        )
+
+        Anthropic::Requests::ContentBlocks::ToolResult.new(
+          tool_use_id: api_function_call[:id],
+          content:     results.to_json,
+        )
+      end
+
+      def process_finished(api_message = nil)
+        message_stack.push(api_message.as_json.deep_symbolize_keys) if api_message
+
+        # It may be ugly, but at least it doesn't loop multiple times
+        api_function_calls = message_stack.flat_map do |message|
+          message[:content].select { it[:type] == "tool_use" }.map do |api_function_call|
+            # Unpack the streamed in function calls, so they match sync message formatting
+            if api_function_call[:json_buf]
+              api_function_call[:input] = JSON.parse(api_function_call.delete(:json_buf), symbolize_names: true)
+            end
+
+            api_function_call
+          end
+        end
+
+        if api_function_calls.any?
+          process_function_calls(api_function_calls)
+          resolve_prompt
+        else
+          ActiveAgent::Providers::Response.new(
+            prompt: context,
+            message: message_stack.last,
+            raw_request: request,
+            raw_response: api_message,
+          )
         end
       end
-
-      def chat_response(response, request_params = nil)
-        return @response if prompt.options[:stream]
-
-        content = response["content"].first["text"]
-
-        message = ActiveAgent::ActionPrompt::Message.new(
-          content: content,
-          content_type: prompt.output_schema.present? ? "application/json" : "text/plain",
-          role: "assistant",
-          action_requested: response["stop_reason"] == "tool_use",
-          requested_actions: handle_actions(response["content"].map { |c| c if c["type"] == "tool_use" }.reject { |m| m.blank? }.to_a),
-        )
-
-        update_context(prompt: prompt, message: message, response: response)
-
-        @response = ActiveAgent::Providers::Response.new(
-          prompt: prompt,
-          message: message,
-          raw_response: response,
-          raw_request: request_params
-        )
-      end
-
-      # Override from ToolManagement for Anthropic-specific tool parsing
-      def parse_tool_call(tool_use)
-        return nil unless tool_use
-
-        ActiveAgent::ActionPrompt::Action.new(
-          id: tool_use[:id],
-          name: tool_use[:name],
-          params: tool_use[:input]
-        )
-      end
-
-      private
     end
   end
 end

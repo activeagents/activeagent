@@ -10,12 +10,14 @@ module ActiveAgent
         def request_klass = Chat::Request
         def options_klass = Options
 
-        def client_request_create(parameters:)
-          client.chat(parameters:)
+        def api_prompt_execute(parameters)
+          client.chat(parameters:).presence&.deep_symbolize_keys
         end
 
         # @return void
         def process_stream_chunk(api_response_chunk)
+          api_response_chunk.deep_symbolize_keys!
+
           return unless api_response_chunk.dig(:choices, 0)
 
           # If we have a delta, we need to update a message in the stack
@@ -42,17 +44,17 @@ module ActiveAgent
         end
 
         # @return void
-        def process_tool_calls(api_tool_calls)
-          api_tool_calls.each do |api_tool_call|
-            content = case api_tool_call[:type]
+        def process_function_calls(api_function_calls)
+          api_function_calls.each do |api_function_call|
+            content = case api_function_call[:type]
             when "function"
-              process_tool_call_function(api_tool_call[:function])
+              process_tool_call_function(api_function_call[:function])
             else
-              fail "Unexpected Tool Call Type: #{api_tool_call[:type]}"
+              fail "Unexpected Tool Call Type: #{api_function_call[:type]}"
             end
 
             message = Chat::Requests::Messages::Tool.new(
-              tool_call_id: api_tool_call[:id],
+              tool_call_id: api_function_call[:id],
               content: content.to_json
             )
 
@@ -66,8 +68,8 @@ module ActiveAgent
             message_stack.push(api_message)
           end
 
-          if (tool_calls = message_stack.last[:tool_calls])
-            process_tool_calls(tool_calls)
+          if (api_function_calls = message_stack.last[:tool_calls])
+            process_function_calls(api_function_calls)
             resolve_prompt
           else
             ActiveAgent::Providers::Response.new(

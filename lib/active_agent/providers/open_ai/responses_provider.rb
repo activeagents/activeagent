@@ -11,11 +11,13 @@ module ActiveAgent
         def request_klass = Responses::Request
         def options_klass = Options
 
-        def client_request_create(parameters:)
-          client.responses.create(parameters:)
+        def api_prompt_execute(parameters)
+          client.responses.create(parameters:).presence&.deep_symbolize_keys
         end
 
         def process_stream_chunk(api_response_chunk)
+          api_response_chunk.deep_symbolize_keys!
+
           case api_response_chunk[:type]
           # Response Created
           when "response.created", "response.in_progress"
@@ -86,11 +88,11 @@ module ActiveAgent
         end
 
         # @return void
-        def process_tool_calls(api_tool_calls)
-          api_tool_calls.each do |api_tool_call|
+        def process_function_calls(api_function_calls)
+          api_function_calls.each do |api_function_call|
             message = Responses::Requests::Inputs::FunctionCallOutput.new(
-              call_id: api_tool_call[:call_id],
-              output:  process_tool_call_function(api_tool_call).to_json
+              call_id: api_function_call[:call_id],
+              output:  process_tool_call_function(api_function_call).to_json
             )
 
             message_stack.push(message.to_hc)
@@ -104,7 +106,7 @@ module ActiveAgent
           end
 
           if (tool_calls = message_stack.select { it[:type] == "function_call" }).any?
-            process_tool_calls(tool_calls)
+            process_function_calls(tool_calls)
             resolve_prompt
           else
             ActiveAgent::Providers::Response.new(

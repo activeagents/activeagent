@@ -24,11 +24,13 @@ module Integration
           # Run Again to Validate that the Request is well formed and not mutated since recording it last
           cassette_file = YAML.load_file("test/fixtures/vcr_cassettes/#{cassette_name}.yml")
           cassette_file.dig("http_interactions").each do |interaction|
-            request_method = interaction.dig("request", "method").to_sym
-            request_uri    = interaction.dig("request", "uri")
-            response_body  = interaction.dig("response", "body", "string")
-
-            stub_request(request_method, request_uri).to_return(body: response_body)
+            request_method   = interaction.dig("request", "method").to_sym
+            request_uri      = interaction.dig("request", "uri")
+            stub_request(request_method, request_uri).to_return(
+              body:    interaction.dig("response", "body", "string"),
+              status:  interaction.dig("response", "status", "code"),
+              headers: interaction.dig("response", "headers")
+            )
           end
 
           agent.send(action_name).generate_now
