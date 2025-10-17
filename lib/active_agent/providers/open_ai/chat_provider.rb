@@ -62,23 +62,15 @@ module ActiveAgent
           end
         end
 
-        # @return response [ActiveAgent::Providers::Response]
-        def process_finished(api_response = nil)
-          if (api_message = api_response&.dig(:choices, 0, :message))
-            message_stack.push(api_message)
-          end
+        def process_finished_extract_messages(api_response)
+          api_message = api_response&.dig(:choices, 0, :message)
 
-          if (api_function_calls = message_stack.last[:tool_calls])
-            process_function_calls(api_function_calls)
-            resolve_prompt
-          else
-            ActiveAgent::Providers::Response.new(
-              prompt: context,
-              message: message_stack.last,
-              raw_request: request,
-              raw_response: api_response,
-            )
-          end
+          [ api_message ] if api_message
+        end
+
+        # It may be ugly, but...
+        def process_finished_extract_function_calls
+          message_stack.last[:tool_calls]
         end
 
         # def embeddings_response(response, request_params = nil)

@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require_relative "../open_ai/options"
+require_relative "../common/_base_model"
 
 module ActiveAgent
   module Providers
     module Anthropic
-      class Options < Common::Options
+      class Options < Common::BaseModel
         attribute :base_url,    :string,  default: "https://api.anthropic.com"
         attribute :max_retries, :integer, default: 2
         attribute :timeout,     :float,   default: 600.0

@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require_relative "../common/options"
+require_relative "../common/_base_model"
 
 module ActiveAgent
   module Providers
     module OpenAI
-      class Options < Common::Options
+      class Options < Common::BaseModel
         attribute :access_token,    :string
         attribute :uri_base,        :string
         attribute :request_timeout, :integer

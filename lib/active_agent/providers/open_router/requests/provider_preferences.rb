@@ -9,7 +9,7 @@ module ActiveAgent
       module Requests
         # Provider preferences for routing requests to specific providers
         # See: https://openrouter.ai/docs/provider-routing
-        class ProviderPreferences < Common::Options
+        class ProviderPreferences < Common::BaseModel
         # Whether to allow backup providers to serve requests
         # - true: (default) when primary provider is unavailable, use next best provider
         # - false: use only primary/custom provider, return upstream error if unavailable

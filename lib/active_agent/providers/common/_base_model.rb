@@ -39,6 +39,7 @@ module ActiveAgent
         # Ensures subclasses get their own required_attributes set.
         #
         # @param subclass [Class] the inheriting class
+        # @return [void]
         def self.inherited(subclass)
           super
           subclass.instance_variable_set(:@required_attributes, required_attributes.dup)
@@ -116,6 +117,12 @@ module ActiveAgent
           end
         end
 
+        # Returns all attribute keys including aliases.
+        #
+        # Combines both the main attribute type keys and any attribute aliases,
+        # ensuring all possible attribute names are represented as symbols.
+        #
+        # @return [Array<Symbol>] array of all attribute keys
         def self.keys
           (attribute_types.keys.map(&:to_sym) | attribute_aliases.keys.map(&:to_sym))
         end
@@ -124,6 +131,11 @@ module ActiveAgent
         #
         # Settings can be provided as a hash or keyword arguments. Hash keys are
         # sorted to prioritize nested objects during initialization for backwards compatibility.
+        # A special internal key `__default_values` can be passed to get an instance with
+        # only default values without any overrides.
+        #
+        # @param kwargs [Hash] attribute hash to initialize with
+        # @return [void]
         def initialize(kwargs = {})
           # To allow us to get a list of attribute defaults without initialized overrides
           return super(nil) if kwargs.key?(:'__default_values')
@@ -138,8 +150,8 @@ module ActiveAgent
         # Merges the given attributes into the current instance.
         #
         # Only attributes with corresponding setter methods are updated.
+        # Keys are symbolized before merging.
         #
-        # @param hash [Hash, nil] attribute hash to merge
         # @param kwargs [Hash] attribute keyword arguments to merge
         # @return [BaseModel] self for method chaining
         def merge!(kwargs = {})
@@ -162,8 +174,8 @@ module ActiveAgent
         # @example
         #   deep_compact({ a: 1, b: nil, c: { d: nil, e: 2 } })
         #   #=> { a: 1, c: { e: 2 } }
-        def deep_compact(hash = nil, **kwargs)
-          (hash || kwargs).each_with_object({}) do |(key, value), result|
+        def deep_compact(kwargs = {})
+          kwargs.each_with_object({}) do |(key, value), result|
             compacted_value = case value
             when Hash
               deep_compacted = deep_compact(value)
@@ -201,6 +213,11 @@ module ActiveAgent
             end
           end)
         end
+
+        # Alias for {#to_hash}.
+        #
+        # @return [Hash] hash representation of all attributes
+        # @see #to_hash
         def to_h = to_hash
 
         # Converts the model to a compressed hash representation.
@@ -242,14 +259,43 @@ module ActiveAgent
             end
           end)
         end
+
+        # Alias for {#to_hash_compressed}.
+        #
+        # @return [Hash] compressed hash with defaults removed (except required attributes)
+        # @see #to_hash_compressed
         def to_hc = to_hash_compressed
 
-        # Returns a hash representation for inspection.
+        # Returns a string representation for inspection.
         #
-        # @return [Hash] hash representation via to_h
+        # Provides a readable view of the model showing the class name and non-default attributes
+        # in a format similar to standard Ruby object inspection.
+        #
+        # @return [String] formatted string representation
+        # @see #to_hash_compressed
+        #
+        # @example
+        #   message = Message.new(role: "user", content: "Hello")
+        #   message.inspect
+        #   #=> "#<Message role: \"user\", content: \"Hello\">"
         def inspect
-          to_hc
+          attrs = JSON.pretty_generate(to_hc, {
+            space: " ",
+            indent: "  ",
+            object_nl: "\n",
+            array_nl: "\n"
+          }).lines.drop(1).join.chomp.sub(/\}\z/, "").strip
+
+          return "#<#{self.class.name}>" if attrs.empty?
+
+          "#<#{self.class.name} {\n  #{attrs}\n}>"
         end
+
+        # Returns a pretty-printed string representation.
+        #
+        # @return [String] formatted string representation
+        # @see #inspect
+        alias_method :to_s, :inspect
       end
     end
   end

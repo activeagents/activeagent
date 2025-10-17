@@ -4,7 +4,7 @@ module ActiveAgent
   module Providers
     module OpenRouter
       module Requests
-        class ResponseFormat < Common::Options
+        class ResponseFormat < Common::BaseModel
           attribute :type, :string
 
           validates :type, inclusion: { in: %w[json_object] }, allow_nil: true

@@ -4,7 +4,7 @@ module ActiveAgent
   module Providers
     module OpenRouter
       module Requests
-        class Prediction < Common::Options
+        class Prediction < Common::BaseModel
           attribute :type, :string
           attribute :content, :string
 

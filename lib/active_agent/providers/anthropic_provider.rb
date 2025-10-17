@@ -70,7 +70,7 @@ module ActiveAgent
           content   = self.message_stack.last[:content][index]
           api_delta = api_response_chunk.fetch(:delta)
 
-          case api_delta.fetch(:type).to_sym
+          case (delta_type = api_delta[:type].to_sym)
           # -> -> -> Content Text Append
           when :text_delta
             content[:text] += api_delta[:text]
@@ -82,7 +82,7 @@ module ActiveAgent
           when :thinking_delta, :signature_delta
             # TODO: Add with thinking rendering support
           else
-            fail "Unexpected Delta Type #{api_delta.fetch(:type)}"
+            fail "Unexpected Delta Type #{delta_type}"
           end
         # -> Content Block Completed [Full Block]
         when :content_block_stop
@@ -140,31 +140,17 @@ module ActiveAgent
         )
       end
 
-      def process_finished(api_message = nil)
-        message_stack.push(api_message.as_json.deep_symbolize_keys) if api_message
+      def process_finished_extract_messages(api_response)
+        return unless api_response
 
-        # It may be ugly, but at least it doesn't loop multiple times
-        api_function_calls = message_stack.flat_map do |message|
-          message[:content].select { it[:type] == "tool_use" }.map do |api_function_call|
-            # Unpack the streamed in function calls, so they match sync message formatting
-            if api_function_call[:json_buf]
-              api_function_call[:input] = JSON.parse(api_function_call.delete(:json_buf), symbolize_names: true)
-            end
+        [ api_response.as_json.deep_symbolize_keys ]
+      end
 
-            api_function_call
-          end
-        end
-
-        if api_function_calls.any?
-          process_function_calls(api_function_calls)
-          resolve_prompt
-        else
-          ActiveAgent::Providers::Response.new(
-            prompt: context,
-            message: message_stack.last,
-            raw_request: request,
-            raw_response: api_message,
-          )
+      def process_finished_extract_function_calls
+        message_stack.pluck(:content).flatten.select { it in { type: "tool_use" } }.map do |api_function_call|
+          json_buf = api_function_call.delete(:json_buf)
+          api_function_call[:input] = JSON.parse(json_buf, symbolize_names: true) if json_buf
+          api_function_call
         end
       end
     end
