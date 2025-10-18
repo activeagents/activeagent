@@ -1,7 +1,5 @@
+require_relative "common/response"
 require_relative "concerns/error_handling"
-
-require_relative "../action_prompt/action"
-require_relative "response"
 
 GEM_LOADERS = {
   anthropic: [ "anthropic",   "~> 1.12", "anthropic" ],
@@ -149,7 +147,7 @@ module ActiveAgent
         api_parameters = api_request_build(self.request)
         api_response   = api_embed_execute(api_parameters)
 
-        # process_embed_finished(api_response)
+        process_embed_finished(api_response)
       end
 
       # Prepares the request for the next iteration.
@@ -246,7 +244,7 @@ module ActiveAgent
       # them and recursively resolves the prompt. Otherwise returns the final response.
       #
       # @param api_response [Object, nil] completed API response
-      # @return [ActiveAgent::Providers::Response] final response or recursive result
+      # @return [Object, nil] final api_response
       def process_prompt_finished(api_response = nil)
         if (api_messages = process_prompt_finished_extract_messages(api_response))
           message_stack.push(*api_messages)
@@ -262,11 +260,18 @@ module ActiveAgent
           # as they continue to work.
           broadcast_stream_close
 
-          ActiveAgent::Providers::Response.new(
-            prompt: context,
-            message: message_stack.last,
-            raw_request: request,
-            raw_response: api_response
+          # To convert the messages into common format we first need to merge the current
+          # stack and then cast them to the provider type, so we can cast them out to common.
+          messages = prompt_request_klass.new(
+            messages: [ *request.messages, *message_stack ]
+          ).messages
+
+          # This will returned as it closes up the recursive stack
+          Common::PromptResponse.new(
+            context:,
+            raw_request:  request.to_hc,
+            raw_response: api_response,
+            messages:
           )
         end
       end
@@ -288,6 +293,22 @@ module ActiveAgent
       # @raise [NotImplementedError] if not implemented by subclass
       def process_prompt_finished_extract_function_calls
         fail NotImplementedError, "Subclass expected to implement"
+      end
+
+      # Processes the completed embedding API response.
+      #
+      # Constructs a standardized EmbedResponse object from the provider's
+      # raw API response.
+      #
+      # @param api_response [Hash] completed embedding API response
+      # @return [Common::EmbedResponse] standardized embedding response
+      def process_embed_finished(api_response)
+        Common::EmbedResponse.new(
+          context:,
+          raw_request:  request.to_hc,
+          raw_response: api_response,
+          data:         api_response[:data],
+        )
       end
     end
   end

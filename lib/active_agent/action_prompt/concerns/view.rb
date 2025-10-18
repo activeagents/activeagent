@@ -57,8 +57,6 @@ module ActiveAgent
 
       ##### Action Templating #################################################
 
-
-
       ##### Shared Helpers ####################################################
 
       # Renders a text template if it exists.

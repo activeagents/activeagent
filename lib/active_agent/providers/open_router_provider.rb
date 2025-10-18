@@ -36,8 +36,6 @@ module ActiveAgent
       protected
 
       # def resolve_prompt
-      #   parameters[:stream] = provider_stream if prompt.options[:stream] || config["stream"]
-
       #   response = client.chat(parameters: parameters)
       #   # Log if fallback was used
       #   if response.respond_to?(:headers) && response.headers["x-model"] != @options.model
@@ -47,52 +45,7 @@ module ActiveAgent
       #   response
       # end
 
-
-      # def format_content_item(item)
-      #   # Handle OpenRouter-specific content formats
-      #   if item.is_a?(Hash)
-      #     case item[:type] || item["type"]
-      #     when "file"
-      #       # Convert file type to image_url for OpenRouter PDF support
-      #       file_data = item.dig(:file, :file_data) || item.dig("file", "file_data")
-      #       if file_data
-      #         {
-      #           type: "image_url",
-      #           image_url: {
-      #             url: file_data
-      #           }
-      #         }
-      #       else
-      #         item
-      #       end
-      #     else
-      #       # Use default formatting for other types
-      #       super
-      #     end
-      #   else
-      #     super
-      #   end
-      # end
-
       # def process_openrouter_response(response)
-      #   # Process as normal OpenAI response first
-      #   if prompt.options[:stream]
-      #     return @response
-      #   end
-
-      #   # Extract standard response
-      #   message_json = response.dig("choices", 0, "message")
-      #   message_json["id"] = response.dig("id") if message_json && message_json["id"].blank?
-      #   message = parse_response_message(message_json) if message_json
-
-      #   update_context(prompt: prompt, message: message, response: response) if message
-      #   # Create response with OpenRouter metadata
-      #   @response = ActiveAgent::Providers::Response.new(
-      #     prompt: prompt,
-      #     message: message,
-      #     raw_response: response
-      #   )
-
       #   # OpenRouter includes provider and model info directly in the response body
       #   if response["provider"] || response["model"]
       #     @response.metadata = {

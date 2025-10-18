@@ -73,7 +73,7 @@ module ActiveAgent
       # @param parameters [Hash] The embedding request parameters
       # @return [Object] The embedding response from OpenAI
       def api_embed_execute(parameters)
-        client.embeddings(parameters:)
+        client.embeddings(parameters:).deep_symbolize_keys
       end
     end
   end

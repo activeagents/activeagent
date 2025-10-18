@@ -28,7 +28,7 @@ module ActiveAgent
       # @param parameters [Hash] The embedding request parameters
       # @return [Object] The embedding response from Ollama
       def api_embed_execute(parameters)
-        client.embeddings(parameters:)
+        client.embeddings(parameters:).deep_symbolize_keys
       end
 
       # Merges streaming delta into the message.
@@ -67,21 +67,22 @@ module ActiveAgent
       #   end
       # end
 
-      # def embeddings_response(response, request_params = nil)
-      #   # Ollama can return either format:
-      #   # 1. OpenAI-compatible: { "data": [{ "embedding": [...] }] }
-      #   # 2. Native Ollama: { "embedding": [...] }
-      #   embedding = response.dig("data", 0, "embedding") || response.dig("embedding")
-
-      #   message = ActiveAgent::ActionPrompt::Message.new(content: embedding, role: "assistant")
-
-      #   @response = ActiveAgent::Providers::Response.new(
-      #     prompt: prompt,
-      #     message: message,
-      #     raw_response: response,
-      #     raw_request: request_params
-      #   )
-      # end
+      # Processes the completed embedding API response.
+      #
+      # Handles both Ollama response formats:
+      # 1. OpenAI-compatible: { "data": [{ "embedding": [...] }] }
+      # 2. Native Ollama: { "embedding": [...] }
+      #
+      # @param api_response [Hash] completed embedding API response
+      # @return [Common::EmbedResponse] standardized embedding response
+      def process_embed_finished(api_response)
+        Common::EmbedResponse.new(
+          context:,
+          raw_request:  request.to_hc,
+          raw_response: api_response,
+          data:         api_response[:data] || [ api_response[:embedding] ],
+        )
+      end
     end
   end
 end

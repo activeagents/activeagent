@@ -2,10 +2,7 @@ require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
 require "active_support/core_ext/string/inflections"
 
-require "active_agent/action_prompt/action"
-
 Dir[File.join(__dir__, "concerns", "*.rb")].each { |file| require file }
-require_relative "null_prompt"
 
 module ActiveAgent
   module ActionPrompt
