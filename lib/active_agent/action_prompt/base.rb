@@ -46,6 +46,7 @@ module ActiveAgent
       include Rescue
 
       include Callbacks
+      include Observers
       include Parameterized
       include Previews
       include QueuedGeneration
@@ -62,97 +63,6 @@ module ActiveAgent
         content_type: "text/plain",
         parts_order: [ "text/plain", "text/enriched", "text/html" ]
       }.freeze
-
-      # Register one or more Observers which will be notified when prompt is generated.
-      #
-      # @param observers [Array<Class, String, Symbol>] Observer classes or names to register
-      # @return [void]
-      def self.register_observers(*observers)
-        observers.flatten.compact.each { |observer| register_observer(observer) }
-      end
-
-      # Unregister one or more previously registered Observers.
-      #
-      # @param observers [Array<Class, String, Symbol>] Observer classes or names to unregister
-      # @return [void]
-      def self.unregister_observers(*observers)
-        observers.flatten.compact.each { |observer| unregister_observer(observer) }
-      end
-
-      # Register one or more Interceptors which will be called before prompt is sent.
-      #
-      # @param interceptors [Array<Class, String, Symbol>] Interceptor classes or names to register
-      # @return [void]
-      def self.register_interceptors(*interceptors)
-        interceptors.flatten.compact.each { |interceptor| register_interceptor(interceptor) }
-      end
-
-      # Unregister one or more previously registered Interceptors.
-      #
-      # @param interceptors [Array<Class, String, Symbol>] Interceptor classes or names to unregister
-      # @return [void]
-      def self.unregister_interceptors(*interceptors)
-        interceptors.flatten.compact.each { |interceptor| unregister_interceptor(interceptor) }
-      end
-
-      # Register an Observer which will be notified when prompt is generated.
-      #
-      # Either a class, string, or symbol can be passed in as the Observer.
-      # If a string or symbol is passed in it will be camelized and constantized.
-      #
-      # @param observer [Class, String, Symbol] The observer to register
-      # @return [void]
-      def self.register_observer(observer)
-        Prompt.register_observer(observer_class_for(observer))
-      end
-
-      # Unregister a previously registered Observer.
-      #
-      # Either a class, string, or symbol can be passed in as the Observer.
-      # If a string or symbol is passed in it will be camelized and constantized.
-      #
-      # @param observer [Class, String, Symbol] The observer to unregister
-      # @return [void]
-      def self.unregister_observer(observer)
-        Prompt.unregister_observer(observer_class_for(observer))
-      end
-
-      # Register an Interceptor which will be called before prompt is sent.
-      #
-      # Either a class, string, or symbol can be passed in as the Interceptor.
-      # If a string or symbol is passed in it will be camelized and constantized.
-      #
-      # @param interceptor [Class, String, Symbol] The interceptor to register
-      # @return [void]
-      def self.register_interceptor(interceptor)
-        Prompt.register_interceptor(observer_class_for(interceptor))
-      end
-
-      # Unregister a previously registered Interceptor.
-      #
-      # Either a class, string, or symbol can be passed in as the Interceptor.
-      # If a string or symbol is passed in it will be camelized and constantized.
-      #
-      # @param interceptor [Class, String, Symbol] The interceptor to unregister
-      # @return [void]
-      def self.unregister_interceptor(interceptor)
-        Prompt.unregister_interceptor(observer_class_for(interceptor))
-      end
-
-      # Converts observer/interceptor value to class.
-      #
-      # @param value [Class, String, Symbol] The observer/interceptor identifier
-      # @return [Class] The observer/interceptor class
-      # @api private
-      def self.observer_class_for(value) # :nodoc:
-        case value
-        when String, Symbol
-          value.to_s.camelize.constantize
-        else
-          value
-        end
-      end
-      private_class_method :observer_class_for
 
       # Define how the agent should generate content
       # Sets up the generation provider and options for the agent.
