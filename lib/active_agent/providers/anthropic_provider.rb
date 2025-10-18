@@ -40,6 +40,7 @@ module ActiveAgent
           if (request.tool_choice.type == "any" && functions_used.any?) ||
             (request.tool_choice.type == "tool" && functions_used.include?(request.tool_choice.name))
 
+            instrument("tool_choice_removed.provider.active_agent")
             request.tool_choice = nil
           end
         end
@@ -54,8 +55,10 @@ module ActiveAgent
       # @raise [Exception] Re-raises the underlying connection error for APIConnectionError
       def api_prompt_execute(parameters)
         unless parameters[:stream]
+          instrument("api_request.provider.active_agent", model: parameters[:model], streaming: false)
           client.messages.create(**parameters)
         else
+          instrument("api_request.provider.active_agent", model: parameters[:model], streaming: true)
           client.messages.stream(**parameters.except(:stream)).each(&parameters[:stream])
           nil
         end
@@ -73,10 +76,13 @@ module ActiveAgent
       # @return [void]
       def process_stream_chunk(api_response_chunk)
         api_response_chunk = api_response_chunk.as_json.deep_symbolize_keys
+        chunk_type = api_response_chunk[:type].to_sym
+
+        instrument("stream_chunk_processing.provider.active_agent", chunk_type:)
 
         broadcast_stream_open
 
-        case api_response_chunk[:type].to_sym
+        case chunk_type
         # Message Created
         when :message_start
           api_message = api_response_chunk.fetch(:message)
@@ -158,6 +164,8 @@ module ActiveAgent
       # @param api_function_call [Hash] The function call object with name, input, and id
       # @return [Anthropic::Requests::ContentBlocks::ToolResult] The tool result object
       def process_tool_call_function(api_function_call)
+        instrument("tool_execution.provider.active_agent", tool_name: api_function_call[:name])
+
         results = tools_function.call(
           api_function_call[:name], **api_function_call[:input]
         )

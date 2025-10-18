@@ -178,9 +178,17 @@ module ActiveAgent
       rescue => exception
         attempt += 1
 
-        if retries_on.any? { exception.is_a?(it) } && attempt <= retries_count
-          sleep(2 ** (attempt - 1))
+        is_retriable = retries_on.any? { exception.is_a?(it) }
+
+        if is_retriable && attempt <= retries_count
+          backoff_time = 2 ** (attempt - 1)
+          instrument("retry_attempt.provider.active_agent", attempt:, max_retries: retries_count, exception: exception.class, backoff_time:)
+          sleep(backoff_time)
           retry
+        end
+
+        if is_retriable && attempt > retries_count
+          instrument("retry_exhausted.provider.active_agent", max_retries: retries_count, exception: exception.class)
         end
 
         rescue_with_handler(exception) || raise

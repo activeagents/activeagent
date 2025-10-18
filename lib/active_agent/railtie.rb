@@ -21,6 +21,11 @@ module ActiveAgent
       ActiveSupport.on_load(:active_agent) { self.logger ||= Rails.logger }
     end
 
+    initializer "active_agent.log_subscriber" do
+      require "active_agent/log_subscriber"
+      ActiveAgent::LogSubscriber.attach_to :active_agent_provider
+    end
+
     initializer "active_agent.set_configs" do |app|
       paths = app.config.paths
       options = app.config.active_agent

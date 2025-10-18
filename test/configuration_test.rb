@@ -18,7 +18,8 @@ class ConfigurationTest < ActiveSupport::TestCase
     config = ActiveAgent::Configuration.new
 
     assert_equal false, config.verbose_generation_errors
-    assert_nil config.generation_provider_logger
+    assert_instance_of ActiveAgent::TaggedLogger, config.logger
+    assert_equal Logger::INFO, config.log_level
     assert_equal true, config.retries
     assert_equal 3, config.retries_count
     assert_includes config.retries_on, EOFError
@@ -38,13 +39,61 @@ class ConfigurationTest < ActiveSupport::TestCase
     custom_logger = Logger.new(STDOUT)
     config = ActiveAgent::Configuration.new(
       verbose_generation_errors: true,
-      retries_count: 5,
-      generation_provider_logger: custom_logger
+      retries_count: 5
     )
+    config.logger = custom_logger
+    config.log_level = :debug
 
     assert_equal true, config.verbose_generation_errors
     assert_equal 5, config.retries_count
-    assert_equal custom_logger, config.generation_provider_logger
+    assert_instance_of ActiveAgent::TaggedLogger, config.logger
+    assert_equal custom_logger, config.logger.logger
+    assert_equal Logger::DEBUG, config.log_level
+  end
+
+  # Test logger accessor
+  test "logger defaults to Logger.new(STDOUT)" do
+    config = ActiveAgent::Configuration.new
+    assert_instance_of ActiveAgent::TaggedLogger, config.logger
+  end
+
+  test "logger can be set to custom logger" do
+    config = ActiveAgent::Configuration.new
+    custom_logger = Logger.new(STDERR)
+    config.logger = custom_logger
+    assert_instance_of ActiveAgent::TaggedLogger, config.logger
+    assert_equal custom_logger, config.logger.logger
+  end
+
+  test "logger wraps all log messages with [ActiveAgent] tag" do
+    require "stringio"
+    output = StringIO.new
+    config = ActiveAgent::Configuration.new
+    config.logger = Logger.new(output)
+    config.log_level = :debug
+
+    config.logger.info "Test info message"
+    config.logger.debug "Test debug message"
+    config.logger.warn "Test warning"
+    config.logger.error "Test error"
+
+    log_output = output.string
+    assert_match(/\[ActiveAgent\] Test info message/, log_output)
+    assert_match(/\[ActiveAgent\] Test debug message/, log_output)
+    assert_match(/\[ActiveAgent\] Test warning/, log_output)
+    assert_match(/\[ActiveAgent\] Test error/, log_output)
+  end
+
+  test "log_level reads from logger" do
+    config = ActiveAgent::Configuration.new
+    config.logger.level = Logger::WARN
+    assert_equal Logger::WARN, config.log_level
+  end
+
+  test "log_level= sets level on logger" do
+    config = ActiveAgent::Configuration.new
+    config.log_level = :debug
+    assert_equal Logger::DEBUG, config.logger.level
   end
 
   # Test hash-like access
@@ -295,6 +344,16 @@ class ConfigurationTest < ActiveSupport::TestCase
 
     refute_same original, new_config
     assert_equal 3, new_config.retries_count # default value
+  end
+
+  test "ActiveAgent.logger delegates to configuration logger" do
+    custom_logger = Logger.new(STDERR)
+    ActiveAgent.configure do |config|
+      config.logger = custom_logger
+    end
+
+    assert_instance_of ActiveAgent::TaggedLogger, ActiveAgent.logger
+    assert_equal custom_logger, ActiveAgent.logger.logger
   end
 
   test "ActiveAgent.configuration_load sets global configuration" do

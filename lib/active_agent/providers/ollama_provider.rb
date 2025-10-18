@@ -23,12 +23,29 @@ module ActiveAgent
 
       protected
 
+      # Executes a prompt request via Ollama's API.
+      #
+      # @param parameters [Hash] The prompt request parameters
+      # @return [Object] The prompt response from Ollama
+      def api_prompt_execute(parameters)
+        super
+
+      rescue Faraday::ConnectionFailed => exception
+        log_connection_error(exception)
+        raise exception
+      end
+
       # Executes an embedding request via Ollama's API.
       #
       # @param parameters [Hash] The embedding request parameters
       # @return [Object] The embedding response from Ollama
       def api_embed_execute(parameters)
+        instrument("embeddings_request.provider.active_agent")
         client.embeddings(parameters:).deep_symbolize_keys
+
+      rescue Faraday::ConnectionFailed => exception
+        log_connection_error(exception)
+        raise exception
       end
 
       # Merges streaming delta into the message.
@@ -44,28 +61,15 @@ module ActiveAgent
         hash_merge_delta(message, delta)
       end
 
-      # def format_error_message(error)
-      #   # Check for various connection-related errors
-      #   connection_errors = [
-      #     Errno::ECONNREFUSED,
-      #     Errno::EADDRNOTAVAIL,
-      #     Errno::EHOSTUNREACH,
-      #     Net::OpenTimeout,
-      #     Net::ReadTimeout,
-      #     SocketError,
-      #     Faraday::ConnectionFailed
-      #   ]
-
-      #   if connection_errors.any? { |klass| error.is_a?(klass) } ||
-      #       (error.message&.include?("Failed to open TCP connection") ||
-      #        error.message&.include?("Connection refused"))
-      #     "Unable to connect to Ollama at #{@options.uri_base}. Please ensure Ollama is running on the configured host and port.\n" \
-      #     "You can start Ollama with: `ollama serve`\n" \
-      #     "Or update your configuration to point to the correct host."
-      #   else
-      #     super
-      #   end
-      # end
+      # Logs a connection error with helpful debugging information.
+      #
+      # @param error [Exception] The connection error that occurred
+      def log_connection_error(error)
+        instrument("connection_error.provider.active_agent",
+                  uri_base: options.uri_base,
+                  exception: error.class,
+                  message: error.message)
+      end
     end
   end
 end

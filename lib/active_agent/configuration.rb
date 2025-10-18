@@ -8,6 +8,40 @@ require "timeout"
 require "yaml"
 
 module ActiveAgent
+  # Simple logger wrapper that prepends a tag to all log messages.
+  #
+  # @private
+  class TaggedLogger
+    attr_reader :logger, :tag
+
+    def initialize(logger, tag)
+      @logger = logger
+      @tag = tag
+    end
+
+    %i[debug info warn error fatal unknown].each do |method|
+      define_method(method) do |message = nil, &block|
+        if block_given?
+          result = block.call
+          logger.public_send(method, "#{tag} #{result}")
+        elsif message
+          logger.public_send(method, "#{tag} #{message}")
+        else
+          logger.public_send(method, tag)
+        end
+      end
+    end
+
+    # Delegate all other methods to the logger
+    def method_missing(method, *args, &block)
+      logger.public_send(method, *args, &block)
+    end
+
+    def respond_to_missing?(method, include_private = false)
+      logger.respond_to?(method, include_private) || super
+    end
+  end
+
   # Configuration class for ActiveAgent global settings.
   #
   # Provides configuration options for generation behavior, error handling,
@@ -83,7 +117,7 @@ module ActiveAgent
     # @return [Hash] Hash of default configuration values
     DEFAULTS = {
       verbose_generation_errors: false,
-      generation_provider_logger: nil,
+      colorize_logging: true,
       retries: true,
       retries_count: 3,
       retries_on: [
@@ -104,10 +138,51 @@ module ActiveAgent
     #   @return [Boolean] Whether to show verbose error messages (default: false)
     attr_accessor :verbose_generation_errors
 
-    # @!attribute [rw] generation_provider_logger
-    #   Logger instance for generation provider operations.
-    #   @return [Logger, nil] Logger for provider operations (default: nil)
-    attr_accessor :generation_provider_logger
+    # @!attribute [rw] colorize_logging
+    #   When true, log subscriber output will be colorized.
+    #   @return [Boolean] Whether to colorize log output (default: true)
+    attr_accessor :colorize_logging
+
+    # Returns the logger instance, creating a default one if not set.
+    #
+    # @return [Logger] Logger instance (defaults to Logger.new(STDOUT) if not set)
+    def logger
+      @logger ||= begin
+        base_logger = Logger.new(STDOUT)
+        base_logger.level = Logger::INFO
+        TaggedLogger.new(base_logger, "[ActiveAgent]")
+      end
+    end
+
+    # Sets the logger instance.
+    #
+    # When set to false, creates a null logger that discards all output.
+    #
+    # @param value [Logger, false] Logger instance to use, or false to disable logging
+    # @return [Logger] The logger that was set
+    def logger=(value)
+      base_logger = if value == false
+        Logger.new(IO::NULL)
+      else
+        value
+      end
+      @logger = TaggedLogger.new(base_logger, "[ActiveAgent]")
+    end
+
+    # Returns the current log level of the logger.
+    #
+    # @return [Integer, Symbol] The current log level
+    def log_level
+      logger.level
+    end
+
+    # Sets the log level on the logger instance.
+    #
+    # @param level [Integer, Symbol] The log level to set (e.g., :debug, :info, :warn, :error)
+    # @return [Integer] The log level that was set
+    def log_level=(level)
+      logger.level = level
+    end
 
     # @!attribute [rw] retries
     #   Retry strategy for generation requests.
@@ -226,7 +301,6 @@ module ActiveAgent
     #
     # @param settings [Hash] Optional settings to override defaults
     # @option settings [Boolean] :verbose_generation_errors (false) Enable verbose errors
-    # @option settings [Logger, nil] :generation_provider_logger (nil) Logger instance
     # @option settings [Boolean, Proc] :retries (true) Retry strategy
     # @option settings [Integer] :retries_count (3) Maximum retry attempts
     # @option settings [Array<Class>] :retries_on Network error classes to retry on
@@ -419,7 +493,13 @@ module ActiveAgent
   #
   # @example Custom logger
   #   ActiveAgent.configure do |config|
-  #     config.generation_provider_logger = Rails.logger
+  #     config.logger = Rails.logger
+  #     config.log_level = :debug
+  #   end
+  #
+  # @example Disable logging
+  #   ActiveAgent.configure do |config|
+  #     config.logger = false
   #   end
   def self.configure
     yield configuration if block_given?
@@ -477,5 +557,30 @@ module ActiveAgent
   # @see .configure
   def self.configuration_load(filename)
     @configuration = Configuration.load(filename)
+  end
+
+  # Returns the global logger instance from configuration.
+  #
+  # Delegates to the configuration's logger, which defaults to Logger.new(STDOUT)
+  # if not explicitly set.
+  #
+  # @return [Logger] The logger instance
+  #
+  # @example Access global logger
+  #   ActiveAgent.logger.info "Processing request"
+  #
+  # @example Set custom logger
+  #   ActiveAgent.configure do |config|
+  #     config.logger = Rails.logger
+  #   end
+  #   ActiveAgent.logger.debug "Debug message"
+  #
+  # @example Disable logging
+  #   ActiveAgent.configure do |config|
+  #     config.logger = false
+  #   end
+  #   ActiveAgent.logger.info "This will not output anything"
+  def self.logger
+    configuration.logger
   end
 end

@@ -23,6 +23,7 @@ module ActiveAgent
         # @param parameters [Hash] The responses request parameters
         # @return [Hash, nil] The symbolized API response or nil if empty
         def api_prompt_execute(parameters)
+          instrument("api_request.provider.active_agent", model: parameters[:model])
           client.responses.create(parameters:).presence&.deep_symbolize_keys
         end
 
@@ -37,7 +38,10 @@ module ActiveAgent
         def process_stream_chunk(api_response_chunk)
           api_response_chunk.deep_symbolize_keys!
 
-          case (type = api_response_chunk[:type].to_sym)
+          type = api_response_chunk[:type].to_sym
+          instrument("stream_chunk_processing.provider.active_agent", chunk_type: type)
+
+          case type
           # Response Created
           when :"response.created", :"response.in_progress"
             broadcast_stream_open
@@ -121,6 +125,8 @@ module ActiveAgent
         # @return [void]
         def process_function_calls(api_function_calls)
           api_function_calls.each do |api_function_call|
+            instrument("tool_execution.provider.active_agent", tool_name: api_function_call[:name])
+
             message = Responses::Requests::Inputs::FunctionCallOutput.new(
               call_id: api_function_call[:call_id],
               output:  process_tool_call_function(api_function_call).to_json

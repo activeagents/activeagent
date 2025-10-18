@@ -5,6 +5,7 @@ require "active_agent/version"
 require "active_agent/deprecator"
 require "active_agent/railtie" if defined?(Rails)
 require "active_agent/sanitizers"
+require "active_agent/log_subscriber"
 
 require "active_support"
 require "active_support/rails"

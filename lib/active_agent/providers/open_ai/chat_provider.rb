@@ -23,6 +23,7 @@ module ActiveAgent
         # @param parameters [Hash] The chat completion request parameters
         # @return [Hash, nil] The symbolized API response or nil if empty
         def api_prompt_execute(parameters)
+          instrument("api_request.provider.active_agent", model: parameters[:model])
           client.chat(parameters:).presence&.deep_symbolize_keys
         end
 
@@ -35,6 +36,8 @@ module ActiveAgent
         # @return [void]
         def process_stream_chunk(api_response_chunk)
           api_response_chunk.deep_symbolize_keys!
+
+          instrument("stream_chunk_processing.provider.active_agent")
 
           broadcast_stream_open
           return unless api_response_chunk.dig(:choices, 0)
@@ -53,6 +56,8 @@ module ActiveAgent
           # If this is the last api_response_chunk to be processed
           return unless api_response_chunk.dig(:choices, 0, :finish_reason)
 
+          instrument("stream_finished.provider.active_agent", finish_reason: api_response_chunk.dig(:choices, 0, :finish_reason))
+
           # Once we are finished, close out and run tooling callbacks (Recursive)
           process_prompt_finished
         end
@@ -68,6 +73,7 @@ module ActiveAgent
           api_function_calls.each do |api_function_call|
             content = case api_function_call[:type]
             when "function"
+              instrument("tool_execution.provider.active_agent", tool_name: api_function_call.dig(:function, :name))
               process_tool_call_function(api_function_call[:function])
             else
               fail "Unexpected Tool Call Type: #{api_function_call[:type]}"

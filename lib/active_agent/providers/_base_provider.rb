@@ -77,9 +77,10 @@ module ActiveAgent
       # @return [ActiveAgent::Providers::Common::PromptResponse]
       # @raise [StandardError] provider-specific errors wrapped by error handling
       def prompt
-        self.request = prompt_request_klass.new(context)
-
-        resolve_prompt
+        instrument("prompt_start.provider.active_agent") do
+          self.request = prompt_request_klass.new(context)
+          resolve_prompt
+        end
       end
 
       # Executes an embedding request with error handling.
@@ -89,14 +90,20 @@ module ActiveAgent
       # @return [ActiveAgent::Providers::Common::EmbedResponse]
       # @raise [StandardError] provider-specific errors wrapped by error handling
       def embed
-        self.request = embed_request_klass.new(context)
-
-        resolve_embed
+        instrument("embed_start.provider.active_agent") do
+          self.request = embed_request_klass.new(context)
+          resolve_embed
+        end
       end
 
       # @return [String] e.g., "Anthropic", "OpenAI"
       def service_name
         self.class.name.split("::").last.delete_suffix("Provider")
+      end
+
+      # @return [String] Module-qualified provider name e.g., "Anthropic", "OpenAI::Chat", "OpenAI::Responses"
+      def tag_name
+        self.class.name.delete_prefix("ActiveAgent::Providers::").delete_suffix("Provider")
       end
 
       # @return [Module] e.g., ActiveAgent::Providers::OpenAI
@@ -124,6 +131,17 @@ module ActiveAgent
         fail "Unexpected Service Name: #{name} != #{service_name}" if name && name != service_name
       end
 
+      # Instruments an event for logging and metrics.
+      #
+      # @param name [String] Event name (will be namespaced under active_agent_provider)
+      # @param payload [Hash] Additional data to include in the event
+      # @yield Block to instrument
+      # @return [Object] Result of the block if provided
+      def instrument(name, payload = {}, &block)
+        full_payload = { provider: service_name, provider_module: tag_name }.merge(payload)
+        ActiveSupport::Notifications.instrument(name, full_payload, &block)
+      end
+
       # Orchestrates the complete prompt request lifecycle.
       #
       # Prepares request, executes API call, processes response, and handles
@@ -133,9 +151,13 @@ module ActiveAgent
       def resolve_prompt
         request = prepare_prompt_request
 
+        instrument("request_prepared.provider.active_agent", message_count: request.messages.size)
+
         # @todo Validate Request
         api_parameters = api_request_build(request)
-        api_response   = retriable { api_prompt_execute(api_parameters) }
+        api_response   = instrument("api_call.provider.active_agent", streaming: api_parameters[:stream].present?) do
+          retriable { api_prompt_execute(api_parameters) }
+        end
 
         process_prompt_finished(api_response)
       end
@@ -146,7 +168,9 @@ module ActiveAgent
       def resolve_embed
         # @todo Validate Request
         api_parameters = api_request_build(self.request)
-        api_response   = retriable { api_embed_execute(api_parameters) }
+        api_response   = instrument("embed_call.provider.active_agent") do
+          retriable { api_embed_execute(api_parameters) }
+        end
 
         process_embed_finished(api_response)
       end
@@ -216,6 +240,7 @@ module ActiveAgent
         return if streaming
         self.streaming = true
 
+        instrument("stream_open.provider.active_agent")
         stream_broadcaster.call(nil, nil, :open)
       end
 
@@ -232,6 +257,7 @@ module ActiveAgent
         return unless streaming
         self.streaming = false
 
+        instrument("stream_close.provider.active_agent")
         stream_broadcaster.call(message_stack.last, nil, :close)
       end
 
@@ -244,11 +270,15 @@ module ActiveAgent
       # @return [Common::PromptResponse, nil]
       def process_prompt_finished(api_response = nil)
         if (api_messages = process_prompt_finished_extract_messages(api_response))
+          instrument("messages_extracted.provider.active_agent", message_count: api_messages.size)
           message_stack.push(*api_messages)
         end
 
         if (tool_calls = process_prompt_finished_extract_function_calls)&.any?
+          instrument("tool_calls_processing.provider.active_agent", tool_count: tool_calls.size)
           process_function_calls(tool_calls)
+
+          instrument("multi_turn_continue.provider.active_agent")
           resolve_prompt
         else
 
@@ -256,6 +286,8 @@ module ActiveAgent
           # with the provider, but this should all look like one big stream to the agents
           # as they continue to work.
           broadcast_stream_close
+
+          instrument("prompt_complete.provider.active_agent", message_count: message_stack.size)
 
           # To convert the messages into common format we first need to merge the current
           # stack and then cast them to the provider type, so we can cast them out to common.
