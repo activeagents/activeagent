@@ -23,7 +23,7 @@ module ActiveAgent
       #
       # Accepts:
       # - String: returned as-is
-      # - Symbol: renders template with that name
+      # - Symbol: calls method with that name (like ActiveRecord callbacks)
       # - Array: must contain only strings
       # - Hash: must have :template key, optional :locals
       # - nil: renders default "instructions" template
@@ -37,7 +37,7 @@ module ActiveAgent
           param.presence
 
         when Symbol
-          view_render_template(param)
+          send(param)
 
         when Array
           raise ArgumentError, "Instructions array must contain only strings" unless param.all?(String)

@@ -14,12 +14,21 @@ module ActiveAgent
           prompt_view_instructions(param)
         end
 
+        # Method that will be called when passing a symbol
+        def my_custom_instructions
+          "Instructions from method callback"
+        end
+
+        # Method that returns nil (for testing empty returns)
+        def empty_instructions
+          nil
+        end
+
         # Mock methods needed for template rendering
         def lookup_context
           @lookup_context ||= OpenStruct.new.tap do |ctx|
             ctx.define_singleton_method(:exists?) do |template_name, agent_name, *args|
-              %w[instructions custom_template empty_template].include?(template_name.to_s) ||
-                template_name == :symbol_template
+              %w[instructions custom_template empty_template].include?(template_name.to_s)
             end
 
             ctx.define_singleton_method(:find_template) do |template_name, agent_name, *args|
@@ -38,8 +47,6 @@ module ActiveAgent
             "Default instructions from template"
           when "test_agent/custom_template"
             "Custom template content with locals: #{locals.inspect}"
-          when "test_agent/symbol_template"
-            "Symbol template content"
           when "test_agent/empty_template"
             ""
           else
@@ -57,9 +64,21 @@ module ActiveAgent
         assert_equal "Direct instructions", result
       end
 
-      test "prompt_view_instructions with Symbol renders template" do
-        result = @agent.test_prompt_view_instructions(:symbol_template)
-        assert_equal "Symbol template content", result
+      test "prompt_view_instructions with Symbol calls method like ActiveRecord callbacks" do
+        result = @agent.test_prompt_view_instructions(:my_custom_instructions)
+        assert_equal "Instructions from method callback", result
+      end
+
+      test "prompt_view_instructions with Symbol that returns nil" do
+        result = @agent.test_prompt_view_instructions(:empty_instructions)
+        assert_nil result
+      end
+
+      test "prompt_view_instructions with Symbol for non-existent method raises NoMethodError" do
+        error = assert_raises(NoMethodError) do
+          @agent.test_prompt_view_instructions(:non_existent_method)
+        end
+        assert_match(/undefined method [`']non_existent_method'/, error.message)
       end
 
       test "prompt_view_instructions with Array of strings returns the array" do
@@ -128,11 +147,6 @@ module ActiveAgent
       test "prompt_view_instructions with template that renders empty string returns nil" do
         instructions = { template: "empty_template" }
         result = @agent.test_prompt_view_instructions(instructions)
-        assert_nil result
-      end
-
-      test "prompt_view_instructions with symbol template that renders empty string returns nil" do
-        result = @agent.test_prompt_view_instructions(:empty_template)
         assert_nil result
       end
     end
