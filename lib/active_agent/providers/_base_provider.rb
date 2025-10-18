@@ -74,9 +74,12 @@ module ActiveAgent
         end
       end
 
-      # Executes the provider prompt with error handling.
+      # Executes the provider embedding request with error handling.
       #
-      # @return [ActiveAgent::Providers::Response] the prompt resolution result
+      # Converts text input into vector embeddings for semantic search
+      # and similarity comparisons.
+      #
+      # @return [ActiveAgent::Providers::Common::EmbedResponse] the embedding result
       # @raise [StandardError] handled by error handling wrapper
       def embed
         self.request = embed_request_klass.new(context)
@@ -110,9 +113,11 @@ module ActiveAgent
       # @return [Class] provider request class (e.g., ActiveAgent::Providers::OpenAI::Request)
       def prompt_request_klass = namespace::Request
 
-      # Returns the Request class for this provider.
+      # Returns the EmbedRequest class for this provider.
       #
-      # @return [Class] provider request class (e.g., ActiveAgent::Providers::OpenAI::Request)
+      # @note Not all providers support embeddings
+      # @return [Class] provider embed request class (e.g., ActiveAgent::Providers::OpenAI::EmbedRequest)
+      # @raise [NotImplementedError] if embeddings not supported by provider
       def embed_request_klass = fail(NotImplementedError)
 
       protected
@@ -126,12 +131,13 @@ module ActiveAgent
         fail "Unexpected Service Name: #{name} != #{service_name}" if name && name != service_name
       end
 
-      # Executes the complete request cycle.
+      # Executes the complete prompt request cycle.
       #
       # Prepares the request, builds API parameters, executes the prompt,
-      # and processes the response. Handles recursive tool/function calls.
+      # and processes the response. Handles recursive tool/function calls
+      # until no more tools are invoked.
       #
-      # @return [ActiveAgent::Providers::Response] final response
+      # @return [ActiveAgent::Providers::Common::PromptResponse] final response
       def resolve_prompt
         request = prepare_prompt_request
 
@@ -142,6 +148,12 @@ module ActiveAgent
         process_prompt_finished(api_response)
       end
 
+      # Executes the complete embedding request cycle.
+      #
+      # Builds API parameters, executes the embedding request,
+      # and processes the response into a standardized format.
+      #
+      # @return [ActiveAgent::Providers::Common::EmbedResponse] embedding response
       def resolve_embed
         # @todo Validate Request
         api_parameters = api_request_build(self.request)
@@ -185,7 +197,7 @@ module ActiveAgent
         end
       end
 
-      # Executes the API request to the provider.
+      # Executes the prompt API request to the provider.
       #
       # @abstract Subclasses must implement this method
       # @param request_parameters [Hash] parameters to send to the API
@@ -195,6 +207,12 @@ module ActiveAgent
         fail NotImplementedError, "Subclass expected to implement"
       end
 
+      # Executes the embedding API request to the provider.
+      #
+      # @abstract Subclasses must implement this method
+      # @param request_parameters [Hash] parameters to send to the API
+      # @return [Object] API embedding response object (format varies by provider)
+      # @raise [NotImplementedError] if not implemented by subclass
       def api_embed_execute(request_parameters)
         fail NotImplementedError, "Subclass expected to implement"
       end
@@ -221,8 +239,8 @@ module ActiveAgent
 
       # Broadcasts a stream update with message delta.
       #
-      # @param message [Object] current message
-      # @param delta [String] content delta
+      # @param message [Hash, Object] current message object
+      # @param delta [String, nil] content delta to stream
       # @return [void]
       def broadcast_stream_update(message, delta = nil)
         stream_broadcaster.call(message, delta, :update)
@@ -307,8 +325,28 @@ module ActiveAgent
           context:,
           raw_request:  request.to_hc,
           raw_response: api_response,
-          data:         api_response[:data],
+          data: process_embed_finished_data(api_response)
         )
+      end
+
+      # Extracts embedding data from API response.
+      #
+      # Handles both list and object response formats:
+      # - List format: `{ "data": [{ "embedding": [...] }] }`
+      # - Object format: `{ "embedding": [...] }`
+      #
+      # @param api_response [Hash] API response containing embeddings
+      # @return [Array<Hash>] array of embedding objects with index, object type, and embedding vector
+      # @raise [RuntimeError] if response format is unexpected
+      def process_embed_finished_data(api_response)
+        case (type = api_response[:object])
+        when "list"
+          api_response[:data]
+        when "embedding"
+          [ { index: 0 }.merge(api_response.slice(:index, :object, :embedding)) ]
+        else
+          fail "Unexpected Embed Object Type: #{type}"
+        end
       end
     end
   end

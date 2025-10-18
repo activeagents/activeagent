@@ -66,23 +66,6 @@ module ActiveAgent
       #     super
       #   end
       # end
-
-      # Processes the completed embedding API response.
-      #
-      # Handles both Ollama response formats:
-      # 1. OpenAI-compatible: { "data": [{ "embedding": [...] }] }
-      # 2. Native Ollama: { "embedding": [...] }
-      #
-      # @param api_response [Hash] completed embedding API response
-      # @return [Common::EmbedResponse] standardized embedding response
-      def process_embed_finished(api_response)
-        Common::EmbedResponse.new(
-          context:,
-          raw_request:  request.to_hc,
-          raw_response: api_response,
-          data:         api_response[:data] || [ api_response[:embedding] ],
-        )
-      end
     end
   end
 end
