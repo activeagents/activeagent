@@ -3,8 +3,6 @@ require "active_support/core_ext/module/anonymous"
 require "active_support/core_ext/string/inflections"
 
 require "active_agent/action_prompt/action"
-require "active_agent/action_prompt/message"
-require "active_agent/collector"
 
 Dir[File.join(__dir__, "concerns", "*.rb")].each { |file| require file }
 require_relative "null_prompt"
@@ -44,6 +42,7 @@ module ActiveAgent
       include Streaming
       include Tooling
       include Rescue
+      include View
 
       include Callbacks
       include Observers
@@ -216,7 +215,7 @@ module ActiveAgent
       #
       # @return [String] The agent name or "anonymous" for anonymous agents
       def agent_name
-        @agent_name ||= anonymous? ? "anonymous" : name.underscore
+        @agent_name ||= self.class.anonymous? ? "anonymous" : self.class.name.underscore
       end
 
       # Entry point for action execution.
@@ -287,7 +286,11 @@ module ActiveAgent
       def process_prompt
         fail "Prompt Provider not Configured" unless prompt_provider_klass
 
-        parameters = prompt_options.merge(stream_broadcaster:, tools_function:).compact
+        parameters = prompt_options.merge(
+          stream_broadcaster:,
+          tools_function:,
+          instructions: prompt_view_instructions(prompt_options[:instructions])
+        ).compact
 
         prompt_provider_klass.new(**parameters).prompt
       end
@@ -328,43 +331,7 @@ module ActiveAgent
         super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s) - [ action_name ]
       end
 
-      # Returns JSON schemas for all action methods.
-      #
-      # Looks for JSON template files corresponding to each action method
-      # and renders them to create tool/function schemas.
-      #
-      # @return [Array<Hash>] Array of JSON schema hashes for available actions
-      def action_schemas
-        prefixes = set_prefixes(action_name, lookup_context.prefixes)
 
-        action_methods.map do |action|
-          render_schema(action, prefixes)
-        end.compact
-      end
-
-      # Sets the template prefixes for schema lookup.
-      #
-      # @param action [String] The current action name
-      # @param prefixes [Array<String>] Existing lookup prefixes
-      # @return [Array<String>] Updated prefixes including agent name
-      def set_prefixes(action, prefixes)
-        prefixes = lookup_context.prefixes | [ self.class.agent_name ]
-      end
-
-      # Renders a JSON schema from a template or returns the schema directly.
-      #
-      # @param schema_or_action [Hash, String] Either a schema hash or action name
-      # @param prefixes [Array<String>] Template lookup prefixes
-      # @return [Hash, nil] The rendered JSON schema or nil if not found
-      def render_schema(schema_or_action, prefixes)
-        # If it's already a hash (direct schema), return it
-        return schema_or_action if schema_or_action.is_a?(Hash)
-
-        # Otherwise try to load from template
-        return unless lookup_context.template_exists?(schema_or_action, prefixes, false, formats: [ :json ])
-
-        JSON.parse render_to_string(locals: { action_name: schema_or_action }, action: schema_or_action, formats: :json)
-      end
 
       # Determines the appropriate content type for the prompt.
       #
@@ -432,135 +399,7 @@ module ActiveAgent
         assignable.each { |k, v| context.send(k, v) if context.respond_to?(k) }
       end
 
-      # Collects responses from various sources (block, text, or templates).
-      #
-      # @param args [Hash] Arguments containing response configuration
-      # @yield [collector] Optional block for custom response collection
-      # @return [Array<Hash>] Array of response hashes with body and content_type
-      def collect_responses(args, &)
-        if block_given?
-          collect_responses_from_block(args, &)
-        elsif args[:body]
-          collect_responses_from_text(args)
-        else
-          collect_responses_from_templates(args)
-        end
-      end
 
-      # Collects responses using a block with a collector.
-      #
-      # @param args [Hash] Arguments containing template configuration
-      # @yield [collector] The collector instance for building responses
-      # @return [Array<Hash>] Collected responses from the block
-      def collect_responses_from_block(args)
-        templates_name = args[:template_name] || action_name
-        collector = ActiveAgent::Collector.new(lookup_context) { render(templates_name) }
-        yield(collector)
-        collector.responses
-      end
-
-      # Collects responses from direct text body.
-      #
-      # @param args [Hash] Arguments containing body and content_type
-      # @return [Array<Hash>] Single response with the provided body
-      def collect_responses_from_text(args)
-        [ {
-          body: args.delete(:body),
-          content_type: args[:content_type] || "text/plain"
-        } ]
-      end
-
-      # Collects responses by rendering templates.
-      #
-      # @param args [Hash] Arguments containing template path and name configuration
-      # @return [Array<Hash>] Rendered template responses
-      def collect_responses_from_templates(args)
-        templates_path = args[:template_path] || self.class.agent_name
-        templates_name = args[:template_name] || action_name
-        each_template(Array(templates_path), templates_name).map do |template|
-          next if template.format == :json && args[:format] != :json
-          format = template.format || formats.first
-          {
-            body: render(template: template, formats: [ format ]),
-            content_type: Mime[format].to_s
-          }
-        end.compact
-      end
-
-      # Iterates over templates found for the given name and paths.
-      #
-      # @param paths [Array<String>] Template lookup paths
-      # @param name [String] Template name to find
-      # @yield [template] Each found template
-      # @raise [ActionView::MissingTemplate] If no templates are found
-      # @return [void]
-      def each_template(paths, name, &)
-        templates = lookup_context.find_all(name, paths)
-        if templates.empty?
-          raise ActionView::MissingTemplate.new(paths, name, paths, false, "agent")
-        else
-          templates.uniq(&:format).each(&)
-        end
-      end
-
-      # Creates message parts from response data.
-      #
-      # @param context [Object] The context to add parts to
-      # @param responses [Array<Hash>] Response data to convert to parts
-      # @return [void]
-      def create_parts_from_responses(context, responses)
-        if responses.size > 1
-          responses.each { |r| insert_part(context, r, context.charset) }
-        else
-          responses.each { |r| insert_part(context, r, context.charset) }
-        end
-      end
-
-      # Inserts a single part into the context from response data.
-      #
-      # @param context [Object] The context to add the part to
-      # @param response [Hash] Response data containing body and content_type
-      # @param charset [String] Character encoding for the message
-      # @return [void]
-      def insert_part(context, response, charset)
-        message = ActiveAgent::ActionPrompt::Message.new(
-          content: response[:body],
-          content_type: response[:content_type],
-          charset: charset
-        )
-        context.add_part(message)
-      end
-
-      # Prepares instructions from various input formats.
-      #
-      # Handles Hash (with template reference), String (direct instructions),
-      # or NilClass (looks for default "instructions" template).
-      #
-      # @param instructions [Hash, String, nil] The instructions to prepare
-      # @option instructions [String] :template Template name to render
-      # @option instructions [Hash] :locals Local variables for template rendering
-      # @return [String, nil] The prepared instructions text or nil if not found
-      # @raise [ArgumentError] If instructions format is invalid or missing required keys
-      def prepare_instructions(instructions)
-        case instructions
-        when Hash
-          raise ArgumentError, "Expected `:template` key in instructions hash" unless instructions[:template]
-          return unless lookup_context.exists?(instructions[:template], agent_name, false, [], formats: [ :text ])
-
-          template = lookup_context.find_template(instructions[:template], agent_name, false, [], formats: [ :text ])
-          render_to_string(template: template.virtual_path, locals: instructions[:locals] || {}, layout: false)
-        when String
-          instructions
-        when NilClass
-          default_template_name = "instructions"
-          return unless lookup_context.exists?(default_template_name, agent_name, false, [], formats: [ :text ])
-
-          template = lookup_context.find_template(default_template_name, agent_name, false, [], formats: [ :text ])
-          render_to_string(template: template.virtual_path, layout: false)
-        else
-          raise ArgumentError, "Instructions must be Hash, String or NilClass objects"
-        end
-      end
 
       # Provides instrumentation payload for caching and monitoring.
       #

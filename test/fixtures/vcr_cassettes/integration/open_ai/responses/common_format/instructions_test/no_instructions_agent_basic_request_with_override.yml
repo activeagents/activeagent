@@ -1,0 +1,148 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Hello, GPT!","instructions":"You are an overridden assistant.","model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:32:52 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999960'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_d456e50a549a49be99290b2adae909bc
+      Openai-Processing-Ms:
+      - '988'
+      X-Envoy-Upstream-Service-Time:
+      - '992'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=kclthB12Sh8NhgZedBBz0jcf3leOWtGIDkfyOZ8UO4I-1760758372-1.0.1.1-eC40CZ3fIe3F36jwlz5lcJrEM1X3gc81rjrE2RxXdU37n1VBLVfhBk3u9ke1sD4PYs0h2kBpjsiTZfibtwzBfRksAKBzYKxNFyh_.3vAT_w;
+        path=/; expires=Sat, 18-Oct-25 04:02:52 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=kuSMLQt_EVbpxiOEiwO0jPz.9XdaioXozjA3ceScRyA-1760758372519-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9904f88d9bb8182a-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_01de78d88a82af9d0068f30a6388a0819bb721500285f09149",
+          "object": "response",
+          "created_at": 1760758371,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": "You are an overridden assistant.",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_01de78d88a82af9d0068f30a6428c8819ba8d3f0518de6c9cc",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Hello! How can I assist you today? \ud83d\ude0a"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 21,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 11,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 32
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 18 Oct 2025 03:32:52 GMT
+recorded_with: VCR 6.3.1

@@ -1,0 +1,128 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What
+        is in this image?"},{"type":"image_url","image_url":{"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}}]}],"model":"gpt-4.1","max_tokens":300}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:50:50 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Processing-Ms:
+      - '3253'
+      Openai-Project:
+      - PROJECT_ID
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '3278'
+      X-Ratelimit-Limit-Input-Images:
+      - '250000'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Input-Images:
+      - '249999'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999227'
+      X-Ratelimit-Reset-Input-Images:
+      - 0s
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 1ms
+      X-Request-Id:
+      - req_d4dbd01852fd47fdafcae4d1e6363276
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=JzGANLkeEO1F_vY8fVrUziZzRF3SxoDdNQvHIQ4tZ6I-1760759450-1.0.1.1-fqjtnNdjNYglAmPROlElfHZYfw4nzOx.BVmrskPx9n6Dkwx_9aByyKj1EfRQMmW7zuh6ejOlJDU.7_HjuAZGhEwgJUK67Dd0CtARfhLDHPk;
+        path=/; expires=Sat, 18-Oct-25 04:20:50 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=6vD5AkQBNtu5neA.Jn3XRpRg5hwGYFGWWxtnHNq0VzM-1760759450130-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 990512ce0a8b8e9b-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-CRsFroCxxuI7zXzrpL8f37t6hQnYS",
+          "object": "chat.completion",
+          "created": 1760759447,
+          "model": "gpt-4.1-2025-04-14",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "This image shows a scenic natural landscape with a wooden boardwalk path running through a field of tall green grass. The sky above is blue with scattered clouds, and there are trees and bushes in the distance. The boardwalk appears to invite the viewer for a peaceful walk through nature, and the overall mood is tranquil and inviting.",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1118,
+            "completion_tokens": 65,
+            "total_tokens": 1183,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_e24a1fec47"
+        }
+  recorded_at: Sat, 18 Oct 2025 03:50:50 GMT
+recorded_with: VCR 6.3.1

@@ -13,6 +13,16 @@ module ActiveAgent
         class Request < OpenAI::Chat::Request
           # Messages array (required)
           attribute :messages, Requests::Types::MessagesType.new
+
+          # Common Format Compatability
+          def messages=(value)
+            case value
+            when Array
+              super((messages || []) | value)
+            else
+              super((messages || []) | [ value ])
+            end
+          end
         end
       end
     end

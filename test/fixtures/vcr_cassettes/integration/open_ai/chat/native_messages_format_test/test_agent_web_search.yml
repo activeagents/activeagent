@@ -1,0 +1,184 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What was a positive news story
+        from today?"}],"model":"gpt-4o-search-preview","web_search_options":{}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:50:59 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Processing-Ms:
+      - '7089'
+      Openai-Project:
+      - PROJECT_ID
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '7229'
+      X-Ratelimit-Limit-Requests:
+      - '1000'
+      X-Ratelimit-Limit-Tokens:
+      - '3000000'
+      X-Ratelimit-Remaining-Requests:
+      - '999'
+      X-Ratelimit-Remaining-Tokens:
+      - '2999987'
+      X-Ratelimit-Reset-Requests:
+      - 60ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      X-Request-Id:
+      - req_a216bfc93c6e4293ae765ed25fa6811c
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=ua8w9oPWh8UIwZsgclkvPjqH79n1.4T45B59Bpz24PU-1760759459-1.0.1.1-JyHByPHBWhCr_qJPvfcR6_kByoWMoY6KMinJwtfhBMxO1jh6X6GfVmMrO.kBGNtZBnw1d_OmaL_nOzPruG1RYPcpCWOoRfFAyGp2ZLHpbxI;
+        path=/; expires=Sat, 18-Oct-25 04:20:59 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=XW_1MsJXrVqMbu9LXhmCiQDfHEBp92_Rlhiv64wvgRk-1760759459915-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 990512f139b11722-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-79f6009d-b8c5-4872-b132-a6e66f35c91f",
+          "object": "chat.completion",
+          "created": 1760759452,
+          "model": "gpt-4o-search-preview-2025-03-11",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "As of early morning on October 18, 2025, specific positive news stories from today are not yet available. However, here are some uplifting stories from recent days:\n\n- **Rediscovery of Indonesia's 'Lost' Egg-Laying Mammal**: A species thought to be extinct has been rediscovered in Indonesia, bringing hope to conservationists and highlighting the resilience of wildlife. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Ireland's Movement for Phone-Free Childhoods**: Ireland is leading a gentle movement encouraging phone-free childhoods, aiming to foster better mental health and social skills among children. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **UK's Seabird Population Revival**: The UK has successfully revived its seabird population after decades of decline, showcasing effective conservation efforts. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Ancient Giant Hand Ax Discovery in Saudi Arabia**: Archaeologists in Saudi Arabia have discovered an ancient giant hand ax, reshaping our understanding of human history. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Japan's Discovery of Over 100,000 Ancient Coins**: Japanese archaeologists have unearthed over 100,000 ancient coins, providing valuable insights into the country's history. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Hempcrete Approved for Greener Homes in the US**: Hempcrete has gained approval in the US for building greener homes, marking a significant step towards sustainable construction. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Lost Victorian Passport Unlocks New Chapter in Britain's Art History**: The discovery of a lost Victorian passport has unveiled a new chapter in Britain's art history, offering fresh perspectives on the era. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\nThese stories highlight recent positive developments across various fields. ",
+                "refusal": null,
+                "annotations": [
+                  {
+                    "type": "url_citation",
+                    "url_citation": {
+                      "end_index": 441,
+                      "start_index": 372,
+                      "title": "Positive News Today | Daily Newspaper with positive news",
+                      "url": "https://positivenews.today/?utm_source=openai"
+                    }
+                  },
+                  {
+                    "type": "url_citation",
+                    "url_citation": {
+                      "end_index": 708,
+                      "start_index": 639,
+                      "title": "Positive News Today | Daily Newspaper with positive news",
+                      "url": "https://positivenews.today/?utm_source=openai"
+                    }
+                  },
+                  {
+                    "type": "url_citation",
+                    "url_citation": {
+                      "end_index": 942,
+                      "start_index": 873,
+                      "title": "Positive News Today | Daily Newspaper with positive news",
+                      "url": "https://positivenews.today/?utm_source=openai"
+                    }
+                  },
+                  {
+                    "type": "url_citation",
+                    "url_citation": {
+                      "end_index": 1187,
+                      "start_index": 1118,
+                      "title": "Positive News Today | Daily Newspaper with positive news",
+                      "url": "https://positivenews.today/?utm_source=openai"
+                    }
+                  },
+                  {
+                    "type": "url_citation",
+                    "url_citation": {
+                      "end_index": 1436,
+                      "start_index": 1367,
+                      "title": "Positive News Today | Daily Newspaper with positive news",
+                      "url": "https://positivenews.today/?utm_source=openai"
+                    }
+                  },
+                  {
+                    "type": "url_citation",
+                    "url_citation": {
+                      "end_index": 1690,
+                      "start_index": 1621,
+                      "title": "Positive News Today | Daily Newspaper with positive news",
+                      "url": "https://positivenews.today/?utm_source=openai"
+                    }
+                  },
+                  {
+                    "type": "url_citation",
+                    "url_citation": {
+                      "end_index": 1973,
+                      "start_index": 1904,
+                      "title": "Positive News Today | Daily Newspaper with positive news",
+                      "url": "https://positivenews.today/?utm_source=openai"
+                    }
+                  }
+                ]
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 427,
+            "total_tokens": 436,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "system_fingerprint": ""
+        }
+  recorded_at: Sat, 18 Oct 2025 03:50:59 GMT
+recorded_with: VCR 6.3.1

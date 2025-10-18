@@ -1,0 +1,120 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"Hello
+        there."},{"role":"assistant","content":"Hi, I''m Claude. How can I help you?"},{"role":"user","content":"Can
+        you explain LLMs in plain English?"}],"max_tokens":1024}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.12.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '246'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:47:54 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '30000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '30000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-10-18T03:47:47Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '8000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '8000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-10-18T03:47:56Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '50'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '49'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-10-18T03:47:47Z'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '38000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '38000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-10-18T03:47:47Z'
+      Request-Id:
+      - req_011CUDykr7Cujboe9DAa4QoZ
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '8260'
+      Via:
+      - 1.1 google
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 99050e63c82beb20-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-sonnet-4-5-20250929","id":"msg_01YWLMZ3ds11dJ9pJsuG88NM","type":"message","role":"assistant","content":[{"type":"text","text":"Sure!
+        LLMs (Large Language Models) are AI programs that understand and generate
+        text.\n\nHere''s how they work in simple terms:\n\n**What they do:**\n- Read
+        and write text that sounds human\n- Answer questions, write essays, code,
+        translate languages, and more\n\n**How they learn:**\n- They''re trained on
+        massive amounts of text from books, websites, and articles\n- They learn patterns
+        - like which words typically go together and how sentences are structured\n-
+        Think of it like someone who''s read millions of books and learned how language
+        works\n\n**How they respond:**\n- When you ask something, they predict what
+        words should come next based on their training\n- They don''t truly \"understand\"
+        like humans do - they''re recognizing patterns\n- They generate responses
+        word by word, choosing what''s most likely to fit\n\n**Key limitations:**\n-
+        They don''t have real knowledge or beliefs\n- They can make mistakes or \"hallucinate\"
+        false information\n- They don''t have access to current events (unless specifically
+        updated)\n- They can''t learn from conversations permanently\n\nThink of an
+        LLM as an incredibly well-read assistant that''s very good at pattern matching
+        in language, but doesn''t actually \"think\" the way humans do.\n\nDoes that
+        help? Any part you''d like me to explain more?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":38,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":282,"service_tier":"standard"}}'
+  recorded_at: Sat, 18 Oct 2025 03:47:54 GMT
+recorded_with: VCR 6.3.1

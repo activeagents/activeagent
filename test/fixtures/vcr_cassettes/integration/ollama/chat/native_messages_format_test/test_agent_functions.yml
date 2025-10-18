@@ -1,0 +1,114 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is the weather like in
+        Boston today?"}],"model":"qwen3","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 18 Oct 2025 03:50:38 GMT
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-116","object":"chat.completion","created":1760759438,"model":"qwen3","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"","reasoning":"Okay,
+        the user is asking about the weather in Boston today. Let me check the tools
+        available. There''s a function called get_current_weather that takes location
+        and unit parameters. The location is required, and the unit can be celsius
+        or fahrenheit. Since the user didn''t specify the unit, I should default to
+        a common one. In the US, people usually use Fahrenheit, but Boston is in Massachusetts,
+        and they might prefer Celsius. Wait, actually, in the US, Fahrenheit is more
+        common for weather. But maybe the function''s default is Celsius. Wait, the
+        parameters show that unit is optional, but the enum includes both. Since the
+        user didn''t specify, maybe I should use Fahrenheit as it''s the US standard.
+        Alternatively, maybe the function defaults to Celsius if not provided. Hmm.
+        The function''s parameters don''t mention a default, so perhaps I should include
+        the unit. But the user didn''t ask for a specific unit. Maybe I should call
+        the function without the unit and let the backend handle it, but the function
+        requires the unit to be specified. Wait, looking back, the parameters have
+        \"unit\" as a property with enum, but is it required? The required array only
+        includes \"location\". So unit is optional. So I can omit it, but the function
+        might have a default. However, the user might expect Fahrenheit. Alternatively,
+        maybe the function requires the unit. Wait, the parameters say \"unit\" is
+        part of the properties but not in the required array. So it''s optional. So
+        I can call the function with just location. But the user might want Fahrenheit.
+        Wait, the user is in the US, so maybe Fahrenheit is better. But the function''s
+        parameters don''t have a default, so maybe the backend will handle it. Alternatively,
+        perhaps the function expects the unit to be provided. But since the user didn''t
+        specify, maybe I should call the function without the unit and let the backend
+        decide. Wait, the function''s parameters for unit have an enum, so it''s required
+        to provide one. Wait, no. The required array only has \"location\". So unit
+        is optional. So I can omit it. But the function might need it. Wait, the function''s
+        parameters have \"unit\" as a property but not in the required array. So it''s
+        optional. Therefore, I can call the function with just the location. However,
+        the user might expect the unit. But since the user didn''t specify, maybe
+        the function will return the unit in the response. Alternatively, maybe the
+        function requires the unit. Wait, perhaps the function''s parameters have
+        \"unit\" as optional, so I can include it. But since the user didn''t specify,
+        maybe I should default to Fahrenheit. So I''ll include unit as \"fahrenheit\".
+        Let me check the function again. The function''s parameters for unit have
+        an enum of celsius and fahrenheit. So the user might expect the answer in
+        Fahrenheit. So I''ll include unit: \"fahrenheit\". Therefore, the function
+        call should be get_current_weather with location \"Boston\" and unit \"fahrenheit\".\n","tool_calls":[{"id":"call_8kul2diq","index":0,"type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"Boston\",\"unit\":\"fahrenheit\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":180,"completion_tokens":659,"total_tokens":839}}
+
+        '
+  recorded_at: Sat, 18 Oct 2025 03:50:38 GMT
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is the weather like in
+        Boston today?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_8kul2diq","index":0,"type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"Boston\",\"unit\":\"fahrenheit\"}"}}]},{"role":"tool","content":"{\"location\":\"Boston\",\"unit\":\"fahrenheit\",\"temperature\":\"22\"}","tool_call_id":"call_8kul2diq"}],"model":"qwen3","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 18 Oct 2025 03:50:43 GMT
+      Content-Length:
+      - '1044'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTE3MSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjA3NTk0NDMsIm1vZGVsIjoicXdlbjMiLCJzeXN0ZW1fZmluZ2VycHJpbnQiOiJmcF9vbGxhbWEiLCJjaG9pY2VzIjpbeyJpbmRleCI6MCwibWVzc2FnZSI6eyJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6IlRoZSBjdXJyZW50IHRlbXBlcmF0dXJlIGluIEJvc3RvbiBpcyAyMsKwRi4gSXQgbG9va3MgbGlrZSBhIG1pbGQgZGF5IHdpdGggY29tZm9ydGFibGUgd2VhdGhlciEiLCJyZWFzb25pbmciOiJPa2F5LCB0aGUgdXNlciBhc2tlZCBhYm91dCB0aGUgd2VhdGhlciBpbiBCb3N0b24gdG9kYXkuIEkgY2FsbGVkIHRoZSBnZXRfY3VycmVudF93ZWF0aGVyIGZ1bmN0aW9uIHdpdGggbG9jYXRpb24gc2V0IHRvIEJvc3RvbiBhbmQgdW5pdCBhcyBGYWhyZW5oZWl0LiBUaGUgcmVzcG9uc2UgY2FtZSBiYWNrIHdpdGggYSB0ZW1wZXJhdHVyZSBvZiAyMi4gTm93LCBJIG5lZWQgdG8gcHJlc2VudCB0aGlzIGluZm9ybWF0aW9uIGNsZWFybHkuXG5cbkZpcnN0LCBJIHNob3VsZCBtZW50aW9uIHRoZSBsb2NhdGlvbiB0byBjb25maXJtIGl0J3MgQm9zdG9uLiBUaGVuIHN0YXRlIHRoZSB0ZW1wZXJhdHVyZSBpbiBGYWhyZW5oZWl0IHNpbmNlIHRoYXQncyB3aGF0IHRoZSB1c2VyIHJlcXVlc3RlZC4gTWF5YmUgYWRkIGEgZnJpZW5kbHkgbm90ZSBhYm91dCB0aGUgd2VhdGhlciBiZWluZyBwbGVhc2FudC4gS2VlcCBpdCBjb25jaXNlIGFuZCBzdHJhaWdodGZvcndhcmQuIExldCBtZSBjaGVjayBpZiB0aGVyZSdzIGFueXRoaW5nIGVsc2UgbmVlZGVkLCBidXQgdGhlIHVzZXIgb25seSBhc2tlZCBmb3IgdGhlIGN1cnJlbnQgd2VhdGhlciwgc28gbm8gbmVlZCBmb3IgZXh0cmEgZGV0YWlscy4gQWxyaWdodCwgdGltZSB0byBwdXQgaXQgYWxsIHRvZ2V0aGVyLlxuIn0sImZpbmlzaF9yZWFzb24iOiJzdG9wIn1dLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjoyMzIsImNvbXBsZXRpb25fdG9rZW5zIjoxNTcsInRvdGFsX3Rva2VucyI6Mzg5fX0K
+  recorded_at: Sat, 18 Oct 2025 03:50:43 GMT
+recorded_with: VCR 6.3.1

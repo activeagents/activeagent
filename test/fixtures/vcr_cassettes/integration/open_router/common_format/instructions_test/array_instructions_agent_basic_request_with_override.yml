@@ -1,0 +1,58 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"developer","content":"You are an overridden assistant."},{"role":"developer","content":"Please
+        respond concisely."},{"role":"user","content":"Hello, OpenRouter!"}],"model":"openai/gpt-4o"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:45:10 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 99050a958e2b7af8-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n{\"id\":\"gen-1760759110-ee3vGSFRnRlUHi2iiMFI\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1760759110,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Hello!
+        How can I assist you today?\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":32,\"completion_tokens\":9,\"total_tokens\":41,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 18 Oct 2025 03:45:10 GMT
+recorded_with: VCR 6.3.1

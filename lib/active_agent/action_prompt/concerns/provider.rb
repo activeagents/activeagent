@@ -8,6 +8,12 @@ module ActiveAgent
     module Provider
       extend ActiveSupport::Concern
 
+      # "Your tacky and I hate you" - Billy, https://youtu.be/dsheboxJNgQ?si=tzDlJ7sdSxM4RjSD
+      PROVIDER_SERVICE_NAMES_REMAPS = {
+        "Openrouter" => "OpenRouter",
+        "Openai"     => "OpenAI"
+      }
+
       included do
         class_attribute :_prompt_provider_klass, instance_accessor: false, instance_predicate: false
         class_attribute :_embed_provider_klass,  instance_accessor: false, instance_predicate: false
@@ -93,6 +99,8 @@ module ActiveAgent
         # @return [Class] Provider class
         def provider_load(service_name)
           require "active_agent/providers/#{service_name.underscore}_provider"
+
+          service_name = Hash.new(service_name).merge!(PROVIDER_SERVICE_NAMES_REMAPS)[service_name]
 
           ActiveAgent::Providers.const_get("#{service_name.camelize}Provider")
         end

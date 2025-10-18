@@ -1,0 +1,153 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"How much wood would a woodchuck chuck?","model":"o3-mini","reasoning":{"effort":"high"}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:53:44 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '30000'
+      X-Ratelimit-Limit-Tokens:
+      - '150000000'
+      X-Ratelimit-Remaining-Requests:
+      - '29999'
+      X-Ratelimit-Remaining-Tokens:
+      - '149997997'
+      X-Ratelimit-Reset-Requests:
+      - 2ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_1cf973937f799731b2096dca0733d9d7
+      Openai-Processing-Ms:
+      - '26217'
+      X-Envoy-Upstream-Service-Time:
+      - '26222'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=E2q2dwwIRrf4yNdk6Hp5ztGONdKQ38_jm0bF1P5wRJk-1760759624-1.0.1.1-62s2jdV7O6wtn6zuEzzJrx_aStyfuNUK4_azM0.BScVMMU_F8IZNsf6dzcGcpxWBTZJ2HtfXakMW0hEWXMhMc3dfq4rq4Gvd02oLUV5r6XU;
+        path=/; expires=Sat, 18-Oct-25 04:23:44 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=0KhelNVXCEVcUo8awMSF.t7PoFtwrKB0j7rNoUz3orw-1760759624570-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9905167dbea0cfd5-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0f0724424fcba45b0068f30f2e52d88190a0d97b2ca950dc9b",
+          "object": "response",
+          "created_at": 1760759598,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "o3-mini-2025-01-31",
+          "output": [
+            {
+              "id": "rs_0f0724424fcba45b0068f30f402a04819092d6700a572cad1c",
+              "type": "reasoning",
+              "summary": []
+            },
+            {
+              "id": "msg_0f0724424fcba45b0068f30f46a7708190a5f72ca7eb235a86",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "The classic tongue twister goes, \u201cHow much wood would a woodchuck chuck if a woodchuck could chuck wood?\u201d\u2014and the traditional reply is: \u201cA woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood!\u201d\n\nThat said, in a bit of humorous \u201cresearch\u201d from the 1980s, wildlife biologist Richard Thomas estimated that if a woodchuck (which is essentially a groundhog) were able to chuck wood, it might be capable of moving roughly 700 pounds of it. (This number comes from comparing the amount of dirt a woodchuck typically moves when digging its burrow.) \n\nOf course, in reality, woodchucks don\u2019t actually chuck wood\u2014they\u2019re far more interested in burrowing and foraging. So while the tongue twister is all in good fun, the answer remains a playful combination of language and imaginative estimation."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": "high",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 16,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 2046,
+            "output_tokens_details": {
+              "reasoning_tokens": 1856
+            },
+            "total_tokens": 2062
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 18 Oct 2025 03:53:44 GMT
+recorded_with: VCR 6.3.1

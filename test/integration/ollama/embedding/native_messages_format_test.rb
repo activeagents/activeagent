@@ -9,7 +9,7 @@ module Integration
         include Integration::TestHelper
 
         class TestAgent < ActiveAgent::Base
-          embed_with :ollama, model: "all-minilm", temperature: nil
+          embed_with :ollama, model: "all-minilm"
 
           SINGLE_INPUT = {
             "model": "all-minilm",

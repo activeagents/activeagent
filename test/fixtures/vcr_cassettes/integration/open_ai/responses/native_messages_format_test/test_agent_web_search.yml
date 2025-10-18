@@ -1,0 +1,177 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What was a positive news story from today?","model":"gpt-4.1","tools":[{"type":"web_search_preview"}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:53:14 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999671'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_a7a67ac3198c4d849d7ff8202e4ca1ff
+      Openai-Processing-Ms:
+      - '5226'
+      X-Envoy-Upstream-Service-Time:
+      - '5229'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=yQDggSp.54bis2X9FeHVN8KdoaHooODOpHc6DhQcUzU-1760759594-1.0.1.1-Ic2zUqKb80h5Nke9N97h6Xv3V33JFKkEoHN_2QhsiRrzqzgg7.2N.HHV_odgrnTzvnT0bQ2JjfGOl3XuvDeb5mJKyu.D45uXTVSOZLTVxIM;
+        path=/; expires=Sat, 18-Oct-25 04:23:14 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=kwqdlZvCeyTp14E_.uNbAGPH7DwjQKZzA8aXfjEoaQg-1760759594479-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 990516489ab5fac2-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0d3da8d2c249d8730068f30f254054819b8c6b18b4c2e89f51",
+          "object": "response",
+          "created_at": 1760759589,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "ws_0d3da8d2c249d8730068f30f25b4bc819b85fb59fc78bf9649",
+              "type": "web_search_call",
+              "status": "completed",
+              "action": {
+                "type": "search",
+                "query": "positive news story today"
+              }
+            },
+            {
+              "id": "msg_0d3da8d2c249d8730068f30f27d7fc819b97d80fd2ffa59c2e",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [
+                    {
+                      "type": "url_citation",
+                      "end_index": 759,
+                      "start_index": 669,
+                      "title": "2025 Budapest Summit",
+                      "url": "https://en.wikipedia.org/wiki/2025_Budapest_Summit?utm_source=openai"
+                    }
+                  ],
+                  "logprobs": [],
+                  "text": "On October 18, 2025, a significant positive development occurred in the realm of international diplomacy. U.S. President Donald Trump and Russian President Vladimir Putin announced plans to meet in Budapest, Hungary, within two weeks to discuss ending the ongoing Russo-Ukrainian war. This summit aims to \"bring this 'inglorious' war... to an end,\" according to President Trump. The announcement followed a two-and-a-half-hour phone call between the two leaders, during which they discussed economic cooperation and the conflict in Ukraine. The upcoming meeting in Budapest is seen as a hopeful step toward resolving the conflict and improving international relations. ([en.wikipedia.org](https://en.wikipedia.org/wiki/2025_Budapest_Summit?utm_source=openai)) "
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "web_search_preview",
+              "search_context_size": "medium",
+              "user_location": {
+                "type": "approximate",
+                "city": null,
+                "country": "US",
+                "region": null,
+                "timezone": null
+              }
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 310,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 170,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 480
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 18 Oct 2025 03:53:14 GMT
+recorded_with: VCR 6.3.1

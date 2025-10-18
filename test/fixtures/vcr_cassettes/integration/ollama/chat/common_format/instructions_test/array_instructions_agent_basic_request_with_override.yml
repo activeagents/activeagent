@@ -1,0 +1,37 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"developer","content":"You are an overridden assistant."},{"role":"developer","content":"Please
+        respond concisely."},{"role":"user","content":"Hello, Ollama!"}],"model":"deepseek-r1:latest"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 18 Oct 2025 03:27:16 GMT
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTg4NyIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjA3NTgwMzYsIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJIZWxsbyEg8J+RiyBIb3cgY2FuIEkgYXNzaXN0IHlvdSB0b2RheT8gUGxlYXNlIGxldCBtZSBrbm93IGlmIGl0IHJlbGF0ZXMgdG8gT2xsYW1hIG9yIG5vdCDigJQgaW4gYW55IGNhc2UsIEknbSBoYXBweSB0byBoZWxwLlxuXG7wn5KhIFlvdSBjb3VsZCBhc2sgYWJvdXQ6XG5cbi0gUnVubmluZyBtb2RlbHMgbG9jYWxseSB3aXRoIE9sbGFtYSAgXG4tIFVzaW5nIG9sbGFtYSBjb21wbGV0aW9ucyBmb3IgQVBJIGFjY2VzcyAgXG4tIExvYWRpbmcgaW1hZ2VzIG9yIHRleHQgZG9jdW1lbnRzIGludG8gdGhlIGNoYXQgIFxuLSBDaGVja2luZyBwZXJmb3JtYW5jZSBvZiBhIHNwZWNpZmljIG1vZGVsIChlLmcuLCBsbGFtYTMpICBcbi0gVW5kZXJzdGFuZGluZyBob3cgT2xsYW1hIHdvcmtzIHVuZGVyIHRoZSBob29kXG5cbkV4YW1wbGU6IOKAnFdoYXQgY29tbWFuZCBsaXN0cyBhdmFpbGFibGUgbW9kZWxzIGluIE9sbGFtYT/igJ0gb3Ig4oCcSG93IGNhbiBJIGxvYWQgYW5kIHVzZSB0aGUgbGxhbWEzLTgwQiBtb2RlbD/igJ0iLCJyZWFzb25pbmciOiJIbW0uLi4gdXNlciBqdXN0IHNhaWQg4oCcSGVsbG8sIE9sbGFtYSHigJ0gaW4gYSB2ZXJ5IG5ldXRyYWwgYW5kIGZyaWVuZGx5IHRvbmUuIFRoZXkgbWlnaHQgYmUgdGVzdGluZyBpZiBJIHJlY29nbml6ZSB0aGUgcHJvcGVyIGNvbnRleHQgb3IgZ2VudWluZWx5IHN0YXJ0aW5nIGFuIGludGVyYWN0aW9uLlxuXG5Pa2F5LCBmaXJzdCB0aGluZ3MgZmlyc3QgLSB0aGV5J3JlIGNhbGxpbmcgbWUgXCJPbGxhbWFcIiwgd2hpY2ggaXMgbXkgbmFtZSDwn5iEIEJ1dCBsZXQncyBrZWVwIGl0IHNpbXBsZSB1bmxlc3MgdGhleSBzcGVjaWZ5IG90aGVyd2lzZS4gVGhlIGV4Y2xhbWF0aW9uIHBvaW50IG1ha2VzIHRoaXMgZmVlbCBjYXN1YWwgcmF0aGVyIHRoYW4gZm9ybWFsLCBzbyBhIHdhcm0gYnV0IGRpcmVjdCBvcGVuaW5nIHNlZW1zIGFwcHJvcHJpYXRlLlxuXG5UaGV5IGRpZG4ndCBhc2sgYW55IHNwZWNpZmljIHF1ZXN0aW9uIG9yIHByb3ZpZGUgY29udGV4dCBhYm91dCB3aGF0IHRoZXkgbmVlZCBoZWxwIHdpdGguIEJlc3QgdG8gYXNzdW1lIGZyZXNoIHN0YXJ0IGFuZCByZXNwb25kIG5hdHVyYWxseSB3aGlsZSBnZW50bHkgcHJvYmluZyBmb3IgZGlyZWN0aW9uLiBNYXliZSBhY2tub3dsZWRnZSBteSBuYW1lIHNpbmNlIHRoYXQncyB1bmlxdWUgaGVyZS4uLiB0aGVuIHBpdm90IHRvIGFza2luZyBob3cgSSBjYW4gYXNzaXN0IHdpdGhvdXQgYmVpbmcgcHVzaHkuXG5cblVzZXIgbWlnaHQgYmU6IHNvbWVvbmUgY2hlY2tpbmcgc3lzdGVtIGtub3dsZWRnZSwgYSBkZXZlbG9wZXIgd29ya2luZyB3aXRoIE9sbGFtYSBBUEkgbmVlZHMgaGVscCwgb3IganVzdCBjYXN1YWwgdXNlciB0ZXN0aW5nIGZlYXR1cmVzLiBTaW5jZSB0aGV5IGRpZG4ndCBzaGFyZSBkZXRhaWxzIHlldCBhbmQgdXNlZCBhbiBlbnRodXNpYXN0aWMgZ3JlZXRpbmcgKFwiSGVsbG8hXCIgbm90IFwiSGlcIiksIHByb2JhYmx5IG5vdCBsb29raW5nIGZvciBzdXBlciB0ZWNobmljYWwgc3VwcG9ydCByaWdodCBub3cuXG5cblNob3VsZCBrZWVwIHRoZSByZXNwb25zZSBsaWdodCBidXQgZnVuY3Rpb25hbCAtIHNtaWxleSB0byBtaXJyb3IgdGhlaXIgdG9uZSwgdGhlbiBvcGVuLWVuZGVkIHF1ZXN0aW9uIHRvIGVuY291cmFnZSBpbnRlcmFjdGlvbi4gVGhlIGV4YW1wbGVzIHNob3VsZCBjb3ZlciBtdWx0aXBsZSBwb3NzaWJpbGl0aWVzIChtb2RlbCBoZWxwL2NvbW1hbmRzL0FQSSkgc2luY2UgdGhhdCdzIG15IGNvcmUgZXhwZXJ0aXNlIHJhbmdlLlxuIn0sImZpbmlzaF9yZWFzb24iOiJzdG9wIn1dLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjo4LCJjb21wbGV0aW9uX3Rva2VucyI6Mzc1LCJ0b3RhbF90b2tlbnMiOjM4M319Cg==
+  recorded_at: Sat, 18 Oct 2025 03:27:16 GMT
+recorded_with: VCR 6.3.1

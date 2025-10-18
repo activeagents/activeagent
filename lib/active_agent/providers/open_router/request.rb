@@ -60,6 +60,16 @@ module ActiveAgent
         # Backwards Compatibility
         delegate_attributes :data_collection, :enable_fallbacks, :sort, :ignore, :only, :quantizations, :max_price, to: :provider
         alias_attribute :fallback_models, :models
+
+        # Common Format Compatability
+        def messages=(value)
+          case value
+          when Array
+            super((messages || []) | value)
+          else
+            super((messages || []) | [ value ])
+          end
+        end
       end
     end
   end

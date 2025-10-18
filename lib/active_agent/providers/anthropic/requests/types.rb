@@ -76,6 +76,76 @@ module ActiveAgent
             end
           end
 
+          # Type for System content - converts strings to arrays of text blocks
+          class SystemType < ActiveModel::Type::Value
+            def cast(value)
+              case value
+              when Array
+                # Already an array - validate and return
+                value.map { |block| cast_system_block(block) }
+              when String
+                # Convert string to array of text blocks
+                [
+                  {
+                    type: "text",
+                    text: value
+                  }
+                ]
+              when nil
+                nil
+              else
+                raise ArgumentError, "Cannot cast #{value.class} to System content"
+              end
+            end
+
+            def serialize(value)
+              case value
+              when Array
+                value.map { |block| serialize_system_block(block) }
+              when nil
+                nil
+              else
+                raise ArgumentError, "Cannot serialize #{value.class}"
+              end
+            end
+
+            def deserialize(value)
+              cast(value)
+            end
+
+            private
+
+            def cast_system_block(value)
+              case value
+              when ContentBlocks::Base
+                value
+              when String
+                ContentBlocks::Text.new(text: value)
+              when Hash
+                type = value[:type]&.to_s || value["type"]&.to_s
+                case type
+                when "text"
+                  ContentBlocks::Text.new(**value.symbolize_keys)
+                else
+                  raise ArgumentError, "Unknown system block type: #{type}"
+                end
+              else
+                raise ArgumentError, "Cannot cast #{value.class} to system block"
+              end
+            end
+
+            def serialize_system_block(value)
+              case value
+              when ContentBlocks::Base
+                value.to_h
+              when Hash
+                value
+              else
+                raise ArgumentError, "Cannot serialize #{value.class}"
+              end
+            end
+          end
+
           # Type for Metadata
           class MetadataType < ActiveModel::Type::Value
             def cast(value)

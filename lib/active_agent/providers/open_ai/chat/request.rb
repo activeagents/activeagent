@@ -145,23 +145,25 @@ module ActiveAgent
             end
           end
 
-          # Handle message assignment from common format
-          def message=(value)
+          # Common Format Compatability
+          def instructions=(*values)
             self.messages ||= []
-
-            self.messages << {
-              role:    value.role,
-              content: value.content
-            }
+!
+            values.flatten.reverse.each do |value|
+              self.messages.unshift({ role: "developer", content: value })
+            end
           end
 
-          # Handle multiple messages assignment
+          # Common Format Compatability
+          alias_attribute :message, :messages
+
+          # Common Format Compatability
           def messages=(value)
             case value
             when Array
-              super(value)
+              super((messages || []) | value)
             else
-              super([ value ])
+              super((messages || []) | [ value ])
             end
           end
 

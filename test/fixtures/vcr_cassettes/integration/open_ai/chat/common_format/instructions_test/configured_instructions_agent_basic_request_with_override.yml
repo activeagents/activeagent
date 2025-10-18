@@ -1,0 +1,121 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"developer","content":"You are an overridden assistant."},{"role":"user","content":"Hello,
+        GPT!"}],"model":"gpt-5"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 02:40:28 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Processing-Ms:
+      - '2583'
+      Openai-Project:
+      - PROJECT_ID
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '2604'
+      X-Ratelimit-Limit-Requests:
+      - '15000'
+      X-Ratelimit-Limit-Tokens:
+      - '40000000'
+      X-Ratelimit-Remaining-Requests:
+      - '14999'
+      X-Ratelimit-Remaining-Tokens:
+      - '39999986'
+      X-Ratelimit-Reset-Requests:
+      - 4ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      X-Request-Id:
+      - req_a393908e6983457f9fd9db9535f88884
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Dy95BzcS27ULoHqaNEtutTYhSaissGxWkjXTi8eHWMI-1760755228-1.0.1.1-KXQB8RDLtJBPh1lc.1q1ypab1ZV0YwElZwTtVzqBJiYV1UEhv95IK_Tv3A.Sa5sOKphrYs3vOkipDy7irw04vHLrt.NUBRoZ5h0_FKHAl5s;
+        path=/; expires=Sat, 18-Oct-25 03:10:28 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=mSz42botnoKK7r8_e1RSE3buPK8fdWqtujHfe50EhAs-1760755228460-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9904abc12a72405d-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-CRr9lJy0C0hVoJZgPh9hKj7QBAoXM",
+          "object": "chat.completion",
+          "created": 1760755225,
+          "model": "gpt-5-2025-08-07",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hi there! How can I help you today?",
+                "refusal": null,
+                "annotations": []
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 20,
+            "completion_tokens": 147,
+            "total_tokens": 167,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 128,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Sat, 18 Oct 2025 02:40:28 GMT
+recorded_with: VCR 6.3.1

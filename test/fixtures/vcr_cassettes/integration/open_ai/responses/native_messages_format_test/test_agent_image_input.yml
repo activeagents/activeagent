@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"what
+        is in this image?"},{"type":"input_image","image_url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}]}],"model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:51:13 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999235'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 1ms
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_39e9ca6657a84672a705a585df60a64d
+      Openai-Processing-Ms:
+      - '3785'
+      X-Envoy-Upstream-Service-Time:
+      - '3789'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Wo3Sqil601MVAhtoPZa3hXrtFB4sQjMDFesxV1LoD0g-1760759473-1.0.1.1-jryDeNYOC4FMbFVlPj7OSKMj5l5iVY9x_IpU_85dQCTEdoqfJXoRhiYSFWN6vjnHK9VauwWDDMsejNBjQCerZp9s9owLcw10mAGku8Q0dQE;
+        path=/; expires=Sat, 18-Oct-25 04:21:13 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=n2FHccI2d3SHnPbV6UizTRFyz8e1pdoVCiPr6pJpwxA-1760759473839-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9905135facf21698-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_02e846e96036b8b30068f30eae0f78819892de40d109734520",
+          "object": "response",
+          "created_at": 1760759470,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_02e846e96036b8b30068f30eb073288198be7a914e91fbdd98",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "This image shows a scenic landscape with a wooden boardwalk or pathway that stretches into the distance through a field of tall green grass. The sky above is blue with scattered white clouds, and there are trees and shrubs in the background. The overall setting appears to be a nature reserve, park, or open countryside during a bright and sunny day."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 1118,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 69,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 1187
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 18 Oct 2025 03:51:13 GMT
+recorded_with: VCR 6.3.1

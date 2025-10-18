@@ -1,0 +1,411 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Hello!"}],"model":"gpt-4","logprobs":true,"top_logprobs":2}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:50:46 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Processing-Ms:
+      - '443'
+      Openai-Project:
+      - PROJECT_ID
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '622'
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '1000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '999996'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      X-Request-Id:
+      - req_c050d7c25b7e40a9994a4d93a94c2175
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=G90ALLXJVVjteT7lp9nVTfefutqQXVHtzZwks2FX9D8-1760759446-1.0.1.1-5rXTToejDif8hNFK9wgfp7I9KmWbUKZRX4WRTNLlIgAPTeetL06GU4Vvw6b6twRh.ikvbeB5OYP7w1pMTeJz9uWAZfTR7EqRD6dRwiMFJhs;
+        path=/; expires=Sat, 18-Oct-25 04:20:46 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=Mk5U5eex4QNIjACZayqA2w2kwvA_anWSFGe3.tjnkvk-1760759446651-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 990512c72f1922a2-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |
+        {
+          "id": "chatcmpl-CRsFqpEy5Rj6H6qcgo9xuCvgtvvrX",
+          "object": "chat.completion",
+          "created": 1760759446,
+          "model": "gpt-4-0613",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello! How can I assist you today?",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": {
+                "content": [
+                  {
+                    "token": "Hello",
+                    "logprob": -0.016461411,
+                    "bytes": [
+                      72,
+                      101,
+                      108,
+                      108,
+                      111
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": "Hello",
+                        "logprob": -0.016461411,
+                        "bytes": [
+                          72,
+                          101,
+                          108,
+                          108,
+                          111
+                        ]
+                      },
+                      {
+                        "token": "Hi",
+                        "logprob": -4.122796,
+                        "bytes": [
+                          72,
+                          105
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "token": "!",
+                    "logprob": -0.004369948,
+                    "bytes": [
+                      33
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": "!",
+                        "logprob": -0.004369948,
+                        "bytes": [
+                          33
+                        ]
+                      },
+                      {
+                        "token": " there",
+                        "logprob": -5.559101,
+                        "bytes": [
+                          32,
+                          116,
+                          104,
+                          101,
+                          114,
+                          101
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "token": " How",
+                    "logprob": -0.00009221884,
+                    "bytes": [
+                      32,
+                      72,
+                      111,
+                      119
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": " How",
+                        "logprob": -0.00009221884,
+                        "bytes": [
+                          32,
+                          72,
+                          111,
+                          119
+                        ]
+                      },
+                      {
+                        "token": " What",
+                        "logprob": -10.156013,
+                        "bytes": [
+                          32,
+                          87,
+                          104,
+                          97,
+                          116
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "token": " can",
+                    "logprob": -0.0025065783,
+                    "bytes": [
+                      32,
+                      99,
+                      97,
+                      110
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": " can",
+                        "logprob": -0.0025065783,
+                        "bytes": [
+                          32,
+                          99,
+                          97,
+                          110
+                        ]
+                      },
+                      {
+                        "token": " may",
+                        "logprob": -5.99676,
+                        "bytes": [
+                          32,
+                          109,
+                          97,
+                          121
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "token": " I",
+                    "logprob": -0.00035667676,
+                    "bytes": [
+                      32,
+                      73
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": " I",
+                        "logprob": -0.00035667676,
+                        "bytes": [
+                          32,
+                          73
+                        ]
+                      },
+                      {
+                        "token": " assist",
+                        "logprob": -7.967043,
+                        "bytes": [
+                          32,
+                          97,
+                          115,
+                          115,
+                          105,
+                          115,
+                          116
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "token": " assist",
+                    "logprob": -0.0031507425,
+                    "bytes": [
+                      32,
+                      97,
+                      115,
+                      115,
+                      105,
+                      115,
+                      116
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": " assist",
+                        "logprob": -0.0031507425,
+                        "bytes": [
+                          32,
+                          97,
+                          115,
+                          115,
+                          105,
+                          115,
+                          116
+                        ]
+                      },
+                      {
+                        "token": " help",
+                        "logprob": -5.768587,
+                        "bytes": [
+                          32,
+                          104,
+                          101,
+                          108,
+                          112
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "token": " you",
+                    "logprob": -0.000021531068,
+                    "bytes": [
+                      32,
+                      121,
+                      111,
+                      117
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": " you",
+                        "logprob": -0.000021531068,
+                        "bytes": [
+                          32,
+                          121,
+                          111,
+                          117
+                        ]
+                      },
+                      {
+                        "token": " today",
+                        "logprob": -12.559575,
+                        "bytes": [
+                          32,
+                          116,
+                          111,
+                          100,
+                          97,
+                          121
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "token": " today",
+                    "logprob": -0.00027182576,
+                    "bytes": [
+                      32,
+                      116,
+                      111,
+                      100,
+                      97,
+                      121
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": " today",
+                        "logprob": -0.00027182576,
+                        "bytes": [
+                          32,
+                          116,
+                          111,
+                          100,
+                          97,
+                          121
+                        ]
+                      },
+                      {
+                        "token": "?",
+                        "logprob": -8.313834,
+                        "bytes": [
+                          63
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "token": "?",
+                    "logprob": -0.09589704,
+                    "bytes": [
+                      63
+                    ],
+                    "top_logprobs": [
+                      {
+                        "token": "?",
+                        "logprob": -0.09589704,
+                        "bytes": [
+                          63
+                        ]
+                      },
+                      {
+                        "token": "?\n",
+                        "logprob": -2.395139,
+                        "bytes": [
+                          63,
+                          10
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 9,
+            "total_tokens": 18,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
+        }
+  recorded_at: Sat, 18 Oct 2025 03:50:46 GMT
+recorded_with: VCR 6.3.1

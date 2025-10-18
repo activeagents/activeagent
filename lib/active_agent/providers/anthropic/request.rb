@@ -19,7 +19,7 @@ module ActiveAgent
         attribute :max_tokens, :integer
 
         # Optional parameters - Prompting
-        attribute :system # String or array of text blocks
+        attribute :system,         Requests::Types::SystemType.new
         attribute :temperature,    :float
         attribute :top_k,          :integer
         attribute :top_p,          :float
@@ -64,9 +64,17 @@ module ActiveAgent
 
         # Custom validations
         validate :validate_stop_sequences
-        validate :validate_system_format
         validate :validate_tools_format
         validate :validate_mcp_servers_format
+
+        # Common Format Compatibility
+        alias_attribute :instructions, :system
+
+        def to_hash_compressed
+          super.tap do |hash|
+            hash[:system] = hash[:system].first[:text] if hash[:system]&.one?
+          end
+        end
 
         # Handle message assignment from common format
         def message=(value)
@@ -95,23 +103,6 @@ module ActiveAgent
 
           unless stop_sequences.is_a?(Array)
             errors.add(:stop_sequences, "must be an array")
-          end
-        end
-
-        def validate_system_format
-          return if system.nil?
-          return if system.is_a?(String)
-
-          if system.is_a?(Array)
-            # Should be array of text blocks
-            system.each do |block|
-              unless block.is_a?(Hash) && block[:type] == "text"
-                errors.add(:system, "array elements must be text blocks with type: 'text'")
-                break
-              end
-            end
-          else
-            errors.add(:system, "must be a string or array of text blocks")
           end
         end
 

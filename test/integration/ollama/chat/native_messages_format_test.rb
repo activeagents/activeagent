@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../test_helper"
+require_relative "../../test_helper"
 
 module Integration
   module Ollama
@@ -9,7 +9,7 @@ module Integration
         include Integration::TestHelper
 
         class TestAgent < ActiveAgent::Base
-          generate_with :ollama, model: "deepseek-r1:latest", temperature: nil
+          generate_with :ollama, model: "deepseek-r1:latest"
 
           ###############################################################
           # OpenAI Provided Example

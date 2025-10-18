@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"what
+        is in this file?"},{"type":"input_file","file_url":"https://www.berkshirehathaway.com/letters/2024ltr.pdf"}]}],"model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:53:57 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29991543'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 16ms
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_98c4d70905264537a3c9d3eb337bc71f
+      Openai-Processing-Ms:
+      - '12703'
+      X-Envoy-Upstream-Service-Time:
+      - '12707'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=SX6_MDK5xuk3dlZf5Ic.d4baH5Lb6rYoSDNd9A.v7x8-1760759637-1.0.1.1-qL0XLarWIUPoRjDxRnny581BA1yY97taJkQMZv56PXwqLX0Zjz5ZY7YDpHtcJX26QL95NgrcTlQhPRHmPFsvChO_n_8f.jad_YvUwoZcTro;
+        path=/; expires=Sat, 18-Oct-25 04:23:57 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=AxSibnPafq2_01fntDzILfN_ROOx7g9pznIx6hhjZg4-1760759637435-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 990517262fe323fd-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0d6a1ec6cc8b10d00068f30f48b4ac8197ad079fcbbab9e771",
+          "object": "response",
+          "created_at": 1760759624,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_0d6a1ec6cc8b10d00068f30f497bf881978ac6853b811afe44",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "This text is the **2024 annual shareholder letter from Warren Buffett, Chairman of Berkshire Hathaway Inc.**. It appears to be the core opening section of the company\u2019s formal annual report, directly addressing shareholders. Here is what\u2019s in the file:\n\n---\n\n**Key Elements & Topics:**\n\n1. **Introduction and Philosophy**\n   - Buffett discusses the purpose of the annual report\u2014not only fulfilling SEC requirements but candidly explaining the company\u2019s actions and philosophy.\n   - He stresses honest communication with shareholders, highlighting that mistakes (in both investments and personnel) are openly acknowledged.\n\n2. **Leadership and Succession**\n   - At age 94, Buffett notes that Greg Abel is expected to succeed him as CEO, continuing this candid reporting tradition.\n\n3. **Subsidiary Highlight: Pete Liegl and Forest River**\n   - Detailed story of acquiring Forest River, reflecting Berkshire's approach to investing in businesses with uniquely capable managers, regardless of educational pedigree.\n\n4. **Berkshire's 2024 Performance**\n   - In 2024, operating earnings were $47.4 billion.\n   - 53% of their 189 operating businesses saw an earnings decline, but investment income rose, especially due to higher Treasury bill yields.\n   - Breakdown table of operating earnings by segment (insurance, railroads, utilities, etc.).\n\n5. **Corporate Tax Achievement**\n   - Berkshire paid a record-setting $26.8 billion in corporate income tax to the US government in 2024\u2014more than any US company ever has in one year.\n\n6. **Capital Allocation & Investment Philosophy**\n   - Discussion of equity holdings: both fully-owned subsidiaries and smaller stakes in marketable securities (Apple, Coca-Cola, etc.).\n   - Ongoing commitment to keep a majority of assets in equities (primarily American businesses).\n   - Cautions against relying on paper/cash over solid businesses.\n\n7. **Thoughts on American Capitalism**\n   - Praise for capitalism\u2019s ability to deliver wealth and productivity increases.\n   - Comments on the necessity of a stable currency and wise government spending.\n\n8. **Property-Casualty (P/C) Insurance**\n   - Extensive discussion on the uniqueness, risks, and strengths of the P/C insurance business, a core Berkshire operation.\n   - Notes on \"float,\" growing insurance risks, and Ajit Jain's leadership.\n\n9. **Japanese Investments**\n   - Berkshire\u2019s \"small but important\" investments in Japan\u2019s five sogo shosha (ITOCHU, Marubeni, Mitsubishi, Mitsui, Sumitomo).\n   - Investment rationale, expected dividend income, yen-denominated borrowing for currency neutrality.\n\n10. **Shareholder Meeting (Omaha)**\n    - Invitation and schedule for Berkshire\u2019s annual meeting.\n    - Sale of a new company history book, charity efforts, social tidbits (reference to Buffett\u2019s sister, jokes about old age), and event details.\n\n11. **Performance Table**\n    - Multi-decade table showing Berkshire\u2019s share price appreciation versus S&P 500 with dividends (1965-2024).\n    - Berkshire\u2019s compounded annual gain: 19.9% vs. S&P\u2019s 10.4% over that period. Total gain: 5,502,284% vs 39,054% for the S&P.\n\n---\n\n**Summary of What This File Is:**\n- The official **2024 Berkshire Hathaway Shareholder Letter** (from Warren Buffett).\n- Discusses business performance, investment philosophy, company culture, insurance operations, tax history, leadership succession, international investments, and historical returns.\n- Written in Buffett\u2019s accessible, candid, and storytelling style, combining business results with personal observations.\n\n**If you have questions about specific sections or want key takeaways, quotes, or data extracted from particular parts, let me know!**"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 8438,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 770,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 9208
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 18 Oct 2025 03:53:57 GMT
+recorded_with: VCR 6.3.1

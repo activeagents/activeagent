@@ -11,18 +11,24 @@ module Integration
     end
 
     class_methods do
-      def test_request_builder(agent, action_name, trigger_name)
-        test "#{action_name} Request Building" do
-          cassette_name = [ self.class.name.underscore, action_name ].join("/")
-          request_body  = agent.const_get(action_name.to_s.upcase, true)
+      def test_request_builder(agent_class, action_name, trigger_name)
+        agent_name = agent_class.name.demodulize.underscore
+
+        test "#{agent_name} #{action_name} Request Building" do
+          cassette_name = [ self.class.name.underscore, "#{agent_name}_#{action_name}" ].join("/")
+          request_body  = agent_class.const_get(action_name.to_s.upcase, true)
 
           # Run Once to Record Response & Smoke Test
           VCR.use_cassette(cassette_name) do
-            agent.send(action_name).send(trigger_name)
+            agent_class.send(action_name).send(trigger_name)
           end
 
-          # Run Again to Validate that the Request is well formed and not mutated since recording it last
+          # Validate that the 1st recorded request matches our expectations
           cassette_file = YAML.load_file("test/fixtures/vcr_cassettes/#{cassette_name}.yml")
+          saved_request_body = JSON.parse(cassette_file.dig("http_interactions", 0, "request", "body", "string"), symbolize_names: true)
+          assert_equal saved_request_body, request_body
+
+          # Run Again to Validate that the Request cycle is well formed and not mutated since recording it last
           cassette_file.dig("http_interactions").each do |interaction|
             request_method   = interaction.dig("request", "method").to_sym
             request_uri      = interaction.dig("request", "uri")
@@ -33,7 +39,7 @@ module Integration
             )
           end
 
-          agent.send(action_name).send(trigger_name)
+          agent_class.send(action_name).send(trigger_name)
 
           cassette_file.dig("http_interactions").each do |interaction|
             request_method = interaction.dig("request", "method").to_sym

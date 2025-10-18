@@ -1,0 +1,58 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"developer","content":"You are an overridden assistant."},{"role":"user","content":"Hello,
+        OpenRouter!"}],"model":"openai/gpt-4o"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 18 Oct 2025 03:44:54 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 99050a30fbc0aab1-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        CiAgICAgICAgIAp7ImlkIjoiZ2VuLTE3NjA3NTkwOTQtYlA4MEQxbU1TYzloUE55OTB6REkiLCJwcm92aWRlciI6Ik9wZW5BSSIsIm1vZGVsIjoib3BlbmFpL2dwdC00byIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjA3NTkwOTQsImNob2ljZXMiOlt7ImxvZ3Byb2JzIjpudWxsLCJmaW5pc2hfcmVhc29uIjoic3RvcCIsIm5hdGl2ZV9maW5pc2hfcmVhc29uIjoic3RvcCIsImluZGV4IjowLCJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiSGVsbG8hIEl0IGxvb2tzIGxpa2UgeW91J3JlIHJlZmVycmluZyB0byBPcGVuUm91dGVyLCB3aGljaCBtaWdodCBiZSBhIHNwZWNpZmljIHRvb2wgb3Igc2VydmljZSwgYnV0IEnigJltIGhlcmUgdG8gaGVscCB3aXRoIGEgd2lkZSBhcnJheSBvZiB0b3BpY3MuIEhvdyBjYW4gSSBhc3Npc3QgeW91IHRvZGF5PyIsInJlZnVzYWwiOm51bGwsInJlYXNvbmluZyI6bnVsbH19XSwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfY2JmMTc4NTU2NyIsInVzYWdlIjp7InByb21wdF90b2tlbnMiOjIyLCJjb21wbGV0aW9uX3Rva2VucyI6NDAsInRvdGFsX3Rva2VucyI6NjIsInByb21wdF90b2tlbnNfZGV0YWlscyI6eyJjYWNoZWRfdG9rZW5zIjowLCJhdWRpb190b2tlbnMiOjB9LCJjb21wbGV0aW9uX3Rva2Vuc19kZXRhaWxzIjp7InJlYXNvbmluZ190b2tlbnMiOjB9fX0=
+  recorded_at: Sat, 18 Oct 2025 03:44:54 GMT
+recorded_with: VCR 6.3.1

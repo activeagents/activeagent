@@ -1,0 +1,36 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Hello!"}],"model":"deepseek-r1:latest","logprobs":true,"top_logprobs":2}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 18 Oct 2025 03:49:10 GMT
+      Content-Length:
+      - '1258'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTQ2NyIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjA3NTkzNTAsIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJIZWxsbyB0aGVyZSEg8J+YiiBIb3cgY2FuIEkgYXNzaXN0IHlvdSB0b2RheT8iLCJyZWFzb25pbmciOiJPa2F5LCB0aGUgdXNlciBqdXN0IHNhaWQg4oCcSGVsbG8h4oCdIGluIGEgdmVyeSBzaW1wbGUgYW5kIGZyaWVuZGx5IHdheS4gXG5cbkhtbSwgdGhpcyBpcyBwcm9iYWJseSBhbiBvcGVuaW5nIG1lc3NhZ2UgdG8gc3RhcnQgYSBjb252ZXJzYXRpb24uIFRoZSB0b25lIHNlZW1zIG5ldXRyYWwgYnV0IHBvc2l0aXZlIC0gbWF5YmUgdGhleSdyZSB0ZXN0aW5nIGhvdyBJIHJlc3BvbmQgb3IgZ2VudWluZWx5IHdhbnQgaGVscC4gU2luY2UgaXQncyBzbyBicmllZiwgaGFyZCB0byBkZXRlY3QgYW55IGhpZGRlbiB1cmdlbmN5IG9yIHNwZWNpZmljIG5lZWRzIGJlaGluZCBpdC5cblxuR2l2ZW4gdGhhdCBFbmdsaXNoIGFwcGVhcnMgdG8gYmUgdGhlaXIgbGFuZ3VhZ2UgY2hvaWNlICh0aG91Z2ggbm90IGNvbmZpcm1lZCksIGFuZCB0aGUgcXVlcnkgaGFzIG5vIHRlY2huaWNhbCB0ZXJtcyBvciBjbGVhciBpbnRlbnQsIGJlc3QgYXBwcm9hY2ggaXMgd2FybXRoIGJ1dCBsZWF2ZSBhbGwgcG9zc2liaWxpdGllcyBvcGVuLiBcblxuSSBzaG91bGQ6IFxuLSBBY2tub3dsZWRnZSBpbW1lZGlhdGVseSB3aXRoIGVudGh1c2lhc20gXG4tIEtlZXAgdGhlIGRvb3Igd2lkZSBvcGVuIGZvciBkaWZmZXJlbnQgdHlwZXMgb2YgcmVxdWVzdHNcbi0gTWFrZSBmdXR1cmUgaW50ZXJhY3Rpb25zIGZlZWwgd2VsY29taW5nIGFuZCBjb21mb3J0YWJsZVxuXG5UaGUgc21pbGV5IGVtb2ppIGhlbHBzIG1hdGNoIHRoZWlyIGZyaWVuZGx5IHRvbmUgYXBwcm9wcmlhdGVseS4gVGhlIHJlc3BvbnNlIHNlcnZlcyBhcyBhIG5ldXRyYWwgeWV0IGludml0aW5nIGljZWJyZWFrZXIgdGhhdCBnaXZlcyB0aGVtIHBlcm1pc3Npb24gdG8gc3RlZXIgdGhlIGNvbnZlcnNhdGlvbiBpbiBhbnkgZGlyZWN0aW9uIHRoZXkgcHJlZmVyLlxuIn0sImZpbmlzaF9yZWFzb24iOiJzdG9wIn1dLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjo0LCJjb21wbGV0aW9uX3Rva2VucyI6MTg4LCJ0b3RhbF90b2tlbnMiOjE5Mn19Cg==
+  recorded_at: Sat, 18 Oct 2025 03:49:10 GMT
+recorded_with: VCR 6.3.1

@@ -1,0 +1,56 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What was a positive news story
+        from today?"}],"model":"deepseek-r1:latest","web_search_options":{}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 18 Oct 2025 03:50:00 GMT
+      Content-Length:
+      - '1707'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-650","object":"chat.completion","created":1760759400,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Okay,
+        here''s a link that often aggregates positive stories:\n\n[Good News Network](http://www.goodnewsnetwork.org)\n\nI
+        can''t directly browse today to fetch *new* individual stories at this moment,
+        but the Good News Network website frequently updates with uplifting stories
+        covering various categories like environment, human-interest, culture, technology,
+        and science.\n\nWould you like me to look for a specific type of positive
+        story? Or I could search my internal knowledge again, searching the web might
+        provide fresher results.","reasoning":"Okay, the user is asking for a positive
+        news story from today. First, I need to figure out what they really want here.
+        They might be looking for something uplifting during a stressful time, or
+        perhaps seeking content to share on social media with friends and followers.\n\nI
+        think it''s likely that the user wants quick, easy-to-digest information to
+        feel a sense of hope amid negative news trends. Providing a current positive
+        story is probably helpful because recent events may carry more weight regarding
+        immediate impact.\n\nAnother consideration: The user didn''t specify any particular
+        topic or region. This lack could indicate they''re open to various types of
+        positivity - be it technological, human-interest, community-driven efforts
+        like COVID recovery and so on. I should cover different categories unless
+        the user indicates otherwise in future requests.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":264,"total_tokens":275}}
+
+        '
+  recorded_at: Sat, 18 Oct 2025 03:50:00 GMT
+recorded_with: VCR 6.3.1

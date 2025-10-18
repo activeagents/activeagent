@@ -8,7 +8,7 @@ module Integration
       include Integration::TestHelper
 
       class TestAgent < ActiveAgent::Base
-        generate_with :open_router, model: nil, temperature: nil
+        generate_with :open_router, model: nil
 
         ###############################################################
         # OpenAI Provided Example

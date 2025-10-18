@@ -106,6 +106,11 @@ module ActiveAgent
           validate :validate_metadata_format
           validate :validate_include_values
 
+          # Common Format Compatability
+          def instructions=(value)
+            super(value.is_a?(Array) ? value.join("\n") : value)
+          end
+
           # Always store in the expanded mode, we can compress it out later
           def input=(value)
             case value

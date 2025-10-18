@@ -23,7 +23,6 @@ open_router: &open_router
 ollama: &ollama
   service: "Ollama"
   model: "gemma3:latest"
-  temperature: 0.7
 # endregion ollama_anchor
 # endregion config_anchors
 
@@ -59,7 +58,6 @@ test:
   open_router:
     <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
-    temperature: 0.7
   ollama:
     <<: *ollama
   anthropic:
