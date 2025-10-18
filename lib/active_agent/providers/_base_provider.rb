@@ -1,5 +1,5 @@
 require_relative "common/response"
-require_relative "concerns/error_handling"
+require_relative "concerns/retries"
 
 # Maps provider types to their gem dependencies.
 # @private
@@ -38,7 +38,7 @@ module ActiveAgent
     #   {#process_stream_chunk}, {#process_prompt_finished_extract_messages},
     #   and {#process_prompt_finished_extract_function_calls}
     class BaseProvider
-      include ErrorHandling
+      include Retries
 
       class ProvidersError < StandardError; end
 
@@ -57,11 +57,16 @@ module ActiveAgent
       def initialize(kwargs = {})
         assert_service!(kwargs.delete(:service))
 
+        configure_retries(
+          exception_handler: kwargs.delete(:exception_handler),
+          retries:           kwargs.delete(:retries),
+          retries_count:     kwargs.delete(:retries_count),
+          retries_on:        kwargs.delete(:retries_on)
+        )
+
         self.stream_broadcaster = kwargs.delete(:stream_broadcaster)
         self.streaming          = false
-
         self.tools_function     = kwargs.delete(:tools_function)
-
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context            = kwargs
         self.message_stack      = []
@@ -74,9 +79,7 @@ module ActiveAgent
       def prompt
         self.request = prompt_request_klass.new(context)
 
-        with_error_handling do
-          resolve_prompt
-        end
+        resolve_prompt
       end
 
       # Executes an embedding request with error handling.
@@ -88,9 +91,7 @@ module ActiveAgent
       def embed
         self.request = embed_request_klass.new(context)
 
-        with_error_handling do
-          resolve_embed
-        end
+        resolve_embed
       end
 
       # @return [String] e.g., "Anthropic", "OpenAI"
@@ -134,7 +135,7 @@ module ActiveAgent
 
         # @todo Validate Request
         api_parameters = api_request_build(request)
-        api_response   = api_prompt_execute(api_parameters)
+        api_response   = retriable { api_prompt_execute(api_parameters) }
 
         process_prompt_finished(api_response)
       end
@@ -145,7 +146,7 @@ module ActiveAgent
       def resolve_embed
         # @todo Validate Request
         api_parameters = api_request_build(self.request)
-        api_response   = api_embed_execute(api_parameters)
+        api_response   = retriable { api_embed_execute(api_parameters) }
 
         process_embed_finished(api_response)
       end

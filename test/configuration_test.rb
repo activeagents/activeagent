@@ -1,195 +1,369 @@
+# frozen_string_literal: true
+
 require "test_helper"
+require "tempfile"
 
-# Test for Active Agent configuration loading and validation
-class ActiveAgentConfigurationTest < ActiveAgentTestCase
-  test "loads configuration from active_agent.yml file" do
-    ActiveAgent.instance_variable_set(:@config, nil)
-    # Test loading from the actual dummy app configuration
-    config_file = Rails.root.join("config/active_agent.yml")
-
-    # Ensure the file exists
-    assert File.exist?(config_file), "active_agent.yml should exist in test dummy app"
-
-    # Reset and reload configuration
-    ActiveAgent.instance_variable_set(:@config, nil)
-    ActiveAgent.load_configuration(config_file)
-
-    ENV["RAILS_ENV"] = "test"
-
-    # Verify configuration was loaded
-    assert_not_nil ActiveAgent.config
-    assert ActiveAgent.config.key?("openai"), "Should have openai configuration"
-    assert_equal "OpenAI", ActiveAgent.config["openai"]["service"]
+class ConfigurationTest < ActiveSupport::TestCase
+  setup do
+    @original_config = ActiveAgent.configuration
+    ActiveAgent.reset_configuration!
   end
 
-  test "handles missing configuration file gracefully" do
-    ActiveAgent.instance_variable_set(:@config, nil)
-    # Try to load non-existent file
-    non_existent_file = "/tmp/nonexistent_active_agent.yml"
+  teardown do
+    ActiveAgent.instance_variable_set(:@configuration, @original_config)
+  end
 
-    assert_nothing_raised do
-      ActiveAgent.load_configuration(non_existent_file)
+  # Test default configuration values
+  test "initializes with default values" do
+    config = ActiveAgent::Configuration.new
+
+    assert_equal false, config.verbose_generation_errors
+    assert_nil config.generation_provider_logger
+    assert_equal true, config.retries
+    assert_equal 3, config.retries_count
+    assert_includes config.retries_on, EOFError
+    assert_includes config.retries_on, Timeout::Error
+  end
+
+  test "verbose_generation_errors? returns boolean" do
+    config = ActiveAgent::Configuration.new
+    assert_equal false, config.verbose_generation_errors?
+
+    config.verbose_generation_errors = true
+    assert_equal true, config.verbose_generation_errors?
+  end
+
+  # Test custom initialization
+  test "initializes with custom settings" do
+    custom_logger = Logger.new(STDOUT)
+    config = ActiveAgent::Configuration.new(
+      verbose_generation_errors: true,
+      retries_count: 5,
+      generation_provider_logger: custom_logger
+    )
+
+    assert_equal true, config.verbose_generation_errors
+    assert_equal 5, config.retries_count
+    assert_equal custom_logger, config.generation_provider_logger
+  end
+
+  # Test hash-like access
+  test "supports hash-like access with []" do
+    config = ActiveAgent::Configuration.new(retries_count: 10)
+
+    assert_equal 10, config[:retries_count]
+    assert_equal 10, config["retries_count"]
+  end
+
+  test "supports hash-like assignment with []=" do
+    config = ActiveAgent::Configuration.new
+
+    config[:retries_count] = 7
+    assert_equal 7, config.retries_count
+
+    config["verbose_generation_errors"] = true
+    assert_equal true, config.verbose_generation_errors
+  end
+
+  # Test method_missing delegation
+  test "accesses configuration via method syntax" do
+    config = ActiveAgent::Configuration.new(retries_count: 15)
+
+    assert_equal 15, config.retries_count
+    assert_equal true, config.retries
+  end
+
+  test "returns nil for undefined configuration keys" do
+    config = ActiveAgent::Configuration.new
+
+    assert_nil config.nonexistent_key
+    assert_nil config[:nonexistent_key]
+  end
+
+  test "respond_to_missing? works correctly" do
+    config = ActiveAgent::Configuration.new
+
+    assert config.respond_to?(:retries)
+    assert config.respond_to?(:retries_count)
+    refute config.respond_to?(:nonexistent_key)
+  end
+
+  # Test retries setter validation
+  test "retries accepts false" do
+    config = ActiveAgent::Configuration.new
+    config.retries = false
+    assert_equal false, config.retries
+  end
+
+  test "retries accepts true" do
+    config = ActiveAgent::Configuration.new
+    config.retries = true
+    assert_equal true, config.retries
+  end
+
+  test "retries accepts callable object" do
+    retry_proc = ->(block) { block.call }
+    config = ActiveAgent::Configuration.new
+    config.retries = retry_proc
+
+    assert_equal retry_proc, config.retries
+  end
+
+  test "retries raises error for invalid value" do
+    config = ActiveAgent::Configuration.new
+
+    error = assert_raises(ArgumentError) do
+      config.retries = "invalid"
     end
 
-    # Configuration should remain nil when file doesn't exist
-    assert_equal ActiveAgent.config, {}
-    # Restore original configuration
+    assert_includes error.message, "retries must be false, true, or a callable object"
   end
 
-  test "processes ERB in configuration file" do
-    ActiveAgent.instance_variable_set(:@config, nil)
-    # Create a temporary config file with ERB
-    erb_config = <<~YAML
-      test:
-        openai:
-          service: "OpenAI"
-          api_key: <%= "test-" + "key" %>
-          model: "gpt-4o-mini"
-          temperature: <%= 0.5 + 0.2 %>
-          custom_setting: <%= Rails.env %>
-    YAML
+  # Test provider configuration storage
+  test "stores provider-specific configuration" do
+    config = ActiveAgent::Configuration.new(
+      openai: { service: "OpenAI", model: "gpt-4o" },
+      anthropic: { service: "Anthropic", model: "claude-3-5-sonnet-20241022" }
+    )
 
-    temp_file = Tempfile.new([ "active_agent_erb", ".yml" ])
-    temp_file.write(erb_config)
-    temp_file.close
-
-    ActiveAgent.instance_variable_set(:@config, nil)
-    ActiveAgent.load_configuration(temp_file.path)
-
-    ENV["RAILS_ENV"] = "test"
-    config = ActiveAgent.config
-
-    assert_equal "test-key", config["openai"]["api_key"]
-    assert_equal 0.7, config["openai"]["temperature"]
-    assert_equal "test", config["openai"]["custom_setting"]
-
-    temp_file.unlink
+    assert_equal "OpenAI", config[:openai][:service]
+    assert_equal "gpt-4o", config[:openai][:model]
+    assert_equal "Anthropic", config[:anthropic][:service]
   end
 
-  test "selects environment-specific configuration" do
-    ActiveAgent.instance_variable_set(:@config, nil)
-    multi_env_config = <<~YAML
-      development:
-        openai:
-          service: "OpenAI"
-          api_key: "dev-key"
-          model: "gpt-4o-mini"
-      test:
-        openai:
-          service: "OpenAI"
-          api_key: "test-key"
-          model: "gpt-4o-mini"
-      production:
-        openai:
-          service: "OpenAI"
-          api_key: "prod-key"
-          model: "gpt-4"
-    YAML
+  test "converts hashes to indifferent access" do
+    config = ActiveAgent::Configuration.new(
+      openai: { "service" => "OpenAI", "model" => "gpt-4o" }
+    )
 
-    temp_file = Tempfile.new([ "active_agent_multi_env", ".yml" ])
-    temp_file.write(multi_env_config)
-    temp_file.close
-
-    ActiveAgent.instance_variable_set(:@config, nil)
-    ActiveAgent.load_configuration(temp_file.path)
-
-    # Test development environment
-    ENV["RAILS_ENV"] = "development"
-    ActiveAgent.load_configuration(temp_file.path)
-    assert_equal "dev-key", ActiveAgent.config["openai"]["api_key"]
-
-    # Test test environment
-    ENV["RAILS_ENV"] = "test"
-    ActiveAgent.load_configuration(temp_file.path)
-    assert_equal "test-key", ActiveAgent.config["openai"]["api_key"]
-
-    # Test production environment
-    ENV["RAILS_ENV"] = "production"
-    ActiveAgent.load_configuration(temp_file.path)
-    assert_equal "prod-key", ActiveAgent.config["openai"]["api_key"]
-    assert_equal "gpt-4", ActiveAgent.config["openai"]["model"]
-
-    temp_file.unlink
+    # Should be accessible with both string and symbol keys
+    assert_equal "OpenAI", config[:openai][:service]
+    assert_equal "OpenAI", config[:openai]["service"]
+    assert_equal "gpt-4o", config[:openai][:model]
+    assert_equal "gpt-4o", config[:openai]["model"]
   end
 
-  test "falls back to root configuration when environment not found" do
-    ActiveAgent.instance_variable_set(:@config, nil)
-    fallback_config = <<~YAML
-      openai:
-        service: "OpenAI"
-        api_key: "fallback-key"
-        model: "gpt-4o-mini"
-      development:
-        openai:
-          service: "OpenAI"
-          api_key: "dev-key"
-          model: "gpt-4o-mini"
-    YAML
-
-    temp_file = Tempfile.new([ "active_agent_fallback", ".yml" ])
-    temp_file.write(fallback_config)
-    temp_file.close
-
-    ActiveAgent.instance_variable_set(:@config, nil)
-
-    # Test with environment that doesn't exist in config
-    ENV["RAILS_ENV"] = "staging"
-    ActiveAgent.load_configuration(temp_file.path)
-
-    # Should fall back to root level configuration
-    assert_equal "fallback-key", ActiveAgent.config["openai"]["api_key"]
-
-    temp_file.unlink
-    # Restore original configuration
-  end
-
-  test "provider configuration merges options" do
-    base_config = {
-      "test" => {
-        "openai" => {
-          "service" => "OpenAI",
-          "api_key" => "test-key",
-          "model" => "gpt-4o-mini"
+  test "converts nested hashes to indifferent access" do
+    config = ActiveAgent::Configuration.new(
+      openai: {
+        "service" => "OpenAI",
+        "parameters" => {
+          "temperature" => 0.7,
+          "max_tokens" => 1000
         }
       }
-    }
+    )
 
-    ActiveAgent.instance_variable_set(:@config, base_config)
-    ENV["RAILS_ENV"] = "test"
-
-    # Test configuration with additional options
-    provider = ApplicationAgent.configuration(:openai, temperature: 0.9)
-
-    # Check the provider's config which should contain the merged configuration
-    # Original config uses string keys, merged options use symbol keys
-    assert_equal "test-key", provider.config["api_key"]
-    assert_equal "gpt-4o-mini", provider.config["model"]
-    assert_equal 0.9, provider.config[:temperature]  # Merged options use symbol keys
+    assert_equal 0.7, config[:openai][:parameters][:temperature]
+    assert_equal 0.7, config[:openai]["parameters"]["temperature"]
   end
 
-  test "configuration file structure matches expected format" do
-    ActiveAgent.instance_variable_set(:@config, nil)
-    # Verify the test dummy app's configuration file has the expected structure
-    config_file = Rails.root.join("config/active_agent.yml")
-    assert File.exist?(config_file)
+  # Test YAML file loading
+  test "loads configuration from YAML file" do
+    yaml_content = <<~YAML
+      development:
+        retries: false
+        retries_count: 10
+        verbose_generation_errors: true
+    YAML
 
-    config_content = File.read(config_file)
+    Tempfile.create([ "config", ".yml" ]) do |file|
+      file.write(yaml_content)
+      file.rewind
 
-    # Should have environment sections
-    assert_includes config_content, "development:"
-    assert_includes config_content, "test:"
+      ENV["RAILS_ENV"] = "development"
+      config = ActiveAgent::Configuration.load(file.path)
 
-    # Should have provider configurations
-    assert_includes config_content, "openai:"
-    assert_includes config_content, "service: \"OpenAI\""
+      assert_equal false, config.retries
+      assert_equal 10, config.retries_count
+      assert_equal true, config.verbose_generation_errors
+    ensure
+      ENV.delete("RAILS_ENV")
+    end
+  end
 
-    # Should have Rails credentials ERB
-    assert_includes config_content, "<%= Rails.application.credentials"
+  test "loads provider configuration from YAML file" do
+    yaml_content = <<~YAML
+      development:
+        openai:
+          service: "OpenAI"
+          model: "gpt-4o-mini"
+          temperature: 0.7
+        anthropic:
+          service: "Anthropic"
+          model: "claude-3-5-sonnet-20241022"
+    YAML
 
-    # Parse the YAML to ensure it's valid
-    parsed_config = YAML.load(ERB.new(config_content).result, aliases: true)
-    assert parsed_config.is_a?(Hash)
-    assert parsed_config.key?("development")
-    assert parsed_config.key?("test")
+    Tempfile.create([ "config", ".yml" ]) do |file|
+      file.write(yaml_content)
+      file.rewind
+
+      ENV["RAILS_ENV"] = "development"
+      config = ActiveAgent::Configuration.load(file.path)
+
+      assert_equal "OpenAI", config[:openai][:service]
+      assert_equal "gpt-4o-mini", config[:openai][:model]
+      assert_equal 0.7, config[:openai][:temperature]
+      assert_equal "Anthropic", config[:anthropic][:service]
+    ensure
+      ENV.delete("RAILS_ENV")
+    end
+  end
+
+  test "supports ERB in YAML file" do
+    yaml_content = <<~YAML
+      development:
+        openai:
+          service: "OpenAI"
+          access_token: <%= "test_token_123" %>
+    YAML
+
+    Tempfile.create([ "config", ".yml" ]) do |file|
+      file.write(yaml_content)
+      file.rewind
+
+      ENV["RAILS_ENV"] = "development"
+      config = ActiveAgent::Configuration.load(file.path)
+
+      assert_equal "test_token_123", config[:openai][:access_token]
+    ensure
+      ENV.delete("RAILS_ENV")
+    end
+  end
+
+  test "falls back to root config if environment not found" do
+    yaml_content = <<~YAML
+      retries: false
+      retries_count: 20
+    YAML
+
+    Tempfile.create([ "config", ".yml" ]) do |file|
+      file.write(yaml_content)
+      file.rewind
+
+      ENV["RAILS_ENV"] = "nonexistent_env"
+      config = ActiveAgent::Configuration.load(file.path)
+
+      assert_equal false, config.retries
+      assert_equal 20, config.retries_count
+    ensure
+      ENV.delete("RAILS_ENV")
+    end
+  end
+
+  test "returns empty config when file does not exist" do
+    config = ActiveAgent::Configuration.load("/path/to/nonexistent/file.yml")
+
+    # Should still have default values
+    assert_equal true, config.retries
+    assert_equal 3, config.retries_count
+  end
+
+  # Test global configuration methods
+  test "ActiveAgent.configuration returns global instance" do
+    config1 = ActiveAgent.configuration
+    config2 = ActiveAgent.configuration
+
+    assert_same config1, config2
+  end
+
+  test "ActiveAgent.configure yields configuration" do
+    ActiveAgent.configure do |config|
+      config.retries = false
+      config.retries_count = 99
+    end
+
+    assert_equal false, ActiveAgent.configuration.retries
+    assert_equal 99, ActiveAgent.configuration.retries_count
+  end
+
+  test "ActiveAgent.configure returns configuration" do
+    result = ActiveAgent.configure do |config|
+      config.retries_count = 42
+    end
+
+    assert_instance_of ActiveAgent::Configuration, result
+    assert_equal 42, result.retries_count
+  end
+
+  test "ActiveAgent.reset_configuration! creates new instance" do
+    ActiveAgent.configuration.retries_count = 50
+    original = ActiveAgent.configuration
+
+    ActiveAgent.reset_configuration!
+    new_config = ActiveAgent.configuration
+
+    refute_same original, new_config
+    assert_equal 3, new_config.retries_count # default value
+  end
+
+  test "ActiveAgent.configuration_load sets global configuration" do
+    yaml_content = <<~YAML
+      development:
+        retries_count: 25
+        openai:
+          service: "OpenAI"
+          model: "gpt-4o"
+    YAML
+
+    Tempfile.create([ "config", ".yml" ]) do |file|
+      file.write(yaml_content)
+      file.rewind
+
+      ENV["RAILS_ENV"] = "development"
+      ActiveAgent.configuration_load(file.path)
+
+      assert_equal 25, ActiveAgent.configuration.retries_count
+      assert_equal "OpenAI", ActiveAgent.configuration[:openai][:service]
+    ensure
+      ENV.delete("RAILS_ENV")
+    end
+  end
+
+  # Test array conversion to indifferent access
+  test "converts arrays with hashes to indifferent access" do
+    config = ActiveAgent::Configuration.new(
+      providers: [
+        { "name" => "openai", "model" => "gpt-4o" },
+        { "name" => "anthropic", "model" => "claude-3-5-sonnet-20241022" }
+      ]
+    )
+
+    assert_equal "openai", config[:providers][0][:name]
+    assert_equal "openai", config[:providers][0]["name"]
+  end
+
+  # Test retries_on default error classes
+  test "retries_on includes network-related errors by default" do
+    config = ActiveAgent::Configuration.new
+
+    assert_includes config.retries_on, EOFError
+    assert_includes config.retries_on, Errno::ECONNREFUSED
+    assert_includes config.retries_on, Errno::ECONNRESET
+    assert_includes config.retries_on, Errno::EHOSTUNREACH
+    assert_includes config.retries_on, Errno::EINVAL
+    assert_includes config.retries_on, Errno::ENETUNREACH
+    assert_includes config.retries_on, Errno::ETIMEDOUT
+    assert_includes config.retries_on, SocketError
+    assert_includes config.retries_on, Timeout::Error
+  end
+
+  test "retries_on can be modified" do
+    config = ActiveAgent::Configuration.new
+    original_count = config.retries_on.size
+
+    config.retries_on << RuntimeError
+
+    assert_equal original_count + 1, config.retries_on.size
+    assert_includes config.retries_on, RuntimeError
+  end
+
+  # Test DEFAULTS constant
+  test "DEFAULTS constant is frozen" do
+    assert ActiveAgent::Configuration::DEFAULTS.frozen?
+  end
+
+  test "DEFAULTS retries_on is frozen" do
+    assert ActiveAgent::Configuration::DEFAULTS[:retries_on].frozen?
   end
 end

@@ -126,7 +126,7 @@ class AnthropicProviderTest < ActiveAgentTestCase
     ActiveAgent.instance_variable_set(:@config, nil)
 
     # Load configuration from file
-    ActiveAgent.load_configuration(temp_file.path)
+    ActiveAgent.configuration_load(temp_file.path)
 
     original_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "test"
@@ -145,7 +145,7 @@ class AnthropicProviderTest < ActiveAgentTestCase
     ActiveAgent.instance_variable_set(:@config, nil)
 
     # Try to load non-existent file
-    ActiveAgent.load_configuration("/path/to/nonexistent/file.yml")
+    ActiveAgent.configuration_load("/path/to/nonexistent/file.yml")
 
     # Should not raise an error, config should remain nil
     assert_equal ActiveAgent.config, {}
@@ -173,7 +173,7 @@ class AnthropicProviderTest < ActiveAgentTestCase
     ActiveAgent.instance_variable_set(:@config, nil)
 
     # Load configuration from file
-    ActiveAgent.load_configuration(temp_file.path)
+    ActiveAgent.configuration_load(temp_file.path)
 
     original_env = ENV["RAILS_ENV"]
     ENV["RAILS_ENV"] = "test"

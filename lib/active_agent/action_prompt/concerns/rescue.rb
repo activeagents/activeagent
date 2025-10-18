@@ -2,13 +2,10 @@
 
 module ActiveAgent
   module ActionPrompt
-    # Provides exception handling capabilities for action prompts.
+    # Provides exception handling for action prompts using `rescue_from` declarations.
     #
-    # Includes ActiveSupport::Rescuable to enable `rescue_from` declarations
-    # that catch and handle exceptions during prompt processing.
-    #
-    # Note: Handler methods referenced in `rescue_from` must be public or protected,
-    # as ActiveSupport::Rescuable uses `Kernel#method()` to look them up.
+    # Handler methods must be public or protected because ActiveSupport::Rescuable
+    # uses `Kernel#method()` for lookup.
     #
     # @see https://github.com/rails/rails/blob/main/actionpack/lib/action_controller/metal/rescue.rb
     # @see ActiveSupport::Rescuable
@@ -30,6 +27,11 @@ module ActiveAgent
         # end
       end
 
+      # Yields to block with exception handling.
+      # Rescues using registered handlers or re-raises.
+      #
+      # @yield block to execute with exception handling
+      # @raise [Exception] if no handler is registered for the exception
       def handle_exceptions
         yield
       rescue Exception => exception
@@ -39,14 +41,25 @@ module ActiveAgent
       private
 
       # Processes the prompt with exception handling.
-      # Rescues exceptions using registered handlers or re-raises.
       #
-      # @raise [Exception] if no handler is found
+      # Overrides parent to rescue exceptions using registered handlers.
+      #
+      # @raise [Exception] if no handler is registered for the exception
       # @api private
       def process(...)
         super
       rescue Exception => exception
         rescue_with_handler(exception) || raise
+      end
+
+      # Returns proc that rescues exceptions using registered handlers.
+      #
+      # @return [Proc]
+      # @api private
+      def exception_handler
+        proc do |exception|
+          rescue_with_handler(exception)
+        end
       end
     end
   end

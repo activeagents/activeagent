@@ -36,7 +36,7 @@ module ActiveAgent
       options.asset_host ||= app.config.asset_host
       options.relative_url_root ||= app.config.relative_url_root
 
-      ActiveAgent.load_configuration(Rails.root.join("config", "active_agent.yml"))
+      ActiveAgent.configuration_load(Rails.root.join("config", "active_agent.yml"))
 
       ActiveSupport.on_load(:active_agent) do
         include AbstractController::UrlFor

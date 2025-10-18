@@ -101,9 +101,9 @@ VCR.configure do |config|
   config.cassette_library_dir = "test/fixtures/vcr_cassettes"
   config.hook_into :webmock
 
-  ActiveAgent.sanitizers.each do |secret, placeholder|
-    config.filter_sensitive_data(placeholder) { secret }
-  end
+  # ActiveAgent.sanitizers.each do |secret, placeholder|
+  #   config.filter_sensitive_data(placeholder) { secret }
+  # end
 
   config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["OPEN_AI_ACCESS_TOKEN"] }
   config.filter_sensitive_data("ORGANIZATION_ID") { ENV["OPEN_AI_ORGANIZATION_ID"] }
@@ -138,7 +138,7 @@ class ActiveAgentTestCase < ActiveSupport::TestCase
     ENV["RAILS_ENV"] = @original_rails_env
     # Reload default configuration
     config_file = Rails.root.join("config/active_agent.yml")
-    ActiveAgent.load_configuration(config_file) if File.exist?(config_file)
+    ActiveAgent.configuration_load(config_file) if File.exist?(config_file)
   end
 
   # Helper method to temporarily set configuration

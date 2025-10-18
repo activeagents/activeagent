@@ -24,6 +24,7 @@ module ActiveAgent
     # @see https://platform.openai.com/docs/guides/migrate-to-responses
     class OpenAIProvider < OpenAI::BaseProvider
       attr_internal :api_version
+      attr_internal :raw_options
 
       # Initializes the OpenAI provider router.
       #
@@ -34,14 +35,11 @@ module ActiveAgent
       # @option kwargs [Symbol] :service The service name to validate
       # @option kwargs [Symbol] :api_version The OpenAI API version to use (:chat or :responses)
       def initialize(kwargs = {})
-        assert_service!(kwargs.delete(:service))
-
         # For Routing Prompt APIs
         self.api_version = kwargs.delete(:api_version)
+        self.raw_options = kwargs.deep_dup
 
-        # For Embedding Support
-        self.options = options_klass.new(kwargs.extract!(*options_klass.keys))
-        self.context = kwargs
+        super
       end
 
       # Generates a response by routing to the appropriate OpenAI API version.
@@ -55,9 +53,9 @@ module ActiveAgent
       # @see https://platform.openai.com/docs/guides/migrate-to-responses
       def prompt
         if api_version == :chat || context[:audio].present?
-          OpenAI::ChatProvider.new(context).prompt
+          OpenAI::ChatProvider.new(raw_options).prompt
         else # api_version == :responses || true
-          OpenAI::ResponsesProvider.new(context).prompt
+          OpenAI::ResponsesProvider.new(raw_options).prompt
         end
       end
 

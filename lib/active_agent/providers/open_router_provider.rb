@@ -26,7 +26,7 @@ module ActiveAgent
       #   super
       # end
 
-      #   with_error_handling do
+      #   retriable do
       #     resolve_prompt
       #   end
       #   rescue StandardError => exception

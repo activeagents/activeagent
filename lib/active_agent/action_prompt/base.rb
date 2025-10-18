@@ -248,6 +248,7 @@ module ActiveAgent
         fail "Prompt Provider not Configured" unless prompt_provider_klass
 
         parameters = prompt_options.merge(
+          exception_handler:,
           stream_broadcaster:,
           tools_function:,
           instructions: prompt_view_instructions(prompt_options[:instructions])
@@ -263,7 +264,9 @@ module ActiveAgent
       def process_embed
         fail "Embed Provider not Configured" unless embed_provider_klass
 
-        parameters = embed_options.compact
+        parameters = embed_options.merge(
+          exception_handler:
+        ).compact
 
         embed_provider_klass.new(**parameters).embed
       end

@@ -1,36 +1,481 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/object/duplicable"
+require "active_support/core_ext/hash/indifferent_access"
+require "erb"
+require "socket"
+require "timeout"
+require "yaml"
+
 module ActiveAgent
+  # Configuration class for ActiveAgent global settings.
+  #
+  # Provides configuration options for generation behavior, error handling,
+  # logging, and retry strategies. Configuration can be set globally using
+  # the {ActiveAgent.configure} method or loaded from a YAML file for
+  # provider-specific settings.
+  #
+  # = Global Configuration
+  #
+  # Use {ActiveAgent.configure} for framework-level settings like retry behavior
+  # and logging.
+  #
+  # @example Basic configuration
+  #   ActiveAgent.configure do |config|
+  #     config.retries = true
+  #     config.retries_count = 5
+  #   end
+  #
+  # @example Custom retry strategy
+  #   ActiveAgent.configure do |config|
+  #     config.retries = ->(block) do
+  #       Retriable.retriable(tries: 3, on: [Net::ReadTimeout]) do
+  #         block.call
+  #       end
+  #     end
+  #   end
+  #
+  # = Provider Configuration
+  #
+  # Use YAML configuration files to define provider-specific settings like
+  # API keys, models, and parameters. This is the recommended approach for
+  # managing multiple generation providers across different environments.
+  #
+  # @example YAML configuration file (config/activeagent.yml)
+  #   # Define reusable anchors for common settings
+  #   openai: &openai
+  #     service: "OpenAI"
+  #     access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
+  #
+  #   anthropic: &anthropic
+  #     service: "Anthropic"
+  #     access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
+  #
+  #   development:
+  #     openai:
+  #       <<: *openai
+  #       model: "gpt-4o-mini"
+  #       temperature: 0.7
+  #     anthropic:
+  #       <<: *anthropic
+  #       model: "claude-3-5-sonnet-20241022"
+  #
+  #   production:
+  #     openai:
+  #       <<: *openai
+  #       model: "gpt-4o"
+  #       temperature: 0.5
+  #
+  # @example Loading provider configuration
+  #   # In config/initializers/activeagent.rb
+  #   ActiveAgent.configuration_load(Rails.root.join("config/activeagent.yml"))
+  #
+  # @example Using configured providers in agents
+  #   class MyAgent < ActiveAgent::Base
+  #     generate_with :openai  # Uses settings from config/activeagent.yml
+  #   end
+  #
+  # @see ActiveAgent.configure
+  # @see ActiveAgent.configuration_load
   class Configuration
+    # Default configuration values.
+    #
+    # @return [Hash] Hash of default configuration values
+    DEFAULTS = {
+      verbose_generation_errors: false,
+      generation_provider_logger: nil,
+      retries: true,
+      retries_count: 3,
+      retries_on: [
+        EOFError,
+        Errno::ECONNREFUSED,
+        Errno::ECONNRESET,
+        Errno::EHOSTUNREACH,
+        Errno::EINVAL,
+        Errno::ENETUNREACH,
+        Errno::ETIMEDOUT,
+        SocketError,
+        Timeout::Error
+      ].freeze
+    }.freeze
+
+    # @!attribute [rw] verbose_generation_errors
+    #   When true, generation errors will include detailed error messages and backtraces.
+    #   @return [Boolean] Whether to show verbose error messages (default: false)
     attr_accessor :verbose_generation_errors
-    attr_accessor :generation_retry_errors
-    attr_accessor :generation_max_retries
+
+    # @!attribute [rw] generation_provider_logger
+    #   Logger instance for generation provider operations.
+    #   @return [Logger, nil] Logger for provider operations (default: nil)
     attr_accessor :generation_provider_logger
 
-    def initialize
-      @verbose_generation_errors = false
-      @generation_retry_errors = []
-      @generation_max_retries = 3
-      @generation_provider_logger = nil
+    # @!attribute [rw] retries
+    #   Retry strategy for generation requests.
+    #   Can be false (no retries), true (built-in retries), or a Proc for custom logic.
+    #   @return [Boolean, Proc] Retry strategy (default: true)
+    #   @see #retries=
+    attr_accessor :retries
+
+    # @!attribute [rw] retries_count
+    #   Maximum number of retry attempts for generation requests.
+    #   @return [Integer] Maximum retry attempts (default: 3)
+    attr_accessor :retries_count
+
+    # @!attribute [rw] retries_on
+    #   Array of exception classes that should trigger retries.
+    #   Only used when {#retries} is set to true (built-in retry logic).
+    #   @return [Array<Class>] Exception classes to retry on (default: network-related errors)
+    #   @see #retries
+    #   @see #retries_count
+    attr_accessor :retries_on
+
+    # Loads configuration from a YAML file.
+    #
+    # Reads a YAML configuration file, evaluates any ERB templates, and extracts
+    # environment-specific settings based on RAILS_ENV or ENV environment variables.
+    # Falls back to the root level settings if no environment key is found.
+    #
+    # The YAML file can contain both framework-level settings (retries, logging, etc.)
+    # and provider-specific configurations (API keys, models, parameters). Provider
+    # configurations are stored as nested hashes and can be accessed via the [] operator.
+    #
+    # @param filename [String] Path to the YAML configuration file
+    # @return [Configuration] A new Configuration instance with loaded settings
+    #
+    # @example Framework settings only
+    #   # config/activeagent.yml
+    #   development:
+    #     retries: true
+    #     retries_count: 3
+    #   production:
+    #     retries: true
+    #     retries_count: 5
+    #     verbose_generation_errors: false
+    #
+    # @example Provider-specific configuration with YAML anchors
+    #   # config/activeagent.yml
+    #   openai: &openai
+    #     service: "OpenAI"
+    #     access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
+    #     retries: false
+    #
+    #   anthropic: &anthropic
+    #     service: "Anthropic"
+    #     access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
+    #
+    #   open_router: &open_router
+    #     service: "OpenRouter"
+    #     access_token: <%= Rails.application.credentials.dig(:open_router, :access_token) %>
+    #     retries_count: 5
+    #
+    #   development:
+    #     openai:
+    #       <<: *openai
+    #       model: "gpt-4o-mini"
+    #       temperature: 0.7
+    #     anthropic:
+    #       <<: *anthropic
+    #       model: "claude-3-5-sonnet-20241022"
+    #     open_router:
+    #       <<: *open_router
+    #       model: "qwen/qwen3-30b-a3b:free"
+    #
+    #   test:
+    #     openai:
+    #       <<: *openai
+    #       model: "gpt-4o-mini"
+    #     anthropic:
+    #       <<: *anthropic
+    #
+    #   production:
+    #     openai:
+    #       <<: *openai
+    #       model: "gpt-4o"
+    #       temperature: 0.5
+    #     anthropic:
+    #       <<: *anthropic
+    #       model: "claude-3-5-sonnet-20241022"
+    #
+    # @example Loading and accessing provider configuration
+    #   config = ActiveAgent::Configuration.load("config/activeagent.yml")
+    #   config[:openai]  # => { "service" => "OpenAI", "model" => "gpt-4o-mini", ... }
+    #
+    # @note ERB templates are evaluated, allowing you to use Rails credentials,
+    #   environment variables, or any Ruby code within <%= %> tags.
+    def self.load(filename)
+      settings = {}
+
+      if File.exist?(filename)
+        config_file = YAML.load(ERB.new(File.read(filename)).result, aliases: true)
+        env         = ENV["RAILS_ENV"] || ENV["ENV"] || "development"
+        settings    = config_file[env] || config_file
+      end
+
+      Configuration.new(settings)
     end
 
+    # Initializes a new Configuration instance with default values.
+    #
+    # Sets all configuration attributes to their default values as defined
+    # in {DEFAULTS}. Duplicates values where possible to prevent shared state.
+    # Custom settings can be passed to override defaults.
+    #
+    # When loading from a YAML file via {Configuration.load}, all settings from
+    # the environment-specific section are passed as the settings hash, including
+    # any provider configurations defined in the file.
+    #
+    # @param settings [Hash] Optional settings to override defaults
+    # @option settings [Boolean] :verbose_generation_errors (false) Enable verbose errors
+    # @option settings [Logger, nil] :generation_provider_logger (nil) Logger instance
+    # @option settings [Boolean, Proc] :retries (true) Retry strategy
+    # @option settings [Integer] :retries_count (3) Maximum retry attempts
+    # @option settings [Array<Class>] :retries_on Network error classes to retry on
+    #
+    # @example With default settings
+    #   config = ActiveAgent::Configuration.new
+    #
+    # @example With custom settings
+    #   config = ActiveAgent::Configuration.new(
+    #     retries: false,
+    #     verbose_generation_errors: true
+    #   )
+    #
+    # @example With provider configurations (typically from YAML)
+    #   config = ActiveAgent::Configuration.new(
+    #     openai: { service: "OpenAI", model: "gpt-4o" },
+    #     anthropic: { service: "Anthropic", model: "claude-3-5-sonnet-20241022" }
+    #   )
+    def initialize(settings = {})
+      (DEFAULTS.merge(settings)).each do |key, value|
+        self[key] = value
+      end
+    end
+
+    # Checks if verbose generation errors are enabled.
+    #
+    # @return [Boolean] True if verbose errors are enabled
     def verbose_generation_errors?
       @verbose_generation_errors
     end
+
+    # Configures the retry strategy for generation requests.
+    #
+    # @param strategy [Boolean, Proc]
+    #   - false: disables retries completely
+    #   - true: uses built-in retry logic (default)
+    #   - Proc: custom retry wrapper that receives a block to execute
+    #
+    # @raise [ArgumentError] If strategy is not false, true, or a callable object
+    #
+    # @example Disable retries
+    #   config.retries = false
+    #
+    # @example Use built-in retries (default)
+    #   config.retries = true
+    #
+    # @example Custom retry wrapper with Retriable gem
+    #   config.retries = ->(block) {
+    #     Retriable.retriable(tries: 5, on: [Net::ReadTimeout, Timeout::Error]) do
+    #       block.call
+    #     end
+    #   }
+    #
+    # @example Circuit breaker pattern
+    #   config.retries = ->(block) {
+    #     CircuitBreaker.handle do
+    #       block.call
+    #     end
+    #   }
+    #
+    # @see #retries_count
+    # @see #retries_on
+    def retries=(strategy)
+      unless strategy == false || strategy == true || strategy.respond_to?(:call)
+        raise ArgumentError, "retries must be false, true, or a callable object (Proc/Lambda)"
+      end
+      @retries = strategy
+    end
+
+    # Retrieves a configuration value by key.
+    #
+    # This method provides hash-like access to both framework settings and
+    # provider configurations. Framework settings correspond to the defined
+    # accessors, while provider configurations are stored as nested hashes.
+    #
+    # @param key [String, Symbol] Configuration key to retrieve
+    # @return [Object, nil] The configuration value or nil if not found
+    #
+    # @example Accessing framework settings
+    #   config[:retries]  # => true
+    #   config["retries"] # => true
+    #
+    # @example Accessing provider configurations
+    #   config[:openai]     # => { "service" => "OpenAI", "model" => "gpt-4o", ... }
+    #   config[:anthropic]  # => { "service" => "Anthropic", "model" => "claude-3-5-sonnet-20241022", ... }
+    def [](key)
+      instance_variable_get("@#{key}")
+    end
+
+    # Sets a configuration value by key.
+    #
+    # @param key [String, Symbol] Configuration key to set
+    # @param value [Object] Value to set
+    # @return [Object] The value that was set
+    #
+    # @example
+    #   config[:retries] = false
+    #   config["retries_count"] = 5
+    def []=(key, value)
+      instance_variable_set("@#{key}", convert_to_indifferent_access(value))
+    end
+
+    # Delegates method calls to the [] operator for accessing configuration values.
+    #
+    # Allows accessing configuration values using method syntax instead of
+    # hash-like access. Returns nil for undefined configuration keys.
+    #
+    # @param method [Symbol] The method name (configuration key)
+    # @param args [Array] Method arguments (not used)
+    # @return [Object, nil] The configuration value or nil
+    # @private
+    #
+    # @example
+    #   config.retries        # => true (same as config[:retries])
+    #   config.retries_count  # => 3 (same as config[:retries_count])
+    def method_missing(method, *args)
+      self[method]
+    end
+
+    # Checks if the configuration responds to a method.
+    #
+    # Returns true if an instance variable exists for the given method name,
+    # allowing proper introspection of dynamically accessible configuration keys.
+    #
+    # @param method [Symbol] The method name to check
+    # @param include_private [Boolean] Whether to include private methods
+    # @return [Boolean] True if the configuration has the key
+    # @private
+    def respond_to_missing?(method, include_private = false)
+      instance_variable_defined?("@#{method}") || super
+    end
+
+    private
+
+    # Recursively converts hashes to HashWithIndifferentAccess.
+    #
+    # This ensures that all hash values (including nested hashes) can be
+    # accessed using both string and symbol keys. Non-hash values are
+    # returned unchanged.
+    #
+    # @param value [Object] The value to convert
+    # @return [Object] The converted value
+    # @private
+    def convert_to_indifferent_access(value)
+      case value
+      when Hash
+        value.with_indifferent_access.transform_values { |v| convert_to_indifferent_access(v) }
+      when Array
+        value.map { |v| convert_to_indifferent_access(v) }
+      else
+        value
+      end
+    end
   end
 
-  class << self
-    def configuration
-      @configuration ||= Configuration.new
-    end
+  # Returns the global configuration instance.
+  #
+  # Creates a new {Configuration} instance if one doesn't exist.
+  #
+  # @return [Configuration] The global configuration instance
+  #
+  # @example Access configuration
+  #   ActiveAgent.configuration.retries  # => true
+  def self.configuration
+    @configuration ||= Configuration.new
+  end
 
-    def configure
-      yield configuration if block_given?
-      configuration
-    end
+  # Configures ActiveAgent with a block.
+  #
+  # Yields the global configuration instance to the provided block,
+  # allowing settings to be modified. This is the recommended way
+  # to configure ActiveAgent.
+  #
+  # @yield [config] Yields the configuration instance
+  # @yieldparam config [Configuration] The configuration to modify
+  # @return [Configuration] The modified configuration instance
+  #
+  # @example Basic configuration
+  #   ActiveAgent.configure do |config|
+  #     config.retries = false
+  #     config.verbose_generation_errors = true
+  #   end
+  #
+  # @example Configuring retry behavior
+  #   ActiveAgent.configure do |config|
+  #     config.retries = true
+  #     config.retries_count = 5
+  #     config.retries_on << CustomNetworkError
+  #   end
+  #
+  # @example Custom logger
+  #   ActiveAgent.configure do |config|
+  #     config.generation_provider_logger = Rails.logger
+  #   end
+  def self.configure
+    yield configuration if block_given?
+    configuration
+  end
 
-    def reset_configuration!
-      @configuration = Configuration.new
-    end
+  # Resets the global configuration to default values.
+  #
+  # Creates a new {Configuration} instance with all defaults restored.
+  # Useful for testing or resetting state.
+  #
+  # @return [Configuration] The new default configuration instance
+  #
+  # @example
+  #   ActiveAgent.reset_configuration!
+  def self.reset_configuration!
+    @configuration = Configuration.new
+  end
+
+  # Loads and sets the global configuration from a YAML file.
+  #
+  # Reads configuration from the specified file and sets it as the
+  # global configuration instance. This is an alternative to using
+  # {.configure} with a block and is the recommended approach for
+  # managing provider-specific settings.
+  #
+  # The YAML file supports ERB templating, environment-specific sections,
+  # and YAML anchors for reusing common configuration blocks across providers.
+  #
+  # @param filename [String] Path to the YAML configuration file
+  # @return [Configuration] The loaded configuration instance
+  #
+  # @example Basic usage in Rails initializer
+  #   # config/initializers/activeagent.rb
+  #   ActiveAgent.configuration_load(Rails.root.join("config/activeagent.yml"))
+  #
+  # @example Complete workflow
+  #   # 1. Create config/activeagent.yml with provider settings
+  #   # 2. Load in initializer:
+  #   ActiveAgent.configuration_load("config/activeagent.yml")
+  #
+  #   # 3. Use in your agents:
+  #   class MyAgent < ActiveAgent::Base
+  #     generate_with :openai  # Automatically uses config from YAML
+  #   end
+  #
+  # @example Accessing loaded provider configuration
+  #   ActiveAgent.configuration[:openai]
+  #   # => { "service" => "OpenAI", "model" => "gpt-4o-mini", "temperature" => 0.7, ... }
+  #
+  # @note This method is typically called once during application initialization.
+  #   Store API keys in Rails credentials rather than directly in the YAML file.
+  #
+  # @see Configuration.load
+  # @see .configure
+  def self.configuration_load(filename)
+    @configuration = Configuration.load(filename)
   end
 end
