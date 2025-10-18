@@ -11,13 +11,7 @@ module ActiveAgent
           # Drops reasoning fields during message reconstruction since they're not
           # part of the standard request format.
           class Assistant < OpenAI::Chat::Requests::Messages::Assistant
-            # Drops reasoning attribute during message reconstruction.
-            # @param value [String] reasoning value to ignore
-            def reasoning=(value); end
-
-            # Drops reasoning_details attribute during message reconstruction.
-            # @param value [Hash] reasoning_details value to ignore
-            def reasoning_details=(value); end
+            drop_attributes :reasoning, :reasoning_details
           end
         end
       end

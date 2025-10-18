@@ -14,17 +14,7 @@ module ActiveAgent
             class AssistantMessage < Base
               attribute :role, :string, as: "assistant"
 
-              # Drops id attribute during message reconstruction.
-              # @param value [String] id value to ignore
-              def id=(value); end
-
-              # Drops type attribute during message reconstruction.
-              # @param value [String] type value to ignore
-              def type=(value); end
-
-              # Drops status attribute during message reconstruction.
-              # @param value [String] status value to ignore
-              def status=(value); end
+              drop_attributes :id, :type, :status
             end
           end
         end

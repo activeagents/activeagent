@@ -24,7 +24,6 @@ module ActiveAgent
   autoload :Callbacks
   autoload :Streaming
   autoload :InlinePreviewInterceptor
-  autoload :PromptHelper
   autoload :Generation
   autoload :QueuedGeneration
   autoload :Parameterized

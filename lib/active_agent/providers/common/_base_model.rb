@@ -117,6 +117,16 @@ module ActiveAgent
           end
         end
 
+        # Sometimes we need drop attributes during message response to request construction or
+        # between inherited providers which support different attributes.
+        def self.drop_attributes(*attributes)
+          attributes.each do |attribute|
+            define_method("#{attribute}=") do |value|
+              # No-Op: Drop the value
+            end
+          end
+        end
+
         # Returns all attribute keys including aliases.
         #
         # Combines both the main attribute type keys and any attribute aliases,

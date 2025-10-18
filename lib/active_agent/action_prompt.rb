@@ -7,9 +7,6 @@ module ActiveAgent
 
     eager_autoload do
       autoload :Collector
-      autoload :Message
-      autoload :Prompt
-      autoload :PromptHelper
     end
 
     autoload :Base

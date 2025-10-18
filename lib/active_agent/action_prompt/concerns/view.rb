@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "active_agent/action_prompt/message"
 require "active_agent/collector"
 
 module ActiveAgent
@@ -28,9 +27,9 @@ module ActiveAgent
       # - Hash: must have :template key, optional :locals
       # - nil: renders default "instructions" template
       #
-      # @param param [Hash, String, Symbol, Array, nil] Instructions input
-      # @return [String, Array<String>, nil] Prepared instructions or nil if template not found
-      # @raise [ArgumentError] If format is invalid or Hash missing :template key
+      # @param param [Hash, String, Symbol, Array, nil]
+      # @return [String, Array<String>, nil] nil if template not found
+      # @raise [ArgumentError] if format is invalid or Hash missing :template key
       def prompt_view_instructions(param)
         case param
         when String
@@ -61,9 +60,9 @@ module ActiveAgent
 
       # Renders a text template if it exists.
       #
-      # @param template_name [String, Symbol] Name of template to render
-      # @param locals [Hash] Local variables to pass to template
-      # @return [String, nil] Rendered template content or nil if not found
+      # @param template_name [String, Symbol]
+      # @param locals [Hash]
+      # @return [String, nil] nil if template not found
       def view_render_template(template_name, locals = {})
         return unless lookup_context.exists?(template_name, agent_name, false, [], formats: [ :text ])
 
@@ -77,10 +76,9 @@ module ActiveAgent
 
       # Returns JSON schemas for all action methods.
       #
-      # Looks for JSON templates corresponding to each action method name
-      # and parses them into schema hashes.
+      # Looks for JSON templates corresponding to each action method name.
       #
-      # @return [Array<Hash>] JSON schemas for available actions
+      # @return [Array<Hash>]
       def action_schemas
         prefixes = set_prefixes(action_name, lookup_context.prefixes)
 
@@ -91,18 +89,18 @@ module ActiveAgent
 
       # Sets template prefixes for schema lookup.
       #
-      # @param action [String] Current action name (unused but kept for signature)
-      # @param prefixes [Array<String>] Existing lookup prefixes
-      # @return [Array<String>] Updated prefixes including agent name
+      # @param action [String] unused but kept for signature compatibility
+      # @param prefixes [Array<String>]
+      # @return [Array<String>] prefixes including agent name
       def set_prefixes(action, prefixes)
         prefixes = lookup_context.prefixes | [ self.class.agent_name ]
       end
 
       # Renders JSON schema from template or returns it directly if already a Hash.
       #
-      # @param schema_or_action [Hash, String] Direct schema or action name to find template
-      # @param prefixes [Array<String>] Template lookup prefixes
-      # @return [Hash, nil] Parsed JSON schema or nil if template not found
+      # @param schema_or_action [Hash, String] schema hash or action name for template lookup
+      # @param prefixes [Array<String>]
+      # @return [Hash, nil] nil if template not found
       def render_schema(schema_or_action, prefixes)
         # If it's already a hash (direct schema), return it
         return schema_or_action if schema_or_action.is_a?(Hash)
@@ -118,9 +116,9 @@ module ActiveAgent
       # Routes to appropriate collection method based on whether a block is given
       # or args contains :body.
       #
-      # @param args [Hash] Response configuration (may include :body, :template_name, etc.)
-      # @yield [collector] Optional collector for building custom responses
-      # @return [Array<Hash>] Response hashes with :body and :content_type keys
+      # @param args [Hash] may include :body, :template_name, etc.
+      # @yield [collector] optional collector for building custom responses
+      # @return [Array<Hash>] with :body and :content_type keys
       def collect_responses(args, &)
         if block_given?
           collect_responses_from_block(args, &)
@@ -133,9 +131,9 @@ module ActiveAgent
 
       # Collects responses by yielding a collector to the given block.
       #
-      # @param args [Hash] May include :template_name (defaults to action_name)
-      # @yield [collector] ActiveAgent::Collector instance for building responses
-      # @return [Array<Hash>] Responses collected via the block
+      # @param args [Hash] may include :template_name (defaults to action_name)
+      # @yield [collector] ActiveAgent::Collector instance
+      # @return [Array<Hash>]
       def collect_responses_from_block(args)
         templates_name = args[:template_name] || action_name
         collector = ActiveAgent::Collector.new(lookup_context) { render(templates_name) }
@@ -145,8 +143,8 @@ module ActiveAgent
 
       # Collects response from direct text provided in args.
       #
-      # @param args [Hash] Must include :body, optional :content_type (defaults to "text/plain")
-      # @return [Array<Hash>] Single-element array with response
+      # @param args [Hash] must include :body, optional :content_type (defaults to "text/plain")
+      # @return [Array<Hash>] single-element array
       def collect_responses_from_text(args)
         [ {
           body: args.delete(:body),
@@ -158,8 +156,8 @@ module ActiveAgent
       #
       # Skips JSON templates unless :format is explicitly :json.
       #
-      # @param args [Hash] May include :template_path, :template_name, :format
-      # @return [Array<Hash>] Rendered template responses with detected content types
+      # @param args [Hash] may include :template_path, :template_name, :format
+      # @return [Array<Hash>]
       def collect_responses_from_templates(args)
         templates_path = args[:template_path] || self.class.agent_name
         templates_name = args[:template_name] || action_name
@@ -177,10 +175,10 @@ module ActiveAgent
       #
       # Templates are deduplicated by format.
       #
-      # @param paths [Array<String>] Template lookup paths
-      # @param name [String] Template name to find
-      # @yield [template] Each unique template found
-      # @raise [ActionView::MissingTemplate] If no templates match
+      # @param paths [Array<String>]
+      # @param name [String]
+      # @yield [template] each unique template found
+      # @raise [ActionView::MissingTemplate] when no templates match
       def each_template(paths, name, &)
         templates = lookup_context.find_all(name, paths)
         if templates.empty?
@@ -192,8 +190,8 @@ module ActiveAgent
 
       # Creates message parts from responses and adds them to context.
       #
-      # @param context [Object] Context object that receives parts via add_part
-      # @param responses [Array<Hash>] Response data with :body and :content_type
+      # @param context [Object] receives parts via add_part
+      # @param responses [Array<Hash>] with :body and :content_type keys
       def create_parts_from_responses(context, responses)
         if responses.size > 1
           responses.each { |r| insert_part(context, r, context.charset) }
@@ -204,9 +202,9 @@ module ActiveAgent
 
       # Creates and inserts a single message part into the context.
       #
-      # @param context [Object] Context object that receives part via add_part
-      # @param response [Hash] Response with :body and :content_type keys
-      # @param charset [String] Character encoding for the message
+      # @param context [Object] receives part via add_part
+      # @param response [Hash] with :body and :content_type keys
+      # @param charset [String]
       def insert_part(context, response, charset)
         message = ActiveAgent::ActionPrompt::Message.new(
           content: response[:body],

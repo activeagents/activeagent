@@ -21,9 +21,7 @@ module ActiveAgent
               # Assistant messages need content, tool_calls, function_call, or refusal
               validate :validate_has_response_content
 
-              # This is to drop annotations during the construction of callback messaging
-              def annotations=(value); end
-              def index=(value); end
+              drop_attributes :annotations, :index
 
               private
 

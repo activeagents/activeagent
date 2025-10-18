@@ -9,8 +9,7 @@ module ActiveAgent
             # Assistant message - messages sent by the model
             # Inherits from OpenAI base as Ollama is largely compatible
             class Assistant < OpenAI::Chat::Requests::Messages::Assistant
-              # This is to drop reasoning during the construction of callback messaging
-              def reasoning=(value); end
+              drop_attributes :reasoning
             end
           end
         end

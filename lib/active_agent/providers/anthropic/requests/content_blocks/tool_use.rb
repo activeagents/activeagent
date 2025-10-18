@@ -19,8 +19,7 @@ module ActiveAgent
             validates :name, presence: true, length: { minimum: 1, maximum: 200 }
             validates :input, presence: true
 
-            # To drop the field during message reconstruction
-            def json_buf=(value); end
+            drop_attributes :json_buf
           end
         end
       end

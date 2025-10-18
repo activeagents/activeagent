@@ -27,13 +27,13 @@ module WebSearchable
   private
 
   def add_web_search_tool
-    # Merge web search tool into options
-    current_tools = @_context.options[:tools] || []
+    # Merge web search tool into prompt options
+    current_tools = (prompt_options[:options] ||= {})[:tools] || []
     current_tools << {
       type: "web_search_preview",
       search_context_size: web_search_context_size
     }
-    @_context.options[:tools] = current_tools
+    (prompt_options[:options] ||= {})[:tools] = current_tools
   end
 
   def web_search_enabled?

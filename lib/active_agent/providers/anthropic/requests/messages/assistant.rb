@@ -14,13 +14,7 @@ module ActiveAgent
             # - An array of content blocks (text, thinking, tool_use, etc.)
             validates :content, presence: true
 
-            # To discard these unsupported field when packing the messages out again
-            def usage=(value); end
-            def id=(value); end
-            def model=(value); end
-            def stop_reason=(value); end
-            def stop_sequence=(value); end
-            def type=(value); end
+            drop_attributes :usage, :id, :model, :stop_reason, :stop_sequence, :type
 
             def initialize(**kwargs)
               # Convert string content to array format if needed
