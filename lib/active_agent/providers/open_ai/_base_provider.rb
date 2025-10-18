@@ -7,13 +7,23 @@ require_relative "options"
 module ActiveAgent
   module Providers
     module OpenAI
+      # Base provider class for OpenAI API implementations.
+      #
+      # Provides common functionality for OpenAI-based providers including
+      # client configuration, service identification, and tool call processing.
+      #
+      # @see ActiveAgent::Providers::BaseProvider
       class BaseProvider < ActiveAgent::Providers::BaseProvider
-        # @return [OpenAI::Client] a configured OpenAI client instance
+        # Returns a configured OpenAI client instance.
+        #
+        # @return [OpenAI::Client] The configured OpenAI client
         def client
           ::OpenAI::Client.new(options.to_hc)
         end
 
-        # @return [String] Name of service, e.g., Anthropic
+        # Returns the service name for OpenAI providers.
+        #
+        # @return [String] Always returns "OpenAI"
         def service_name = "OpenAI"
 
         protected

@@ -8,10 +8,17 @@ require_relative "open_router/request"
 
 module ActiveAgent
   module Providers
+    # Provider implementation for OpenRouter's multi-model API.
+    #
+    # Extends OpenAI::ChatProvider to work with OpenRouter's OpenAI-compatible API.
+    # Provides access to multiple AI models through a single interface with features
+    # like model fallbacks, cost tracking, and provider metadata.
+    #
+    # @see OpenAI::ChatProvider
+    # @see https://openrouter.ai/docs
     class OpenRouterProvider < OpenAI::ChatProvider
-      # Overloads the OpenAI ChatProvider to use Ollama-specific options and defaults.
-      def service_name  = "OpenRouter"
-      def options_klass = namespace::Options
+      def service_name         = "OpenRouter"
+      def options_klass        = namespace::Options
       def prompt_request_klass = namespace::Request
 
       # def initialize(config)

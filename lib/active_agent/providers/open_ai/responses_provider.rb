@@ -4,17 +4,36 @@ require_relative "responses/request"
 module ActiveAgent
   module Providers
     module OpenAI
+      # Provider implementation for OpenAI's Responses API.
+      #
+      # Handles the newer Responses API with improved streaming support
+      # and structured function calling. Uses OpenAI's responses endpoint
+      # for more reliable and structured interactions.
+      #
+      # @see BaseProvider
       # @see https://platform.openai.com/docs/api-reference/responses
       class ResponsesProvider < BaseProvider
+        def options_klass        = Options
+        def prompt_request_klass = Responses::Request
+
         protected
 
-        def prompt_request_klass = Responses::Request
-        def options_klass        = Options
-
+        # Executes a responses request via OpenAI's Responses API.
+        #
+        # @param parameters [Hash] The responses request parameters
+        # @return [Hash, nil] The symbolized API response or nil if empty
         def api_prompt_execute(parameters)
           client.responses.create(parameters:).presence&.deep_symbolize_keys
         end
 
+        # Processes streaming response chunks from OpenAI's Responses API.
+        #
+        # Handles various response event types including response creation,
+        # output items, content parts, and function calls. Manages the message
+        # stack and broadcasts streaming updates.
+        #
+        # @param api_response_chunk [Hash] The streaming response chunk
+        # @return [void]
         def process_stream_chunk(api_response_chunk)
           api_response_chunk.deep_symbolize_keys!
 
@@ -62,6 +81,10 @@ module ActiveAgent
           end
         end
 
+        # Processes output item added events from the streaming response.
+        #
+        # @param api_response_chunk [Hash] The response chunk containing the added item
+        # @return [void]
         def process_stream_output_item_added(api_response_chunk)
           case (type = api_response_chunk[:item][:type].to_sym)
           when :message
@@ -74,6 +97,10 @@ module ActiveAgent
           end
         end
 
+        # Processes output item completion events from the streaming response.
+        #
+        # @param api_response_chunk [Hash] The response chunk containing the completed item
+        # @return [void]
         def process_stream_output_item_done(api_response_chunk)
           case (type = api_response_chunk[:item][:type].to_sym)
           when :message
@@ -85,7 +112,13 @@ module ActiveAgent
           end
         end
 
-        # @return void
+        # Processes function/tool calls from the API response.
+        #
+        # Executes each function call and creates function call output messages
+        # for the next iteration of the conversation.
+        #
+        # @param api_function_calls [Array<Hash>] Array of function call objects
+        # @return [void]
         def process_function_calls(api_function_calls)
           api_function_calls.each do |api_function_call|
             message = Responses::Requests::Inputs::FunctionCallOutput.new(
@@ -97,10 +130,17 @@ module ActiveAgent
           end
         end
 
+        # Extracts messages from the completed API response.
+        #
+        # @param api_response [Hash] The completed API response
+        # @return [Array, nil] The output array from the response or nil
         def process_prompt_finished_extract_messages(api_response)
           api_response&.dig(:output)
         end
 
+        # Extracts function calls from the message stack.
+        #
+        # @return [Array<Hash>] Array of function call objects with type "function_call"
         def process_prompt_finished_extract_function_calls
           message_stack.select { it[:type] == "function_call" }
         end

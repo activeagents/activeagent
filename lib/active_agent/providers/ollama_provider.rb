@@ -9,8 +9,13 @@ require_relative "ollama/embedding/request"
 
 module ActiveAgent
   module Providers
+    # Provider implementation for Ollama local models.
+    #
+    # Extends OpenAI::ChatProvider to work with Ollama's OpenAI-compatible API.
+    # Supports both chat completion and embeddings through local Ollama instances.
+    #
+    # @see OpenAI::ChatProvider
     class OllamaProvider < OpenAI::ChatProvider
-      # Overloads the OpenAI ChatProvider to use Ollama-specific options and defaults.
       def service_name         = "Ollama"
       def options_klass        = namespace::Options
       def prompt_request_klass = namespace::Chat::Request
@@ -18,10 +23,21 @@ module ActiveAgent
 
       protected
 
+      # Executes an embedding request via Ollama's API.
+      #
+      # @param parameters [Hash] The embedding request parameters
+      # @return [Object] The embedding response from Ollama
       def api_embed_execute(parameters)
         client.embeddings(parameters:)
       end
 
+      # Merges streaming delta into the message.
+      #
+      # Handles Ollama's role copying behavior which mimics OpenAI's design.
+      #
+      # @param message [Hash] The current message being built
+      # @param delta [Hash] The delta to merge into the message
+      # @return [Hash] The merged message
       def message_merge_delta(message, delta)
         message[:role] = delta.delete(:role) if delta[:role] # Copy a Bad Design (OpenAI's Chat API) Badly, Win Bad Prizes
 

@@ -25,8 +25,14 @@ module ActiveAgent
     class OpenAIProvider < OpenAI::BaseProvider
       attr_internal :api_version
 
+      # Initializes the OpenAI provider router.
+      #
       # Since this layer is just routing based on API version, we want to wait
-      # to cast values into their times.
+      # to cast values into their types.
+      #
+      # @param kwargs [Hash] Configuration options for the provider
+      # @option kwargs [Symbol] :service The service name to validate
+      # @option kwargs [Symbol] :api_version The OpenAI API version to use (:chat or :responses)
       def initialize(kwargs = {})
         assert_service!(kwargs.delete(:service))
 
@@ -55,10 +61,17 @@ module ActiveAgent
         end
       end
 
+      # Returns the embedding request class for OpenAI.
+      #
+      # @return [Class] The OpenAI embedding request class
       def embed_request_klass = OpenAI::Embedding::Request
 
       protected
 
+      # Executes an embedding request via OpenAI's API.
+      #
+      # @param parameters [Hash] The embedding request parameters
+      # @return [Object] The embedding response from OpenAI
       def api_embed_execute(parameters)
         client.embeddings(parameters:)
       end
