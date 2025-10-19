@@ -35,17 +35,17 @@ module ActiveAgent
 
       include ActionView::Layouts
 
+      include Callbacks
+      include Parameterized
       include Provider
+      include Queueing
+      include Rescue
       include Streaming
       include Tooling
-      include Rescue
       include View
 
-      include Callbacks
       include Observers
-      include Parameterized
       include Previews
-      include QueuedGeneration
 
       PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
 

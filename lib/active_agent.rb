@@ -27,7 +27,7 @@ module ActiveAgent
   autoload :Streaming
   autoload :InlinePreviewInterceptor
   autoload :Generation
-  autoload :QueuedGeneration
+  autoload :Queueing
   autoload :Parameterized
   autoload :Preview
   autoload :Previews, "active_agent/preview"
