@@ -36,6 +36,11 @@ module ActiveAgent
             "success"
           end
         end
+
+        # Stub instrument method for testing
+        def instrument(name, payload = {}, &block)
+          block ? block.call : nil
+        end
       end
 
       setup do

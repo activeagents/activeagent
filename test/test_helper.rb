@@ -125,7 +125,7 @@ class ActiveAgentTestCase < ActiveSupport::TestCase
   def setup
     super
     # Store original configuration
-    @original_config = ActiveAgent.config.dup if ActiveAgent.config
+    @original_config = ActiveAgent.configuration.dup if ActiveAgent.configuration
     @original_rails_env = ENV["RAILS_ENV"]
     # Ensure we're in test environment
     ENV["RAILS_ENV"] = "test"
@@ -134,7 +134,7 @@ class ActiveAgentTestCase < ActiveSupport::TestCase
   def teardown
     super
     # Restore original configuration
-    ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
+    ActiveAgent.instance_variable_set(:@configuration, @original_config) if @original_config
     ENV["RAILS_ENV"] = @original_rails_env
     # Reload default configuration
     config_file = Rails.root.join("config/active_agent.yml")
@@ -143,11 +143,11 @@ class ActiveAgentTestCase < ActiveSupport::TestCase
 
   # Helper method to temporarily set configuration
   def with_active_agent_config(config)
-    old_config = ActiveAgent.config
-    ActiveAgent.instance_variable_set(:@config, config)
+    old_config = ActiveAgent.configuration
+    ActiveAgent.instance_variable_set(:@configuration, config)
     yield
   ensure
-    ActiveAgent.instance_variable_set(:@config, old_config)
+    ActiveAgent.instance_variable_set(:@configuration, old_config)
   end
 end
 
@@ -189,7 +189,7 @@ class ActiveSupport::TestCase
 
   def has_ollama_credentials?
     # Ollama typically runs locally, so check if it's accessible
-    config = ActiveAgent.config.dig("ollama") || {}
+    config = ActiveAgent.configuration.dig("ollama") || {}
     host = config["host"] || "http://localhost:11434"
 
     # For test purposes, we assume Ollama is available if configured

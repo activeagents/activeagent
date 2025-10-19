@@ -88,9 +88,11 @@ module ActiveAgent
         # @param provider_type [Symbol, String] Provider identifier
         # @return [Hash] Configuration hash with symbolized keys
         def provider_config_load(provider_type)
-          (ActiveAgent.configuration[provider_type.to_s] ||
+          (
             ActiveAgent.configuration.dig(ENV["RAILS_ENV"], provider_type.to_s) ||
-            {}).deep_symbolize_keys
+            ActiveAgent.configuration[provider_type.to_s]||
+            {}
+          ).deep_symbolize_keys
         end
 
         # Loads provider class by service name.

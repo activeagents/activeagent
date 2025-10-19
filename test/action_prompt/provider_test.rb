@@ -24,13 +24,13 @@ class ProviderTest < ActiveSupport::TestCase
   end
 
   setup do
-    @original_config = ActiveAgent.config.deep_dup
+    @original_config = ActiveAgent.configuration.deep_dup
     TestPrompt._prompt_provider_klass = nil
     TestPrompt._embed_provider_klass = nil
   end
 
   teardown do
-    ActiveAgent.config.replace(@original_config)
+    ActiveAgent.configuration.replace(@original_config)
     TestPrompt._prompt_provider_klass = nil
     TestPrompt._embed_provider_klass = nil
   end
@@ -62,7 +62,7 @@ class ProviderTest < ActiveSupport::TestCase
 
   # prompt_provider= tests with Symbol/String
   test "prompt_provider= accepts symbol reference" do
-    ActiveAgent.config[:test_provider] = { service: "MockProvider" }
+    ActiveAgent.configuration[:test_provider] = { service: "MockProvider" }
 
     # Stub provider_load to return our mock
     TestPrompt.stub(:provider_load, MockProvider) do
@@ -72,7 +72,7 @@ class ProviderTest < ActiveSupport::TestCase
   end
 
   test "prompt_provider= accepts string reference" do
-    ActiveAgent.config[:test_provider] = { service: "MockProvider" }
+    ActiveAgent.configuration[:test_provider] = { service: "MockProvider" }
 
     TestPrompt.stub(:provider_load, MockProvider) do
       TestPrompt.prompt_provider = "test_provider"
@@ -97,7 +97,7 @@ class ProviderTest < ActiveSupport::TestCase
 
   # embed_provider= tests with Symbol/String
   test "embed_provider= accepts symbol reference" do
-    ActiveAgent.config[:test_provider] = { service: "MockProvider" }
+    ActiveAgent.configuration[:test_provider] = { service: "MockProvider" }
 
     # Stub provider_load to return our mock
     TestPrompt.stub(:provider_load, MockProvider) do
@@ -107,7 +107,7 @@ class ProviderTest < ActiveSupport::TestCase
   end
 
   test "embed_provider= accepts string reference" do
-    ActiveAgent.config[:test_provider] = { service: "MockProvider" }
+    ActiveAgent.configuration[:test_provider] = { service: "MockProvider" }
 
     TestPrompt.stub(:provider_load, MockProvider) do
       TestPrompt.embed_provider = "test_provider"
@@ -132,7 +132,7 @@ class ProviderTest < ActiveSupport::TestCase
 
   # configuration tests
   test "configuration loads provider from config by symbol" do
-    ActiveAgent.config[:test_provider] = { service: "MockProvider" }
+    ActiveAgent.configuration[:test_provider] = { service: "MockProvider" }
 
     TestPrompt.stub(:provider_load, MockProvider) do
       result = TestPrompt.configuration(:test_provider)
@@ -141,7 +141,7 @@ class ProviderTest < ActiveSupport::TestCase
   end
 
   test "configuration merges additional options" do
-    ActiveAgent.config[:test_provider] = { service: "MockProvider", model: "test-model" }
+    ActiveAgent.configuration[:test_provider] = { service: "MockProvider", model: "test-model" }
 
     TestPrompt.stub(:provider_load, MockProvider) do
       # Configuration should call provider_config_load which includes the merged options
@@ -151,7 +151,7 @@ class ProviderTest < ActiveSupport::TestCase
   end
 
   test "configuration raises error on LoadError" do
-    ActiveAgent.config[:test_provider] = { service: "NonExistentProvider" }
+    ActiveAgent.configuration[:test_provider] = { service: "NonExistentProvider" }
 
     error = assert_raises(RuntimeError) do
       TestPrompt.configuration(:test_provider)
@@ -162,7 +162,7 @@ class ProviderTest < ActiveSupport::TestCase
 
   # provider_config_load tests
   test "provider_config_load retrieves config by string key" do
-    ActiveAgent.config["test_provider"] = { service: "TestService", model: "test-model" }
+    ActiveAgent.configuration["test_provider"] = { service: "TestService", model: "test-model" }
 
     config = TestPrompt.provider_config_load("test_provider")
 
@@ -171,7 +171,7 @@ class ProviderTest < ActiveSupport::TestCase
   end
 
   test "provider_config_load retrieves config by symbol key" do
-    ActiveAgent.config["test_provider"] = { service: "TestService", model: "test-model" }
+    ActiveAgent.configuration["test_provider"] = { service: "TestService", model: "test-model" }
 
     config = TestPrompt.provider_config_load(:test_provider)
 
@@ -181,7 +181,7 @@ class ProviderTest < ActiveSupport::TestCase
 
   test "provider_config_load checks environment-specific config" do
     ENV["RAILS_ENV"] = "test"
-    ActiveAgent.config["test"] = { "test_provider" => { service: "EnvSpecific" } }
+    ActiveAgent.configuration["test"] = { "test_provider" => { service: "EnvSpecific" } }
 
     config = TestPrompt.provider_config_load(:test_provider)
 
@@ -195,7 +195,7 @@ class ProviderTest < ActiveSupport::TestCase
   end
 
   test "provider_config_load deep symbolizes keys" do
-    ActiveAgent.config["test_provider"] = { "service" => "Test", "nested" => { "key" => "value" } }
+    ActiveAgent.configuration["test_provider"] = { "service" => "Test", "nested" => { "key" => "value" } }
 
     config = TestPrompt.provider_config_load(:test_provider)
 
@@ -269,7 +269,7 @@ class ProviderTest < ActiveSupport::TestCase
 
   # Integration tests
   test "setting prompt provider by symbol configures class correctly" do
-    ActiveAgent.config[:openai] = { service: "OpenAI", api_key: "test-key" }
+    ActiveAgent.configuration[:openai] = { service: "OpenAI", api_key: "test-key" }
 
     TestPrompt.stub(:provider_load, MockProvider) do
       TestPrompt.prompt_provider = :openai
@@ -280,7 +280,7 @@ class ProviderTest < ActiveSupport::TestCase
   end
 
   test "setting embed provider by symbol configures class correctly" do
-    ActiveAgent.config[:openai] = { service: "OpenAI", api_key: "test-key" }
+    ActiveAgent.configuration[:openai] = { service: "OpenAI", api_key: "test-key" }
 
     TestPrompt.stub(:provider_load, MockProvider) do
       TestPrompt.embed_provider = :openai

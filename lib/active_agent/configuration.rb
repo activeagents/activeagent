@@ -403,6 +403,79 @@ module ActiveAgent
       instance_variable_set("@#{key}", convert_to_indifferent_access(value))
     end
 
+    # Extracts nested values using a sequence of keys.
+    #
+    # Similar to Hash#dig, traverses nested configuration values safely.
+    # Returns nil if any intermediate key doesn't exist.
+    #
+    # @param keys [Array<String, Symbol>] Keys to traverse
+    # @return [Object, nil] The nested value or nil
+    #
+    # @example
+    #   config.dig(:openai, :model)  # => "gpt-4o"
+    #   config.dig("test", "anthropic", "service")  # => "Anthropic"
+    #   config.dig(:nonexistent, :key)  # => nil
+    def dig(*keys)
+      keys.reduce(self) do |obj, key|
+        break nil unless obj
+        if obj.is_a?(Configuration)
+          obj[key]
+        elsif obj.respond_to?(:dig)
+          obj.dig(key)
+        elsif obj.respond_to?(:[])
+          obj[key]
+        else
+          nil
+        end
+      end
+    end
+
+    # Creates a deep duplicate of the configuration.
+    #
+    # Recursively duplicates all configuration values to avoid shared state.
+    #
+    # @return [Configuration] A new Configuration instance with duplicated values
+    #
+    # @example
+    #   original = ActiveAgent.configuration
+    #   backup = original.deep_dup
+    #   backup[:retries] = false  # doesn't affect original
+    def deep_dup
+      new_config = Configuration.new
+      instance_variables.each do |var|
+        value = instance_variable_get(var)
+        new_config.instance_variable_set(var, deep_dup_value(value))
+      end
+      new_config
+    end
+
+    # Replaces the current configuration values with those from another configuration.
+    #
+    # Copies all instance variables from the source configuration to this one,
+    # and removes any instance variables that exist in self but not in other.
+    # Useful for restoring configuration state in tests.
+    #
+    # @param other [Configuration] The configuration to copy from
+    # @return [Configuration] Self
+    #
+    # @example
+    #   backup = config.deep_dup
+    #   # ... make changes ...
+    #   config.replace(backup)  # restore original state
+    def replace(other)
+      # Remove variables that exist in self but not in other
+      (instance_variables - other.instance_variables).each do |var|
+        remove_instance_variable(var)
+      end
+
+      # Copy all variables from other to self
+      other.instance_variables.each do |var|
+        instance_variable_set(var, other.instance_variable_get(var))
+      end
+
+      self
+    end
+
     # Delegates method calls to the [] operator for accessing configuration values.
     #
     # Allows accessing configuration values using method syntax instead of
@@ -452,6 +525,25 @@ module ActiveAgent
         value.map { |v| convert_to_indifferent_access(v) }
       else
         value
+      end
+    end
+
+    # Recursively duplicates a value.
+    #
+    # Creates deep copies of hashes and arrays to avoid shared state.
+    # Uses dup for duplicable objects, returns non-duplicable objects as-is.
+    #
+    # @param value [Object] The value to duplicate
+    # @return [Object] The duplicated value
+    # @private
+    def deep_dup_value(value)
+      case value
+      when Hash
+        value.transform_values { |v| deep_dup_value(v) }
+      when Array
+        value.map { |v| deep_dup_value(v) }
+      else
+        value.duplicable? ? value.dup : value
       end
     end
   end
