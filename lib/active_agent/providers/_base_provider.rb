@@ -42,7 +42,7 @@ module ActiveAgent
 
       class ProvidersError < StandardError; end
 
-      attr_internal :options, :context,              # Setup
+      attr_internal :options, :context, :trace_id,   # Setup
                     :request, :message_stack,        # Runtime
                     :stream_broadcaster, :streaming, # Callback (Streams)
                     :tools_function                  # Callback (Tools)
@@ -64,6 +64,7 @@ module ActiveAgent
           retries_on:        kwargs.delete(:retries_on)
         )
 
+        self.trace_id           = kwargs[:trace_id]
         self.stream_broadcaster = kwargs.delete(:stream_broadcaster)
         self.streaming          = false
         self.tools_function     = kwargs.delete(:tools_function)
@@ -78,7 +79,7 @@ module ActiveAgent
       # @raise [StandardError] provider-specific errors wrapped by error handling
       def prompt
         instrument("prompt_start.provider.active_agent") do
-          self.request = prompt_request_klass.new(context)
+          self.request = prompt_request_klass.new(context.except(:trace_id))
           resolve_prompt
         end
       end
@@ -91,7 +92,7 @@ module ActiveAgent
       # @raise [StandardError] provider-specific errors wrapped by error handling
       def embed
         instrument("embed_start.provider.active_agent") do
-          self.request = embed_request_klass.new(context)
+          self.request = embed_request_klass.new(context.except(:trace_id))
           resolve_embed
         end
       end
@@ -138,7 +139,7 @@ module ActiveAgent
       # @yield Block to instrument
       # @return [Object] Result of the block if provided
       def instrument(name, payload = {}, &block)
-        full_payload = { provider: service_name, provider_module: tag_name }.merge(payload)
+        full_payload = { provider: service_name, provider_module: tag_name, trace_id: }.merge(payload)
         ActiveSupport::Notifications.instrument(name, full_payload, &block)
       end
 

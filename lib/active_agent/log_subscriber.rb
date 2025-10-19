@@ -21,14 +21,19 @@ module ActiveAgent
   #   ActiveAgent::LogSubscriber.detach_from :active_agent_provider
   #   MyLogSubscriber.attach_to :active_agent_provider
   class LogSubscriber < ActiveSupport::LogSubscriber
+    # Whether to colorize log output (defaults to true)
+    mattr_accessor :colorize_logging, default: true
+
     # Logs the start of a prompt request
     #
     # @param event [ActiveSupport::Notifications::Event]
     def prompt_start(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
-      debug color("[#{provider_module}] Starting prompt request", CYAN)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Starting prompt request", CYAN)
     end
 
     # Logs the start of an embedding request
@@ -37,8 +42,10 @@ module ActiveAgent
     def embed_start(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
-      debug color("[#{provider_module}] Starting embed request", CYAN)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Starting embed request", CYAN)
     end
 
     # Logs request preparation details
@@ -47,9 +54,11 @@ module ActiveAgent
     def request_prepared(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       message_count = event.payload[:message_count]
-      debug color("[#{provider_module}] Prepared request with #{message_count} message(s)", BLUE)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Prepared request with #{message_count} message(s)", BLUE)
     end
 
     # Logs API call execution
@@ -58,11 +67,12 @@ module ActiveAgent
     def api_call(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       streaming = event.payload[:streaming]
       duration = event.duration.round(1)
 
-      message = "[#{provider_module}] API call completed in #{duration}ms (streaming: #{streaming})"
+      message = "[#{trace_id}] [ActiveAgent] [#{provider_module}] API call completed in #{duration}ms (streaming: #{streaming})"
       debug color(message, MAGENTA, bold: true)
     end
 
@@ -72,10 +82,11 @@ module ActiveAgent
     def embed_call(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       duration = event.duration.round(1)
 
-      debug color("[#{provider_module}] Embed API call completed in #{duration}ms", MAGENTA, bold: true)
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Embed API call completed in #{duration}ms", MAGENTA, bold: true)
     end
 
     # Logs stream opening
@@ -84,8 +95,10 @@ module ActiveAgent
     def stream_open(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
-      debug color("[#{provider_module}] Opening stream", GREEN)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Opening stream", GREEN)
     end
 
     # Logs stream closing
@@ -94,8 +107,10 @@ module ActiveAgent
     def stream_close(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
-      debug color("[#{provider_module}] Closing stream", GREEN)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Closing stream", GREEN)
     end
 
     # Logs message extraction from API response
@@ -104,9 +119,11 @@ module ActiveAgent
     def messages_extracted(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       message_count = event.payload[:message_count]
-      debug color("[#{provider_module}] Extracted #{message_count} message(s) from API response", BLUE)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Extracted #{message_count} message(s) from API response", BLUE)
     end
 
     # Logs tool/function call processing
@@ -115,9 +132,11 @@ module ActiveAgent
     def tool_calls_processing(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       tool_count = event.payload[:tool_count]
-      debug color("[#{provider_module}] Processing #{tool_count} tool call(s)", YELLOW)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Processing #{tool_count} tool call(s)", YELLOW)
     end
 
     # Logs multi-turn conversation continuation
@@ -126,8 +145,10 @@ module ActiveAgent
     def multi_turn_continue(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
-      debug color("[#{provider_module}] Continuing multi-turn conversation after tool execution", YELLOW)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Continuing multi-turn conversation after tool execution", YELLOW)
     end
 
     # Logs prompt completion
@@ -136,11 +157,12 @@ module ActiveAgent
     def prompt_complete(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       message_count = event.payload[:message_count]
       duration = event.duration.round(1)
 
-      message = "[#{provider_module}] Prompt completed with #{message_count} message(s) in stack (total: #{duration}ms)"
+      message = "[#{trace_id}] [ActiveAgent] [#{provider_module}] Prompt completed with #{message_count} message(s) in stack (total: #{duration}ms)"
       debug color(message, GREEN, bold: true)
     end
 
@@ -150,13 +172,14 @@ module ActiveAgent
     def retry_attempt(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       attempt = event.payload[:attempt]
       max_retries = event.payload[:max_retries]
       exception = event.payload[:exception]
       backoff_time = event.payload[:backoff_time]
 
-      debug color("[#{provider_module}:Retries] Attempt #{attempt}/#{max_retries} failed with #{exception}, retrying in #{backoff_time}s", RED)
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}:Retries] Attempt #{attempt}/#{max_retries} failed with #{exception}, retrying in #{backoff_time}s", RED)
     end
 
     # Logs when max retries are exceeded
@@ -165,11 +188,12 @@ module ActiveAgent
     def retry_exhausted(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       max_retries = event.payload[:max_retries]
       exception = event.payload[:exception]
 
-      debug color("[#{provider_module}:Retries] Max retries (#{max_retries}) exceeded for #{exception}", RED, bold: true)
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}:Retries] Max retries (#{max_retries}) exceeded for #{exception}", RED, bold: true)
     end
 
     # Logs tool execution
@@ -178,10 +202,11 @@ module ActiveAgent
     def tool_execution(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       tool_name = event.payload[:tool_name]
 
-      debug color("[#{provider_module}] Executing tool: #{tool_name}", YELLOW)
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Executing tool: #{tool_name}", YELLOW)
     end
 
     # Logs tool choice removal
@@ -190,8 +215,9 @@ module ActiveAgent
     def tool_choice_removed(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
-      debug color("[#{provider_module}] Removing tool_choice constraint after tool execution", YELLOW)
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Removing tool_choice constraint after tool execution", YELLOW)
     end
 
     # Logs API request
@@ -200,15 +226,16 @@ module ActiveAgent
     def api_request(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       model = event.payload[:model]
       streaming = event.payload[:streaming]
 
       if streaming.nil?
-        debug color("[#{provider_module}] Executing request to #{model}", BLUE)
+        debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Executing request to #{model}", BLUE)
       else
         mode = streaming ? "streaming" : "non-streaming"
-        debug color("[#{provider_module}] Executing #{mode} request to #{model}", BLUE)
+        debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Executing #{mode} request to #{model}", BLUE)
       end
     end
 
@@ -218,13 +245,14 @@ module ActiveAgent
     def stream_chunk_processing(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       chunk_type = event.payload[:chunk_type]
 
       if chunk_type
-        debug color("[#{provider_module}] Processing stream chunk: #{chunk_type}", BLUE)
+        debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Processing stream chunk: #{chunk_type}", BLUE)
       else
-        debug color("[#{provider_module}] Processing stream chunk", BLUE)
+        debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Processing stream chunk", BLUE)
       end
     end
 
@@ -234,10 +262,11 @@ module ActiveAgent
     def stream_finished(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       finish_reason = event.payload[:finish_reason]
 
-      debug color("[#{provider_module}] Stream finished with reason: #{finish_reason}", GREEN)
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Stream finished with reason: #{finish_reason}", GREEN)
     end
 
     # Logs API routing decisions
@@ -246,15 +275,16 @@ module ActiveAgent
     def api_routing(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       api_type = event.payload[:api_type]
       api_version = event.payload[:api_version]
       has_audio = event.payload[:has_audio]
 
       if has_audio
-        debug color("[#{provider_module}] Routing to #{api_type.to_s.capitalize} API (api_version: #{api_version}, audio: #{has_audio})", CYAN)
+        debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Routing to #{api_type.to_s.capitalize} API (api_version: #{api_version}, audio: #{has_audio})", CYAN)
       else
-        debug color("[#{provider_module}] Routing to #{api_type.to_s.capitalize} API (api_version: #{api_version})", CYAN)
+        debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Routing to #{api_type.to_s.capitalize} API (api_version: #{api_version})", CYAN)
       end
     end
 
@@ -264,8 +294,10 @@ module ActiveAgent
     def embeddings_request(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
-      debug color("[#{provider_module}] Executing embeddings request", BLUE)
+
+      debug color("[#{trace_id}] [ActiveAgent] [#{provider_module}] Executing embeddings request", BLUE)
     end
 
     # Logs connection errors
@@ -274,13 +306,14 @@ module ActiveAgent
     def connection_error(event)
       return unless logger.debug?
 
+      trace_id = event.payload[:trace_id]
       provider_module = event.payload[:provider_module]
       uri_base = event.payload[:uri_base]
       exception = event.payload[:exception]
       message = event.payload[:message]
 
       debug color(
-        "[#{provider_module}] Unable to connect to #{uri_base}. " \
+        "[#{trace_id}] [ActiveAgent] [#{provider_module}] Unable to connect to #{uri_base}. " \
         "Please ensure the service is running. " \
         "Error: #{exception} - #{message}",
         RED
@@ -289,11 +322,11 @@ module ActiveAgent
 
     private
 
-    # Returns the configured logger
+    # Use the logger configured for ActiveAgent::Base
     #
     # @return [Logger]
     def logger
-      ActiveAgent.logger
+      ActiveAgent::Base.logger
     end
 
     # Adds color to log messages
@@ -308,13 +341,6 @@ module ActiveAgent
       codes = [ color_code ]
       codes << BOLD if bold
       "\e[#{codes.join(';')}m#{text}\e[0m"
-    end
-
-    # Whether to colorize log output
-    #
-    # @return [Boolean]
-    def colorize_logging
-      ActiveAgent.configuration.colorize_logging
     end
   end
 end

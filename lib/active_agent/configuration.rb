@@ -8,40 +8,6 @@ require "timeout"
 require "yaml"
 
 module ActiveAgent
-  # Simple logger wrapper that prepends a tag to all log messages.
-  #
-  # @private
-  class TaggedLogger
-    attr_reader :logger, :tag
-
-    def initialize(logger, tag)
-      @logger = logger
-      @tag = tag
-    end
-
-    %i[debug info warn error fatal unknown].each do |method|
-      define_method(method) do |message = nil, &block|
-        if block_given?
-          result = block.call
-          logger.public_send(method, "#{tag} #{result}")
-        elsif message
-          logger.public_send(method, "#{tag} #{message}")
-        else
-          logger.public_send(method, tag)
-        end
-      end
-    end
-
-    # Delegate all other methods to the logger
-    def method_missing(method, *args, &block)
-      logger.public_send(method, *args, &block)
-    end
-
-    def respond_to_missing?(method, include_private = false)
-      logger.respond_to?(method, include_private) || super
-    end
-  end
-
   # Configuration class for ActiveAgent global settings.
   #
   # Provides configuration options for generation behavior, error handling,
@@ -141,47 +107,21 @@ module ActiveAgent
     # @!attribute [rw] colorize_logging
     #   When true, log subscriber output will be colorized.
     #   @return [Boolean] Whether to colorize log output (default: true)
-    attr_accessor :colorize_logging
+    attr_reader :colorize_logging
 
-    # Returns the logger instance, creating a default one if not set.
+    # Sets the colorize_logging option and syncs it with the LogSubscriber.
     #
-    # @return [Logger] Logger instance (defaults to Logger.new(STDOUT) if not set)
-    def logger
-      @logger ||= begin
-        base_logger = Logger.new(STDOUT)
-        base_logger.level = Logger::INFO
-        TaggedLogger.new(base_logger, "[ActiveAgent]")
+    # @param value [Boolean] Whether to colorize logging output
+    # @return [Boolean] The value that was set
+    def colorize_logging=(value)
+      @colorize_logging = value
+
+      # Sync with LogSubscriber class if it's loaded
+      if defined?(ActiveAgent::LogSubscriber)
+        ActiveAgent::LogSubscriber.colorize_logging = value
       end
-    end
 
-    # Sets the logger instance.
-    #
-    # When set to false, creates a null logger that discards all output.
-    #
-    # @param value [Logger, false] Logger instance to use, or false to disable logging
-    # @return [Logger] The logger that was set
-    def logger=(value)
-      base_logger = if value == false
-        Logger.new(IO::NULL)
-      else
-        value
-      end
-      @logger = TaggedLogger.new(base_logger, "[ActiveAgent]")
-    end
-
-    # Returns the current log level of the logger.
-    #
-    # @return [Integer, Symbol] The current log level
-    def log_level
-      logger.level
-    end
-
-    # Sets the log level on the logger instance.
-    #
-    # @param level [Integer, Symbol] The log level to set (e.g., :debug, :info, :warn, :error)
-    # @return [Integer] The log level that was set
-    def log_level=(level)
-      logger.level = level
+      value
     end
 
     # @!attribute [rw] retries
@@ -203,6 +143,28 @@ module ActiveAgent
     #   @see #retries
     #   @see #retries_count
     attr_accessor :retries_on
+
+    # Gets the logger used by ActiveAgent.
+    #
+    # @return [Logger] The logger instance
+    # @see ActiveAgent::Base.logger
+    def logger
+      ActiveAgent::Base.logger
+    end
+
+    # Sets the logger used by ActiveAgent.
+    #
+    # @param value [Logger] The logger instance to use
+    # @return [Logger] The logger that was set
+    #
+    # @example
+    #   config.logger = Logger.new(STDOUT)
+    #   config.logger.level = Logger::DEBUG
+    #
+    # @see ActiveAgent::Base.logger=
+    def logger=(value)
+      ActiveAgent::Base.logger = value
+    end
 
     # Loads configuration from a YAML file.
     #
@@ -583,15 +545,10 @@ module ActiveAgent
   #     config.retries_on << CustomNetworkError
   #   end
   #
-  # @example Custom logger
+  # @example Custom logger (non-Rails environments)
   #   ActiveAgent.configure do |config|
-  #     config.logger = Rails.logger
-  #     config.log_level = :debug
-  #   end
-  #
-  # @example Disable logging
-  #   ActiveAgent.configure do |config|
-  #     config.logger = false
+  #     config.logger = Logger.new(STDOUT)
+  #     config.logger.level = Logger::DEBUG
   #   end
   def self.configure
     yield configuration if block_given?
@@ -649,30 +606,5 @@ module ActiveAgent
   # @see .configure
   def self.configuration_load(filename)
     @configuration = Configuration.load(filename)
-  end
-
-  # Returns the global logger instance from configuration.
-  #
-  # Delegates to the configuration's logger, which defaults to Logger.new(STDOUT)
-  # if not explicitly set.
-  #
-  # @return [Logger] The logger instance
-  #
-  # @example Access global logger
-  #   ActiveAgent.logger.info "Processing request"
-  #
-  # @example Set custom logger
-  #   ActiveAgent.configure do |config|
-  #     config.logger = Rails.logger
-  #   end
-  #   ActiveAgent.logger.debug "Debug message"
-  #
-  # @example Disable logging
-  #   ActiveAgent.configure do |config|
-  #     config.logger = false
-  #   end
-  #   ActiveAgent.logger.info "This will not output anything"
-  def self.logger
-    configuration.logger
   end
 end

@@ -18,12 +18,18 @@ module ActiveAgent
     end
 
     initializer "active_agent.logger" do
-      ActiveSupport.on_load(:active_agent) { self.logger ||= Rails.logger }
+      ActiveSupport.on_load(:active_agent) do
+        self.logger ||= Rails.logger
+      end
     end
 
     initializer "active_agent.log_subscriber" do
       require "active_agent/log_subscriber"
-      ActiveAgent::LogSubscriber.attach_to :active_agent_provider
+      ActiveAgent::LogSubscriber.attach_to "provider.active_agent"
+    end
+
+    initializer "active_agent.set_log_level", after: :initialize_logger do |app|
+      ActiveAgent::LogSubscriber.colorize_logging = app.config.colorize_logging
     end
 
     initializer "active_agent.set_configs" do |app|

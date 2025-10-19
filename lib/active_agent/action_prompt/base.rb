@@ -49,6 +49,15 @@ module ActiveAgent
 
       PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
 
+      ##
+      # Accepts a logger conforming to the interface of Log4r or the default
+      # Ruby Logger class. You can retrieve this logger by calling +logger+ on
+      # either an ActiveAgent::Base class or an ActiveAgent::Base instance.
+      #
+      # The default is set to Rails.logger via the Railtie initializer when
+      # used in a Rails application.
+      cattr_accessor :logger
+
       class_attribute :prompt_options
       class_attribute :embed_options
       class_attribute :default_params, default: {
@@ -181,8 +190,8 @@ module ActiveAgent
       # @api private
       def initialize # :nodoc:
         super
-        self.prompt_options = self.class.prompt_options&.deep_dup || {}
-        self.embed_options  = self.class.embed_options&.deep_dup  || {}
+        self.prompt_options = (self.class.prompt_options&.deep_dup || {}).except(:trace_id)
+        self.embed_options  = (self.class.embed_options&.deep_dup  || {}).except(:trace_id)
       end
 
       # Returns the agent name, used as a path for view lookup.
@@ -248,6 +257,7 @@ module ActiveAgent
         fail "Prompt Provider not Configured" unless prompt_provider_klass
 
         parameters = prompt_options.merge(
+          trace_id: prompt_options[:trace_id] || SecureRandom.uuid,
           exception_handler:,
           stream_broadcaster:,
           tools_function:,
@@ -265,6 +275,7 @@ module ActiveAgent
         fail "Embed Provider not Configured" unless embed_provider_klass
 
         parameters = embed_options.merge(
+          trace_id: prompt_options[:trace_id] || SecureRandom.uuid,
           exception_handler:
         ).compact
 
