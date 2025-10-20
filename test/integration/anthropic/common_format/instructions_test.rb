@@ -229,7 +229,7 @@ module Integration
           [ ArrayInstructionsAgent, :basic_request ],
           [ ArrayInstructionsAgent, :basic_request_with_override ]
         ].each do |agent_class, action_name|
-          test_request_builder(agent_class, action_name, :generate_now)
+          test_request_builder(agent_class, action_name, :generate_now, agent_class.const_get(action_name.to_s.upcase, true))
         end
       end
     end

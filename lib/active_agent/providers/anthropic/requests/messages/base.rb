@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "../../../common/_base_model"
+require "active_agent/providers/common/model"
+require_relative "content/_types"
 
 module ActiveAgent
   module Providers
@@ -13,9 +14,17 @@ module ActiveAgent
           # Anthropic's message format, including content extraction.
           class Base < Common::BaseModel
             attribute :role, :string
-            attribute :content, Types::ContentType.new # Can be string or array of content blocks
+            attribute :content, Content::ContentsType.new
 
             validates :role, presence: true, inclusion: { in: %w[user assistant] }
+
+            # Define content setter methods for different content types
+            %i[text image document].each do |content_type|
+              define_method(:"#{content_type}=") do |value|
+                self.content ||= []
+                self.content += [ { content_type => value } ]
+              end
+            end
 
             # Converts to common format.
             #
@@ -26,20 +35,6 @@ module ActiveAgent
                 content: extract_text_content,
                 name: nil
               }
-            end
-
-            # Converts to hash with compressed content format.
-            #
-            # Simplifies single text content blocks to plain strings.
-            #
-            # @return [Hash] hash representation with compressed content
-            def to_hash_compressed
-              super.tap do |hash|
-                # If there is a only a single text we can compress down to a string
-                if content.is_a?(Array) && content.one? && content.first.type == "text"
-                  hash[:content] = content.first.text
-                end
-              end
             end
 
             private

@@ -230,7 +230,11 @@ module ActiveAgent
       #   def my_action
       #     prompt temperature: 0.8, instructions: "Be creative"
       #   end
-      def prompt(new_options = {})
+      def prompt(*messages, **options)
+        messages += options.extract!(:image, :document).map { |k, v| { k => v } }
+
+        new_options = { messages: }.compact_blank.merge!(options)
+
         prompt_options.merge!(new_options)
       end
 

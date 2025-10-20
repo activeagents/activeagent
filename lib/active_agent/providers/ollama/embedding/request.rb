@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "../../common/_base_model"
-require_relative "requests/types"
+require "active_agent/providers/common/model"
+require_relative "requests/_types"
 
 module ActiveAgent
   module Providers
@@ -13,7 +13,7 @@ module ActiveAgent
 
           # Input text or list of text to generate embeddings for (required)
           # Can be a string or array of strings
-          attribute :input, Requests::Types::InputType.new
+          attribute :input, Requests::InputType.new
 
           # Truncates the end of each input to fit within context length (optional)
           # Returns error if false and context length is exceeded
@@ -22,7 +22,7 @@ module ActiveAgent
 
           # Additional model parameters listed in the documentation for the Modelfile (optional)
           # such as temperature
-          attribute :options, Requests::Types::OptionsType.new
+          attribute :options, Requests::OptionsType.new
 
           # Controls how long the model will stay loaded into memory following the request (optional)
           # Default: 5m
@@ -39,14 +39,6 @@ module ActiveAgent
           delegate_attributes :mirostat, :mirostat_eta, :mirostat_tau, :num_ctx, :repeat_last_n, :repeat_penalty,
                               :temperature, :seed, :num_predict, :top_k, :top_p, :min_p,
                               to: :options
-
-          def to_hash_compressed
-            super.tap do |hash|
-              if hash[:input].is_a?(Array) && hash[:input].one?
-                hash[:input] = hash[:input].first
-              end
-            end
-          end
 
           private
 

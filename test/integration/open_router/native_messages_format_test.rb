@@ -285,7 +285,7 @@ module Integration
         :web_search,
         :functions_with_streaming
       ].each do |action_name|
-        test_request_builder(TestAgent, action_name, :generate_now)
+        test_request_builder(TestAgent, action_name, :generate_now, TestAgent.const_get(action_name.to_s.upcase, true))
       end
     end
   end

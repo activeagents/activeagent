@@ -45,7 +45,7 @@ module Integration
           :single_input,
           :multi_input
         ].each do |action_name|
-          test_request_builder(TestAgent, action_name, :embed_now)
+          test_request_builder(TestAgent, action_name, :embed_now, TestAgent.const_get(action_name.to_s.upcase, true))
         end
       end
     end

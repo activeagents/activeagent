@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../../open_ai/chat/request"
-require_relative "requests/message"
-require_relative "requests/types"
+require_relative "requests/_types"
 
 module ActiveAgent
   module Providers
@@ -12,7 +11,7 @@ module ActiveAgent
         # This class exists to allow for Ollama-specific customizations.
         class Request < OpenAI::Chat::Request
           # Messages array (required)
-          attribute :messages, Requests::Types::MessagesType.new
+          attribute :messages, Requests::Messages::MessagesType.new
 
           # Common Format Compatability
           def messages=(value)

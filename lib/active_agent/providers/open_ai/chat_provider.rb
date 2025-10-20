@@ -1,4 +1,4 @@
-require_relative "../_base_provider"
+require_relative "_base"
 require_relative "chat/request"
 
 module ActiveAgent
@@ -10,9 +10,9 @@ module ActiveAgent
       # function/tool calling, and message management. Uses OpenAI's
       # chat completions endpoint for generating responses.
       #
-      # @see BaseProvider
+      # @see Base
       # @see https://platform.openai.com/docs/api-reference/chat
-      class ChatProvider < BaseProvider
+      class ChatProvider < Base
         def options_klass        = Options
         def prompt_request_klass = Chat::Request
 
@@ -84,7 +84,7 @@ module ActiveAgent
               content: content.to_json
             )
 
-            message_stack.push(message.to_hc)
+            message_stack.push(message.serialize)
           end
         end
 

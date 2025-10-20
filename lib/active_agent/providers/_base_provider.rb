@@ -193,7 +193,7 @@ module ActiveAgent
       # @param request [Request]
       # @return [Hash]
       def api_request_build(request)
-        parameters          = request.to_hc
+        parameters          = request.serialize
         parameters[:stream] = process_stream if request.try(:stream)
         parameters
       end
@@ -299,7 +299,7 @@ module ActiveAgent
           # This will returned as it closes up the recursive stack
           Common::PromptResponse.new(
             context:,
-            raw_request:  request.to_hc,
+            raw_request:  request.serialize,
             raw_response: api_response,
             messages:
           )
@@ -332,7 +332,7 @@ module ActiveAgent
       def process_embed_finished(api_response)
         Common::EmbedResponse.new(
           context:,
-          raw_request:  request.to_hc,
+          raw_request:  request.serialize,
           raw_response: api_response,
           data: process_embed_finished_data(api_response)
         )

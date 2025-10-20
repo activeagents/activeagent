@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../../../common/_base_model"
+require "active_agent/providers/common/model"
 
 module ActiveAgent
   module Providers
@@ -18,13 +18,6 @@ module ActiveAgent
 
             validates :mode, inclusion: { in: %w[none auto required] }, allow_nil: true
             validates :type, inclusion: { in: %w[function custom allowed_tools] }, allow_nil: true
-
-            def to_hash_compressed
-              # If it's just a mode string, return the string
-              return mode if mode.present? && type.blank? && function.blank? && custom.blank? && allowed_tools.blank?
-
-              super
-            end
           end
         end
       end

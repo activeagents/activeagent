@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../common/_base_model"
+require "active_agent/providers/common/model"
 
 module ActiveAgent
   module Providers
@@ -24,7 +24,7 @@ module ActiveAgent
           )))
         end
 
-        def to_hash_compressed
+        def serialize
           super.except(:anthropic_beta).tap do |hash|
             hash[:extra_headers] = extra_headers unless extra_headers.blank?
           end

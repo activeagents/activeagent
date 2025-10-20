@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "../../common/_base_model"
-require_relative "requests/types"
+require "active_agent/providers/common/model"
+require_relative "_types"
 
 module ActiveAgent
   module Providers
@@ -14,7 +14,7 @@ module ActiveAgent
           # - Cannot be an empty string
           # - Arrays must be 2048 dimensions or less
           # - Maximum of 300,000 tokens summed across all inputs in a single request
-          attribute :input, Requests::Types::InputType.new
+          attribute :input, Requests::InputType.new
 
           # Model ID (required)
           attribute :model, :string
@@ -39,14 +39,6 @@ module ActiveAgent
           # Custom validations
           validate :validate_input_format
           validate :validate_input_not_empty
-
-          def to_hash_compressed
-            super.tap do |hash|
-              if hash[:input].is_a?(Array) && hash[:input].one?
-                hash[:input] = hash[:input].first
-              end
-            end
-          end
 
           private
 

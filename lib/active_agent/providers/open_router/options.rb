@@ -4,7 +4,6 @@ require_relative "../open_ai/options"
 require_relative "requests/response_format"
 require_relative "requests/prediction"
 require_relative "requests/provider_preferences"
-require_relative "requests/types"
 
 module ActiveAgent
   module Providers
@@ -23,7 +22,7 @@ module ActiveAgent
           )))
         end
 
-        def to_hash_compressed
+        def serialize
           super.except(:app_name, :site_url).tap do |hash|
             hash[:extra_headers] = extra_headers unless extra_headers.blank?
           end

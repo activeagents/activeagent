@@ -1,0 +1,125 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","messages":[{"role":"assistant","content":"I
+        can help you with programming questions."},{"role":"user","content":"What
+        are the benefits of using ActiveRecord?"}],"max_tokens":1024}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.12.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '208'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Mon, 20 Oct 2025 19:07:03 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '50000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '50000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-10-20T19:07:00Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '10000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '10000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-10-20T19:07:05Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '50'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '49'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-10-20T19:07:00Z'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '60000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '60000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-10-20T19:07:00Z'
+      Request-Id:
+      - req_011CUJyUHNHThUBatRJcqJiv
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '4016'
+      Via:
+      - 1.1 google
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991acba95c5622d2-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01TMUAweNTtjC8AiNVgkEXca","type":"message","role":"assistant","content":[{"type":"text","text":"#
+        Benefits of ActiveRecord\n\nActiveRecord is an Object-Relational Mapping (ORM)
+        library, primarily used in Ruby on Rails. Here are its key benefits:\n\n##
+        1. **Simplified Database Interaction**\n- Write less SQL code\n- Use Ruby
+        objects instead of raw queries\n- Intuitive, readable syntax\n\n## 2. **Rapid
+        Development**\n- Quickly scaffold models and migrations\n- Built-in CRUD operations\n-
+        Less boilerplate code\n\n## 3. **Database Abstraction**\n- Switch databases
+        with minimal code changes\n- Works with PostgreSQL, MySQL, SQLite, etc.\n-
+        Database-agnostic queries\n\n## 4. **Built-in Validations**\n- Validate data
+        before saving to database\n- Reduce duplicate validation logic\n- Consistent
+        error handling\n\n## 5. **Associations**\n- Easily define relationships (has_many,
+        belongs_to, etc.)\n- Automatic join queries\n- Reduces manual relationship
+        management\n\n## 6. **Security Features**\n- Protection against SQL injection\n-
+        Parameter sanitization built-in\n- Secure by default\n\n## 7. **Conventions
+        Over Configuration**\n- Follow Rails conventions = less configuration needed\n-
+        Predictable naming patterns\n- Faster onboarding for new developers\n\n##
+        8. **Rich Query Interface**\n- Chainable query methods\n- Lazy evaluation
+        (queries execute only when needed)\n- Complex queries without raw SQL\n\n##
+        9. **Migrations**\n- Version control for database schema\n- Easy rollbacks\n-
+        Team collaboration on schema changes\n\n## 10. **Callbacks & Hooks**\n- Execute
+        code at specific model lifecycle points\n- before_save, after_create, etc.\n-
+        Automate common patterns\n\nWould you like me to elaborate on any of these
+        benefits?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":39,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":405,"service_tier":"standard"}}'
+  recorded_at: Mon, 20 Oct 2025 19:07:03 GMT
+recorded_with: VCR 6.3.1

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../_base_model"
+require "active_agent/providers/common/model"
 
 module ActiveAgent
   module Providers

@@ -15,15 +15,6 @@ module ActiveAgent
             validates :content, presence: true
 
             drop_attributes :usage, :id, :model, :stop_reason, :stop_sequence, :type
-
-            def initialize(**kwargs)
-              # Convert string content to array format if needed
-              if kwargs[:content].is_a?(String)
-                kwargs[:content] = [ { type: "text", text: kwargs[:content] } ]
-              end
-
-              super(**kwargs)
-            end
           end
         end
       end

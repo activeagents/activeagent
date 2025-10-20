@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "max_price"
-require_relative "types"
+require_relative "_types"
 
 module ActiveAgent
   module Providers
@@ -46,7 +45,7 @@ module ActiveAgent
         attribute :sort, :string
 
         # Maximum price constraints (USD per million tokens)
-        attribute :max_price, Types::MaxPriceType.new
+        attribute :max_price, MaxPriceType.new
 
         # Validations matching the schema
         validates :data_collection, inclusion: { in: %w[deny allow] }, allow_nil: true

@@ -1,15 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "../../common/_base_model"
-require_relative "requests/conversation"
-require_relative "requests/prompt_reference"
-require_relative "requests/reasoning"
-require_relative "requests/stream_options"
-require_relative "requests/text"
-require_relative "requests/tool_choice"
-require_relative "requests/tool"
-require_relative "requests/input"
-require_relative "requests/types"
+require "active_agent/providers/common/model"
+require_relative "requests/_types"
 
 module ActiveAgent
   module Providers
@@ -20,13 +12,13 @@ module ActiveAgent
           attribute :background, :boolean, default: false
 
           # Conversation
-          attribute :conversation, Requests::Types::ConversationType.new
+          attribute :conversation, Requests::ConversationType.new
 
           # Include additional output data
           attribute :include, default: -> { [] } # Array of strings
 
           # Input items (text, image, or file inputs)
-          attribute :input, Requests::Types::InputType.new
+          attribute :input, Requests::Inputs::MessagesType.new
 
           # Instructions (system/developer message)
           attribute :instructions, :string
@@ -48,13 +40,13 @@ module ActiveAgent
           attribute :previous_response_id, :string
 
           # Prompt template reference
-          attribute :prompt, Requests::Types::PromptReferenceType.new
+          attribute :prompt, Requests::PromptReferenceType.new
 
           # Cache key for optimization
           attribute :prompt_cache_key, :string
 
           # Reasoning configuration (for o-series and gpt-5 models)
-          attribute :reasoning, Requests::Types::ReasoningType.new
+          attribute :reasoning, Requests::ReasoningType.new
 
           # Safety identifier for usage policy detection
           attribute :safety_identifier, :string
@@ -67,19 +59,19 @@ module ActiveAgent
 
           # Streaming
           attribute :stream, :boolean, default: false
-          attribute :stream_options, Requests::Types::StreamOptionsType.new
+          attribute :stream_options, Requests::StreamOptionsType.new
 
           # Temperature sampling
           attribute :temperature, :float, default: 1
 
           # Text response configuration
-          attribute :text, Requests::Types::TextType.new
+          attribute :text, Requests::TextType.new
 
           # Tool choice
-          attribute :tool_choice, Requests::Types::ToolChoiceType.new
+          attribute :tool_choice, Requests::ToolChoiceType.new
 
           # Tools array
-          attribute :tools, Requests::Types::ToolsType.new
+          attribute :tools, Requests::Tools::ToolsType.new
 
           # Top logprobs
           attribute :top_logprobs, :integer

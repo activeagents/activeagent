@@ -13,15 +13,6 @@ module ActiveAgent
             # - A string (shorthand for single text block)
             # - An array of content blocks (text, image, document, etc.)
             validates :content, presence: true
-
-            def initialize(**kwargs)
-              # Convert string content to array format if needed
-              if kwargs[:content].is_a?(String)
-                kwargs[:content] = [ { type: "text", text: kwargs[:content] } ]
-              end
-
-              super(**kwargs)
-            end
           end
         end
       end

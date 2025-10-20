@@ -1,13 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "../common/_base_model"
-require_relative "requests/types"
-require_relative "requests/metadata"
-require_relative "requests/thinking_config"
-require_relative "requests/tool_choice"
-require_relative "requests/context_management_config"
-require_relative "requests/container_params"
-require_relative "requests/message"
+require "active_agent/providers/common/model"
+require_relative "_types"
 
 module ActiveAgent
   module Providers
@@ -15,11 +9,11 @@ module ActiveAgent
       class Request < Common::BaseModel
         # Required parameters
         attribute :model,      :string
-        attribute :messages,   Requests::Types::MessagesType.new
-        attribute :max_tokens, :integer
+        attribute :messages,   Requests::Messages::MessagesType.new
+        attribute :max_tokens, :integer, fallback: 4096
 
         # Optional parameters - Prompting
-        attribute :system,         Requests::Types::SystemType.new
+        attribute :system,         Requests::Messages::SystemType.new
         attribute :temperature,    :float
         attribute :top_k,          :integer
         attribute :top_p,          :float
@@ -27,22 +21,22 @@ module ActiveAgent
 
         # Optional parameters - Tools
         attribute :tools       # Array of tool definitions
-        attribute :tool_choice, Requests::Types::ToolChoiceType.new
+        attribute :tool_choice, Requests::ToolChoice::ToolChoiceType.new
 
         # Optional parameters - Thinking
-        attribute :thinking, Requests::Types::ThinkingConfigType.new
+        attribute :thinking, Requests::ThinkingConfig::ThinkingConfigType.new
 
         # Optional parameters - Streaming
         attribute :stream, :boolean, default: false
 
         # Optional parameters - Metadata
-        attribute :metadata, Requests::Types::MetadataType.new
+        attribute :metadata, Requests::MetadataType.new
 
         # Optional parameters - Context Management
-        attribute :context_management, Requests::Types::ContextManagementConfigType.new
+        attribute :context_management, Requests::ContextManagementConfigType.new
 
         # Optional parameters - Container
-        attribute :container, Requests::Types::ContainerParamsType.new
+        attribute :container, Requests::ContainerParamsType.new
 
         # Optional parameters - Service tier
         attribute :service_tier, :string
@@ -70,30 +64,10 @@ module ActiveAgent
         # Common Format Compatibility
         alias_attribute :instructions, :system
 
-        def to_hash_compressed
-          super.tap do |hash|
-            hash[:system] = hash[:system].first[:text] if hash[:system]&.one?
-          end
-        end
-
-        # Handle message assignment from common format
+        # Handle merging in the common format
         def message=(value)
           self.messages ||= []
-
-          self.messages << {
-            role:    value.role,
-            content: value.content
-          }
-        end
-
-        # Handle multiple messages assignment
-        def messages=(value)
-          case value
-          when Array
-            super(value)
-          else
-            super([ value ])
-          end
+          self.messages << Requests::Messages::MessageType.new.cast(value)
         end
 
         private

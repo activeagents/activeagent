@@ -1,15 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "../../common/_base_model"
-require_relative "requests/types"
-require_relative "requests/audio"
-require_relative "requests/response_format"
-require_relative "requests/prediction"
-require_relative "requests/stream_options"
-require_relative "requests/web_search_options"
-require_relative "requests/tool"
-require_relative "requests/tool_choice"
-require_relative "requests/message"
+require "active_agent/providers/common/model"
+require_relative "requests/_types"
 
 module ActiveAgent
   module Providers
@@ -17,13 +9,13 @@ module ActiveAgent
       module Chat
         class Request < Common::BaseModel
           # Messages array (required)
-          attribute :messages, Requests::Types::MessagesType.new
+          attribute :messages, Requests::Messages::MessagesType.new
 
           # Model ID (required)
           attribute :model, :string
 
           # Audio output parameters
-          attribute :audio, Requests::Types::AudioType.new
+          attribute :audio, Requests::AudioType.new
 
           # Frequency penalty
           attribute :frequency_penalty, :float, default: 0
@@ -59,7 +51,7 @@ module ActiveAgent
           attribute :parallel_tool_calls, :boolean, default: true
 
           # Prediction configuration
-          attribute :prediction, Requests::Types::PredictionType.new
+          attribute :prediction, Requests::PredictionType.new
 
           # Presence penalty
           attribute :presence_penalty, :float, default: 0
@@ -71,7 +63,7 @@ module ActiveAgent
           attribute :reasoning_effort, :string
 
           # Response format
-          attribute :response_format, Requests::Types::ResponseFormatType.new
+          attribute :response_format, Requests::ResponseFormatType.new
 
           # Safety identifier
           attribute :safety_identifier, :string
@@ -90,13 +82,13 @@ module ActiveAgent
 
           # Streaming
           attribute :stream, :boolean, default: false
-          attribute :stream_options, Requests::Types::StreamOptionsType.new
+          attribute :stream_options, Requests::StreamOptionsType.new
 
           # Temperature sampling
           attribute :temperature, :float, default: 1
 
           # Tool choice
-          attribute :tool_choice, Requests::Types::ToolChoiceType.new
+          attribute :tool_choice, Requests::ToolChoiceType.new
 
           # Tools array
           attribute :tools # Array of tool objects
@@ -114,7 +106,7 @@ module ActiveAgent
           attribute :verbosity, :string
 
           # Web search options
-          attribute :web_search_options, Requests::Types::WebSearchOptionsType.new
+          attribute :web_search_options, Requests::WebSearchOptionsType.new
 
           # Validations
           validates :model, :messages, presence: true
@@ -138,7 +130,7 @@ module ActiveAgent
           validate :validate_logit_bias_format
           validate :validate_stop_sequences
 
-          def to_hash_compressed
+          def serialize
             super.tap do |hash|
               # Can be an empty hash, to enable the feature
               hash[:web_search_options] ||= {} if web_search_options
@@ -148,7 +140,7 @@ module ActiveAgent
           # Common Format Compatability
           def instructions=(*values)
             self.messages ||= []
-!
+
             values.flatten.reverse.each do |value|
               self.messages.unshift({ role: "developer", content: value })
             end

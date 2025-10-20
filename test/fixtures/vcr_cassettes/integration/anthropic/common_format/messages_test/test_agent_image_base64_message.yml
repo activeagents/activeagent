@@ -1,0 +1,109 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":[{"type":"text","text":"What''s
+        in this image?"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}}]}],"max_tokens":1024}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.12.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '309'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Mon, 20 Oct 2025 19:06:13 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '50000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '50000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-10-20T19:06:12Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '10000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '10000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-10-20T19:06:14Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '50'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '49'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-10-20T19:06:12Z'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '60000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '60000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-10-20T19:06:12Z'
+      Request-Id:
+      - req_011CUJyQkhUf6HKR5YbQqSUC
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '2264'
+      Via:
+      - 1.1 google
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991aca7e4c747ada-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_019ws57DyjdgWE7jj1xGUqUs","type":"message","role":"assistant","content":[{"type":"text","text":"This
+        image appears to be a very small, low-resolution icon or dot. It looks like
+        it could be a favicon, a simple geometric shape, or perhaps a loading indicator.
+        The image is predominantly white or light-colored with what might be a small
+        colored element in the center, but the resolution is too low for me to identify
+        it with certainty. \n\nIf you could provide more context about where this
+        image is from or what it''s meant to represent, I''d be happy to give you
+        a more accurate description."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":109,"service_tier":"standard"}}'
+  recorded_at: Mon, 20 Oct 2025 19:06:13 GMT
+recorded_with: VCR 6.3.1

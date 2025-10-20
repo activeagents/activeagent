@@ -4,8 +4,7 @@ require_relative "_base_provider"
 
 require_gem!(:anthropic, __FILE__)
 
-require_relative "anthropic/options"
-require_relative "anthropic/request"
+require_relative "anthropic/_types"
 
 module ActiveAgent
   module Providers
@@ -22,7 +21,7 @@ module ActiveAgent
       # @todo Add support for Anthropic::BedrockClient and Anthropic::VertexClient
       # @return [Anthropic::Client] The configured Anthropic client
       def client
-        ::Anthropic::Client.new(**options.to_hc)
+        ::Anthropic::Client.new(**options.serialize)
       end
 
       protected
@@ -156,13 +155,13 @@ module ActiveAgent
 
         message = Anthropic::Requests::Messages::User.new(content:)
 
-        message_stack.push(message.to_hc)
+        message_stack.push(message.serialize)
       end
 
       # Executes a single tool call and returns the result.
       #
       # @param api_function_call [Hash] The function call object with name, input, and id
-      # @return [Anthropic::Requests::ContentBlocks::ToolResult] The tool result object
+      # @return [Anthropic::Requests::Content::ToolResult] The tool result object
       def process_tool_call_function(api_function_call)
         instrument("tool_execution.provider.active_agent", tool_name: api_function_call[:name])
 
@@ -170,7 +169,7 @@ module ActiveAgent
           api_function_call[:name], **api_function_call[:input]
         )
 
-        Anthropic::Requests::ContentBlocks::ToolResult.new(
+        Anthropic::Requests::Content::ToolResult.new(
           tool_use_id: api_function_call[:id],
           content:     results.to_json,
         )

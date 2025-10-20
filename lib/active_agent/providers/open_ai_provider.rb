@@ -2,10 +2,9 @@ require_relative "_base_provider"
 
 require_gem!(:openai, __FILE__)
 
-require_relative "open_ai/_base_provider"
+require_relative "open_ai/_base"
 require_relative "open_ai/chat_provider"
 require_relative "open_ai/responses_provider"
-require_relative "open_ai/embedding/request"
 
 module ActiveAgent
   module Providers
@@ -22,7 +21,7 @@ module ActiveAgent
     #   result = provider.generate
     #
     # @see https://platform.openai.com/docs/guides/migrate-to-responses
-    class OpenAIProvider < OpenAI::BaseProvider
+    class OpenAIProvider < OpenAI::Base
       attr_internal :api_version
       attr_internal :raw_options
 

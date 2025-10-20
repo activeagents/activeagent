@@ -1,4 +1,4 @@
-require_relative "_base_provider"
+require_relative "_base"
 require_relative "responses/request"
 
 module ActiveAgent
@@ -10,9 +10,9 @@ module ActiveAgent
       # and structured function calling. Uses OpenAI's responses endpoint
       # for more reliable and structured interactions.
       #
-      # @see BaseProvider
+      # @see Base
       # @see https://platform.openai.com/docs/api-reference/responses
-      class ResponsesProvider < BaseProvider
+      class ResponsesProvider < Base
         def options_klass        = Options
         def prompt_request_klass = Responses::Request
 
@@ -132,7 +132,7 @@ module ActiveAgent
               output:  process_tool_call_function(api_function_call).to_json
             )
 
-            message_stack.push(message.to_hc)
+            message_stack.push(message.serialize)
           end
         end
 

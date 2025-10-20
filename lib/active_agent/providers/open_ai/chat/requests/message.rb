@@ -1,7 +1,0 @@
-require_relative "messages/assistant"
-require_relative "messages/base"
-require_relative "messages/developer"
-require_relative "messages/function"
-require_relative "messages/system"
-require_relative "messages/tool"
-require_relative "messages/user"

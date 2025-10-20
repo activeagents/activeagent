@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "../open_ai/options"
-require_relative "requests/response_format"
-require_relative "requests/prediction"
-require_relative "requests/provider_preferences"
-require_relative "requests/message"
-require_relative "requests/types"
+require_relative "../open_ai/_types"
+require_relative "requests/_types"
 
 module ActiveAgent
   module Providers
@@ -13,12 +9,12 @@ module ActiveAgent
       class Request < OpenAI::Chat::Request
         # Prompting Options
         attribute :model,           :string, fallback: "openrouter/auto"
-        attribute :response_format, Requests::Types::ResponseFormatType.new
+        attribute :response_format, Requests::ResponseFormatType.new
         attribute :max_tokens,      :integer
         attribute :stop # Can be string or array
 
         # Messages array (required)
-        attribute :messages, Requests::Types::MessagesType.new
+        attribute :messages, Requests::Messages::MessagesType.new
 
         # LLM Parameters
         attribute :seed,               :integer
@@ -37,13 +33,13 @@ module ActiveAgent
         # attribute :tool_choice, :json
 
         # Predicted outputs
-        attribute :prediction, Requests::Types::PredictionType.new
+        attribute :prediction, Requests::PredictionType.new
 
         # OpenRouter-specific parameters
-        attribute :transforms,                                        default: -> { [] } # Array of strings
-        attribute :models,                                            default: -> { [] } # Array of model strings for fallback
-        attribute :route,    :string,                                 default: "fallback"
-        attribute :provider, Requests::Types::ProviderPreferencesType.new, default: {}
+        attribute :transforms,                                     default: -> { [] } # Array of strings
+        attribute :models,                                         default: -> { [] } # Array of model strings for fallback
+        attribute :route,    :string,                              default: "fallback"
+        attribute :provider, Requests::ProviderPreferencesType.new, default: {}
         attribute :user,     :string # Stable identifier for end-users
 
         # Validations for parameters with specific ranges
