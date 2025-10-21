@@ -44,7 +44,7 @@ module ActiveAgent
 
         when Hash
           raise ArgumentError, "Expected `:template` key in instructions hash" unless param[:template]
-          view_render_template(param[:template], param[:locals])
+          view_render_template(param[:template], **param[:locals])
 
         when nil
           view_render_template("instructions")
@@ -56,17 +56,25 @@ module ActiveAgent
 
       ##### Action Templating #################################################
 
+      def prompt_view_message(action_name, **locals)
+        view_render_template(action_name, **locals)
+      end
+
+      def embed_view_input(action_name, **locals)
+        view_render_template(action_name, **locals)
+      end
+
       ##### Shared Helpers ####################################################
 
-      # Renders a text template if it exists.
+      # Renders a template if it exists in any supported ERB format.
       #
       # @param template_name [String, Symbol]
       # @param locals [Hash]
       # @return [String, nil] nil if template not found
-      def view_render_template(template_name, locals = {})
-        return unless lookup_context.exists?(template_name, agent_name, false, [], formats: [ :text ])
+      def view_render_template(template_name, **locals)
+        return unless lookup_context.exists?(template_name, agent_name, false)
 
-        template = lookup_context.find_template(template_name, agent_name, false, [], formats: [ :text ])
+        template = lookup_context.find_template(template_name, agent_name, false)
 
         render_to_string(template: template.virtual_path, locals:, layout: false).chomp.presence
       end
@@ -186,32 +194,6 @@ module ActiveAgent
         else
           templates.uniq(&:format).each(&)
         end
-      end
-
-      # Creates message parts from responses and adds them to context.
-      #
-      # @param context [Object] receives parts via add_part
-      # @param responses [Array<Hash>] with :body and :content_type keys
-      def create_parts_from_responses(context, responses)
-        if responses.size > 1
-          responses.each { |r| insert_part(context, r, context.charset) }
-        else
-          responses.each { |r| insert_part(context, r, context.charset) }
-        end
-      end
-
-      # Creates and inserts a single message part into the context.
-      #
-      # @param context [Object] receives part via add_part
-      # @param response [Hash] with :body and :content_type keys
-      # @param charset [String]
-      def insert_part(context, response, charset)
-        message = ActiveAgent::ActionPrompt::Message.new(
-          content: response[:body],
-          content_type: response[:content_type],
-          charset: charset
-        )
-        context.add_part(message)
       end
     end
   end

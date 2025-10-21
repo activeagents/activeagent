@@ -51,17 +51,33 @@ module Integration
         class TestAgent < ActiveAgent::Base
           generate_with :anthropic, model: "claude-haiku-4-5", max_tokens: 1024
 
-          # def templates_default
-          #   prompt
-          # end
+          TEMPLATES_DEFAULT = {
+            model: "claude-haiku-4-5",
+            messages: [
+              {
+                role: "user",
+                content: "What is the capital of France?"
+              }
+            ],
+            max_tokens: 1024
+          }
+          def templates_default
+            prompt
+          end
 
-          # def templates_symbol
-          #   prompt :default
-          # end
-
-          # def templates_proc
-          #   prompt ->{ "Result" }
-          # end
+          TEMPLATES_WITH_LOCALS = {
+            model: "claude-haiku-4-5",
+            messages: [
+              {
+                role: "user",
+                content: "Tell me about Japan and its capital city Tokyo."
+              }
+            ],
+            max_tokens: 1024
+          }
+          def templates_with_locals
+            prompt(locals: { country: "Japan", capital: "Tokyo" })
+          end
 
           TEXT_BARE = {
             model: "claude-haiku-4-5",
@@ -237,6 +253,10 @@ module Integration
         # This automatically runs all the tests for these the test actions
         ################################################################################
         [
+          # Template tests
+          :templates_default,
+          :templates_with_locals,
+
           # Text Test
           :text_bare,
           :text_message_bare,

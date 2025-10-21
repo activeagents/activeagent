@@ -231,23 +231,32 @@ module ActiveAgent
       #     prompt temperature: 0.8, instructions: "Be creative"
       #   end
       def prompt(*messages, **options)
+        # Extract message/messages from options and add to messages array
+        messages += options.extract!(:message, :messages).values.flatten.compact
+
+        # Extract image and document attachments
         messages += options.extract!(:image, :document).map { |k, v| { k => v } }
 
-        new_options = { messages: }.compact_blank.merge!(options)
-
-        prompt_options.merge!(new_options)
+        prompt_options.merge!({ messages: }.compact_blank.merge!(options))
       end
 
       # Merges action-level parameters into the embedding context.
       #
-      # @param new_options [Hash] parameters to merge into embedding context
+      # @param input [String, Array<String>, nil] text to embed
+      # @param options [Hash] parameters to merge into embedding context
       # @return [void]
       #
       # @example
       #   def my_embed_action
-      #     embed model: "text-embedding-3-large"
+      #     embed "Text to embed", model: "text-embedding-3-large"
       #   end
-      def embed(new_options = {})
+      #
+      # @example With locals
+      #   def my_embed_action
+      #     embed locals: { text: "Custom text" }
+      #   end
+      def embed(input = nil, **options)
+        new_options = { input: }.compact_blank.merge!(options)
         embed_options.merge!(new_options)
       end
 
@@ -260,13 +269,20 @@ module ActiveAgent
       def process_prompt
         fail "Prompt Provider not Configured" unless prompt_provider_klass
 
-        parameters = prompt_options.merge(
+        parameters = prompt_options.except(:locals).merge(
           trace_id: prompt_options[:trace_id] || SecureRandom.uuid,
           exception_handler:,
           stream_broadcaster:,
           tools_function:,
           instructions: prompt_view_instructions(prompt_options[:instructions])
         ).compact
+
+        # Fallback to message from template if no messages provided, rendered as late as
+        # possible to allow local overrides.
+        if parameters[:messages].blank?
+          template_message = prompt_view_message(action_name, **prompt_options[:locals])
+          parameters[:messages] = [ template_message ] if template_message.present?
+        end
 
         prompt_provider_klass.new(**parameters).prompt
       end
@@ -278,10 +294,17 @@ module ActiveAgent
       def process_embed
         fail "Embed Provider not Configured" unless embed_provider_klass
 
-        parameters = embed_options.merge(
+        parameters = embed_options.except(:locals).merge(
           trace_id: prompt_options[:trace_id] || SecureRandom.uuid,
           exception_handler:
         ).compact
+
+        # Fallback to input from template if no input provided, rendered as late as
+        # possible to allow local overrides.
+        if parameters[:input].blank?
+          template_input = embed_view_input(action_name, **embed_options[:locals])
+          parameters[:input] = template_input if template_input.present?
+        end
 
         embed_provider_klass.new(**parameters).embed
       end
