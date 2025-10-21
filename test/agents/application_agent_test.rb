@@ -30,7 +30,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
       test_response_message_content = "Sure, I can help with that! Could you please provide me with more details about the issue you're experiencing with your account?"
       # region application_agent_loaded_context_message_generation
       message = "I need help with my account"
-      previous_context = ActiveAgent::ActionPrompt::Prompt.new(
+      previous_context = ActiveAgent::Prompt.new(
         messages: [ { content: "Hello, how can I assist you today?", role: :assistant } ],
         instructions: "You're an application agent"
       )
@@ -44,7 +44,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
 
   test "embed generates vector for message content" do
     VCR.use_cassette("application_agent_message_embedding") do
-      message = ActiveAgent::ActionPrompt::Message.new(content: "Test content for embedding")
+      message = ActiveAgent::Message.new(content: "Test content for embedding")
       response = message.embed
 
       assert_not_nil response
@@ -57,8 +57,8 @@ class ApplicationAgentTest < ActiveSupport::TestCase
   test "embed can be called directly on an agent instance" do
     VCR.use_cassette("application_agent_embeddings") do
       agent = ApplicationAgent.new
-      agent.context = ActiveAgent::ActionPrompt::Prompt.new(
-        message: ActiveAgent::ActionPrompt::Message.new(content: "Test direct embedding")
+      agent.context = ActiveAgent::Prompt.new(
+        message: ActiveAgent::Message.new(content: "Test direct embedding")
       )
       response = agent.embed
 

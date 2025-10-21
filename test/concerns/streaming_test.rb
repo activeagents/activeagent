@@ -1,12 +1,11 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "active_agent/action_prompt/concerns/streaming"
 
 class StreamingTest < ActiveSupport::TestCase
   # Test class that includes the Streaming concern
   class TestPrompt
-    include ActiveAgent::ActionPrompt::Streaming
+    include ActiveAgent::Streaming
 
     attr_reader :chunks_received, :callbacks_log
 
@@ -48,7 +47,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   # StreamChunk tests
   test "StreamChunk stores message and delta" do
-    chunk = ActiveAgent::ActionPrompt::Streaming::StreamChunk.new("test_message", "test_delta")
+    chunk = ActiveAgent::Streaming::StreamChunk.new("test_message", "test_delta")
 
     assert_equal "test_message", chunk.message
     assert_equal "test_delta", chunk.delta
@@ -111,7 +110,7 @@ class StreamingTest < ActiveSupport::TestCase
   # Callback registration with methods
   test "on_stream_open registers method callbacks" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream_open :handle_open
@@ -130,7 +129,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "on_stream registers method callbacks" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream :handle_chunk
@@ -149,7 +148,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "on_stream_close registers method callbacks" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream_close :handle_close
@@ -169,7 +168,7 @@ class StreamingTest < ActiveSupport::TestCase
   # Callback registration with blocks
   test "on_stream_open registers block callbacks" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream_open { @called = true }
@@ -184,7 +183,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "on_stream registers block callbacks" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream { @called = true }
@@ -199,7 +198,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "on_stream_close registers block callbacks" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream_close { @called = true }
@@ -215,7 +214,7 @@ class StreamingTest < ActiveSupport::TestCase
   # Multiple callbacks
   test "executes multiple callbacks in registration order" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :order
 
       def initialize
@@ -247,7 +246,7 @@ class StreamingTest < ActiveSupport::TestCase
   # Callback parameters
   test "callbacks receive StreamChunk as parameter" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :received_chunk
 
       on_stream :capture
@@ -269,7 +268,7 @@ class StreamingTest < ActiveSupport::TestCase
   # Callback conditions
   test "supports conditional callbacks with :if option" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called, :condition
 
       on_stream :conditional_callback, if: :condition
@@ -294,7 +293,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "supports conditional callbacks with :unless option" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called, :skip_condition
 
       on_stream :conditional_callback, unless: :skip_condition
@@ -339,7 +338,7 @@ class StreamingTest < ActiveSupport::TestCase
   # Arity detection tests
   test "callbacks with zero arity are called without chunk parameter" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream :no_params_callback
@@ -358,7 +357,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "callbacks with arity 1 receive chunk parameter" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :received_chunk
 
       on_stream :with_params_callback
@@ -379,7 +378,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "supports mixing zero-arity and single-arity callbacks" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :zero_arity_called, :single_arity_chunk
 
       on_stream :zero_arity_method, :single_arity_method
@@ -404,7 +403,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "on_stream_open respects arity for zero-arity methods" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream_open :no_params
@@ -423,7 +422,7 @@ class StreamingTest < ActiveSupport::TestCase
 
   test "on_stream_close respects arity for zero-arity methods" do
     klass = Class.new do
-      include ActiveAgent::ActionPrompt::Streaming
+      include ActiveAgent::Streaming
       attr_accessor :called
 
       on_stream_close :no_params

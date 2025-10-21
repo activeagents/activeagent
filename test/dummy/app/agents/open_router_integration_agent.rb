@@ -9,8 +9,8 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     @image_url = params[:image_url]
     @image_path = params[:image_path]
 
-    # Create an ActiveAgent::ActionPrompt::Message with multimodal content
-    message = ActiveAgent::ActionPrompt::Message.new(
+    # Create an ActiveAgent::Message with multimodal content
+    message = ActiveAgent::Message.new(
       content: build_image_message,
       role: :user
     )
@@ -26,8 +26,8 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     @image_url = params[:image_url]
     @image_path = params[:image_path]
 
-    # Create an ActiveAgent::ActionPrompt::Message with multimodal content
-    message = ActiveAgent::ActionPrompt::Message.new(
+    # Create an ActiveAgent::Message with multimodal content
+    message = ActiveAgent::Message.new(
       content: build_receipt_message,
       role: :user
     )

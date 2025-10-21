@@ -1,5 +1,4 @@
 class StreamingAgent < ApplicationAgent
-  layout "agent"
   generate_with :openai,
     model: "gpt-4.1-nano",
     instructions: "You're a chat agent. Your job is to help users with their questions.",

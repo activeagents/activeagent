@@ -79,14 +79,14 @@ class ConcernToolsTest < ActiveSupport::TestCase
     # Test that the same action can work with different APIs
 
     # Test with Chat Completions API (function calling)
-    chat_prompt = ActiveAgent::ActionPrompt::Prompt.new
+    chat_prompt = ActiveAgent::Prompt.new
     chat_prompt.options = { model: "gpt-4o" }
     chat_prompt.actions = @agent.action_schemas  # Function schemas
 
     assert chat_prompt.actions.any? { |a| a["function"]["name"] == "search_academic_papers" }
 
     # Test with Responses API (can use built-in tools)
-    responses_prompt = ActiveAgent::ActionPrompt::Prompt.new
+    responses_prompt = ActiveAgent::Prompt.new
     responses_prompt.options = {
       model: "gpt-5",
       use_responses_api: true,
@@ -144,7 +144,7 @@ class ConcernToolsTest < ActiveSupport::TestCase
     # Test that we don't try to use unsupported features
 
     # MCP should not be available in Chat API
-    chat_prompt = ActiveAgent::ActionPrompt::Prompt.new
+    chat_prompt = ActiveAgent::Prompt.new
     chat_prompt.options = {
       model: "gpt-4o",  # Regular chat model
       tools: [

@@ -112,9 +112,11 @@ module ResearchTools
   end
 
   def responses_api?
-    # Check if we're using the Responses API
-    # For now, we'll check if the model or options indicate Responses API usage
-    false # This would be determined by the actual provider configuration
+    # Check if we're using the Responses API by examining the prompt options
+    # Tools can only be used with Responses API
+    prompt_options.dig(:options, :api_version) == :responses ||
+      prompt_options.dig(:options, :use_responses_api) == true ||
+      (prompt_options[:model]&.start_with?("gpt-") && prompt_options.dig(:options, :api_version) != :chat)
   end
 
   class_methods do

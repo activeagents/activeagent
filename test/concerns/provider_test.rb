@@ -1,12 +1,11 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "active_agent/action_prompt/concerns/provider"
 
 class ProviderTest < ActiveSupport::TestCase
   # Test class that includes the Provider concern
   class TestPrompt
-    include ActiveAgent::ActionPrompt::Provider
+    include ActiveAgent::Provider
   end
 
   # Mock provider classes for testing

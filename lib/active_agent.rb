@@ -23,15 +23,20 @@ module ActiveAgent
   end
 
   autoload :Base
-  autoload :Callbacks
-  autoload :Streaming
+  autoload :Callbacks, "active_agent/concerns/callbacks"
+  autoload :Streaming, "active_agent/concerns/streaming"
   autoload :InlinePreviewInterceptor
   autoload :Generation
-  autoload :Queueing
-  autoload :Parameterized
-  autoload :Preview
-  autoload :Previews, "active_agent/preview"
+  autoload :Queueing, "active_agent/concerns/queueing"
+  autoload :Parameterized, "active_agent/concerns/parameterized"
+  autoload :Preview, "active_agent/concerns/preview"
+  autoload :Previews, "active_agent/concerns/preview"
   autoload :GenerationJob
+  autoload :Observers, "active_agent/concerns/observers"
+  autoload :Provider, "active_agent/concerns/provider"
+  autoload :Rescue, "active_agent/concerns/rescue"
+  autoload :Tooling, "active_agent/concerns/tooling"
+  autoload :View, "active_agent/concerns/view"
 
   class << self
     def eager_load!

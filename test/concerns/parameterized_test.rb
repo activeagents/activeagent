@@ -1,8 +1,6 @@
 require "test_helper"
 
 class ParameterizedAgent < ActiveAgent::Base
-  layout "agent"
-
   generate_with :openai, model: "gpt-4o-mini", instructions: "You are a helpful assistant."
 
   def greet_user
@@ -29,7 +27,7 @@ class ParameterizedTest < ActiveSupport::TestCase
 
   test "with returns an Agent proxy" do
     agent_proxy = ParameterizedAgent.with(name: "Alice")
-    assert_instance_of ActiveAgent::ActionPrompt::Parameterized::Agent, agent_proxy
+    assert_instance_of ActiveAgent::Parameterized::Agent, agent_proxy
   end
 
   test "prompt_with is an alias for with" do
@@ -43,7 +41,7 @@ class ParameterizedTest < ActiveSupport::TestCase
     agent_proxy = ParameterizedAgent.with(name: "Alice", role: "developer")
     generation = agent_proxy.greet_user
 
-    assert_instance_of ActiveAgent::ActionPrompt::Parameterized::Generation, generation
+    assert_instance_of ActiveAgent::Parameterized::Generation, generation
   end
 
   test "params are accessible in agent actions" do
@@ -91,7 +89,7 @@ class ParameterizedTest < ActiveSupport::TestCase
   test "empty params work correctly" do
     generation = ParameterizedAgent.with({}).greet_user
 
-    assert_instance_of ActiveAgent::ActionPrompt::Parameterized::Generation, generation
+    assert_instance_of ActiveAgent::Parameterized::Generation, generation
   end
 
   private
