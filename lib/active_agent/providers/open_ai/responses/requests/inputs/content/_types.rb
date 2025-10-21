@@ -31,7 +31,7 @@ module ActiveAgent
                   when nil
                     nil
                   else
-                    value
+                    raise ArgumentError, "Cannot cast #{value.class} to Contents (expected String, Array, or nil)"
                   end
                 end
 
@@ -44,7 +44,7 @@ module ActiveAgent
                   when nil
                     nil
                   else
-                    value
+                    raise ArgumentError, "Cannot serialize #{value.class} as Contents"
                   end
                 end
 
@@ -60,18 +60,29 @@ module ActiveAgent
                   when Base
                     value
                   when Hash
-                    type = value[:type]&.to_s || value["type"]&.to_s
+                    hash = value.deep_symbolize_keys
+                    type = hash[:type]&.to_sym
 
                     case type
-                    when "input_text"
-                      InputText.new(**value.symbolize_keys)
-                    when "input_image"
-                      InputImage.new(**value.symbolize_keys)
-                    when "input_file"
-                      InputFile.new(**value.symbolize_keys)
+                    when :input_text, :output_text
+                      InputText.new(**hash.except(:annotations, :logprobs, :type))
+                    when :input_image
+                      InputImage.new(**hash)
+                    when :input_file
+                      InputFile.new(**hash)
+                    when nil
+                      # When type is nil, check for specific content keys to infer type
+                      if hash.key?(:text)
+                        InputText.new(**hash)
+                      elsif hash.key?(:image)
+                        InputImage.new(**hash.merge(image_url: hash.delete(:image)))
+                      elsif hash.key?(:document)
+                        InputFile.new(**hash.merge(file_url: hash.delete(:document)))
+                      else
+                        raise ArgumentError, "Cannot determine content type from hash keys: #{hash.keys.inspect}"
+                      end
                     else
-                      # Return hash as-is if type is unknown
-                      value
+                      raise ArgumentError, "Unknown content type: #{type.inspect}"
                     end
                   when String
                     # Plain text string becomes input_text
@@ -79,7 +90,7 @@ module ActiveAgent
                   when nil
                     nil
                   else
-                    value
+                    raise ArgumentError, "Cannot cast #{value.class} to Content (expected Base, Hash, String, or nil)"
                   end
                 end
 
@@ -94,7 +105,7 @@ module ActiveAgent
                   when nil
                     nil
                   else
-                    value
+                    raise ArgumentError, "Cannot serialize #{value.class} as Content"
                   end
                 end
 

@@ -1,5 +1,5 @@
 require_relative "_base"
-require_relative "chat/request"
+require_relative "chat/_types"
 
 module ActiveAgent
   module Providers
@@ -13,8 +13,8 @@ module ActiveAgent
       # @see Base
       # @see https://platform.openai.com/docs/api-reference/chat
       class ChatProvider < Base
-        def options_klass        = Options
-        def prompt_request_klass = Chat::Request
+        def options_klass       = Options
+        def prompt_request_type = Chat::RequestType.new
 
         protected
 

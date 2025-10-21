@@ -3,8 +3,7 @@ require_relative "_base_provider"
 require_gem!(:openai, __FILE__)
 
 require_relative "open_ai_provider"
-require_relative "open_router/options"
-require_relative "open_router/request"
+require_relative "open_router/_types"
 
 module ActiveAgent
   module Providers
@@ -17,9 +16,9 @@ module ActiveAgent
     # @see OpenAI::ChatProvider
     # @see https://openrouter.ai/docs
     class OpenRouterProvider < OpenAI::ChatProvider
-      def service_name         = "OpenRouter"
-      def options_klass        = namespace::Options
-      def prompt_request_klass = namespace::Request
+      def service_name        = "OpenRouter"
+      def options_klass       = namespace::Options
+      def prompt_request_type = namespace::RequestType.new
 
       # def initialize(config)
       #   @track_costs = config.delete("track_costs") != false

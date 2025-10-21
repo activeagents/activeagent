@@ -2,7 +2,7 @@ require_relative "../_base_provider"
 
 require_gem!(:openai, __FILE__)
 
-require_relative "_types"
+require_relative "options"
 
 module ActiveAgent
   module Providers

@@ -23,12 +23,11 @@ module ActiveAgent
                   # Already a Source object, return as-is
                   value
                 when Hash
-                  # Symbolize keys once for consistent lookups
-                  hash = value.symbolize_keys
-                  type = hash[:type]&.to_s
+                  hash = value.deep_symbolize_keys
+                  type = hash[:type]&.to_sym
 
                   case type
-                  when "base64"
+                  when :base64
                     # Determine if it's image or document based on media_type or context
                     media_type = hash[:media_type]&.to_s
                     if media_type&.start_with?("image/")
@@ -36,14 +35,14 @@ module ActiveAgent
                     else
                       DocumentBase64.new(**hash)
                     end
-                  when "url"
+                  when :url
                     # Could be either - default to image for now
                     # Callers can be more specific by passing the right class
                     ImageURL.new(**hash)
-                  when "file"
+                  when :file
                     # Could be either - default to image for now
                     ImageFile.new(**hash)
-                  when "text"
+                  when :text
                     DocumentText.new(**hash)
                   when nil
                     # No type specified - try to infer

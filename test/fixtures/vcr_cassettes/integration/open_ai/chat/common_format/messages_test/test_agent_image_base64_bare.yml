@@ -1,0 +1,93 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What''s
+        in this image?"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}}]}],"model":"gpt-5"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 00:15:28 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Processing-Ms:
+      - '5797'
+      Openai-Project:
+      - PROJECT_ID
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '5839'
+      X-Ratelimit-Limit-Input-Images:
+      - '250000'
+      X-Ratelimit-Limit-Requests:
+      - '15000'
+      X-Ratelimit-Limit-Tokens:
+      - '40000000'
+      X-Ratelimit-Remaining-Input-Images:
+      - '249999'
+      X-Ratelimit-Remaining-Requests:
+      - '14999'
+      X-Ratelimit-Remaining-Tokens:
+      - '39999227'
+      X-Ratelimit-Reset-Input-Images:
+      - 0s
+      X-Ratelimit-Reset-Requests:
+      - 4ms
+      X-Ratelimit-Reset-Tokens:
+      - 1ms
+      X-Request-Id:
+      - req_6fd2387760e24ebb9cf0fc655e0ab9c2
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=cvd8ThtRQOj5mBqZmemj10ipLmG1NX.By43kT735me4-1761005728-1.0.1.1-Ythp1A4VWOUhfijmWJ04XM9t8s2JgfWgof69Xt8az5FhrspPmYPCLz.hvA80FAi_ssReXzjRcIB0CUmubqFpeGRAYpV8HBw4Kdx7yP6YHdo;
+        path=/; expires=Tue, 21-Oct-25 00:45:28 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=EbC71k0tzUrRvDmEWh0EcmdCzUtg_65JddYF32PDDxI-1761005728819-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991c8f682f9167a3-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        ewogICJpZCI6ICJjaGF0Y21wbC1DU3VLMzZaUWpqY2tDQTlkMGswMGJKUzZKSWR1WiIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc2MTAwNTcyMywKICAibW9kZWwiOiAiZ3B0LTUtMjAyNS0wOC0wNyIsCiAgImNob2ljZXMiOiBbCiAgICB7CiAgICAgICJpbmRleCI6IDAsCiAgICAgICJtZXNzYWdlIjogewogICAgICAgICJyb2xlIjogImFzc2lzdGFudCIsCiAgICAgICAgImNvbnRlbnQiOiAiQSBicmlnaHQgbGlicmFyeSBzY2VuZS4gQSBzdGFmZiBtZW1iZXIgYXQgdGhlIGNpcmN1bGF0aW9uIGRlc2sgaXMgaGFuZGluZyBhIGJvb2sgdG8gYSBwYXRyb24uIFRoZXJl4oCZcyBhIHN0YWNrIG9mIGJvb2tzIG9uIHRoZSBjb3VudGVyLCBhIGNvbXB1dGVyIGFuZCBzY2FubmVyLCBhbmQgYm9va3NoZWx2ZXMgYW5kIHBsYW50cyBpbiB0aGUgYmFja2dyb3VuZC4gQm90aCBwZW9wbGUgYXJlIHNtaWxpbmcgZHVyaW5nIHRoZSBjaGVja291dC4iLAogICAgICAgICJyZWZ1c2FsIjogbnVsbCwKICAgICAgICAiYW5ub3RhdGlvbnMiOiBbXQogICAgICB9LAogICAgICAiZmluaXNoX3JlYXNvbiI6ICJzdG9wIgogICAgfQogIF0sCiAgInVzYWdlIjogewogICAgInByb21wdF90b2tlbnMiOiAyMjEsCiAgICAiY29tcGxldGlvbl90b2tlbnMiOiAzMTcsCiAgICAidG90YWxfdG9rZW5zIjogNTM4LAogICAgInByb21wdF90b2tlbnNfZGV0YWlscyI6IHsKICAgICAgImNhY2hlZF90b2tlbnMiOiAwLAogICAgICAiYXVkaW9fdG9rZW5zIjogMAogICAgfSwKICAgICJjb21wbGV0aW9uX3Rva2Vuc19kZXRhaWxzIjogewogICAgICAicmVhc29uaW5nX3Rva2VucyI6IDI1NiwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAsCiAgICAgICJhY2NlcHRlZF9wcmVkaWN0aW9uX3Rva2VucyI6IDAsCiAgICAgICJyZWplY3RlZF9wcmVkaWN0aW9uX3Rva2VucyI6IDAKICAgIH0KICB9LAogICJzZXJ2aWNlX3RpZXIiOiAiZGVmYXVsdCIsCiAgInN5c3RlbV9maW5nZXJwcmludCI6IG51bGwKfQo=
+  recorded_at: Tue, 21 Oct 2025 00:15:28 GMT
+recorded_with: VCR 6.3.1

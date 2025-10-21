@@ -20,8 +20,7 @@ module ActiveAgent
             when ContainerParams
               value
             when Hash
-              # Symbolize keys once for consistent lookups
-              ContainerParams.new(**value.symbolize_keys)
+              ContainerParams.new(**value.deep_symbolize_keys)
             when String
               # Allow string as container ID shortcut
               ContainerParams.new(id: value)
@@ -57,8 +56,7 @@ module ActiveAgent
             when ContextManagementConfig
               value
             when Hash
-              # Symbolize keys once for consistent lookups
-              ContextManagementConfig.new(**value.symbolize_keys)
+              ContextManagementConfig.new(**value.deep_symbolize_keys)
             when nil
               nil
             else
@@ -91,8 +89,7 @@ module ActiveAgent
             when Metadata
               value
             when Hash
-              # Symbolize keys once for consistent lookups
-              Metadata.new(**value.symbolize_keys)
+              Metadata.new(**value.deep_symbolize_keys)
             when nil
               nil
             else

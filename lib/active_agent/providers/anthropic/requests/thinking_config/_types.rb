@@ -16,14 +16,13 @@ module ActiveAgent
               when Base
                 value
               when Hash
-                # Symbolize keys once for consistent lookups
-                hash = value.symbolize_keys
-                type = hash[:type]&.to_s
+                hash = value.deep_symbolize_keys
+                type = hash[:type]&.to_sym
 
                 case type
-                when "enabled"
+                when :enabled
                   Enabled.new(**hash)
-                when "disabled"
+                when :disabled
                   Disabled.new(**hash)
                 when nil
                   nil

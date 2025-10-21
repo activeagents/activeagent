@@ -3,5 +3,3 @@
 require_relative "chat/_types"
 require_relative "embedding/_types"
 require_relative "responses/_types"
-
-require_relative "options"

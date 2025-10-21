@@ -13,7 +13,7 @@ module ActiveAgent
               attribute :role, :string, as: "tool"
               attribute :tool_call_id, :string
 
-              validates :tool_call_id, presence: true, if: -> { role == "tool" }
+              validates :tool_call_id, presence: true
             end
           end
         end

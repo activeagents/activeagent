@@ -5,6 +5,7 @@ require_gem!(:openai, __FILE__)
 require_relative "open_ai/_base"
 require_relative "open_ai/chat_provider"
 require_relative "open_ai/responses_provider"
+require_relative "open_ai/embedding/_types"
 
 module ActiveAgent
   module Providers
@@ -60,10 +61,10 @@ module ActiveAgent
         end
       end
 
-      # Returns the embedding request class for OpenAI.
+      # Returns the embedding request type for OpenAI.
       #
-      # @return [Class] The OpenAI embedding request class
-      def embed_request_klass = OpenAI::Embedding::Request
+      # @return [ActiveModel::Type::Value] The OpenAI embedding request type
+      def embed_request_type = OpenAI::Embedding::RequestType.new
 
       protected
 

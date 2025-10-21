@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "base"
+require_relative "input_message"
 
 module ActiveAgent
   module Providers
@@ -9,7 +9,7 @@ module ActiveAgent
         module Requests
           module Inputs
             # Developer message input (higher priority than system)
-            class DeveloperMessage < Base
+            class DeveloperMessage < InputMessage
               attribute :role, :string, as: "developer"
             end
           end

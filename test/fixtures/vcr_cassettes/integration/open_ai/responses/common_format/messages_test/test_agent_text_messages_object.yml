@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"assistant","content":"I can help you with programming
+        questions."},{"role":"user","content":"What are the benefits of using ActiveRecord?"}],"model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 04:52:12 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999953'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_be865ede026840f68653095bf8308fb3
+      Openai-Processing-Ms:
+      - '9586'
+      X-Envoy-Upstream-Service-Time:
+      - '9593'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=PuKdeiGbKHV7SgqJDFTVrPZV3gnUhLxS8xr0QZ2RzNQ-1761022332-1.0.1.1-B5NNvag4VI5.PguqEwMPX3hVgXGlmaRHrzoIIdty5D3G0OpNjUD1aldFuZXCxRgQejbN.V71Qzjt7iT7GjTmXs4aL.fbg1Uu2ra24E0gcYc;
+        path=/; expires=Tue, 21-Oct-25 05:22:12 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=uAPhhIsVxixIGujE01LM718DGANAVumv6CXrGuTwqEc-1761022332277-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991e24ac4f96f9cc-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_09efce0fc12b12410068f71172b0dc81998f8d1972987cc1a7",
+          "object": "response",
+          "created_at": 1761022322,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_09efce0fc12b12410068f7117333ec81999d9046d83bde3a74",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "**ActiveRecord** is the default Object-Relational Mapping (ORM) library used in Ruby on Rails, but its patterns are implemented in other languages and frameworks as well. Here are the core benefits of using ActiveRecord:\n\n---\n\n### 1. **Simplicity and Convention Over Configuration**\n- **Intuitive API:** You interact with database records as Ruby objects, making it much easier to manage data.\n- **Convention over configuration:** Follows Rails conventions (e.g., table names, foreign keys), reducing the need for boilerplate setup.\n\n### 2. **Database Abstraction**\n- **Database-agnostic:** Works with multiple database systems (PostgreSQL, MySQL, SQLite, etc.) without changing your code.\n- **Portability:** Easily switch databases with minimal changes to application code.\n\n### 3. **Automated CRUD Operations**\n- **Built-in CRUD:** ActiveRecord provides out-of-the-box Create, Read, Update, and Delete methods, significantly reducing the amount of code needed for basic data manipulation.\n\n### 4. **Associations**\n- **Built-in relationships:** Easily define relationships (one-to-one, one-to-many, many-to-many) between models, with convenient methods for accessing related records.\n\n### 5. **Validations and Callbacks**\n- **Data validation:** Simple syntax for model-level validations to ensure data integrity before saving to the database.\n- **Callbacks:** Hooks for executing logic before or after certain events (e.g., before_save, after_create).\n\n### 6. **Query Interface**\n- **Chaining and composability:** Retrieve records using simple and chainable query syntax (`where`, `order`, `limit`, etc.).\n- **Scopes:** Define reusable query fragments as named scopes.\n\n### 7. **Migrations**\n- **Version control:** Migrations allow you to track and manage schema changes in a versioned way, making database changes easier to maintain and share with a team.\n\n### 8. **Protection against SQL Injection**\n- **Automatic sanitization:** Uses parameterized queries to protect against SQL injection vulnerabilities by default.\n\n### 9. **Integration with Rails**\n- **Seamless integration:** Works smoothly with other Rails components like controllers and views for rapid application development.\n\n### 10. **Testing and Fixtures**\n- **Easy testing:** Provides fixtures and helpers for writing tests involving models and their associations.\n\n---\n\n**Summary:**  \nActiveRecord improves developer productivity by simplifying database interactions, enforcing best practices, and abstracting away much of the repetitive boilerplate involved in data modeling and manipulation.\n\nIf you have specific use-cases or want comparisons with other ORMs or patterns, let me know!"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 28,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 538,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 566
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 21 Oct 2025 04:52:12 GMT
+recorded_with: VCR 6.3.1

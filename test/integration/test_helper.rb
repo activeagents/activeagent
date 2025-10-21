@@ -26,7 +26,7 @@ module Integration
           cassette_file = YAML.load_file("test/fixtures/vcr_cassettes/#{cassette_name}.yml")
           saved_request_body = JSON.parse(cassette_file.dig("http_interactions", 0, "request", "body", "string"), symbolize_names: true)
 
-          assert_equal saved_request_body, expected_request_body
+          assert_equal expected_request_body, saved_request_body
 
           # Run Again to Validate that the Request cycle is well formed and not mutated since recording it last
           cassette_file.dig("http_interactions").each do |interaction|

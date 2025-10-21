@@ -1,0 +1,150 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"Tell
+        me a fun fact about Ruby programming."},{"type":"input_text","text":"Now explain
+        why that''s interesting."}]}],"model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 04:35:15 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999960'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_1d4fc6b7c82242b79b9ee314b655e53f
+      Openai-Processing-Ms:
+      - '4813'
+      X-Envoy-Upstream-Service-Time:
+      - '4818'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=PqOaYjSHGgzRv9rpDJFd.uETptNlvkWbL3KXastO37k-1761021315-1.0.1.1-5PL9KHloAyzvwwcGhX4o4x1e8oWBOhwYcwrt3UHpQd2qoGuT0IVuNCmw75OwvSyNwkamK8tbNGCw34j12FfiymbX6gcTj8NMEyoxNleARlo;
+        path=/; expires=Tue, 21-Oct-25 05:05:15 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=GVQE440ZFbkFHG4D3tOs9WgJj8hUYhn2FpMSP2AfKXQ-1761021315918-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991e0bf7aab7689a-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_09128e87968d68f50068f70d7f1b54819aab834232400783a0",
+          "object": "response",
+          "created_at": 1761021311,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_09128e87968d68f50068f70d7ffda8819a8bbac2c34305eb35",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "**Fun Fact about Ruby:**  \nIn Ruby, everything is an object\u2014even integers, classes, and even `nil`!\n\n**Why That\u2019s Interesting:**  \nMost languages distinguish between \"primitive\" types (like numbers, strings, booleans) and objects, but Ruby does not. For instance, you can call methods directly on numbers:\n\n```ruby\n5.times { puts \"Hello, world!\" }\n```\n\nHere, `5` is not just a number, but a full-fledged object with its own methods!\n\n**Why It Matters:**  \nThis consistency makes Ruby\u2019s syntax elegant and powerful. It allows method chaining, metaprogramming, and treating all data types in a unified way, which is one of the reasons Ruby code reads so naturally (and why it\u2019s beloved by many programmers, especially for Ruby on Rails)."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 21,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 169,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 190
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 21 Oct 2025 04:35:15 GMT
+recorded_with: VCR 6.3.1

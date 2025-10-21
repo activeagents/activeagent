@@ -1,5 +1,5 @@
 require_relative "_base"
-require_relative "responses/request"
+require_relative "responses/_types"
 
 module ActiveAgent
   module Providers
@@ -13,8 +13,8 @@ module ActiveAgent
       # @see Base
       # @see https://platform.openai.com/docs/api-reference/responses
       class ResponsesProvider < Base
-        def options_klass        = Options
-        def prompt_request_klass = Responses::Request
+        def options_klass       = Options
+        def prompt_request_type = Responses::RequestType.new
 
         protected
 

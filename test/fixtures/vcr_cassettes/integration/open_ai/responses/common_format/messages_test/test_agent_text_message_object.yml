@@ -1,0 +1,148 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What are the main differences between Ruby and Python?","model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 04:31:46 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999964'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_4627136749924b5dbe224a46aeb26cf1
+      Openai-Processing-Ms:
+      - '12209'
+      X-Envoy-Upstream-Service-Time:
+      - '12213'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Rd8Pz3XKCMJ_1V8XLRCiUkGvLjytpHPNQxM_g5sPspI-1761021106-1.0.1.1-BRoYA2XSeSMOmrbufSfnLSTp0ck2TZ4fMXvkZAEF9doKDASbgorLAw6GdZAALFWF3WKE02uovjZnLZyc3JW7MAoiGUmxhsj.1vma78juksw;
+        path=/; expires=Tue, 21-Oct-25 05:01:46 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=74gh7OFFjLOItIX0mS_4ViXYAmuhOUoG_AnLKPOc0QE-1761021106956-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991e06ae4ae915d2-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_020bd4d8f51bd5410068f70ca6bca8819baf962f1edca0bb7b",
+          "object": "response",
+          "created_at": 1761021094,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_020bd4d8f51bd5410068f70ca7dbc0819b956f2ecb1db66711",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Ruby and Python are both high-level, dynamically-typed scripting languages popular for web development and scripting, but they have distinct philosophies, syntax, and ecosystems. Here are the main differences:\n\n---\n\n### **1. Philosophy and Design**\n\n- **Ruby**\n  - **Philosophy:** Focuses on developer happiness and productivity. \u201cThere\u2019s more than one way to do it.\u201d (Emphasizes flexibility and expressiveness.)\n  - **Community:** Known for its friendly and creative community.\n- **Python**\n  - **Philosophy:** Emphasizes readability and simplicity. \u201cThere should be one\u2013 and preferably only one \u2013obvious way to do it.\u201d (The Zen of Python.)\n  - **Community:** Known for being pragmatic, straightforward, and welcoming.\n\n---\n\n### **2. Syntax**\n\n- **Ruby**\n  - More flexible, often allows for multiple ways to achieve the same effect.\n  - Code can be more concise and expressive, sometimes at the cost of clarity.\n  - Uses `end` to close code blocks.\n    ```ruby\n    def hello\n      puts 'Hello, world!'\n    end\n    ```\n- **Python**\n  - Enforces one clear way (PEP 8).\n  - Uses indentation to define code blocks.\n    ```python\n    def hello():\n        print('Hello, world!')\n    ```\n\n---\n\n### **3. Use Cases and Popularity**\n\n- **Ruby**\n  - Most popular for **web development** (Ruby on Rails framework).\n  - Used for scripting and automation in certain communities.\n- **Python**\n  - Extremely popular in **data science, machine learning, scripting, automation, web development** (Django, Flask), education, and scientific computing.\n\n---\n\n### **4. Libraries and Frameworks**\n\n- **Ruby**\n  - Best known for **Rails** (Ruby on Rails) web framework.\n  - Has other frameworks (Sinatra, Hanami) but less variety than Python.\n- **Python**\n  - Huge standard library.\n  - Many frameworks for web (Django, Flask, FastAPI), data (NumPy, pandas), ML (TensorFlow, PyTorch), automation, etc.\n\n---\n\n### **5. Community and Ecosystem**\n\n- **Ruby**\n  - Smaller but passionate community.\n  - Rails community is especially strong.\n- **Python**\n  - One of the largest programming communities.\n  - Used in a wide array of domains.\n\n---\n\n### **6. Performance**\n\n- Both are interpreted and generally similar in performance.\n- Performance differences are usually negligible for most use-cases, but Python's ecosystem for scientific and machine learning computations is more optimized and extensive.\n\n---\n\n### **7. Typing**\n\n- Both are dynamically typed.\n- **Python** now has gradual typing (type hinting).\n- **Ruby** is also moving towards optional typing (Sorbet, RBS) but it is less mature.\n\n---\n\n### **8. Learning Curve**\n\n- Both are considered easy for beginners.\n- **Python** is often recommended for absolute beginners because of its simplicity and strong support in introductory programming courses.\n\n---\n\n**Summary Table**\n\n| Feature            | Ruby                       | Python                     |\n|--------------------|---------------------------|----------------------------|\n| Philosophy         | Flexibility, expressiveness| Readability, simplicity    |\n| Syntax             | End statements, flexible  | Indentation, strict        |\n| Main Use           | Web dev (Rails)           | General-purpose, data, web |\n| Community          | Smaller, Rails-centric    | Large, diverse             |\n| Typing             | Dynamic (now optional static tools) | Dynamic (with type hints)       |\n| Learning Curve     | Easy                      | Very easy                  |\n\n---\n\n**In summary:**  \n**Ruby** is loved for web development and developer happiness, with Ruby on Rails being its killer app. **Python**\u2019s simplicity, readability, and expansive ecosystem make it a top choice in education, data science, automation, web development, and beyond."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 17,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 810,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 827
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 21 Oct 2025 04:31:46 GMT
+recorded_with: VCR 6.3.1

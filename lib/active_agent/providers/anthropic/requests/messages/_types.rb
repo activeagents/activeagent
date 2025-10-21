@@ -64,14 +64,13 @@ module ActiveAgent
               when String
                 User.new(content: value)
               when Hash
-                # Symbolize keys once for consistent lookups
-                hash = value.symbolize_keys
-                role = hash[:role]&.to_s
+                hash = value.deep_symbolize_keys
+                role = hash[:role]&.to_sym
 
                 case role
-                when "user", nil
+                when :user, nil
                   User.new(**hash)
-                when "assistant"
+                when :assistant
                   Assistant.new(**hash)
                 else
                   raise ArgumentError, "Unknown message role: #{role}"
@@ -158,12 +157,11 @@ module ActiveAgent
               when String
                 Content::Text.new(text: value)
               when Hash
-                # Symbolize keys once for consistent lookups
-                hash = value.symbolize_keys
-                type = hash[:type]&.to_s
+                hash = value.deep_symbolize_keys
+                type = hash[:type]&.to_sym
 
                 case type
-                when "text"
+                when :text
                   Content::Text.new(**hash)
                 else
                   raise ArgumentError, "Unknown system block type: #{type}"

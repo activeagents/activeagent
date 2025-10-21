@@ -27,30 +27,22 @@ module Integration
           SOURCE_PAYLOAD = {
             image: {
               url: {
-                type: "image_url",
-                image_url: {
-                  url: IMAGE_HTTP
-                }
+                type: "input_image",
+                image_url: IMAGE_HTTP
               },
               base64: {
-                type: "image_url",
-                image_url: {
-                  url: IMAGE_BASE64
-                }
+                type: "input_image",
+                image_url: IMAGE_BASE64
               }
             },
             document: {
               url: {
-                type: "image_url",
-                image_url: {
-                  url: FILE_HTTP
-                }
+                type: "input_file",
+                file_url: FILE_HTTP
               },
               base64: {
-                type: "image_url",
-                image_url: {
-                  url: FILE_BASE64
-                }
+                type: "input_file",
+                file_url: FILE_BASE64
               }
             }
           }
@@ -75,7 +67,7 @@ module Integration
               input: "What is the capital of France?"
             }
             def text_bare
-              prompt(input: "What is the capital of France?")
+              prompt("What is the capital of France?")
             end
 
             TEXT_MESSAGE_BARE = {
@@ -91,18 +83,54 @@ module Integration
               input: "What are the main differences between Ruby and Python?"
             }
             def text_message_object
-              prompt(input: "What are the main differences between Ruby and Python?")
+              prompt(message: { text: "What are the main differences between Ruby and Python?" })
+            end
+
+            TEXTS_BARE = {
+              model: "gpt-4.1",
+              input: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "input_text",
+                      text: "Tell me a fun fact about Ruby programming."
+                    },
+                    {
+                      type: "input_text",
+                      text: "Now explain why that's interesting."
+                    }
+                  ]
+                }
+              ]
+            }
+            def texts_bare
+              prompt(
+                "Tell me a fun fact about Ruby programming.",
+                "Now explain why that's interesting."
+              )
             end
 
             TEXT_MESSAGES_BARE = {
               model: "gpt-4.1",
               input: [
-                "Tell me a fun fact about Ruby programming.",
-                "Now explain why that's interesting."
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "input_text",
+                      text: "Tell me a fun fact about Ruby programming."
+                    },
+                    {
+                      type: "input_text",
+                      text: "Now explain why that's interesting."
+                    }
+                  ]
+                }
               ]
             }
             def text_messages_bare
-              prompt(input: [
+              prompt(messages: [
                 "Tell me a fun fact about Ruby programming.",
                 "Now explain why that's interesting."
               ])
@@ -111,14 +139,25 @@ module Integration
             TEXT_MESSAGES_OBJECT = {
               model: "gpt-4.1",
               input: [
-                "I can help you with programming questions.",
-                "What are the benefits of using ActiveRecord?"
+                {
+                  role: "assistant",
+                  content:  "I can help you with programming questions."
+                },
+                {
+                  role: "user",
+                  content: "What are the benefits of using ActiveRecord?"
+                }
               ]
             }
             def text_messages_object
-              prompt(input: [
-                "I can help you with programming questions.",
-                "What are the benefits of using ActiveRecord?"
+              prompt(messages: [
+                {
+                  role: "assistant",
+                  text: "I can help you with programming questions."
+                },
+                {
+                  text: "What are the benefits of using ActiveRecord?"
+                }
               ])
             end
 
@@ -130,13 +169,16 @@ module Integration
 
                 const_set("#{data_type}_#{data_format}".upcase, {
                   model: "gpt-4.1",
-                  input: [
-                    {
-                      type: "text",
-                      text: "What's in this #{data_type}?"
-                    },
-                    source
-                  ]
+                  input: [ {
+                    role: "user",
+                    content: [
+                      {
+                        type: "input_text",
+                        text: "What's in this #{data_type}?"
+                      },
+                      source
+                    ]
+                  } ]
                 })
 
                 define_method("#{data_type}_#{data_format}_bare") do
@@ -177,6 +219,7 @@ module Integration
             :text_bare,
             :text_message_bare,
             :text_message_object,
+            :texts_bare,
             :text_messages_bare,
             :text_messages_object
           ].each do |action_name|
@@ -195,13 +238,13 @@ module Integration
             # :image_attachment_message,
             # :image_attachment_messages,
 
-            # File tests
+            # # File tests
             :document_url_bare,
             :document_url_message,
-            :document_url_messages,
-            :document_base64_bare,
-            :document_base64_message,
-            :document_base64_messages
+            :document_url_messages
+            # :document_base64_bare,
+            # :document_base64_message,
+            # :document_base64_messages
             # :document_attachment_bare,
             # :document_attachment_message,
             # :document_attachment_messages

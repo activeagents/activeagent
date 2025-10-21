@@ -53,37 +53,37 @@ module ActiveAgent
                 when Base
                   value
                 when Hash
-                  type = value[:type]&.to_s || value["type"]&.to_s
+                  hash = value.deep_symbolize_keys
+                  type = hash[:type]&.to_sym
 
                   case type
-                  when "function"
-                    FunctionTool.new(**value.symbolize_keys)
-                  when "custom"
-                    CustomTool.new(**value.symbolize_keys)
-                  when "web_search", "web_search_2025_08_26"
-                    WebSearchTool.new(**value.symbolize_keys)
-                  when "web_search_preview", "web_search_preview_2025_03_11"
-                    WebSearchPreviewTool.new(**value.symbolize_keys)
-                  when "code_interpreter"
-                    CodeInterpreterTool.new(**value.symbolize_keys)
-                  when "file_search"
-                    FileSearchTool.new(**value.symbolize_keys)
-                  when "computer_use_preview"
-                    ComputerTool.new(**value.symbolize_keys)
-                  when "mcp"
-                    McpTool.new(**value.symbolize_keys)
-                  when "image_generation"
-                    ImageGenerationTool.new(**value.symbolize_keys)
-                  when "local_shell"
-                    LocalShellTool.new(**value.symbolize_keys)
+                  when :function
+                    FunctionTool.new(**hash)
+                  when :custom
+                    CustomTool.new(**hash)
+                  when :web_search, :web_search_2025_08_26
+                    WebSearchTool.new(**hash)
+                  when :web_search_preview, :web_search_preview_2025_03_11
+                    WebSearchPreviewTool.new(**hash)
+                  when :code_interpreter
+                    CodeInterpreterTool.new(**hash)
+                  when :file_search
+                    FileSearchTool.new(**hash)
+                  when :computer_use_preview
+                    ComputerTool.new(**hash)
+                  when :mcp
+                    McpTool.new(**hash)
+                  when :image_generation
+                    ImageGenerationTool.new(**hash)
+                  when :local_shell
+                    LocalShellTool.new(**hash)
                   else
-                    # Return hash as-is if type is unknown
-                    value
+                    raise ArgumentError, "Unknown tool type: #{type.inspect}"
                   end
                 when nil
                   nil
                 else
-                  value
+                  raise ArgumentError, "Cannot cast #{value.class} to Tool (expected Base, Hash, or nil)"
                 end
               end
 
@@ -96,7 +96,7 @@ module ActiveAgent
                 when nil
                   nil
                 else
-                  value
+                  raise ArgumentError, "Cannot serialize #{value.class} as Tool"
                 end
               end
 

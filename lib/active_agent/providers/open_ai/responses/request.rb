@@ -98,71 +98,15 @@ module ActiveAgent
           validate :validate_metadata_format
           validate :validate_include_values
 
+          alias_attribute :messages, :input
+          alias_attribute :message,  :input
+
           # Common Format Compatability
           def instructions=(value)
             super(value.is_a?(Array) ? value.join("\n") : value)
           end
 
-          # Always store in the expanded mode, we can compress it out later
-          def input=(value)
-            case value
-            when String
-              super([ Requests::Inputs::UserMessage.new(content: value) ])
-            else
-              super
-            end
-          end
-
-          def input
-            value = super
-
-            if value && value.one? && value.first.is_a?(Requests::Inputs::UserMessage) && value.first.content.is_a?(String)
-              value.first.content
-            else
-              value
-            end
-          end
-
-          # For the message stack
-          def messages
-            attributes["input"]&.map { |it| it.to_h }
-          end
-
-          def messages=(values)
-            self.input = values
-          end
-
           private
-
-          def message_content(value)
-            return value unless value.is_a?(Array)
-
-            value.map do |content_part|
-              prompt_messages_content_typed(content_part)
-            end.compact
-          end
-
-          # To Convert to Common Message Content Types to OpenAI
-          def message_content_typed(value)
-            case value
-            when String
-              { type: "input_text", text: value }
-            when ActiveAgent::ActionPrompt::Message
-              if value.content_type == "input_text"
-                { type: "input_text", text: value.content }
-              elsif value.content_type == "image_data"
-                { type: "input_image", image_url: value.content }
-              elsif value.content_type == "file_data"
-                { type: "input_file", filename: value.metadata[:filename], file_data: value.content }
-              else
-                raise ArgumentError, "Unsupported content type in message: #{value.content_type}"
-              end
-            when Hash
-              value
-            else
-              raise ArgumentError, "Unsupported content in message: #{value}"
-            end
-          end
 
           def validate_conversation_exclusivity
             if conversation.present? && previous_response_id.present?

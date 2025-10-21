@@ -3,9 +3,7 @@ require_relative "_base_provider"
 require_gem!(:openai, __FILE__)
 
 require_relative "open_ai_provider"
-require_relative "ollama/options"
-require_relative "ollama/chat/request"
-require_relative "ollama/embedding/request"
+require_relative "ollama/_types"
 
 module ActiveAgent
   module Providers
@@ -16,10 +14,10 @@ module ActiveAgent
     #
     # @see OpenAI::ChatProvider
     class OllamaProvider < OpenAI::ChatProvider
-      def service_name         = "Ollama"
-      def options_klass        = namespace::Options
-      def prompt_request_klass = namespace::Chat::Request
-      def embed_request_klass  = namespace::Embedding::Request
+      def service_name        = "Ollama"
+      def options_klass       = namespace::Options
+      def prompt_request_type = namespace::Chat::RequestType.new
+      def embed_request_type  = namespace::Embedding::RequestType.new
 
       protected
 

@@ -18,6 +18,14 @@ module ActiveAgent
                 in: %w[system user assistant developer tool],
                 allow_nil: true
               }
+
+              # Define content setter methods for different content types
+              %i[text image document].each do |content_type|
+                define_method(:"#{content_type}=") do |value|
+                  self.content ||= []
+                  self.content += [ { content_type => value } ]
+                end
+              end
             end
           end
         end

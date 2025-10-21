@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"What''s
+        in this image?"},{"type":"input_image","image_url":"https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png?scale-down-to=64"}]}],"model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 05:28:40 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999235'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 1ms
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_31913f79791945a1a2382a59902d3bdd
+      Openai-Processing-Ms:
+      - '3940'
+      X-Envoy-Upstream-Service-Time:
+      - '3943'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=eAmnYgsezIpYPQcQOesLvwRBf3IvrjOncJ_0VNTv1BI-1761024520-1.0.1.1-rnpGLmes4Jc69JoWnyIVTnRHKBWxxJ8l6YajXbBamcVb51ilDnT4BQASOF0etzXP219fqssLA4AT2ZWTGMnOJvtdplaqNoKtV7KEPItqKJU;
+        path=/; expires=Tue, 21-Oct-25 05:58:40 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=wc0OQAM9bcKk_AUs5Qhc9EQ3ae0sqy3MyMObiAuEMCA-1761024520746-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991e5a3da9c823a9-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0da1d391572502460068f71a04cc7c8198b347bc1326e72d91",
+          "object": "response",
+          "created_at": 1761024516,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_0da1d391572502460068f71a067f888198887de4ed13154dca",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "The image contains the text \"ACTIVE AGENTS\" in bold, red letters. To the left of the text, there is a stylized icon of a head with sunglasses and a headset, giving off a secret agent or spy vibe. The overall design suggests a theme related to activity, alertness, or agents."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 267,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 64,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 331
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 21 Oct 2025 05:28:40 GMT
+recorded_with: VCR 6.3.1

@@ -79,7 +79,7 @@ module ActiveAgent
       # @raise [StandardError] provider-specific errors wrapped by error handling
       def prompt
         instrument("prompt_start.provider.active_agent") do
-          self.request = prompt_request_klass.new(context.except(:trace_id))
+          self.request = prompt_request_type.cast(context.except(:trace_id))
           resolve_prompt
         end
       end
@@ -92,7 +92,7 @@ module ActiveAgent
       # @raise [StandardError] provider-specific errors wrapped by error handling
       def embed
         instrument("embed_start.provider.active_agent") do
-          self.request = embed_request_klass.new(context.except(:trace_id))
+          self.request = embed_request_type.cast(context.except(:trace_id))
           resolve_embed
         end
       end
@@ -115,12 +115,12 @@ module ActiveAgent
       # @return [Class]
       def options_klass = namespace::Options
 
-      # @return [Class]
-      def prompt_request_klass = namespace::Request
+      # @return [ActiveModel::Type::Value] provider-specific RequestType for casting/serialization
+      def prompt_request_type = namespace::RequestType.new
 
-      # @return [Class] provider-specific EmbedRequest class
+      # @return [ActiveModel::Type::Value] provider-specific RequestType for embedding casting/serialization
       # @raise [NotImplementedError] when provider doesn't support embeddings
-      def embed_request_klass = fail(NotImplementedError)
+      def embed_request_type = fail(NotImplementedError)
 
       protected
 
@@ -155,7 +155,7 @@ module ActiveAgent
         instrument("request_prepared.provider.active_agent", message_count: request.messages.size)
 
         # @todo Validate Request
-        api_parameters = api_request_build(request)
+        api_parameters = api_request_build(request, prompt_request_type)
         api_response   = instrument("api_call.provider.active_agent", streaming: api_parameters[:stream].present?) do
           retriable { api_prompt_execute(api_parameters) }
         end
@@ -168,7 +168,7 @@ module ActiveAgent
       # @return [ActiveAgent::Providers::Common::EmbedResponse]
       def resolve_embed
         # @todo Validate Request
-        api_parameters = api_request_build(self.request)
+        api_parameters = api_request_build(request, embed_request_type)
         api_response   = instrument("embed_call.provider.active_agent") do
           retriable { api_embed_execute(api_parameters) }
         end
@@ -191,9 +191,10 @@ module ActiveAgent
       # Builds API request parameters from request object.
       #
       # @param request [Request]
+      # @param request_type [ActiveModel::Type::Value] The type to use for serialization
       # @return [Hash]
-      def api_request_build(request)
-        parameters          = request.serialize
+      def api_request_build(request, request_type)
+        parameters          = request_type.serialize(request)
         parameters[:stream] = process_stream if request.try(:stream)
         parameters
       end
@@ -292,14 +293,14 @@ module ActiveAgent
 
           # To convert the messages into common format we first need to merge the current
           # stack and then cast them to the provider type, so we can cast them out to common.
-          messages = prompt_request_klass.new(
+          messages = prompt_request_type.cast(
             messages: [ *request.messages, *message_stack ]
           ).messages
 
           # This will returned as it closes up the recursive stack
           Common::PromptResponse.new(
             context:,
-            raw_request:  request.serialize,
+            raw_request:  prompt_request_type.serialize(request),
             raw_response: api_response,
             messages:
           )
@@ -332,7 +333,7 @@ module ActiveAgent
       def process_embed_finished(api_response)
         Common::EmbedResponse.new(
           context:,
-          raw_request:  request.serialize,
+          raw_request:  embed_request_type.serialize(request),
           raw_response: api_response,
           data: process_embed_finished_data(api_response)
         )

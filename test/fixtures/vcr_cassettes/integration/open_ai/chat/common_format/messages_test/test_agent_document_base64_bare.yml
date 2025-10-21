@@ -1,0 +1,94 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What''s
+        in this document?"},{"type":"file","file":{"file_data":"JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCgoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagoKMyAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDIgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDQgMCBSCj4+Cj4+Ci9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagoKNSAwIG9iago8PAovTGVuZ3RoIDMwMAo+PgpzdHJlYW0KQlQKL0YxIDE2IFRmCjUwIDc1MCBUZAooSm9obiBEb2UgLSBTb2Z0d2FyZSBFbmdpbmVlcikgVGoKMCAtMzAgVGQKL0YxIDEyIFRmCihFbWFpbDogam9obi5kb2VAZXhhbXBsZS5jb20pIFRqCjAgLTIwIFRkCihQaG9uZTogKDU1NSkgMTIzLTQ1NjcpIFRqCjAgLTIwIFRkCihMb2NhdGlvbjogU2FuIEZyYW5jaXNjbywgQ0EpIFRqCjAgLTQwIFRkCi9GMSAxNCBUZgooRXhwZXJpZW5jZTopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyIGF0IFRlY2hDb3JwICgyMDIwLTIwMjQpKSBUagowIC0yMCBUZAooLSBEZXZlbG9wZWQgd2ViIGFwcGxpY2F0aW9ucyB1c2luZyBSdWJ5IG9uIFJhaWxzKSBUagowIC0yMCBUZAooLSBMZWQgdGVhbSBvZiA1IGRldmVsb3BlcnMpIFRqCjAgLTIwIFRkCigtIEltcGxlbWVudGVkIENJL0NEIHBpcGVsaW5lcykgVGoKMCAtNDAgVGQKL0YxIDE0IFRmCihTa2lsbHM6KSBUagowIC0yNSBUZAovRjEgMTIgVGYKKFJ1YnksIFJhaWxzLCBKYXZhU2NyaXB0LCBQeXRob24sIEFXUywgRG9ja2VyKSBUagowIC00MCBUZAovRjEgMTQgVGYKKEVkdWNhdGlvbjopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooQlMgQ29tcHV0ZXIgU2NpZW5jZSwgU3RhbmZvcmQgVW5pdmVyc2l0eSAoMjAxNi0yMDIwKSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCjAwMDAwMDAzMzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo2ODcKJSVFT0YK"}}]}],"model":"gpt-5"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 400
+      message: Bad Request
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 00:31:22 GMT
+      Content-Type:
+      - application/json
+      Content-Length:
+      - '235'
+      Connection:
+      - keep-alive
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Processing-Ms:
+      - '43'
+      Openai-Project:
+      - PROJECT_ID
+      Openai-Version:
+      - '2020-10-01'
+      X-Envoy-Upstream-Service-Time:
+      - '195'
+      X-Ratelimit-Limit-Requests:
+      - '15000'
+      X-Ratelimit-Limit-Tokens:
+      - '40000000'
+      X-Ratelimit-Remaining-Requests:
+      - '14999'
+      X-Ratelimit-Remaining-Tokens:
+      - '39999227'
+      X-Ratelimit-Reset-Requests:
+      - 4ms
+      X-Ratelimit-Reset-Tokens:
+      - 1ms
+      X-Request-Id:
+      - req_ea55127394594904a76453a6dd09026f
+      X-Openai-Proxy-Wasm:
+      - v0.1
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=.iZitAxledyKm8btW5u13j6OzoxWNEi2c5NN15H3wPc-1761006682-1.0.1.1-_0aJMsrJnxSBZJFlfoVBIxN_H_dzDWWq9nhOSkM9uZn86E3Zwbz9Rdsdwa05h7SzGG_MHZ3FOqY6m1snebS7chGPDj_XmbX90Zg.BhKrexs;
+        path=/; expires=Tue, 21-Oct-25 01:01:22 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=D.3YZpou1HUpHv2BaTSWMvOS_RCo8YLnmrnCdEswUL4-1761006682208-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991ca6d219aaf9d0-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |-
+        {
+          "error": {
+            "message": "Missing required parameter: 'messages[0].content[1].file.file_id'.",
+            "type": "invalid_request_error",
+            "param": "messages[0].content[1].file.file_id",
+            "code": "missing_required_parameter"
+          }
+        }
+  recorded_at: Tue, 21 Oct 2025 00:31:22 GMT
+recorded_with: VCR 6.3.1

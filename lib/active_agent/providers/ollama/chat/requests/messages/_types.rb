@@ -47,26 +47,26 @@ module ActiveAgent
                 when OpenAI::Chat::Requests::Messages::Base
                   value
                 when Hash
-                  role = value[:role]&.to_s || value["role"]&.to_s
+                  hash = value.deep_symbolize_keys
+                  role = hash[:role]&.to_sym
 
                   case role
-                  when "assistant"
-                    Assistant.new(**value.symbolize_keys)
-                  when "user"
-                    User.new(**value.symbolize_keys)
-                  when "system"
+                  when :assistant
+                    Assistant.new(**hash)
+                  when :user
+                    User.new(**hash)
+                  when :system
                     # Ollama doesn't have system message, use OpenAI's
-                    OpenAI::Chat::Requests::Messages::System.new(**value.symbolize_keys)
-                  when "tool"
-                    OpenAI::Chat::Requests::Messages::Tool.new(**value.symbolize_keys)
+                    OpenAI::Chat::Requests::Messages::System.new(**hash)
+                  when :tool
+                    OpenAI::Chat::Requests::Messages::Tool.new(**hash)
                   else
-                    # Fall back to OpenAI's message type
-                    value
+                    raise ArgumentError, "Unknown message role: #{role.inspect}"
                   end
                 when nil
                   nil
                 else
-                  value
+                  raise ArgumentError, "Cannot cast #{value.class} to Message (expected Assistant, User, OpenAI Message, Hash, or nil)"
                 end
               end
 
@@ -79,7 +79,7 @@ module ActiveAgent
                 when nil
                   nil
                 else
-                  value
+                  raise ArgumentError, "Cannot serialize #{value.class} as Message"
                 end
               end
 

@@ -1,0 +1,148 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Explain quantum computing in bare terms.","model":"gpt-4.1"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 04:29:32 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999967'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_861e6c22521e403ea7fac68fdf95fab0
+      Openai-Processing-Ms:
+      - '7070'
+      X-Envoy-Upstream-Service-Time:
+      - '7073'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=BhPEilB1F_roXNCk8wnioZ.834EWXLMoKaCim0sX1fU-1761020972-1.0.1.1-o99SlwfigJ022RvVVsF1xw5aH5G7RqwcBoWh1iqEz6w9Zu75JAYZQ8Y3AObaR9cfSlA82uPEjMoitJIBEbMQB4H1Pd2rrZRp_R6g4SH5AY0;
+        path=/; expires=Tue, 21-Oct-25 04:59:32 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=Rc_HPHyZeU8vHetlqTn31SIJqCCezVBZyyLoIVIxHEA-1761020972760-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991e0389b9f3cf26-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_035d452f9bf355a40068f70c25acdc819780d1b6eb393f4a77",
+          "object": "response",
+          "created_at": 1761020965,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_035d452f9bf355a40068f70c26479c8197a2f6f6f4b2689496",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Sure! Here\u2019s **quantum computing** in bare-bones terms:\n\n- **Classical computers:** Use bits \u2014 each is either 0 or 1.\n- **Quantum computers:** Use **qubits** \u2014 which can be 0, 1, or *both at once* (thanks to quantum superposition).\n\n**Why does this matter?**\n- Qubits can process lots of possibilities simultaneously.\n- Quantum computers can (in theory) solve certain problems much faster than regular computers.\n\n**Key ideas:**\n- **Superposition:** Qubits can be in multiple states at once.\n- **Entanglement:** Qubits can be linked so the state of one affects another, no matter how far apart they are.\n- **Interference:** Quantum computers can \u201csteer\u201d computations toward correct answers using interference.\n\n**In short:**  \nA classical computer is like a really fast light switch flipper (on/off),  \nA quantum computer is like spinning a thousand dimmer knobs at once \u2014 all interacting in strange but powerful ways."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 14,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 214,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 228
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 21 Oct 2025 04:29:32 GMT
+recorded_with: VCR 6.3.1

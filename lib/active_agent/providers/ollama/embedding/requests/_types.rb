@@ -27,15 +27,15 @@ module ActiveAgent
               case value
               when Array
                 # Return single string if array has only one string element
-                if value.length == 1 && value.first.is_a?(String)
-                  value.first
+                if value in [ String => string ]
+                  string
                 else
                   value
                 end
               when nil
                 nil
               else
-                raise ArgumentError, "Cannot serialize #{value.class}"
+                raise ArgumentError, "Cannot serialize #{value.class} as Input"
               end
             end
 

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "base"
+require_relative "content/_types"
 
 module ActiveAgent
   module Providers
@@ -22,6 +23,8 @@ module ActiveAgent
               validate :validate_has_response_content
 
               drop_attributes :annotations, :index
+
+              alias_attribute :text, :content
 
               private
 

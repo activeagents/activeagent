@@ -71,26 +71,25 @@ module ActiveAgent
                 # Already a Content object, return as-is
                 value
               when Hash
-                # Symbolize keys once for consistent lookups
-                hash = value.symbolize_keys
-                type = hash[:type]&.to_s
+                hash = value.deep_symbolize_keys
+                type = hash[:type]&.to_sym
 
                 case type
-                when "text"
+                when :text
                   Text.new(**hash)
-                when "image"
+                when :image
                   Image.new(**hash)
-                when "document"
+                when :document
                   Document.new(**hash)
-                when "tool_use"
+                when :tool_use
                   ToolUse.new(**hash)
-                when "tool_result"
+                when :tool_result
                   ToolResult.new(**hash)
-                when "thinking"
+                when :thinking
                   Thinking.new(**hash)
-                when "redacted_thinking"
+                when :redacted_thinking
                   RedactedThinking.new(**hash)
-                when "search_result"
+                when :search_result
                   SearchResult.new(**hash)
                 when nil
                   # No type specified - infer from keys present
@@ -129,7 +128,7 @@ module ActiveAgent
               when nil
                 nil
               else
-                value
+                raise ArgumentError, "Cannot serialize #{value.class} as Content"
               end
             end
 

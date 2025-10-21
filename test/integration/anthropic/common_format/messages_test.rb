@@ -105,6 +105,32 @@ module Integration
             prompt(message: { text: "What are the main differences between Ruby and Python?" })
           end
 
+          TEXTS_BARE = {
+            model: "claude-haiku-4-5",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Tell me a fun fact about Ruby programming."
+                  },
+                  {
+                    type: "text",
+                    text: "Now explain why that's interesting."
+                  }
+                ]
+              }
+            ],
+            max_tokens: 1024
+          }
+          def texts_bare
+            prompt(
+              "Tell me a fun fact about Ruby programming.",
+              "Now explain why that's interesting."
+            )
+          end
+
           TEXT_MESSAGES_BARE = {
             model: "claude-haiku-4-5",
             messages: [
@@ -215,6 +241,7 @@ module Integration
           :text_bare,
           :text_message_bare,
           :text_message_object,
+          :texts_bare,
           :text_messages_bare,
           :text_messages_object
         ].each do |action_name|

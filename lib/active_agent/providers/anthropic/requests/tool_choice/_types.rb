@@ -18,32 +18,31 @@ module ActiveAgent
               when Base
                 value
               when Hash
-                # Symbolize keys once for consistent lookups
-                hash = value.symbolize_keys
-                type = hash[:type]&.to_s
+                hash = value.deep_symbolize_keys
+                type = hash[:type]&.to_sym
 
                 case type
-                when "auto"
+                when :auto
                   Auto.new(**hash)
-                when "any"
+                when :any
                   Any.new(**hash)
-                when "tool"
+                when :tool
                   Tool.new(**hash)
-                when "none"
+                when :none
                   None.new(**hash)
                 when nil
                   nil
                 else
                   raise ArgumentError, "Unknown tool choice type: #{type}"
                 end
-              when String
+              when String, Symbol
                 # Allow string shortcuts like "auto", "any", "none"
-                case value
-                when "auto"
+                case value.to_sym
+                when :auto
                   Auto.new
-                when "any"
+                when :any
                   Any.new
-                when "none"
+                when :none
                   None.new
                 else
                   raise ArgumentError, "Unknown tool choice: #{value}"

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "base"
+require_relative "input_message"
 
 module ActiveAgent
   module Providers
@@ -9,7 +9,7 @@ module ActiveAgent
         module Requests
           module Inputs
             # User message input
-            class UserMessage < Base
+            class UserMessage < InputMessage
               attribute :role, :string, as: "user"
             end
           end

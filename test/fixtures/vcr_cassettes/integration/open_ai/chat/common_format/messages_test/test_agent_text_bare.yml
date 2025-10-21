@@ -5,7 +5,7 @@ http_interactions:
     uri: https://api.openai.com/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"messages":["What is the capital of France?"],"model":"gpt-5"}'
+      string: '{"messages":[{"role":"user","content":"What is the capital of France?"}],"model":"gpt-5"}'
     headers:
       Content-Type:
       - application/json
@@ -21,15 +21,15 @@ http_interactions:
       - Ruby
   response:
     status:
-      code: 400
-      message: Bad Request
+      code: 200
+      message: OK
     headers:
       Date:
-      - Mon, 20 Oct 2025 20:19:06 GMT
+      - Tue, 21 Oct 2025 00:11:10 GMT
       Content-Type:
       - application/json
-      Content-Length:
-      - '208'
+      Transfer-Encoding:
+      - chunked
       Connection:
       - keep-alive
       Access-Control-Expose-Headers:
@@ -37,30 +37,36 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '30'
+      - '1536'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '304'
+      - '1560'
       X-Ratelimit-Limit-Requests:
       - '15000'
+      X-Ratelimit-Limit-Tokens:
+      - '40000000'
       X-Ratelimit-Remaining-Requests:
       - '14999'
+      X-Ratelimit-Remaining-Tokens:
+      - '39999990'
       X-Ratelimit-Reset-Requests:
       - 4ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
       X-Request-Id:
-      - req_50f3bef428fe44b180d7cec05fa5056e
+      - req_10e866720cf54342a25ee443a0914260
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=vr9GGmQTI2wAPwedwFUsvHMx0__W.4cgtGVinBTx6Jw-1760991546-1.0.1.1-jDgH8Krpb76Tzx9PPNIVSP5qcsS7RwVPHQcDSEYz01rUfOnWlVo_AuEybEJzsn891ANlGX3bNfscQs6LWDg4mSR7nhn7ZzWZuC4UX.IXx.o;
-        path=/; expires=Mon, 20-Oct-25 20:49:06 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=IIitdDhawduK0QOm3_S7v5glcnMYPbyg5FoH6rH.J4g-1761005470-1.0.1.1-0rjPavps7KBK0KJi.h2OIetNE3ydh721Xj4gBMT6ufFPY4c9LrvskaUyucKXwcdtm35nzpwAAWJlQfoi11YjPQiW7HLkmanq9MB7FSsmjX4;
+        path=/; expires=Tue, 21-Oct-25 00:41:10 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=GSbDFuanumX2KTCCdOh2YWM1pbibC_mzdQxuXwu6JtE-1760991546165-0.0.1.1-604800000;
+      - _cfuvid=8dBlkFaVPm9Dh0xVfM71hjIK6mzaQTrdlR6JRvtCB5k-1761005470461-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -69,19 +75,46 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991b3546ac43ee17-SJC
+      - 991c8933fcec963f-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
-      encoding: UTF-8
-      string: |-
+      encoding: ASCII-8BIT
+      string: |
         {
-          "error": {
-            "message": "Invalid type for 'messages[0]': expected an object, but got a string instead.",
-            "type": "invalid_request_error",
-            "param": "messages[0]",
-            "code": "invalid_type"
-          }
+          "id": "chatcmpl-CSuFwwKX3o3Pglr6Ro4iIaP7g10JB",
+          "object": "chat.completion",
+          "created": 1761005468,
+          "model": "gpt-5-2025-08-07",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Paris.",
+                "refusal": null,
+                "annotations": []
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 11,
+            "total_tokens": 24,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": null
         }
-  recorded_at: Mon, 20 Oct 2025 20:19:06 GMT
+  recorded_at: Tue, 21 Oct 2025 00:11:10 GMT
 recorded_with: VCR 6.3.1

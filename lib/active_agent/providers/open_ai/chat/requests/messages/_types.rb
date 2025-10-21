@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "content/_types"
+
 # Load all message classes
 require_relative "base"
 require_relative "developer"
@@ -23,19 +25,35 @@ module ActiveAgent
               end
 
               def cast(value)
-                return nil if value.nil?
-                return [] if value == []
-
-                array = Array(value)
-                array.map { |msg| @message_type.cast(msg) }
+                case value
+                when Array
+                  value.map { |v| @message_type.cast(v) }
+                when nil
+                  nil
+                else
+                  raise ArgumentError, "Cannot cast #{value.class} to Messages array"
+                end
               end
 
               def serialize(value)
-                return nil if value.nil?
-                return [] if value == []
+                case value
+                when Array
+                  grouped = []
 
-                array = Array(value)
-                array.map { |msg| @message_type.serialize(msg) }
+                  value.each do |message|
+                    if grouped.empty? || grouped.last.role != message.role
+                      grouped << message.deep_dup
+                    else
+                      grouped.last.content += message.content.deep_dup
+                    end
+                  end
+
+                  grouped.map { |v| @message_type.serialize(v) }
+                when nil
+                  nil
+                else
+                  raise ArgumentError, "Cannot serialize #{value.class}"
+                end
               end
 
               def deserialize(value)
@@ -49,30 +67,32 @@ module ActiveAgent
                 case value
                 when Base
                   value
+                when String
+                  User.new(content: value)
                 when Hash
-                  role = value[:role]&.to_s || value["role"]&.to_s
+                  hash = value.deep_symbolize_keys
+                  role = hash[:role]&.to_sym
 
                   case role
-                  when "developer"
-                    Developer.new(**value.symbolize_keys)
-                  when "system"
-                    System.new(**value.symbolize_keys)
-                  when "user"
-                    User.new(**value.symbolize_keys)
-                  when "assistant"
-                    Assistant.new(**value.symbolize_keys)
-                  when "tool"
-                    Tool.new(**value.symbolize_keys)
-                  when "function"
-                    Function.new(**value.symbolize_keys)
+                  when :developer
+                    Developer.new(**hash)
+                  when :system
+                    System.new(**hash)
+                  when :user, nil
+                    User.new(**hash)
+                  when :assistant
+                    Assistant.new(**hash)
+                  when :tool
+                    Tool.new(**hash)
+                  when :function
+                    Function.new(**hash)
                   else
-                    # If no role specified or unknown, return as-is
-                    value
+                    raise ArgumentError, "Unknown message role: #{role.inspect}"
                   end
                 when nil
                   nil
                 else
-                  value
+                  raise ArgumentError, "Cannot cast #{value.class} to Message (expected Base, String, Hash, or nil)"
                 end
               end
 
@@ -85,7 +105,7 @@ module ActiveAgent
                 when nil
                   nil
                 else
-                  value
+                  raise ArgumentError, "Cannot serialize #{value.class} as Message"
                 end
               end
 

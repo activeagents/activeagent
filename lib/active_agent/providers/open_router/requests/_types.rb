@@ -19,7 +19,7 @@ module ActiveAgent
             when MaxPrice
               value
             when Hash
-              MaxPrice.new(**value.symbolize_keys)
+              MaxPrice.new(**value.deep_symbolize_keys)
             when nil
               nil
             else
@@ -30,7 +30,7 @@ module ActiveAgent
           def serialize(value)
             case value
             when MaxPrice
-              value.to_h
+              value.serialize
             when Hash
               value
             when nil
@@ -52,7 +52,7 @@ module ActiveAgent
             when Prediction
               value
             when Hash
-              Prediction.new(**value.symbolize_keys)
+              Prediction.new(**value.deep_symbolize_keys)
             when nil
               nil
             else
@@ -63,7 +63,7 @@ module ActiveAgent
           def serialize(value)
             case value
             when Prediction
-              value.to_h
+              value.serialize
             when Hash
               value
             when nil
@@ -85,7 +85,7 @@ module ActiveAgent
             when ProviderPreferences
               value
             when Hash
-              ProviderPreferences.new(**value.symbolize_keys)
+              ProviderPreferences.new(**value.deep_symbolize_keys)
             when nil
               nil
             else
@@ -96,7 +96,7 @@ module ActiveAgent
           def serialize(value)
             case value
             when ProviderPreferences
-              value.to_h
+              value.serialize
             when Hash
               value
             when nil
@@ -118,7 +118,7 @@ module ActiveAgent
             when ResponseFormat
               value
             when Hash
-              ResponseFormat.new(**value.symbolize_keys)
+              ResponseFormat.new(**value.deep_symbolize_keys)
             when nil
               nil
             else
@@ -129,7 +129,7 @@ module ActiveAgent
           def serialize(value)
             case value
             when ResponseFormat
-              value.to_h
+              value.serialize
             when Hash
               value
             when nil

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "base"
+require_relative "output_message"
 
 module ActiveAgent
   module Providers
@@ -8,13 +8,11 @@ module ActiveAgent
       module Responses
         module Requests
           module Inputs
-            # Assistant message input for OpenAI Responses API.
+            # Assistant message output for OpenAI Responses API.
             #
             # Represents an assistant message in the conversation history.
-            class AssistantMessage < Base
+            class AssistantMessage < OutputMessage
               attribute :role, :string, as: "assistant"
-
-              drop_attributes :id, :type, :status
             end
           end
         end
