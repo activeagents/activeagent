@@ -4,7 +4,7 @@ require_relative "../test_helper"
 
 module Integration
   module OpenRouter
-    class NativeMessagesFormatTest < ActiveSupport::TestCase
+    class NativeFormatTest < ActiveSupport::TestCase
       include Integration::TestHelper
 
       class TestAgent < ActiveAgent::Base
@@ -234,6 +234,79 @@ module Integration
         ###############################################################
         # Extended Example
         ###############################################################
+        STRUCTURED_OUTPUT = {
+          "model": "openai/gpt-4o",
+          "messages": [
+            {
+              "role": "user",
+              "content": "What is the weather like in London?"
+            }
+          ],
+          "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+              "name": "weather",
+              "strict": true,
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "type": "string",
+                    "description": "City or location name"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "description": "Temperature in Celsius"
+                  },
+                  "conditions": {
+                    "type": "string",
+                    "description": "Weather conditions description"
+                  }
+                },
+                "required": [ "location", "temperature", "conditions" ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+        def structured_output
+          prompt(
+            model: "openai/gpt-4o",
+            messages: [
+              {
+                role: "user",
+                content: "What is the weather like in London?"
+              }
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "weather",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    location: {
+                      type: "string",
+                      description: "City or location name"
+                    },
+                    temperature: {
+                      type: "number",
+                      description: "Temperature in Celsius"
+                    },
+                    conditions: {
+                      type: "string",
+                      description: "Weather conditions description"
+                    }
+                  },
+                  required: [ "location", "temperature", "conditions" ],
+                  additionalProperties: false
+                }
+              }
+            }
+          )
+        end
+
         FUNCTIONS_WITH_STREAMING = FUNCTIONS.merge(stream: true)
         def functions_with_streaming
           prompt(
@@ -283,6 +356,7 @@ module Integration
         :functions,
         :logprobs,
         :web_search,
+        :structured_output,
         :functions_with_streaming
       ].each do |action_name|
         test_request_builder(TestAgent, action_name, :generate_now, TestAgent.const_get(action_name.to_s.upcase, true))

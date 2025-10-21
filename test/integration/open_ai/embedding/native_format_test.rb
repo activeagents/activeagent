@@ -5,7 +5,7 @@ require_relative "../../test_helper"
 module Integration
   module OpenAI
     module Embedding
-      class NativeMessagesFormatTest < ActiveSupport::TestCase
+      class NativeFormatTest < ActiveSupport::TestCase
         include Integration::TestHelper
 
         class TestAgent < ActiveAgent::Base

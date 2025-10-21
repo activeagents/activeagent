@@ -5,7 +5,7 @@ require_relative "../../test_helper"
 module Integration
   module OpenAI
     module Chat
-      class NativeMessagesFormatTest < ActiveSupport::TestCase
+      class NativeFormatTest < ActiveSupport::TestCase
         include Integration::TestHelper
 
         class TestAgent < ActiveAgent::Base
@@ -275,6 +275,83 @@ module Integration
               stream: true
             )
           end
+
+          STRUCTURED_OUTPUT = {
+            "model": "gpt-4o-2024-08-06",
+            "messages": [
+              {
+                "role": "system",
+                "content": "You are an expert at structured data extraction. You will be given unstructured text from a research paper and should convert it into the given structure."
+              },
+              {
+                "role": "user",
+                "content": "The Impact of Artificial Intelligence on Modern Healthcare by Dr. Jane Smith and Dr. John Doe. This paper explores the transformative role of AI in medical diagnostics and treatment planning. Key topics include machine learning, neural networks, and predictive analytics."
+              }
+            ],
+            "response_format": {
+              "type": "json_schema",
+              "json_schema": {
+                "name": "research_paper_extraction",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string" },
+                    "authors": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "abstract": { "type": "string" },
+                    "keywords": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  },
+                  "required": [ "title", "authors", "abstract", "keywords" ],
+                  "additionalProperties": false
+                },
+                "strict": true
+              }
+            }
+          }
+          def structured_output
+            prompt(
+              model: "gpt-4o-2024-08-06",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are an expert at structured data extraction. You will be given unstructured text from a research paper and should convert it into the given structure."
+                },
+                {
+                  role: "user",
+                  content: "The Impact of Artificial Intelligence on Modern Healthcare by Dr. Jane Smith and Dr. John Doe. This paper explores the transformative role of AI in medical diagnostics and treatment planning. Key topics include machine learning, neural networks, and predictive analytics."
+                }
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "research_paper_extraction",
+                  schema: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string" },
+                      authors: {
+                        type: "array",
+                        items: { type: "string" }
+                      },
+                      abstract: { type: "string" },
+                      keywords: {
+                        type: "array",
+                        items: { type: "string" }
+                      }
+                    },
+                    required: [ "title", "authors", "abstract", "keywords" ],
+                    additionalProperties: false
+                  },
+                  strict: true
+                }
+              }
+            )
+          end
         end
 
         ################################################################################
@@ -287,6 +364,7 @@ module Integration
           :functions,
           :logprobs,
           :web_search,
+          :structured_output,
           :functions_with_streaming
         ].each do |action_name|
           test_request_builder(TestAgent, action_name, :generate_now, TestAgent.const_get(action_name.to_s.upcase, true))
