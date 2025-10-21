@@ -1,0 +1,57 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What''s
+        in this image?"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}}]}],"model":"deepseek-r1:latest"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 21 Oct 2025 22:17:27 GMT
+      Content-Length:
+      - '1749'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-459","object":"chat.completion","created":1761085047,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"I
+        cannot see or analyze images. To share something from an image with me, please
+        type your description here directly using screenshots or detailed descriptions
+        whenever applicable.\n\n\\`\\`\\`\n\u003cimage\u003e\n\\`\\`\\`","reasoning":"Okay,
+        the user is asking about an image but hasn''t attached anything yet. Their
+        question \"What''s in this image?\" seems straightforward - they probably
+        want visual content analyzed from whatever picture they have.\nSince there''s
+        no actual image provided under img-0 (as per usual), I can''t perform any
+        computer vision analysis. The request format suggests they might be testing
+        or comparing with assistant systems that do handle images differently.\n\nThe
+        user likely either didn''t realize their image wasn''t attached, was unsure
+        if this is possible through text interfaces yet, or simply wants to know how
+        the system would normally analyze and describe an uploaded image.\nThey probably
+        expect some form of visual recognition like many other users who ask about
+        pictures. Maybe they''re curious about what can be done with images in conversational
+        AI systems.\n\nI should respond neutrally without making assumptions - that
+        there''s no img-0 attached but if it were, these are the aspects the system
+        would typically recognize and describe.\nThe response should mirror common
+        text-based assistant behaviors to manage expectations properly while remaining
+        informative about how they''d handle such requests otherwise.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":13,"completion_tokens":264,"total_tokens":277}}
+
+        '
+  recorded_at: Tue, 21 Oct 2025 22:17:27 GMT
+recorded_with: VCR 6.3.1

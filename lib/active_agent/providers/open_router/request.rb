@@ -36,9 +36,9 @@ module ActiveAgent
         attribute :prediction, Requests::PredictionType.new
 
         # OpenRouter-specific parameters
-        attribute :transforms,                                     default: -> { [] } # Array of strings
-        attribute :models,                                         default: -> { [] } # Array of model strings for fallback
-        attribute :route,    :string,                              default: "fallback"
+        attribute :transforms,                                      default: -> { [] } # Array of strings
+        attribute :models,                                          default: -> { [] } # Array of model strings for fallback
+        attribute :route,    :string,                               default: "fallback"
         attribute :provider, Requests::ProviderPreferencesType.new, default: {}
         attribute :user,     :string # Stable identifier for end-users
 

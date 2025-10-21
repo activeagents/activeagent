@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "active_agent/providers/open_ai/chat/requests/messages/_types"
+
 require_relative "assistant"
 require_relative "user"
 
@@ -9,7 +11,7 @@ module ActiveAgent
       module Chat
         module Requests
           module Messages
-            # Type for Messages array
+            # Type for Messages array - uses Ollama's MessageType
             class MessagesType < ActiveModel::Type::Value
               def initialize
                 super
@@ -17,19 +19,35 @@ module ActiveAgent
               end
 
               def cast(value)
-                return nil if value.nil?
-                return [] if value == []
-
-                array = Array(value)
-                array.map { |msg| @message_type.cast(msg) }
+                case value
+                when Array
+                  value.map { |v| @message_type.cast(v) }
+                when nil
+                  nil
+                else
+                  raise ArgumentError, "Cannot cast #{value.class} to Messages array"
+                end
               end
 
               def serialize(value)
-                return nil if value.nil?
-                return [] if value == []
+                case value
+                when Array
+                  grouped = []
 
-                array = Array(value)
-                array.map { |msg| @message_type.serialize(msg) }
+                  value.each do |message|
+                    if grouped.empty? || grouped.last.role != message.role
+                      grouped << message.deep_dup
+                    else
+                      grouped.last.content += message.content.deep_dup
+                    end
+                  end
+
+                  grouped.map { |v| @message_type.serialize(v) }
+                when nil
+                  nil
+                else
+                  raise ArgumentError, "Cannot serialize #{value.class}"
+                end
               end
 
               def deserialize(value)
@@ -39,13 +57,15 @@ module ActiveAgent
 
             # Type for individual Message
             # Inherits from OpenAI but handles Ollama-specific message types
-            class MessageType < ActiveModel::Type::Value
+            class MessageType < OpenAI::Chat::Requests::Messages::MessageType
               def cast(value)
                 case value
                 when Assistant, User
                   value
                 when OpenAI::Chat::Requests::Messages::Base
                   value
+                when String
+                  User.new(content: value)
                 when Hash
                   hash = value.deep_symbolize_keys
                   role = hash[:role]&.to_sym
@@ -53,11 +73,12 @@ module ActiveAgent
                   case role
                   when :assistant
                     Assistant.new(**hash)
-                  when :user
+                  when :user, nil
                     User.new(**hash)
                   when :system
-                    # Ollama doesn't have system message, use OpenAI's
                     OpenAI::Chat::Requests::Messages::System.new(**hash)
+                  when :developer
+                    OpenAI::Chat::Requests::Messages::Developer.new(**hash)
                   when :tool
                     OpenAI::Chat::Requests::Messages::Tool.new(**hash)
                   else

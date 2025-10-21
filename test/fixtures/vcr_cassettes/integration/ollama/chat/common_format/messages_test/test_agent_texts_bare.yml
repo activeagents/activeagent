@@ -1,0 +1,99 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"Tell
+        me a fun fact about Ruby programming."},{"type":"text","text":"Now explain
+        why that''s interesting."}]}],"model":"deepseek-r1:latest"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 21 Oct 2025 22:09:48 GMT
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-954","object":"chat.completion","created":1761084588,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Okay,
+        here''s a fun fact:\n\nYou cannot execute code inside a string interpolated
+        with `#{}` if that code block (or part of it) spans across multiple lines.\n\n*   **The
+        Fun Fact:** In Ruby 1.9 and above (which includes the common `{...}` syntax
+        for interpolation in addition to older `%Q{...}` style), if you try something
+        like:\n    ```ruby\n    my_var = \"hello\"\n    long_string = \u003c\u003c~EOS\n        #{my_var[0].upcase!\"world\".reverse!}
+        # This is intentional and wrong on multiple levels!\n          or perhaps
+        this: %x{\n            system_command_line\n          }\n    EOS\n    ```\n    (or
+        using `\u003c\u003c-EOS` or `%x{}` etc.) you''ll get a syntax error because
+        the Ruby parser will treat everything after the line break inside the interpolation
+        as part of *your string*. The `{...}` block is considered an \"embedded expression,\"
+        and when it spans lines, the newline becomes invalid syntax within that embedded
+        scope.\n\n**Why This Is Interesting:**\n\nThis feels like one of those delightful
+        little surprises in a language known for its pragmatism and avoiding unnecessary
+        complexity. It highlights:\n\n1.  **Ruby''s Syntax Sensitivity Edge Cases:**
+        Ruby tries very hard to be forgiving with whitespace, especially where curly
+        braces `{}` might denote blocks or other things (`case`/`when`, `if`/`elsif`
+        conditions). This rule ensures that the newline isn''t interpreted as part
+        of a code block when you intended it for interpolation *into* your string.
+        It maintains clarity.\n2.  **Tricky Corner Case:** Many developers aren''t
+        aware this limitation exists, especially if they haven''t tried to write cross-line
+        interpolated expressions. When someone encounters such code and gets stuck
+        on the error message (`invalid in ...%{...} expression: \\n`), it can be unexpectedly
+        frustrating because your instinct is to interpret that newline as normal.\n3.  **Security
+        Awareness (Bonus):** While `\u003c\u003c~EOS` uses HEREDOC syntax where leading
+        tabs are stripped, a similar rule applies internally for `system_command_line`.
+        This specific quirk *might* have indirectly prompted the requirement or clarification
+        in other Ruby implementations regarding multiline string interpolation execution
+        (`%x{...}` and `\u003c\u003c(END_MARKER)`) because allowing arbitrary code
+        on newlines within interpolated execution commands is clearly dangerous. While
+        less direct, it reinforces that this limitation exists across various interpretations.\n\nEssentially,
+        *every* newline inside a multiline `${...}`, `%(...}` or similar block forces
+        the Ruby interpreter to stop parsing *within* those braces and interpret it
+        as part of the outer string literal structure. It''s an unusual requirement
+        for a language like Ruby, which otherwise encourages code without such strict
+        whitespace rules regarding interpolation blocks.","reasoning":"Okay, the user
+        asked for a fun fact about Ruby and then to explain its interest. Let me start
+        by recalling something unexpected but accurate about the language. How about
+        the String interpolation in #{...} with multiline blocks? That seems kinda
+        obscure and cool at the same time.\n\nFirst, I need to present the fun fact
+        clearly. Maybe they''re looking for that unique aspect where Ruby allows executing
+        code inside interpolated strings even across multiple lines. Check if all
+        examples work with heredocs or xstrings. I remember in a StackOverflow discussion
+        about multiline string interpolation, someone tried `#{print \"hi\"}\\n` and
+        it compiled but threw an error because the newline was outside. That''s the
+        quirky part.\n\nNow, why is this interesting? The user probably wants to understand
+        not just that the fact exists, but its significance for Rubyists. It ties
+        into Ruby''s design of making code as forgiving as possible, yet here''s a
+        time where syntax breaks due to a newline in an xstring and blocks. This makes
+        the language both friendly and has edge cases that are good conversation starters.\n\nThe
+        user might be preparing for a technical chat or just curious about hidden
+        features. They could be learning Ruby and want engaging trivia. Or maybe they''re
+        interested in how dynamic languages handle syntax rules compared to static
+        ones like Python or JavaScript. Explaining the community''s reaction, like
+        the RFC and debates around it, adds context of real-world impact.\n\nAlso,
+        considering deeper needs: Maybe the user is looking for a fun fact to use
+        in a talk, article, or to impress peers with Ruby knowledge. They might appreciate
+        understanding how seemingly small features can have large implications in
+        code design. Highlighting the contrast between Ruby''s usual leniency and
+        this specific quirk emphasizes its cleverness without relying on memorized
+        syntax.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":18,"completion_tokens":937,"total_tokens":955}}
+
+        '
+  recorded_at: Tue, 21 Oct 2025 22:09:48 GMT
+recorded_with: VCR 6.3.1

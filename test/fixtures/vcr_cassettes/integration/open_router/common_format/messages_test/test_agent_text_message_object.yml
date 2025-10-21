@@ -1,0 +1,104 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What are the main differences
+        between Ruby and Python?"}],"model":"openai/gpt-4o"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 21:55:21 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9923ffa988809e52-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761083721-MoSY5M8CJEX4GKu8TfDu\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761083721,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Ruby
+        and Python are both high-level, interpreted programming languages that are
+        popular for their simplicity and productivity. However, they have some key
+        differences:\\n\\n1. **Philosophy and Design Goals:**\\n   - **Ruby:** Ruby
+        emphasizes the principle of \\\"developer happiness\\\" and aims for simplicity
+        and productivity. Ruby's syntax is designed to be natural and easy to read,
+        inspired by Perl and Smalltalk.\\n   - **Python:** Python focuses on readability
+        and simplicity, emphasizing a straightforward, clean syntax. It is designed
+        to make it easy to write clear and logical code for both small and large-scale
+        projects.\\n\\n2. **Syntax:**\\n   - **Ruby:** Ruby uses the keyword `end`
+        to denote the end of blocks, methods, classes, etc. Its syntax is flexible
+        and allows for several ways to do the same thing.\\n   - **Python:** Python
+        utilizes indentation to define blocks. There are specific ways to do things
+        to maintain readability, often described as \\\"one right way.\\\"\\n\\n3.
+        **Community and Ecosystem:**\\n   - **Ruby:** Ruby is strongly associated
+        with web development, primarily due to the Ruby on Rails framework, which
+        is a powerful and popular tool for building web applications.\\n   - **Python:**
+        Python has a broad range of applications, including web development, data
+        science, machine learning, scientific computing, scripting, and automation.
+        It has a vast ecosystem of libraries and frameworks for these domains.\\n\\n4.
+        **Object-Oriented Features:**\\n   - **Ruby:** Ruby is a pure object-oriented
+        language, meaning that everything is an object, including primitive data types.\\n
+        \  - **Python:** Python supports both object-oriented and procedural programming
+        paradigms. It treats classes and functions as objects, but not primitive types.\\n\\n5.
+        **Performance:**\\n   - Generally, both languages have similar performance
+        profiles as interpreted languages. Specific use cases and implementations
+        (such as JRuby for Ruby or PyPy for Python) can affect performance.\\n\\n6.
+        **Meta-programming:**\\n   - **Ruby:** Ruby offers advanced metaprogramming
+        capabilities, which allow for more dynamic and flexible code generation and
+        are often used within Ruby on Rails.\\n   - **Python:** While Python has metaprogramming
+        facilities, they are generally more limited and used less frequently than
+        in Ruby.\\n\\n7. **Typing:**\\n   - **Ruby:** Ruby is dynamically typed, with
+        a focus on simplicity and a convention-based approach.\\n   - **Python:**
+        Python is also dynamically typed but has gained strong typing support in recent
+        versions with type hints and mypy for static type checking.\\n\\n8. **Usage
+        Examples:**\\n   - **Ruby:** Mainly used for web development (Ruby on Rails),
+        automation, and DevOps (using tools like Chef and Puppet).\\n   - **Python:**
+        Widely used in various fields such as web development (Django, Flask), data
+        science (NumPy, pandas), machine learning (TensorFlow, scikit-learn), and
+        more.\\n\\nUltimately, choosing between Ruby and Python often comes down to
+        project requirements, specific frameworks, and personal or team preferences.
+        Both languages are excellent for rapid application development and have large,
+        supportive communities.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_65564d8ba5\",\"usage\":{\"prompt_tokens\":17,\"completion_tokens\":629,\"total_tokens\":646,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Tue, 21 Oct 2025 21:55:36 GMT
+recorded_with: VCR 6.3.1

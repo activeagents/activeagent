@@ -168,11 +168,16 @@ module Integration
               "messages": [
                 {
                   "role": "developer",
-                  "content": "You are a helpful assistant."
-                },
-                {
-                  "role": "developer",
-                  "content": "Always be polite and professional."
+                  "content":  [
+                    {
+                      "type": "text",
+                      "text": "You are a helpful assistant."
+                    },
+                    {
+                      "type": "text",
+                      "text": "Always be polite and professional."
+                    }
+                  ]
                 },
                 {
                   "role": "user",
@@ -194,11 +199,16 @@ module Integration
               "messages": [
                 {
                   "role": "developer",
-                  "content": "You are an overridden assistant."
-                },
-                {
-                  "role": "developer",
-                  "content": "Please respond concisely."
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "You are an overridden assistant."
+                    },
+                    {
+                      "type": "text",
+                      "text": "Please respond concisely."
+                    }
+                  ]
                 },
                 {
                   "role": "user",

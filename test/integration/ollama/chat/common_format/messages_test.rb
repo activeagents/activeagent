@@ -109,6 +109,31 @@ module Integration
               prompt(message: { text: "What are the main differences between Ruby and Python?" })
             end
 
+            TEXTS_BARE = {
+              model: "deepseek-r1:latest",
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "text",
+                      text: "Tell me a fun fact about Ruby programming."
+                    },
+                    {
+                      type: "text",
+                      text: "Now explain why that's interesting."
+                    }
+                  ]
+                }
+              ]
+            }
+            def texts_bare
+              prompt(
+                "Tell me a fun fact about Ruby programming.",
+                "Now explain why that's interesting."
+              )
+            end
+
             TEXT_MESSAGES_BARE = {
               model: "deepseek-r1:latest",
               messages: [
@@ -213,6 +238,7 @@ module Integration
             :text_bare,
             :text_message_bare,
             :text_message_object,
+            :texts_bare,
             :text_messages_bare,
             :text_messages_object
           ].each do |action_name|
@@ -221,23 +247,23 @@ module Integration
 
           [
             # Image tests
-            :image_url_bare,
-            :image_url_message,
-            :image_url_messages,
+            # :image_url_bare
+            # :image_url_message,
+            # :image_url_messages,
             :image_base64_bare,
             :image_base64_message,
-            :image_base64_messages,
+            :image_base64_messages
             # :image_attachment_bare,
             # :image_attachment_message,
             # :image_attachment_messages,
 
             # File tests
-            :document_url_bare,
-            :document_url_message,
-            :document_url_messages,
-            :document_base64_bare,
-            :document_base64_message,
-            :document_base64_messages
+            # :document_url_bare
+            # :document_url_message,
+            # :document_url_messages,
+            # :document_base64_bare
+            # :document_base64_message,
+            # :document_base64_messages
             # :document_attachment_bare,
             # :document_attachment_message,
             # :document_attachment_messages

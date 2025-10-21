@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "messages/_types"
+require_relative "provider_preferences/_types"
 
-require_relative "max_price"
 require_relative "message"
 require_relative "prediction"
 require_relative "provider_preferences"

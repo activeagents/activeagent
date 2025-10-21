@@ -1,0 +1,75 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Explain quantum computing in
+        bare terms."}],"model":"openai/gpt-4o"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 21:55:10 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9923ff62cdec06a9-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761083709-iNFrTiZywQFwdrCKv3dm\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761083709,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Quantum
+        computing is a new way of processing information using the principles of quantum
+        mechanics, which is the science of how things work at the smallest scales,
+        like atoms and subatomic particles. In classical computing, information is
+        processed using bits, which can be either a 0 or a 1. However, quantum computing
+        uses quantum bits, or qubits, which can be both 0 and 1 at the same time due
+        to a property called superposition. This allows quantum computers to process
+        a vast amount of information simultaneously.\\n\\nAdditionally, qubits can
+        be entangled, meaning the state of one qubit can depend on the state of another,
+        no matter how far apart they are. This property, called entanglement, allows
+        quantum computers to potentially solve complex problems much faster than classical
+        computers. Quantum computers also use interference, the idea that quantum
+        states can combine in ways that amplify some outcomes and cancel others, thus
+        steering the computation in useful ways.\\n\\nOverall, quantum computing holds
+        great promise for tasks that are very difficult for classical computers, like
+        simulating molecules for drug discovery or factoring large numbers for cryptography.
+        However, building practical quantum computers is extremely challenging and
+        is the subject of ongoing research.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_65564d8ba5\",\"usage\":{\"prompt_tokens\":14,\"completion_tokens\":238,\"total_tokens\":252,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Tue, 21 Oct 2025 21:55:15 GMT
+recorded_with: VCR 6.3.1

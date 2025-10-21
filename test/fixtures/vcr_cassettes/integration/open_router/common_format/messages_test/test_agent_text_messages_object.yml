@@ -1,0 +1,93 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"assistant","content":"I can help you with programming
+        questions."},{"role":"user","content":"What are the benefits of using ActiveRecord?"}],"model":"openai/gpt-4o"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 21 Oct 2025 21:54:51 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9923fee9e8ddced1-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n{\"id\":\"gen-1761083690-4x4R9roGM3zqjJ58unNW\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761083690,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"ActiveRecord
+        is an Object-Relational Mapping (ORM) system used in Ruby on Rails, which
+        offers several benefits for developers:\\n\\n1. **Simplicity and Productivity**:
+        ActiveRecord abstracts away the complexities of SQL and database interactions,
+        allowing developers to interact with the database using Ruby objects. This
+        can significantly speed up the development process and make code easier to
+        read and maintain.\\n\\n2. **Convention over Configuration**: ActiveRecord
+        follows Rails' principle of \\\"Convention over Configuration\\\", meaning
+        that it provides sensible defaults and conventions for database table names,
+        columns, and relationships. This reduces the amount of configuration code
+        developers need to write.\\n\\n3. **Easy Database Migrations**: ActiveRecord
+        provides a built-in mechanism for managing database schema changes through
+        migrations. Migrations allow developers to define changes to the database
+        schema in Ruby, making it easy to apply and revert changes across different
+        environments.\\n\\n4. **Associations**: ActiveRecord makes it easy to define
+        and work with relationships between models (e.g., one-to-many, many-to-many).
+        This allows developers to retrieve related data with minimal manual SQL writing.\\n\\n5.
+        **Validation and Callbacks**: ActiveRecord includes a robust system for validating
+        data before it is saved to the database, ensuring data integrity. It also
+        provides callbacks to hook into the lifecycle of models, allowing developers
+        to trigger custom behavior at certain points, such as before saving or after
+        creating a record.\\n\\n6. **Query Interface**: ActiveRecord provides a powerful
+        query interface that allows developers to construct complex queries and scopes
+        in a more intuitive and readable way than raw SQL.\\n\\n7. **Database Agnostic**:
+        ActiveRecord supports multiple databases (like SQLite, PostgreSQL, and MySQL)
+        and is designed to abstract database-specific behavior. This means that the
+        same code can often be used with different databases without modification.\\n\\n8.
+        **Active Community and Ecosystem**: Being part of Ruby on Rails, ActiveRecord
+        benefits from a large community and a wealth of resources, including libraries,
+        plugins, and documentation.\\n\\nWhile ActiveRecord is very useful, it's important
+        to note that there may be certain situations where direct SQL or another ORM
+        might be more appropriate, especially for complex or highly optimized database
+        interactions.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_65564d8ba5\",\"usage\":{\"prompt_tokens\":28,\"completion_tokens\":441,\"total_tokens\":469,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Tue, 21 Oct 2025 21:55:01 GMT
+recorded_with: VCR 6.3.1

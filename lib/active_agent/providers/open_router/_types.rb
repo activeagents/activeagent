@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "options"
+require_relative "requests/_types"
+
 require_relative "request"
+require_relative "options"
 
 module ActiveAgent
   module Providers
