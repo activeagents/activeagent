@@ -58,66 +58,71 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Docs', link: '/docs' },
+      { text: 'Docs', link: '/overview' },
       { text: 'GitHub', link: 'https://github.com/activeagents/activeagent' }
     ],
     sidebar: [
       {
         text: 'Overview',
-        link: '/docs',
+        link: '/overview',
       },
       {
         text: 'Getting Started',
-        link: '/docs/getting-started',
+        link: '/getting-started',
       },
       {
         text: 'Framework',
         items: [
-          // { text: 'Rails Integration', link: '/docs/framework/rails-integration' },
-          { text: 'Active Agent', link: '/docs/framework/active-agent' },
-          { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
-          { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
-          { text: 'Using Concerns', link: '/docs/framework/concerns' },
-          { text: 'Testing', link: '/docs/framework/testing' },
+          // { text: 'Rails Integration', link: '/framework/rails-integration' },
+          { text: 'Active Agent', link: '/framework/active-agent' },
+          { text: 'Action Prompt', link: '/framework/action-prompt' },
+          { text: 'Provider', link: '/framework/provider' },
+          { text: 'Using Concerns', link: '/framework/concerns' },
+          { text: 'Testing', link: '/framework/testing' },
         ]
       },
       {
-        text: 'Generation Providers',
+        text: 'Providers',
         items: [
-          { text: 'OpenAI', link: '/docs/providers/openai-provider' },
-          { text: 'Anthropic', link: '/docs/providers/anthropic-provider' },
-          { text: 'Ollama', link: '/docs/providers/ollama-provider' },
-          { text: 'OpenRouter', link: '/docs/providers/open-router-provider' },
-          { text: 'Mock', link: '/docs/providers/mock-provider' },
-        ]
-      },
-      {
-        text: 'Action Prompt',
-        items: [
-          { text: 'Messages', link: '/docs/action-prompt/messages' },
-          { text: 'Actions', link: '/docs/action-prompt/actions' },
-          { text: 'Prompts', link: '/docs/action-prompt/prompts' },
-          { text: 'Tools', link: '/docs/action-prompt/tools' },
-          { text: 'Tool Calling', link: '/docs/action-prompt/tool-calling' },
+          { text: 'OpenAI', link: '/providers/openai-provider' },
+          { text: 'Anthropic', link: '/providers/anthropic-provider' },
+          { text: 'Ollama', link: '/providers/ollama-provider' },
+          { text: 'OpenRouter', link: '/providers/open-router-provider' },
+          { text: 'Mock', link: '/providers/mock-provider' },
         ]
       },
       { text: 'Agents',
         items: [
-          { text: 'Browser Use', link: '/docs/agents/browser-use-agent' },
-          { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
-          { text: 'Translation', link: '/docs/agents/translation-agent' },
-        ]
-      },
-      { text: 'Active Agent',
-        items: [
-          // { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
-          { text: 'Structured Output', link: '/docs/active-agent/structured-output' },
-          { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
-          { text: 'Generation', link: '/docs/active-agent/generation' },
-          { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },
-          // { text: 'Error Handling', link: '/docs/active-agent/error-handling' },
+          // { text: 'Generative UI', link: '/agents/generative-ui' },
+          { text: 'Structured Output', link: '/agents/structured-output' },
+          { text: 'Callbacks', link: '/agents/callbacks' },
+          { text: 'Generation', link: '/agents/generation' },
+          { text: 'Queued Generation', link: '/agents/queued-generation' },
+          // { text: 'Error Handling', link: '/agents/error-handling' },
         ]
        },
+      {
+        text: 'Actions',
+        items: [
+          { text: 'Messages', link: '/actions/messages' },
+          { text: 'Actions', link: '/actions/actions' },
+          { text: 'Prompts', link: '/actions/prompts' },
+          { text: 'Tools', link: '/actions/tools' },
+          { text: 'Tool Calling', link: '/actions/tool-calling' },
+        ]
+      },
+      { text: 'Examples',
+        items: [
+          { text: 'Browser Use', link: '/examples/browser-use-agent' },
+          { text: 'Data Extraction', link: '/examples/data-extraction-agent' },
+          { text: 'Translation', link: '/examples/translation-agent' },
+        ]
+      },
+      { text: 'Contributing',
+        items: [
+          { text: 'Documentation', link: '/contributing/documentation' },
+        ]
+      },
     ],
 
     socialLinks: [

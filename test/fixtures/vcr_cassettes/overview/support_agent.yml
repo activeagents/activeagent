@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"You are a helpful support agent. Answer this question:\n\nHow
+        do I reset my password?","model":"gpt-4o"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 22 Oct 2025 19:10:28 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999956'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_2fb11cbe7b0246f782253b7f9afb21d3
+      Openai-Processing-Ms:
+      - '5216'
+      X-Envoy-Upstream-Service-Time:
+      - '5223'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=gD3lKY.QKb5_qaE2CaPlMNn1NiVaUGKZ0XTzimqqD3U-1761160228-1.0.1.1-ARd5hHZuVDWvBd4i0jFyw_azfB4GW8nI6lqMY.euDvYjIUv_FktE0PXG6vtRpNgmr0pjcPaMuNEjecUTW46ZAPL3zkwQkdpGVyKM5VXYX2M;
+        path=/; expires=Wed, 22-Oct-25 19:40:28 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=wsw63.dL2WXN9EBNwXxWWJl5Osxvibg73_wrkhAFy5o-1761160228574-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 992b4b63ab8dd02d-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_02e657a4951c52a80068f92c1f5c9081999cca5c721af38bb4",
+          "object": "response",
+          "created_at": 1761160223,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "msg_02e657a4951c52a80068f92c205668819981cd50e5bb337255",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "To reset your password, follow these general steps. Keep in mind that specific instructions might differ slightly depending on the platform or service:\n\n1. **Go to the Login Page**: Visit the login page of the website or application.\n\n2. **Find 'Forgot Password' or 'Reset Password' Link**: Look for a link or button labeled \u201cForgot Password?\u201d or \u201cReset Password.\u201d\n\n3. **Enter Your Email or Username**: You\u2019ll typically be prompted to enter the email address or username associated with your account.\n\n4. **Check Your Email**: After submitting your information, check your email inbox for a reset link. Make sure to also check your spam or junk folder if you don't see it.\n\n5. **Follow the Instructions**: Click the link in the email, which will direct you to a page where you can set a new password.\n\n6. **Create a New Password**: Enter your new password, making sure it meets any security requirements (such as length, use of numbers and special characters).\n\n7. **Confirm the New Password**: You may need to enter your new password again to confirm it.\n\n8. **Save Changes and Log In**: Once you\u2019ve successfully reset your password, log in with your new credentials.\n\nIf you're having trouble, ensure you're using the correct email or username, and contact customer support for additional assistance."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 25,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 276,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 301
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 22 Oct 2025 19:10:28 GMT
+recorded_with: VCR 6.3.1
