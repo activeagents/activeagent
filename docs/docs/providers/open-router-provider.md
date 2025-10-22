@@ -274,5 +274,5 @@ For tasks requiring both vision and structured output (like receipt extraction),
 ## See Also
 
 - [Data Extraction Agent](/docs/agents/data-extraction-agent) - Comprehensive examples of structured data extraction
-- [Generation Provider Overview](/docs/framework/generation-provider) - Understanding provider architecture
+- [Provider Overview](/docs/framework/provider) - Understanding provider architecture
 - [OpenRouter API Documentation](https://openrouter.ai/docs) - Official OpenRouter documentation

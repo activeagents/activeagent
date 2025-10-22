@@ -21,9 +21,9 @@ controller:
 
 Agents are Controllers that act as the core of the Active Agent framework. Active Agent manages AI-driven interactions, prompts, actions, and generative responses using Action Prompt. Action Prompt is a structured way to manage prompts, render formatted message content through action views, and handle responses.
 
-Active Agent provides class methods like `Agent.prompt(...)` and `Agent.embed(...)` for direct interactions, as well as instance action methods that can be used by any agent that inherits from `ActiveAgent::Base`.
+Active Agent provides class methods like `Agent.prompt(...)` and `Agent.embed(...)` for testing and quick prototyping, as well as instance action methods for production applications that can be used by any agent that inherits from `ActiveAgent::Base`.
 
-The primary class method is `Agent.prompt(...)` which provides a direct interface to create prompts with messages without requiring view templates.
+For production use, **define custom action methods** in your agent classes to organize agent behaviors. Both actions and class methods can optionally use view templates for complex formatting.
 
 ::: code-group
 <<< @/../test/dummy/app/agents/translation_agent.rb{ruby:line-numbers} [translation_agent.rb]
@@ -58,7 +58,7 @@ The primary class method is `Agent.prompt(...)` which provides a direct interfac
 <!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-search-view-renders-HTML-format.md -->
 :::
 
-::: details Book Response Example  
+::: details Book Response Example
 <!-- @include: @/parts/examples/travel-agent-test.rb-travel_agent_book_text.md -->
 :::
 

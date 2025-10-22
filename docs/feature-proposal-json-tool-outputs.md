@@ -2,12 +2,12 @@
 
 ## Overview
 
-Currently, ActiveAgent supports JSON output through `output_schema` for generation providers, but actions that render tool JSON schemas with tool output schemas are not yet supported. This proposal outlines how this feature could work from a developer API perspective.
+Currently, ActiveAgent supports JSON output through `output_schema` for providers, but actions that render tool JSON schemas with tool output schemas are not yet supported. This proposal outlines how this feature could work from a developer API perspective.
 
 ## Current State
 
 - Actions can render prompts with various formats (text, html, json)
-- Generation providers support `output_schema` for structured JSON responses
+- Providers support `output_schema` for structured JSON responses
 - Tools/functions are defined in the agent but don't have a way to specify output schemas for their JSON responses
 
 ## Proposed Feature
@@ -19,7 +19,7 @@ class TravelAgent < ApplicationAgent
   # Define a tool with output schema
   def book
     prompt(
-      message: params[:message], 
+      message: params[:message],
       content_type: :json,
       template: "travel_agent/book",
       tool_output_schema: {
@@ -77,21 +77,21 @@ The `prompt` method in `ActionPrompt::Base` would need to be updated to:
 
 1. Accept `tool_output_schema` parameter
 2. Validate the rendered JSON against the schema
-3. Include the schema in the tool definition sent to the generation provider
+3. Include the schema in the tool definition sent to the provider
 
 ```ruby
 # lib/active_agent/action_prompt/base.rb
 def prompt(message: nil, context: {}, content_type: nil, template: nil, tool_output_schema: nil)
   # ... existing code ...
-  
+
   if tool_output_schema && content_type == :json
     # Register this action as a tool with output schema
     register_tool_with_schema(action_name, tool_output_schema)
-    
+
     # Validate rendered output against schema
     validate_json_output(rendered_content, tool_output_schema)
   end
-  
+
   # ... rest of implementation ...
 end
 ```
@@ -125,7 +125,7 @@ end
 ## Benefits
 
 1. **Type Safety**: Ensures tool outputs conform to expected schemas
-2. **Better AI Integration**: Generation providers can understand what format to expect from tools
+2. **Better AI Integration**: Providers can understand what format to expect from tools
 3. **Developer Experience**: Clear contract for what each tool returns
 4. **Documentation**: Tool output schemas serve as documentation
 
@@ -134,7 +134,7 @@ end
 1. **Schema Validation**: Need to add JSON Schema validation for tool outputs
 2. **Error Handling**: What happens when output doesn't match schema?
 3. **Backwards Compatibility**: Ensure existing tools without output schemas continue to work
-4. **Generation Provider Support**: Different providers may handle tool output schemas differently
+4. **Provider Support**: Different providers may handle tool output schemas differently
 
 ## Example Use Cases
 
@@ -204,7 +204,7 @@ end
 
 1. Prototype the changes to `ActionPrompt::Base`
 2. Add JSON Schema validation library dependency
-3. Update generation provider integrations to support tool output schemas
+3. Update provider integrations to support tool output schemas
 4. Create comprehensive test suite
 5. Update documentation and examples
 

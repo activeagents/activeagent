@@ -5,18 +5,18 @@ cards:
     link: /docs/framework/active-agent
     icon: <img src="/activeagent.png" />
     details: Agents are Controllers with a common Generation API with enhanced memory and tooling.
-  - title: Actions 
+  - title: Actions
     icon: 🦾
     link: /docs/action-prompt/actions
-    details: Actions are tools for Agents to interact with systems and code.
+    details: Actions organize agent behaviors. Optionally use Action View templates for complex formatting.
   - title: Prompts
     icon: 📝
     link: /docs/action-prompt/prompts
-    details: Prompts are rendered with Action View. Agents can generate content using Action View.
-  - title: Generation Providers
+    details: Prompts contain the runtime context, messages, and configuration for AI generation.
+  - title: Providers
     icon: 🏭
-    link: /docs/framework/generation-provider
-    details: Generation Providers establish a common interface for different AI service providers.
+    link: /docs/framework/provider
+    details: Providers establish a common interface for different AI service providers.
   - title: Queued Generation
     icon: ⏳
     details: Queued Generation manages asynchronous prompt generation and response cycles with Active Job.

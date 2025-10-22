@@ -10,13 +10,18 @@ Active Agent keeps things simple, no multi-step workflows or unnecessary complex
 ## User facing interactions
 Active Agent is designed to work seamlessly with Rails applications. It can be easily integrated into your existing Rails app without any additional configuration. 
 
-You can pass messages to the agent from Action Controller, and the agent creates a prompt, generates a response using the configured generation provider, then handles the response using its own `after_generation`. 
+You can pass messages to the agent from Action Controller, and the agent creates a prompt, generates a response using the configured provider, then handles the response using its own `after_generation`. 
+
+For production applications, it's recommended to define custom agent actions. For quick prototyping or simple use cases, you can use `Agent.prompt()`:
 
 ```ruby
 class MessagesController < ApplicationController
   def create
-    # Use the Agent.prompt() class method to pass messages directly
-    generation = TravelAgent.prompt(message: params[:message]).generate_later
+    # For production: Use custom agent actions (recommended)
+    generation = TravelAgent.with(message: params[:message]).search.generate_later
+    
+    # For prototyping: Use Agent.prompt() directly
+    # generation = TravelAgent.prompt(message: params[:message]).generate_later
     
     # The generation object tracks the async job
     render json: { job_id: generation.job_id }

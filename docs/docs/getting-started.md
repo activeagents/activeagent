@@ -10,7 +10,7 @@ This guide will help you set up and create your first ActiveAgent application.
 Before using Active Agent, ensure you have:
 - Ruby 3.0 or higher
 - Rails 7.0 or higher
-- API keys for your chosen generation provider(s)
+- API keys for your chosen provider(s)
 
 You'll configure your API keys in the `config/active_agent.yml` file after installation.
 
@@ -22,7 +22,7 @@ Use bundler to add activeagent to your Gemfile and install:
 bundle add activeagent
 ```
 
-Add the generation provider gem you want to use:
+Add the provider gem you want to use:
 
 ::: code-group
 
@@ -61,7 +61,7 @@ rails generate active_agent:install
 ```
 
 This command creates:
-- `config/active_agent.yml`: Configuration file for generation providers and their settings
+- `config/active_agent.yml`: Configuration file for providers and their settings
 - `app/agents/`: Directory for your agent classes
 - `app/views/layouts/agent.text.erb`: Layout file for agent prompt/view templates
 - `app/views/agent_*/`: Directories for your agent prompt/view templates
@@ -76,11 +76,11 @@ Define an `ApplicationAgent` class that inherits from `ActiveAgent::Base`. This 
 
 <<< @/../test/dummy/app/agents/application_agent.rb {ruby}
 
-This sets up the `ApplicationAgent` to use OpenAI as the generation provider. You can replace `:openai` with any other supported provider, such as `:anthropic` or `:ollama`.
+This sets up the `ApplicationAgent` to use OpenAI as the provider. You can replace `:openai` with any other supported provider, such as `:anthropic` or `:ollama`.
 
-### Using Agent.prompt(...) for Simple Interactions
+### Using Agent.prompt(...) for Testing and Quick Prototyping
 
-Active Agent provides a direct `Agent.prompt(...)` method for simple message-based interactions. This method doesn't require a view template—you can pass messages directly as parameters:
+For testing and quick prototyping, Active Agent provides a direct `Agent.prompt(...)` method for simple message-based interactions:
 
 <<< @/../test/agents/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby:line-numbers}
 
@@ -92,13 +92,13 @@ This example:
 1. Calls `ApplicationAgent.prompt(message: message)` to create a prompt object with the message
 2. Generates a response synchronously with `generate_now`
 
-The `Agent.prompt(...)` method is ideal for simple conversational interactions where you don't need custom view templates or complex message formatting.
+**Note:** While `Agent.prompt(...)` is convenient for testing and experimentation, **defining agents with custom actions** (shown below) is the recommended approach for production applications as it provides better organization, reusability, and maintainability.
 
 ## Configuration
 
-### Generation Provider Configuration
+### Provider Configuration
 
-Active Agent supports multiple generation providers, including OpenAI, Anthropic, and Ollama. Configure these providers in `config/active_agent.yml`:
+Active Agent supports multiple providers, including OpenAI, Anthropic, and Ollama. Configure these providers in `config/active_agent.yml`:
 
 <<< @/../test/dummy/config/active_agent.yml{yaml:line-numbers}
 
@@ -135,7 +135,7 @@ openai:
 
 ### Configuring Custom Hosts
 
-You can set custom hosts for generation providers if needed. This is useful for:
+You can set custom hosts for providers if needed. This is useful for:
 - Running a local instance of Ollama
 - Using a proxy or custom endpoint
 - Connecting to enterprise or self-hosted AI services
@@ -235,17 +235,17 @@ end
 
 ### Two Ways to Build Prompts
 
-**1. Using `Agent.prompt(...)` (direct, simple)**
-- Direct class method that doesn't require a view template
-- Pass messages directly via parameters
-- Ideal for simple conversational interactions
+**1. Using `Agent.prompt(...)` (for testing and quick prototyping)**
+- Direct class method that passes messages as parameters
+- No action methods or view templates needed
+- Ideal for testing, debugging, and rapid prototyping
 - Example: `ApplicationAgent.prompt(message: "Hello")`
 
-**2. Using custom actions with templates (template-based, flexible)**
-- Define your own action methods
-- Create view templates (`.text.erb`, `.html.erb`, `.json.erb`)
-- Access instance variables in templates
-- Full control over message formatting
+**2. Using custom actions with templates (recommended for production)**
+- Define action methods in your agent class
+- Optionally create view templates (`.text.erb`, `.html.erb`, `.json.erb`) for complex formatting
+- Actions can work without templates by passing message content directly
+- Better organization, reusability, and maintainability
 - Example: `TravelAgent.with(departure: "NYC").search`
 
 ### System Instructions

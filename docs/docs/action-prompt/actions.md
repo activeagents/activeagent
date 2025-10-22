@@ -1,8 +1,8 @@
 # Actions
-Active Agent uses Action View to render Message content for [Prompt](./prompts.md) context objects.
+Actions are the recommended way to organize agent behaviors in production applications. Active Agent can optionally use Action View to render Message content for [Prompt](./prompts.md) context objects when complex formatting is needed.
 
 ## Prompt
-The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller, it allows you to specify the content type and view template for the action's response.
+The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller. It can render view templates for complex formatting, or work without templates by passing message content directly.
 
 ```ruby
 # The prompt method is typically called within an action
@@ -10,9 +10,9 @@ class MyAgent < ApplicationAgent
   def my_action
     prompt(
       content_type: :text, # or :json, :html, etc.
-      message: "Hello, world!", # The message content to be rendered
+      message: "Hello, world!", # The message content (can be passed directly without a template)
       messages: [], # Additional messages to include in the prompt context
-      template_name: "action_template", # The name of the view template to be used
+      template_name: "action_template", # Optional: The name of the view template to use
       instructions: { template: "instructions" }, # Optional instructions for the prompt generation
       actions: [], # Available actions for the agent to use
       output_schema: :schema_name # Optional schema for structured output
@@ -88,13 +88,22 @@ When using the `with` method, it's important to understand the distinction:
 
 Example:
 ```ruby
-# Regular parameters and runtime options
+**Explanation:**
+
+- **Action parameters** (e.g., `destination`, `user_id`) should be passed via the `:params` hash and accessed with `params[:key]`
+- **Runtime options** (like `model`, `temperature`, etc.) should be passed via the `:options` key to configure the provider
+- This separation provides clarity between business logic parameters and AI configuration
+
+```ruby
+# In the agent class:
+generate_with :openai, model: "gpt-4o-mini"
+
+# When calling with runtime options:
 TravelAgent.with(
-  destination: "Paris",        # Regular parameter
-  user_id: 123,               # Regular parameter
-  options: {                  # Runtime options
-    model: "gpt-4o",
-    temperature: 0.7
+  destination: "Paris",    # Business logic params
+  user_id: 123,           # Business logic params
+  options: {
+    temperature: 0.9      # Provider configuration
   }
 ).search
 
@@ -182,12 +191,11 @@ Available runtime options include:
 5. The action method returns a response, which can be a rendered view, JSON data, or any other content type specified in the `prompt` method.
 6. The agent updates the context with the action's result and prepares the response to be sent back to the user.
 
-## How Agents handle responses
-1. The agent receives a response from the generation provider, which includes the generated content and any actions that need to be performed.
-2. The agent processes the response
-3. If there are no `requested_actions` then response is sent back to the user.
-4. If the response includes actions, then agent executes them and updates the context accordingly.
-5. If the resulting context `requested_actions` includes `reiterate`, then context is updated with the new messages, actions, and parameters, and the cycle continues.
+## Tool Execution Flow
+
+When an agent calls an action:
+
+1. The agent receives a response from the provider, which includes the generated content and any actions that need to be performed.
 
 ### Respond to User
 1. You provide the model with a prompt or conversation history, along with a set of tools.

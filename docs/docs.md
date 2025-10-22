@@ -43,7 +43,7 @@ Messages are rendered by the Agent's actions when `prompt` is called. This `prom
 <FeatureCards :cards="$frontmatter.view" />
 
 ## Controller: Agents
-Agents are the core of the Active Agent framework and control the prompt and response cycle. Agents are controllers for AI-driven interactions, managing prompts, actions, and responses. Agents are responsible for managing context, handling user input, generating content, and interacting with generation providers.
+Agents are the core of the Active Agent framework and control the prompt and response cycle. Agents are controllers for AI-driven interactions, managing prompts, actions, and responses. Agents are responsible for managing context, handling user input, generating content, and interacting with providers.
 
 <FeatureCards :cards="$frontmatter.controller" />
 

@@ -29,13 +29,13 @@ Skip tests when credentials aren't available:
 class MyAgentTest < ActiveSupport::TestCase
   test "generates response with OpenAI" do
     skip "Requires API credentials" unless has_openai_credentials?
-    
+
     # Test implementation
   end
-  
+
   test "uses Anthropic for complex reasoning" do
     skip "Requires API credentials" unless has_anthropic_credentials?
-    
+
     # Test implementation
   end
 end
@@ -49,7 +49,7 @@ Credentials are checked in this order:
    ```bash
    rails credentials:edit
    ```
-   
+
    ```yaml
    openai:
      access_token: your-api-key
@@ -96,18 +96,18 @@ Use VCR to record and replay API responses:
 class MyAgentTest < ActiveSupport::TestCase
   test "performs complex task" do
     skip "Requires API credentials" unless has_openai_credentials?
-    
+
     VCR.use_cassette("my_agent_complex_task") do
       generation = MyAgent.with(
         input: "test data",
         mode: "analysis"
       ).analyze
-      
+
       result = generation.generate_now
-      
+
       assert result.message.content.present?
       assert result.message.content.include?("expected text")
-      
+
       # Generate documentation examples
       doc_example_output(result)
     end
@@ -137,9 +137,9 @@ test "example for documentation" do
     generation = MyAgent.with(
       query: "How do I use ActiveAgent?"
     ).help
-    
+
     result = generation.generate_now
-    
+
     # Generate example file in docs/parts/examples/
     doc_example_output(result)
   end
@@ -178,31 +178,31 @@ Test agent behavior across different providers:
 class MultiProviderTest < ActiveSupport::TestCase
   test "works with OpenAI" do
     skip unless has_openai_credentials?
-    
+
     agent_class = Class.new(ApplicationAgent) do
       generate_with :openai, model: "gpt-4o"
-      
+
       def test_action
         prompt message: "test"
       end
     end
-    
+
     generation = agent_class.with.test_action
     result = generation.generate_now
     assert result.message.content.present?
   end
-  
+
   test "works with Anthropic" do
     skip unless has_anthropic_credentials?
-    
+
     agent_class = Class.new(ApplicationAgent) do
       generate_with :anthropic, model: "claude-3-5-sonnet-latest"
-      
+
       def test_action
         prompt message: "test"
       end
     end
-    
+
     generation = agent_class.with.test_action
     result = generation.generate_now
     assert result.message.content.present?
@@ -219,13 +219,13 @@ When testing agents that use OpenAI's built-in tools (web search, image generati
 ```ruby
 test "searches the web for information" do
   skip unless has_openai_credentials?
-  
+
   VCR.use_cassette("web_search_test") do
     generation = WebSearchAgent.with(
       query: "Latest Ruby on Rails features",
       context_size: "high"
     ).search_with_tools
-    
+
     result = generation.generate_now
     assert result.message.content.present?
   end
@@ -237,14 +237,14 @@ end
 ```ruby
 test "generates images" do
   skip unless has_openai_credentials?
-  
+
   VCR.use_cassette("image_generation_test") do
     generation = MultimodalAgent.with(
       description: "A peaceful mountain landscape",
       size: "1024x1024",
       quality: "high"
     ).create_image
-    
+
     result = generation.generate_now
     assert result.message.content.present?
   end
@@ -256,13 +256,13 @@ end
 ```ruby
 test "connects to MCP servers" do
   skip unless has_openai_credentials?
-  
+
   VCR.use_cassette("mcp_integration_test") do
     generation = ResearchAgent.with(
       query: "Ruby performance optimization",
       sources: ["github"]
     ).search_with_mcp_sources
-    
+
     result = generation.generate_now
     assert result.message.content.present?
   end
@@ -314,4 +314,4 @@ If tests fail with API errors when cassettes exist:
 
 - [Getting Started](/docs/getting-started)
 - [ActiveAgent Framework](/docs/framework/active-agent)
-- [Generation Providers](/docs/framework/generation-provider)
+- [Providers](/docs/framework/provider)

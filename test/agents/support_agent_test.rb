@@ -19,6 +19,7 @@ class SupportAgentTest < ActiveSupport::TestCase
 
       doc_example_output(response)
 
+      # region messages_structure
       # Messages include system, user, assistant, and tool messages
       assert response.prompt.messages.size >= 5
 
@@ -27,6 +28,7 @@ class SupportAgentTest < ActiveSupport::TestCase
       user_messages = response.prompt.messages.select { |m| m.role == :user }
       assistant_messages = response.prompt.messages.select { |m| m.role == :assistant }
       tool_messages = response.prompt.messages.select { |m| m.role == :tool }
+      # endregion messages_structure
 
       # SupportAgent has instructions from generate_with
       assert system_messages.any?, "Should have system messages"
@@ -38,8 +40,21 @@ class SupportAgentTest < ActiveSupport::TestCase
       assert_equal 2, assistant_messages.size
       assert_equal 1, tool_messages.size
 
+      # region message_context
+      # The response message is the last message in the context
       assert_equal response.message, response.prompt.messages.last
+      # endregion message_context
+
+      # region tool_messages
+      # Tool messages contain the results of tool calls
       assert_includes tool_messages.first.content, "https://cataas.com/cat/"
+      # endregion tool_messages
+
+      # region messages_with_actions
+      # Assistant messages with requested_actions indicate tool calls
+      assistant_with_actions = assistant_messages.find { |m| m.requested_actions&.any? }
+      assert assistant_with_actions, "Should have assistant message with requested actions"
+      # endregion messages_with_actions
     end
   end
 

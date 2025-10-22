@@ -110,10 +110,10 @@ Handle JSON parsing errors gracefully:
 
 Different AI providers have varying levels of structured output support:
 
-- **[OpenAI](/docs/generation-providers/openai-provider#structured-output)** - Native JSON mode with strict schema validation
-- **[OpenRouter](/docs/generation-providers/open-router-provider#structured-output-support)** - Support through compatible models, ideal for multimodal tasks
-- **[Anthropic](/docs/generation-providers/anthropic-provider#structured-output)** - Instruction-based JSON generation
-- **[Ollama](/docs/generation-providers/ollama-provider#structured-output)** - Local model support with JSON mode
+- **[OpenAI](/docs/providers/openai-provider#structured-output)** - Native JSON mode with strict schema validation
+- **[OpenRouter](/docs/providers/open-router-provider#structured-output-support)** - Support through compatible models, ideal for multimodal tasks
+- **[Anthropic](/docs/providers/anthropic-provider#structured-output)** - Instruction-based JSON generation
+- **[Ollama](/docs/providers/ollama-provider#structured-output)** - Local model support with JSON mode
 
 ## Real-World Examples
 
@@ -137,7 +137,7 @@ Leverage ActiveRecord/ActiveModel for single source of truth:
 ```ruby
 class User < ApplicationRecord
   include ActiveAgent::SchemaGenerator
-  
+
   validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :age, numericality: { greater_than: 18 }
 end
@@ -160,7 +160,7 @@ Always test structured output with real providers:
 test "extracts data with correct schema" do
   VCR.use_cassette("structured_extraction") do
     response = agent.extract_data.generate_now
-    
+
     assert_equal "application/json", response.message.content_type
     assert response.message.content.is_a?(Hash)
     assert_valid_schema response.message.content, expected_schema
@@ -205,7 +205,7 @@ After:
 class ExtractedUser
   include ActiveModel::Model
   include ActiveAgent::SchemaGenerator
-  
+
   attribute :name, :string
   attribute :age, :integer
 end
@@ -235,5 +235,5 @@ schema = ExtractedUser.to_json_schema(strict: true)
 ## See Also
 
 - [Data Extraction Agent](/docs/agents/data-extraction-agent) - Complete extraction examples
-- [OpenAI Structured Output](/docs/generation-providers/openai-provider#structured-output) - OpenAI implementation details
-- [OpenRouter Structured Output](/docs/generation-providers/open-router-provider#structured-output-support) - Multimodal extraction
+- [OpenAI Structured Output](/docs/providers/openai-provider#structured-output) - OpenAI implementation details
+- [OpenRouter Structured Output](/docs/providers/open-router-provider#structured-output-support) - Multimodal extraction

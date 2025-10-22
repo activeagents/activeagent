@@ -60,16 +60,16 @@ OpenAI supports native function calling with automatic tool execution:
 ```ruby
 class DataAnalysisAgent < ApplicationAgent
   generate_with :openai, model: "gpt-4o"
-  
+
   def analyze_data
     @data = params[:data]
     prompt  # Will include all public methods as available tools
   end
-  
+
   def calculate_average(numbers:)
     numbers.sum.to_f / numbers.size
   end
-  
+
   def fetch_external_data(endpoint:)
     # Tool that OpenAI can call
     HTTParty.get(endpoint)
@@ -84,12 +84,12 @@ Enable real-time streaming for better user experience:
 ```ruby
 class StreamingAgent < ApplicationAgent
   generate_with :openai, stream: true
-  
+
   on_message_chunk do |chunk|
     # Handle streaming chunks
     broadcast_to_user(chunk)
   end
-  
+
   def chat
     prompt(message: params[:message])
   end
@@ -103,7 +103,7 @@ GPT-4o models support image analysis:
 ```ruby
 class VisionAgent < ApplicationAgent
   generate_with :openai, model: "gpt-4o"
-  
+
   def analyze_image
     @image_url = params[:image_url]
     prompt content_type: :text
@@ -122,7 +122,7 @@ OpenAI provides native structured output support, ensuring responses conform to 
 
 Models with full structured output support:
 - **GPT-4o** - Vision + structured output
-- **GPT-4o-mini** - Vision + structured output  
+- **GPT-4o-mini** - Vision + structured output
 - **GPT-4-turbo** - Structured output only (no vision)
 - **GPT-3.5-turbo** - Structured output only
 
@@ -132,10 +132,10 @@ Enable JSON mode with a schema:
 
 ```ruby
 class StructuredAgent < ApplicationAgent
-  generate_with :openai, 
+  generate_with :openai,
     model: "gpt-4o",
     response_format: { type: "json_object" }
-  
+
   def extract_entities
     @text = params[:text]
     prompt(
@@ -396,12 +396,12 @@ class RobustAgent < ApplicationAgent
   generate_with :openai,
     max_retries: 3,
     request_timeout: 30
-  
+
   rescue_from OpenAI::RateLimitError do |error|
     Rails.logger.error "Rate limit hit: #{error.message}"
     retry_with_backoff
   end
-  
+
   rescue_from OpenAI::APIError do |error|
     Rails.logger.error "OpenAI API error: #{error.message}"
     fallback_response
@@ -431,7 +431,7 @@ class EfficientAgent < ApplicationAgent
     model: "gpt-3.5-turbo",
     max_tokens: 500,  # Limit response length
     temperature: 0.3  # More focused responses
-  
+
   def summarize
     @content = params[:content]
     # Truncate input if needed
@@ -446,10 +446,10 @@ end
 ```ruby
 class CachedAgent < ApplicationAgent
   generate_with :openai
-  
+
   def answer_faq
     question = params[:question]
-    
+
     Rails.cache.fetch("faq/#{question.parameterize}", expires_in: 1.day) do
       prompt(message: question).generate_now
     end
@@ -468,6 +468,6 @@ end
 
 ## Related Documentation
 
-- [Generation Provider Overview](/docs/framework/generation-provider)
+- [Provider Overview](/docs/framework/provider)
 - [Configuration Guide](/docs/getting-started#configuration)
 - [OpenAI API Documentation](https://platform.openai.com/docs)

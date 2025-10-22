@@ -1,9 +1,9 @@
-# Generation Provider
+# Provider
 
-Generation Providers are the backbone of the Active Agent framework, allowing seamless integration with various AI services. They provide a consistent interface for prompting and generating responses, making it easy to switch between different providers without changing the core logic of your application.
+Providers are the backbone of the Active Agent framework, allowing seamless integration with various AI services. They provide a consistent interface for prompting and generating responses, making it easy to switch between different providers without changing the core logic of your application.
 
 ## Available Providers
-You can use the following generation providers with Active Agent:
+You can use the following providers with Active Agent:
 ::: code-group
 
 <<< @/../test/dummy/app/agents/open_ai_agent.rb#snippet{ruby:line-numbers} [OpenAI]
@@ -16,7 +16,7 @@ You can use the following generation providers with Active Agent:
 :::
 
 ## Response
-Generation providers handle the request-response cycle for generating responses based on the provided prompts. They process the prompt context, including messages, actions, and parameters, and return the generated response.
+Providers handle the request-response cycle for generating responses based on the provided prompts. They process the prompt context, including messages, actions, and parameters, and return the generated response.
 
 ### Response Object
 The `ActiveAgent::Providers::Response` class encapsulates the result of a generation request, providing access to both the processed response and debugging information.
@@ -38,7 +38,7 @@ The response object ensures you have full visibility into both the input prompt 
 
 ## Provider Configuration
 
-You can configure generation providers with custom settings:
+You can configure providers with custom settings:
 
 ### Model and Temperature Configuration
 
@@ -124,7 +124,7 @@ For a complete example showing all three levels working together, see:
 
 ## Embeddings Support
 
-Generation providers support creating text embeddings for semantic search, clustering, and similarity matching. Embeddings transform text into numerical vectors that capture semantic meaning.
+Providers support creating text embeddings for semantic search, clustering, and similarity matching. Embeddings transform text into numerical vectors that capture semantic meaning.
 
 ### Generating Embeddings Synchronously
 
@@ -198,8 +198,8 @@ For more details on embeddings, see the [Embeddings Guide](/docs/framework/embed
 
 For detailed documentation on specific providers and their features:
 
-- [OpenAI Provider](/docs/generation-providers/openai-provider) - GPT-4, GPT-3.5, function calling, vision, and Azure OpenAI support
-- [Anthropic Provider](/docs/generation-providers/anthropic-provider) - Claude 3.5 and Claude 3 models with extended context windows
-- [Ollama Provider](/docs/generation-providers/ollama-provider) - Local LLM inference for privacy-sensitive applications
-- [OpenRouter Provider](/docs/generation-providers/open-router-provider) - Multi-model routing with fallbacks, PDF processing, and vision support
+- [OpenAI Provider](/docs/providers/openai-provider) - GPT-4, GPT-3.5, function calling, vision, and Azure OpenAI support
+- [Anthropic Provider](/docs/providers/anthropic-provider) - Claude 3.5 and Claude 3 models with extended context windows
+- [Ollama Provider](/docs/providers/ollama-provider) - Local LLM inference for privacy-sensitive applications
+- [OpenRouter Provider](/docs/providers/open-router-provider) - Multi-model routing with fallbacks, PDF processing, and vision support
 

@@ -377,8 +377,8 @@ end
 
 ## Related Documentation
 
-- [Generation Provider Overview](/docs/framework/generation-provider)
-- [OpenAI Provider](/docs/generation-providers/openai-provider)
-- [Ollama Provider](/docs/generation-providers/ollama-provider)
+- [Provider Overview](/docs/framework/provider)
+- [OpenAI Provider](/docs/providers/openai-provider)
+- [Ollama Provider](/docs/providers/ollama-provider)
 - [Callbacks](/docs/active-agent/callbacks)
 - [Generation](/docs/active-agent/generation)

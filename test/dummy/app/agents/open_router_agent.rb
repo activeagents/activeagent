@@ -1,3 +1,0 @@
-class OpenRouterAgent < ApplicationAgent
-  generate_with :open_router, model: "qwen/qwen3-30b-a3b:free", instructions: "You're a basic Open Router agent."
-end

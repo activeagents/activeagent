@@ -32,11 +32,11 @@ Concerns can provide configuration methods that agents can use:
 ```ruby
 module ResearchTools
   extend ActiveSupport::Concern
-  
+
   included do
     class_attribute :research_tools_config, default: {}
   end
-  
+
   class_methods do
     def configure_research_tools(**options)
       self.research_tools_config = research_tools_config.merge(options)
@@ -46,7 +46,7 @@ end
 
 class MyResearchAgent < ApplicationAgent
   include ResearchTools
-  
+
   configure_research_tools(
     enable_web_search: true,
     mcp_servers: ["arxiv", "github"],
@@ -62,7 +62,7 @@ Public methods in concerns become available as tools for the AI:
 ```ruby
 module DataTools
   extend ActiveSupport::Concern
-  
+
   def calculate_statistics
     data = params[:data]
     # This becomes a tool the AI can call
@@ -72,7 +72,7 @@ module DataTools
       mode: data.group_by(&:itself).values.max_by(&:size).first
     }
   end
-  
+
   def fetch_external_data
     endpoint = params[:endpoint]
     HTTParty.get(endpoint)
@@ -87,11 +87,11 @@ Concerns can configure OpenAI's built-in tools dynamically:
 ```ruby
 module WebSearchable
   extend ActiveSupport::Concern
-  
+
   def search_web
     query = params[:query]
     context_size = params[:context_size] || "medium"
-    
+
     prompt(
       message: query,
       tools: [
@@ -112,10 +112,10 @@ Configure MCP (Model Context Protocol) servers in concerns:
 ```ruby
 module MCPConnectable
   extend ActiveSupport::Concern
-  
+
   def connect_to_services
     services = params[:services] || []
-    
+
     mcp_tools = services.map do |service|
       case service
       when "dropbox"
@@ -130,7 +130,7 @@ module MCPConnectable
         }
       end
     end
-    
+
     prompt(
       message: "Connect to requested services",
       tools: mcp_tools
@@ -149,13 +149,13 @@ class PowerfulAgent < ApplicationAgent
   include WebSearchable
   include DataTools
   include MCPConnectable
-  
+
   generate_with :openai, model: "gpt-4o"
-  
+
   # This agent now has all the tools from all concerns
   def analyze_and_report
     topic = params[:topic]
-    
+
     prompt(
       message: "Analyze #{topic} using all available tools",
       # Tools from all concerns are available
@@ -177,26 +177,26 @@ class ResearchToolsTest < ActiveSupport::TestCase
     end
     @agent = @agent_class.new
   end
-  
+
   test "concern adds expected actions" do
     expected_actions = [
       "search_academic_papers",
       "analyze_research_data",
       "generate_research_visualization"
     ]
-    
+
     agent_actions = @agent.action_methods
     expected_actions.each do |action|
       assert_includes agent_actions, action
     end
   end
-  
+
   test "concern configuration works" do
     @agent_class.configure_research_tools(
       enable_web_search: true,
       mcp_servers: ["arxiv"]
     )
-    
+
     assert @agent_class.research_tools_config[:enable_web_search]
     assert_equal ["arxiv"], @agent_class.research_tools_config[:mcp_servers]
   end
@@ -233,11 +233,11 @@ Make concerns configurable for flexibility:
 ```ruby
 module Translatable
   extend ActiveSupport::Concern
-  
+
   included do
     class_attribute :translation_config, default: {}
   end
-  
+
   class_methods do
     def configure_translation(target_languages: [], default_language: "en")
       self.translation_config = {
@@ -246,7 +246,7 @@ module Translatable
       }
     end
   end
-  
+
   def translate
     text = params[:text]
     target = params[:target] || translation_config[:default_language]
@@ -289,15 +289,15 @@ Consider different API capabilities:
 ```ruby
 module AdaptiveTools
   extend ActiveSupport::Concern
-  
+
   private
-  
+
   def responses_api?
     # Check if using Responses API
-    options[:use_responses_api] || 
+    options[:use_responses_api] ||
     ["gpt-5", "gpt-4.1"].include?(options[:model])
   end
-  
+
   def configure_tools
     if responses_api?
       # Use built-in tools
@@ -320,31 +320,31 @@ end
 ```ruby
 module ContentGeneration
   extend ActiveSupport::Concern
-  
+
   def generate_blog_post
     topic = params[:topic]
     style = params[:style] || "informative"
-    
+
     prompt(
       message: "Write a #{style} blog post about #{topic}",
       instructions: "Create engaging, SEO-friendly content"
     )
   end
-  
+
   def generate_social_media
     content = params[:content]
     platforms = params[:platforms] || ["twitter"]
-    
+
     prompt(
       message: "Create social media posts for: #{platforms.join(', ')}",
       context: content
     )
   end
-  
+
   def optimize_seo
     content = params[:content]
     keywords = params[:keywords]
-    
+
     prompt(
       message: "Optimize this content for SEO",
       context: {content: content, keywords: keywords}
@@ -358,30 +358,30 @@ end
 ```ruby
 module DataAnalysis
   extend ActiveSupport::Concern
-  
+
   included do
     class_attribute :analysis_config, default: {
       output_format: :json,
       include_visualizations: false
     }
   end
-  
+
   def analyze_trends
     data = params[:data]
     timeframe = params[:timeframe]
-    
+
     prompt(
       message: "Analyze trends in this data over #{timeframe}",
       content_type: analysis_config[:output_format],
       tools: visualization_tools
     )
   end
-  
+
   private
-  
+
   def visualization_tools
     return [] unless analysis_config[:include_visualizations]
-    
+
     [{
       type: "image_generation",
       size: "1024x768",
@@ -399,19 +399,19 @@ Concerns work seamlessly with Rails conventions:
 # app/agents/concerns/authenticatable.rb
 module Authenticatable
   extend ActiveSupport::Concern
-  
+
   included do
     before_action :verify_authentication
   end
-  
+
   private
-  
+
   def verify_authentication
     unless current_user
       raise ActiveAgent::AuthenticationError, "User must be authenticated"
     end
   end
-  
+
   def current_user
     # Access Rails current_user or implement agent-specific auth
     @current_user ||= User.find_by(id: params[:user_id])
@@ -422,5 +422,5 @@ end
 ## Related Documentation
 
 - [Testing ActiveAgent Applications](/docs/framework/testing)
-- [OpenAI Provider Built-in Tools](/docs/generation-providers/openai-provider#built-in-tools-responses-api)
+- [OpenAI Provider Built-in Tools](/docs/providers/openai-provider#built-in-tools-responses-api)
 - [ActiveAgent Framework](/docs/framework/active-agent)

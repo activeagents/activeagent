@@ -98,7 +98,7 @@ Structured output requires a generation provider that supports JSON schemas. Cur
 - **OpenAI** - GPT-4o, GPT-4o-mini, GPT-3.5-turbo variants
 - **OpenRouter** - When using compatible models like OpenAI models through OpenRouter
 
-See the [OpenRouter Provider documentation](/docs/generation-providers/open-router-provider#structured-output-support) for details on using structured output with multiple model providers.
+See the [OpenRouter Provider documentation](/docs/providers/open-router-provider#structured-output-support) for details on using structured output with multiple model providers.
 :::
 
 
@@ -164,7 +164,7 @@ Extract resume data with a predefined `resume_schema`:
 
 For extracting data from receipts and invoices, you can use OpenRouter's multimodal capabilities combined with structured output. OpenRouter provides access to models that support both vision and structured output, making it ideal for document processing tasks.
 
-See the [OpenRouter Receipt Extraction example](/docs/generation-providers/open-router-provider#receipt-data-extraction-with-structured-output) for a complete implementation that extracts:
+See the [OpenRouter Receipt Extraction example](/docs/providers/open-router-provider#receipt-data-extraction-with-structured-output) for a complete implementation that extracts:
 - Merchant information (name, address)
 - Line items with prices
 - Tax and total amounts
@@ -186,5 +186,5 @@ Choose your provider based on your specific needs:
 - **Anthropic**: Strong reasoning capabilities with Claude models
 - **Ollama**: Local model deployment for privacy-sensitive data
 
-Learn more about configuring providers in the [Generation Provider Overview](/docs/framework/generation-provider).
+Learn more about configuring providers in the [Provider Overview](/docs/framework/provider).
 :::

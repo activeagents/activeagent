@@ -205,7 +205,7 @@ end
 - May require multiple attempts or fallback logic
 - Complex schemas may be challenging
 
-For reliable structured output, consider using [OpenAI](/docs/generation-providers/openai-provider#structured-output) or [OpenRouter](/docs/generation-providers/open-router-provider#structured-output-support) providers. For local processing requirements where Ollama is necessary, implement robust validation and error handling.
+For reliable structured output, consider using [OpenAI](/docs/providers/openai-provider#structured-output) or [OpenRouter](/docs/providers/open-router-provider#structured-output-support) providers. For local processing requirements where Ollama is necessary, implement robust validation and error handling.
 
 See the [Structured Output guide](/docs/active-agent/structured-output) for more information about structured output patterns.
 
@@ -556,9 +556,9 @@ end
 ## Related Documentation
 
 - [Embeddings Framework](/docs/framework/embeddings) - Complete guide to embeddings
-- [Generation Provider Overview](/docs/framework/generation-provider)
-- [OpenAI Provider](/docs/generation-providers/openai-provider) - Cloud-based alternative with more models
+- [Provider Overview](/docs/framework/provider)
+- [OpenAI Provider](/docs/providers/openai-provider) - Cloud-based alternative with more models
 - [Configuration Guide](/docs/getting-started#configuration)
 - [Ollama Documentation](https://ollama.ai/docs)
 - [Ollama Model Library](https://ollama.ai/library) - Available models including embedding models
-- [OpenRouter Provider](/docs/generation-providers/open-router-provider) - For cloud alternative
+- [OpenRouter Provider](/docs/providers/open-router-provider) - For cloud alternative
