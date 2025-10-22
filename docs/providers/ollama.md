@@ -8,7 +8,15 @@ The Ollama provider enables local LLM inference using the Ollama platform. Run m
 
 Configure Ollama in your agent:
 
-<<< @/../test/dummy/app/agents/providers/ollama_agent.rb{ruby:line-numbers}
+<<< @/../test/dummy/app/agents/providers/ollama_agent.rb#agent{ruby:line-numbers}
+
+### Basic Usage Example
+
+<<< @/../test/agents/providers/ollama_provider_test.rb#ollama_basic_example{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/ollama-provider-test.rb-test-basic-generation-with-Ollama.md -->
+:::
 
 ### Configuration File
 
@@ -92,17 +100,11 @@ end
 
 Run models completely offline:
 
-```ruby
-class PrivateDataAgent < ApplicationAgent
-  generate_with :ollama, model: "llama3"
+<<< @/../test/agents/providers/ollama_provider_test.rb#ollama_local_inference{ruby:line-numbers}
 
-  def process_sensitive_data
-    @data = params[:sensitive_data]
-    # Data never leaves your infrastructure
-    prompt instructions: "Process this confidential information"
-  end
-end
-```
+::: details Response Example
+<!-- @include: @/parts/examples/ollama-provider-test.rb-test-runs-local-inference.md -->
+:::
 
 ### Model Switching
 
@@ -601,7 +603,7 @@ end
 ## Related Documentation
 
 - [Embeddings Framework](/framework/embeddings) - Complete guide to embeddings
-- [Provider Overview](/framework/provider)
+- [Providers Overview](/framework/providers)
 - [OpenAI Provider](/providers/openai-provider) - Cloud-based alternative with more models
 - [Configuration Guide](/getting-started#configuration)
 - [Ollama Documentation](https://ollama.ai/docs)

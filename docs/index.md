@@ -23,7 +23,7 @@ hero:
 
 features:
   - title: Agents
-    link: /framework/active-agent
+    link: /framework/agents
     icon: <img src="/activeagent.png" />
     details: Controllers for AI. Define actions, manage context, and generate responses using Rails conventions.
   - title: Actions
@@ -36,7 +36,7 @@ features:
     details: Runtime context with messages, actions, and parameters passed to AI providers.
   - title: Providers
     icon: 🏭
-    link: /framework/provider
+    link: /framework/providers
     details: Unified interface for OpenAI, Anthropic, Ollama, and OpenRouter. Switch with one line.
   - title: Tool Calling
     icon: 🔧
@@ -68,6 +68,6 @@ features:
     details: Generate vector embeddings for semantic search, clustering, and RAG applications.
   - title: Rails-Native
     icon: 🚀
-    link: /framework/active-agent
+    link: /framework/agents
     details: Built for Rails. Familiar patterns, zero learning curve, production-ready from day one.
 ---

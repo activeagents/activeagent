@@ -1,0 +1,55 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"developer","content":"You are a helpful AI assistant."},{"role":"user","content":"What
+        is 3+4?"}],"model":"deepseek-r1:latest"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Oct 2025 20:26:38 GMT
+      Content-Length:
+      - '1598'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-769","object":"chat.completion","created":1761164798,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"3
+        + 4 equals 7.","reasoning":"First, the user asked: \"What is 3+4?\" This is
+        a simple arithmetic question. I need to add 3 and 4.\n\nAdding 3 and 4 gives
+        me 7. That''s basic math, even for a beginner.\n\nBut since this is an AI
+        response, I should be helpful, polite, and clear. Maybe the user meant something
+        else, like concatenation or another operation, but based on the question,
+        it seems direct addition.\n\nIn programming contexts, sometimes numbers are
+        represented differently, but here it''s just \"3+4\" which clearly means addition.
+        No other context is given.\n\nI should respond with the correct answer directly.
+        But to make it engaging, I could add a bit of enthusiasm or ask follow-up
+        questions if appropriate. However, since this might be testing my basic capabilities,
+        keeping it straightforward is probably best.\n\nResponse options:\n\n1. Just
+        say \"7\".\n\n2. Say something like \"3 plus 4 equals 7.\"\n\n3. Be funny
+        and say \"That''s easy! 7.\" but I should avoid being too casual unless the
+        user indicates a light tone.\n\nThe question doesn''t specify any particular
+        style, so a neutral response with the answer is fine.\n\nI''m not supposed
+        to assume anything beyond what''s asked; it''s probably just an addition query.\n\nFinal
+        calculation: 3 + 4 = 7\n\nSo, my response should be that.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"completion_tokens":299,"total_tokens":308}}
+
+        '
+  recorded_at: Wed, 22 Oct 2025 20:26:38 GMT
+recorded_with: VCR 6.3.1

@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Hello! Can you help me understand REST APIs?","instructions":"You
+        are a helpful AI assistant.","model":"gpt-4o-mini"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 22 Oct 2025 20:25:00 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '30000'
+      X-Ratelimit-Limit-Tokens:
+      - '150000000'
+      X-Ratelimit-Remaining-Requests:
+      - '29999'
+      X-Ratelimit-Remaining-Tokens:
+      - '149999952'
+      X-Ratelimit-Reset-Requests:
+      - 2ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_0383faf5997e4eb5b7023c9e3cc172e2
+      Openai-Processing-Ms:
+      - '10920'
+      X-Envoy-Upstream-Service-Time:
+      - '10924'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=2P_GhN1sqUgNaZE73dCjp__z.xLxgvhgkAftr7YVcbQ-1761164700-1.0.1.1-zUVtHpFl3RBk0RzrXT1RTvxqCrc9myLYY7kZUdMJ4fVHnJdBuaWNvzxEPz84dSCU_.JXQv6sa1I1TuiJGFj2gN_FcHJhCsX5DLzNOrn0XT4;
+        path=/; expires=Wed, 22-Oct-25 20:55:00 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=pQrTYFhltUHcEyaarfoU3zS1mUglPZZ0BtsySYvO_Nk-1761164700314-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 992bb86ab98d232c-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_03ff8158e7feee040068f93d9161408196a93daf7d18a1f54a",
+          "object": "response",
+          "created_at": 1761164689,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": "You are a helpful AI assistant.",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-mini-2024-07-18",
+          "output": [
+            {
+              "id": "msg_03ff8158e7feee040068f93d938110819695ed2ceabdbd4ec4",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Of course! REST (Representational State Transfer) is an architectural style for designing networked applications. It relies on a stateless communication protocol, typically HTTP, to operate. Here are the key concepts to help you understand REST APIs:\n\n### 1. **Resources:**\n   - In REST, every piece of data or functionality is considered a \"resource.\" Resources are identified by URLs (Uniform Resource Locators).\n   - For example, a resource could represent a user, a product, or an order.\n\n### 2. **HTTP Methods:**\n   - REST APIs typically use standard HTTP methods to perform operations on resources:\n     - **GET**: Retrieve a resource or list of resources.\n     - **POST**: Create a new resource.\n     - **PUT**: Update an existing resource.\n     - **DELETE**: Remove a resource.\n\n### 3. **Statelessness:**\n   - Each request from a client to a server must contain all the information needed to understand and process the request. The server does not store any context about the client session.\n\n### 4. **Representation:**\n   - Resources can be represented in various formats, with JSON and XML being the most common. When you request a resource, the server sends back a representation of the resource in the requested format.\n\n### 5. **Endpoints:**\n   - Endpoints are specific URLs where resources can be accessed. They usually follow a logical hierarchy. For example:\n     - `GET /users` might return a list of users.\n     - `GET /users/1` would return details for the user with ID 1.\n\n### 6. **Status Codes:**\n   - REST APIs use standard HTTP status codes to indicate the success or failure of an API request:\n     - **200 OK**: The request succeeded.\n     - **201 Created**: A resource was successfully created.\n     - **204 No Content**: The request was successful, but there\u2019s no content to return.\n     - **400 Bad Request**: The request was invalid.\n     - **404 Not Found**: The requested resource does not exist.\n     - **500 Internal Server Error**: A server error occurred.\n\n### 7. **HATEOAS (Hypermedia as the Engine of Application State):**\n   - This principle allows clients to dynamically navigate resources by providing links in the responses, allowing them to discover actions they can perform.\n\n### Example:\nHere\u2019s a small practical outcome of a REST API interaction:\n\n1. **GET** `/users`: retrieves a list of users.\n2. **POST** `/users`: creates a new user with the data provided in the request body.\n3. **GET** `/users/1`: retrieves the user with ID 1.\n4. **PUT** `/users/1`: updates the user with ID 1 with new data.\n5. **DELETE** `/users/1`: deletes the user with ID 1.\n\n### Benefits of REST APIs:\n- **Scalability**: Statelessness allows REST APIs to scale easily.\n- **Flexibility**: Different formats can be used for data representation.\n- **Interoperability**: Standard protocols and formats make integration with various systems easier.\n\nIf you have specific questions or would like to dive deeper into any aspect, feel free to ask!"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 28,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 674,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 702
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 22 Oct 2025 20:25:00 GMT
+recorded_with: VCR 6.3.1

@@ -1,0 +1,94 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"developer","content":"You are a helpful AI assistant."},{"role":"user","content":"Explain
+        monads in one sentence"}],"model":"qwen/qwen3-30b-a3b:free"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 22 Oct 2025 20:27:02 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 992bbb7c0cab1583-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761164816-H80ut2RmUz9Zi6f5CyRW\",\"provider\":\"Chutes\",\"model\":\"qwen/qwen3-30b-a3b:free\",\"object\":\"chat.completion\",\"created\":1761164817,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Monads
+        are a functional programming design pattern that encapsulate values with context,
+        enabling sequential operations while managing side effects and ensuring type
+        safety.\",\"refusal\":null,\"reasoning\":\"\\nOkay, the user is asking me
+        to explain monads in one sentence. Hmm, monads are a concept from functional
+        programming, right? I need to make sure I get the core idea right. Let me
+        start by recalling what a monad is.\\n\\nSo, monads are about handling side
+        effects in a pure functional way. They provide a structure to sequence operations.
+        But how to condense that into a single sentence? Maybe mention that they are
+        a design pattern for structuring functional code with side effects. Wait,
+        but what exactly do they do? They encapsulate values with context, allowing
+        for chaining operations while managing that context. For example, in Haskell,
+        the Maybe monad handles possible failures, and the IO monad handles input/output.\\n\\nI
+        should use terms that are familiar to someone with some programming background.
+        Maybe something like \\\"Monads are a design pattern in functional programming
+        that allow sequential computation by encapsulating values with context, enabling
+        operations to handle side effects and maintain purity.\\\" But that's a bit
+        long. Let me check if there's a more concise way.\\n\\nAnother angle: Monads
+        provide a way to chain operations together while managing side effects, like
+        handling nulls, errors, or I/O, in a type-safe manner. That's better. Also,
+        maybe mention that they wrap values and define how functions are applied.
+        So combining that: \\\"Monads are a functional programming concept that wrap
+        values with context, providing a way to chain operations while handling side
+        effects and maintaining type safety.\\\"\\n\\nWait, the user might not be
+        familiar with all these terms. Should I simplify further? Maybe \\\"Monads
+        are a way to handle side effects in functional programming by wrapping values
+        and defining how operations are composed.\\\" But I need to include the key
+        aspects: context, sequencing, side effects. Let me try again. \\\"Monads are
+        a design pattern in functional programming that encapsulate values with context,
+        enabling sequential operations while managing side effects in a type-safe
+        way.\\\"\\n\\nYes, that's better. I think that captures the essence. Let me
+        verify if that's accurate. Monads do encapsulate values, provide a way to
+        chain operations (using bind or flatMap), and handle side effects like I/O,
+        state, or errors. The key is that they let you sequence actions while keeping
+        the pure functional aspect. So the sentence should mention these elements
+        without being too technical. I think that works. Okay, I'll go with that.\\n\"}}],\"usage\":{\"prompt_tokens\":28,\"completion_tokens\":521,\"total_tokens\":549}}"
+  recorded_at: Wed, 22 Oct 2025 20:27:03 GMT
+recorded_with: VCR 6.3.1

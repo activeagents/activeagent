@@ -1,0 +1,70 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"developer","content":"You are a helpful AI assistant."},{"role":"user","content":"What
+        is 10-3?"}],"model":"qwen/qwen3-30b-a3b:free"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 22 Oct 2025 20:27:12 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 992bbbd9fed59ab6-LAX
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761164829-tKCBgMliENrsFVVXCkVu\",\"provider\":\"Chutes\",\"model\":\"qwen/qwen3-30b-a3b:free\",\"object\":\"chat.completion\",\"created\":1761164829,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"10
+        minus 3 equals **7**. \\n\\n**Answer:** 7.\",\"refusal\":null,\"reasoning\":\"\\nOkay,
+        the user is asking \\\"What is 10-3?\\\" That's a straightforward subtraction
+        problem. Let me think. Subtraction is taking one number away from another.
+        So 10 minus 3. Let me visualize it. If I have 10 apples and I take away 3,
+        how many are left? 10-3 would be 7. Wait, is there any chance they might be
+        asking something else? Like maybe in a different context, such as time or
+        a different number system? But the question is pretty simple, just 10 minus
+        3. The standard answer should be 7. I don't think they're trying to trick
+        me here. Maybe they're testing if I can handle basic math. Let me confirm
+        by breaking it down: 10 minus 3. Starting from 10, subtract 3. 10-1=9, 9-1=8,
+        8-1=7. Yep, that's three times. So the answer is definitely 7. I should just
+        state it clearly.\\n\"}}],\"usage\":{\"prompt_tokens\":29,\"completion_tokens\":243,\"total_tokens\":272}}"
+  recorded_at: Wed, 22 Oct 2025 20:27:14 GMT
+recorded_with: VCR 6.3.1

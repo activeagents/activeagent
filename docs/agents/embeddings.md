@@ -397,7 +397,7 @@ end
 
 ## Related Documentation
 
-- [Provider Overview](/framework/provider)
+- [Providers Overview](/framework/providers)
 - [OpenAI Provider](/providers/openai-provider)
 - [Ollama Provider](/providers/ollama-provider)
 - [Callbacks](/agents/callbacks)

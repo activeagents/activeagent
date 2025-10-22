@@ -24,6 +24,11 @@ ollama: &ollama
   service: "Ollama"
   model: "gemma3:latest"
 # endregion ollama_anchor
+# region mock_anchor
+mock: &mock
+  service: "Mock"
+  model: "mock-model"
+# endregion mock_anchor
 # endregion config_anchors
 
 # region config_development
@@ -48,6 +53,10 @@ development:
   anthropic:
     <<: *anthropic
   # endregion anthropic_dev_config
+  # region mock_dev_config
+  mock:
+    <<: *mock
+  # endregion mock_dev_config
 # endregion config_development
 
 # region config_test
@@ -62,4 +71,6 @@ test:
     <<: *ollama
   anthropic:
     <<: *anthropic
+  mock:
+    <<: *mock
 # endregion config_test

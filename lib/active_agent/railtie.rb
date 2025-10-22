@@ -25,7 +25,10 @@ module ActiveAgent
 
     initializer "active_agent.log_subscriber" do
       require "active_agent/log_subscriber"
-      ActiveAgent::LogSubscriber.attach_to "provider.active_agent"
+      # region log_subscriber
+      # Attached automatically via Railtie
+      ActiveAgent::LogSubscriber.attach_to "active_agent"
+      # endregion log_subscriber
     end
 
     initializer "active_agent.set_log_level", after: :initialize_logger do |app|
@@ -47,7 +50,10 @@ module ActiveAgent
       options.asset_host ||= app.config.asset_host
       options.relative_url_root ||= app.config.relative_url_root
 
+      # region configuration_load
+      # Loaded automatically via Railtie
       ActiveAgent.configuration_load(Rails.root.join("config", "active_agent.yml"))
+      # endregion configuration_load
 
       ActiveSupport.on_load(:active_agent) do
         include AbstractController::UrlFor

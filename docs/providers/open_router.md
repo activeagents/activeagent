@@ -8,7 +8,15 @@ OpenRouter provides access to multiple AI models through a unified API, with adv
 
 Configure OpenRouter in your agent:
 
-<<< @/../test/dummy/app/agents/providers/open_router_agent.rb{ruby:line-numbers}
+<<< @/../test/dummy/app/agents/providers/open_router_agent.rb#agent{ruby:line-numbers}
+
+### Basic Usage Example
+
+<<< @/../test/agents/providers/open_router_provider_test.rb#openrouter_basic_example{ruby:line-numbers}
+
+::: details Response Example
+<!-- @include: @/parts/examples/open-router-provider-test.rb-test-basic-generation-with-OpenRouter.md -->
+:::
 
 ### Configuration File
 
@@ -577,5 +585,5 @@ For tasks requiring both vision and structured output (like receipt extraction),
 ## See Also
 
 - [Data Extraction Agent](/examples/data-extraction-agent) - Comprehensive examples of structured data extraction
-- [Provider Overview](/framework/provider) - Understanding provider architecture
+- [Providers Overview](/framework/providers) - Understanding provider architecture
 - [OpenRouter API Documentation](https://openrouter.ai/docs) - Official OpenRouter documentation

@@ -82,7 +82,6 @@ module ActiveAgent
     #
     # @return [Hash] Hash of default configuration values
     DEFAULTS = {
-      verbose_generation_errors: false,
       colorize_logging: true,
       retries: true,
       retries_count: 3,
@@ -98,11 +97,6 @@ module ActiveAgent
         Timeout::Error
       ].freeze
     }.freeze
-
-    # @!attribute [rw] verbose_generation_errors
-    #   When true, generation errors will include detailed error messages and backtraces.
-    #   @return [Boolean] Whether to show verbose error messages (default: false)
-    attr_accessor :verbose_generation_errors
 
     # @!attribute [rw] colorize_logging
     #   When true, log subscriber output will be colorized.
@@ -187,7 +181,6 @@ module ActiveAgent
     #   production:
     #     retries: true
     #     retries_count: 5
-    #     verbose_generation_errors: false
     #
     # @example Provider-specific configuration with YAML anchors
     #   # config/activeagent.yml
@@ -262,7 +255,6 @@ module ActiveAgent
     # any provider configurations defined in the file.
     #
     # @param settings [Hash] Optional settings to override defaults
-    # @option settings [Boolean] :verbose_generation_errors (false) Enable verbose errors
     # @option settings [Boolean, Proc] :retries (true) Retry strategy
     # @option settings [Integer] :retries_count (3) Maximum retry attempts
     # @option settings [Array<Class>] :retries_on Network error classes to retry on
@@ -272,8 +264,7 @@ module ActiveAgent
     #
     # @example With custom settings
     #   config = ActiveAgent::Configuration.new(
-    #     retries: false,
-    #     verbose_generation_errors: true
+    #     retries: false
     #   )
     #
     # @example With provider configurations (typically from YAML)
@@ -285,13 +276,6 @@ module ActiveAgent
       (DEFAULTS.merge(settings)).each do |key, value|
         self[key] = value
       end
-    end
-
-    # Checks if verbose generation errors are enabled.
-    #
-    # @return [Boolean] True if verbose errors are enabled
-    def verbose_generation_errors?
-      @verbose_generation_errors
     end
 
     # Configures the retry strategy for generation requests.
@@ -535,7 +519,6 @@ module ActiveAgent
   # @example Basic configuration
   #   ActiveAgent.configure do |config|
   #     config.retries = false
-  #     config.verbose_generation_errors = true
   #   end
   #
   # @example Configuring retry behavior

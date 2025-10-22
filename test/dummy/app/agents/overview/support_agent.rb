@@ -13,8 +13,6 @@ module Overview
   class SupportAgent < ApplicationAgent
     generate_with :openai, model: "gpt-4o-mini"
 
-    # Answers a support question by rendering the help view template.
-    #
     # @return [ActiveAgent::Generation]
     def help
       prompt

@@ -73,22 +73,22 @@ export default defineConfig({
       {
         text: 'Framework',
         items: [
-          // { text: 'Rails Integration', link: '/framework/rails-integration' },
-          { text: 'Active Agent', link: '/framework/active-agent' },
-          { text: 'Action Prompt', link: '/framework/action-prompt' },
-          { text: 'Provider', link: '/framework/provider' },
-          { text: 'Using Concerns', link: '/framework/concerns' },
+          { text: 'Agents', link: '/framework/agents' },
+          { text: 'Providers', link: '/framework/providers' },
+          { text: 'Configuration', link: '/framework/configuration' },
+          { text: 'Instrumentation', link: '/framework/instrumentation' },
+          { text: 'Retries', link: '/framework/retries' },
           { text: 'Testing', link: '/framework/testing' },
         ]
       },
       {
         text: 'Providers',
         items: [
-          { text: 'OpenAI', link: '/providers/openai-provider' },
-          { text: 'Anthropic', link: '/providers/anthropic-provider' },
-          { text: 'Ollama', link: '/providers/ollama-provider' },
-          { text: 'OpenRouter', link: '/providers/open-router-provider' },
-          { text: 'Mock', link: '/providers/mock-provider' },
+          { text: 'Anthropic', link: '/providers/anthropic' },
+          { text: 'Ollama', link: '/providers/ollama' },
+          { text: 'OpenAI', link: '/providers/open_ai' },
+          { text: 'OpenRouter', link: '/providers/open_router' },
+          { text: 'Mock', link: '/providers/mock' },
         ]
       },
       { text: 'Agents',

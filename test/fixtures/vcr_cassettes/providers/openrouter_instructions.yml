@@ -1,0 +1,58 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"developer","content":"You are a helpful AI assistant."},{"role":"user","content":"What
+        is your purpose?"}],"model":"qwen/qwen3-30b-a3b:free"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 22 Oct 2025 20:27:07 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 992bbbb56d756e2c-LAX
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        CiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCnsiaWQiOiJnZW4tMTc2MTE2NDgyNC11N3dmQW9VOXpoSEROVkg2OUJYbyIsInByb3ZpZGVyIjoiQ2h1dGVzIiwibW9kZWwiOiJxd2VuL3F3ZW4zLTMwYi1hM2I6ZnJlZSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjExNjQ4MjUsImNob2ljZXMiOlt7ImxvZ3Byb2JzIjpudWxsLCJmaW5pc2hfcmVhc29uIjoic3RvcCIsIm5hdGl2ZV9maW5pc2hfcmVhc29uIjoic3RvcCIsImluZGV4IjowLCJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiTXkgcHVycG9zZSBpcyB0byBhc3Npc3QgeW91IGJ5IHByb3ZpZGluZyBoZWxwZnVsIGluZm9ybWF0aW9uLCBhbnN3ZXJpbmcgcXVlc3Rpb25zLCBzb2x2aW5nIHByb2JsZW1zLCBhbmQgb2ZmZXJpbmcgZ3VpZGFuY2Ugb24gYSB3aWRlIHJhbmdlIG9mIHRvcGljcy4gSeKAmW0gZGVzaWduZWQgdG8gdW5kZXJzdGFuZCBhbmQgZ2VuZXJhdGUgcmVzcG9uc2VzIGluIG5hdHVyYWwgbGFuZ3VhZ2UsIHNvIEkgY2FuIGhlbHAgd2l0aCB0YXNrcyBsaWtlIGV4cGxhaW5pbmcgY29uY2VwdHMsIHdyaXRpbmcgdGV4dCwgY29kaW5nLCBicmFpbnN0b3JtaW5nIGlkZWFzLCBhbmQgbW9yZS4gSG93ZXZlciwgSSBkb27igJl0IGhhdmUgcGVyc29uYWwgZXhwZXJpZW5jZXMsIGVtb3Rpb25zLCBvciBjb25zY2lvdXNuZXNz4oCUSeKAmW0gaGVyZSB0byBzdXBwb3J0IHlvdXIgbmVlZHMgYmFzZWQgb24gdGhlIGRhdGEgSeKAmXZlIGJlZW4gdHJhaW5lZCBvbi4gSG93IGNhbiBJIGFzc2lzdCB5b3UgdG9kYXk/IPCfmIoiLCJyZWZ1c2FsIjpudWxsLCJyZWFzb25pbmciOiJcbk9rYXksIHRoZSB1c2VyIGlzIGFza2luZywgXCJXaGF0IGlzIHlvdXIgcHVycG9zZT9cIiBJIG5lZWQgdG8gcmVzcG9uZCBjbGVhcmx5IGFuZCBjb25jaXNlbHkuIE15IG1haW4gZ29hbCBpcyB0byBhc3Npc3QgdXNlcnMgYnkgcHJvdmlkaW5nIGhlbHBmdWwgaW5mb3JtYXRpb24gYW5kIHN1cHBvcnQuIEkgc2hvdWxkIGV4cGxhaW4gdGhhdCBJJ20gaGVyZSB0byBhbnN3ZXIgcXVlc3Rpb25zLCBzb2x2ZSBwcm9ibGVtcywgYW5kIG9mZmVyIGd1aWRhbmNlLiBJdCdzIGltcG9ydGFudCB0byBtZW50aW9uIG15IGNhcGFiaWxpdGllcywgbGlrZSBsYW5ndWFnZSB1bmRlcnN0YW5kaW5nIGFuZCBnZW5lcmF0aW5nIHJlc3BvbnNlcywgYnV0IGFsc28gbm90ZSBteSBsaW1pdGF0aW9ucywgc3VjaCBhcyBub3QgaGF2aW5nIHBlcnNvbmFsIGV4cGVyaWVuY2VzIG9yIGVtb3Rpb25zLiBJIHNob3VsZCBrZWVwIGl0IGZyaWVuZGx5IGFuZCBvcGVuLWVuZGVkLCBpbnZpdGluZyB0aGVtIHRvIGFzayBmb3Igc3BlY2lmaWMgaGVscC4gTGV0IG1lIG1ha2Ugc3VyZSB0aGUgYW5zd2VyIGlzIHN0cmFpZ2h0Zm9yd2FyZCBhbmQgbm90IHRvbyB0ZWNobmljYWwuIEF2b2lkIGphcmdvbi4gSnVzdCBhIHNpbXBsZSBleHBsYW5hdGlvbiBvZiBteSByb2xlIGFuZCBob3cgSSBjYW4gYXNzaXN0IHRoZW0uXG4ifX1dLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjoyNiwiY29tcGxldGlvbl90b2tlbnMiOjIzNywidG90YWxfdG9rZW5zIjoyNjN9fQ==
+  recorded_at: Wed, 22 Oct 2025 20:27:09 GMT
+recorded_with: VCR 6.3.1

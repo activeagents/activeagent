@@ -2,7 +2,7 @@
 title: Overview
 cards:
   - title: Agents
-    link: /framework/active-agent
+    link: /framework/agents
     icon: <img src="/activeagent.png" />
     details: Agents are Controllers with a common Generation API with enhanced memory and tooling.
   - title: Actions
@@ -15,7 +15,7 @@ cards:
     details: Prompts contain the runtime context, messages, and configuration for AI generation.
   - title: Providers
     icon: 🏭
-    link: /framework/provider
+    link: /framework/providers
     details: Providers establish a common interface for different AI service providers.
   - title: Queued Generation
     icon: ⏳

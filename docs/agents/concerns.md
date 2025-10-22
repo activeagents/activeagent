@@ -423,4 +423,4 @@ end
 
 - [Testing ActiveAgent Applications](/framework/testing)
 - [OpenAI Provider Built-in Tools](/providers/openai-provider#built-in-tools-responses-api)
-- [ActiveAgent Framework](/framework/active-agent)
+- [ActiveAgent Framework](/framework/agents)

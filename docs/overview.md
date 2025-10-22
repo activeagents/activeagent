@@ -12,7 +12,7 @@ view:
     details: ERB templates that render prompts and messages in text, HTML, or JSON formats.
 controller:
   - title: Agents (Controller)
-    link: /framework/active-agent
+    link: /framework/agents
     icon: <img src="/activeagent.png" />
     details: Controllers that orchestrate AI interactions with actions, callbacks, streaming, and tool execution.
 
@@ -99,12 +99,12 @@ This familiar flow means you can test agents like controllers, organize code lik
 Ready to build your first agent?
 
 - **[Getting Started](/getting-started)** - Install and create your first agent in 5 minutes
-- **[Framework Guide](/framework/active-agent)** - Deep dive into agents, actions, and prompts
+- **[Framework Guide](/framework/agents)** - Deep dive into agents, actions, and prompts
 - **[Examples](/examples/data-extraction-agent)** - See real-world agent implementations
 
 Or explore specific features:
 - [Tool Calling](/actions/tool-calling) - Let agents execute Ruby methods
 - [Structured Output](/agents/structured-output) - Extract data with JSON schemas
 - [Streaming](/agents/callbacks#on-stream-callbacks) - Real-time response updates
-- [Providers](/framework/provider) - OpenAI, Anthropic, Ollama, and more
+- [Providers](/framework/providers) - OpenAI, Anthropic, Ollama, and more
 

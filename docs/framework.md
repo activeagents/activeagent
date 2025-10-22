@@ -12,7 +12,7 @@ view:
     details: Actions return prompt objects containing messages rendered from Action View templates.
 controller:
   - title: Agents (Controller)
-    link: /framework/active-agent
+    link: /framework/agents
     icon: <img src="/activeagent.png" />
     details: Agents are Controllers with a common Generation API with enhanced memory and tooling.
 

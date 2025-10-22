@@ -17,29 +17,18 @@ class ConfigurationTest < ActiveSupport::TestCase
   test "initializes with default values" do
     config = ActiveAgent::Configuration.new
 
-    assert_equal false, config.verbose_generation_errors
     assert_equal true, config.retries
     assert_equal 3, config.retries_count
     assert_includes config.retries_on, EOFError
     assert_includes config.retries_on, Timeout::Error
   end
 
-  test "verbose_generation_errors? returns boolean" do
-    config = ActiveAgent::Configuration.new
-    assert_equal false, config.verbose_generation_errors?
-
-    config.verbose_generation_errors = true
-    assert_equal true, config.verbose_generation_errors?
-  end
-
   # Test custom initialization
   test "initializes with custom settings" do
     config = ActiveAgent::Configuration.new(
-      verbose_generation_errors: true,
       retries_count: 5
     )
 
-    assert_equal true, config.verbose_generation_errors
     assert_equal 5, config.retries_count
   end
 
@@ -57,8 +46,8 @@ class ConfigurationTest < ActiveSupport::TestCase
     config[:retries_count] = 7
     assert_equal 7, config.retries_count
 
-    config["verbose_generation_errors"] = true
-    assert_equal true, config.verbose_generation_errors
+    config["retries"] = false
+    assert_equal false, config.retries
   end
 
   # Test method_missing delegation
@@ -160,7 +149,6 @@ class ConfigurationTest < ActiveSupport::TestCase
       development:
         retries: false
         retries_count: 10
-        verbose_generation_errors: true
     YAML
 
     Tempfile.create([ "config", ".yml" ]) do |file|
@@ -172,7 +160,6 @@ class ConfigurationTest < ActiveSupport::TestCase
 
       assert_equal false, config.retries
       assert_equal 10, config.retries_count
-      assert_equal true, config.verbose_generation_errors
     ensure
       ENV.delete("RAILS_ENV")
     end

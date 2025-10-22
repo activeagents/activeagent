@@ -313,5 +313,5 @@ If tests fail with API errors when cassettes exist:
 ## Related Documentation
 
 - [Getting Started](/getting-started)
-- [ActiveAgent Framework](/framework/active-agent)
-- [Providers](/framework/provider)
+- [ActiveAgent Framework](/framework/agents)
+- [Providers](/framework/providers)

@@ -186,5 +186,5 @@ Choose your provider based on your specific needs:
 - **Anthropic**: Strong reasoning capabilities with Claude models
 - **Ollama**: Local model deployment for privacy-sensitive data
 
-Learn more about configuring providers in the [Provider Overview](/framework/provider).
+Learn more about configuring providers in the [Providers Overview](/framework/providers).
 :::
