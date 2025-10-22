@@ -84,10 +84,11 @@ export default defineConfig({
       {
         text: 'Generation Providers',
         items: [
-          { text: 'OpenAI', link: '/docs/generation-providers/openai-provider' },
-          { text: 'Anthropic', link: '/docs/generation-providers/anthropic-provider' },
-          { text: 'Ollama', link: '/docs/generation-providers/ollama-provider' },
-          { text: 'OpenRouter', link: '/docs/generation-providers/open-router-provider' },
+          { text: 'OpenAI', link: '/docs/providers/openai-provider' },
+          { text: 'Anthropic', link: '/docs/providers/anthropic-provider' },
+          { text: 'Ollama', link: '/docs/providers/ollama-provider' },
+          { text: 'OpenRouter', link: '/docs/providers/open-router-provider' },
+          { text: 'Mock', link: '/docs/providers/mock-provider' },
         ]
       },
       {

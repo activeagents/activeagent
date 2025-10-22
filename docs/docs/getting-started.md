@@ -44,6 +44,11 @@ bundle add ruby-openai
 # OpenRouter follows the same API spec as OpenAI, so you can use the same gem.
 ```
 
+```bash [Mock]
+# No additional gem needed - Mock provider is built-in for testing
+# Use this for development and testing without API costs
+```
+
 :::
 
 Then install the gems by running:
@@ -76,7 +81,7 @@ Define an `ApplicationAgent` class that inherits from `ActiveAgent::Base`. This 
 
 <<< @/../test/dummy/app/agents/application_agent.rb {ruby}
 
-This sets up the `ApplicationAgent` to use OpenAI as the provider. You can replace `:openai` with any other supported provider, such as `:anthropic` or `:ollama`.
+This sets up the `ApplicationAgent` to use OpenAI as the provider. You can replace `:openai` with any other supported provider, such as `:anthropic`, `:ollama`, `:open_router`, or `:mock` (for testing).
 
 ### Using Agent.prompt(...) for Testing and Quick Prototyping
 
@@ -98,7 +103,7 @@ This example:
 
 ### Provider Configuration
 
-Active Agent supports multiple providers, including OpenAI, Anthropic, and Ollama. Configure these providers in `config/active_agent.yml`:
+Active Agent supports multiple providers, including OpenAI, Anthropic, Ollama, OpenRouter, and Mock (for testing). Configure these providers in `config/active_agent.yml`:
 
 <<< @/../test/dummy/config/active_agent.yml{yaml:line-numbers}
 

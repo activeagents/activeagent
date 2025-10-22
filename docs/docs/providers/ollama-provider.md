@@ -8,7 +8,7 @@ The Ollama provider enables local LLM inference using the Ollama platform. Run m
 
 Configure Ollama in your agent:
 
-<<< @/../test/dummy/app/agents/ollama_agent.rb#snippet{ruby:line-numbers}
+<<< @/../test/dummy/app/agents/providers/ollama_agent.rb{ruby:line-numbers}
 
 ### Configuration File
 
@@ -237,7 +237,37 @@ Generate embeddings locally using Ollama's embedding models. See the [Embeddings
 
 #### Basic Embedding Generation
 
-<<< @/../test/generation_provider/ollama_provider_test.rb#ollama_provider_embed{ruby:line-numbers}
+```ruby
+class EmbeddingAgent < ApplicationAgent
+  embed_with :ollama,
+    model: "llama3",
+    embedding_model: "nomic-embed-text",
+    host: "http://localhost:11434"
+
+  def generate_embedding
+    # Generate embedding from text
+    embed("The quick brown fox jumps over the lazy dog")
+  end
+
+  def generate_batch_embeddings
+    # Generate embeddings for multiple texts
+    embed([
+      "First text string",
+      "Second text string"
+    ])
+  end
+end
+
+# Generate single embedding
+response = EmbeddingAgent.new.generate_embedding.embed_now
+embedding = response.message.content
+# => [0.123, -0.456, 0.789, ...] (array of floats)
+
+# Generate batch embeddings
+response = EmbeddingAgent.new.generate_batch_embeddings.embed_now
+embeddings = response.message.content
+# => [[0.123, ...], [0.456, ...]] (array of embedding arrays)
+```
 
 ::: details Response Example
 <!-- @include: @/parts/examples/ollama-provider-test-test-embed-method-works-with-ollama-provider.md -->
@@ -268,7 +298,22 @@ ollama pull mxbai-embed-large
 
 Ollama provides helpful error messages when the service is not available:
 
-<<< @/../test/generation_provider/ollama_provider_test.rb#113-136{ruby:line-numbers}
+```ruby
+begin
+  response = EmbeddingAgent.new.generate_embedding.embed_now
+  embedding = response.message.content
+rescue Errno::ECONNREFUSED, Net::OpenTimeout => e
+  # Handle connection errors when Ollama is not running
+  Rails.logger.error "Ollama is not running: #{e.message}"
+
+  # Provide helpful feedback
+  puts "Error: Connection refused"
+  puts "Solution: Start Ollama with: ollama serve"
+
+  # Optional: Fallback to another provider
+  # Use OpenAI or another cloud provider as fallback
+end
+```
 
 This ensures developers get clear feedback about connection issues.
 

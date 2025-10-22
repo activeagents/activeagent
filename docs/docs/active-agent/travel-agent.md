@@ -93,11 +93,55 @@ You can also call actions directly with parameters:
 
 ### Tool Call Structure
 
-<<< @/../test/agents/travel_agent_tool_call_test.rb#4-14 {ruby:line-numbers}
+When the LLM needs to perform an action, it calls the appropriate tool with parameters:
+
+```ruby
+# The LLM receives available tools and decides which to call
+# Example: Search for flights
+message = "Find flights from NYC to LAX"
+prompt = TravelAgent.prompt(message: message)
+response = prompt.generate_now
+
+# The LLM calls the search tool with parameters:
+# - departure: "NYC"
+# - destination: "LAX"
+```
 
 ### Parameter Processing
 
-<<< @/../test/agents/travel_agent_tool_call_test.rb#52-90 {ruby:line-numbers}
+The framework automatically handles tool calling:
+
+```ruby
+# 1. The LLM requests a tool call
+# Example tool call from LLM:
+# {
+#   "name": "search",
+#   "parameters": {
+#     "departure": "NYC",
+#     "destination": "LAX"
+#   }
+# }
+
+# 2. Framework processes the request
+class TravelAgent < ApplicationAgent
+  def search
+    # Parameters are automatically set on params hash
+    @departure = params[:departure]      # "NYC"
+    @destination = params[:destination]  # "LAX"
+    @results = params[:results] || []
+
+    # Render the response
+    prompt(content_type: :html)
+  end
+end
+
+# 3. Action execution and response
+# The search action:
+# - Receives parameters from the LLM
+# - Sets instance variables
+# - Renders the search view (HTML format)
+# - Returns results to the LLM for final response
+```
 
 The framework automatically:
 
@@ -114,7 +158,7 @@ The TravelAgent demonstrates how different actions can use different response fo
 <<< @/../test/agents/travel_agent_test.rb#travel_agent_multi_format {ruby:line-numbers}
 
 - **Search**: Uses HTML format for rich UI display
-- **Book**: Uses text format for simple confirmation messages  
+- **Book**: Uses text format for simple confirmation messages
 - **Confirm**: Uses text format for final booking confirmation
 
 ## Testing with VCR

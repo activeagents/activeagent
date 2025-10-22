@@ -68,11 +68,31 @@ Configure Ollama for local embedding generation:
 
 ActiveAgent provides proper error handling for connection issues:
 
-<<< @/../test/generation_provider/ollama_provider_test.rb#ollama_provider_embed {ruby:line-numbers}
+```ruby
+class RobustEmbeddingAgent < ApplicationAgent
+  embed_with :ollama, embedding_model: "nomic-embed-text"
 
-::: details Response Example
-<!-- @include: @/parts/examples/ollama-provider-test.rb-test-embed-method-works-with-ollama-provider.md -->
-:::
+  def generate_with_fallback
+    begin
+      # Try Ollama first (local, free)
+      response = embed(params[:text]).embed_now
+      response.message.content
+    rescue Errno::ECONNREFUSED, Net::OpenTimeout => e
+      Rails.logger.warn "Ollama unavailable, falling back to OpenAI: #{e.message}"
+
+      # Fallback to OpenAI
+      self.class.embed_with :openai, embedding_model: "text-embedding-3-small"
+      response = embed(params[:text]).embed_now
+      response.message.content
+    end
+  end
+end
+
+# Usage
+agent = RobustEmbeddingAgent.new
+embedding = agent.with(text: "Sample text").generate_with_fallback
+# Will use Ollama if available, otherwise falls back to OpenAI
+```
 
 ## Working with Embeddings
 
@@ -116,7 +136,7 @@ Cache embeddings to avoid regenerating them:
 class CachedEmbeddingAgent < ApplicationAgent
   def get_embedding(text)
     cache_key = "embedding:#{Digest::SHA256.hexdigest(text)}"
-    
+
     Rails.cache.fetch(cache_key, expires_in: 30.days) do
       generation = self.class.embed(input: text)
       generation.generate_now.data.first[:embedding]
@@ -133,18 +153,18 @@ Use different models for different purposes:
 class MultiModelEmbeddingAgent < ApplicationAgent
   def generate_semantic_embedding(text)
     # High-quality semantic embedding
-    self.class.generate_with :openai, 
+    self.class.generate_with :openai,
       embedding_model: "text-embedding-3-large"
-    
+
     generation = self.class.embed(input: text)
     generation.generate_now
   end
-  
+
   def generate_fast_embedding(text)
     # Faster, smaller embedding for real-time use
     self.class.generate_with :openai,
       embedding_model: "text-embedding-3-small"
-    
+
     generation = self.class.embed(input: text)
     generation.generate_now
   end
@@ -163,17 +183,17 @@ class PgVectorAgent < ApplicationAgent
     # Generate embedding
     response = self.class.embed(input: text).generate_now
     embedding = response.data.first[:embedding]
-    
+
     # Store in PostgreSQL with pgvector
     Document.create!(
       content: text,
       embedding: embedding  # pgvector column
     )
   end
-  
+
   def search_similar(query, limit: 10)
     query_embedding = get_embedding(query)
-    
+
     # Use pgvector's <-> operator for cosine distance
     Document
       .order(Arel.sql("embedding <-> '#{query_embedding}'"))
@@ -191,10 +211,10 @@ class PineconeAgent < ApplicationAgent
     @pinecone = Pinecone::Client.new(api_key: ENV['PINECONE_API_KEY'])
     @index = @pinecone.index('documents')
   end
-  
+
   def upsert_document(id, text, metadata = {})
     embedding = get_embedding(text)
-    
+
     @index.upsert(
       vectors: [{
         id: id,
@@ -203,10 +223,10 @@ class PineconeAgent < ApplicationAgent
       }]
     )
   end
-  
+
   def query_similar(text, top_k: 10)
     embedding = get_embedding(text)
-    
+
     @index.query(
       vector: embedding,
       top_k: top_k,
@@ -250,20 +270,20 @@ class SmartCacheAgent < ApplicationAgent
     # Check cache first
     cached = fetch_from_cache(text)
     return cached if cached
-    
+
     # Generate if not cached
     embedding = generate_embedding(text)
-    
+
     # Cache based on text length and importance
     if should_cache?(text)
       cache_embedding(text, embedding)
     end
-    
+
     embedding
   end
-  
+
   private
-  
+
   def should_cache?(text)
     text.length > 100 || text.include?("important")
   end
@@ -293,10 +313,10 @@ class SemanticSearchAgent < ApplicationAgent
       doc.update!(embedding: response.data.first[:embedding])
     end
   end
-  
+
   def search(query)
     query_embedding = get_embedding(query)
-    
+
     Document
       .select("*, embedding <-> '#{query_embedding}' as distance")
       .order("distance")
@@ -311,7 +331,7 @@ end
 class RecommendationAgent < ApplicationAgent
   def recommend_similar(article)
     article_embedding = article.embedding || generate_embedding(article.content)
-    
+
     Article
       .where.not(id: article.id)
       .select("*, embedding <-> '#{article_embedding}' as similarity")
@@ -330,10 +350,10 @@ class ClusteringAgent < ApplicationAgent
     embeddings = documents.map do |doc|
       get_embedding(doc.content)
     end
-    
+
     # Use k-means or other clustering algorithm
     clusters = perform_clustering(embeddings, num_clusters)
-    
+
     # Assign documents to clusters
     documents.zip(clusters).each do |doc, cluster_id|
       doc.update!(cluster_id: cluster_id)
@@ -358,18 +378,18 @@ end
 class DebuggingAgent < ApplicationAgent
   def debug_embedding(text)
     generation = self.class.embed(input: text)
-    
+
     Rails.logger.info "Generating embedding for: #{text[0..100]}..."
     Rails.logger.info "Provider: #{generation_provider.class.name}"
     Rails.logger.info "Model: #{generation_provider.embedding_model}"
-    
+
     response = generation.generate_now
     embedding = response.data.first[:embedding]
-    
+
     Rails.logger.info "Dimensions: #{embedding.size}"
     Rails.logger.info "Range: [#{embedding.min}, #{embedding.max}]"
     Rails.logger.info "Mean: #{embedding.sum / embedding.size}"
-    
+
     embedding
   end
 end

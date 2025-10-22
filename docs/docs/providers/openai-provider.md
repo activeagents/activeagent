@@ -8,7 +8,7 @@ The OpenAI provider enables integration with OpenAI's GPT models including GPT-4
 
 Configure OpenAI in your agent:
 
-<<< @/../test/dummy/app/agents/open_ai_agent.rb#snippet{ruby:line-numbers}
+<<< @/../test/dummy/app/agents/providers/open_ai_agent.rb{ruby:line-numbers}
 
 ### Configuration File
 
@@ -150,7 +150,47 @@ end
 
 Use ActiveAgent's schema generator for automatic schema creation:
 
-<<< @/../test/integration/structured_output_json_parsing_test.rb#34-70{ruby:line-numbers}
+```ruby
+# Define your model with schema generation
+class ExtractedEntity
+  include ActiveModel::Model
+  include ActiveAgent::SchemaGenerator
+
+  attribute :name, :string
+  attribute :type, :string
+  attribute :confidence, :float
+
+  validates :name, presence: true
+  validates :type, presence: true
+end
+
+# Generate schema from the model
+entity_schema = ExtractedEntity.to_json_schema(
+  strict: true,
+  name: "entity_extraction"
+)
+
+# Use with OpenAI
+class EntityExtractionAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"
+
+  def extract_entities
+    prompt(
+      message: params[:text],
+      output_schema: entity_schema
+    )
+  end
+end
+
+# Extract entities
+response = EntityExtractionAgent.with(
+  text: "Apple Inc. announced new products yesterday in Cupertino."
+).extract_entities.generate_now
+
+# Access parsed entities
+entities = response.message.content
+# => [{"name" => "Apple Inc.", "type" => "organization", "confidence" => 0.95}, ...]
+```
 
 #### Strict Mode
 
@@ -413,7 +453,23 @@ end
 
 Use VCR for consistent tests:
 
-<<< @/../test/agents/open_ai_agent_test.rb#4-15{ruby:line-numbers}
+```ruby
+require "test_helper"
+
+class Providers::OpenAIAgentTest < ActiveSupport::TestCase
+  test "basic prompt generation" do
+    VCR.use_cassette("openai_basic_response") do
+      response = Providers::OpenAIAgent.ask(message: "Hello").generate_now
+
+      assert_not_nil response
+      assert_not_nil response.message.content
+      assert response.message.content.present?
+    end
+  end
+end
+```
+
+For an example agent implementation, see `test/dummy/app/agents/providers/open_ai_agent.rb`.
 
 ## Cost Optimization
 

@@ -6,13 +6,15 @@ Providers are the backbone of the Active Agent framework, allowing seamless inte
 You can use the following providers with Active Agent:
 ::: code-group
 
-<<< @/../test/dummy/app/agents/open_ai_agent.rb#snippet{ruby:line-numbers} [OpenAI]
+<<< @/../test/dummy/app/agents/providers/open_ai_agent.rb{ruby:line-numbers} [OpenAI]
 
-<<< @/../test/dummy/app/agents/anthropic_agent.rb {ruby} [Anthropic]
+<<< @/../test/dummy/app/agents/providers/anthropic_agent.rb{ruby:line-numbers} [Anthropic]
 
-<<< @/../test/dummy/app/agents/open_router_agent.rb#snippet{ruby:line-numbers} [OpenRouter]
+<<< @/../test/dummy/app/agents/providers/open_router_agent.rb{ruby:line-numbers} [OpenRouter]
 
-<<< @/../test/dummy/app/agents/ollama_agent.rb#snippet{ruby:line-numbers} [Ollama]
+<<< @/../test/dummy/app/agents/providers/ollama_agent.rb{ruby:line-numbers} [Ollama]
+
+<<< @/../test/dummy/app/agents/providers/mock_agent.rb{ruby:line-numbers} [Mock]
 :::
 
 ## Response
@@ -69,30 +71,101 @@ This hierarchy allows you to:
 
 ### Example: Configuration Precedence in Action
 
-<<< @/../test/agents/configuration_precedence_test.rb#test_configuration_precedence{ruby:line-numbers}
+Configuration can be set at three levels, with runtime options taking highest precedence:
+
+```ruby
+# 1. Global configuration (config/active_agent.yml)
+# providers:
+#   openai:
+#     model: "gpt-3.5-turbo"
+#     temperature: 0.7
+
+# 2. Agent-level configuration
+class MyAgent < ApplicationAgent
+  generate_with :openai,
+    model: "gpt-4o-mini",      # Overrides global model
+    temperature: 0.5           # Overrides global temperature
+
+  def analyze
+    # 3. Runtime configuration (highest precedence)
+    prompt(
+      model: "gpt-4o",         # Overrides agent-level model
+      temperature: 0.9         # Overrides agent-level temperature
+    )
+  end
+end
+```
 
 ### Data Collection Precedence Example
 
 The `data_collection` parameter for OpenRouter follows the same precedence rules:
 
-<<< @/../test/agents/configuration_precedence_test.rb#test_data_collection_precedence{ruby:line-numbers}
+```ruby
+# Global: data_collection = "allow"
+# Agent: data_collection = "deny"
+
+class PrivateAgent < ApplicationAgent
+  generate_with :open_router,
+    model: "openai/gpt-4o",
+    data_collection: "deny"    # Overrides global setting
+
+  def secure_prompt
+    prompt(
+      data_collection: "allow"  # Runtime overrides agent setting
+    )
+  end
+end
+```
 
 ### Key Principles
 
 #### 1. Runtime Always Wins
-Runtime options in the `prompt` method override all other configurations. See the test demonstrating this behavior:
+Runtime options in the `prompt` method override all other configurations:
 
-<<< @/../test/agents/configuration_precedence_test.rb#runtime_options_override{ruby:line-numbers}
+```ruby
+class FlexibleAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o-mini"
+
+  def creative_response
+    prompt(temperature: 1.0)  # High creativity
+  end
+
+  def precise_response
+    prompt(temperature: 0.1)  # Low creativity, more deterministic
+  end
+end
+```
 
 #### 2. Nil Values Don't Override
 Nil values passed at runtime don't override existing configurations:
 
-<<< @/../test/agents/configuration_precedence_test.rb#nil_values_dont_override{ruby:line-numbers}
+```ruby
+class ConsistentAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o", temperature: 0.7
+
+  def analyze
+    prompt(temperature: nil)  # Doesn't override, uses 0.7
+  end
+end
+```
 
 #### 3. Agent Configuration Overrides Global
 Agent-level settings take precedence over global configuration files:
 
-<<< @/../test/agents/configuration_precedence_test.rb#agent_overrides_config{ruby:line-numbers}
+```ruby
+# config/active_agent.yml
+# providers:
+#   openai:
+#     model: "gpt-3.5-turbo"
+
+class SpecializedAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"  # Overrides global setting
+
+  def analyze
+    prompt  # Uses gpt-4o, not gpt-3.5-turbo
+  end
+end
+```
 
 ### Supported Runtime Options
 
@@ -117,10 +190,6 @@ The following options can be overridden at runtime:
 1. **Use Global Config for Defaults**: Set organization-wide defaults in `config/active_agent.yml`
 2. **Agent-Level for Specific Needs**: Override in `generate_with` for agent-specific requirements
 3. **Runtime for Dynamic Adjustments**: Use runtime options for user preferences or conditional logic
-
-For a complete example showing all three levels working together, see:
-
-<<< @/../test/agents/configuration_precedence_test.rb#test_configuration_precedence{ruby:line-numbers}
 
 ## Embeddings Support
 
@@ -202,4 +271,5 @@ For detailed documentation on specific providers and their features:
 - [Anthropic Provider](/docs/providers/anthropic-provider) - Claude 3.5 and Claude 3 models with extended context windows
 - [Ollama Provider](/docs/providers/ollama-provider) - Local LLM inference for privacy-sensitive applications
 - [OpenRouter Provider](/docs/providers/open-router-provider) - Multi-model routing with fallbacks, PDF processing, and vision support
+- [Mock Provider](/docs/providers/mock-provider) - Testing provider for development without API costs
 

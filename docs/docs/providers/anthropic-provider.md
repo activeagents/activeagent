@@ -8,7 +8,7 @@ The Anthropic provider enables integration with Claude models including Claude 3
 
 Configure Anthropic in your agent:
 
-<<< @/../test/dummy/app/agents/anthropic_agent.rb{ruby:line-numbers}
+<<< @/../test/dummy/app/agents/providers/anthropic_agent.rb{ruby:line-numbers}
 
 ### Configuration File
 

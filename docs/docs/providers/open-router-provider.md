@@ -4,9 +4,63 @@ OpenRouter provides access to multiple AI models through a unified API, with adv
 
 ## Configuration
 
+### Basic Setup
+
 Configure OpenRouter in your agent:
 
-<<< @/../test/dummy/app/agents/open_router_agent.rb#snippet{ruby:line-numbers}
+<<< @/../test/dummy/app/agents/providers/open_router_agent.rb{ruby:line-numbers}
+
+### Configuration File
+
+Set up OpenRouter credentials in `config/active_agent.yml`:
+
+::: code-group
+
+<<< @/../test/dummy/config/active_agent.yml#open_router_anchor{yaml:line-numbers}
+
+<<< @/../test/dummy/config/active_agent.yml#open_router_dev_config{yaml:line-numbers}
+
+:::
+
+### Environment Variables
+
+Alternatively, use environment variables:
+
+```bash
+OPEN_ROUTER_API_KEY=your-api-key
+# or
+OPEN_ROUTER_ACCESS_TOKEN=your-api-key
+```
+
+## Supported Models
+
+OpenRouter provides access to models from multiple providers:
+
+### OpenAI Models
+- **openai/gpt-4o** - Most capable with vision and structured output
+- **openai/gpt-4o-mini** - Efficient with vision and structured output
+- **openai/gpt-4-turbo** - Advanced reasoning with structured output
+- **openai/o1** - Latest reasoning model
+
+### Anthropic Models
+- **anthropic/claude-3-5-sonnet** - Balanced performance
+- **anthropic/claude-3-opus** - Most capable Claude model
+- **anthropic/claude-3-haiku** - Fast and efficient
+
+### Google Models
+- **google/gemini-pro-1.5** - Latest Gemini with long context
+- **google/gemini-flash-1.5** - Fast and efficient
+
+### Meta Models
+- **meta-llama/llama-3.1-405b** - Largest Llama model
+- **meta-llama/llama-3.1-70b** - Balanced performance
+
+### Other Providers
+- **qwen/qwen3-30b-a3b:free** - Free tier model
+- **mistralai/mistral-large** - Mistral's largest model
+- **deepseek/deepseek-chat** - DeepSeek's chat model
+
+For a complete list of available models, visit [OpenRouter Models](https://openrouter.ai/models).
 
 ## Features
 
@@ -85,7 +139,30 @@ For more comprehensive structured output examples, including receipt data extrac
 
 OpenRouter supports vision-capable models for image analysis:
 
-<<< @/../test/agents/open_router_integration_test.rb#36-62{ruby:line-numbers}
+```ruby
+require "test_helper"
+
+class OpenRouterMultimodalTest < ActiveSupport::TestCase
+  test "analyzes image with structured output" do
+    VCR.use_cassette("openrouter_image_analysis") do
+      response = OpenRouterIntegrationAgent.analyze_image(
+        image_url: "https://example.com/test-image.jpg"
+      ).generate_now
+
+      assert_not_nil response
+      result = response.parsed_content
+
+      assert_not_nil result["description"]
+      assert_instance_of Array, result["objects"]
+      assert_includes ["indoor", "outdoor", "abstract", "document", "photo", "illustration"],
+                      result["scene_type"]
+      assert_instance_of Array, result["primary_colors"]
+    end
+  end
+end
+```
+
+For the complete agent implementation with image analysis schemas, see `test/dummy/app/agents/open_router_integration_agent.rb`.
 
 ::: details Image Analysis with Structured Output
 <!-- @include: @/parts/examples/open-router-integration-test.rb-test-analyzes-remote-image-URL-without-structured-output.md -->
@@ -97,7 +174,30 @@ Extract structured data from receipts and documents using OpenRouter's structure
 
 #### Test Implementation
 
-<<< @/../test/agents/open_router_integration_test.rb#receipt_extraction_test{ruby:line-numbers}
+```ruby
+test "extracts receipt data with structured output" do
+  VCR.use_cassette("openrouter_receipt_extraction") do
+    response = OpenRouterIntegrationAgent.extract_receipt_data(
+      image_path: "test/fixtures/files/sample_receipt.png"
+    ).generate_now
+
+    result = response.parsed_content
+
+    # Verify merchant information
+    assert_not_nil result["merchant"]
+    assert_not_nil result["merchant"]["name"]
+    assert_not_nil result["merchant"]["address"]
+
+    # Verify totals
+    assert_not_nil result["total"]
+    assert_instance_of Numeric, result["total"]["amount"]
+
+    # Verify items
+    assert_instance_of Array, result["items"]
+    assert result["items"].length > 0
+  end
+end
+```
 
 #### Receipt Schema Definition
 
@@ -121,7 +221,22 @@ This example uses structured output to ensure the receipt data is returned in a 
 
 OpenRouter supports PDF processing with various engines:
 
-<<< @/../test/agents/open_router_integration_test.rb#pdf_processing_local{ruby:line-numbers}
+```ruby
+test "processes PDF document from local file" do
+  VCR.use_cassette("openrouter_pdf_processing") do
+    pdf_data = Base64.strict_encode64(File.read("test/fixtures/files/sample.pdf"))
+
+    response = OpenRouterIntegrationAgent.analyze_pdf(
+      pdf_data: pdf_data,
+      pdf_engine: "pdf-text",
+      prompt_text: "Summarize this PDF document"
+    ).generate_now
+
+    assert_not_nil response
+    assert_not_nil response.message.content
+  end
+end
+```
 
 ::: details PDF Processing Example
 <!-- @include: @/parts/examples/open-router-integration-test.rb-test-processes-PDF-document-from-local-file.md -->
@@ -137,7 +252,20 @@ OpenRouter offers multiple PDF processing engines:
 
 Example with OCR engine:
 
-<<< @/../test/agents/open_router_integration_test.rb#pdf_native_support{ruby:line-numbers}
+```ruby
+test "processes scanned PDF with OCR engine" do
+  VCR.use_cassette("openrouter_pdf_ocr") do
+    response = OpenRouterIntegrationAgent.analyze_pdf(
+      pdf_url: "https://example.com/scanned-receipt.pdf",
+      pdf_engine: "mistral-ocr",
+      prompt_text: "Extract all text from this scanned document"
+    ).generate_now
+
+    assert_not_nil response
+    assert response.message.content.length > 0
+  end
+end
+```
 
 ::: details OCR Processing Example
 <!-- @include: @/parts/examples/open-router-integration-test.rb-test-processes-scanned-PDF-with-OCR-engine.md -->
@@ -147,7 +275,30 @@ Example with OCR engine:
 
 Configure fallback models for improved reliability:
 
-<<< @/../test/agents/open_router_integration_test.rb#340-361{ruby:line-numbers}
+```ruby
+class RobustAgent < ApplicationAgent
+  generate_with :open_router,
+    model: "openai/gpt-4o",
+    fallback_models: ["anthropic/claude-sonnet-4", "openai/gpt-4o-mini"],
+    enable_fallbacks: true
+
+  def analyze
+    prompt(message: params[:message])
+  end
+end
+
+# Test fallback behavior
+test "uses fallback models when primary fails" do
+  VCR.use_cassette("openrouter_fallback") do
+    response = RobustAgent.analyze(
+      message: "Explain quantum computing"
+    ).generate_now
+
+    assert_not_nil response
+    # Fallback models are automatically tried if primary fails
+  end
+end
+```
 
 ::: details Fallback Model Example
 <!-- @include: @/parts/examples/open-router-integration-test.rb-test-uses-fallback-models-when-primary-fails.md -->
@@ -157,7 +308,22 @@ Configure fallback models for improved reliability:
 
 Apply transforms for handling long content:
 
-<<< @/../test/agents/open_router_integration_test.rb#363-380{ruby:line-numbers}
+```ruby
+test "applies transforms for long content" do
+  VCR.use_cassette("openrouter_transforms") do
+    long_text = "Lorem ipsum " * 1000
+
+    response = OpenRouterIntegrationAgent.process_long_text(
+      text: long_text
+    ).generate_now
+
+    assert_not_nil response
+    # middle-out transform helps with long context
+  end
+end
+```
+
+For more details on content transforms, see the [OpenRouter transforms documentation](https://openrouter.ai/docs/transforms).
 
 ::: details Transform Example
 <!-- @include: @/parts/examples/open-router-integration-test.rb-test-applies-transforms-for-long-content.md -->
@@ -167,7 +333,32 @@ Apply transforms for handling long content:
 
 Track token usage and costs for OpenRouter requests:
 
-<<< @/../test/agents/open_router_integration_test.rb#382-420{ruby:line-numbers}
+```ruby
+test "tracks usage and costs" do
+  VCR.use_cassette("openrouter_usage_tracking") do
+    response = OpenRouterIntegrationAgent.analyze_content(
+      content: "What is the capital of France?"
+    ).generate_now
+
+    assert_not_nil response
+
+    # Access usage data from response
+    if response.usage
+      assert_instance_of Integer, response.usage["prompt_tokens"]
+      assert_instance_of Integer, response.usage["completion_tokens"]
+      assert_instance_of Integer, response.usage["total_tokens"]
+    end
+
+    # OpenRouter-specific cost tracking
+    if response.metadata && response.metadata["usage"]
+      usage = response.metadata["usage"]
+      puts "Total cost: $#{usage['total_cost']}" if usage["total_cost"]
+    end
+  end
+end
+```
+
+When `track_costs: true` is enabled in your agent configuration, OpenRouter will include detailed cost information in the response metadata.
 
 ::: details Usage Tracking Example
 <!-- @include: @/parts/examples/open-router-integration-test.rb-test-tracks-usage-and-costs.md -->
@@ -177,7 +368,22 @@ Track token usage and costs for OpenRouter requests:
 
 Configure provider preferences for routing and data collection:
 
-<<< @/../test/agents/open_router_integration_test.rb#437-454{ruby:line-numbers}
+```ruby
+class PreferenceAgent < ApplicationAgent
+  generate_with :open_router,
+    model: "openai/gpt-4o",
+    provider_preferences: {
+      allow: ["OpenAI", "Anthropic"],  # Only use these providers
+      order: ["OpenAI"]                # Try OpenAI first
+    }
+
+  def analyze
+    prompt(message: params[:message])
+  end
+end
+```
+
+For more information on provider preferences, see the [OpenRouter provider routing documentation](https://openrouter.ai/docs/provider-routing).
 
 ### Data Collection Policies
 
@@ -189,21 +395,79 @@ OpenRouter supports configuring data collection policies to control which provid
 
 #### Configuration Examples
 
-<<< @/../test/agents/open_router_integration_test.rb#456-479{ruby:line-numbers}
+```ruby
+# Deny all data collection
+class PrivateAgent < ApplicationAgent
+  generate_with :open_router,
+    model: "openai/gpt-4o",
+    data_collection: "deny"
+
+  def process
+    prompt(message: params[:message])
+  end
+end
+
+# Allow specific providers only
+class SelectiveAgent < ApplicationAgent
+  generate_with :open_router,
+    model: "openai/gpt-4o",
+    data_collection: ["OpenAI", "Anthropic"]
+
+  def process
+    prompt(message: params[:message])
+  end
+end
+```
 
 #### Real-World Example: Privacy-Focused Agent
 
 Here's a complete example of an agent configured to handle sensitive data with strict privacy controls:
 
-<<< @/../test/dummy/app/agents/privacy_focused_agent.rb#privacy_agent_config{ruby:line-numbers}
+```ruby
+class PrivacyFocusedAgent < ApplicationAgent
+  generate_with :open_router,
+    model: "openai/gpt-4o",
+    data_collection: "deny",           # Prevent data collection
+    require_parameters: true,          # Ensure parameter support
+    fallback_models: ["openai/gpt-4o-mini"]
+
+  def process_financial_data
+    prompt(
+      message: "Analyze this financial data: #{params[:data]}",
+      data_collection: "deny"  # Ensure no training data collection
+    )
+  end
+
+  def process_medical_records
+    prompt(
+      message: "Summarize this medical record: #{params[:record]}",
+      data_collection: ["OpenAI"]  # Only allow OpenAI to access
+    )
+  end
+end
+```
 
 Processing sensitive financial data:
 
-<<< @/../test/dummy/app/agents/privacy_focused_agent.rb#process_financial_data{ruby:line-numbers}
+```ruby
+response = PrivacyFocusedAgent.process_financial_data(
+  data: "Q4 earnings: $2.5M revenue, $800K expenses"
+).generate_now
+
+# Data is processed without being used for model training
+puts response.message.content
+```
 
 Selective provider data collection for medical records:
 
-<<< @/../test/dummy/app/agents/privacy_focused_agent.rb#process_medical_records{ruby:line-numbers}
+```ruby
+response = PrivacyFocusedAgent.process_medical_records(
+  record: "Patient presents with symptoms..."
+).generate_now
+
+# Only OpenAI can access this data
+puts response.message.content
+```
 
 You can configure data collection at multiple levels:
 
@@ -249,13 +513,52 @@ The `data_collection` parameter respects OpenRouter's provider compliance requir
 
 OpenRouter supports custom headers for tracking and attribution:
 
-<<< @/../test/agents/open_router_integration_test.rb#420-432{ruby:line-numbers}
+```ruby
+class TrackedAgent < ApplicationAgent
+  generate_with :open_router,
+    model: "openai/gpt-4o",
+    headers: {
+      "HTTP-Referer": "https://your-app.com",
+      "X-Title": "My Application"
+    }
+
+  def analyze
+    prompt(message: params[:message])
+  end
+end
+```
+
+These headers help with tracking usage in the OpenRouter dashboard and provide attribution for your requests.
 
 ## Model Capabilities Detection
 
 The provider automatically detects model capabilities:
 
-<<< @/../test/agents/open_router_integration_test.rb#16-33{ruby:line-numbers}
+```ruby
+class CapabilityAwareAgent < ApplicationAgent
+  generate_with :open_router, model: "openai/gpt-4o"
+
+  def analyze_with_vision
+    # The provider automatically detects vision support
+    prompt(
+      message: [
+        { type: "text", text: "What's in this image?" },
+        { type: "image_url", image_url: { url: params[:image_url] } }
+      ]
+    )
+  end
+
+  def structured_extraction
+    # Automatically uses structured output if model supports it
+    prompt(
+      message: "Extract data from this text",
+      output_schema: my_schema
+    )
+  end
+end
+```
+
+The OpenRouter provider intelligently adapts to model capabilities, enabling or disabling features based on what the selected model supports.
 
 ## Important Notes
 

@@ -1,12 +1,12 @@
-# lib/active_agent/generation.rb
-require "ostruct"
+# frozen_string_literal: true
+
+require "active_agent/providers/common/messages/_types"
 
 module ActiveAgent
-  # Represents a deferred agent action ready for synchronous or asynchronous execution.
+  # Deferred agent action ready for synchronous or asynchronous execution.
   #
-  # Generation objects are returned when calling agent actions and provide methods
-  # to execute the generation immediately or queue it for background processing.
-  # They also provide convenient access to the underlying prompt properties.
+  # Returned when calling agent actions. Provides methods to execute immediately
+  # or queue for background processing, plus access to prompt properties before execution.
   #
   # @example Synchronous generation
   #   generation = MyAgent.with(message: "Hello").greet
@@ -31,75 +31,63 @@ module ActiveAgent
       self.agent_class, self.action_name, self.args, self.kwargs = agent_class, action_name, args, kwargs
     end
 
-    # @return [Boolean] whether the agent instance has been created and processed
+    # @return [Boolean]
     def processed?
       !!processed_agent
     end
 
-    # Accesses the prompt options by processing the agent if needed.
+    # Accesses prompt options by processing the agent if needed.
     #
-    # Allows inspecting prompt properties like messages, actions, and options
-    # before executing generation. The agent is lazily processed on first access.
+    # Lazily processes the agent on first access, allowing inspection of
+    # prompt properties before executing generation.
     #
-    # @return [Hash] prompt options including :messages, :actions, and configuration
+    # @return [Hash] with :messages, :actions, and configuration keys
     def prompt_options
       ensure_agent_processed
       processed_agent.prompt_options
     end
 
-    # Returns the last message in the prompt as an object with a content accessor.
+    # Returns the last message with consistent `.content` access.
     #
-    # Wraps various message formats (String, Hash, objects) to provide consistent
-    # `.content` access regardless of the underlying format.
+    # Wraps various message formats (String, Hash, objects) using the common
+    # MessageType for uniform access patterns.
     #
-    # @return [OpenStruct, Object] message with `.content` method
+    # @return [ActiveAgent::Providers::Common::Messages::Base, nil]
     def message
       last_message = messages.last
-      if last_message.is_a?(String)
-        OpenStruct.new(content: last_message)
-      elsif last_message.respond_to?(:content)
-        last_message
-      elsif last_message.is_a?(Hash)
-        OpenStruct.new(content: last_message[:content] || last_message["content"])
-      else
-        OpenStruct.new(content: last_message.to_s)
-      end
+      return nil unless last_message
+
+      message_type.cast(last_message)
     end
 
-    # @return [Array] messages in the prompt context
+    # @return [Array]
     def messages
       prompt_options[:messages] || []
     end
 
-    # @return [Array] available actions (tools) for the agent
+    # @return [Array]
     def actions
       prompt_options[:actions] || []
     end
 
-    # @return [Hash] prompt configuration options excluding messages and actions
+    # @return [Hash] configuration options excluding messages and actions
     def options
       prompt_options.except(:messages, :actions)
     end
 
-    # Queues the generation for background execution with immediate processing.
-    #
-    # Uses the agent's configured job class to enqueue. Raises error if agent
-    # has already been accessed to prevent silent data loss.
+    # Queues for background execution with immediate processing.
     #
     # @param options [Hash] job options (queue, priority, wait, etc.)
-    # @return [Object] the enqueued job instance
+    # @return [Object] enqueued job instance
     # @raise [RuntimeError] if agent was accessed before queueing
     def generate_later!(options = {})
       enqueue_generation :generate_now!, options
     end
 
-    # Queues the generation for background execution.
-    #
-    # Uses the agent's configured job class to enqueue. Raises error if agent
-    # has already been accessed to prevent silent data loss.
+    # Queues for background execution.
     #
     # @param options [Hash] job options (queue, priority, wait, etc.)
-    # @return [Object] the enqueued job instance
+    # @return [Object] enqueued job instance
     # @raise [RuntimeError] if agent was accessed before queueing
     def generate_later(options = {})
       enqueue_generation :generate_now, options
@@ -107,11 +95,7 @@ module ActiveAgent
 
     # Executes prompt generation synchronously with immediate processing.
     #
-    # Processes the agent action, runs generation callbacks, and executes the
-    # prompt through the configured provider. Exceptions are handled through
-    # the agent's rescue mechanism.
-    #
-    # @return [ActiveAgent::Providers::Response] the provider's response
+    # @return [ActiveAgent::Providers::Response]
     def generate_now!
       ensure_agent_processed
       processed_agent.handle_exceptions do
@@ -123,11 +107,7 @@ module ActiveAgent
 
     # Executes prompt generation synchronously.
     #
-    # Processes the agent action, runs generation callbacks, and executes the
-    # prompt through the configured provider. Exceptions are handled through
-    # the agent's rescue mechanism.
-    #
-    # @return [ActiveAgent::Providers::Response] the provider's response
+    # @return [ActiveAgent::Providers::Response]
     def generate_now
       ensure_agent_processed
       processed_agent.handle_exceptions do
@@ -139,10 +119,6 @@ module ActiveAgent
 
     # Executes embedding generation synchronously.
     #
-    # Processes the agent action, runs embedding callbacks, and generates
-    # embeddings through the configured provider. Exceptions are handled
-    # through the agent's rescue mechanism.
-    #
     # @return [ActiveAgent::Providers::Response] embedding response with vector data
     def embed_now
       ensure_agent_processed
@@ -153,10 +129,10 @@ module ActiveAgent
       end
     end
 
-    # Queues the embedding generation for background execution.
+    # Queues embedding generation for background execution.
     #
     # @param options [Hash] job options (queue, priority, wait, etc.)
-    # @return [Object] the enqueued job instance
+    # @return [Object] enqueued job instance
     # @raise [RuntimeError] if agent was accessed before queueing
     def embed_later(options = {})
       enqueue_generation :embed_now, options
@@ -164,12 +140,11 @@ module ActiveAgent
 
     private
 
-    # Creates and processes the agent instance.
+    # Lazily instantiates and processes the agent instance.
     #
-    # Lazily instantiates the agent and calls the action method to prepare
-    # the prompt context. Cached after first call.
+    # Cached after first call.
     #
-    # @return [ActiveAgent::Base] the processed agent instance
+    # @return [ActiveAgent::Base]
     # @api private
     def ensure_agent_processed
       self.processed_agent ||= agent_class.new.tap do |agent|
@@ -177,15 +152,15 @@ module ActiveAgent
       end
     end
 
-    # Enqueues the generation for background processing.
+    # Enqueues for background processing.
     #
     # Prevents enqueuing if the agent has been accessed, as local changes
     # would be lost. Only method arguments are passed to the job, not the
     # agent instance state.
     #
-    # @param generation_method [Symbol, String] method to call on the job
-    # @param options [Hash] job configuration
-    # @return [Object] the enqueued job
+    # @param generation_method [Symbol, String]
+    # @param options [Hash]
+    # @return [Object] enqueued job
     # @raise [RuntimeError] when agent already processed to prevent data loss
     # @api private
     def enqueue_generation(generation_method, options = {})
@@ -203,6 +178,14 @@ module ActiveAgent
           agent_class.name, action_name.to_s, generation_method.to_s, args: args, kwargs: kwargs
         )
       end
+    end
+
+    # Lazy-loaded message type instance for casting messages.
+    #
+    # @return [ActiveAgent::Providers::Common::Messages::Types::MessageType]
+    # @api private
+    def message_type
+      @message_type ||= ActiveAgent::Providers::Common::Messages::Types::MessageType.new
     end
   end
 end

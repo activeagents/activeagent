@@ -209,12 +209,10 @@ end
 ```
 
 **Never use:**
-````markdown
-```ruby
+```markdown
 # Hardcoded example - DON'T DO THIS
 agent = MyAgent.new
-````
-````
+```
 
 #### Best Practices
 

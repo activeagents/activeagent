@@ -18,66 +18,89 @@ When an agent needs to use a tool during generation:
 
 ## Basic Example
 
-Here's a simple calculator agent that can perform arithmetic operations:
+Here's a support agent with a simple tool that fetches cat images:
 
-<<< @/../test/dummy/app/agents/calculator_agent.rb#1-10 {ruby:line-numbers}
+<<< @/../test/dummy/app/agents/support_agent.rb{ruby:line-numbers}
 
-When asked to add numbers, the agent will:
+The agent can call the `get_cat_image` tool when needed:
 
-<<< @/../test/agents/multi_turn_tool_test.rb#multi_turn_basic {ruby:line-numbers}
+```ruby
+# Agent receives request and calls the tool
+response = SupportAgent.with(
+  message: "Can you show me a cat picture?",
+  context_id: "user_123"
+).get_cat_image.generate_now
 
-The conversation flow includes:
-
-::: details Response Example
-<!-- @include: @/parts/examples/multi-turn-tool-test.rb-test-agent-performs-tool-call-and-continues-generation-with-result.md -->
-:::
-
-## Chaining Multiple Tool Calls
-
-Agents can chain multiple tool calls to solve complex tasks:
-
-<<< @/../test/agents/multi_turn_tool_test.rb#multi_turn_chain {ruby:line-numbers}
-
-This results in a sequence of tool calls:
-
-::: details Response Example
-<!-- @include: @/parts/examples/multi-turn-tool-test.rb-test-agent-chains-multiple-tool-calls-for-complex-task.md -->
-:::
+# The agent calls the get_cat_image action and uses the result
+```
 
 ## Tool Response Formats
 
 Tools can return different types of content:
 
-### Plain Text Responses
+### Simple Action Response
 
-<<< @/../test/dummy/app/agents/calculator_agent.rb#5-10 {ruby:line-numbers}
+The support agent's cat image tool returns image URLs:
 
-### HTML/View Responses
+```ruby
+class SupportAgent < ApplicationAgent
+  def get_cat_image
+    prompt(content_type: "image_url", context_id: params[:context_id]) do |format|
+      format.text { render plain: CatImageService.fetch_image_url }
+    end
+  end
+end
+```
 
-<<< @/../test/dummy/app/agents/weather_agent.rb#10-14 {ruby:line-numbers}
+### Using Concerns for Tool Organization
 
-The weather report view:
+Complex agents can use concerns to organize multiple tools:
 
-<<< @/../test/dummy/app/views/weather_agent/weather_report.html.erb {html:line-numbers}
+<<< @/../test/dummy/app/agents/research_agent.rb#1-40{ruby:line-numbers}
 
-## Error Handling
-
-Tools should handle errors gracefully:
-
-<<< @/../test/dummy/app/agents/calculator_agent.rb#23-34 {ruby:line-numbers}
-
-When an error occurs, the agent receives the error message and can provide appropriate guidance to the user.
+The research agent includes the `ResearchTools` concern which provides multiple tool actions like `search_academic_papers` and `search_with_mcp_sources`.
 
 ## Tool Schemas
 
 Define tool schemas using JSON views to describe parameters. [Learn more about tool implementation →](/docs/action-prompt/tools)
 
-<<< @/../test/dummy/app/views/calculator_agent/add.json.jbuilder {ruby:line-numbers}
+<<< @/../test/dummy/app/views/support_agent/get_cat_image.json.erb{ruby:line-numbers}
 
 This schema tells the AI model:
 - The tool name and description
 - Required and optional parameters
 - Parameter types and descriptions
+
+### More Complex Tool Schema
+
+For tools with parameters, define them in the schema:
+
+<<< @/../test/dummy/app/views/research_agent/search_academic_papers.json.jbuilder{ruby:line-numbers}
+
+## Built-in Tools
+
+Some providers support built-in tools that don't require custom implementation:
+
+```ruby
+class ResearchAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"
+
+  def comprehensive_research
+    @topic = params[:topic]
+
+    # Use built-in web search tool
+    prompt(
+      message: "Research: #{@topic}",
+      tools: [
+        { type: "web_search_preview", search_context_size: "high" },
+        { type: "image_generation" }
+      ]
+    )
+  end
+end
+```
+
+For more details on built-in tools, see the [OpenAI Provider documentation](/docs/providers/openai-provider#built-in-tools-responses-api).
 
 ## Implementation Details
 
@@ -91,3 +114,9 @@ The tool calling flow is handled by the `perform_generation` method:
 6. **Completion**: The process repeats until no more tools are requested
 
 This creates a natural conversation flow where the agent can gather information through tools before providing a final answer. [Understanding the complete generation cycle →](/docs/active-agent/generation)
+
+## See Also
+
+- [Tools Documentation](/docs/action-prompt/tools) - Detailed guide on implementing tools
+- [Using Concerns](/docs/framework/concerns) - Organizing tools with concerns
+- [OpenAI Built-in Tools](/docs/providers/openai-provider#built-in-tools-responses-api) - Provider-specific tool features

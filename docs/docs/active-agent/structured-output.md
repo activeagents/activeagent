@@ -36,7 +36,45 @@ ActiveAgent can automatically generate schemas from your Rails models:
 
 Define a schema and use it with the `output_schema` parameter:
 
-<<< @/../test/integration/structured_output_json_parsing_test.rb#34-70{ruby:line-numbers}
+```ruby
+class DataExtractionAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"
+
+  def extract_data
+    prompt(
+      message: params[:text],
+      output_schema: params[:schema]
+    )
+  end
+end
+
+# Define your schema
+user_schema = {
+  name: "user_extraction",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      email: { type: "string" },
+      age: { type: "integer" }
+    },
+    required: ["name", "email", "age"],
+    additionalProperties: false
+  }
+}
+
+# Use the schema
+response = DataExtractionAgent.with(
+  text: "John Doe, age 30, john@example.com",
+  schema: user_schema
+).extract_data.generate_now
+
+# Response is automatically parsed
+response.message.content # => {"name" => "John Doe", "email" => "john@example.com", "age" => 30}
+response.message.content_type # => "application/json"
+response.message.raw_content # => '{"name":"John Doe","email":"john@example.com","age":30}'
+```
 
 The response will automatically have:
 - `content_type` set to `"application/json"`
@@ -104,7 +142,41 @@ response.message.raw_content # => '{"name":"John","age":30}'
 
 Handle JSON parsing errors gracefully:
 
-<<< @/../test/integration/structured_output_json_parsing_test.rb#155-169{ruby:line-numbers}
+```ruby
+class RobustExtractionAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"
+
+  def extract_with_validation
+    response = prompt(
+      message: params[:text],
+      output_schema: params[:schema]
+    ).generate_now
+
+    # Validate the parsed JSON
+    begin
+      data = response.message.content
+      validate_schema(data, params[:schema])
+      data
+    rescue JSON::ParserError => e
+      Rails.logger.error "JSON parsing failed: #{e.message}"
+      # Fallback to raw content
+      response.message.raw_content
+    rescue => e
+      Rails.logger.error "Validation failed: #{e.message}"
+      nil
+    end
+  end
+
+  private
+
+  def validate_schema(data, schema)
+    # Implement your validation logic
+    schema[:schema][:required].each do |field|
+      raise "Missing required field: #{field}" unless data.key?(field.to_s)
+    end
+  end
+end
+```
 
 ## Provider Support
 
@@ -127,7 +199,38 @@ The [Data Extraction Agent](/docs/agents/data-extraction-agent#structured-output
 
 Use your existing Rails models for schema generation:
 
-<<< @/../test/integration/structured_output_json_parsing_test.rb#110-137{ruby:line-numbers}
+```ruby
+class User < ApplicationRecord
+  include ActiveAgent::SchemaGenerator
+
+  # ActiveRecord attributes are automatically detected
+  # name, email, age from database columns
+end
+
+class UserExtractionAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"
+
+  def extract_user
+    # Generate schema from the model
+    user_schema = User.to_json_schema(strict: true, name: "user_extraction")
+
+    prompt(
+      message: params[:text],
+      output_schema: user_schema
+    )
+  end
+end
+
+# Extract user data from text
+response = UserExtractionAgent.with(
+  text: "Contact: Jane Smith, jane@example.com, 28 years old"
+).extract_user.generate_now
+
+# Create a User record from the extracted data
+user_data = response.message.content
+user = User.new(user_data)
+user.save! if user.valid?
+```
 
 ## Best Practices
 

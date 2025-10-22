@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "base"
-require_relative "types"
+require_relative "_types"
 require_relative "message"
 
 module ActiveAgent

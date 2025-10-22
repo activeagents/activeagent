@@ -90,7 +90,7 @@ def doc_example_output(example = nil, test_name = nil)
     content << "```"
   else
     content << "```ruby"
-    content << ActiveAgent.sanitize_credentials(example.to_s)
+    content << example.to_s
     content << "```"
   end
 
@@ -100,10 +100,6 @@ end
 VCR.configure do |config|
   config.cassette_library_dir = "test/fixtures/vcr_cassettes"
   config.hook_into :webmock
-
-  # ActiveAgent.sanitizers.each do |secret, placeholder|
-  #   config.filter_sensitive_data(placeholder) { secret }
-  # end
 
   config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["OPEN_AI_ACCESS_TOKEN"] }
   config.filter_sensitive_data("ORGANIZATION_ID") { ENV["OPEN_AI_ORGANIZATION_ID"] }
