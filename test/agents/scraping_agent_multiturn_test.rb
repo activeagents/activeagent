@@ -3,9 +3,9 @@ require "test_helper"
 class ScrapingAgentMultiturnTest < ActiveSupport::TestCase
   test "scraping agent uses tools to check Google homepage" do
     VCR.use_cassette("scraping_agent_google_check") do
-      response = ScrapingAgent.with(
+      response = ScrapingAgent.prompt(
         message: "Are there any notices on the Google homepage?"
-      ).prompt_context.generate_now
+      ).generate_now
 
       # Check we got a response
       assert response.message.present?

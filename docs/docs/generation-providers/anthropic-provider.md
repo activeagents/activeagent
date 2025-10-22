@@ -320,9 +320,9 @@ Example test setup with Anthropic:
 class AnthropicAgentTest < ActiveSupport::TestCase
   test "generates response with Claude" do
     VCR.use_cassette("anthropic_claude_response") do
-      response = AnthropicAgent.with(
+      response = AnthropicAgent.prompt(
         message: "Explain Ruby blocks"
-      ).prompt_context.generate_now
+      ).generate_now
       
       assert_not_nil response.message.content
       assert response.message.content.include?("block")

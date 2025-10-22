@@ -48,19 +48,18 @@ class ActionsExamplesTest < ActiveSupport::TestCase
     # endregion actions_content_types
   end
 
-  test "using prompt_context for agent-driven generation" do
+  test "using inline prompts for agent-driven generation" do
     # region actions_prompt_context_generation
-    # Use prompt_context when you want the agent to determine actions
-    agent = TravelAgent.with(message: "I need to book a flight to Paris")
-    prompt_context = agent.prompt_context
+    # Use Agent.prompt() to create a prompt with actions
+    prompt = TravelAgent.prompt(message: "I need to book a flight to Paris")
 
     # The agent will have access to all available actions
-    assert prompt_context.actions.is_a?(Array)
-    assert prompt_context.actions.size > 0
+    assert prompt.actions.is_a?(Array)
+    assert prompt.actions.size > 0
     # Actions are available as function schemas
 
     # Generate a response (in real usage)
-    # response = prompt_context.generate_now
+    # response = prompt.generate_now
     # endregion actions_prompt_context_generation
   end
 end

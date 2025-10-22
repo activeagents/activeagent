@@ -57,7 +57,7 @@ class ProvidersExamplesTest < ActiveAgentTestCase
   test "response object usage" do
     VCR.use_cassette("generation_response_usage_example") do
       # region generation_response_usage
-      response = ApplicationAgent.with(message: "Hello").prompt_context.generate_now
+      response = ApplicationAgent.prompt(message: "Hello").generate_now
 
       # Access response content
       content = response.message.content

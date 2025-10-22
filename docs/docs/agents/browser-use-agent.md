@@ -202,10 +202,10 @@ The Browser Use Agent integrates seamlessly with Rails applications:
 ```ruby
 class WebScraperController < ApplicationController
   def scrape
-    response = BrowserAgent.with(
+    response = BrowserAgent.prompt(
       message: params[:instructions],
       url: params[:url]
-    ).prompt_context.generate_now
+    ).generate_now
     
     render json: {
       content: response.message.content,

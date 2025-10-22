@@ -2,11 +2,11 @@ require "test_helper"
 
 class StreamingAgentTest < ActiveSupport::TestCase
   test "it renders a prompt with a message" do
-    assert_equal "Test Streaming", StreamingAgent.with(message: "Test Streaming").prompt_context.message.content
+    assert_equal "Test Streaming", StreamingAgent.prompt(message: "Test Streaming").message.content
   end
 
   test "it uses the correct model and instructions" do
-    prompt = StreamingAgent.with(message: "Test").prompt_context
+    prompt = StreamingAgent.prompt(message: "Test")
     assert_equal "gpt-4.1-nano", prompt.options[:model]
     system_message = prompt.messages.find { |m| m.role == :system }
     assert_equal "You're a chat agent. Your job is to help users with their questions.", system_message.content
@@ -24,7 +24,7 @@ class StreamingAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("streaming_agent_stream_response") do
       # region streaming_agent_stream_response
-      StreamingAgent.with(message: "Stream this message").prompt_context.generate_now
+      StreamingAgent.prompt(message: "Stream this message").generate_now
       # endregion streaming_agent_stream_response
     end
 
@@ -50,7 +50,7 @@ class StreamingAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("streaming_agent_stream_response") do
       # region streaming_agent_stream_response
-      StreamingAgent.with(message: "Stream this message", delta: true).prompt_context.generate_now
+      StreamingAgent.prompt(message: "Stream this message", delta: true).generate_now
       # endregion streaming_agent_stream_response
     end
 

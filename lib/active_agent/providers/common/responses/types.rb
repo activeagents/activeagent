@@ -63,6 +63,7 @@ module ActiveAgent
                 if value.respond_to?(:to_common)
                   cast_message(value.to_common)
                 else
+                  binding.pry
                   raise ArgumentError, "Cannot cast #{value.class} to Message"
                 end
               end

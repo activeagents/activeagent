@@ -267,6 +267,17 @@ module ActiveAgent
       prompt_provider_klass.new(**parameters).prompt
     end
 
+    # Executes prompt generation with exception handling (bang version).
+    #
+    # This is an alias for process_prompt that may be used in contexts
+    # where exception handling behavior differs.
+    #
+    # @return [ActiveAgent::Providers::Response]
+    # @raise [RuntimeError] if no prompt provider is configured
+    def process_prompt!
+      process_prompt
+    end
+
     # Executes embedding generation using the configured provider and options.
     #
     # Renders templates as late as possible to allow local overrides.

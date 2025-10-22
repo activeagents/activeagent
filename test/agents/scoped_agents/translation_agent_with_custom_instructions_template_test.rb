@@ -44,10 +44,10 @@ class ScopedAgents::TranslationAgentWithCustomInstructionsTemplateTest < ActiveS
     assert_equal "translate_with_overridden_instructions", translate_prompt.actions[0]["function"]["name"]
   end
 
-  test "it returns action schemas for all user methods when prompt_context is called" do
-    translate_prompt = ScopedAgents::TranslationAgentWithCustomInstructionsTemplate.with(
+  test "it returns action schemas for all user methods when using inline prompts" do
+    translate_prompt = ScopedAgents::TranslationAgentWithCustomInstructionsTemplate.prompt(
       message: "Hi, I'm Justin", locale: "japanese"
-    ).prompt_context
+    )
     action_names = translate_prompt.actions.map { |a| a["function"]["name"] }
 
     assert_equal 2, translate_prompt.actions.size

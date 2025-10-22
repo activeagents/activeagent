@@ -5,7 +5,7 @@ class TravelAgentTest < ActiveAgentTestCase
   test "travel agent with instructions template" do
     # region travel_agent_instructions_template
     user = MockUser.new(name: "Alice Johnson")
-    prompt = TravelAgent.with(user: user, message: "I need help planning my trip").prompt_context
+    prompt = TravelAgent.prompt(user: user, message: "I need help planning my trip")
 
     # The instructions template should be included in the prompt
     system_message = prompt.messages.find { |m| m.role == :system }
@@ -22,7 +22,7 @@ class TravelAgentTest < ActiveAgentTestCase
       # region travel_agent_custom_user_instructions
       user = MockUser.new(name: "Bob Smith")
       message = "I need to find a hotel in Paris"
-      prompt = TravelAgent.with(user: user, message: message).prompt_context
+      prompt = TravelAgent.prompt(user: user, message: message)
       system_message = prompt.messages.find { |m| m.role == :system }
       assert_includes system_message.content, "Bob Smith"
 
@@ -45,7 +45,7 @@ class TravelAgentTest < ActiveAgentTestCase
     VCR.use_cassette("travel_agent_search_llm") do
       # region travel_agent_search_llm
       message = "Find flights from NYC to LAX"
-      prompt = TravelAgent.with(message: message).prompt_context
+      prompt = TravelAgent.prompt(message: message)
       response = prompt.generate_now
 
       # The LLM should call the search tool and return results
@@ -62,7 +62,7 @@ class TravelAgentTest < ActiveAgentTestCase
     VCR.use_cassette("travel_agent_book_llm") do
       # region travel_agent_book_llm
       message = "Book flight AA123 for John Doe"
-      prompt = TravelAgent.with(message: message).prompt_context
+      prompt = TravelAgent.prompt(message: message)
       response = prompt.generate_now
 
       # The LLM should call the book tool
@@ -79,7 +79,7 @@ class TravelAgentTest < ActiveAgentTestCase
     VCR.use_cassette("travel_agent_confirm_llm") do
       # region travel_agent_confirm_llm
       message = "Confirm booking TRV789012 for Jane Smith"
-      prompt = TravelAgent.with(message: message).prompt_context
+      prompt = TravelAgent.prompt(message: message)
       response = prompt.generate_now
 
       # The LLM should call the confirm tool
@@ -97,7 +97,7 @@ class TravelAgentTest < ActiveAgentTestCase
       # region travel_agent_conversation_flow
       # Test a full conversation flow with the LLM
       message = "I need to search for flights from NYC to LAX, then book one and confirm it"
-      prompt = TravelAgent.with(message: message).prompt_context
+      prompt = TravelAgent.prompt(message: message)
       response = prompt.generate_now
 
       # The LLM should understand the request and potentially call multiple tools

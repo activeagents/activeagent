@@ -126,8 +126,8 @@ module ActiveAgent
       agent = TestAgent.new
       agent.params = { message: "Test" }
 
-      # Process should work normally
-      result = agent.process(:prompt_context)
+      # Process should work normally - use an inline prompt instead
+      result = agent.send(:prompt, message: "Test")
 
       assert_not_nil result
     end
@@ -183,7 +183,7 @@ module ActiveAgent
       agent = TestAgent.new
       agent.params = { message: "Normal operation" }
 
-      result = agent.process(:prompt_context)
+      result = agent.send(:prompt, message: "Normal operation")
 
       assert_not_nil result
       assert_nil agent.exception_object

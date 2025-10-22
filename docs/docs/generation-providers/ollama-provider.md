@@ -407,9 +407,9 @@ class OllamaAgentTest < ActiveSupport::TestCase
   end
 
   test "generates response with local model" do
-    response = OllamaAgent.with(
+    response = OllamaAgent.prompt(
       message: "Hello"
-    ).prompt_context.generate_now
+    ).generate_now
 
     assert_not_nil response.message.content
     doc_example_output(response)

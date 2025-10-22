@@ -39,7 +39,7 @@ module ActiveAgent
       end
     end
 
-    module ClassMethods
+    class_methods do
       # Creates a parameterized agent proxy that will pass the given parameters
       # to the agent instance when an action is called.
       #
@@ -54,6 +54,50 @@ module ActiveAgent
         ActiveAgent::Parameterized::Agent.new(self, params)
       end
       alias_method :prompt_with, :with
+
+      # Creates a direct prompt generation without defining an action method.
+      #
+      # This allows you to generate prompts inline without needing to define
+      # an action method on the agent class.
+      #
+      # @param messages [Array] message strings or hashes to add to conversation
+      # @param options [Hash] parameters to merge into prompt context
+      # @return [ActiveAgent::Parameterized::Generation] a generation instance
+      #   ready for generate_now, generate_later, etc.
+      #
+      # @example Direct prompt generation
+      #   MyAgent.prompt(message: "Hello world").generate_now
+      #
+      # @example With multiple messages
+      #   MyAgent.prompt(messages: ["First", "Second"]).generate_now
+      #
+      # @example With options
+      #   MyAgent.prompt(message: "Hello", temperature: 0.8).generate_now
+      def prompt(*messages, **options)
+        ActiveAgent::Parameterized::DirectGeneration.new(self, :prompt, {}, *messages, **options)
+      end
+
+      # Creates a direct embed generation without defining an action method.
+      #
+      # This allows you to generate embeddings inline without needing to define
+      # an action method on the agent class.
+      #
+      # @param input [String, Array<String>, nil] text to embed
+      # @param options [Hash] parameters to merge into embedding context
+      # @return [ActiveAgent::Parameterized::Generation] a generation instance
+      #   ready for embed_now, embed_later, etc.
+      #
+      # @example Direct embedding
+      #   MyAgent.embed(input: "Text to embed").embed_now
+      #
+      # @example With array input
+      #   MyAgent.embed(input: ["First", "Second"]).embed_now
+      #
+      # @example With options
+      #   MyAgent.embed(input: "Text", model: "text-embedding-3-large").embed_now
+      def embed(input = nil, **options)
+        ActiveAgent::Parameterized::DirectGeneration.new(self, :embed, {}, input, **options)
+      end
     end
 
     # Proxy class that intercepts method calls to create parameterized generations.
@@ -116,10 +160,10 @@ module ActiveAgent
       # Creates and processes an agent instance with parameters set.
       #
       # @return [ActiveAgent::Base] the processed agent instance with params
-      def processed_agent
-        @processed_agent ||= @agent_class.new.tap do |agent|
+      def ensure_agent_processed
+        self.processed_agent ||= agent_class.new.tap do |agent|
           agent.params = @params
-          agent.process @action, *@args
+          agent.process(action_name, *args, **kwargs)
         end
       end
 
@@ -136,8 +180,97 @@ module ActiveAgent
         if processed?
           super
         else
-          @agent_class.generation_job.set(job_options).perform_later(
-            @agent_class.name, @action.to_s, generation_method.to_s, params: @params, args: @args
+          agent_class.generation_job.set(job_options).perform_later(
+            agent_class.name, action_name.to_s, generation_method.to_s, params: @params, args: args, kwargs: kwargs
+          )
+        end
+      end
+    end
+
+    # A specialized generation class for direct prompt/embed calls without actions.
+    #
+    # This class handles cases where you want to call Agent.prompt(...).generate_now
+    # or Agent.embed(...).generate_now without defining an action method.
+    #
+    # @api private
+    class DirectGeneration < Generation
+      # @param agent_class [Class] the agent class
+      # @param generation_type [Symbol] either :prompt or :embed
+      # @param params [Hash] the parameters to set on the agent instance
+      # @param args [Array] messages for prompt or input for embed
+      # @param options [Hash] additional options (temperature, model, etc.)
+      def initialize(agent_class, generation_type, params, *args, **options)
+        @generation_type = generation_type
+        @direct_args = args
+        @direct_options = options
+
+        # Use a synthetic action name that won't conflict with real methods
+        super(agent_class, :"__direct_#{generation_type}__", params)
+      end
+
+      # Override generate_now to route to correct method based on generation type
+      def generate_now
+        case @generation_type
+        when :prompt
+          super
+        when :embed
+          embed_now
+        end
+      end
+
+      # Override generate_now! to route to correct method based on generation type
+      def generate_now!
+        case @generation_type
+        when :prompt
+          super
+        when :embed
+          # For embed, we don't have a separate embed_now! method, so use embed_now
+          embed_now
+        end
+      end
+
+      private
+
+      # Creates and processes an agent instance for direct generation.
+      #
+      # Instead of calling a real action method, this directly calls the
+      # prompt() or embed() method on the agent instance with the provided arguments.
+      #
+      # @return [ActiveAgent::Base] the processed agent instance
+      def ensure_agent_processed
+        self.processed_agent ||= agent_class.new.tap do |agent|
+          agent.params = @params
+
+          # Directly call prompt or embed method instead of processing an action
+          case @generation_type
+          when :prompt
+            agent.send(:prompt, *@direct_args, **@direct_options)
+          when :embed
+            agent.send(:embed, *@direct_args, **@direct_options)
+          end
+        end
+      end
+
+      # Enqueues a direct generation job.
+      #
+      # @param generation_method [Symbol, String] the generation method to call
+      # @param job_options [Hash] options to pass to the job
+      # @return [Object] the enqueued job instance
+      def enqueue_generation(generation_method, job_options = {})
+        if processed?
+          super
+        else
+          # For direct generations, we need to store the generation type and options
+          agent_class.generation_job.set(job_options).perform_later(
+            agent_class.name,
+            action_name.to_s,
+            generation_method.to_s,
+            params: @params,
+            args: args,
+            kwargs: kwargs,
+            direct_generation_type: @generation_type,
+            direct_args: @direct_args,
+            direct_options: @direct_options
           )
         end
       end

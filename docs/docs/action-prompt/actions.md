@@ -113,12 +113,12 @@ You can call these actions directly to render a prompt to the agent directly to 
 <<< @/../test/agents/translation_agent_test.rb#translation_agent_translate_prompt_generation{ruby} [test/agents/translation_agent_test.rb:15..16]
 :::
 
-## Using Agents to call Actions
-You can also provide an Agent with a prompt context that includes actions and messages. The agent can then use these actions to perform tasks and generate responses based on the provided context.
+## Using Agents with Actions
+You can also provide an Agent with a prompt that includes actions and messages. The agent can then use these actions to perform tasks and generate responses based on the provided context.
 
 <<< @/../test/agents/actions_examples_test.rb#actions_prompt_context_generation{ruby:line-numbers}
 
-In this example, the `TravelAgent` will use the provided message as context to determine which actions to use during generation. The agent can then call the `search` action to find hotels, `book` action to initialize a hotel booking, or `confirm` action to finalize a booking, as needed based on the prompt context.
+In this example, calling `TravelAgent.prompt(message: ...)` creates a prompt with all available actions. The agent will determine which actions to use during generation. The agent can then call the `search` action to find hotels, `book` action to initialize a hotel booking, or `confirm` action to finalize a booking, as needed based on the prompt context.
 
 ### Content Types
 

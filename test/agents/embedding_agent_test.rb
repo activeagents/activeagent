@@ -5,9 +5,9 @@ class EmbeddingAgentTest < ActiveSupport::TestCase
   test "generates embeddings synchronously with embed_now" do
     VCR.use_cassette("embedding_agent_sync") do
       # Create a generation for embedding
-      generation = ApplicationAgent.with(
+      generation = ApplicationAgent.prompt(
         message: "The quick brown fox jumps over the lazy dog"
-      ).prompt_context
+      )
 
       # Generate embedding synchronously
       response = generation.embed_now
@@ -30,9 +30,9 @@ class EmbeddingAgentTest < ActiveSupport::TestCase
   # region embedding_async_generation
   test "generates embeddings asynchronously with embed_later" do
     # Create a generation for async embedding
-    generation = ApplicationAgent.with(
+    generation = ApplicationAgent.prompt(
       message: "Artificial intelligence is transforming technology"
-    ).prompt_context
+    )
 
     # Mock the enqueue_generation private method
     generation.instance_eval do
@@ -89,9 +89,9 @@ class EmbeddingAgentTest < ActiveSupport::TestCase
       end
 
       # Generate embedding with callbacks
-      generation = custom_agent_class.with(
+      generation = custom_agent_class.prompt(
         message: "Testing embedding callbacks"
-      ).prompt_context
+      )
 
       agent = generation.send(:processed_agent)
       response = generation.embed_now
@@ -117,13 +117,13 @@ class EmbeddingAgentTest < ActiveSupport::TestCase
 
       # Generate embeddings for all documents
       embeddings = documents.map do |doc|
-        generation = ApplicationAgent.with(message: doc).prompt_context
+        generation = ApplicationAgent.prompt(message: doc)
         generation.embed_now.message.content
       end
 
       # Query embedding
       query = "cat on mat"
-      query_generation = ApplicationAgent.with(message: query).prompt_context
+      query_generation = ApplicationAgent.prompt(message: query)
       query_embedding = query_generation.embed_now.message.content
 
       # Calculate cosine similarities
@@ -149,9 +149,9 @@ class EmbeddingAgentTest < ActiveSupport::TestCase
   test "verifies embedding dimensions for different models" do
     VCR.use_cassette("embedding_dimensions") do
       # Test with default model (usually text-embedding-3-small or ada-002)
-      generation = ApplicationAgent.with(
+      generation = ApplicationAgent.prompt(
         message: "Testing embedding dimensions"
-      ).prompt_context
+      )
 
       response = generation.embed_now
       embedding = response.message.content
@@ -178,9 +178,9 @@ class EmbeddingAgentTest < ActiveSupport::TestCase
           embedding_model: "text-embedding-3-small"
       end
 
-      generation = custom_agent_class.with(
+      generation = custom_agent_class.prompt(
         message: "Testing OpenAI embedding model configuration"
-      ).prompt_context
+      )
 
       response = generation.embed_now
       embedding = response.message.content
@@ -209,9 +209,9 @@ class EmbeddingAgentTest < ActiveSupport::TestCase
           host: "http://localhost:11434"
       end
 
-      generation = ollama_agent_class.with(
+      generation = ollama_agent_class.prompt(
         message: "Testing Ollama embedding generation"
-      ).prompt_context
+      )
 
       begin
         response = generation.embed_now
@@ -251,7 +251,7 @@ class EmbeddingAgentTest < ActiveSupport::TestCase
 
       embeddings = []
       texts.each do |text|
-        generation = ApplicationAgent.with(message: text).prompt_context
+        generation = ApplicationAgent.prompt(message: text)
         embedding = generation.embed_now.message.content
         embeddings << {
           text: text[0..20] + "...",

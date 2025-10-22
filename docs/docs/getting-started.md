@@ -5,6 +5,15 @@ title: Getting Started
 
 This guide will help you set up and create your first ActiveAgent application.
 
+## Prerequisites
+
+Before using Active Agent, ensure you have:
+- Ruby 3.0 or higher
+- Rails 7.0 or higher
+- API keys for your chosen generation provider(s)
+
+You'll configure your API keys in the `config/active_agent.yml` file after installation.
+
 ## Installation
 
 Use bundler to add activeagent to your Gemfile and install:
@@ -42,28 +51,36 @@ Then install the gems by running:
 ```bash
 bundle install
 ```
-### Active Agent install generator
-To set up Active Agent in your Rails application, you can use the install generator. This will create the necessary configuration files and directories for Active Agent.
+
+### Active Agent Install Generator
+
+To set up Active Agent in your Rails application, run the install generator. This creates the necessary configuration files and directories:
 
 ```bash
 rails generate active_agent:install
 ```
-This command will create the following files and directories:
-- `config/active_agent.yml`: The configuration file for Active Agent, where you can specify your generation providers and their settings.
-- `app/agents`: The directory where your agent classes will be stored.
-- `app/views/layouts/agent.text.erb`: The layout file for your agent prompt/view templates.
-- `app/views/agent_*`: The directory where your agent prompt/view templates will be stored.
+
+This command creates:
+- `config/active_agent.yml`: Configuration file for generation providers and their settings
+- `app/agents/`: Directory for your agent classes
+- `app/views/layouts/agent.text.erb`: Layout file for agent prompt/view templates
+- `app/views/agent_*/`: Directories for your agent prompt/view templates
 
 ## Usage
-Active Agent is designed to work seamlessly with Rails applications. It can be easily integrated into your existing Rails app without any additional configuration. The framework automatically detects the Rails environment and configures itself accordingly.
 
-You can start by defining an `ApplicationAgent` class that inherits from `ActiveAgent::Base`. This class will define the actions and behaviors of your application's base agent. You can then use the `generate_with` method to specify the generation provider for your agent.
+Active Agent is designed to work seamlessly with Rails applications. The framework automatically detects the Rails environment and configures itself accordingly.
+
+### Creating Your Application Agent
+
+Define an `ApplicationAgent` class that inherits from `ActiveAgent::Base`. This serves as the base class for all agents in your application, similar to how `ApplicationController` works:
 
 <<< @/../test/dummy/app/agents/application_agent.rb {ruby}
 
-This sets up the `ApplicationAgent` to use OpenAI as the generation provider. You can replace `:openai` with any other supported provider, such as `:anthropic`, `:google`, or `:ollama`. [Learn more about generation providers and their configuration →](/docs/framework/generation-provider)
+This sets up the `ApplicationAgent` to use OpenAI as the generation provider. You can replace `:openai` with any other supported provider, such as `:anthropic` or `:ollama`.
 
-Now, you can interact with your application agent using the default `prompt_context` method. This method allows you to provide a context for the agent to generate a response based on the defined actions and behaviors:
+### Using Agent.prompt(...) for Simple Interactions
+
+Active Agent provides a direct `Agent.prompt(...)` method for simple message-based interactions. This method doesn't require a view template—you can pass messages directly as parameters:
 
 <<< @/../test/agents/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby:line-numbers}
 
@@ -71,40 +88,208 @@ Now, you can interact with your application agent using the default `prompt_cont
 <!-- @include: @/parts/examples/application-agent-test.rb-test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response.md -->
 :::
 
-This code parameterizes the `ApplicationAgent` `with` a set of `params`.
+This example:
+1. Calls `ApplicationAgent.prompt(message: message)` to create a prompt object with the message
+2. Generates a response synchronously with `generate_now`
+
+The `Agent.prompt(...)` method is ideal for simple conversational interactions where you don't need custom view templates or complex message formatting.
 
 ## Configuration
+
 ### Generation Provider Configuration
-Active Agent supports multiple generation providers, including OpenAI, Anthropic, and Ollama. You can configure these providers in your Rails application using the `config/active_agent.yml` file. This file allows you to specify the API keys, models, and other settings for each provider. This is similar to Active Storage service configurations.
+
+Active Agent supports multiple generation providers, including OpenAI, Anthropic, and Ollama. Configure these providers in `config/active_agent.yml`:
 
 <<< @/../test/dummy/config/active_agent.yml{yaml:line-numbers}
 
-### Configuring custom hosts
-You can also set the host and port for the generation provider if needed. For example, if you are using a local instance of Ollama or a cloud provider's hosted instance of OpenAI, you can set the host in your configuration file as shown in the example above.
+**Configuration options:**
+
+- `service`: The provider name (`"OpenAI"`, `"Anthropic"`, `"Ollama"`, etc.)
+- `access_token`: Your API key (can be hardcoded or use environment variables)
+- `model`: The model to use (e.g., `"gpt-4o-mini"`, `"claude-3-5-sonnet"`)
+- `temperature`: Controls randomness in responses (0.0 to 1.0)
+
+**Using Environment Variables:**
+
+For security, use environment variables instead of hardcoding API keys:
+
+```yaml
+openai:
+  service: "OpenAI"
+  access_token: <%= ENV['OPENAI_API_KEY'] %>
+  model: "gpt-4o-mini"
+  temperature: 0.7
+```
+
+**Using Rails Credentials (Optional):**
+
+Alternatively, you can use Rails credentials for API key management:
+
+```yaml
+openai:
+  service: "OpenAI"
+  access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
+  model: "gpt-4o-mini"
+  temperature: 0.7
+```
+
+### Configuring Custom Hosts
+
+You can set custom hosts for generation providers if needed. This is useful for:
+- Running a local instance of Ollama
+- Using a proxy or custom endpoint
+- Connecting to enterprise or self-hosted AI services
+
+Example configuration for a local Ollama instance:
+
+```yaml
+ollama:
+  service: "Ollama"
+  uri_base: "http://localhost:11434"
+  model: "gemma3:latest"
+```
 
 ## Your First Agent
-You can generate your first agent using the Rails generator. This will create a new agent class in the `app/agents` directory. It will also create a corresponding view template for the agent's actions as well as an Application Agent if you don't already have one. 
+
+### Generating an Agent with the Rails Generator
+
+Create a custom agent using the Rails generator. This creates a new agent class with custom actions and corresponding view templates:
 
 ```bash
-$ rails generate active_agent:agent TravelAgent search book confirm
+rails generate active_agent:agent TravelAgent search book confirm
 ```
-The `ApplicationAgent` is the base class for all agents in your application, similar to how ApplicationController is the base class for all controllers.
 
-The generator will create:
-- An agent class with the specified actions (`search`, `book`, and `confirm`)
-- View templates for each action in `app/views/travel_agent/`
-- An `ApplicationAgent` base class if one doesn't exist
+The generator creates:
+- `app/agents/travel_agent.rb`: Agent class with the specified actions
+- `app/views/travel_agent/*.erb`: View templates for each action
+- `app/agents/application_agent.rb`: Base agent class (if it doesn't exist)
+
+### Understanding Agent Actions
+
+Here's the generated `TravelAgent` class:
 
 <<< @/../test/dummy/app/agents/travel_agent.rb {ruby}
 
-Agent action methods are used for building Prompt context objects with Message content from rendered Action Views.
+**Key concepts:**
+- Each action is a public instance method
+- Actions call `prompt` to build a prompt context object
+- The `prompt` method can specify options like `content_type` (`:text`, `:html`, `:json`)
+- Actions can set instance variables (`@departure`, `@destination`) that are available in view templates
 
-## Action Prompts
+### Action View Templates
 
-Each action is defined as a public instance method that can call `prompt` to build context objects that are used to generate responses. [Learn more about Action Prompts and how they work →](/docs/action-prompt/prompts)
+Each action has a corresponding view template that renders the message content. For example, the `search` action uses `app/views/travel_agent/search.text.erb`:
 
-### Instruction messages
-### Prompt messages The views define:
-- **JSON views**: [Tool schemas for function calling](/docs/action-prompt/tools) or [output schemas for structured responses](/docs/active-agent/structured-output)
-- **HTML views**: Web-friendly formatted responses  
-- **Text views**: Plain text responses
+<<< @/../test/dummy/app/views/travel_agent/search.text.erb {erb}
+
+The template has access to:
+- Instance variables set in the action (`@departure`, `@destination`, `@results`)
+- Rails helpers and partials
+- The `controller` object for accessing agent methods
+
+### Using Your Custom Agent
+
+Call your agent's actions using the same parameterization pattern:
+
+```ruby
+# Call the search action with parameters
+prompt = TravelAgent.with(
+  departure: "New York",
+  destination: "San Francisco",
+  results: [
+    { airline: "United", price: 299, departure: "10:00 AM" },
+    { airline: "Delta", price: 325, departure: "2:00 PM" }
+  ]
+).search
+
+# Generate a response
+response = prompt.generate_now
+```
+
+The agent will render the `search.text.erb` template with your data and generate an AI response based on the formatted message.
+
+## Understanding Action Prompts
+
+Action Prompts are the core of how agents generate contextual AI responses. When you call an action method, it builds a prompt context object that contains the formatted message, configuration, and metadata needed for generation.
+
+### The `prompt` Method
+
+Inside an action method, call `prompt` to build the prompt context. The `prompt` method accepts several options:
+
+```ruby
+def search
+  @departure = params[:departure]
+  @destination = params[:destination]
+  @results = params[:results] || []
+
+  prompt(
+    content_type: :text,           # Format: :text, :html, :json
+    message: "Custom message",      # Override rendered template
+    messages: [],                   # Include conversation history
+    instructions: "Be helpful",     # System instructions
+    temperature: 0.7,               # Override provider temperature
+    max_tokens: 1000                # Token limit for response
+  )
+end
+```
+
+### Two Ways to Build Prompts
+
+**1. Using `Agent.prompt(...)` (direct, simple)**
+- Direct class method that doesn't require a view template
+- Pass messages directly via parameters
+- Ideal for simple conversational interactions
+- Example: `ApplicationAgent.prompt(message: "Hello")`
+
+**2. Using custom actions with templates (template-based, flexible)**
+- Define your own action methods
+- Create view templates (`.text.erb`, `.html.erb`, `.json.erb`)
+- Access instance variables in templates
+- Full control over message formatting
+- Example: `TravelAgent.with(departure: "NYC").search`
+
+### System Instructions
+
+Agents can provide system-level instructions to guide AI behavior. Instructions can be defined in three ways:
+
+**1. In `generate_with` configuration:**
+
+```ruby
+class ApplicationAgent < ActiveAgent::Base
+  generate_with :openai,
+    model: "gpt-4o-mini",
+    instructions: "You are a helpful assistant."
+end
+```
+
+**2. In an `instructions.text.erb` template:**
+
+Create `app/views/travel_agent/instructions.text.erb`:
+
+<<< @/../test/dummy/app/views/travel_agent/instructions.text.erb {erb}
+
+**3. Inline in the `prompt` call:**
+
+```ruby
+def search
+  prompt instructions: "Be concise and friendly when presenting flight options"
+end
+```
+
+### View Template Formats
+
+Templates can be rendered in different formats to support various use cases:
+
+- **Text views** (`.text.erb`): Plain text messages for conversational interactions
+- **HTML views** (`.html.erb`): Formatted content for web-friendly display
+- **JSON views** (`.json.erb`): [Tool schemas for function calling](/docs/action-prompt/tools) or [output schemas for structured responses](/docs/active-agent/structured-output)
+
+## Next Steps
+
+Now that you understand the basics, explore these topics:
+
+- **[Action Prompts](/docs/action-prompt/prompts)**: Deep dive into prompt contexts, messages, and actions
+- **[Tool Calling](/docs/action-prompt/tools)**: Enable agents to call functions and execute actions
+- **[Structured Output](/docs/active-agent/structured-output)**: Parse AI responses into structured data
+- **[Callbacks](/docs/active-agent/callbacks)**: Hook into the generation lifecycle
+- **[Streaming](/docs/active-agent/streaming)**: Stream responses in real-time

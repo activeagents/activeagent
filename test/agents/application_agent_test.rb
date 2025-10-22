@@ -4,11 +4,11 @@ require "test_helper"
 
 class ApplicationAgentTest < ActiveSupport::TestCase
   test "it renders a prompt with an 'Test' message" do
-    assert_equal "Test", ApplicationAgent.with(message: "Test").prompt_context.message.content
+    assert_equal "Test", ApplicationAgent.prompt(message: "Test").message.content
   end
 
   test "it renders a prompt with an plain text message" do
-    assert_equal "Test Application Agent", ApplicationAgent.with(message: "Test Application Agent").prompt_context.message.content
+    assert_equal "Test Application Agent", ApplicationAgent.prompt(message: "Test Application Agent").message.content
   end
 
   test "it renders a prompt with an plain text message and generates a response" do
@@ -16,7 +16,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
       test_response_message_content = "It seems like you're referring to a \"Test Application Agent.\" Could you please provide more details about what you need? Are you looking for information on how to create one, its functions, or specific technologies related to application testing? Let me know how I can assist you!"
       # region application_agent_prompt_context_message_generation
       message = "Test Application Agent"
-      prompt = ApplicationAgent.with(message: message).prompt_context
+      prompt = ApplicationAgent.prompt(message: message)
       response = prompt.generate_now
       # endregion application_agent_prompt_context_message_generation
 
@@ -34,7 +34,7 @@ class ApplicationAgentTest < ActiveSupport::TestCase
         messages: [ { content: "Hello, how can I assist you today?", role: :assistant } ],
         instructions: "You're an application agent"
       )
-      response = ApplicationAgent.with(message: message, messages: previous_context.messages).prompt_context.generate_now
+      response = ApplicationAgent.prompt(message: message, messages: previous_context.messages).generate_now
       # endregion application_agent_loaded_context_message_generation
 
       doc_example_output(response)

@@ -118,8 +118,8 @@ class CachedEmbeddingAgent < ApplicationAgent
     cache_key = "embedding:#{Digest::SHA256.hexdigest(text)}"
     
     Rails.cache.fetch(cache_key, expires_in: 30.days) do
-      generation = self.class.with(message: text).prompt_context
-      generation.embed_now.message.content
+      generation = self.class.embed(input: text)
+      generation.generate_now.data.first[:embedding]
     end
   end
 end
@@ -136,8 +136,8 @@ class MultiModelEmbeddingAgent < ApplicationAgent
     self.class.generate_with :openai, 
       embedding_model: "text-embedding-3-large"
     
-    generation = self.class.with(message: text).prompt_context
-    generation.embed_now
+    generation = self.class.embed(input: text)
+    generation.generate_now
   end
   
   def generate_fast_embedding(text)
@@ -145,8 +145,8 @@ class MultiModelEmbeddingAgent < ApplicationAgent
     self.class.generate_with :openai,
       embedding_model: "text-embedding-3-small"
     
-    generation = self.class.with(message: text).prompt_context
-    generation.embed_now
+    generation = self.class.embed(input: text)
+    generation.generate_now
   end
 end
 ```
@@ -161,8 +161,8 @@ Store and query embeddings using vector databases:
 class PgVectorAgent < ApplicationAgent
   def store_document(text)
     # Generate embedding
-    generation = self.class.with(message: text).prompt_context
-    embedding = generation.embed_now.message.content
+    response = self.class.embed(input: text).generate_now
+    embedding = response.data.first[:embedding]
     
     # Store in PostgreSQL with pgvector
     Document.create!(
@@ -231,8 +231,8 @@ class BatchOptimizedAgent < ApplicationAgent
   def process_documents(documents)
     documents.each_slice(100) do |batch|
       Parallel.each(batch, in_threads: 5) do |doc|
-        generation = self.class.with(message: doc.content).prompt_context
-        doc.embedding = generation.embed_now.message.content
+        response = self.class.embed(input: doc.content).generate_now
+        doc.embedding = response.data.first[:embedding]
         doc.save!
       end
     end
@@ -289,8 +289,8 @@ end
 class SemanticSearchAgent < ApplicationAgent
   def build_search_index(documents)
     documents.each do |doc|
-      generation = self.class.with(message: doc.content).prompt_context
-      doc.update!(embedding: generation.embed_now.message.content)
+      response = self.class.embed(input: doc.content).generate_now
+      doc.update!(embedding: response.data.first[:embedding])
     end
   end
   
@@ -357,14 +357,14 @@ end
 ```ruby
 class DebuggingAgent < ApplicationAgent
   def debug_embedding(text)
-    generation = self.class.with(message: text).prompt_context
+    generation = self.class.embed(input: text)
     
     Rails.logger.info "Generating embedding for: #{text[0..100]}..."
     Rails.logger.info "Provider: #{generation_provider.class.name}"
     Rails.logger.info "Model: #{generation_provider.embedding_model}"
     
-    response = generation.embed_now
-    embedding = response.message.content
+    response = generation.generate_now
+    embedding = response.data.first[:embedding]
     
     Rails.logger.info "Dimensions: #{embedding.size}"
     Rails.logger.info "Range: [#{embedding.min}, #{embedding.max}]"

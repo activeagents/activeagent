@@ -7,9 +7,9 @@ class BrowserAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("browser_agent_navigate_with_ai") do
       # region navigate_example
-      response = BrowserAgent.with(
+      response = BrowserAgent.prompt(
         message: "Navigate to https://www.example.com and tell me what you see"
-      ).prompt_context.generate_now
+      ).generate_now
 
       assert response.message.content.present?
       # endregion navigate_example
@@ -23,9 +23,9 @@ class BrowserAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("browser_agent_with_ai") do
       # region ai_browser_example
-      response = BrowserAgent.with(
+      response = BrowserAgent.prompt(
         message: "Go to https://www.example.com and extract the main heading"
-      ).prompt_context.generate_now
+      ).generate_now
 
       # Check that AI used the tools
       assert response.prompt.messages.any? { |m| m.role == :tool }
@@ -64,7 +64,7 @@ class BrowserAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("browser_agent_wikipedia_research") do
       # region wikipedia_research_example
-      response = BrowserAgent.with(
+      response = BrowserAgent.prompt(
         message: "Research the Apollo 11 moon landing mission. Start at the main Wikipedia article, then:
                   1) Extract the main content to get an overview
                   2) Find and follow links to learn about the crew members (Neil Armstrong, Buzz Aldrin, Michael Collins)
@@ -73,7 +73,7 @@ class BrowserAgentTest < ActiveSupport::TestCase
                   5) Look for related missions or events by exploring relevant links
                   Please provide a comprehensive summary with details about the mission, crew, and its impact on space exploration.",
         url: "https://en.wikipedia.org/wiki/Apollo_11"
-      ).prompt_context.generate_now
+      ).generate_now
 
       # The agent should navigate to Wikipedia and gather information
       assert response.message.content.present?
@@ -108,9 +108,9 @@ class BrowserAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("browser_agent_area_screenshot") do
       # region area_screenshot_example
-      response = BrowserAgent.with(
+      response = BrowserAgent.prompt(
         message: "Navigate to https://www.example.com and take a screenshot of just the header area (top 200 pixels)"
-      ).prompt_context.generate_now
+      ).generate_now
 
       assert response.message.content.present?
 
@@ -128,9 +128,9 @@ class BrowserAgentTest < ActiveSupport::TestCase
 
     VCR.use_cassette("browser_agent_main_content_crop") do
       # region main_content_crop_example
-      response = BrowserAgent.with(
+      response = BrowserAgent.prompt(
         message: "Navigate to Wikipedia's Apollo 11 page and take a screenshot of the main content (should automatically exclude navigation/header)"
-      ).prompt_context.generate_now
+      ).generate_now
 
       assert response.message.content.present?
 

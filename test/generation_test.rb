@@ -4,13 +4,13 @@ class GenerationTest < ActiveSupport::TestCase
   setup do
     # Following the pattern from CLAUDE.md - with returns a Parameterized::Agent,
     # calling an action on it returns a Generation object
-    @generation = ApplicationAgent.with(message: "Test embedding content").prompt_context
+    @generation = ApplicationAgent.prompt(message: "Test embedding content")
   end
 
   test "embed_now calls agent embed method" do
     VCR.use_cassette("generation_embed_now") do
       # Create a generation using the with pattern
-      generation = ApplicationAgent.with(message: "Test content for embedding").prompt_context
+      generation = ApplicationAgent.prompt(message: "Test content for embedding")
 
       # region generation_embed_now
       response = generation.embed_now
@@ -26,7 +26,7 @@ class GenerationTest < ActiveSupport::TestCase
 
   test "embed_later queues embedding generation" do
     # Create a generation using the with pattern
-    generation = ApplicationAgent.with(message: "Test embedding").prompt_context
+    generation = ApplicationAgent.prompt(message: "Test embedding")
 
     # Test that embed_later calls enqueue_generation with correct parameters
     # Using instance_eval to stub private method
@@ -77,7 +77,7 @@ class GenerationTest < ActiveSupport::TestCase
       end
 
       # Create a generation using the custom agent
-      generation = custom_agent_class.with(message: "Test embedding with callbacks").prompt_context
+      generation = custom_agent_class.prompt(message: "Test embedding with callbacks")
 
       # Get the processed agent to check callbacks
       agent = generation.send(:processed_agent)
@@ -99,7 +99,7 @@ class GenerationTest < ActiveSupport::TestCase
     ]
 
     options_to_test.each do |options|
-      generation = ApplicationAgent.with(message: "Test embedding").prompt_context
+      generation = ApplicationAgent.prompt(message: "Test embedding")
 
       # Using instance_eval to stub private method
       generation.instance_eval do
@@ -128,7 +128,7 @@ class GenerationTest < ActiveSupport::TestCase
   test "generation object supports both generate_now and embed_now" do
     VCR.use_cassette("generation_dual_support") do
       # Create a generation object
-      generation = ApplicationAgent.with(message: "Test dual support").prompt_context
+      generation = ApplicationAgent.prompt(message: "Test dual support")
 
       # Test that both methods are available
       assert generation.respond_to?(:generate_now)
@@ -142,7 +142,7 @@ class GenerationTest < ActiveSupport::TestCase
       assert_instance_of ActiveAgent::Providers::Response, embed_response
 
       # Create a new generation for generate_now since we already used the first one
-      generation2 = ApplicationAgent.with(message: "Test generate").prompt_context
+      generation2 = ApplicationAgent.prompt(message: "Test generate")
       generate_response = generation2.generate_now
       assert_not_nil generate_response
       assert_instance_of ActiveAgent::Providers::Response, generate_response

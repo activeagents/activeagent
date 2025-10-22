@@ -65,20 +65,6 @@ class ParameterizedTest < ActiveSupport::TestCase
     assert_equal "Charlie", agent.params[:name]
   end
 
-  test "enqueue_generation raises error when already processed" do
-    skip "Skipping - requires actual generation to have context"
-    generation = ParameterizedAgent.with(name: "Alice").greet_user
-
-    # Access the context to mark as processed
-    generation.context
-
-    error = assert_raises(RuntimeError) do
-      generation.generate_later
-    end
-
-    assert_match(/accessed the context before asking to generate it later/i, error.message)
-  end
-
   test "processed_agent creates new agent instance with params" do
     generation = ParameterizedAgent.with(name: "Charlie", role: "admin").greet_user
 
