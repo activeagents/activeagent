@@ -13,6 +13,37 @@ module ActiveAgent
       include ActionView::Layouts
     end
 
+    # Override ActionView's prefix lookup to support both flat and nested structures.
+    #
+    # This allows templates to be found in:
+    # - app/views/{agent_name}/                                (e.g., app/views/support_agent/)
+    # - app/views/agents/{agent_without_suffix}/               (e.g., app/views/agents/support/)
+    #
+    # If an action_name is present, it also searches:
+    # - app/views/{agent_name}/{action_name}/                  (e.g., app/views/support_agent/ask/)
+    # - app/views/agents/{agent_without_suffix}/{action_name}/ (e.g., app/views/agents/support/ask/)
+    #
+    # @return [Array<String>] prefixes to search for templates
+    def _prefixes
+      @_prefixes ||= begin
+        # Get the base agent name (e.g., "statements_agent" or "view_test/test_agent")
+        base = agent_name
+
+        # Build the nested structure under agents/
+        # e.g., "agents/statements" for StatementsAgent
+        nested = "agents/#{base.delete_suffix("_agent")}"
+
+        # Build prefixes with action_name if present
+        if action_name.present?
+          # Priority order: nested/action, base/action, base, nested
+          [  "#{nested}/#{action_name}", "#{base}/#{action_name}", base, nested ]
+        else
+          # Priority order: base, nested
+          [ nested, base ]
+        end
+      end
+    end
+
     ##### Instructions Templating ###########################################
 
     # Prepares instructions from various input formats.
@@ -43,8 +74,8 @@ module ActiveAgent
         raise ArgumentError, "Expected `:template` key in instructions hash" unless param[:template]
         view_render_template(param[:template], **param[:locals])
 
-      when nil
-        view_render_template("instructions", **params.dig(:instructions, :locals))
+      when nil, true
+        view_render_template("instructions", strict: param == true, **params.dig(:instructions, :locals))
 
       else
         raise ArgumentError, "Instructions must be Hash, String, Symbol or nil"
@@ -77,13 +108,18 @@ module ActiveAgent
 
     # Renders a template if it exists in any supported ERB format.
     #
-    # @param template_name [String, Symbol]
+    # Templates are looked up using the prefixes defined in _prefixes method:
+    # 1. app/views/{agent_name}/ (e.g., app/views/statements_agent/)
+    # 2. app/views/agents/{agent_without_suffix}/ (e.g., app/views/agents/statements/)
+    #
+    # @param template_name [String, Symbol] name of template file without extension
+    # @param strict [Boolean] if true, raises error when template not found
     # @param locals [Hash] local variables to pass to template
     # @return [String, nil] nil if template not found
-    def view_render_template(template_name, **locals)
-      return unless lookup_context.exists?(template_name, agent_name, false)
+    def view_render_template(template_name, strict: false, **locals)
+      return if !strict && !lookup_context.exists?(template_name, _prefixes, false)
 
-      template = lookup_context.find_template(template_name, agent_name, false)
+      template = lookup_context.find_template(template_name, _prefixes, false)
 
       render_to_string(template: template.virtual_path, locals:, layout: false).chomp.presence
     end
