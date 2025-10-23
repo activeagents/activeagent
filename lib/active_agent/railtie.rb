@@ -27,7 +27,7 @@ module ActiveAgent
       require "active_agent/log_subscriber"
       # region log_subscriber
       # Attached automatically via Railtie
-      ActiveAgent::LogSubscriber.attach_to "active_agent"
+      ActiveAgent::LogSubscriber.attach_to "provider.active_agent"
       # endregion log_subscriber
     end
 

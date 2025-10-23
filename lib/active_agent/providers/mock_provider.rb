@@ -42,7 +42,7 @@ module ActiveAgent
       # @return [Hash] A mock API response structure
       def api_prompt_execute(parameters)
         # Extract the last message content
-        last_message = parameters[:messages]&.last
+        last_message = [ request.instructions, parameters[:messages]&.last ].compact.join(" ")
         content = extract_message_content(last_message)
 
         # Convert to pig latin

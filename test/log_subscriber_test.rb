@@ -18,7 +18,7 @@ class LogSubscriberTest < ActiveSupport::TestCase
   end
 
   test "log subscriber is attached" do
-    assert ActiveSupport::LogSubscriber.log_subscribers.any? { |s| s.is_a?(ActiveAgent::LogSubscriber) }
+    assert ActiveSupport::LogSubscriber.log_subscribers.any? { it.is_a?(ActiveAgent::LogSubscriber) }
   end
 
   test "prompt_start event is logged" do

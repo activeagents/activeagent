@@ -7,12 +7,12 @@ hero:
   text: "Build AI in Rails"
   tagline: "Now Agents are Controllers \nMakes code tons of fun!"
   actions:
-    - theme: brand
-      text: Docs
-      link: /overview
     - theme: alt
       text: Getting Started
       link: /getting-started
+    - theme: brand
+      text: Docs
+      link: /overview
     - theme: alt
       text: GitHub
       link: https://github.com/activeagents/activeagent

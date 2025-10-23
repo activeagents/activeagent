@@ -4,7 +4,7 @@ require "test_helper"
 
 class StreamingTest < ActiveSupport::TestCase
   # Test class that includes the Streaming concern
-  class TestPrompt
+  class TestAgent
     include ActiveAgent::Streaming
 
     attr_reader :chunks_received, :callbacks_log
@@ -35,14 +35,14 @@ class StreamingTest < ActiveSupport::TestCase
   end
 
   setup do
-    @prompt = TestPrompt.new
+    @prompt = TestAgent.new
   end
 
   # Class method tests
   test "defines callback registration methods" do
-    assert_respond_to TestPrompt, :on_stream_open
-    assert_respond_to TestPrompt, :on_stream
-    assert_respond_to TestPrompt, :on_stream_close
+    assert_respond_to TestAgent, :on_stream_open
+    assert_respond_to TestAgent, :on_stream
+    assert_respond_to TestAgent, :on_stream_close
   end
 
   # StreamChunk tests

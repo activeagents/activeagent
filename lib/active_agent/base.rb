@@ -43,8 +43,6 @@ module ActiveAgent
     include AbstractController::Callbacks
     include AbstractController::Caching
 
-    include ActionView::Layouts
-
     include Callbacks
     include Parameterized
     include Provider
@@ -72,7 +70,7 @@ module ActiveAgent
       mime_version: "1.0",
       charset: "UTF-8",
       content_type: "text/plain",
-      parts_order: [ "text/plain", "text/enriched", "text/html" ]
+      parts_order: [ "text/markdown", "text/plain", "text/enriched", "text/html" ]
     }.freeze
 
     # Sets default parameters applied to all actions unless overridden.

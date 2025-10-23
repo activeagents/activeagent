@@ -1,55 +1,110 @@
 ---
-title: Framework Overview
+title: Active Agent
 model:
-  - title: Context (Model)
+  - title: Prompts (Model)
     link: /actions/prompts
-    icon: 📝
-    details: Prompt Context is the core data model that contains the runtime context, messages, variables, and configuration for the prompt.
+    icon: 💬
+    details: The data model containing messages, context, actions (tools), and configuration for AI generation.
 view:
-  - title: Prompt (View)
+  - title: Templates (View)
     link: /framework/action-prompt
-    icon: 🖼️
-    details: Actions return prompt objects containing messages rendered from Action View templates.
+    icon: 📄
+    details: ERB templates that render prompts and messages in text, HTML, or JSON formats.
 controller:
   - title: Agents (Controller)
     link: /framework/agents
     icon: <img src="/activeagent.png" />
-    details: Agents are Controllers with a common Generation API with enhanced memory and tooling.
+    details: Controllers that orchestrate AI interactions with actions, callbacks, streaming, and tool execution.
 
 ---
-# Framework Overview
+# {{ $frontmatter.title }}
 
-Active Agent provides a structured approach to building AI-powered applications through Agent Oriented Programming. Designing applications using agents allows developers to create modular, reusable components that can be easily integrated into existing systems. This approach promotes code reusability, maintainability, and scalability, making it easier to build complex AI-driven applications with the Object Oriented Ruby code you already use today.
+ActiveAgent is the AI framework for Rails. It extends the familiar MVC architecture to AI-powered applications, letting you build intelligent agents using the same patterns you already know—controllers, actions, and views.
 
-Agent instructions are action views rendered as system messages to
-the agent's context `prompt.messages`.
+## Quick Example
 
-Actions render user/assistant/tool messages  using the views associated with the agent based on Action View naming conventions. Tools can be defined by providing json action views, but actions could also just be formatted prompt message templates or
- assistant response templates.
+::: code-group
 
-## Core Concepts
-Active Agent is built around a few core concepts that form the foundation of the framework. These concepts are designed to be familiar to developers who have experience with Ruby on Rails, making it easy to get started with Active Agent.
+<<< @/../test/dummy/app/agents/overview/support_agent.rb#overview_support_agent {ruby:line-numbers}
 
-- **Agents** are abstract controllers that handles AI interactions using a specified provider. Agents are more that lifeless objects, they are the controllers of your application's AI features. They are responsible for managing the flow of data and interactions between different components of your application. Active Agent provides a set of tools and conventions to help you build agents that are easy to understand, maintain, and extend.
-- **Actions**: are the recommended way to organize agent behaviors in production applications. Actions define reusable methods that can optionally render Action Views for templated agent prompts and user interfaces. They provide a way to define reusable components that can be easily integrated into different agents. Actions can work without templates by passing message content directly, or use templates for complex formatting needs.
-- **Prompts** are the core data model that contains the runtime context, messages, actions (tools), and configuration for the prompt.
-- **Views**: are optional templates responsible for presenting formatted message content used in a prompt's context and its associated data to the agent and user.
-- **Provider**: A provider is the agent's backend interface to AI services that enable agents to generate content, embeddings, and perform actions through tool calls.
+<<< @/../test/dummy/app/views/overview/support_agent/help.text.erb {erb}
 
+:::
 
-### Queued Generation Jobs
-Active Agent provides a built-in job queue for generating content asynchronously. This allows for efficient processing of requests and ensures that the application remains responsive even during heavy load. Scale it just like you would with any other Rails application with Active Jobs.
+**Usage:**
 
-### Providers are the AI Service Backends
-Providers are the backend interfaces to AI services that enable agents to generate content, embeddings, and request actions. They provide a common interface for different AI providers, allowing developers to easily switch between them without changing the core application logic. Using `generate_with` method, you can easily switch between different providers, configurations, instructions, models, and other parameters to optimize the agentic processes.
+<<< @/../test/agents/overview/support_agent_test.rb#overview_example {ruby:line-numbers}
 
-<!--
-## Key Features
-- **Unified Interface**: All providers implement a common interface, making it easy to switch between them.
-- **Customizable**: You can create your own providers to suit your specific needs.
-- **Built-in Providers**: Active Agent comes with built-in providers for popular AI services like OpenAI and Anthropic.
-- **Easy Integration**: Integrate with your existing Rails application with minimal setup.
-- **Asynchronous Support**: Generation Jobs use Active Job to handle long-running background task processing with ease.
-- **Error Handling**: Built-in error handling and retry mechanisms for robust applications.
-- **Logging and Monitoring**: Track the performance and usage of your providers.
-- **Testing Support**: Mock and stub providers for unit testing. -->
+::: details Response Example
+<!-- @include: @/parts/examples/support-agent-test.rb-test-overview-example.md -->
+:::
+
+**That's it.** Agents are controllers. Actions render prompts. Views format messages. If you know Rails, you know ActiveAgent.
+
+## Why ActiveAgent?
+
+ActiveAgent brings **Agent Oriented Programming (AOP)** to Rails. Design applications using modular, reusable agents that integrate seamlessly into your existing codebase. Build complex AI-driven features with the Object-Oriented Ruby patterns you use every day.
+
+**Key benefits:**
+- **Familiar patterns** - No new mental models, just Rails doing AI
+- **Modular design** - Agents are classes, easy to test and organize
+- **Production ready** - Streaming, callbacks, async jobs, structured output
+- **Provider agnostic** - OpenAI, Anthropic, Ollama, OpenRouter—unified interface
+
+## MVC Architecture
+
+ActiveAgent extends Rails MVC concepts to AI interactions. Using familiar patterns that made Rails the framework of choice for web applications, ActiveAgent brings the same productivity to AI-powered features.
+
+![ActiveAgent-Controllers](https://github.com/user-attachments/assets/70d90cd1-607b-40ab-9acf-c48cc72af65e)
+
+### Model: Prompt Interface
+
+The **prompt** and **embed** interfaces are your data models for provider interactions. They define how context, messages, actions (tools), and configuration flow through the generation cycle.
+
+Agent actions use these interfaces to structure data for AI providers—just like how controller actions work with model data.
+
+<FeatureCards :cards="$frontmatter.model" />
+
+### View: Message Templates
+
+**Action View templates** optionally render your prompts and instructions. When you call `prompt` or `embed`, ActiveAgent can render ERB templates into formatted content, or you can pass content directly as parameters.
+
+Templates support text, HTML, and JSON formats—giving you full control over how instructions, prompt messages, and embed inputs are structured and sent to AI providers.
+
+<FeatureCards :cards="$frontmatter.view" />
+
+### Controller: Agents
+
+**Agents** are controllers for AI interactions. They orchestrate the generation request-response cycle, manage context through callbacks, coordinate with AI providers, and handle both synchronous and asynchronous generation.
+
+Define actions as public methods. Use callbacks for lifecycle hooks (`before_action`, `after_generation`). Stream responses in real-time with `on_stream`. It's the controller pattern, applied to AI.
+
+<FeatureCards :cards="$frontmatter.controller" />
+
+## How It Works
+
+The request-response cycle mirrors Rails controllers:
+
+1. **Action called** - You call an agent action method with parameters
+2. **Context prepared** - Instance variables and callbacks set up the context
+3. **View rendered** - ERB template renders into prompt messages via `prompt()` or `embed()` interface
+4. **AI generates** - Provider sends prompt to AI service and streams response
+5. **Response processed** - Callbacks handle the generated content
+6. **Result returned** - Structured data or message content returned to caller
+
+This familiar flow means you can test agents like controllers, organize code like any Rails app, and build AI features using patterns you already understand.
+
+## Next Steps
+
+Ready to build your first agent?
+
+- **[Getting Started](/getting-started)** - Install and create your first agent in 5 minutes
+- **[Framework Guide](/framework/agents)** - Deep dive into agents, actions, and prompts
+- **[Examples](/examples/data-extraction-agent)** - See real-world agent implementations
+
+Or explore specific features:
+- [Tool Calling](/actions/tool-calling) - Let agents execute Ruby methods
+- [Structured Output](/agents/structured-output) - Extract data with JSON schemas
+- [Streaming](/agents/callbacks#on-stream-callbacks) - Real-time response updates
+- [Providers](/framework/providers) - OpenAI, Anthropic, Ollama, and more
+

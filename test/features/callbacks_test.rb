@@ -17,10 +17,6 @@ class CallbacksTest < ActiveSupport::TestCase
     end
   end
 
-  setup do
-    @agent = TestAgent.new
-  end
-
   test "defines generation and embedding callbacks" do
     assert_respond_to TestAgent, :before_generation
     assert_respond_to TestAgent, :after_generation

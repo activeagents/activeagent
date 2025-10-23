@@ -1,11 +1,8 @@
 # frozen_string_literal: true
 
 require "active_agent/providers/common/model"
-require "active_agent/providers/common/messages/_types"
 
-require_relative "messages/base"
-require_relative "messages/user"
-require_relative "messages/assistant"
+require_relative "messages/_types"
 
 module ActiveAgent
   module Providers
@@ -16,10 +13,10 @@ module ActiveAgent
       class Request < Common::BaseModel
         # Required parameters
         attribute :model, :string, default: "mock-model"
-        attribute :messages, Common::Messages::Types::MessagesType.new
+        attribute :messages, Messages::MessagesType.new
 
         # Optional parameters
-        attribute :instructions # System instructions (ignored by mock but accepted for compatibility)
+        attribute :instructions # System instructions
         attribute :temperature, :float
         attribute :max_tokens, :integer
         attribute :stream, :boolean, default: false

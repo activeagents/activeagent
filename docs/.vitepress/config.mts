@@ -58,13 +58,13 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Docs', link: '/overview' },
+      { text: 'Docs', link: '/framework' },
       { text: 'GitHub', link: 'https://github.com/activeagents/activeagent' }
     ],
     sidebar: [
       {
         text: 'Overview',
-        link: '/overview',
+        link: '/framework',
       },
       {
         text: 'Getting Started',
@@ -73,12 +73,34 @@ export default defineConfig({
       {
         text: 'Framework',
         items: [
-          { text: 'Agents', link: '/framework/agents' },
-          { text: 'Providers', link: '/framework/providers' },
+          { text: 'Agents', link: '/agents' },
+          { text: 'Providers', link: '/providers' },
+          { text: 'Actions', link: '/actions' },
           { text: 'Configuration', link: '/framework/configuration' },
           { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Retries', link: '/framework/retries' },
           { text: 'Testing', link: '/framework/testing' },
+        ]
+      },
+      { text: 'Agents',
+        items: [
+          // { text: 'Generative UI', link: '/agents/generative-ui' },
+          { text: 'Callbacks', link: '/agents/callbacks' },
+          { text: 'Embeddings', link: '/agents/embeddings' },
+          { text: 'Error Handling', link: '/agents/error-handling' },
+          { text: 'Generation', link: '/agents/generation' },
+          { text: 'Queued Generation', link: '/agents/queued-generation' },
+          { text: 'Structured Output', link: '/agents/structured-output' },
+        ]
+      },
+      {
+        text: 'Actions',
+        items: [
+          { text: 'Messages', link: '/actions/messages' },
+          { text: 'Actions', link: '/actions/actions' },
+          { text: 'Prompts', link: '/actions/prompts' },
+          { text: 'Tools', link: '/actions/tools' },
+          { text: 'Tool Calling', link: '/actions/tool-calling' },
         ]
       },
       {
@@ -89,26 +111,6 @@ export default defineConfig({
           { text: 'OpenAI', link: '/providers/open_ai' },
           { text: 'OpenRouter', link: '/providers/open_router' },
           { text: 'Mock', link: '/providers/mock' },
-        ]
-      },
-      { text: 'Agents',
-        items: [
-          // { text: 'Generative UI', link: '/agents/generative-ui' },
-          { text: 'Structured Output', link: '/agents/structured-output' },
-          { text: 'Callbacks', link: '/agents/callbacks' },
-          { text: 'Generation', link: '/agents/generation' },
-          { text: 'Queued Generation', link: '/agents/queued-generation' },
-          // { text: 'Error Handling', link: '/agents/error-handling' },
-        ]
-       },
-      {
-        text: 'Actions',
-        items: [
-          { text: 'Messages', link: '/actions/messages' },
-          { text: 'Actions', link: '/actions/actions' },
-          { text: 'Prompts', link: '/actions/prompts' },
-          { text: 'Tools', link: '/actions/tools' },
-          { text: 'Tool Calling', link: '/actions/tool-calling' },
         ]
       },
       { text: 'Examples',

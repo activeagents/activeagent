@@ -19,15 +19,6 @@ module ActiveAgent
 
           # Drop API response fields that aren't part of the message
           drop_attributes :usage, :id, :model, :stop_reason, :stop_sequence, :type
-
-          # Override to_common to include name field
-          def to_common
-            {
-              role: role,
-              content: extract_text_content,
-              name: name
-            }
-          end
         end
       end
     end

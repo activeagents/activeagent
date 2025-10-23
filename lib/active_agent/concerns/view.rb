@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "active_agent/collector"
-
 module ActiveAgent
   # Provides template lookup and rendering for agent classes.
   #
@@ -10,6 +8,10 @@ module ActiveAgent
   # from templates, blocks, or text.
   module View
     extend ActiveSupport::Concern
+
+    included do
+      include ActionView::Layouts
+    end
 
     private
 

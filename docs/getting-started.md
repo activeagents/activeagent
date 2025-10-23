@@ -101,58 +101,17 @@ This example:
 
 ## Configuration
 
-### Provider Configuration
-
-Active Agent supports multiple providers, including OpenAI, Anthropic, Ollama, OpenRouter, and Mock (for testing). Configure these providers in `config/active_agent.yml`:
-
-<<< @/../test/dummy/config/active_agent.yml{yaml:line-numbers}
-
-**Configuration options:**
-
-- `service`: The provider name (`"OpenAI"`, `"Anthropic"`, `"Ollama"`, etc.)
-- `access_token`: Your API key (can be hardcoded or use environment variables)
-- `model`: The model to use (e.g., `"gpt-4o-mini"`, `"claude-3-5-sonnet"`)
-- `temperature`: Controls randomness in responses (0.0 to 1.0)
-
-**Using Environment Variables:**
-
-For security, use environment variables instead of hardcoding API keys:
+Configure providers in `config/active_agent.yml`. ActiveAgent supports OpenAI, Anthropic, Ollama, OpenRouter, and Mock (for testing):
 
 ```yaml
 openai:
   service: "OpenAI"
-  access_token: <%= ENV['OPENAI_API_KEY'] %>
+  access_token: <%= ENV['OPENAI_API_KEY'] %>  # Use environment variables for security
   model: "gpt-4o-mini"
   temperature: 0.7
 ```
 
-**Using Rails Credentials (Optional):**
-
-Alternatively, you can use Rails credentials for API key management:
-
-```yaml
-openai:
-  service: "OpenAI"
-  access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
-  model: "gpt-4o-mini"
-  temperature: 0.7
-```
-
-### Configuring Custom Hosts
-
-You can set custom hosts for providers if needed. This is useful for:
-- Running a local instance of Ollama
-- Using a proxy or custom endpoint
-- Connecting to enterprise or self-hosted AI services
-
-Example configuration for a local Ollama instance:
-
-```yaml
-ollama:
-  service: "Ollama"
-  uri_base: "http://localhost:11434"
-  model: "gemma3:latest"
-```
+For detailed configuration including environment-specific settings, custom hosts, retry configuration, and configuration precedence, see **[Configuration](/framework/configuration)**.
 
 ## Your First Agent
 

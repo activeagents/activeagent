@@ -135,6 +135,9 @@ end
 # different content types in prompts and responses.
 autoload :Mime, "action_dispatch/http/mime_type"
 
+# Register markdown MIME type for template rendering
+Mime::Type.register "text/markdown", :md unless Mime::Type.lookup_by_extension(:md)
+
 # Configure ActionView integration when loaded.
 #
 # Sets up default formats and MIME type implementation for rendering
