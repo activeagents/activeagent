@@ -6,11 +6,11 @@ module ActiveAgent
   module Providers
     module Common
       module Messages
-        # User message - messages sent by the user
+        # Represents a message sent by the user in a conversation
         class User < Base
           attribute :role, :string, as: "user"
-          attribute :content, :string # Text content
-          attribute :name, :string # Optional name for the user
+          attribute :content, :string
+          attribute :name, :string
 
           validates :content, presence: true
         end

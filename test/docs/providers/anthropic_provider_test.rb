@@ -19,5 +19,32 @@ module Providers
         assert response.message.content.length > 0
       end
     end
+
+    class ResponseFormatTest < ActiveSupport::TestCase
+      # region response_format_json_object_agent
+      class DataExtractionAgent < ApplicationAgent
+        generate_with :anthropic, model: "claude-haiku-4-5"
+
+        def extract_colors
+          prompt(
+            "Return a JSON object with three primary colors in an array named 'colors'.",
+            response_format: { type: "json_object" }
+          )
+        end
+      end
+      # endregion response_format_json_object_agent
+
+      test "response format json_object" do
+        VCR.use_cassette("providers/anthropic/response_format/json_object") do
+          # region response_format_json_object_example
+          response = DataExtractionAgent.extract_colors.generate_now
+          colors = response.message.json_object # Parsed JSON hash
+          # => { colors: ["red", "blue", "yellow"] }
+          # endregion response_format_json_object_example
+
+          assert_equal colors, { colors: [ "red", "blue", "yellow" ] }
+        end
+      end
+    end
   end
 end

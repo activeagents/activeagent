@@ -44,6 +44,9 @@ module ActiveAgent
         # Optional parameters - MCP Servers
         attribute :mcp_servers, default: -> { [] } # Array of MCP server definitions
 
+        # Common Format Compatibility
+        attribute :response_format, Requests::ResponseFormatType.new
+
         # Validations for required fields
         validates :model, :messages, :max_tokens, presence: true
 

@@ -29,6 +29,8 @@ module ActiveAgent
           # The list of messages from this conversation
           attribute :messages, Types::MessagesType.new, writable: false
 
+          attribute :format, Types::FormatType.new, writable: false, default: {}
+
           # The most recent message in the conversational stack
           def message
             messages.last

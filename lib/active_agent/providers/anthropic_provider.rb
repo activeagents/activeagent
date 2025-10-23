@@ -16,10 +16,8 @@ module ActiveAgent
     #
     # @see BaseProvider
     class AnthropicProvider < BaseProvider
-      # Returns the Anthropic API client.
-      #
       # @todo Add support for Anthropic::BedrockClient and Anthropic::VertexClient
-      # @return [Anthropic::Client] The configured Anthropic client
+      # @return [Anthropic::Client]
       def client
         ::Anthropic::Client.new(**options.serialize)
       end
@@ -28,30 +26,45 @@ module ActiveAgent
 
       # Prepares the request and handles tool choice cleanup.
       #
-      # When a tool choice is forced to be used, we need to remove it from the next
-      # request to prevent endless looping.
+      # Removes forced tool choice from subsequent requests to prevent endless looping
+      # when the tool has already been used in the conversation.
       #
-      # @return [Request] The prepared request object
+      # @return [Request]
       def prepare_prompt_request
-        if request.tool_choice
-          functions_used = message_stack.pluck(:content).flatten.select { it[:type] == "tool_use" }.pluck(:name)
-
-          if (request.tool_choice.type == "any" && functions_used.any?) ||
-            (request.tool_choice.type == "tool" && functions_used.include?(request.tool_choice.name))
-
-            instrument("tool_choice_removed.provider.active_agent")
-            request.tool_choice = nil
-          end
-        end
+        prepare_prompt_request_tools
+        prepare_prompt_request_response_format
 
         super
       end
 
+      # @api private
+      def prepare_prompt_request_tools
+        return unless request.tool_choice
+
+        functions_used = message_stack.pluck(:content).flatten.select { it[:type] == "tool_use" }.pluck(:name)
+
+        if (request.tool_choice.type == "any" && functions_used.any?) ||
+          (request.tool_choice.type == "tool" && functions_used.include?(request.tool_choice.name))
+
+          instrument("tool_choice_removed.provider.active_agent")
+          request.tool_choice = nil
+        end
+      end
+
+      # @api private
+      def prepare_prompt_request_response_format
+        return unless request.response_format&.type == "json_object"
+
+        self.message_stack.push({
+          role:    "assistant",
+          content: "Here is the JSON requested:\n{"
+        })
+      end
+
       # Executes the prompt request via Anthropic's API.
       #
-      # @param parameters [Hash] The API request parameters
-      # @return [Object, nil] The API response object for non-streaming requests, nil for streaming
-      # @raise [Exception] Re-raises the underlying connection error for APIConnectionError
+      # @param parameters [Hash]
+      # @return [Object, nil] response object for non-streaming requests, nil for streaming
       def api_prompt_execute(parameters)
         unless parameters[:stream]
           instrument("api_request.provider.active_agent", model: parameters[:model], streaming: false)
@@ -61,18 +74,17 @@ module ActiveAgent
           client.messages.stream(**parameters.except(:stream)).each(&parameters[:stream])
           nil
         end
-      rescue ::Anthropic::Error => exception
-        raise exception.cause if exception.cause
-        raise exception
+        # rescue ::Anthropic::Error => exception
+        #   raise exception.cause if exception.cause
+        #   raise exception
       end
 
       # Processes streaming response chunks from Anthropic's API.
       #
       # Handles various chunk types including message creation, content blocks,
-      # deltas for text and tool use, and completion events. Manages the message
-      # stack and broadcasts streaming updates.
+      # deltas for text and tool use, and completion events.
       #
-      # @param api_response_chunk [Object] The streaming response chunk
+      # @param api_response_chunk [Object]
       # @return [void]
       def process_stream_chunk(api_response_chunk)
         api_response_chunk = api_response_chunk.as_json.deep_symbolize_keys
@@ -147,7 +159,7 @@ module ActiveAgent
       # Executes each tool call and creates a user message with the results
       # for the next iteration of the conversation.
       #
-      # @param api_function_calls [Array<Hash>] Array of function call objects
+      # @param api_function_calls [Array<Hash>]
       # @return [void]
       def process_function_calls(api_function_calls)
         content = api_function_calls.map do |api_function_call|
@@ -161,8 +173,8 @@ module ActiveAgent
 
       # Executes a single tool call and returns the result.
       #
-      # @param api_function_call [Hash] The function call object with name, input, and id
-      # @return [Anthropic::Requests::Content::ToolResult] The tool result object
+      # @param api_function_call [Hash] with :name, :input, and :id keys
+      # @return [Anthropic::Requests::Content::ToolResult]
       def process_tool_call_function(api_function_call)
         instrument("tool_execution.provider.active_agent", tool_name: api_function_call[:name])
 
@@ -178,20 +190,26 @@ module ActiveAgent
 
       # Extracts messages from the completed API response.
       #
-      # @param api_response [Object] The completed API response
-      # @return [Array<Hash>, nil] Array containing the symbolized response hash or nil
+      # @param api_response [Object]
+      # @return [Array<Hash>, nil]
       def process_prompt_finished_extract_messages(api_response)
         return unless api_response
 
-        [ api_response.as_json.deep_symbolize_keys ]
+        message = api_response.as_json.deep_symbolize_keys
+
+        if request.response_format&.type == "json_object"
+          request.messages.pop # Remove the `Here is the JSON requested:\n{` lead in message
+          message[:content][0][:text] = "{#{message[:content][0][:text]}" # Merge in `{` prefix
+        end
+
+        [ message ]
       end
 
       # Extracts function calls from the message stack.
       #
-      # Looks for tool_use content blocks in the message stack and processes
-      # any JSON buffers into proper input parameters.
+      # Looks for tool_use content blocks and processes any JSON buffers into proper input parameters.
       #
-      # @return [Array<Hash>] Array of function call hashes with name, input, and id
+      # @return [Array<Hash>] function call hashes with :name, :input, and :id keys
       def process_prompt_finished_extract_function_calls
         message_stack.pluck(:content).flatten.select { it in { type: "tool_use" } }.map do |api_function_call|
           json_buf = api_function_call.delete(:json_buf)

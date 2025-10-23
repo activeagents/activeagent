@@ -51,8 +51,8 @@ module ActiveAgent
       #
       # @param kwargs [Hash] configuration and callbacks
       # @option kwargs [Symbol] :service validates against provider's service name
-      # @option kwargs [Proc] :stream_broadcaster invoked for streaming events (:open, :update, :close)
-      # @option kwargs [Proc] :tools_function invoked to execute tool/function calls
+      # @option kwargs [Proc] :stream_broadcaster callback for streaming events (:open, :update, :close)
+      # @option kwargs [Proc] :tools_function callback to execute tool/function calls
       # @raise [RuntimeError] when service name doesn't match provider
       def initialize(kwargs = {})
         assert_service!(kwargs.delete(:service))
@@ -73,10 +73,9 @@ module ActiveAgent
         self.message_stack      = []
       end
 
-      # Executes a prompt request with error handling.
+      # Executes a prompt request with error handling and instrumentation.
       #
       # @return [ActiveAgent::Providers::Common::PromptResponse]
-      # @raise [StandardError] provider-specific errors wrapped by error handling
       def prompt
         instrument("prompt_start.provider.active_agent") do
           self.request = prompt_request_type.cast(context.except(:trace_id))
@@ -84,12 +83,11 @@ module ActiveAgent
         end
       end
 
-      # Executes an embedding request with error handling.
+      # Executes an embedding request with error handling and instrumentation.
       #
       # Converts text into vector representations for semantic search and similarity operations.
       #
       # @return [ActiveAgent::Providers::Common::EmbedResponse]
-      # @raise [StandardError] provider-specific errors wrapped by error handling
       def embed
         instrument("embed_start.provider.active_agent") do
           self.request = embed_request_type.cast(context.except(:trace_id))
@@ -97,28 +95,28 @@ module ActiveAgent
         end
       end
 
-      # @return [String] e.g., "Anthropic", "OpenAI"
+      # @return [String] provider name extracted from class name (e.g., "Anthropic", "OpenAI")
       def service_name
         self.class.name.split("::").last.delete_suffix("Provider")
       end
 
-      # @return [String] Module-qualified provider name e.g., "Anthropic", "OpenAI::Chat", "OpenAI::Responses"
+      # @return [String] module-qualified provider name (e.g., "Anthropic", "OpenAI::Chat")
       def tag_name
         self.class.name.delete_prefix("ActiveAgent::Providers::").delete_suffix("Provider")
       end
 
-      # @return [Module] e.g., ActiveAgent::Providers::OpenAI
+      # @return [Module] provider's namespace module (e.g., ActiveAgent::Providers::OpenAI)
       def namespace
         "#{self.class.name.deconstantize}::#{service_name}".safe_constantize
       end
 
-      # @return [Class]
+      # @return [Class] provider's options class
       def options_klass = namespace::Options
 
-      # @return [ActiveModel::Type::Value] provider-specific RequestType for casting/serialization
+      # @return [ActiveModel::Type::Value] provider-specific request type for prompt casting/serialization
       def prompt_request_type = namespace::RequestType.new
 
-      # @return [ActiveModel::Type::Value] provider-specific RequestType for embedding casting/serialization
+      # @return [ActiveModel::Type::Value] provider-specific request type for embedding casting/serialization
       # @raise [NotImplementedError] when provider doesn't support embeddings
       def embed_request_type = fail(NotImplementedError)
 
@@ -127,17 +125,17 @@ module ActiveAgent
       # Validates service name matches provider.
       #
       # @param name [String, nil]
-      # @raise [RuntimeError] on service name mismatch
+      # @raise [RuntimeError] when service name doesn't match provider
       def assert_service!(name)
         fail "Unexpected Service Name: #{name} != #{service_name}" if name && name != service_name
       end
 
       # Instruments an event for logging and metrics.
       #
-      # @param name [String] Event name (will be namespaced under active_agent_provider)
-      # @param payload [Hash] Additional data to include in the event
-      # @yield Block to instrument
-      # @return [Object] Result of the block if provided
+      # @param name [String] event name
+      # @param payload [Hash] additional event data
+      # @yield block to instrument
+      # @return [Object] block result
       def instrument(name, payload = {}, &block)
         full_payload = { provider: service_name, provider_module: tag_name, trace_id: }.merge(payload)
         ActiveSupport::Notifications.instrument(name, full_payload, &block)
@@ -178,7 +176,7 @@ module ActiveAgent
 
       # Prepares request for next iteration in multi-turn conversation.
       #
-      # Appends messages from message stack and resets buffer for next tool call cycle.
+      # Appends accumulated messages from message stack and resets buffer for next cycle.
       #
       # @return [Request]
       def prepare_prompt_request
@@ -237,7 +235,11 @@ module ActiveAgent
         fail NotImplementedError, "Subclass expected to implement"
       end
 
-      # Broadcasts stream open event once per request cycle.
+      # Broadcasts stream open event.
+      #
+      # Only fires once per request cycle even during multi-turn tool calling.
+      #
+      # @return [void]
       def broadcast_stream_open
         return if streaming
         self.streaming = true
@@ -250,11 +252,16 @@ module ActiveAgent
       #
       # @param message [Hash, Object] current message state
       # @param delta [String, nil] incremental content chunk
+      # @return [void]
       def broadcast_stream_update(message, delta = nil)
         stream_broadcaster.call(message, delta, :update)
       end
 
-      # Broadcasts stream close event once per request cycle.
+      # Broadcasts stream close event.
+      #
+      # Only fires once per request cycle even during multi-turn tool calling.
+      #
+      # @return [void]
       def broadcast_stream_close
         return unless streaming
         self.streaming = false
@@ -265,8 +272,8 @@ module ActiveAgent
 
       # Processes completed API response and handles tool calling recursion.
       #
-      # Extracts messages and function calls. If tools were invoked, processes
-      # them and recursively resolves the prompt. Otherwise returns final response.
+      # Extracts messages and function calls from the response. If tools were invoked,
+      # executes them and recursively continues the prompt until completion.
       #
       # @param api_response [Object, nil] provider-specific response
       # @return [Common::PromptResponse, nil]
@@ -302,7 +309,8 @@ module ActiveAgent
             context:,
             raw_request:  prompt_request_type.serialize(request),
             raw_response: api_response,
-            messages:
+            messages:,
+            format: request.response_format
           )
         end
       end
