@@ -44,7 +44,7 @@ module ActiveAgent
       options.stylesheets_dir ||= paths["public/stylesheets"].first
       options.show_previews = Rails.env.development? if options.show_previews.nil?
       options.cache_store ||= Rails.cache
-      options.preview_paths |= [ "#{Rails.root}/test/agents/previews" ]
+      options.preview_paths |= [ "#{Rails.root}/test/docs/previews" ]
 
       # make sure readers methods get compiled
       options.asset_host ||= app.config.asset_host
@@ -81,7 +81,7 @@ module ActiveAgent
 
     initializer "active_agent.set_autoload_paths", before: :set_autoload_paths do |app|
       # options = app.config.active_agent
-      # app.config.paths["test/agents/previews"].concat(options.preview_paths)
+      # app.config.paths["test/docs/previews"].concat(options.preview_paths)
     end
 
     initializer "active_agent.compile_config_methods" do

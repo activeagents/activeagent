@@ -37,7 +37,7 @@ Import code directly from source files instead of copying:
 <<< @/../test/dummy/app/agents/support_agent.rb {ruby}
 
 <!-- Import region (recommended for tests) -->
-<<< @/../test/agents/support_agent_test.rb#tool_call_example {ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#tool_call_example {ruby:line-numbers}
 ```
 
 **When to use each:**
@@ -107,7 +107,7 @@ Cassettes stored in `test/fixtures/vcr_cassettes/`. Re-record with: `VCR_RECORD_
 ### 1. Write Tests with Regions
 
 ```ruby
-# test/agents/my_agent_test.rb
+# test/docs/my_agent_test.rb
 class MyAgentTest < ActiveSupport::TestCase
   # region basic_usage
   def test_basic_feature
@@ -123,10 +123,10 @@ end
 
 ```bash
 # Run specific test
-bin/test test/agents/my_agent_test.rb
+bin/test test/docs/my_agent_test.rb
 
 # Re-record VCR cassettes if needed
-VCR_RECORD_MODE=once bin/test test/agents/my_agent_test.rb
+VCR_RECORD_MODE=once bin/test test/docs/my_agent_test.rb
 ```
 
 ### 3. Import into Documentation
@@ -136,7 +136,7 @@ VCR_RECORD_MODE=once bin/test test/agents/my_agent_test.rb
 
 ## Basic Usage
 
-<<< @/../test/agents/my_agent_test.rb#basic_usage {ruby:line-numbers}
+<<< @/../test/docs/my_agent_test.rb#basic_usage {ruby:line-numbers}
 
 ::: details Response
 <!-- @include: @/parts/examples/my-agent-test.rb-test-basic-feature.md -->
@@ -158,7 +158,7 @@ Verify code imports render correctly and links work.
 Import a test region to show basic usage:
 
 ```markdown
-<<< @/../test/agents/application_agent_test.rb#basic_usage {ruby:line-numbers}
+<<< @/../test/docs/application_agent_test.rb#basic_usage {ruby:line-numbers}
 ```
 
 ### Implementation + View
@@ -177,7 +177,7 @@ Show multiple related files together:
 Display test code alongside its actual result:
 
 ```markdown
-<<< @/../test/agents/data_extraction_agent_test.rb#extract_data {ruby:line-numbers}
+<<< @/../test/docs/data_extraction_agent_test.rb#extract_data {ruby:line-numbers}
 
 ::: details Response
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-extract-data.md -->
@@ -205,7 +205,7 @@ Use tabs to show different perspectives of the same data:
 **Source implementations:**
 - `test/dummy/app/agents/` — Agent classes
 - `test/dummy/app/views/` — Action View templates
-- `test/agents/` - Test files
+- `test/docs/` - Test files
 
 **Documentation:**
 - `docs/` — All documentation markdown files

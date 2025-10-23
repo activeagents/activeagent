@@ -12,7 +12,7 @@ Configure Anthropic in your agent:
 
 ### Basic Usage Example
 
-<<< @/../test/agents/providers/anthropic_provider_test.rb#anthropic_basic_example{ruby:line-numbers}
+<<< @/../test/docs/providers/anthropic_provider_test.rb#anthropic_basic_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/anthropic-provider-test.rb-test-basic-generation-with-Anthropic-Claude.md -->

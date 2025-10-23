@@ -15,13 +15,13 @@ Agents can define and use tools to extend their capabilities:
 
 Here's how an agent uses tools to fulfill user requests:
 
-<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call {ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#support_agent_tool_call {ruby:line-numbers}
 
 ### Tool Call Response
 
 When a tool is called, the response includes the tool's output in the conversation:
 
-<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call_response {ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#support_agent_tool_call_response {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/support-agent-test.rb-test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions.md -->

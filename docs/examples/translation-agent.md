@@ -23,13 +23,13 @@ rails generate active_agent:agent translation translate
 
 The translation agent accepts a message and target locale:
 
-<<< @/../test/agents/translation_agent_test.rb#translation_agent_render_translate_prompt {ruby:line-numbers}
+<<< @/../test/docs/translation_agent_test.rb#translation_agent_render_translate_prompt {ruby:line-numbers}
 
 ### Translation Generation
 
 Generate a translation using the configured AI provider:
 
-<<< @/../test/agents/translation_agent_test.rb#translation_agent_translate_prompt_generation {ruby:line-numbers}
+<<< @/../test/docs/translation_agent_test.rb#translation_agent_translate_prompt_generation {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/translation-agent-test.rb-test-it-renders-a-translate-prompt-and-generates-a-translation.md -->

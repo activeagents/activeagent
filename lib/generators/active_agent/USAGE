@@ -23,7 +23,7 @@ Examples:
     creates an inventory agent class with text format view and test:
         Agent:      app/agents/inventory_agent.rb
         View:       app/views/inventory_agent/search.text.erb
-        Test:       test/agents/inventory_agent_test.rb
+        Test:       test/docs/inventory_agent_test.rb
 
     `bin/rails generate active_agent:agent inventory search --formats=html json`
 
@@ -31,7 +31,7 @@ Examples:
         Agent:      app/agents/inventory_agent.rb
         Views:      app/views/inventory_agent/search.html.erb
                     app/views/inventory_agent/search.json.erb
-        Test:       test/agents/inventory_agent_test.rb
+        Test:       test/docs/inventory_agent_test.rb
 
     `bin/rails generate active_agent:agent inventory search update report --formats=text html json`
 
@@ -46,11 +46,11 @@ Examples:
                     app/views/inventory_agent/report.text.erb
                     app/views/inventory_agent/report.html.erb
                     app/views/inventory_agent/report.json.erb
-        Test:       test/agents/inventory_agent_test.rb
+        Test:       test/docs/inventory_agent_test.rb
 
     `bin/rails generate active_agent:agent admin/user create --formats=json`
 
     creates a namespaced admin/user agent with only JSON view for API responses:
         Agent:      app/agents/admin/user_agent.rb
         View:       app/views/admin/user_agent/create.json.erb
-        Test:       test/agents/admin/user_agent_test.rb
+        Test:       test/docs/admin/user_agent_test.rb

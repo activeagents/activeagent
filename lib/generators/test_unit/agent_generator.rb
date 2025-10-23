@@ -17,7 +17,7 @@ module TestUnit # :nodoc:
       end
 
       def create_preview_files
-        template "preview.rb", File.join("test/agents/previews", class_path, "#{file_name}_agent_preview.rb")
+        template "preview.rb", File.join("test/docs/previews", class_path, "#{file_name}_agent_preview.rb")
       end
 
       private

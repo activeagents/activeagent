@@ -86,7 +86,7 @@ result = generation.generate_now
 
 ### Complete Test Example
 
-<<< @/../test/agents/builtin_tools_doc_test.rb#web_search_example{ruby:line-numbers}
+<<< @/../test/docs/builtin_tools_doc_test.rb#web_search_example{ruby:line-numbers}
 
 ### Testing with VCR
 
@@ -121,11 +121,11 @@ ActiveAgent supports using concerns to share functionality across agents:
 
 ### Creating a Test for a Concern
 
-<<< @/../test/agents/concern_tools_test.rb#10-23{ruby:line-numbers}
+<<< @/../test/docs/concern_tools_test.rb#10-23{ruby:line-numbers}
 
 ### Testing Concern Configuration
 
-<<< @/../test/agents/concern_tools_test.rb#119-124{ruby:line-numbers}
+<<< @/../test/docs/concern_tools_test.rb#119-124{ruby:line-numbers}
 
 ## Generating Documentation Examples
 

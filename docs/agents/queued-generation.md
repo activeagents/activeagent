@@ -20,7 +20,7 @@ generation.generate_later
 
 ### Testing Generate Later
 
-<<< @/../test/agents/prompt_interface_test.rb#122-140{ruby:line-numbers}
+<<< @/../test/docs/prompt_interface_test.rb#122-140{ruby:line-numbers}
 
 ## Custom Queue Configuration
 
@@ -46,5 +46,5 @@ generation.generate_later(wait_until: 1.hour.from_now)
 
 ### Custom Queue Example
 
-<<< @/../test/agents/prompt_interface_test.rb#144-160{ruby:line-numbers}
+<<< @/../test/docs/prompt_interface_test.rb#144-160{ruby:line-numbers}
 

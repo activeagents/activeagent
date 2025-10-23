@@ -12,7 +12,7 @@ Configure Ollama in your agent:
 
 ### Basic Usage Example
 
-<<< @/../test/agents/providers/ollama_provider_test.rb#ollama_basic_example{ruby:line-numbers}
+<<< @/../test/docs/providers/ollama_provider_test.rb#ollama_basic_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/ollama-provider-test.rb-test-basic-generation-with-Ollama.md -->
@@ -100,7 +100,7 @@ end
 
 Run models completely offline:
 
-<<< @/../test/agents/providers/ollama_provider_test.rb#ollama_local_inference{ruby:line-numbers}
+<<< @/../test/docs/providers/ollama_provider_test.rb#ollama_local_inference{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/ollama-provider-test.rb-test-runs-local-inference.md -->

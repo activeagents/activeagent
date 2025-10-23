@@ -87,7 +87,7 @@ This sets up the `ApplicationAgent` to use OpenAI as the provider. You can repla
 
 For testing and quick prototyping, Active Agent provides a direct `Agent.prompt(...)` method for simple message-based interactions:
 
-<<< @/../test/agents/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby:line-numbers}
+<<< @/../test/docs/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/application-agent-test.rb-test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response.md -->

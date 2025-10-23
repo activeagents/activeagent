@@ -71,7 +71,7 @@ The `ActiveAgent::Providers::Common::PromptResponse` class encapsulates conversa
 
 #### Example Usage
 
-<<< @/../test/framework/providers_examples_test.rb#generation_response_usage{ruby:line-numbers}
+<<< @/../test/docs/framework/providers_examples_test.rb#generation_response_usage{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/providers-examples-test.rb-test-response-object-usage.md -->

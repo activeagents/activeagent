@@ -72,13 +72,13 @@ You can also directly pass a string of instructions
 These actions can be invoked by the agent to perform specific tasks and receive the results or in your Rails app's controllers, models, or jobs to prompt the agent for generation with a templated prompt message. By default, public instance methods defined in the agent class are included in the context as available actions. You can also define actions in a separate concern module and include them in your agent class.
 
 ::: code-group
-<<< @/../test/agents/translation_agent_test.rb#translation_agent_render_translate_prompt{ruby} [test/agents/translation_agent_test.rb:6..8]
+<<< @/../test/docs/translation_agent_test.rb#translation_agent_render_translate_prompt{ruby} [test/docs/translation_agent_test.rb:6..8]
 :::
 
 ## Action params
 Agent Actions can accept parameters, which are passed as a hash to the action method. You pass arguments to agent's using the `with` method and access parameters using the `params` method, just like Mailer Actions.
 
-<<< @/../test/agents/actions_examples_test.rb#actions_with_parameters{ruby:line-numbers}
+<<< @/../test/docs/actions_examples_test.rb#actions_with_parameters{ruby:line-numbers}
 
 ### Parameters vs Runtime Options
 
@@ -119,13 +119,13 @@ end
 You can call these actions directly to render a prompt to the agent directly to generate the requested object.
 
 ::: code-group
-<<< @/../test/agents/translation_agent_test.rb#translation_agent_translate_prompt_generation{ruby} [test/agents/translation_agent_test.rb:15..16]
+<<< @/../test/docs/translation_agent_test.rb#translation_agent_translate_prompt_generation{ruby} [test/docs/translation_agent_test.rb:15..16]
 :::
 
 ## Using Agents with Actions
 You can also provide an Agent with a prompt that includes actions and messages. The agent can then use these actions to perform tasks and generate responses based on the provided context.
 
-<<< @/../test/agents/actions_examples_test.rb#actions_prompt_context_generation{ruby:line-numbers}
+<<< @/../test/docs/actions_examples_test.rb#actions_prompt_context_generation{ruby:line-numbers}
 
 In this example, calling `TravelAgent.prompt(message: ...)` creates a prompt with all available actions. The agent will determine which actions to use during generation. The agent can then call the `search` action to find hotels, `book` action to initialize a hotel booking, or `confirm` action to finalize a booking, as needed based on the prompt context.
 
@@ -133,7 +133,7 @@ In this example, calling `TravelAgent.prompt(message: ...)` creates a prompt wit
 
 Actions can render different content types based on their purpose:
 
-<<< @/../test/agents/actions_examples_test.rb#actions_content_types{ruby:line-numbers}
+<<< @/../test/docs/actions_examples_test.rb#actions_content_types{ruby:line-numbers}
 
 The `prompt` takes the following options:
 - `content_type`: Specifies the type of content to be rendered (e.g., `:text`, `:json`, `:html`).
@@ -231,11 +231,11 @@ Tool schema definitions are also view templates that can be rendered to the agen
 
 Here's an example of how agents handle tool calls using the support agent. [See complete tool calling workflows →](/actions/tool-calling)
 
-<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call{ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#support_agent_tool_call{ruby:line-numbers}
 
 The agent generates a response that includes a tool call request:
 
-<<< @/../test/agents/support_agent_test.rb#support_agent_tool_call_response{ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#support_agent_tool_call_response{ruby:line-numbers}
 
 ::: details Tool Call Response Example
 <!-- @include: @/parts/examples/support-agent-test.rb-test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions.md -->

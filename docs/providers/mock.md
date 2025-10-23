@@ -12,7 +12,7 @@ Configure the Mock provider in your agent:
 
 ### Basic Usage Example
 
-<<< @/../test/agents/providers/mock_provider_test.rb#mock_basic_example{ruby:line-numbers}
+<<< @/../test/docs/providers/mock_provider_test.rb#mock_basic_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/mock-provider-test.rb-test-basic-generation-with-mock-provider.md -->
@@ -57,7 +57,7 @@ The Mock provider accepts most standard parameters for compatibility but doesn't
 
 The Mock provider converts user messages to pig latin for predictable, deterministic output:
 
-<<< @/../test/agents/providers/mock_provider_test.rb#mock_pig_latin_conversion{ruby:line-numbers}
+<<< @/../test/docs/providers/mock_provider_test.rb#mock_pig_latin_conversion{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/mock-provider-test.rb-test-converts-input-to-pig-latin.md -->
@@ -72,7 +72,7 @@ The Mock provider converts user messages to pig latin for predictable, determini
 
 Work on your application without network connectivity:
 
-<<< @/../test/agents/providers/mock_provider_test.rb#mock_no_api_calls{ruby:line-numbers}
+<<< @/../test/docs/providers/mock_provider_test.rb#mock_no_api_calls{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/mock-provider-test.rb-test-works-offline-without-API-calls.md -->
@@ -82,7 +82,7 @@ Work on your application without network connectivity:
 
 Mock responses follow the same structure as real providers for seamless testing:
 
-<<< @/../test/agents/providers/mock_provider_test.rb#mock_response_structure{ruby:line-numbers}
+<<< @/../test/docs/providers/mock_provider_test.rb#mock_response_structure{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/mock-provider-test.rb-test-returns-proper-response-structure.md -->

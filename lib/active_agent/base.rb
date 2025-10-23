@@ -300,12 +300,12 @@ module ActiveAgent
       embed_provider_klass.new(**parameters).embed
     end
 
-    private
-
     # @return [Array<String>]
     def action_methods
       super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s) - [ action_name ]
     end
+
+    private
 
     # @return [Hash]
     def instrument_payload(key)

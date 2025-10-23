@@ -9,7 +9,7 @@ Messages can be structured as a Message object or hash with the following attrib
 - `content`: The content of the message, which can be plain text or formatted content.
 - `requested_actions`: An array of actions that the agent requested to be performed in response to the message. This is used to handle tool use requests from the agent.
 
-<<< @/../test/agents/support_agent_test.rb#messages_structure{ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#messages_structure{ruby:line-numbers}
 
 
 ## Instructions as system messages to the agent
@@ -36,15 +36,15 @@ An `:assistant` message is used to represent the agent's response to the user. T
 
 ### Messages with Requested Actions
 
-<<< @/../test/agents/support_agent_test.rb#messages_with_actions{ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#messages_with_actions{ruby:line-numbers}
 
 ## The system responds to agent requested actions with :tool messages
 Agent performed actions result in `:tool` message. These messages are used to represent the response to a tool call made by the agent. This message is used to provide additional information about the tool call, such as the name of the tool and any arguments that were passed to the tool. The system can use this message to provide a response message containing the result of the tool call and can also include links or other interactive elements.
 
-<<< @/../test/agents/support_agent_test.rb#tool_messages{ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#tool_messages{ruby:line-numbers}
 
 ## Building Message Context
 
 Messages form the conversation history that provides context for the agent. [Learn how messages flow through generation →](/agents/generation)
 
-<<< @/../test/agents/support_agent_test.rb#message_context{ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#message_context{ruby:line-numbers}

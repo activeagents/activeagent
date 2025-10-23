@@ -33,7 +33,7 @@ ActiveAgent is the AI framework for Rails. It extends the familiar MVC architect
 
 **Usage:**
 
-<<< @/../test/agents/overview/support_agent_test.rb#overview_example {ruby:line-numbers}
+<<< @/../test/docs/support_agent_test.rb#overview_example {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/support-agent-test.rb-test-overview-example.md -->

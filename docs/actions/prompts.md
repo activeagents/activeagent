@@ -12,7 +12,7 @@ The Prompt is structured to include the following components:
 ## Example Prompt
 Prompts are built and rendered in the agent's action methods, typically using the `prompt` method. This is an example of creating a prompt by manually building the context; assigning the prompt `message` and context `messages`.
 
-<<< @/../test/agents/application_agent_test.rb#application_agent_loaded_context_message_generation{ruby:line-numbers}
+<<< @/../test/docs/application_agent_test.rb#application_agent_loaded_context_message_generation{ruby:line-numbers}
 
 
 ## Rendering Prompts
@@ -26,5 +26,5 @@ Prompts can be rendered using the `prompt` method inside an Agent's action metho
 :::
 
 ::: code-group
-<<< @/../test/agents/translation_agent_test.rb#translation_agent_render_translate_prompt{ruby} [test/agents/translation_agent_test.rb:6..8]
+<<< @/../test/docs/translation_agent_test.rb#translation_agent_render_translate_prompt{ruby} [test/docs/translation_agent_test.rb:6..8]
 :::

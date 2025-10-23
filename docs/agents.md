@@ -241,7 +241,7 @@ generation.prompt_options   # Full context hash
 
 ### Using the Travel Agent
 
-<<< @/../test/agents/travel_agent_test.rb#travel_agent_multi_format{ruby:line-numbers}
+<<< @/../test/docs/travel_agent_test.rb#travel_agent_multi_format{ruby:line-numbers}
 
 ::: details Search Response Example
 <!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-search-view-renders-HTML-format.md -->

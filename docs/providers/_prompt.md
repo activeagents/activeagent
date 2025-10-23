@@ -123,7 +123,7 @@ Import a simple test example demonstrating basic generation:
 ```markdown
 ### Basic Usage Example
 
-<<< @/../test/agents/providers/provider_provider_test.rb#provider_basic_example{ruby:line-numbers}
+<<< @/../test/docs/providers/provider_provider_test.rb#provider_basic_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/provider-provider-test.rb-test-basic-generation-with-Provider.md -->
@@ -240,7 +240,7 @@ Highlight unique capabilities that differentiate this provider. This section is 
 
 Brief explanation of the feature and why it matters.
 
-<<< @/../test/agents/providers/provider_test.rb#unique_feature_example{ruby:line-numbers}
+<<< @/../test/docs/providers/provider_test.rb#unique_feature_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/provider-test.rb-test-unique-feature.md -->
@@ -301,7 +301,7 @@ Always include these links at the end:
 ### Import Region (Preferred for Tests)
 
 ```markdown
-<<< @/../test/agents/my_agent_test.rb#example_name{ruby:line-numbers}
+<<< @/../test/docs/my_agent_test.rb#example_name{ruby:line-numbers}
 ```
 
 Region markers in test files:
@@ -472,7 +472,7 @@ When documenting a new provider, **follow this order**:
 ### Basic Generation with Output
 
 ```markdown
-<<< @/../test/agents/providers/provider_test.rb#basic_example{ruby:line-numbers}
+<<< @/../test/docs/providers/provider_test.rb#basic_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/provider-test.rb-test-basic-example.md -->
@@ -500,7 +500,7 @@ When documenting a new provider, **follow this order**:
 <<< @/../test/dummy/app/agents/feature_agent.rb{ruby:line-numbers}
 
 == Test Example
-<<< @/../test/agents/feature_test.rb#example{ruby:line-numbers}
+<<< @/../test/docs/feature_test.rb#example{ruby:line-numbers}
 
 == Response
 <!-- @include: @/parts/examples/feature-test.rb-test-example.md -->

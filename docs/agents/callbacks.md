@@ -59,7 +59,7 @@ end
 
 ### Testing Generation Callbacks
 
-<<< @/../test/concerns/callbacks_test.rb#33-49{ruby:line-numbers}
+<<< @/../test/features/callbacks_test.rb#33-49{ruby:line-numbers}
 
 ## Around Generation Callbacks
 
@@ -67,13 +67,13 @@ Around generation callbacks wrap the entire generation process, allowing you to 
 
 ### Basic Around Generation
 
-<<< @/../test/concerns/callbacks_test.rb#67-85{ruby:line-numbers}
+<<< @/../test/features/callbacks_test.rb#67-85{ruby:line-numbers}
 
 ### Conditional Callbacks
 
 You can apply callbacks conditionally using `:if` and `:unless` options:
 
-<<< @/../test/concerns/callbacks_test.rb#216-245{ruby:line-numbers}
+<<< @/../test/features/callbacks_test.rb#216-245{ruby:line-numbers}
 
 This pattern is useful for:
 - **Performance monitoring**: Track generation times for specific actions. [For long-running tasks, consider queued generation →](/agents/queued-generation)
@@ -94,6 +94,6 @@ The streaming agent demonstrates real-time response handling:
 
 The streaming functionality broadcasts each chunk as it arrives:
 
-<<< @/../test/agents/streaming_agent_test.rb#streaming_agent_stream_response {ruby:line-numbers}
+<<< @/../test/docs/streaming_agent_test.rb#streaming_agent_stream_response {ruby:line-numbers}
 
 In this test, the agent broadcasts 30 chunks during the streaming response.

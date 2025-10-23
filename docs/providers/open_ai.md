@@ -16,7 +16,7 @@ Configure OpenAI in your agent:
 
 ### Basic Usage Example
 
-<<< @/../test/agents/providers/openai_provider_test.rb#openai_basic_example{ruby:line-numbers}
+<<< @/../test/docs/providers/openai_provider_test.rb#openai_basic_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/openai-provider-test.rb-test-basic-generation-with-OpenAI-GPT.md -->
@@ -126,7 +126,7 @@ Available MCP Connectors:
 
 Here's how built-in tools are configured in the prompt options:
 
-<<< @/../test/agents/builtin_tools_doc_test.rb#tool_configuration_example{ruby:line-numbers}
+<<< @/../test/docs/builtin_tools_doc_test.rb#tool_configuration_example{ruby:line-numbers}
 
 ::: details Configuration Output
 <!-- @include: @/parts/examples/builtin-tools-doc-test.rb-test-tool-configuration-in-prompt-options.md -->
@@ -171,7 +171,7 @@ Generate high-quality text embeddings using OpenAI's embedding models. See the [
 
 #### Basic Embedding Generation
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_openai_model_config{ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_openai_model_config{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-uses-configured-OpenAI-embedding-model.md -->
@@ -187,7 +187,7 @@ For detailed model comparisons and benchmarks, see [OpenAI's Embeddings Document
 
 #### Similarity Search Example
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_similarity_search{ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_similarity_search{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-performs-similarity-search-with-embeddings.md -->
@@ -199,7 +199,7 @@ For more advanced embedding patterns, see the [Embeddings Documentation](/framew
 
 OpenAI's text-embedding-3 models support configurable dimensions:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_dimension_test{ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_dimension_test{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-verifies-embedding-dimensions-for-different-models.md -->
@@ -213,7 +213,7 @@ OpenAI's text-embedding-3-large and text-embedding-3-small models support native
 
 Efficiently process multiple embeddings:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_batch_processing{ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_batch_processing{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-processes-multiple-embeddings-in-batch.md -->

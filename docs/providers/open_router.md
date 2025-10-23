@@ -12,7 +12,7 @@ Configure OpenRouter in your agent:
 
 ### Basic Usage Example
 
-<<< @/../test/agents/providers/open_router_provider_test.rb#openrouter_basic_example{ruby:line-numbers}
+<<< @/../test/docs/providers/open_router_provider_test.rb#openrouter_basic_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/open-router-provider-test.rb-test-basic-generation-with-OpenRouter.md -->

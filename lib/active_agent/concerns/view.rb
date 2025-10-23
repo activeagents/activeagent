@@ -13,8 +13,6 @@ module ActiveAgent
       include ActionView::Layouts
     end
 
-    private
-
     ##### Instructions Templating ###########################################
 
     # Prepares instructions from various input formats.
@@ -46,7 +44,7 @@ module ActiveAgent
         view_render_template(param[:template], **param[:locals])
 
       when nil
-        view_render_template("instructions")
+        view_render_template("instructions", **params.dig(:instructions, :locals))
 
       else
         raise ArgumentError, "Instructions must be Hash, String, Symbol or nil"
@@ -72,6 +70,8 @@ module ActiveAgent
     def embed_view_input(action_name, **locals)
       view_render_template(action_name, **locals)
     end
+
+    private
 
     ##### Shared Helpers ####################################################
 

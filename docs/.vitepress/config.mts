@@ -62,62 +62,63 @@ export default defineConfig({
       { text: 'GitHub', link: 'https://github.com/activeagents/activeagent' }
     ],
     sidebar: [
-      {
-        text: 'Overview',
-        link: '/framework',
-      },
-      {
-        text: 'Getting Started',
-        link: '/getting-started',
-      },
+      // {
+      //   text: 'Overview',
+      //   link: '/framework',
+      // },
+      // {
+      //   text: 'Getting Started',
+      //   link: '/getting-started',
+      // },
       {
         text: 'Framework',
         items: [
-          { text: 'Agents', link: '/agents' },
-          { text: 'Providers', link: '/providers' },
-          { text: 'Actions', link: '/actions' },
-          { text: 'Configuration', link: '/framework/configuration' },
-          { text: 'Instrumentation', link: '/framework/instrumentation' },
-          { text: 'Retries', link: '/framework/retries' },
-          { text: 'Testing', link: '/framework/testing' },
+          // { text: 'Agents', link: '/agents' },
+          // { text: 'Providers', link: '/providers' },
+          // { text: 'Actions', link: '/actions' },
+          // { text: 'Configuration', link: '/framework/configuration' },
+          // { text: 'Instrumentation', link: '/framework/instrumentation' },
+          // { text: 'Retries', link: '/framework/retries' },
+          // { text: 'Testing', link: '/framework/testing' },
         ]
       },
       { text: 'Agents',
         items: [
           // { text: 'Generative UI', link: '/agents/generative-ui' },
-          { text: 'Callbacks', link: '/agents/callbacks' },
-          { text: 'Embeddings', link: '/agents/embeddings' },
-          { text: 'Error Handling', link: '/agents/error-handling' },
-          { text: 'Generation', link: '/agents/generation' },
-          { text: 'Queued Generation', link: '/agents/queued-generation' },
-          { text: 'Structured Output', link: '/agents/structured-output' },
+          { text: 'Instructions', link: '/agents/instructions' },
+          // { text: 'Callbacks', link: '/agents/callbacks' },
+          // { text: 'Embeddings', link: '/agents/embeddings' },
+          // { text: 'Error Handling', link: '/agents/error-handling' },
+          // { text: 'Generation', link: '/agents/generation' },
+          // { text: 'Queued Generation', link: '/agents/queued-generation' },
+          // { text: 'Structured Output', link: '/agents/structured-output' },
         ]
       },
       {
         text: 'Actions',
         items: [
-          { text: 'Messages', link: '/actions/messages' },
-          { text: 'Actions', link: '/actions/actions' },
-          { text: 'Prompts', link: '/actions/prompts' },
-          { text: 'Tools', link: '/actions/tools' },
-          { text: 'Tool Calling', link: '/actions/tool-calling' },
+          // { text: 'Messages', link: '/actions/messages' },
+          // { text: 'Actions', link: '/actions/actions' },
+          // { text: 'Prompts', link: '/actions/prompts' },
+          // { text: 'Tools', link: '/actions/tools' },
+          // { text: 'Tool Calling', link: '/actions/tool-calling' },
         ]
       },
       {
         text: 'Providers',
         items: [
-          { text: 'Anthropic', link: '/providers/anthropic' },
-          { text: 'Ollama', link: '/providers/ollama' },
-          { text: 'OpenAI', link: '/providers/open_ai' },
-          { text: 'OpenRouter', link: '/providers/open_router' },
-          { text: 'Mock', link: '/providers/mock' },
+          // { text: 'Anthropic', link: '/providers/anthropic' },
+          // { text: 'Ollama', link: '/providers/ollama' },
+          // { text: 'OpenAI', link: '/providers/open_ai' },
+          // { text: 'OpenRouter', link: '/providers/open_router' },
+          // { text: 'Mock', link: '/providers/mock' },
         ]
       },
       { text: 'Examples',
         items: [
-          { text: 'Browser Use', link: '/examples/browser-use-agent' },
-          { text: 'Data Extraction', link: '/examples/data-extraction-agent' },
-          { text: 'Translation', link: '/examples/translation-agent' },
+          // { text: 'Browser Use', link: '/examples/browser-use-agent' },
+          // { text: 'Data Extraction', link: '/examples/data-extraction-agent' },
+          // { text: 'Translation', link: '/examples/translation-agent' },
         ]
       },
       { text: 'Contributing',

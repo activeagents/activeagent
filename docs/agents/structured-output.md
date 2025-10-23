@@ -193,7 +193,7 @@ Different AI providers have varying levels of structured output support:
 
 The [Data Extraction Agent](/examples/data-extraction-agent#structured-output) demonstrates comprehensive structured output usage:
 
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output {ruby:line-numbers}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output {ruby:line-numbers}
 
 ### Integration with Rails Models
 

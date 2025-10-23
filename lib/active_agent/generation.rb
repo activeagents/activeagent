@@ -20,8 +20,7 @@ module ActiveAgent
   #   generation.message.content  # => "Hello"
   #   generation.messages         # => [...]
   class Generation
-    attr_internal :agent_class, :processed_agent,
-                  :action_name, :args, :kwargs
+    attr_internal :agent_class, :action_name, :args, :kwargs
 
     # @param agent_class [Class]
     # @param action_name [Symbol]
@@ -33,7 +32,7 @@ module ActiveAgent
 
     # @return [Boolean]
     def processed?
-      !!processed_agent
+      !!agent
     end
 
     # Accesses prompt options by processing the agent if needed.
@@ -43,8 +42,21 @@ module ActiveAgent
     #
     # @return [Hash] with :messages, :actions, and configuration keys
     def prompt_options
-      ensure_agent_processed
-      processed_agent.prompt_options
+      agent.prompt_options
+    end
+
+    # @return [Hash] configuration options excluding messages and actions
+    def options
+      prompt_options.except(:messages, :actions)
+    end
+
+    def instructions
+      agent.prompt_view_instructions(prompt_options[:instructions])
+    end
+
+    # @return [Array]
+    def messages
+      prompt_options[:messages] || []
     end
 
     # Returns the last message with consistent `.content` access.
@@ -61,18 +73,8 @@ module ActiveAgent
     end
 
     # @return [Array]
-    def messages
-      prompt_options[:messages] || []
-    end
-
-    # @return [Array]
     def actions
       prompt_options[:actions] || []
-    end
-
-    # @return [Hash] configuration options excluding messages and actions
-    def options
-      prompt_options.except(:messages, :actions)
     end
 
     # Queues for background execution with immediate processing.
@@ -97,10 +99,9 @@ module ActiveAgent
     #
     # @return [ActiveAgent::Providers::Response]
     def generate_now!
-      ensure_agent_processed
-      processed_agent.handle_exceptions do
-        processed_agent.run_callbacks(:generation) do
-          processed_agent.process_prompt!
+      agent.handle_exceptions do
+        agent.run_callbacks(:generation) do
+          agent.process_prompt!
         end
       end
     end
@@ -109,10 +110,9 @@ module ActiveAgent
     #
     # @return [ActiveAgent::Providers::Response]
     def generate_now
-      ensure_agent_processed
-      processed_agent.handle_exceptions do
-        processed_agent.run_callbacks(:generation) do
-          processed_agent.process_prompt
+      agent.handle_exceptions do
+        agent.run_callbacks(:generation) do
+          agent.process_prompt
         end
       end
     end
@@ -121,10 +121,9 @@ module ActiveAgent
     #
     # @return [ActiveAgent::Providers::Response] embedding response with vector data
     def embed_now
-      ensure_agent_processed
-      processed_agent.handle_exceptions do
-        processed_agent.run_callbacks(:embedding) do
-          processed_agent.process_embed
+      agent.handle_exceptions do
+        agent.run_callbacks(:embedding) do
+          agent.process_embed
         end
       end
     end
@@ -146,8 +145,9 @@ module ActiveAgent
     #
     # @return [ActiveAgent::Base]
     # @api private
-    def ensure_agent_processed
-      self.processed_agent ||= agent_class.new.tap do |agent|
+    def agent
+      @agent ||= agent_class.new.tap do |agent|
+        agent.params = @params
         agent.process(action_name, *args, **kwargs)
       end
     end

@@ -18,7 +18,7 @@ Embeddings transform text into high-dimensional vectors that represent semantic 
 
 Use the `embed_now` method to generate embeddings synchronously:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_sync_generation {ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_sync_generation {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-generates-embeddings-synchronously-with-embed-now.md -->
@@ -28,13 +28,13 @@ Use the `embed_now` method to generate embeddings synchronously:
 
 Generate embeddings in background jobs:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_async_generation {ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_async_generation {ruby:line-numbers}
 
 ## Embedding Callbacks
 
 Use callbacks to process embeddings before and after generation:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_with_callbacks {ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_with_callbacks {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-processes-embeddings-with-callbacks.md -->
@@ -48,7 +48,7 @@ Each provider supports different embedding models and configurations:
 
 Configure OpenAI-specific embedding models:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_openai_model_config {ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_openai_model_config {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-uses-configured-openai-embedding-model.md -->
@@ -58,7 +58,7 @@ Configure OpenAI-specific embedding models:
 
 Configure Ollama for local embedding generation:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_ollama_provider_test {ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_ollama_provider_test {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-generates-embeddings-with-Ollama-provider.md -->
@@ -100,7 +100,7 @@ embedding = agent.with(text: "Sample text").generate_with_fallback
 
 Find similar documents using cosine similarity:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_similarity_search {ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_similarity_search {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-performs-similarity-search-with-embeddings.md -->
@@ -110,7 +110,7 @@ Find similar documents using cosine similarity:
 
 Process multiple embeddings efficiently:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_batch_processing {ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_batch_processing {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-processes-multiple-embeddings-in-batch.md -->
@@ -120,7 +120,7 @@ Process multiple embeddings efficiently:
 
 Different models produce different embedding dimensions:
 
-<<< @/../test/agents/embedding_agent_test.rb#embedding_dimension_test {ruby:line-numbers}
+<<< @/../test/docs/embedding_agent_test.rb#embedding_dimension_test {ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/embedding-agent-test.rb-test-verifies-embedding-dimensions-for-different-models.md -->

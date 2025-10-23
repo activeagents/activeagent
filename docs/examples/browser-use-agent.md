@@ -43,7 +43,7 @@ rails generate active_agent:agent browser_use navigate click extract_text screen
 
 The browser use agent can navigate to URLs and interact with pages using AI:
 
-<<< @/../test/agents/browser_agent_test.rb#navigate_example {ruby:line-numbers}
+<<< @/../test/docs/browser_agent_test.rb#navigate_example {ruby:line-numbers}
 
 ::: details Navigation Response Example
 <!-- @include: @/parts/examples/browser-agent-test.rb-test-browser-agent-navigates-to-a-url-using-prompt-context.md -->
@@ -53,7 +53,7 @@ The browser use agent can navigate to URLs and interact with pages using AI:
 
 The browser use agent can use AI to determine which actions to take:
 
-<<< @/../test/agents/browser_agent_test.rb#ai_browser_example {ruby:line-numbers}
+<<< @/../test/docs/browser_agent_test.rb#ai_browser_example {ruby:line-numbers}
 
 ::: details AI Browser Response Example
 <!-- @include: @/parts/examples/browser-agent-test.rb-test-browser-agent-uses-actions-as-tools-with-ai.md -->
@@ -63,7 +63,7 @@ The browser use agent can use AI to determine which actions to take:
 
 You can also call browser actions directly without AI:
 
-<<< @/../test/agents/browser_agent_test.rb#direct_action_example {ruby:line-numbers}
+<<< @/../test/docs/browser_agent_test.rb#direct_action_example {ruby:line-numbers}
 
 ::: details Direct Action Response Example
 <!-- @include: @/parts/examples/browser-agent-test.rb-test-browser-agent-can-be-used-directly-without-ai.md -->
@@ -73,7 +73,7 @@ You can also call browser actions directly without AI:
 
 The browser use agent excels at research tasks, navigating between pages and gathering information:
 
-<<< @/../test/agents/browser_agent_test.rb#wikipedia_research_example {ruby:line-numbers}
+<<< @/../test/docs/browser_agent_test.rb#wikipedia_research_example {ruby:line-numbers}
 
 ::: details Wikipedia Research Response Example
 <!-- @include: @/parts/examples/browser-agent-test.rb-test-browser-agent-researches-a-topic-on-wikipedia.md -->
@@ -83,7 +83,7 @@ The browser use agent excels at research tasks, navigating between pages and gat
 
 Take screenshots of specific page regions:
 
-<<< @/../test/agents/browser_agent_test.rb#area_screenshot_example {ruby:line-numbers}
+<<< @/../test/docs/browser_agent_test.rb#area_screenshot_example {ruby:line-numbers}
 
 ::: details Area Screenshot Response Example
 <!-- @include: @/parts/examples/browser-agent-test.rb-test-browser-agent-takes-area-screenshot.md -->
@@ -93,7 +93,7 @@ Take screenshots of specific page regions:
 
 The browser use agent can automatically detect and crop to main content areas:
 
-<<< @/../test/agents/browser_agent_test.rb#main_content_crop_example {ruby:line-numbers}
+<<< @/../test/docs/browser_agent_test.rb#main_content_crop_example {ruby:line-numbers}
 
 ::: details Main Content Crop Response Example
 <!-- @include: @/parts/examples/browser-agent-test.rb-test-browser-agent-auto-crops-main-content.md -->
@@ -206,7 +206,7 @@ class WebScraperController < ApplicationController
       message: params[:instructions],
       url: params[:url]
     ).generate_now
-    
+
     render json: {
       content: response.message.content,
       screenshots: response.prompt.messages

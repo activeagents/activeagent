@@ -31,7 +31,7 @@ rails generate active_agent:agent data_extraction parse_content
 
 Active Agent can extract descriptions from images without structured output:
 
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_describe_cat_image {ruby:line-numbers}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_describe_cat_image {ruby:line-numbers}
 
 ::: details Basic Cat Image Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-describe-cat-image-creates-a-multimodal-prompt-with-image-and-text-content.md -->
@@ -41,7 +41,7 @@ Active Agent can extract descriptions from images without structured output:
 
 Active Agent can extract data from chart images:
 
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_chart {ruby:line-numbers}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart {ruby:line-numbers}
 
 ::: details Basic Chart Image Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-chart-content-from-image-data.md -->
@@ -107,7 +107,7 @@ See the [OpenRouter Provider documentation](/providers/open-router-provider#stru
 
 Extract chart data with a predefined schema `chart_schema`:
 ::: code-group
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output {ruby:line-numbers}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output {ruby:line-numbers}
 
 <<< @/../test/dummy/app/views/data_extraction_agent/chart_schema.json.erb {json}
 :::
@@ -117,13 +117,13 @@ Extract chart data with a predefined schema `chart_schema`:
 :::: tabs
 
 == Response Object
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output_response {ruby}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output_response {ruby}
 ::: details Generation Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-chart-content-from-image-data-with-structured-output-schema.md -->
 :::
 == JSON Output
 
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output_json {ruby}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output_json {ruby}
 ::: details Parse Chart JSON Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-parse-chart-json-response.md -->
 :::
@@ -134,7 +134,7 @@ Extract chart data with a predefined schema `chart_schema`:
 Extract information from PDF resumes:
 
 ::: code-group
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume {ruby:line-numbers}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_resume {ruby:line-numbers}
 <<< @/../test/dummy/app/views/data_extraction_agent/resume_schema.json.erb {json}
 :::
 
@@ -146,13 +146,13 @@ Extract resume data with a predefined `resume_schema`:
 
 == Prompt Generation
 
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume_with_structured_output_response {ruby:line-numbers}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_resume_with_structured_output_response {ruby:line-numbers}
 ::: details Generation Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-resume-creates-a-multimodal-prompt-with-file-data-with-structured-output-schema.md -->
 :::
 == JSON Output
 
-<<< @/../test/agents/data_extraction_agent_test.rb#data_extraction_agent_parse_resume_with_structured_output_json {ruby:line-numbers}
+<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_resume_with_structured_output_json {ruby:line-numbers}
 ::: details Parse Resume JSON Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-parse-resume-json-response.md -->
 :::
