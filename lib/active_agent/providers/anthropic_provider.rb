@@ -61,8 +61,9 @@ module ActiveAgent
           client.messages.stream(**parameters.except(:stream)).each(&parameters[:stream])
           nil
         end
-      rescue ::Anthropic::Errors::APIConnectionError => exception
-        raise exception.cause
+      rescue ::Anthropic::Error => exception
+        raise exception.cause if exception.cause
+        raise exception
       end
 
       # Processes streaming response chunks from Anthropic's API.
