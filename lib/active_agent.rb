@@ -1,19 +1,21 @@
 # frozen_string_literal: true
 
-require "yaml"
+
 require "abstract_controller"
-require "active_agent/configuration"
 require "active_agent/version"
 require "active_agent/deprecator"
-require "active_agent/railtie" if defined?(Rails)
-require "active_agent/log_subscriber"
 
+# Common Active Support usage in Action Agent
 require "active_support"
 require "active_support/rails"
 require "active_support/core_ext/class"
 require "active_support/core_ext/module/attr_internal"
 require "active_support/core_ext/string/inflections"
 require "active_support/lazy_load_hooks"
+
+# Module Level Extensions
+require "active_agent/configuration"
+require "active_agent/railtie" if defined?(Rails)
 
 # ActiveAgent is a framework for building AI agents with Rails-like conventions.
 #
@@ -135,8 +137,8 @@ end
 # different content types in prompts and responses.
 autoload :Mime, "action_dispatch/http/mime_type"
 
-# Register markdown MIME type for template rendering
-Mime::Type.register "text/markdown", :md unless Mime::Type.lookup_by_extension(:md)
+# Register markdown MIME type for template rendering, Not needed in Rails 8.1
+Mime::Type.register "text/markdown", :md, [], %w[md markdown] unless Mime::Type.lookup_by_extension(:md)
 
 # Configure ActionView integration when loaded.
 #

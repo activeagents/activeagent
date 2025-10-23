@@ -15,6 +15,8 @@ require "active_agent/concerns/streaming"
 require "active_agent/concerns/tooling"
 require "active_agent/concerns/view"
 
+require "active_agent/log_subscriber"
+
 module ActiveAgent
   # Base class for creating AI-powered agents with prompt generation, tool calling,
   # and conversation management.
@@ -66,34 +68,27 @@ module ActiveAgent
 
     class_attribute :prompt_options
     class_attribute :embed_options
-    class_attribute :default_params, default: {
-      mime_version: "1.0",
-      charset: "UTF-8",
-      content_type: "text/plain",
-      parts_order: [ "text/markdown", "text/plain", "text/enriched", "text/html" ]
-    }.freeze
-
-    # Sets default parameters applied to all actions unless overridden.
-    #
-    # @param value [Hash, nil] parameters to merge, or nil to return current defaults
-    # @return [Hash]
-    #
-    # @example
-    #   default temperature: 0.7, max_tokens: 1000
-    def self.default(value = nil)
-      self.default_params = default_params.merge(value).freeze if value
-      default_params
-    end
 
     class << self
-      # Alias for setting defaults through app configuration.
+      class_attribute :default_params, default: {
+        mime_version: "1.0",
+        charset: "UTF-8",
+        content_type: "text/plain",
+        parts_order: [ "text/markdown", "text/plain", "text/enriched", "text/html" ]
+      }.freeze
+
+      # Sets default parameters applied to all actions unless overridden.
       #
-      # @param value [Hash]
+      # @param value [Hash, nil] parameters to merge, or nil to return current defaults
       # @return [Hash]
       #
       # @example
-      #   config.action_agent.default_options = { temperature: 0.5 }
-      alias_method :default_options=, :default
+      #   default temperature: 0.7, max_tokens: 1000
+      def default(value = nil)
+        self.default_params = default_params.merge(value).freeze if value
+        default_params
+      end
+      alias_method :default_params=, :default
     end
 
     # Configures the generation provider and options for prompt generation.
