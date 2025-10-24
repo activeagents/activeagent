@@ -20,7 +20,7 @@ ActiveAgent provides five flexible ways to define instructions, from simple stri
 The simplest approach: create an `instructions.md.erb` (or `instructions.text.erb`) file in your agent's view directory. ActiveAgent automatically loads it when you call `prompt` without explicit instructions.
 
 ::: code-group
-<<< @/../test/docs/agents/instructions_example_test.rb#default_template {ruby:line-numbers} [agent.rb]
+<<< @/../test/docs/agents/instructions_examples_test.rb#default_template {ruby:line-numbers} [agent.rb]
 
 <<< @/../test/dummy/app/views/docs/agents/instructions/default_template/agent/instructions.md.erb{erb:line-numbers} [instructions.md.erb]
 :::
@@ -38,7 +38,7 @@ generate_with instructions: true
 
 Pass a string directly to `generate_with` for simple, static instructions:
 
-<<< @/../test/docs/agents/instructions_example_test.rb#inline_string {ruby:line-numbers} [agent.rb]
+<<< @/../test/docs/agents/instructions_examples_test.rb#inline_string {ruby:line-numbers} [agent.rb]
 
 **When to use:** Quick prototypes, simple agents with minimal instructions, or when instructions fit in one clear sentence.
 
@@ -47,7 +47,7 @@ Pass a string directly to `generate_with` for simple, static instructions:
 Reference a specific template by name, optionally passing local variables. You can set this globally in `generate_with` or override per-action in the `prompt` call:
 
 ::: code-group
-<<< @/../test/docs/agents/instructions_example_test.rb#custom_template {ruby:line-numbers} [agent.rb]
+<<< @/../test/docs/agents/instructions_examples_test.rb#custom_template {ruby:line-numbers} [agent.rb]
 
 <<< @/../test/dummy/app/views/docs/agents/instructions/custom_template/agent/custom_instructions.md.erb{erb:line-numbers} [custom_instructions.text.erb]
 :::
@@ -61,7 +61,7 @@ Reference a specific template by name, optionally passing local variables. You c
 
 Reference a method that returns instruction text. This enables dynamic instructions based on agent state or parameters:
 
-<<< @/../test/docs/agents/instructions_example_test.rb#dynamic_method {ruby:line-numbers} [agent.rb]
+<<< @/../test/docs/agents/instructions_examples_test.rb#dynamic_method {ruby:line-numbers} [agent.rb]
 
 **When to use:** Instructions that vary based on:
 - User roles or permissions
@@ -73,7 +73,7 @@ Reference a method that returns instruction text. This enables dynamic instructi
 
 Pass multiple instruction strings that become separate system messages if supported by the provider, otherwise they are joined together:
 
-<<< @/../test/docs/agents/instructions_example_test.rb#multi_array {ruby:line-numbers} [agent.rb]
+<<< @/../test/docs/agents/instructions_examples_test.rb#multi_array {ruby:line-numbers} [agent.rb]
 
 **When to use:**
 - Breaking complex instructions into logical sections
@@ -119,7 +119,7 @@ When instructions are defined in multiple places, they override in this order (h
 2. **In `generate_with` configuration** - `generate_with :openai, instructions: "Global"`
 3. **Default template** - `instructions.md.erb` in views directory
 
-<<< @/../test/docs/agents/instructions_example_test.rb#precedence {ruby:line-numbers} [agent.rb]
+<<< @/../test/docs/agents/instructions_examples_test.rb#precedence {ruby:line-numbers} [agent.rb]
 
 ## Writing Effective Instructions
 

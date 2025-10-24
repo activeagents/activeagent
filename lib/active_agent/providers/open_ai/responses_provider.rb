@@ -63,7 +63,7 @@ module ActiveAgent
           when :"response.output_text.done"
             message = message_stack.find { it[:id] == api_response_chunk[:item_id] }
             message[:content] = api_response_chunk[:text]
-            broadcast_stream_update(message, api_response_chunk[:text])
+            broadcast_stream_update(message, nil) # Don't double send content
 
           # -> -> -> Content Function Call Append
           when :"response.function_call_arguments.delta", :"response.function_call_arguments.done"

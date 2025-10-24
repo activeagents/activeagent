@@ -81,5 +81,8 @@ This pattern is useful for:
 - **Rate limiting**: Implement custom rate limiting logic
 - **Debugging**: Log detailed information about specific generations
 
-## On Stream Callbacks
-On stream callbacks are triggered during the streaming of responses from an agent. This allows you to handle real-time updates, such as displaying partial responses in a user interface or logging the progress of the response generation.
+## Streaming Callbacks
+
+ActiveAgent provides streaming callbacks (`on_stream_open`, `on_stream`, `on_stream_close`) for handling real-time responses from AI providers. These allow you to display partial responses, broadcast to clients, or track progress as content streams in.
+
+For complete documentation on streaming callbacks, see [Streaming](/docs/agents/streaming.md).
