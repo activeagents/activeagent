@@ -261,7 +261,6 @@ class PreciseAgent < ApplicationAgent
 end
 ```
 
-
 ## Retrys
 
 ActiveAgent automatically retries failed requests due to network errors. Configure retry behavior globally or provide custom retry strategies.

@@ -77,26 +77,6 @@ module ActiveAgent
       prompt_options[:actions] || []
     end
 
-    # Queues for background execution with immediate processing.
-    #
-    # @param options [Hash] job options (queue, priority, wait, etc.)
-    # @return [Object] enqueued job instance
-    # @raise [RuntimeError] if agent was accessed before queueing
-    def prompt_later!(options = {})
-      enqueue_generation :prompt_now!, options
-    end
-    alias generate_later! prompt_later!
-
-    # Queues for background execution.
-    #
-    # @param options [Hash] job options (queue, priority, wait, etc.)
-    # @return [Object] enqueued job instance
-    # @raise [RuntimeError] if agent was accessed before queueing
-    def prompt_later(options = {})
-      enqueue_generation :prompt_now, options
-    end
-    alias generate_later prompt_later
-
     # Executes prompt generation synchronously with immediate processing.
     #
     # @return [ActiveAgent::Providers::Response]
@@ -120,6 +100,16 @@ module ActiveAgent
       end
     end
     alias generate_now prompt_now
+
+    # Queues for background execution.
+    #
+    # @param options [Hash] job options (queue, priority, wait, etc.)
+    # @return [Object] enqueued job instance
+    # @raise [RuntimeError] if agent was accessed before queueing
+    def prompt_later(options = {})
+      enqueue_generation :prompt_now, options
+    end
+    alias generate_later prompt_later
 
     # Executes embedding generation synchronously.
     #
