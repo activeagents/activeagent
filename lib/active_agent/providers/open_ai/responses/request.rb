@@ -98,8 +98,10 @@ module ActiveAgent
           validate :validate_metadata_format
           validate :validate_include_values
 
-          alias_attribute :messages, :input
-          alias_attribute :message,  :input
+          # Common Format Mapping
+          alias_attribute :messages,        :input
+          alias_attribute :message,         :input
+          alias_attribute :response_format, :text
 
           # Common Format Compatability
           def instructions=(value)

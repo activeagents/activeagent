@@ -11,6 +11,11 @@ module ActiveAgent
           attribute :type, :string, default: "text"
 
           validates :type, inclusion: { in: %w[text json_object] }, allow_nil: true
+
+          # OpenAI's Responses => Common Format
+          def format=(value)
+            self.type = value[:type]
+          end
         end
       end
     end

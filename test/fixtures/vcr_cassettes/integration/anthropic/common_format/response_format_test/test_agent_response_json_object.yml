@@ -47,7 +47,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Thu, 23 Oct 2025 21:26:00 GMT
+      - Thu, 23 Oct 2025 23:53:11 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -59,33 +59,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '50000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-23T21:26:00Z'
+      - '2025-10-23T23:53:11Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '10000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '10000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-23T21:26:00Z'
+      - '2025-10-23T23:53:11Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '50'
       Anthropic-Ratelimit-Requests-Remaining:
       - '49'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-23T21:26:01Z'
+      - '2025-10-23T23:53:12Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '60000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '60000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-23T21:26:00Z'
+      - '2025-10-23T23:53:11Z'
       Request-Id:
-      - req_011CUQqVqVSYSRFbNx89C9ry
+      - req_011CUR2ioKNAWVGmci5NSUpd
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       X-Envoy-Upstream-Service-Time:
-      - '662'
+      - '701'
       Via:
       - 1.1 google
       Cf-Cache-Status:
@@ -95,10 +95,10 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99344f68fa205024-SJC
+      - 99352701d954cfc4-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01HWCjjS7PQXX2QdK9fEjJ2B","type":"message","role":"assistant","content":[{"type":"text","text":"\n  \"colors\":
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_019XaHQgKWMBZckg2tqrgARo","type":"message","role":"assistant","content":[{"type":"text","text":"\n  \"colors\":
         [\"red\", \"blue\", \"yellow\"]\n}"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":31,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":19,"service_tier":"standard"}}'
-  recorded_at: Thu, 23 Oct 2025 21:26:00 GMT
+  recorded_at: Thu, 23 Oct 2025 23:53:11 GMT
 recorded_with: VCR 6.3.1

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "active_agent/providers/common/model"
+require_relative "text/_types"
 
 module ActiveAgent
   module Providers
@@ -8,26 +9,29 @@ module ActiveAgent
       module Responses
         module Requests
           class Text < Common::BaseModel
-            # Format for text output
-            attribute :format, :string
+            # Format configuration for text output
+            attribute :format, TextFormats::FormatType.new
 
             # Modalities for output
             attribute :modalities, default: -> { [] } # Array of strings
 
-            # JSON schema for structured outputs
-            attribute :json_schema # Hash containing the schema definition
+            # Verbosity setting
+            attribute :verbosity, :string
 
-            validates :format, inclusion: { in: %w[text json_object json_schema] }, allow_nil: true
+            validates :verbosity, inclusion: { in: %w[concise default verbose] }, allow_nil: true
 
-            # Validate that json_schema is present when format is json_schema
-            validate :validate_json_schema_presence
+            # Common Format compatibility - maps format.type to type
+            def type
+              format&.type
+            end
 
-            private
+            def type=(value)
+              self.format = value
+            end
 
-            def validate_json_schema_presence
-              if format == "json_schema" && json_schema.blank?
-                errors.add(:json_schema, "must be present when format is 'json_schema'")
-              end
+            # For Common Format
+            def json_schema=(value)
+              self.format = { type: "json_schema", **value }
             end
           end
         end
