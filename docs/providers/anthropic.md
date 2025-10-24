@@ -22,13 +22,7 @@ Configure Anthropic in your agent:
 
 Set up Anthropic credentials in `config/active_agent.yml`:
 
-::: code-group
-
 <<< @/../test/dummy/config/active_agent.yml#anthropic_anchor{yaml:line-numbers}
-
-<<< @/../test/dummy/config/active_agent.yml#anthropic_dev_config{yaml:line-numbers}
-
-:::
 
 ### Environment Variables
 

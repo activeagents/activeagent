@@ -28,7 +28,8 @@ The simplest approach: create an `instructions.md.erb` (or `instructions.text.er
 **Strict Loading:** Pass `instructions: true` to enforce strict template loading. This will raise an error if the template file cannot be found, useful for catching missing instruction files in production.
 
 ```ruby
-generate_with instructions: true  # Raises error if instructions.md.erb is missing
+# Raises error if instructions.md.erb is missing
+generate_with instructions: true
 ```
 
 **When to use:** Most production agents. Keeps instructions organized, version-controlled, and easy to iterate.

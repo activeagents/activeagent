@@ -10,10 +10,10 @@ module ActiveAgent
   #
   # @example Synchronous generation
   #   generation = MyAgent.with(message: "Hello").greet
-  #   response = generation.generate_now
+  #   response = generation.prompt_now
   #
   # @example Asynchronous generation
-  #   MyAgent.with(message: "Hello").greet.generate_later(queue: :prompts)
+  #   MyAgent.with(message: "Hello").greet.prompt_later(queue: :prompts)
   #
   # @example Accessing prompt properties before generation
   #   generation = MyAgent.prompt(message: "Hello")
@@ -32,7 +32,7 @@ module ActiveAgent
 
     # @return [Boolean]
     def processed?
-      !!agent
+      !!@agent
     end
 
     # Accesses prompt options by processing the agent if needed.
@@ -82,40 +82,44 @@ module ActiveAgent
     # @param options [Hash] job options (queue, priority, wait, etc.)
     # @return [Object] enqueued job instance
     # @raise [RuntimeError] if agent was accessed before queueing
-    def generate_later!(options = {})
-      enqueue_generation :generate_now!, options
+    def prompt_later!(options = {})
+      enqueue_generation :prompt_now!, options
     end
+    alias generate_later! prompt_later!
 
     # Queues for background execution.
     #
     # @param options [Hash] job options (queue, priority, wait, etc.)
     # @return [Object] enqueued job instance
     # @raise [RuntimeError] if agent was accessed before queueing
-    def generate_later(options = {})
-      enqueue_generation :generate_now, options
+    def prompt_later(options = {})
+      enqueue_generation :prompt_now, options
     end
+    alias generate_later prompt_later
 
     # Executes prompt generation synchronously with immediate processing.
     #
     # @return [ActiveAgent::Providers::Response]
-    def generate_now!
+    def prompt_now!
       agent.handle_exceptions do
         agent.run_callbacks(:generation) do
           agent.process_prompt!
         end
       end
     end
+    alias generate_now! prompt_now!
 
     # Executes prompt generation synchronously.
     #
     # @return [ActiveAgent::Providers::Response]
-    def generate_now
+    def prompt_now
       agent.handle_exceptions do
         agent.run_callbacks(:generation) do
           agent.process_prompt
         end
       end
     end
+    alias generate_now prompt_now
 
     # Executes embedding generation synchronously.
     #
@@ -171,8 +175,8 @@ module ActiveAgent
           "the agent method *arguments* are passed with the generation job! " \
           "Do not access the agent in any way if you mean to generate it " \
           "later. Workarounds: 1. don't touch the agent before calling " \
-          "#generate_later, 2. only touch the agent *within your agent " \
-          "method*, or 3. use a custom Active Job instead of #generate_later."
+          "#prompt_later, 2. only touch the agent *within your agent " \
+          "method*, or 3. use a custom Active Job instead of #prompt_later."
       else
         agent_class.generation_job.set(options).perform_later(
           agent_class.name, action_name.to_s, generation_method.to_s, args: args, kwargs: kwargs

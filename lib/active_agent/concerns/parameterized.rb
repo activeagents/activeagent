@@ -160,8 +160,8 @@ module ActiveAgent
       # Creates and processes an agent instance with parameters set.
       #
       # @return [ActiveAgent::Base] the processed agent instance with params
-      def ensure_agent_processed
-        self.processed_agent ||= agent_class.new.tap do |agent|
+      def agent
+        @agent ||= agent_class.new.tap do |agent|
           agent.params = @params
           agent.process(action_name, *args, **kwargs)
         end
@@ -212,7 +212,7 @@ module ActiveAgent
       def generate_now
         case @generation_type
         when :prompt
-          super
+          prompt_now
         when :embed
           embed_now
         end
@@ -222,7 +222,7 @@ module ActiveAgent
       def generate_now!
         case @generation_type
         when :prompt
-          super
+          prompt_now!
         when :embed
           # For embed, we don't have a separate embed_now! method, so use embed_now
           embed_now
@@ -237,8 +237,8 @@ module ActiveAgent
       # prompt() or embed() method on the agent instance with the provided arguments.
       #
       # @return [ActiveAgent::Base] the processed agent instance
-      def ensure_agent_processed
-        self.processed_agent ||= agent_class.new.tap do |agent|
+      def agent
+        @agent ||= agent_class.new.tap do |agent|
           agent.params = @params
 
           # Directly call prompt or embed method instead of processing an action

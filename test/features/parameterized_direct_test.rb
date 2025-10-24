@@ -103,7 +103,7 @@ class ParameterizedDirectTest < ActiveSupport::TestCase
 
     assert result
     assert generation.enqueue_called?
-    assert_equal :generate_now, generation.enqueue_method
+    assert_equal :prompt_now, generation.enqueue_method
     assert_equal({ queue: :prompts, priority: :high }, generation.enqueue_options)
   end
 

@@ -28,6 +28,10 @@ module ActiveAgent
           self.messages ||= []
           self.messages << value
         end
+
+        def response_format
+          { type: "text" }
+        end
       end
     end
   end

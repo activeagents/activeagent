@@ -83,17 +83,3 @@ This pattern is useful for:
 
 ## On Stream Callbacks
 On stream callbacks are triggered during the streaming of responses from an agent. This allows you to handle real-time updates, such as displaying partial responses in a user interface or logging the progress of the response generation.
-
-### Streaming Implementation
-
-The streaming agent demonstrates real-time response handling:
-
-<<< @/../test/dummy/app/agents/streaming_agent.rb{ruby:line-numbers}
-
-### Testing Streaming
-
-The streaming functionality broadcasts each chunk as it arrives:
-
-<<< @/../test/docs/streaming_agent_test.rb#streaming_agent_stream_response {ruby:line-numbers}
-
-In this test, the agent broadcasts 30 chunks during the streaming response.
