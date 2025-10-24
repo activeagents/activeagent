@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What is the Model Context Protocol?","instructions":"You
+        are a helpful AI assistant.","model":"gpt-4o-mini"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Fri, 24 Oct 2025 23:25:11 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '30000'
+      X-Ratelimit-Limit-Tokens:
+      - '150000000'
+      X-Ratelimit-Remaining-Requests:
+      - '29999'
+      X-Ratelimit-Remaining-Tokens:
+      - '149999957'
+      X-Ratelimit-Reset-Requests:
+      - 2ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_7caf443961a64b01913d4f18b5030e3a
+      Openai-Processing-Ms:
+      - '3942'
+      X-Envoy-Upstream-Service-Time:
+      - '3945'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=zRfFLiVC4UlSpkIVSCv.VH3bYMVXJUyd1ycbNlop1r4-1761348311-1.0.1.1-lzlfmrvbtfeKII.phnDQpZnnRIolP9RXsJyJtlkQ2G8Qon3NuxGLDcG9Fvmj2Uejf2p1t_Io7pCZF11CO4eCL.hYlvjPiJ4uoRY0GxF2wxM;
+        path=/; expires=Fri, 24-Oct-25 23:55:11 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=wowA9NqvEV8w_4jNkkTpq5pCph.F_4QxpyvgUswqY.8-1761348311994-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993d3b4b491e17e2-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_08a37dce303fba2f0068fc0ad409d08196a977de0f74442d9e",
+          "object": "response",
+          "created_at": 1761348308,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": "You are a helpful AI assistant.",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-mini-2024-07-18",
+          "output": [
+            {
+              "id": "msg_08a37dce303fba2f0068fc0ad4f2e48196b3f4cb47c8c8ae61",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "The Model Context Protocol (MCP) is a framework designed to enhance the development and maintenance of machine learning models. It aims to ensure that models are not only trained effectively but also contextualized within their operating environment. Here are some key aspects:\n\n1. **Model Lifecycle Management**: MCP addresses the entire lifecycle of machine learning models, from conception through deployment and continuous monitoring.\n\n2. **Contextual Information**: Models are accompanied by metadata that describes the context in which they operate, including data sources, training conditions, and performance metrics. This helps in understanding model behavior and implications.\n\n3. **Interoperability**: MCP promotes standardization, which facilitates communication between different systems and stakeholders, improving collaboration and integration.\n\n4. **Versioning and Traceability**: It supports tracking changes and maintaining versions of models and their corresponding data, ensuring reproducibility and accountability.\n\n5. **Ethical and Compliance Considerations**: The protocol includes guidelines for ensuring models follow ethical standards and comply with regulations, addressing issues like bias and fairness.\n\nBy providing a structured approach, the Model Context Protocol aims to improve the reliability, transparency, and effectiveness of machine learning models in real-world applications."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 25,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 237,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 262
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Fri, 24 Oct 2025 23:25:11 GMT
+recorded_with: VCR 6.3.1

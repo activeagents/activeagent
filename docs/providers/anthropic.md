@@ -12,7 +12,7 @@ Configure Anthropic in your agent:
 
 ### Basic Usage Example
 
-<<< @/../test/docs/providers/anthropic_provider_test.rb#anthropic_basic_example{ruby:line-numbers}
+<<< @/../test/docs/providers/anthropic_examples_test.rb#anthropic_basic_example{ruby:line-numbers}
 
 ::: details Response Example
 <!-- @include: @/parts/examples/anthropic-provider-test.rb-test-basic-generation-with-Anthropic-Claude.md -->
@@ -136,9 +136,9 @@ When you specify `response_format: { type: "json_object" }`, the framework:
 
 #### Usage Example
 
-<<< @/../test/docs/providers/anthropic_provider_test.rb#response_format_json_object_agent{ruby:line-numbers} [agent]
+<<< @/../test/docs/providers/anthropic_examples_test.rb#response_format_json_object_agent{ruby:line-numbers} [agent]
 
-<<< @/../test/docs/providers/anthropic_provider_test.rb#response_format_json_object_example{ruby:line-numbers} [usage]
+<<< @/../test/docs/providers/anthropic_examples_test.rb#response_format_json_object_example{ruby:line-numbers} [usage]
 
 #### Best Practices
 
