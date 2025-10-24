@@ -82,7 +82,7 @@ module ActiveAgent
     # @return [ActiveAgent::Providers::Response]
     def prompt_now!
       agent.handle_exceptions do
-        agent.run_callbacks(:generation) do
+        agent.run_callbacks(:prompting) do
           agent.process_prompt!
         end
       end
@@ -94,7 +94,7 @@ module ActiveAgent
     # @return [ActiveAgent::Providers::Response]
     def prompt_now
       agent.handle_exceptions do
-        agent.run_callbacks(:generation) do
+        agent.run_callbacks(:prompting) do
           agent.process_prompt
         end
       end

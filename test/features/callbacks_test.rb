@@ -17,52 +17,52 @@ class CallbacksTest < ActiveSupport::TestCase
     end
   end
 
-  test "defines generation and embedding callbacks" do
-    assert_respond_to TestAgent, :before_generation
-    assert_respond_to TestAgent, :after_generation
-    assert_respond_to TestAgent, :around_generation
+  test "defines prompting and embedding callbacks" do
+    assert_respond_to TestAgent, :before_prompting
+    assert_respond_to TestAgent, :after_prompting
+    assert_respond_to TestAgent, :around_prompting
     assert_respond_to TestAgent, :before_embedding
     assert_respond_to TestAgent, :after_embedding
     assert_respond_to TestAgent, :around_embedding
   end
 
-  test "before_generation callback is executed" do
+  test "before_prompting callback is executed" do
     agent_class = Class.new(TestAgent) do
-      before_generation :track_before
+      before_prompting :track_before
 
       def track_before
-        @callback_order << :before_generation
+        @callback_order << :before_prompting
       end
     end
 
     agent = agent_class.new
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :before_generation, :generation_executed ], agent.callback_order
+    assert_equal [ :before_prompting, :prompting_executed ], agent.callback_order
   end
 
-  test "after_generation callback is executed" do
+  test "after_prompting callback is executed" do
     agent_class = Class.new(TestAgent) do
-      after_generation :track_after
+      after_prompting :track_after
 
       def track_after
-        @callback_order << :after_generation
+        @callback_order << :after_prompting
       end
     end
 
     agent = agent_class.new
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :generation_executed, :after_generation ], agent.callback_order
+    assert_equal [ :prompting_executed, :after_prompting ], agent.callback_order
   end
 
-  test "around_generation callback is executed" do
+  test "around_prompting callback is executed" do
     agent_class = Class.new(TestAgent) do
-      around_generation :track_around
+      around_prompting :track_around
 
       def track_around
         @callback_order << :before_around
@@ -72,19 +72,19 @@ class CallbacksTest < ActiveSupport::TestCase
     end
 
     agent = agent_class.new
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :before_around, :generation_executed, :after_around ], agent.callback_order
+    assert_equal [ :before_around, :prompting_executed, :after_around ], agent.callback_order
   end
 
-  test "multiple generation callbacks are executed in order" do
+  test "multiple prompting callbacks are executed in order" do
     agent_class = Class.new(TestAgent) do
-      before_generation :first_before
-      before_generation :second_before
-      after_generation :first_after
-      after_generation :second_after
+      before_prompting :first_before
+      before_prompting :second_before
+      after_prompting :first_after
+      after_prompting :second_after
 
       def first_before
         @callback_order << :first_before
@@ -104,15 +104,15 @@ class CallbacksTest < ActiveSupport::TestCase
     end
 
     agent = agent_class.new
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
     # Note: after_* callbacks run in reverse order (LIFO)
     assert_equal [
       :first_before,
       :second_before,
-      :generation_executed,
+      :prompting_executed,
       :second_after,
       :first_after
     ], agent.callback_order
@@ -171,23 +171,23 @@ class CallbacksTest < ActiveSupport::TestCase
     assert_equal [ :before_around, :embedding_executed, :after_around ], agent.callback_order
   end
 
-  test "generation callbacks with block" do
+  test "prompting callbacks with block" do
     agent_class = Class.new(TestAgent) do
-      before_generation do
+      before_prompting do
         @callback_order << :block_before
       end
 
-      after_generation do
+      after_prompting do
         @callback_order << :block_after
       end
     end
 
     agent = agent_class.new
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :block_before, :generation_executed, :block_after ], agent.callback_order
+    assert_equal [ :block_before, :prompting_executed, :block_after ], agent.callback_order
   end
 
   test "embedding callbacks with block" do
@@ -209,11 +209,11 @@ class CallbacksTest < ActiveSupport::TestCase
     assert_equal [ :block_before, :embedding_executed, :block_after ], agent.callback_order
   end
 
-  test "generation callbacks can be conditionally applied with if" do
+  test "prompting callbacks can be conditionally applied with if" do
     agent_class = Class.new(TestAgent) do
       attr_accessor :should_run_callback
 
-      before_generation :conditional_callback, if: :should_run_callback
+      before_prompting :conditional_callback, if: :should_run_callback
 
       def conditional_callback
         @callback_order << :conditional_before
@@ -223,27 +223,27 @@ class CallbacksTest < ActiveSupport::TestCase
     # Test when condition is true
     agent = agent_class.new
     agent.should_run_callback = true
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :conditional_before, :generation_executed ], agent.callback_order
+    assert_equal [ :conditional_before, :prompting_executed ], agent.callback_order
 
     # Test when condition is false
     agent = agent_class.new
     agent.should_run_callback = false
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :generation_executed ], agent.callback_order
+    assert_equal [ :prompting_executed ], agent.callback_order
   end
 
-  test "generation callbacks can be conditionally applied with unless" do
+  test "prompting callbacks can be conditionally applied with unless" do
     agent_class = Class.new(TestAgent) do
       attr_accessor :skip_callback
 
-      before_generation :conditional_callback, unless: :skip_callback
+      before_prompting :conditional_callback, unless: :skip_callback
 
       def conditional_callback
         @callback_order << :conditional_before
@@ -253,25 +253,25 @@ class CallbacksTest < ActiveSupport::TestCase
     # Test when condition is false (callback should run)
     agent = agent_class.new
     agent.skip_callback = false
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :conditional_before, :generation_executed ], agent.callback_order
+    assert_equal [ :conditional_before, :prompting_executed ], agent.callback_order
 
     # Test when condition is true (callback should not run)
     agent = agent_class.new
     agent.skip_callback = true
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :generation_executed ], agent.callback_order
+    assert_equal [ :prompting_executed ], agent.callback_order
   end
 
   test "callbacks are inherited by subclasses" do
     parent_class = Class.new(TestAgent) do
-      before_generation :parent_callback
+      before_prompting :parent_callback
 
       def parent_callback
         @callback_order << :parent_before
@@ -279,7 +279,7 @@ class CallbacksTest < ActiveSupport::TestCase
     end
 
     child_class = Class.new(parent_class) do
-      before_generation :child_callback
+      before_prompting :child_callback
 
       def child_callback
         @callback_order << :child_before
@@ -287,35 +287,35 @@ class CallbacksTest < ActiveSupport::TestCase
     end
 
     agent = child_class.new
-    agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
-    assert_equal [ :parent_before, :child_before, :generation_executed ], agent.callback_order
+    assert_equal [ :parent_before, :child_before, :prompting_executed ], agent.callback_order
   end
 
   test "after callbacks are skipped if terminated" do
     agent_class = Class.new(TestAgent) do
-      before_generation :terminate_callback_chain
-      after_generation :should_not_run
+      before_prompting :terminate_callback_chain
+      after_prompting :should_not_run
 
       def terminate_callback_chain
-        @callback_order << :before_generation
+        @callback_order << :before_prompting
         throw :abort
       end
 
       def should_not_run
-        @callback_order << :after_generation
+        @callback_order << :after_prompting
       end
     end
 
     agent = agent_class.new
-    result = agent.run_callbacks(:generation) do
-      agent.callback_order << :generation_executed
+    result = agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
     end
 
     # When callback chain is aborted, the block doesn't execute and after callbacks don't run
-    assert_equal [ :before_generation ], agent.callback_order
+    assert_equal [ :before_prompting ], agent.callback_order
     assert_equal false, result
   end
 
@@ -341,5 +341,34 @@ class CallbacksTest < ActiveSupport::TestCase
 
     assert_equal [ :before_embedding ], agent.callback_order
     assert_equal false, result
+  end
+
+  test "generation backwards compatability" do
+    agent_class = Class.new(TestAgent) do
+      before_generation :track_before
+      after_generation :track_after
+      around_generation :track_around
+
+      def track_before
+        @callback_order << :before_generation
+      end
+
+      def track_after
+        @callback_order << :after_generation
+      end
+
+      def track_around
+        @callback_order << :before_around
+        yield
+        @callback_order << :after_around
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :before_generation, :before_around, :prompting_executed, :after_around, :after_generation ], agent.callback_order
   end
 end

@@ -3,25 +3,25 @@
 require "active_support/callbacks"
 
 module ActiveAgent
-  # Provides callback hooks for generation and embedding lifecycles.
+  # Provides callback hooks for prompting and embedding lifecycles.
   #
-  # Enables agents to execute custom logic before, after, or around prompt generation
+  # Enables agents to execute custom logic before, after, or around prompt execution
   # and embedding operations. Callbacks support conditional execution via `:if` and
   # `:unless` options, and after callbacks are skipped when the chain is terminated
   # with `throw :abort`.
   #
-  # @example Before generation callback
+  # @example Before prompting callback
   #   class MyAgent < ActiveAgent::Base
-  #     before_generation :load_context
+  #     before_prompting :load_context
   #
   #     def load_context
   #       @user_data = User.find(params[:user_id])
   #     end
   #   end
   #
-  # @example After generation with condition
+  # @example After prompting with condition
   #   class MyAgent < ActiveAgent::Base
-  #     after_generation :log_response, if: :production?
+  #     after_prompting :log_response, if: :production?
   #
   #     def log_response
   #       Logger.info("Generated response: #{context.messages.last}")
@@ -43,15 +43,15 @@ module ActiveAgent
 
     included do
       include ActiveSupport::Callbacks
-      define_callbacks :generation, skip_after_callbacks_if_terminated: true
-      define_callbacks :embedding,  skip_after_callbacks_if_terminated: true
+      define_callbacks :prompting, skip_after_callbacks_if_terminated: true
+      define_callbacks :embedding, skip_after_callbacks_if_terminated: true
     end
 
     module ClassMethods
-      # Registers callbacks for the generation lifecycle.
+      # Registers callbacks for the prompting lifecycle.
       #
-      # Dynamically defines `before_generation`, `after_generation`, and
-      # `around_generation` class methods. Multiple callbacks execute in
+      # Dynamically defines `before_prompting`, `after_prompting`, and
+      # `around_prompting` class methods. Multiple callbacks execute in
       # registration order for before/around, and reverse order for after.
       #
       # @param names [Symbol, Array<Symbol>] method name(s) to call
@@ -59,23 +59,31 @@ module ActiveAgent
       # @yield callback implementation when using block form
       #
       # @example Multiple before callbacks
-      #   before_generation :load_user, :check_permissions
+      #   before_prompting :load_user, :check_permissions
       #
       # @example Block syntax
-      #   after_generation do
+      #   after_prompting do
       #     cache.write("last_response", context.messages.last)
       #   end
       [ :before, :after, :around ].each do |callback|
+        define_method "#{callback}_prompting" do |*names, &blk|
+          _insert_callbacks(names, blk) do |name, options|
+            set_callback(:prompting, callback, name, options)
+          end
+        end
+
+        # Deprecated: Use #{callback}_prompting instead
+        # Sets callbacks on both :generation and :prompting chains for backward compatibility
         define_method "#{callback}_generation" do |*names, &blk|
           _insert_callbacks(names, blk) do |name, options|
-            set_callback(:generation, callback, name, options)
+            set_callback(:prompting, callback, name, options)
           end
         end
 
         # Registers callbacks for the embedding lifecycle.
         #
         # Dynamically defines `before_embedding`, `after_embedding`, and
-        # `around_embedding` class methods. Behavior identical to generation
+        # `around_embedding` class methods. Behavior identical to prompting
         # callbacks but invoked during embedding operations.
         #
         # @param names [Symbol, Array<Symbol>] method name(s) to call

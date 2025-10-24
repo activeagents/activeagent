@@ -1,88 +1,47 @@
 # Callbacks
 
-Callbacks can be registered to execute on specific events during the prompt and response cycle. This allows you to perform actions such as logging, modifying prompts, or triggering additional processes based on the agent's activity.
+ActiveAgent provides `before_generation`, `after_generation`, and `around_generation` callbacks for the generation lifecycle. These callbacks are also available with the `*_prompting` alias (e.g., `before_prompting`, `after_prompting`, `around_prompting`).
 
-## Action Callbacks
+## Before Generation
 
-Action callbacks are triggered when an action is invoked within an agent. This allows you to customize the behavior of actions, such as modifying the action's parameters or logging the action's execution. Great for retrieval augmented generation (RAG) workflows.
+Runs before the generation executes. Use for setup, loading context, or validation:
 
-### Before Action Example
+<<< @/../test/docs/agents/callbacks_examples_test.rb#before_generation {ruby:line-numbers}
 
-The `TravelAgent` uses a `before_action` callback to set up user context:
+## After Generation
 
-<<< @/../test/dummy/app/agents/travel_agent.rb#1-10{ruby:line-numbers}
+Runs after generation completes. Use for logging, caching, or post-processing:
 
-The `set_user` method runs before any action, ensuring the user context is available:
+<<< @/../test/docs/agents/callbacks_examples_test.rb#after_generation {ruby:line-numbers}
 
-```ruby
-private
+After callbacks are skipped if the callback chain is terminated with `throw :abort`.
 
-def set_user
-  @user = params[:user] || MockUser.new(name: "Guest")
-end
-```
+## Around Generation
 
-### Conditional Before Action
+Wraps the entire generation process. Use for timing, transactions, or wrapping operations:
 
-The `DataExtractionAgent` uses conditional callbacks for specific actions:
+<<< @/../test/docs/agents/callbacks_examples_test.rb#around_generation {ruby:line-numbers}
 
-<<< @/../test/dummy/app/agents/data_extraction_agent.rb#1-11{ruby:line-numbers}
+## Multiple and Conditional Callbacks
 
-The `before_action` only runs for the `parse_content` action, setting up multimodal content when needed.
+Register multiple callbacks and apply them conditionally with `:if` and `:unless`. Callbacks execute in registration order (before/around) or reverse order (after):
 
-## Generation Callbacks
+<<< @/../test/docs/agents/callbacks_examples_test.rb#multiple_conditional_callbacks {ruby:line-numbers}
 
-Generation callbacks are executed during the generation process of an agent. This allows you to modify the prompt, handle responses, or perform additional processing based on the generated content.
+Execution order: `load_context`, `check_rate_limit` (if enabled), [generation], `log_response`
 
-### Before and After Generation
+## Embedding Callbacks
 
-```ruby
-class LoggingAgent < ApplicationAgent
-  before_generation :log_start
-  after_generation :log_completion
+ActiveAgent provides `before_embedding`, `after_embedding`, and `around_embedding` callbacks for embedding operations. Behavior is identical to generation callbacks:
 
-  def chat
-    prompt(message: params[:message])
-  end
+<<< @/../test/docs/agents/callbacks_examples_test.rb#embedding_callbacks {ruby:line-numbers}
 
-  private
-
-  def log_start
-    Rails.logger.info "Starting generation for #{action_name}"
-  end
-
-  def log_completion
-    Rails.logger.info "Completed generation for #{action_name}"
-  end
-end
-```
-
-### Testing Generation Callbacks
-
-<<< @/../test/features/callbacks_test.rb#33-49{ruby:line-numbers}
-
-## Around Generation Callbacks
-
-Around generation callbacks wrap the entire generation process, allowing you to perform setup and teardown operations. This is useful for timing, caching, logging, or any operation that needs to wrap the generation process.
-
-### Basic Around Generation
-
-<<< @/../test/features/callbacks_test.rb#67-85{ruby:line-numbers}
-
-### Conditional Callbacks
-
-You can apply callbacks conditionally using `:if` and `:unless` options:
-
-<<< @/../test/features/callbacks_test.rb#216-245{ruby:line-numbers}
-
-This pattern is useful for:
-- **Performance monitoring**: Track generation times for specific actions. [For long-running tasks, consider queued generation →](/agents/queued-generation)
-- **Caching**: Cache LLM responses for expensive operations
-- **Rate limiting**: Implement custom rate limiting logic
-- **Debugging**: Log detailed information about specific generations
+See [Embeddings](/agents/embeddings) for complete documentation.
 
 ## Streaming Callbacks
 
-ActiveAgent provides streaming callbacks (`on_stream_open`, `on_stream`, `on_stream_close`) for handling real-time responses from AI providers. These allow you to display partial responses, broadcast to clients, or track progress as content streams in.
+ActiveAgent provides `on_stream_open`, `on_stream`, and `on_stream_close` callbacks for handling real-time streaming responses:
 
-For complete documentation on streaming callbacks, see [Streaming](/docs/agents/streaming.md).
+<<< @/../test/docs/agents/callbacks_examples_test.rb#streaming_callbacks {ruby:line-numbers}
+
+See [Streaming](/agents/streaming) for complete documentation.
