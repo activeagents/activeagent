@@ -12,7 +12,7 @@ hero:
       link: /getting-started
     - theme: brand
       text: Docs
-      link: /overview
+      link: /framework
     - theme: alt
       text: GitHub
       link: https://github.com/activeagents/activeagent

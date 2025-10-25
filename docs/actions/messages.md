@@ -1,89 +1,130 @@
 # Messages
-Messages are the core data structure of a prompt's context. Each message represents an interaction as a Message object with a specific role, such as `:user`, `:system`, `:assistant`, or `:tool`.
 
-Message `content` represents the rendered view from an Active Agent action. Messages are used to provide context for the generation process, with the last message's content containing the view rendered by an action prompt and can be used to store additional information about the interaction. The messages are passed to the provider as part of the prompt request.
+Messages build the conversation context for agent interactions. Each message has a role (user, assistant, system, or tool) and content (text, images, or documents). ActiveAgent supports both native provider formats and a unified common format that works across all providers.
 
-## Message structure
-Messages can be structured as a Message object or hash with the following attributes:
-- `role`: The role of the message, such as `:user`, `:system`, `:assistant`, or `:tool`.
-- `content`: The content of the message, which can be plain text or formatted content.
-- `requested_actions`: An array of actions that the agent requested to be performed in response to the message. This is used to handle tool use requests from the agent.
+## Message Roles
+
+Understanding roles helps you structure conversations correctly:
+
+- **User** - Input from the user to the agent (text, images, documents)
+- **Assistant** - Responses from the agent, including tool call requests
+- **System** - Instructions that guide agent behavior (set via `instructions` option)
+- **Tool** - Results from tool executions (handled automatically)
+
+Most of the time you'll send user messages and inspect assistant/tool responses.
+
+## Sending Messages
+
+### Single Message
+
+The simplest way to send a message:
+
+<<< @/../test/docs/actions/messages_examples_test.rb#single_message_agent {ruby:line-numbers}
+
+Use the `message:` keyword for clarity:
+
+<<< @/../test/docs/actions/messages_examples_test.rb#message_keyword_agent {ruby:line-numbers}
+
+### Multiple Messages
+
+Send multiple strings as separate user messages in a single prompt:
+
+::: code-group
+<<< @/../test/docs/actions/messages_examples_test.rb#multiple_messages_agent {ruby:line-numbers} [inline]
+<<< @/../test/docs/actions/messages_examples_test.rb#multiple_messages_agent {ruby:line-numbers} [array]
+:::
+
+### Messages with Roles
+
+Set explicit roles using hashes. The default role is `:user`:
+
+<<< @/../test/docs/actions/messages_examples_test.rb#messages_with_roles_agent {ruby:line-numbers}
+
+**Note:** Use the `instructions` option for system messages. System role messages are dropped in common format and replaced by instructions. [Learn about instructions →](/agents/instructions)
+
+## Images and Documents
+
+ActiveAgent provides a unified interface for multimodal inputs. Pass HTTP URLs or Base64 data URIs - the framework converts them to the provider's native format.
+
+**ActiveStorage Support:** Direct attachment support for ActiveStorage files is coming soon.
+
+### Images
+
+<<< @/../test/docs/actions/messages_examples_test.rb#image_agent {ruby:line-numbers}
+
+### Documents
+
+Same interface for PDFs and other documents:
+
+<<< @/../test/docs/actions/messages_examples_test.rb#document_agent {ruby:line-numbers}
+
+**Supported formats:**
+- Images: JPEG, PNG, GIF, WebP
+- Documents: PDF (provider-dependent)
+
+## Inspecting Responses
+
+After generation, access messages from the response:
+
+<<< @/../test/docs/actions/messages_examples_test.rb#inspect_messages {ruby:line-numbers}
+
+### Grouping by Role
+
+Filter messages to find specific types:
+
+<<< @/../test/docs/actions/messages_examples_test.rb#grouping_by_role {ruby:line-numbers}
+
+### System Messages
+
+System messages come from the `instructions` option:
+
+::: code-group
+<<< @/../test/docs/actions/messages_examples_test.rb#system_messages_agent {ruby:line-numbers} [agent.rb]
+<<< @/../test/docs/actions/messages_examples_test.rb#inspect_system_message {ruby:line-numbers} [inspect.rb]
+:::
+
+### Assistant Messages
+
+Assistant messages contain the agent's responses. Provide conversation history by including previous assistant messages:
+
+<<< @/../test/docs/actions/messages_examples_test.rb#assistant_history_agent {ruby:line-numbers}
+
+### Tool Messages
+
+Tool messages contain results from tool executions. ActiveAgent handles tool calls and their results automatically. [Learn about tools →](/actions/tools)
 
 ```ruby
-# Messages include system, user, assistant, and tool messages
-assert response.prompt.messages.size >= 5
-
-# Group messages by role
-system_messages = response.prompt.messages.select { |m| m.role == :system }
-user_messages = response.prompt.messages.select { |m| m.role == :user }
-assistant_messages = response.prompt.messages.select { |m| m.role == :assistant }
-tool_messages = response.prompt.messages.select { |m| m.role == :tool }
+# Tool messages contain execution results
+tool_messages.first.content
+# => "https://cataas.com/cat/5e9..."
 ```
 
+## Common vs Native Format
 
-## Instructions as system messages to the agent
-A `:system` message is used to provide instructions to the agent. This message is used to set the context for the generation process and can be used to provide additional information about the interaction to the agent. Instructions can include how an agent should use their available tool actions to achieve a desired outcome as well as render embedded ruby representations of retrieved data to augment the generation process with contextual information prior to user-agent interactions.
+ActiveAgent provides two ways to work with messages:
 
-```erb
-This agent is currently interacting with <%= @user.name %> to find a hotel near their travel destination.
-The agent should use the following actions to achieve the desired outcome:
+### Common Format (Recommended)
 
-<% controller.action_schemas.each do |action| %>
-  <%= action["function"]["name"] %>: <%= action["function"]["description"] %>
-<% end %>
+Use the unified `prompt()` interface. ActiveAgent normalizes messages across providers:
 
-requirements:
-- The agent should use the `search` action to find hotels in the requested location.
-- The agent should use the `book` action to book a hotel for the user.
-- The agent should use the `confirm` action to confirm the booking with the user.
-```
+<<< @/../test/docs/actions/messages_examples_test.rb#common_format_agent {ruby:line-numbers}
 
-### Agent instructions
-Agent's can use `generate_with` to define instructions for the agent.
+**Benefits:**
+- Switch providers without changing code
+- Consistent API across all providers
+- Automatic format conversion
 
-```ruby
-class ApplicationAgent < ActiveAgent::Base
-  generate_with :openai, model: "gpt-4o-mini"
-  embed_with :openai, model: "text-embedding-3-small"
-end
-```
+### Native Format
 
-Agent's can also use implicit instructions by defining an `instructions` view in the agent's view directory.
+For provider-specific features, use native message structures:
 
-```erb
-# app/views/application_agent/instructions.text.erb
-# (Instructions can be defined here as ERB template)
-```
+<<< @/../test/docs/actions/messages_examples_test.rb#native_format_agent {ruby:line-numbers}
 
+Both formats work with all providers, but common format is simpler and more portable.
 
+## Related Documentation
 
-## User's send :user messages to the agent
-A `:user` message is used to represent the user's input to the agent. These messages are commonly seen as plain text chat messages, but should be thought of as an Action View that could be of any type you choose to support, just like Action Mailer can send 'plain/text' or 'html/text' emails, Action Prompt render formatted messages to the agents.
-
-## Agent's send :assistant messages to the user
-An `:assistant` message is used to represent the agent's response to the user. These messages are also often seen as plain text chat messages, but again should be thought of as an Action View template that could be of any type you choose to support. This enables the agent to render formatted messages to the user, such as HTML or TXT with interpolated instance variables and embedded ruby. The agent can use these messages to provide additional information or context to the user, and can also include links or other interactive elements.
-
-### Messages with Requested Actions
-
-```ruby
-# Assistant messages with requested_actions indicate tool calls
-assistant_with_actions = assistant_messages.find { |m| m.requested_actions&.any? }
-assert assistant_with_actions, "Should have assistant message with requested actions"
-```
-
-## The system responds to agent requested actions with :tool messages
-Agent performed actions result in `:tool` message. These messages are used to represent the response to a tool call made by the agent. This message is used to provide additional information about the tool call, such as the name of the tool and any arguments that were passed to the tool. The system can use this message to provide a response message containing the result of the tool call and can also include links or other interactive elements.
-
-```ruby
-# Tool messages contain the results of tool calls
-assert_includes tool_messages.first.content, "https://cataas.com/cat/"
-```
-
-## Building Message Context
-
-Messages form the conversation history that provides context for the agent. [Learn how messages flow through generation →](/agents/generation)
-
-```ruby
-# The response message is the last message in the context
-assert_equal response.message, response.prompt.messages.last
-```
+- [Tools →](/actions/tools) - Defining and using agent tools
+- [Agent Instructions →](/agents/instructions) - Setting system messages and guiding agent behavior
+- [Generation →](/agents/generation) - How messages flow through the generation process
+- [Structured Output →](/actions/structured-output) - Formatting agent responses

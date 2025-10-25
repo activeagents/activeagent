@@ -95,7 +95,7 @@ export default defineConfig({
       {
         text: 'Actions',
         items: [
-          // { text: 'Messages', link: '/actions/messages' },
+          { text: 'Messages', link: '/actions/messages' },
           // { text: 'Prompts', link: '/actions/prompts' },
           // { text: 'Tools', link: '/actions/tools' },
         ]

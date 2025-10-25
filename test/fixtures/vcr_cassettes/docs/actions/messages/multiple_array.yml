@@ -1,0 +1,72 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"Tell
+        me a fun fact about Ruby."},{"type":"text","text":"Now explain why that''s
+        interesting."}]}],"model":"openai/gpt-4o-mini"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 07:45:36 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9940186bae14cf1b-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761378336-8K1ri8jbrYZIldXH7hQJ\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1761378336,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        fun fact about Ruby is that it was designed with developer happiness in mind.
+        Yukihiro \\\"Matz\\\" Matsumoto, the creator of Ruby, aimed to create a language
+        that was both powerful and easy to use, allowing programmers to express their
+        ideas in a natural and intuitive way. This philosophy is reflected in Ruby's
+        elegant syntax and flexible structure.\\n\\nThis fact is interesting because
+        it highlights a fundamental aspect of programming language design that often
+        gets overlooked: the human experience. Many programming languages prioritize
+        performance or technical capabilities, but Ruby's focus on developer happiness
+        encourages creativity and productivity. It fosters a positive environment
+        for coding, which can lead to more innovative solutions and a more enjoyable
+        development process. As a result, Ruby has garnered a passionate community
+        of developers who appreciate not just the language itself, but also the philosophy
+        behind it.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":20,\"completion_tokens\":165,\"total_tokens\":185,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 25 Oct 2025 07:45:40 GMT
+recorded_with: VCR 6.3.1

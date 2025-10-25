@@ -1,0 +1,59 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"Tell
+        me a fun fact about Ruby."},{"type":"text","text":"Now explain why that''s
+        interesting."}]}],"model":"openai/gpt-4o-mini"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 07:45:05 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994017a55b1ceb25-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        CiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCnsiaWQiOiJnZW4tMTc2MTM3ODMwNC1CdEgycmFYdzBHZWxkQXZhVnNoZSIsInByb3ZpZGVyIjoiT3BlbkFJIiwibW9kZWwiOiJvcGVuYWkvZ3B0LTRvLW1pbmkiLCJvYmplY3QiOiJjaGF0LmNvbXBsZXRpb24iLCJjcmVhdGVkIjoxNzYxMzc4MzA0LCJjaG9pY2VzIjpbeyJsb2dwcm9icyI6bnVsbCwiZmluaXNoX3JlYXNvbiI6InN0b3AiLCJuYXRpdmVfZmluaXNoX3JlYXNvbiI6InN0b3AiLCJpbmRleCI6MCwibWVzc2FnZSI6eyJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6IkEgZnVuIGZhY3QgYWJvdXQgUnVieSBpcyB0aGF0IGl0IHdhcyBkZXNpZ25lZCB0byBiZSBhIHByb2dyYW1tZXItZnJpZW5kbHkgbGFuZ3VhZ2UsIGVtcGhhc2l6aW5nIHNpbXBsaWNpdHkgYW5kIHByb2R1Y3Rpdml0eS4gT25lIG9mIHRoZSBjb3JlIHBoaWxvc29waGllcyBiZWhpbmQgUnVieSBpcyB0aGUgcHJpbmNpcGxlIG9mIFwib3B0aW1pemluZyBmb3IgZGV2ZWxvcGVyIGhhcHBpbmVzcy5cIiBUaGlzIGxlZCB0byBmZWF0dXJlcyBzdWNoIGFzIGFuIGVsZWdhbnQgc3ludGF4LCBkeW5hbWljIHR5cGluZywgYW5kIGEgc3Ryb25nIGZvY3VzIG9uIG9iamVjdC1vcmllbnRlZCBwcm9ncmFtbWluZy5cblxuIyMjIFdoeSBUaGlzIGlzIEludGVyZXN0aW5nOlxuXG5UaGlzIGZvY3VzIG9uIGRldmVsb3BlciBoYXBwaW5lc3MgaXMgaW50ZXJlc3RpbmcgYmVjYXVzZSBpdCBoaWdobGlnaHRzIGhvdyB0aGUgZGVzaWduIG9mIHByb2dyYW1taW5nIGxhbmd1YWdlcyBjYW4gc2lnbmlmaWNhbnRseSBpbXBhY3Qgc29mdHdhcmUgZGV2ZWxvcG1lbnQgcHJvY2Vzc2VzIGFuZCBvdXRjb21lcy4gV2hpbGUgbWFueSBsYW5ndWFnZXMgcHJpb3JpdGl6ZSBwZXJmb3JtYW5jZSBvciBzdHJpY3Qgc3ludGF4IHJ1bGVzLCBSdWJ54oCZcyBlbXBoYXNpcyBvbiByZWFkYWJpbGl0eSBhbmQgZWFzZSBvZiB1c2UgY2FuIGxlYWQgdG8gZmFzdGVyIGRldmVsb3BtZW50IGN5Y2xlcyBhbmQgbW9yZSBlbmpveWFibGUgY29kaW5nIGV4cGVyaWVuY2VzLiBUaGlzIGhhcyBtYWRlIFJ1YnkgcGFydGljdWxhcmx5IHBvcHVsYXIgZm9yIHdlYiBkZXZlbG9wbWVudCwgZXNwZWNpYWxseSB3aXRoIHRoZSBSdWJ5IG9uIFJhaWxzIGZyYW1ld29yaywgd2hlcmUgZGV2ZWxvcGVycyBjYW4gcXVpY2tseSBidWlsZCBhbmQgaXRlcmF0ZSBvbiBhcHBsaWNhdGlvbnMuIENvbnNlcXVlbnRseSwgUnVieSBzZXJ2ZXMgYXMgYSBncmVhdCBleGFtcGxlIG9mIGhvdyBsYW5ndWFnZSBkZXNpZ24gaXMgbm90IGp1c3QgYWJvdXQgdGVjaG5pY2FsIGZlYXR1cmVzIGJ1dCBhbHNvIGFib3V0IGZvc3RlcmluZyBhIGNyZWF0aXZlIGFuZCBwcm9kdWN0aXZlIGVudmlyb25tZW50IGZvciBkZXZlbG9wZXJzLiIsInJlZnVzYWwiOm51bGwsInJlYXNvbmluZyI6bnVsbH19XSwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfNTYwYWY2ZTU1OSIsInVzYWdlIjp7InByb21wdF90b2tlbnMiOjIwLCJjb21wbGV0aW9uX3Rva2VucyI6MTgyLCJ0b3RhbF90b2tlbnMiOjIwMiwicHJvbXB0X3Rva2Vuc19kZXRhaWxzIjp7ImNhY2hlZF90b2tlbnMiOjAsImF1ZGlvX3Rva2VucyI6MH0sImNvbXBsZXRpb25fdG9rZW5zX2RldGFpbHMiOnsicmVhc29uaW5nX3Rva2VucyI6MH19fQ==
+  recorded_at: Sat, 25 Oct 2025 07:45:08 GMT
+recorded_with: VCR 6.3.1
