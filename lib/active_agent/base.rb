@@ -15,7 +15,7 @@ require "active_agent/concerns/streaming"
 require "active_agent/concerns/tooling"
 require "active_agent/concerns/view"
 
-require "active_agent/log_subscriber"
+require "active_agent/providers/log_subscriber"
 
 module ActiveAgent
   # Base class for creating AI-powered agents with prompt generation, tool calling,

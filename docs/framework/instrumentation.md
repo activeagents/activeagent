@@ -55,7 +55,7 @@ ActiveAgent publishes instrumentation events throughout the generation lifecycle
 
 ActiveAgent includes a `LogSubscriber` that automatically logs all provider operations at the `debug` level when Rails loads:
 
-<<< @/../lib/active_agent/railtie.rb#log_subscriber {ruby:line-numbers}
+<<< @/../lib/active_agent/providers/log_subscriber.rb#log_subscriber_attach {ruby:line-numbers}
 
 Logs include trace IDs for tracking related operations, provider names, timing information, and operation details.
 
@@ -69,7 +69,7 @@ Logs include trace IDs for tracking related operations, provider names, timing i
 
 ### Controlling Log Verbosity
 
-By default, ActiveAgent automatically inherits the logger, log level, and colorization settings from your Rails application via the Railtie. This means instrumentation logging respects your Rails environment configuration without additional setup.
+By default, ActiveAgent automatically inherits the logger and log level settings from your Rails application via the Railtie. This means instrumentation logging respects your Rails environment configuration without additional setup.
 
 If you're not using Rails, see the [Configuration](/framework/configuration) documentation for details on configuring logging behavior.
 
@@ -111,7 +111,7 @@ Each event includes contextual data in the payload hash. Common fields across ev
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `trace_id` | String | Unique identifier for tracking related operations across the request lifecycle |
+| `trace_id` | String | Unique identifier for tracking related operations across the request lifecycle (optionally set when prompting) |
 | `provider_module` | String | Provider class handling the request (e.g., `"OpenAI::Responses"`) |
 | `message_count` | Integer | Number of messages in the context (varies by event) |
 | `streaming` | Boolean | Whether streaming is enabled for this request |
@@ -236,8 +236,8 @@ class CustomAgentLogger < ActiveAgent::LogSubscriber
 end
 
 # Replace the default subscriber
-ActiveAgent::LogSubscriber.detach_from :provider.active_agent
-CustomAgentLogger.attach_to :provider.active_agent
+ActiveAgent::LogSubscriber.detach_from :active_agent
+CustomAgentLogger.attach_to :active_agent
 ```
 
 ## Common Debugging Scenarios

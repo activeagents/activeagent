@@ -77,7 +77,7 @@ export default defineConfig({
           { text: 'Providers', link: '/providers' },
           // { text: 'Actions', link: '/actions' },
           { text: 'Configuration', link: '/framework/configuration' },
-          // { text: 'Instrumentation', link: '/framework/instrumentation' },
+          { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Retries', link: '/framework/retries' },
           // { text: 'Testing', link: '/framework/testing' },
         ]
