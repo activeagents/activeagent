@@ -1,0 +1,83 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is a design pattern?"}],"model":"openrouter/auto"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://myapp.com
+      X-Title:
+      - MyApp
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:39:22 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f07881df8fb3c-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n{\"id\":\"gen-1761367159-bw7TTp8wPLqHlkXLaiqu\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761367161,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        design pattern is a reusable solution to a recurring problem in software design.
+        It's not a finished design that can be transformed directly into code, but
+        rather a template for how to solve a problem that you can use in many different
+        situations. Design patterns provide a common language and a set of tried-and-true
+        solutions to common problems, making it easier to communicate and understand
+        designs.\\n\\nHere are some key aspects of design patterns:\\n\\n1. **Intent**:
+        The purpose or goal of the pattern.\\n2. **Also Known As**: Other names the
+        pattern might be known by.\\n3. **Motivation**: A description of the problem
+        that the pattern solves.\\n4. **Applicability**: The situations in which the
+        pattern can be applied.\\n5. **Structure**: A graphical representation of
+        the pattern, showing the classes and objects involved and their relationships.\\n6.
+        **Participants**: The classes and objects involved in the pattern and their
+        responsibilities.\\n7. **Collaborations**: How the participants interact with
+        each other to carry out their responsibilities.\\n8. **Consequences**: The
+        results and trade-offs of applying the pattern, including its strengths and
+        weaknesses.\\n\\nThere are three main categories of design patterns:\\n\\n-
+        **Creational Patterns**: Deal with object creation mechanisms, trying to create
+        objects in a manner suitable to the situation.\\n- **Structural Patterns**:
+        Concerned with the composition of classes or objects, and provide simple ways
+        to realize relationships among them.\\n- **Behavioral Patterns**: Describe
+        communication patterns among objects and how they interact with each other.\\n\\nSome
+        of the most well-known design patterns include Singleton, Factory, Observer,
+        Strategy, and Decorator, among many others. They are widely used in software
+        development to improve the quality, flexibility, and maintainability of the
+        code.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":353,\"total_tokens\":364,\"prompt_tokens_details\":null}}"
+  recorded_at: Sat, 25 Oct 2025 04:39:27 GMT
+recorded_with: VCR 6.3.1

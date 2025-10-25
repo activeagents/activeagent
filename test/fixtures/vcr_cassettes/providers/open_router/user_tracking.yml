@@ -1,0 +1,89 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Explain abstraction"}],"model":"openrouter/auto","user":"user-123"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:37:16 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f047b781f7ab2-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n{\"id\":\"gen-1761367034-qZvI4ddTdbLhz2cXEfts\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761367035,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Abstraction
+        is a fundamental concept in computer science, particularly in the context
+        of programming, that helps manage complexity by hiding unnecessary details
+        and showing only the relevant data and functionality. Here are some key aspects
+        of abstraction:\\n\\n1. **Hiding Implementation Details**: Abstraction allows
+        you to define what a function or object does without needing to know how it
+        does it. This is done through interfaces, abstract classes, or function signatures.
+        For example, when you call a function like `print(x)`, you don't need to know
+        how the `print` function works internally; you just need to know that it will
+        print the value of `x`.\\n\\n2. **Focusing on Essentials**: By hiding unnecessary
+        details, abstraction helps you focus on the essential features of an object
+        or function. This makes your code easier to understand and work with.\\n\\n3.
+        **Reusability**: Abstraction allows you to create reusable code. Once you've
+        defined an abstraction, you can use it in multiple places without having to
+        rewrite the underlying code each time.\\n\\n4. **Encapsulation**: Abstraction
+        often goes hand in hand with encapsulation, which is the bundling of data
+        and methods that operate on that data within the same object. Encapsulation
+        helps protect the data from external interference and misuse.\\n\\nHere's
+        a simple example in Python:\\n\\n```python\\nclass Animal:\\n    def __init__(self,
+        name):\\n        self.name = name\\n\\n    def speak(self):\\n        pass
+        \ # Abstract method, to be implemented by subclasses\\n\\nclass Dog(Animal):\\n
+        \   def speak(self):\\n        return f\\\"{self.name} says: Woof!\\\"\\n\\nclass
+        Cat(Animal):\\n    def speak(self):\\n        return f\\\"{self.name} says:
+        Meow!\\\"\\n\\n# You can create instances of Dog and Cat and call speak without
+        knowing how they implement it\\ndog = Dog(\\\"Fido\\\")\\nprint(dog.speak())
+        \ # Output: Fido says: Woof!\\n\\ncat = Cat(\\\"Whiskers\\\")\\nprint(cat.speak())
+        \ # Output: Whiskers says: Meow!\\n```\\n\\nIn this example, `Animal` is an
+        abstract class with an abstract method `speak`. The subclasses `Dog` and `Cat`
+        provide their own implementations of `speak`. The user of these classes doesn't
+        need to know how `speak` is implemented; they just need to know that it will
+        return a string representing the animal's sound.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":493,\"total_tokens\":500,\"prompt_tokens_details\":null}}"
+  recorded_at: Sat, 25 Oct 2025 04:37:23 GMT
+recorded_with: VCR 6.3.1

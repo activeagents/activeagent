@@ -1,0 +1,199 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is test-driven development?"}],"model":"meta-llama/llama-3.1-405b","provider":{"quantizations":["fp16","bf16"]}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:36:11 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f02ef7a7ed883-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n{\"id\":\"gen-1761366970-qZnIQIJtQFIJXyMY0qam\",\"provider\":\"Hyperbolic\",\"model\":\"meta-llama/llama-3.1-405b\",\"object\":\"chat.completion\",\"created\":1761366970,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"
+        (test-driven development, TDD) What is the main function? What are the benefits?\\nTest-driven
+        development (TDD-test-driven development) is mainly:\\n  1. Development (coding)
+        is based on the final requirements (test result). Test First - .\\n  2. Feedback
+        (REF) is fast every time. automated testing .\\n  3. The number of tests increases
+        (The number of tests twice the number of functions should be written in. )
+        tests .\\nSelection of TDD Key Factors:\\n  1. Refactoring First write some
+        code and then use infinite test cases for automatic testing.\\n  2. Test Twice
+        Completely cover the ability of the tester (the number of test cases)\\n  3.
+        Design Development Program Design First meet the refactoring requirements
+        and then meet the test requirements. (agile programming)\\nThe design is based
+        on subtle or manual simulation, and the tested design will be more practical
+        next time.\\nUsers and developers are involved in the development together
+        to ensure feasibility.\\n  4. Choose the Acceptance Test (see section 2 to
+        section 4 for details).\\n  5. Automated testing (see section 5 for details
+        ).\\n  6. Test tool (see section 6 for details )\\nWhat does Restful mean?
+        How is Restful used?\\nsimple set of rule , but as a whole is a set of strong
+        coherence.\\n(1) Representation(readable text document);\\n(2) State Transfer(transfer
+        information state);\\n(3) architecture is clear, providing web service interfaces
+        (A new set of architecture based on HTTP);\\nFamily Style.\\nRest = HTTP interface\\n
+        \ 1. For the Client, he only knows the services that should be requested based
+        on the URL path specified by the server. => Filter through HTTP + map tags\\n
+        \ 2. The content transmitted by the client is a defined XML or JSon format\\nWhat
+        is NoSQL? What are the benefits of NoSQL?\\nNoSQL Database ,\\nCommon relational
+        database:\\n  1. Standardized data storage mode (title, content, ID, and time)
+        are determined when the database is created, including the data type, title,
+        and Attributes of each field)\\n  2. The source of data objects is mainly
+        bound to a fixed folder for query operations.\\n  3. Implementation of unified
+        query language-Structured Query Language (SQL)\\nIn the search engine, however,
+        even the inverted index is not suitable for the database (large amount of
+        data, slowly retrieving ).\\nTherefore, the database is only suitable for
+        traditional companies.\\n  2. The amount of data is particularly large\\n
+        \ 3. The user expands quickly.\\n  4. The day of paralysis of the database
+        is within a week (structured storage) and user growth increases non-linearly.\\nPrinciples
+        for using relational databases:\\n  1. Select a small amount of data in the
+        order of ten million in progress (1: n complex condition proportions)\\n  2.
+        Structured data definition (business design must be clear)\\nAnother thought
+        is unstructured.\\nThere should be no irrelevant configurations and no configuration
+        (without Document) in the traditional NoSQL database!\\nThe technical background
+        of the non-relational database is as follows:\\n  1. Relational database can
+        be used in almost all systems;\\n  2. Data extraction algorithm is used to
+        abstract key-value pairs;\\n  3. File storage technology.\\nThe endless expansion
+        of conventional RDB is solved. The limitation of server Co-location is solved.\\nTherefore,
+        the inevitable result is the distributed storage of data on multiple machines,
+        while consistency and scalability (real-time performance) cannot be achieved.
+        In conclusion,\\n  1. SQL functions are mandatory. One SQL can be placed in
+        multiple servers, while in NoSQL, the data sources are separated and the query
+        is written. (some of the immediately available values must be Fault tolerant)\\n
+        \ 2. The order in the database is keywords and values. At the beginning, you
+        do not define the exclusive columns, which are complex values that can accept
+        the data type (similar to object storage)\\n  3. Conduct deep design at the
+        business level (Koi-Vue storage)\\nTargeted Function Flow:\\n  1. Define data
+        types based on specific content.\\n  2. Set the column data retrieval and
+        query features in the business.\\n  3. Sets the reference for data writing.\\nThe
+        final highlight is that both the database value and database extraction can
+        be implemented.\\nTo solve the performance bottleneck, you can:\\n  1. Upgrade
+        database hardware;\\n  2. Stand-alone optimization;\\n  3. Data retrieval
+        algorithm;\\n  4. SQL optimization 3. There is only one key-value pair, which
+        also faults the server.\\n  5. Establish a data warehouse and then conduct
+        real-time optimization to search for database instances.\\n  6. Use parallelization
+        solutions to resolve bottlenecks.\\n  7. SQL + Non-SQL solution for distributed
+        databases Final optimization solution. hbase\\nWhat is the Object-oriented
+        interior (also know as inside), and Reflection\\nObject-oriented interior
+        (interior), is a concept that disrupts the package's structure and creates
+        a package as a \\\" \\\" Generally, the translator inspects the services provided
+        by the package. \\\"Powerful In the class library. The efficiency of implementation
+        is also a time for translators and a way to translate language components.
+        (language-defined concept)\\nIntroduction: Introduction to language design
+        Procedure and components.\\nCommon reflective languages :\\nThe essence is
+        to use the object type to manipulate the object (Id ID).\\nhow to understand
+        Shared and Exclusive Locks, and Optimism and Pessimism\\nNote The purpose
+        of using a lock is to assert a composite physical station commitment. (transaction
+        support, process locking) Implement\\n1. Exclusive/Shared\\n2. Mutual\\n  1.
+        If the transaction T1 has a lock on the data object O, T2 applies to lock
+        the same image O, and it is likely to cause the insecurity (strong or weak
+        attributes) of the DBMS to be inconsistent.\\n3. Deadlock\\n  1. Suppose T1
+        has a lock on a Data Object O1 and tries to obtain a lock on O2.\\n  2. T2
+        locks an object O2 at the same time and tries to lock O1 .\\n  3. The two
+        transactions wait for each other and form a cyclic wait, which is a so-called
+        deadlock.\\nConclusion: data cannot be written at the same time during concurrent
+        operations.\\n(Controversial data types:\\nCharacter Data: text, varchar,
+        bitmap)\\nLarge Input: consumer must apply for IO, (distributed multithreading,
+        CPU, I/O, virtual machine, etc)\\nThe emergence of dynamic websites greatly
+        improved the time for data interaction. (IOS).\\nDefine a term for data access:
+        transaction . Transfer of monetary funds\\nPullwww ACE task/query\\nId +Relational
+        query in. SQL query)\\nText block transfer (program copy copy, read the text
+        provided by the tester, Or select other data sources based on the data source.
+        Do not modify the user-provided server. Multi-server ) depends on consistency.\\nA
+        data source must be shared by multiple users and no shared lock is required.\\nShared
+        lock (Shared Lock: Shared Lock ): the lock can be shared by other users (that
+        is, whoever has the lock can access it)\\nExclusive Lock: for other users,
+        users use specified declaration and control authority to determine whether
+        the data is available or not at will! (Status lock, if the user directly reads
+        the file without compilation, if writing is connected to the lock, But the
+        user can save the file and release the exclusive lock)\\nA should be X (with
+        a return value, you need to release the lock first), B should be U (if the
+        lock trigger needs to be used, and the lock disappears automatically)\\nThe
+        mapping to the lock attribute design processing: (properties -> processes)\\n
+        \ 1. Lock Expanding (Expand Locks) (Autolock, Users S) -> (Comprehensive lock
+        set , + long time , + Association lock Ability )\\n  2. Lock (Shrink Locks)
+        (Dependency set, triggerbase, action set for Users X) -> (lock set , + short
+        time , + query set )\\nSummary: unlike read lock and write lock, there is
+        no lock support in the system. The two are mainly for applications in different
+        fields.\\nWhat is the Cache(Memcache, EhcacheWebpackPlugin, OS cache, etc.)
+        application Scope and Principle?\\nCache is a medium for storing memory and
+        hard disks in a computing environment. After the cache is applied, the application
+        significantly improves performance. However, the data in the cache is not
+        persistent.\\nPrinciple : The cache stores the publicly accessible object
+        content. The bandwidth demand for new users is unlimited and staged. Load
+        the page data based on the URL (confirm user identity authentication to prevent
+        hackers)\\n1. P todd\\n2. Distributed cluster\\n3. Data Sharing Session and
+        consistency 4. Data retention period\\nWhat is a growth? (bidirectional compression
+        and oneshot/Vertical Search/Nevigation)\\nThe unique growth is the Key Algorithms
+        of the web page.\\n-Bidirectional, it is more difficult to organize and design,
+        the page arrangement direction is basically the same, but the webpage is fast\\nChange
+        based on point reading to extract Mind Maps. Mind Map thoughts, which are
+        more suitable for job usage\\nTherefore, the recommended solution is to use
+        both browsers.\\nSummary: both content retrieval and search engines have been
+        replaced by Non-structure\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":1946,\"total_tokens\":1948}}"
+  recorded_at: Sat, 25 Oct 2025 04:37:14 GMT
+recorded_with: VCR 6.3.1

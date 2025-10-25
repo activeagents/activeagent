@@ -1,0 +1,84 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is a microservice?"}],"model":"openrouter/auto"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:36:04 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f02bb6ca93ad4-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761366962-xf5VUVkz001hBPuNRZYE\",\"provider\":\"InferenceNet\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761366964,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        microservice is a software development technique that structures an application
+        as a collection of small, loosely coupled services. Each service runs in its
+        own process and communicates with other services through lightweight mechanisms,
+        often an HTTP/RESTful API. Here are some key characteristics of microservices:\\n\\n1.
+        **Small and Focused**: Microservices are small, single-purpose services that
+        focus on doing one thing well. They are typically much smaller than traditional
+        monolithic applications.\\n\\n2. **Loosely Coupled**: Microservices are designed
+        to be independent of each other. They can be developed, deployed, and scaled
+        independently. This allows for greater agility and flexibility.\\n\\n3. **Lightweight
+        Communication**: Microservices communicate with each other using simple, lightweight
+        mechanisms, often HTTP/REST or gRPC. This makes it easy to understand and
+        debug the communication between services.\\n\\n4. **Resilience**: Microservices
+        are designed to be resilient. If one service fails, it doesn't necessarily
+        impact other services. This is often achieved through techniques like circuit
+        breakers, retries, and timeouts.\\n\\n5. **Decentralized Governance**: Each
+        microservice can be developed, deployed, and scaled independently. This means
+        that teams can work on different services simultaneously without stepping
+        on each other's toes.\\n\\n6. **Technology Stack**: Each microservice can
+        be developed using a different technology stack. This allows teams to choose
+        the best tool for the job for each specific service.\\n\\nHere's a simple
+        example of what a microservice might look like using Node.js and Express:\\n\\n```javascript\\nconst
+        express = require('express');\\nconst app = express();\\n\\napp.get('/hello',
+        (req, res) => {\\n  res.send('Hello from the microservice!');\\n});\\n\\napp.listen(3000,
+        () => {\\n  console.log('Microservice listening on port 3000');\\n});\\n```\\n\\nIn
+        this example, the microservice listens on port 3000 and provides a single
+        endpoint ('/hello') that returns a greeting message.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"\",\"usage\":{\"prompt_tokens\":13,\"completion_tokens\":413,\"total_tokens\":426}}"
+  recorded_at: Sat, 25 Oct 2025 04:36:10 GMT
+recorded_with: VCR 6.3.1

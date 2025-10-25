@@ -82,7 +82,6 @@ module ActiveAgent
     #
     # @return [Hash] Hash of default configuration values
     DEFAULTS = {
-      colorize_logging: true,
       retries: true,
       retries_count: 3,
       retries_on: [
@@ -97,26 +96,6 @@ module ActiveAgent
         Timeout::Error
       ].freeze
     }.freeze
-
-    # @!attribute [rw] colorize_logging
-    #   When true, log subscriber output will be colorized.
-    #   @return [Boolean] Whether to colorize log output (default: true)
-    attr_reader :colorize_logging
-
-    # Sets the colorize_logging option and syncs it with the LogSubscriber.
-    #
-    # @param value [Boolean] Whether to colorize logging output
-    # @return [Boolean] The value that was set
-    def colorize_logging=(value)
-      @colorize_logging = value
-
-      # Sync with LogSubscriber class if it's loaded
-      if defined?(ActiveAgent::LogSubscriber)
-        ActiveAgent::LogSubscriber.colorize_logging = value
-      end
-
-      value
-    end
 
     # @!attribute [rw] retries
     #   Retry strategy for generation requests.

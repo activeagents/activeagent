@@ -41,6 +41,7 @@ module ActiveAgent
         attribute :route,    :string,                               default: "fallback"
         attribute :provider, Requests::ProviderPreferencesType.new, default: {}
         attribute :user,     :string # Stable identifier for end-users
+        attribute :plugins,  Requests::PluginsType.new # Array of plugin configurations (e.g., file-parser for PDFs)
 
         # Validations for parameters with specific ranges
         validates :max_tokens,         numericality: { greater_than_or_equal_to: 1 },                            allow_nil: true

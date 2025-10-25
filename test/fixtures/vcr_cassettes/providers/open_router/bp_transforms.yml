@@ -1,0 +1,111 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Summarize: API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. API documentation.
+        API documentation. API documentation. API documentation. "}],"model":"openai/gpt-4o-mini","transforms":["middle-out"]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:35:32 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f01fd8974b976-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1761366932-O2YxuYYXHsGQCUxeyDDQ\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1761366932,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The
+        text consists solely of the repeated phrase \\\"API documentation.\\\" It
+        suggests a focus on the topic of API documentation, which is essential for
+        developers to understand and utilize application programming interfaces effectively.
+        The repetition emphasizes the importance or prevalence of API documentation
+        in software development.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":612,\"completion_tokens\":51,\"total_tokens\":663,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 25 Oct 2025 04:35:33 GMT
+recorded_with: VCR 6.3.1

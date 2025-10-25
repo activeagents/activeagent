@@ -3,6 +3,7 @@
 require "active_agent/providers/open_ai/chat/requests/messages/_types"
 
 require_relative "assistant"
+require_relative "user"
 
 module ActiveAgent
   module Providers
@@ -23,27 +24,27 @@ module ActiveAgent
               when OpenAI::Chat::Requests::Messages::Base
                 value
               when String
-                OpenAI::Chat::Requests::Messages::User.new(content: value)
+                User.new(content: value)
               when Hash
                 hash = value.deep_symbolize_keys
                 role = hash[:role]&.to_sym
 
-                case role
-                when :developer
-                  OpenAI::Chat::Requests::Messages::Developer.new(**hash)
-                when :system
-                  OpenAI::Chat::Requests::Messages::System.new(**hash)
-                when :user, nil
-                  OpenAI::Chat::Requests::Messages::User.new(**hash)
-                when :assistant
-                  Assistant.new(**hash)
-                when :tool
-                  OpenAI::Chat::Requests::Messages::Tool.new(**hash)
-                when :function
-                  OpenAI::Chat::Requests::Messages::Function.new(**hash)
-                else
-                  raise ArgumentError, "Unknown message role: #{role.inspect}"
-                end
+              case role
+              when :developer
+                OpenAI::Chat::Requests::Messages::Developer.new(**hash)
+              when :system
+                OpenAI::Chat::Requests::Messages::System.new(**hash)
+              when :user, nil
+                User.new(**hash)
+              when :assistant
+                Assistant.new(**hash)
+              when :tool
+                OpenAI::Chat::Requests::Messages::Tool.new(**hash)
+              when :function
+                OpenAI::Chat::Requests::Messages::Function.new(**hash)
+              else
+                raise ArgumentError, "Unknown message role: #{role.inspect}"
+              end
               when nil
                 nil
               else

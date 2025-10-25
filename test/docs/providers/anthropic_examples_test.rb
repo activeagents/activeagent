@@ -5,7 +5,7 @@ require "test_helper"
 module Providers
   class AnthropicProviderTest < ActiveSupport::TestCase
     test "basic generation with Anthropic Claude" do
-      VCR.use_cassette("providers/anthropic_basic_generation") do
+      VCR.use_cassette("providers/anthropic/basic_generation") do
         # region anthropic_basic_example
         response = AnthropicAgent.with(
           message: "What is the Model Context Protocol?"

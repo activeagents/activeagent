@@ -1,0 +1,75 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Are there any notices on the Google homepage?","instructions":"You
+        are a scraping agent. You have a stateful browser attached to you.\nYour goal
+        is to extract ONLY user requested data by using the provided actions.","model":"gpt-4o-mini"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 401
+      message: Unauthorized
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 01:19:56 GMT
+      Content-Type:
+      - application/json
+      Content-Length:
+      - '231'
+      Connection:
+      - keep-alive
+      Www-Authenticate:
+      - Bearer realm="OpenAI API"
+      Openai-Version:
+      - '2020-10-01'
+      X-Request-Id:
+      - req_084bbc234698447eb83d7e08575dbc49
+      Openai-Processing-Ms:
+      - '31'
+      X-Envoy-Upstream-Service-Time:
+      - '34'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=_rtuzcn7pFYOA5xBTvPnzNremGZw7RnPKhOKjGDu.b0-1761355196-1.0.1.1-LDSXMKBaKXaa.E1gJMFdnTPrjzRVANP8DcHV8WXVPBC3P_aq_lwPMC9ZbRY2gYaMWZsrD1MaDWHheo3cZqzmD9IEOulvbO8NpZmoGbTHNzA;
+        path=/; expires=Sat, 25-Oct-25 01:49:56 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=urNKGDPYeRQaxIWnU4ItPmjHT4HyAwX8v.zIeILIzTg-1761355196968-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993de37c5910cf2a-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |-
+        {
+          "error": {
+            "message": "Incorrect API key provided: ''. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "type": "invalid_request_error",
+            "param": null,
+            "code": "invalid_api_key"
+          }
+        }
+  recorded_at: Sat, 25 Oct 2025 01:19:56 GMT
+recorded_with: VCR 6.3.1

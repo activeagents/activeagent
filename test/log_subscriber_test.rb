@@ -5,16 +5,13 @@ require "test_helper"
 class LogSubscriberTest < ActiveSupport::TestCase
   setup do
     @original_logger = ActiveAgent::Base.logger
-    @original_colorize = ActiveAgent.configuration.colorize_logging
     @log_output = StringIO.new
     ActiveAgent::Base.logger = Logger.new(@log_output)
     ActiveAgent::Base.logger.level = Logger::DEBUG
-    ActiveAgent.configuration.colorize_logging = false
   end
 
   teardown do
     ActiveAgent::Base.logger = @original_logger
-    ActiveAgent.configuration.colorize_logging = @original_colorize
   end
 
   test "log subscriber is attached" do
@@ -172,23 +169,5 @@ class LogSubscriberTest < ActiveSupport::TestCase
     assert_equal "Test", events.first.payload[:provider]
   ensure
     ActiveSupport::Notifications.unsubscribe(subscription) if subscription
-  end
-
-  test "colorize_logging class accessor matches Rails pattern" do
-    # Test that LogSubscriber has a class-level accessor
-    assert_respond_to ActiveAgent::LogSubscriber, :colorize_logging
-    assert_respond_to ActiveAgent::LogSubscriber, :colorize_logging=
-
-    # Test setting directly on the class
-    original = ActiveAgent::LogSubscriber.colorize_logging
-    ActiveAgent::LogSubscriber.colorize_logging = false
-    assert_equal false, ActiveAgent::LogSubscriber.colorize_logging
-
-    # Test that configuration setter syncs with LogSubscriber
-    ActiveAgent.configuration.colorize_logging = true
-    assert_equal true, ActiveAgent::LogSubscriber.colorize_logging
-
-    # Restore original
-    ActiveAgent::LogSubscriber.colorize_logging = original
   end
 end

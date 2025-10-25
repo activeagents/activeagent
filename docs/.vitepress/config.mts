@@ -109,7 +109,7 @@ export default defineConfig({
           { text: 'Anthropic', link: '/providers/anthropic' },
           { text: 'Ollama', link: '/providers/ollama' },
           { text: 'OpenAI', link: '/providers/open_ai' },
-          // { text: 'OpenRouter', link: '/providers/open_router' },
+          { text: 'OpenRouter', link: '/providers/open_router' },
           { text: 'Mock', link: '/providers/mock' },
         ]
       },

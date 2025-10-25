@@ -1,6 +1,6 @@
 # OpenRouter Provider
 
-OpenRouter provides access to multiple AI models through a unified API, with advanced features like fallback models, multimodal support, and PDF processing.
+The OpenRouter provider enables access to 200+ AI models from multiple providers (OpenAI, Anthropic, Google, Meta, and more) through a unified API. It offers intelligent model routing, automatic fallbacks, multimodal support, PDF processing, and cost optimization features.
 
 ## Configuration
 
@@ -22,13 +22,7 @@ Configure OpenRouter in your agent:
 
 Set up OpenRouter credentials in `config/active_agent.yml`:
 
-::: code-group
-
 <<< @/../test/dummy/config/active_agent.yml#open_router_anchor{yaml:line-numbers}
-
-<<< @/../test/dummy/config/active_agent.yml#open_router_dev_config{yaml:line-numbers}
-
-:::
 
 ### Environment Variables
 
@@ -37,553 +31,266 @@ Alternatively, use environment variables:
 ```bash
 OPEN_ROUTER_API_KEY=your-api-key
 # or
-OPEN_ROUTER_ACCESS_TOKEN=your-api-key
+OPENROUTER_API_KEY=your-api-key
 ```
 
 ## Supported Models
 
-OpenRouter provides access to models from multiple providers:
+OpenRouter provides access to 200+ models from multiple providers. For the complete list of available models and their capabilities, see [OpenRouter Models](https://openrouter.ai/models).
 
-### OpenAI Models
-- **openai/gpt-4o** - Most capable with vision and structured output
-- **openai/gpt-4o-mini** - Efficient with vision and structured output
-- **openai/gpt-4-turbo** - Advanced reasoning with structured output
-- **openai/o1** - Latest reasoning model
+### Popular Models
 
-### Anthropic Models
-- **anthropic/claude-3-5-sonnet** - Balanced performance
-- **anthropic/claude-3-opus** - Most capable Claude model
-- **anthropic/claude-3-haiku** - Fast and efficient
+| Provider | Model | Context Window | Best For |
+|----------|-------|----------------|----------|
+| **OpenAI** | openai/gpt-4o | 128K tokens | Vision, structured output, complex reasoning |
+| **OpenAI** | openai/gpt-4o-mini | 128K tokens | Fast, cost-effective with vision support |
+| **Anthropic** | anthropic/claude-3-5-sonnet | 200K tokens | Balanced performance, coding, analysis |
+| **Anthropic** | anthropic/claude-3-opus | 200K tokens | Most capable Claude model |
+| **Google** | google/gemini-pro-1.5 | 2M tokens | Very long context windows |
+| **Meta** | meta-llama/llama-3.1-405b | 128K tokens | Open source, powerful reasoning |
+| **Free** | qwen/qwen3-30b-a3b:free | 32K tokens | Free tier testing and development |
 
-### Google Models
-- **google/gemini-pro-1.5** - Latest Gemini with long context
-- **google/gemini-flash-1.5** - Fast and efficient
+**Recommended model identifiers:**
+- **openai/gpt-4o** - Best for vision tasks and structured output
+- **anthropic/claude-3-5-sonnet** - Best for coding and complex analysis
+- **google/gemini-pro-1.5** - Best for extremely long documents
 
-### Meta Models
-- **meta-llama/llama-3.1-405b** - Largest Llama model
-- **meta-llama/llama-3.1-70b** - Balanced performance
-
-### Other Providers
-- **qwen/qwen3-30b-a3b:free** - Free tier model
-- **mistralai/mistral-large** - Mistral's largest model
-- **deepseek/deepseek-chat** - DeepSeek's chat model
-
-For a complete list of available models, visit [OpenRouter Models](https://openrouter.ai/models).
-
-## Features
-
-### Structured Output Support
-
-OpenRouter supports structured output for compatible models (like OpenAI's GPT-4o and GPT-4o-mini), allowing you to receive responses in a predefined JSON schema format. This is particularly useful for data extraction tasks.
-
-#### Compatible Models
-
-Models that support both vision capabilities AND structured output:
-- `openai/gpt-4o`
-- `openai/gpt-4o-mini`
-- `openai/gpt-4-turbo` (structured output only, no vision)
-- `openai/gpt-3.5-turbo` variants (structured output only, no vision)
-
-#### Using Structured Output
-
-Define your schema and pass it to the `prompt` method:
-
-```ruby
-class OpenRouterAgent < ApplicationAgent
-  generate_with :open_router, model: "openai/gpt-4o-mini"
-
-  def analyze_image
-    @image_url = params[:image_url]
-
-    prompt(
-      message: build_image_message,
-      output_schema: image_analysis_schema
-    )
-  end
-
-  private
-
-  def image_analysis_schema
-    {
-      name: "image_analysis",
-      strict: true,
-      schema: {
-        type: "object",
-        properties: {
-          description: { type: "string" },
-          objects: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                position: { type: "string" },
-                color: { type: "string" }
-              },
-              required: ["name", "position", "color"],
-              additionalProperties: false
-            }
-          },
-          scene_type: {
-            type: "string",
-            enum: ["indoor", "outdoor", "abstract", "document", "photo", "illustration"]
-          }
-        },
-        required: ["description", "objects", "scene_type"],
-        additionalProperties: false
-      }
-    }
-  end
-end
-```
-
-::: tip
-When using `strict: true` with OpenAI models, all properties defined in your schema must be included in the `required` array. This ensures deterministic responses.
+::: tip Model Prefixes
+OpenRouter uses provider prefixes (e.g., `openai/`, `anthropic/`) to route requests to the correct provider. This allows you to use the same model across different providers or switch between them easily.
 :::
 
-For more comprehensive structured output examples, including receipt data extraction and document parsing, see the [Data Extraction Agent documentation](/examples/data-extraction-agent#structured-output).
+## Provider-Specific Parameters
 
-### Multimodal Support
+### Required Parameters
 
-OpenRouter supports vision-capable models for image analysis:
+- **`model`** - Model identifier (e.g., "openai/gpt-4o", default: "openrouter/auto")
 
-```ruby
-require "test_helper"
+### Sampling Parameters
 
-class OpenRouterMultimodalTest < ActiveSupport::TestCase
-  test "analyzes image with structured output" do
-    VCR.use_cassette("openrouter_image_analysis") do
-      response = OpenRouterIntegrationAgent.analyze_image(
-        image_url: "https://example.com/test-image.jpg"
-      ).generate_now
+- **`temperature`** - Controls randomness (0.0 to 2.0, default: varies by model)
+- **`max_tokens`** - Maximum tokens to generate (minimum: 1)
+- **`top_p`** - Nucleus sampling parameter (0.0 to 1.0)
+- **`top_k`** - Top-k sampling parameter (integer ≥ 1)
+- **`frequency_penalty`** - Penalize frequent tokens (-2.0 to 2.0)
+- **`presence_penalty`** - Penalize new topics (-2.0 to 2.0)
+- **`repetition_penalty`** - Control repetition (0.0 to 2.0)
+- **`min_p`** - Minimum probability threshold (0.0 to 1.0)
+- **`top_a`** - Top-a sampling parameter (0.0 to 1.0)
+- **`seed`** - For deterministic outputs (integer)
+- **`stop`** - Stop sequences (string or array)
 
-      assert_not_nil response
-      result = response.parsed_content
+### Tools & Functions
 
-      assert_not_nil result["description"]
-      assert_instance_of Array, result["objects"]
-      assert_includes ["indoor", "outdoor", "abstract", "document", "photo", "illustration"],
-                      result["scene_type"]
-      assert_instance_of Array, result["primary_colors"]
-    end
-  end
-end
-```
+- **`tools`** - Array of tool definitions for function calling
+- **`tool_choice`** - Control which tools can be used ("auto", "any", or specific tool)
+- **`parallel_tool_calls`** - Allow parallel tool execution (boolean)
 
-For the complete agent implementation with image analysis schemas, see `test/dummy/app/agents/open_router_integration_agent.rb`.
-
-::: details Image Analysis with Structured Output
-<!-- @include: @/parts/examples/open-router-integration-test.rb-test-analyzes-remote-image-URL-without-structured-output.md -->
+::: tip Tool Calling Support
+Tool calling support varies by model. Most modern models (GPT-4o, Claude 3.5, Gemini Pro) support function calling. Check the [OpenRouter model documentation](https://openrouter.ai/models) for specific model capabilities.
 :::
 
-### Receipt Data Extraction with Structured Output
+### Response Format
 
-Extract structured data from receipts and documents using OpenRouter's structured output capabilities. This example demonstrates how to parse receipt images and extract specific fields like merchant information, items, and totals.
+- **`response_format`** - Output format control (see [Structured Output](/actions/structured-output))
 
-#### Test Implementation
+### Predicted Outputs
 
-```ruby
-test "extracts receipt data with structured output" do
-  VCR.use_cassette("openrouter_receipt_extraction") do
-    response = OpenRouterIntegrationAgent.extract_receipt_data(
-      image_path: "test/fixtures/files/sample_receipt.png"
-    ).generate_now
+- **`prediction`** - Predicted output configuration for latency optimization (supported by compatible models)
 
-    result = response.parsed_content
+### OpenRouter-Specific Features
 
-    # Verify merchant information
-    assert_not_nil result["merchant"]
-    assert_not_nil result["merchant"]["name"]
-    assert_not_nil result["merchant"]["address"]
+- **`models`** (or `fallback_models`) - Array of fallback models for automatic failover
+- **`route`** - Routing strategy ("fallback")
+- **`transforms`** - Content transforms (e.g., ["middle-out"] for long context)
+- **`provider`** - Provider preferences (see [Provider Preferences](#provider-preferences))
+- **`user`** - Stable user identifier for cost tracking and analytics
 
-    # Verify totals
-    assert_not_nil result["total"]
-    assert_instance_of Numeric, result["total"]["amount"]
+### Client Configuration
 
-    # Verify items
-    assert_instance_of Array, result["items"]
-    assert result["items"].length > 0
-  end
-end
-```
+- **`access_token`** - OpenRouter API key (also accepts `api_key`)
+- **`uri_base`** - API endpoint (default: "https://openrouter.ai/api/v1")
+- **`app_name`** - Application name for usage attribution
+- **`site_url`** - Site URL for referral tracking and credits
 
-#### Receipt Schema Definition
+### Streaming
 
-<<< @/../test/dummy/app/agents/open_router_integration_agent.rb#receipt_schema{ruby:line-numbers}
+- **`stream`** - Enable streaming responses (boolean, default: false)
 
-The receipt schema ensures consistent extraction of:
-- Merchant name and address
-- Individual line items with names and prices
-- Subtotal, tax, and total amounts
-- Currency information
+## Model Routing & Fallbacks
 
-::: details Receipt Extraction Example Output
-<!-- @include: @/parts/examples/open-router-integration-test.rb-test-extracts-receipt-data-with-structured-output-from-local-file.md -->
-:::
+OpenRouter provides intelligent model routing with automatic fallbacks when models are unavailable or requests fail.
 
-::: tip
-This example uses structured output to ensure the receipt data is returned in a consistent JSON format. For more examples of structured data extraction from various document types, see the [Data Extraction Agent documentation](/examples/data-extraction-agent#structured-output).
-:::
+### Automatic Fallbacks
 
-### PDF Processing
+Configure fallback models that will be tried in order if the primary model fails:
 
-OpenRouter supports PDF processing with various engines:
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_fallback_agent{ruby:line-numbers}
 
-```ruby
-test "processes PDF document from local file" do
-  VCR.use_cassette("openrouter_pdf_processing") do
-    pdf_data = Base64.strict_encode64(File.read("test/fixtures/files/sample.pdf"))
+**Fallback Behavior:**
+- Models are tried in the order specified
+- Automatic retry on rate limits or availability issues
+- Seamless failover with no code changes needed
+- Cost optimization by trying cheaper alternatives first
 
-    response = OpenRouterIntegrationAgent.analyze_pdf(
-      pdf_data: pdf_data,
-      pdf_engine: "pdf-text",
-      prompt_text: "Summarize this PDF document"
-    ).generate_now
+### Model Selection Strategies
 
-    assert_not_nil response
-    assert_not_nil response.message.content
-  end
-end
-```
+Use the `route` parameter to control routing behavior:
 
-::: details PDF Processing Example
-<!-- @include: @/parts/examples/open-router-integration-test.rb-test-processes-PDF-document-from-local-file.md -->
-:::
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_auto_routing_agent{ruby:line-numbers}
 
-#### PDF Processing Options
-
-OpenRouter offers multiple PDF processing engines:
-
-- **Native Engine**: Charged as input tokens, best for models with built-in PDF support
-- **Mistral OCR Engine**: $2 per 1000 pages, optimized for scanned documents
-- **No Plugin**: For models that have built-in PDF capabilities
-
-Example with OCR engine:
-
-```ruby
-test "processes scanned PDF with OCR engine" do
-  VCR.use_cassette("openrouter_pdf_ocr") do
-    response = OpenRouterIntegrationAgent.analyze_pdf(
-      pdf_url: "https://example.com/scanned-receipt.pdf",
-      pdf_engine: "mistral-ocr",
-      prompt_text: "Extract all text from this scanned document"
-    ).generate_now
-
-    assert_not_nil response
-    assert response.message.content.length > 0
-  end
-end
-```
-
-::: details OCR Processing Example
-<!-- @include: @/parts/examples/open-router-integration-test.rb-test-processes-scanned-PDF-with-OCR-engine.md -->
-:::
-
-### Fallback Models
-
-Configure fallback models for improved reliability:
-
-```ruby
-class RobustAgent < ApplicationAgent
-  generate_with :open_router,
-    model: "openai/gpt-4o",
-    fallback_models: ["anthropic/claude-sonnet-4", "openai/gpt-4o-mini"],
-    enable_fallbacks: true
-
-  def analyze
-    prompt(message: params[:message])
-  end
-end
-
-# Test fallback behavior
-test "uses fallback models when primary fails" do
-  VCR.use_cassette("openrouter_fallback") do
-    response = RobustAgent.analyze(
-      message: "Explain quantum computing"
-    ).generate_now
-
-    assert_not_nil response
-    # Fallback models are automatically tried if primary fails
-  end
-end
-```
-
-::: details Fallback Model Example
-<!-- @include: @/parts/examples/open-router-integration-test.rb-test-uses-fallback-models-when-primary-fails.md -->
-:::
-
-### Content Transforms
-
-Apply transforms for handling long content:
-
-```ruby
-test "applies transforms for long content" do
-  VCR.use_cassette("openrouter_transforms") do
-    long_text = "Lorem ipsum " * 1000
-
-    response = OpenRouterIntegrationAgent.process_long_text(
-      text: long_text
-    ).generate_now
-
-    assert_not_nil response
-    # middle-out transform helps with long context
-  end
-end
-```
-
-For more details on content transforms, see the [OpenRouter transforms documentation](https://openrouter.ai/docs/transforms).
-
-::: details Transform Example
-<!-- @include: @/parts/examples/open-router-integration-test.rb-test-applies-transforms-for-long-content.md -->
-:::
-
-### Usage and Cost Tracking
-
-Track token usage and costs for OpenRouter requests:
-
-```ruby
-test "tracks usage and costs" do
-  VCR.use_cassette("openrouter_usage_tracking") do
-    response = OpenRouterIntegrationAgent.analyze_content(
-      content: "What is the capital of France?"
-    ).generate_now
-
-    assert_not_nil response
-
-    # Access usage data from response
-    if response.usage
-      assert_instance_of Integer, response.usage["prompt_tokens"]
-      assert_instance_of Integer, response.usage["completion_tokens"]
-      assert_instance_of Integer, response.usage["total_tokens"]
-    end
-
-    # OpenRouter-specific cost tracking
-    if response.metadata && response.metadata["usage"]
-      usage = response.metadata["usage"]
-      puts "Total cost: $#{usage['total_cost']}" if usage["total_cost"]
-    end
-  end
-end
-```
-
-When `track_costs: true` is enabled in your agent configuration, OpenRouter will include detailed cost information in the response metadata.
-
-::: details Usage Tracking Example
-<!-- @include: @/parts/examples/open-router-integration-test.rb-test-tracks-usage-and-costs.md -->
-:::
+**Available Routes:**
+- **`fallback`** - Try models in order until one succeeds
 
 ## Provider Preferences
 
-Configure provider preferences for routing and data collection:
+Fine-tune which providers and configurations OpenRouter uses for your requests.
 
-```ruby
-class PreferenceAgent < ApplicationAgent
-  generate_with :open_router,
-    model: "openai/gpt-4o",
-    provider_preferences: {
-      allow: ["OpenAI", "Anthropic"],  # Only use these providers
-      order: ["OpenAI"]                # Try OpenAI first
-    }
+### Basic Provider Configuration
 
-  def analyze
-    prompt(message: params[:message])
-  end
-end
-```
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_provider_preferences_agent{ruby:line-numbers}
 
-For more information on provider preferences, see the [OpenRouter provider routing documentation](https://openrouter.ai/docs/provider-routing).
+### Provider Selection
 
-### Data Collection Policies
+Control which providers handle your requests:
 
-OpenRouter supports configuring data collection policies to control which providers can collect and use your data for training. According to the [OpenRouter documentation](https://openrouter.ai/docs/features/provider-routing#requiring-providers-to-comply-with-data-policies), you can configure this in three ways:
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_provider_selection_agent{ruby:line-numbers}
 
-1. **Allow all providers** (default): All providers can collect data
-2. **Deny all providers**: No providers can collect data
-3. **Selective providers**: Only specified providers can collect data
+### Cost Optimization
 
-#### Configuration Examples
+Set maximum price constraints to control costs:
 
-```ruby
-# Deny all data collection
-class PrivateAgent < ApplicationAgent
-  generate_with :open_router,
-    model: "openai/gpt-4o",
-    data_collection: "deny"
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_cost_optimization_agent{ruby:line-numbers}
 
-  def process
-    prompt(message: params[:message])
-  end
-end
+**Sorting Options:**
+- **`price`** - Lowest cost providers first
+- **`throughput`** - Highest throughput providers first
+- **`latency`** - Lowest latency providers first
 
-# Allow specific providers only
-class SelectiveAgent < ApplicationAgent
-  generate_with :open_router,
-    model: "openai/gpt-4o",
-    data_collection: ["OpenAI", "Anthropic"]
+### Privacy & Data Collection
 
-  def process
-    prompt(message: params[:message])
-  end
-end
-```
+Control data collection and privacy settings:
 
-#### Real-World Example: Privacy-Focused Agent
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_privacy_agent{ruby:line-numbers}
 
-Here's a complete example of an agent configured to handle sensitive data with strict privacy controls:
+**Data Collection Options:**
+- **`allow`** (default) - Allow providers that may store/train on data
+- **`deny`** - Only use providers with strict no-data-retention policies
 
-```ruby
-class PrivacyFocusedAgent < ApplicationAgent
-  generate_with :open_router,
-    model: "openai/gpt-4o",
-    data_collection: "deny",           # Prevent data collection
-    require_parameters: true,          # Ensure parameter support
-    fallback_models: ["openai/gpt-4o-mini"]
+### Quantization Control
 
-  def process_financial_data
-    prompt(
-      message: "Analyze this financial data: #{params[:data]}",
-      data_collection: "deny"  # Ensure no training data collection
-    )
-  end
+Filter providers by model quantization level:
 
-  def process_medical_records
-    prompt(
-      message: "Summarize this medical record: #{params[:record]}",
-      data_collection: ["OpenAI"]  # Only allow OpenAI to access
-    )
-  end
-end
-```
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_quantization_agent{ruby:line-numbers}
 
-Processing sensitive financial data:
+**Available Quantizations:**
+- `int4`, `int8` - Lower precision, faster inference
+- `fp4`, `fp6`, `fp8` - Mixed precision
+- `fp16`, `bf16` - High precision
+- `fp32` - Full precision
+- `unknown` - Unspecified quantization
 
-```ruby
-response = PrivacyFocusedAgent.process_financial_data(
-  data: "Q4 earnings: $2.5M revenue, $800K expenses"
-).generate_now
+## Content Transforms
 
-# Data is processed without being used for model training
-puts response.message.content
-```
+OpenRouter provides content transforms to optimize long-context handling.
 
-Selective provider data collection for medical records:
+### Middle-Out Compression
 
-```ruby
-response = PrivacyFocusedAgent.process_medical_records(
-  record: "Patient presents with symptoms..."
-).generate_now
+The `middle-out` transform automatically compresses the middle portion of long contexts while preserving the beginning and end:
 
-# Only OpenAI can access this data
-puts response.message.content
-```
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_transforms_agent{ruby:line-numbers}
 
-You can configure data collection at multiple levels:
+**Benefits:**
+- Reduces token usage for long documents
+- Preserves important context at start/end
+- Lowers costs on long-context requests
+- Maintains coherent summaries
 
-```ruby
-# In config/active_agent.yml
-development:
-  open_router:
-    api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
-    model: openai/gpt-4o
-    data_collection: deny  # Deny all providers from collecting data
-    require_parameters: true  # Require model providers to support all specified parameters
+## Cost Tracking & Analytics
 
-# Or allow specific providers only
-production:
-  open_router:
-    api_key: <%= Rails.application.credentials.dig(:open_router, :api_key) %>
-    model: openai/gpt-4o
-    data_collection: ["OpenAI", "Google"]  # Only these providers can collect data
-    require_parameters: false  # Allow fallback to providers that don't support all parameters
+OpenRouter provides detailed usage analytics when you configure tracking parameters.
 
-# In your agent configuration
-class PrivacyFocusedAgent < ApplicationAgent
-  generate_with :open_router,
-    model: "openai/gpt-4o",
-    data_collection: "deny",  # Override for this specific agent
-    require_parameters: true  # Ensure all parameters are supported
-end
-```
+### User Tracking
 
-::: warning Privacy Considerations
-When handling sensitive data, consider setting `data_collection: "deny"` to ensure your data is not used for model training. This is especially important for:
-- Personal information
-- Proprietary business data
-- Medical or financial records
-- Confidential communications
-:::
+Track costs per user with the `user` parameter:
 
-::: tip
-The `data_collection` parameter respects OpenRouter's provider compliance requirements. Providers that don't comply with your data collection policy will be automatically excluded from the routing pool.
-:::
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_user_tracking_agent{ruby:line-numbers}
 
-## Headers and Site Configuration
+### Application Attribution
 
-OpenRouter supports custom headers for tracking and attribution:
+Configure app tracking for referral credits:
 
-```ruby
-class TrackedAgent < ApplicationAgent
-  generate_with :open_router,
-    model: "openai/gpt-4o",
-    headers: {
-      "HTTP-Referer": "https://your-app.com",
-      "X-Title": "My Application"
-    }
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_app_attribution_agent{ruby:line-numbers}
 
-  def analyze
-    prompt(message: params[:message])
-  end
-end
-```
+**Benefits:**
+- Earn referral credits for traffic
+- Track usage across applications
+- Detailed cost breakdowns in OpenRouter dashboard
+- Per-user and per-model analytics
 
-These headers help with tracking usage in the OpenRouter dashboard and provide attribution for your requests.
+## Multimodal Support
 
-## Model Capabilities Detection
+OpenRouter supports vision-capable models for image analysis and multimodal tasks.
 
-The provider automatically detects model capabilities:
+### Image Analysis
 
-```ruby
-class CapabilityAwareAgent < ApplicationAgent
-  generate_with :open_router, model: "openai/gpt-4o"
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_vision_agent{ruby:line-numbers}
 
-  def analyze_with_vision
-    # The provider automatically detects vision support
-    prompt(
-      message: [
-        { type: "text", text: "What's in this image?" },
-        { type: "image_url", image_url: { url: params[:image_url] } }
-      ]
-    )
-  end
+**Vision-Capable Models:**
+- `openai/gpt-4o` - Best vision performance
+- `openai/gpt-4o-mini` - Fast, cost-effective vision
+- `anthropic/claude-3-5-sonnet` - Strong vision + reasoning
+- `google/gemini-pro-vision` - Google's vision model
 
-  def structured_extraction
-    # Automatically uses structured output if model supports it
-    prompt(
-      message: "Extract data from this text",
-      output_schema: my_schema
-    )
-  end
-end
-```
+## PDF Processing
 
-The OpenRouter provider intelligently adapts to model capabilities, enabling or disabling features based on what the selected model supports.
+OpenRouter provides built-in PDF processing capabilities through plugins.
 
-## Important Notes
+### PDF Document Analysis
 
-### Model Compatibility
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_pdf_agent{ruby:line-numbers}
 
-When using OpenRouter's advanced features, ensure your chosen model supports the required capabilities:
+**PDF Processing Engines:**
+- **`pdf-text`** (free) - Text extraction from PDFs
+- **`mistral-ocr`** ($2/1000 pages) - OCR for scanned documents
+- **`native`** (input tokens) - Model's native PDF support
 
-- **Structured Output**: Requires models like `openai/gpt-4o`, `openai/gpt-4o-mini`, or other OpenAI models with structured output support
-- **Vision/Image Analysis**: Requires vision-capable models like GPT-4o, Claude 3, or Gemini Pro Vision
-- **PDF Processing**: May require specific plugins or engines depending on the model and document type
+## Best Practices
 
-For tasks requiring both vision and structured output (like receipt extraction), use models that support both capabilities, such as:
-- `openai/gpt-4o`
-- `openai/gpt-4o-mini`
+### 1. Use Fallbacks for Reliability
 
-## See Also
+Always configure fallback models for production systems:
 
-- [Data Extraction Agent](/examples/data-extraction-agent) - Comprehensive examples of structured data extraction
-- [Providers Overview](/framework/providers) - Understanding provider architecture
-- [OpenRouter API Documentation](https://openrouter.ai/docs) - Official OpenRouter documentation
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_best_practice_fallbacks_agent{ruby:line-numbers}
+
+### 2. Optimize Costs with Provider Preferences
+
+Use cost-based sorting and price limits:
+
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_best_practice_cost_agent{ruby:line-numbers}
+
+### 3. Track Usage Per User
+
+Enable detailed analytics:
+
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_best_practice_tracking_agent{ruby:line-numbers}
+
+### 4. Use Transforms for Long Content
+
+Apply middle-out compression for documents:
+
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_best_practice_transforms_agent{ruby:line-numbers}
+
+### 5. Respect Privacy with Provider Settings
+
+For sensitive data, use privacy-first providers:
+
+<<< @/../test/docs/providers/open_router_examples_test.rb#openrouter_best_practice_privacy_agent{ruby:line-numbers}
+
+## Related Documentation
+
+- [Structured Output](/actions/structured-output) - Comprehensive structured output guide
+- [Data Extraction Agent](/examples/data-extraction-agent) - Data extraction examples
+- [Providers Overview](/providers) - Provider architecture
+- [Configuration Guide](/framework/configuration) - General configuration
+- [OpenRouter API Documentation](https://openrouter.ai/docs) - Official OpenRouter docs
+- [OpenRouter Provider Routing](https://openrouter.ai/docs/provider-routing) - Advanced routing documentation

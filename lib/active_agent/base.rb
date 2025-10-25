@@ -242,13 +242,19 @@ module ActiveAgent
     def process_prompt
       fail "Prompt Provider not Configured" unless prompt_provider_klass
 
-      parameters = prompt_options.except(:locals).merge(
+      parameters = prompt_options.except(:locals)
+
+      # Render out proc/lamda attributes before rendering templates
+      parameters.deep_transform_values! { it.respond_to?(:call) ? it.call : it }
+
+      # Apply Callbacks
+      parameters.merge!(
         trace_id: prompt_options[:trace_id] || SecureRandom.uuid,
         exception_handler:,
         stream_broadcaster:,
         tools_function:,
         instructions: prompt_view_instructions(prompt_options[:instructions])
-      ).compact
+      ).compact!
 
       # Fallback to message from template if no messages provided, rendered as late as
       # possible to allow local overrides.
@@ -280,10 +286,16 @@ module ActiveAgent
     def process_embed
       fail "Embed Provider not Configured" unless embed_provider_klass
 
-      parameters = embed_options.except(:locals).merge(
+      parameters = embed_options.except(:locals)
+
+      # Render out proc/lamda attributes before rendering templates
+      parameters.deep_transform_values! { it.respond_to?(:call) ? it.call : it }
+
+      # Apply Callbacks
+      parameters.merge!(
         trace_id: prompt_options[:trace_id] || SecureRandom.uuid,
         exception_handler:
-      ).compact
+      ).compact!
 
       # Fallback to input from template if no input provided, rendered as late as
       # possible to allow local overrides.

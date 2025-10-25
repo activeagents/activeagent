@@ -15,7 +15,6 @@ ActiveAgent.configure do |config|
   # Logging (non-Rails only)
   config.logger = Logger.new(STDOUT)
   config.logger.level = Logger::INFO
-  config.colorize_logging = true
 end
 ```
 
@@ -26,7 +25,6 @@ end
 | `retries` | Boolean, Proc | `true` | Retry strategy for failed requests |
 | `retries_count` | Integer | `3` | Maximum retry attempts |
 | `retries_on` | Array\<Class\> | Network errors | Exception classes that trigger retries |
-| `colorize_logging` | Boolean | `true` | Colorize log output |
 | `logger` | Logger | `Rails.logger` | Logger instance (Rails auto-configured) |
 
 
@@ -214,10 +212,10 @@ Common settings available across all providers:
 
 **Provider-specific settings:** Each provider supports additional configuration options beyond these common settings. For complete details on available settings, environment variables, and provider-specific features, see:
 
-- **[OpenAI Provider](/providers/open_ai)** - Organization ID, request timeout, admin token, etc.
 - **[Anthropic Provider](/providers/anthropic)** - Beta headers, base URL, retry configuration, etc.
-- **[OpenRouter Provider](/providers/open_router)** - App name, site URL, provider preferences, etc.
 - **[Ollama Provider](/providers/ollama)** - Host configuration for local instances
+- **[OpenAI Provider](/providers/open_ai)** - Organization ID, request timeout, admin token, etc.
+- **[OpenRouter Provider](/providers/open_router)** - App name, site URL, provider preferences, etc.
 - **[Mock Provider](/providers/mock)** - Testing-specific options
 
 ### Using Configured Providers
@@ -289,18 +287,15 @@ In Rails, ActiveAgent automatically inherits logging settings from your Rails ap
 
 - **Logger**: Uses `Rails.logger` by default
 - **Log level**: Inherits from `Rails.logger.level`
-- **Colorization**: Inherits from `config.colorize_logging`
 
 Configure in your environment files:
 
 ```ruby
 # config/environments/development.rb
 config.log_level = :debug
-config.colorize_logging = true
 
 # config/environments/production.rb
 config.log_level = :info
-config.colorize_logging = false  # Better for log aggregation
 ```
 
 ### Non-Rails Applications
@@ -312,9 +307,6 @@ ActiveAgent.configure do |config|
   # Set up logger
   config.logger = Logger.new(STDOUT)
   config.logger.level = Logger::INFO
-
-  # Control colorization
-  config.colorize_logging = true
 end
 ```
 

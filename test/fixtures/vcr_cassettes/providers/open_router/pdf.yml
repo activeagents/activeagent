@@ -1,0 +1,69 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"Summarize
+        this PDF"},{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCgoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagoKMyAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDIgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDQgMCBSCj4+Cj4+Ci9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagoKNSAwIG9iago8PAovTGVuZ3RoIDMwMAo+PgpzdHJlYW0KQlQKL0YxIDE2IFRmCjUwIDc1MCBUZAooSm9obiBEb2UgLSBTb2Z0d2FyZSBFbmdpbmVlcikgVGoKMCAtMzAgVGQKL0YxIDEyIFRmCihFbWFpbDogam9obi5kb2VAZXhhbXBsZS5jb20pIFRqCjAgLTIwIFRkCihQaG9uZTogKDU1NSkgMTIzLTQ1NjcpIFRqCjAgLTIwIFRkCihMb2NhdGlvbjogU2FuIEZyYW5jaXNjbywgQ0EpIFRqCjAgLTQwIFRkCi9GMSAxNCBUZgooRXhwZXJpZW5jZTopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyIGF0IFRlY2hDb3JwICgyMDIwLTIwMjQpKSBUagowIC0yMCBUZAooLSBEZXZlbG9wZWQgd2ViIGFwcGxpY2F0aW9ucyB1c2luZyBSdWJ5IG9uIFJhaWxzKSBUagowIC0yMCBUZAooLSBMZWQgdGVhbSBvZiA1IGRldmVsb3BlcnMpIFRqCjAgLTIwIFRkCigtIEltcGxlbWVudGVkIENJL0NEIHBpcGVsaW5lcykgVGoKMCAtNDAgVGQKL0YxIDE0IFRmCihTa2lsbHM6KSBUagowIC0yNSBUZAovRjEgMTIgVGYKKFJ1YnksIFJhaWxzLCBKYXZhU2NyaXB0LCBQeXRob24sIEFXUywgRG9ja2VyKSBUagowIC00MCBUZAovRjEgMTQgVGYKKEVkdWNhdGlvbjopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooQlMgQ29tcHV0ZXIgU2NpZW5jZSwgU3RhbmZvcmQgVW5pdmVyc2l0eSAoMjAxNi0yMDIwKSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCjAwMDAwMDAzMzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo2ODcKJSVFT0YK"}}]}],"model":"openai/gpt-4o","plugins":[{"id":"file-parser","pdf":{"engine":"pdf-text"}}]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:36:01 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f02b1cd83ccb8-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n{\"id\":\"gen-1761366961-9AtO0Du3W0B4LILSUgMg\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761366961,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"John
+        Doe is a Software Engineer based in San Francisco, CA. He has experience working
+        as a Senior Software Engineer at TechCorp from 2020 to 2024, where he developed
+        web applications using Ruby on Rails, led a team of five developers, and implemented
+        CI/CD pipelines. His skill set includes Ruby, Rails, JavaScript, Python, AWS,
+        and Docker. He holds a Bachelor of Science degree in Computer Science from
+        Stanford University, earned between 2016 and 2020.\",\"refusal\":null,\"reasoning\":null,\"annotations\":[{\"type\":\"file\",\"file\":{\"hash\":\"a037be360bd99c8907e44d2c58a44c267c35419791fb2a3fc795ded3b628c275\",\"content\":[{\"type\":\"text\",\"text\":\"<file
+        name=\\\"file\\\">\"},{\"type\":\"text\",\"text\":\"John Doe - Software Engineer\\n\\nEmail:
+        john.doe@example.com\\nPhone: (555) 123-4567\\nLocation: San Francisco, CA\\n\\nExperience:\\n\\nSenior
+        Software Engineer at TechCorp (2020-2024)\\n- Developed web applications using
+        Ruby on Rails\\n- Led team of 5 developers\\n- Implemented CI/CD pipelines\\n\\nSkills:\\n\\nRuby,
+        Rails, JavaScript, Python, AWS, Docker\\n\\nEducation:\\n\\nBS Computer Science,
+        Stanford University (2016-2020)\"},{\"type\":\"text\",\"text\":\"</file>\"}]}}]}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":121,\"completion_tokens\":99,\"total_tokens\":220,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 25 Oct 2025 04:36:02 GMT
+recorded_with: VCR 6.3.1

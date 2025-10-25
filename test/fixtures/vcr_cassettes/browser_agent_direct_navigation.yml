@@ -1,0 +1,41 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: http://127.0.0.1:59363/json/version
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:59363
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Security-Policy:
+      - frame-ancestors 'none'
+      Content-Length:
+      - '430'
+      Content-Type:
+      - application/json; charset=UTF-8
+    body:
+      encoding: UTF-8
+      string: |
+        {
+           "Browser": "Chrome/141.0.7390.123",
+           "Protocol-Version": "1.3",
+           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.0.0 Safari/537.36",
+           "V8-Version": "14.1.146.11",
+           "WebKit-Version": "537.36 (@fcf346308f838bc89a3e3270e07f2fca679303ad)",
+           "webSocketDebuggerUrl": "ws://127.0.0.1:59363/devtools/browser/58eed909-a146-4b05-b22b-65beacbc6e9b"
+        }
+  recorded_at: Sat, 25 Oct 2025 01:20:25 GMT
+recorded_with: VCR 6.3.1

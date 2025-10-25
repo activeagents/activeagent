@@ -1,0 +1,92 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Explain polymorphism in OOP"}],"model":"openai/gpt-4o","models":["anthropic/claude-sonnet-4","google/gemini-pro-1.5"]}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:37:24 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f04b89ffdcf87-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761367043-SOh0bP6BAsHYgIbcCmHO\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761367044,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Polymorphism
+        is one of the core concepts of Object-Oriented Programming (OOP) and it refers
+        to the ability of different objects to be treated as instances of the same
+        class through a common interface. The most common type of polymorphism in
+        OOP is through methods.\\n\\n### Types of Polymorphism\\n\\n1. **Compile-Time
+        Polymorphism (Static Binding or Method Overloading):**\\n   - This type of
+        polymorphism is resolved during the compile time.\\n   - Method Overloading:
+        It occurs when multiple methods have the same name with different parameters
+        (either in number, type, or order) within the same class or in a subclass.
+        The compiler determines the appropriate method based on the method signature
+        during compile time.\\n   - Example: \\n     ```java\\n     class Printer
+        {\\n         void print(int num) {\\n             System.out.println(\\\"Integer:
+        \\\" + num);\\n         }\\n         void print(String text) {\\n             System.out.println(\\\"String:
+        \\\" + text);\\n         }\\n     }\\n     ```\\n\\n2. **Runtime Polymorphism
+        (Dynamic Binding or Method Overriding):**\\n   - This type of polymorphism
+        is resolved during runtime.\\n   - Method Overriding: It occurs when a subclass
+        has a method with the same name and signature as a method in its superclass.
+        The decisions regarding which method to call are made at runtime based on
+        the object's actual type.\\n   - Example:\\n     ```java\\n     class Animal
+        {\\n         void sound() {\\n             System.out.println(\\\"Animal sound\\\");\\n
+        \        }\\n     }\\n\\n     class Dog extends Animal {\\n         @Override\\n
+        \        void sound() {\\n             System.out.println(\\\"Bark\\\");\\n
+        \        }\\n     }\\n\\n     public class Test {\\n         public static
+        void main(String[] args) {\\n             Animal myDog = new Dog();\\n             myDog.sound();
+        \ // Outputs: Bark\\n         }\\n     }\\n     ```\\n   - In the example
+        above, even though `myDog` is declared as an `Animal`, it refers to an instance
+        of `Dog`, and thus the `sound` method of `Dog` is invoked.\\n\\n### Importance
+        of Polymorphism\\n\\n- **Code Reusability:** By using polymorphism, a single
+        function can operate on different types of objects, enhancing reusability.\\n-
+        **Scalability and Maintainability:** Polymorphism allows systems to be easily
+        extended and modified. Adding new subclasses or method implementations doesn't
+        require changing existing code.\\n- **Interface Implementation:** It allows
+        objects to be manipulated regardless of their specific class, upholding the
+        principle of programming to an interface rather than an implementation.\\n\\nOverall,
+        polymorphism contributes to the flexibility and scalability of code, making
+        it easier to handle changes and complexity in software design.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":13,\"completion_tokens\":541,\"total_tokens\":554,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 25 Oct 2025 04:37:29 GMT
+recorded_with: VCR 6.3.1

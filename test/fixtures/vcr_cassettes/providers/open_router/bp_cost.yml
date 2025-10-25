@@ -1,0 +1,83 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is GraphQL?"}],"model":"openrouter/auto","provider":{"sort":"price","max_price":{"prompt":0.3,"completion":0.5}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:34:57 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f011bba36159e-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761366896-fOG0kw5JIrYi7OLdawYu\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761366897,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"GraphQL
+        is an open-source query language for APIs and a runtime for fulfilling those
+        queries with your data. It was developed internally by Facebook in 2012 before
+        being open-sourced in 2015. Here are some key features and concepts of GraphQL:\\n\\n1.
+        **Strongly Typed**: GraphQL is self-documenting and strongly typed. It allows
+        both the client and the server to agree on the structure of the data, making
+        it easier to understand and work with.\\n\\n2. **Single Endpoint**: Unlike
+        REST APIs that have multiple endpoints, GraphQL has a single endpoint. The
+        client specifies exactly what data it needs, reducing over-fetching and under-fetching
+        of data.\\n\\n3. **Queries and Mutations**: GraphQL uses queries to fetch
+        data and mutations to change data (create, update, delete). Here's a simple
+        example of a query:\\n\\n   ```graphql\\n   {\\n     user(id: 1) {\\n       name\\n
+        \      email\\n     }\\n   }\\n   ```\\n\\n4. **Schema Definition Language
+        (SDL)**: GraphQL uses SDL to define the types and fields in your schema. It's
+        used to generate type-safe code and documentation.\\n\\n5. **Real-time Updates**:
+        GraphQL supports subscriptions, which allow clients to receive real-time updates
+        when data changes.\\n\\n6. **Introspection and Code Generation**: GraphQL
+        supports introspection, allowing tools to extract information about the schema,
+        generate code, and more.\\n\\nHere's a simple example of a GraphQL schema:\\n\\n```graphql\\ntype
+        User {\\n  id: ID!\\n  name: String!\\n  email: String!\\n}\\n\\ntype Query
+        {\\n  user(id: ID!): User\\n}\\n```\\n\\nIn this schema, we have a `User`
+        type with fields `id`, `name`, and `email`. We also have a `Query` type with
+        a single field `user` that takes an `id` argument and returns a `User`.\\n\\nGraphQL
+        is used by many large companies including Facebook, GitHub, Twitter, and more.
+        It's often used as an alternative or complement to REST APIs.\\n\\nTo learn
+        more about GraphQL, you can visit the official website: https://graphql.org/\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":450,\"total_tokens\":460,\"prompt_tokens_details\":null}}"
+  recorded_at: Sat, 25 Oct 2025 04:35:04 GMT
+recorded_with: VCR 6.3.1

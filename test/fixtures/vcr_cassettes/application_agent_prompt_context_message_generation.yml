@@ -1,0 +1,73 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Test Application Agent","model":"gpt-4o-mini"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 401
+      message: Unauthorized
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 01:19:56 GMT
+      Content-Type:
+      - application/json
+      Content-Length:
+      - '231'
+      Connection:
+      - keep-alive
+      Www-Authenticate:
+      - Bearer realm="OpenAI API"
+      Openai-Version:
+      - '2020-10-01'
+      X-Request-Id:
+      - req_3403cb7b69284988979a8298a9d4bf96
+      Openai-Processing-Ms:
+      - '38'
+      X-Envoy-Upstream-Service-Time:
+      - '43'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=XbCJhCYwAgqfumKmlgIASbL2eVeznnmvrbIwJpiXEmM-1761355196-1.0.1.1-LmEdQPE2MobOXgc6LhWAw3Dgva1rM8TK8Y4A_GfGM0266hSrXiE5QfWCn2dYvisOCJRHPe2hz2ppnrPQW4z_FiaDU_Ds9q1qSn3tCTLyRg4;
+        path=/; expires=Sat, 25-Oct-25 01:49:56 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=CC7OwvkCPtjhDm1xpT6JTaEAswTPF2ttFCcmcoeI_JM-1761355196760-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993de37b1e622314-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |-
+        {
+          "error": {
+            "message": "Incorrect API key provided: ''. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "type": "invalid_request_error",
+            "param": null,
+            "code": "invalid_api_key"
+          }
+        }
+  recorded_at: Sat, 25 Oct 2025 01:19:56 GMT
+recorded_with: VCR 6.3.1

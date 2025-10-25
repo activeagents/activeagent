@@ -1,0 +1,116 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Explain OAuth 2.0"}],"model":"anthropic/claude-3-5-sonnet","provider":{"data_collection":"deny","zdr":true}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 04:35:06 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 993f0155499f17ec-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n{\"id\":\"gen-1761366905-j7JARRwYwFsy5OHCDFUS\",\"provider\":\"Amazon
+        Bedrock\",\"model\":\"anthropic/claude-3.5-sonnet\",\"object\":\"chat.completion\",\"created\":1761366905,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"OAuth
+        2.0 is an authorization framework that enables applications to obtain limited
+        access to user accounts on an HTTP service. Here's a comprehensive explanation:\\n\\n1.
+        Core Concepts:\\n\\n```\\n- Resource Owner: The user who owns the data (e.g.,
+        the user's profile)\\n- Client: The application requesting access to the resources\\n-
+        Resource Server: The API server hosting the protected resources\\n- Authorization
+        Server: The server issuing access tokens\\n- Access Token: The key used to
+        access protected resources\\n- Scope: The permissions that the client is requesting\\n```\\n\\n2.
+        Main Grant Types:\\n\\n```javascript\\na) Authorization Code Flow:\\n// Most
+        common and secure flow\\n1. User clicks \\\"Login with Service\\\"\\n2. User
+        authenticates and approves permissions\\n3. Service returns authorization
+        code\\n4. App exchanges code for access token\\n5. App uses token to access
+        resources\\n\\nb) Implicit Flow:\\n// Used in browser-based apps (less secure)\\n1.
+        User authenticates\\n2. Token returned directly to browser\\n3. No authorization
+        code step\\n\\nc) Client Credentials:\\n// Used for server-to-server communication\\n1.
+        App directly requests token using client ID and secret\\n2. No user interaction
+        required\\n\\nd) Resource Owner Password:\\n// Used when high trust exists
+        between user and app\\n1. User provides username/password directly to app\\n2.
+        App exchanges credentials for token\\n```\\n\\n3. Basic Flow Example (Authorization
+        Code):\\n\\n```javascript\\n// 1. Authorization Request\\nGET /authorize?\\n
+        \ response_type=code&\\n  client_id=CLIENT_ID&\\n  redirect_uri=CALLBACK_URL&\\n
+        \ scope=read_profile&\\n  state=RANDOM_STRING\\n\\n// 2. Authorization Response\\nHTTP/1.1
+        302 Found\\nLocation: CALLBACK_URL?code=AUTHORIZATION_CODE&state=RANDOM_STRING\\n\\n//
+        3. Token Request\\nPOST /token\\n  grant_type=authorization_code&\\n  code=AUTHORIZATION_CODE&\\n
+        \ client_id=CLIENT_ID&\\n  client_secret=CLIENT_SECRET&\\n  redirect_uri=CALLBACK_URL\\n\\n//
+        4. Token Response\\n{\\n  \\\"access_token\\\": \\\"ACCESS_TOKEN\\\",\\n  \\\"token_type\\\":
+        \\\"Bearer\\\",\\n  \\\"expires_in\\\": 3600,\\n  \\\"refresh_token\\\": \\\"REFRESH_TOKEN\\\"\\n}\\n```\\n\\n4.
+        Security Considerations:\\n\\n```javascript\\n// Always use:\\n- HTTPS for
+        all OAuth communications\\n- State parameter to prevent CSRF\\n- PKCE for
+        mobile/native apps\\n- Validate redirect URIs\\n- Secure storage of tokens\\n\\n//
+        Never:\\n- Store tokens in localStorage (for web apps)\\n- Pass tokens in
+        URLs\\n- Share client secrets in public clients\\n```\\n\\n5. Token Usage:\\n\\n```javascript\\n//
+        Making authenticated requests\\nfetch('https://api.service.com/resource',
+        {\\n  headers: {\\n    'Authorization': 'Bearer ACCESS_TOKEN'\\n  }\\n});\\n```\\n\\n6.
+        Refresh Token Flow:\\n\\n```javascript\\n// When access token expires\\nPOST
+        /token\\n  grant_type=refresh_token&\\n  refresh_token=REFRESH_TOKEN&\\n  client_id=CLIENT_ID&\\n
+        \ client_secret=CLIENT_SECRET\\n\\n// Response includes new access token\\n{\\n
+        \ \\\"access_token\\\": \\\"NEW_ACCESS_TOKEN\\\",\\n  \\\"token_type\\\":
+        \\\"Bearer\\\",\\n  \\\"expires_in\\\": 3600,\\n  \\\"refresh_token\\\": \\\"NEW_REFRESH_TOKEN\\\"\\n}\\n```\\n\\n7.
+        Common Implementations:\\n\\n```javascript\\n// Popular services using OAuth
+        2.0:\\n- Google\\n- Facebook\\n- GitHub\\n- Twitter\\n- Microsoft\\n\\n//
+        Common libraries:\\n- Passport.js (Node.js)\\n- Spring Security OAuth (Java)\\n-
+        OmniAuth (Ruby)\\n```\\n\\n8. Best Practices:\\n\\n```javascript\\n// Implementation\\n1.
+        Use authorization code flow when possible\\n2. Implement proper token storage\\n3.
+        Handle token expiration gracefully\\n4. Validate all tokens\\n5. Use appropriate
+        scopes\\n\\n// Security\\n1. Keep client secrets secure\\n2. Use short-lived
+        access tokens\\n3. Implement token revocation\\n4. Monitor for suspicious
+        activity\\n5. Regular security audits\\n```\\n\\nUnderstanding OAuth 2.0 is
+        crucial for modern web development as it's the industry standard for authorization.
+        It provides a secure way for applications to access user resources without
+        exposing credentials.\\n\\nRemember that OAuth 2.0 is primarily for authorization
+        (what you can do) rather than authentication (who you are), though it's often
+        used as part of authentication protocols like OpenID Connect.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":14,\"completion_tokens\":1045,\"total_tokens\":1059}}"
+  recorded_at: Sat, 25 Oct 2025 04:35:23 GMT
+recorded_with: VCR 6.3.1
