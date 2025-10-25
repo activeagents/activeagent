@@ -5,7 +5,7 @@ require "test_helper"
 module Providers
   class AnthropicProviderTest < ActiveSupport::TestCase
     test "basic generation with Anthropic Claude" do
-      VCR.use_cassette("providers/anthropic/basic_generation") do
+      VCR.use_cassette("docs/providers/anthropic/basic_generation") do
         # region anthropic_basic_example
         response = AnthropicAgent.with(
           message: "What is the Model Context Protocol?"
@@ -35,7 +35,7 @@ module Providers
       # endregion response_format_json_object_agent
 
       test "response format json_object" do
-        VCR.use_cassette("providers/anthropic/response_format/json_object") do
+        VCR.use_cassette("docs/providers/anthropic/response_format/json_object") do
           # region response_format_json_object_example
           response = DataExtractionAgent.extract_colors.generate_now
           colors = response.message.json_object # Parsed JSON hash

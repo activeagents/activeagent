@@ -5,7 +5,7 @@ require "ostruct"
 
 class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   test "basic generation with OpenRouter" do
-    VCR.use_cassette("providers/open_router/basic_generation") do
+    VCR.use_cassette("docs/providers/open_router/basic_generation") do
       # region openrouter_basic_example
       response = Providers::OpenRouterAgent.with(
         message: "What is functional programming?"
@@ -34,7 +34,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "uses fallback models for reliability" do
-    VCR.use_cassette("providers/open_router/fallback_models") do
+    VCR.use_cassette("docs/providers/open_router/fallback_models") do
       response = ResilientAgent.with(
         message: "Explain polymorphism in OOP"
       ).analyze.generate_now
@@ -63,7 +63,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "uses provider preferences for privacy" do
-    VCR.use_cassette("providers/open_router/provider_preferences") do
+    VCR.use_cassette("docs/providers/open_router/provider_preferences") do
       response = OptimizedAgent.with(
         message: "What is encapsulation?"
       ).chat.generate_now
@@ -94,7 +94,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "optimizes costs with provider sorting" do
-    VCR.use_cassette("providers/open_router/cost_optimization") do
+    VCR.use_cassette("docs/providers/open_router/cost_optimization") do
       response = CostOptimizedAgent.with(
         message: "Define inheritance"
       ).generate_response.generate_now
@@ -122,7 +122,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "uses middle-out transform for long content" do
-    VCR.use_cassette("providers/open_router/transforms") do
+    VCR.use_cassette("docs/providers/open_router/transforms") do
       long_document = "The history of programming languages. " * 100
 
       response = LongContextAgent.with(
@@ -149,7 +149,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "tracks costs per user" do
-    VCR.use_cassette("providers/open_router/user_tracking") do
+    VCR.use_cassette("docs/providers/open_router/user_tracking") do
       # Simulate a current user
       Current.user = OpenStruct.new(id: "user-123")
 
@@ -180,7 +180,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "configures application attribution" do
-    VCR.use_cassette("providers/open_router/app_attribution") do
+    VCR.use_cassette("docs/providers/open_router/app_attribution") do
       response = AttributedAgent.with(
         message: "What is a design pattern?"
       ).chat.generate_now
@@ -204,7 +204,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   # endregion openrouter_vision_agent
 
   test "analyzes images with vision models" do
-    VCR.use_cassette("providers/open_router/vision") do
+    VCR.use_cassette("docs/providers/open_router/vision") do
       response = VisionAgent.with(
         image_url: "https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png?scale-down-to=64"
       ).analyze_image.generate_now
@@ -239,7 +239,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
     pdf_base64 = Base64.strict_encode64(pdf_data)
     pdf_base64_url = "data:application/pdf;base64,#{pdf_base64}"
 
-    VCR.use_cassette("providers/open_router/pdf") do
+    VCR.use_cassette("docs/providers/open_router/pdf") do
       response = PDFAgent.with(pdf_base64_url:).analyze_pdf.generate_now
 
       doc_example_output(response)
@@ -266,7 +266,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "controls provider selection with order and filters" do
-    VCR.use_cassette("providers/open_router/provider_selection") do
+    VCR.use_cassette("docs/providers/open_router/provider_selection") do
       response = ProviderSelectionAgent.with(
         message: "Explain dependency injection"
       ).chat.generate_now
@@ -294,7 +294,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "respects privacy with data collection controls" do
-    VCR.use_cassette("providers/open_router/privacy") do
+    VCR.use_cassette("docs/providers/open_router/privacy") do
       response = PrivacyFirstAgent.with(
         message: "Explain the SOLID principles"
       ).chat.generate_now
@@ -321,7 +321,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "filters providers by quantization level" do
-    VCR.use_cassette("providers/open_router/quantization") do
+    VCR.use_cassette("docs/providers/open_router/quantization") do
       response = QuantizedModelAgent.with(
         message: "What is test-driven development?"
       ).chat.generate_now
@@ -346,7 +346,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
   end
 
   test "uses automatic model routing" do
-    VCR.use_cassette("providers/open_router/auto_routing") do
+    VCR.use_cassette("docs/providers/open_router/auto_routing") do
       response = AutoRoutingAgent.with(
         message: "What is a microservice?"
       ).chat.generate_now
@@ -373,7 +373,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
     end
 
     test "best practice: uses fallbacks for reliability" do
-      VCR.use_cassette("providers/open_router/bp_fallbacks") do
+      VCR.use_cassette("docs/providers/open_router/bp_fallbacks") do
         response = ReliableAgent.with(
           message: "Explain RESTful APIs"
         ).chat.generate_now
@@ -399,7 +399,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
     end
 
     test "best practice: optimizes costs with provider preferences" do
-      VCR.use_cassette("providers/open_router/bp_cost") do
+      VCR.use_cassette("docs/providers/open_router/bp_cost") do
         response = CostEfficientAgent.with(
           message: "What is GraphQL?"
         ).chat.generate_now
@@ -423,7 +423,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
     end
 
     test "best practice: tracks usage per user" do
-      VCR.use_cassette("providers/open_router/bp_tracking") do
+      VCR.use_cassette("docs/providers/open_router/bp_tracking") do
         Current.user = OpenStruct.new(id: "user-456")
 
         response = AnalyticsAgent.with(
@@ -452,7 +452,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
     end
 
     test "best practice: uses transforms for long content" do
-      VCR.use_cassette("providers/open_router/bp_transforms") do
+      VCR.use_cassette("docs/providers/open_router/bp_transforms") do
         long_content = "API documentation. " * 200
 
         response = EfficientContextAgent.with(
@@ -480,7 +480,7 @@ class Providers::OpenRouterProviderTest < ActiveSupport::TestCase
     end
 
     test "best practice: respects privacy with provider settings" do
-      VCR.use_cassette("providers/open_router/bp_privacy") do
+      VCR.use_cassette("docs/providers/open_router/bp_privacy") do
         response = SecureAgent.with(
           message: "Explain OAuth 2.0"
         ).chat.generate_now

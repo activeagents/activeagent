@@ -88,9 +88,8 @@ export default defineConfig({
           { text: 'Instructions', link: '/agents/instructions' },
           { text: 'Streaming', link: '/agents/streaming' },
           { text: 'Callbacks', link: '/agents/callbacks' },
-          // { text: 'Embeddings', link: '/agents/embeddings' },
+          { text: 'Embeddings', link: '/agents/embeddings' },
           { text: 'Error Handling', link: '/agents/error-handling' },
-          // { text: 'Structured Output', link: '/agents/structured-output' },
         ]
       },
       {

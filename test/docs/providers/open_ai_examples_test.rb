@@ -21,7 +21,7 @@ module Providers
       end
 
       test "basic usage" do
-        VCR.use_cassette("providers/openai/basic_usage") do
+        VCR.use_cassette("docs/providers/openai/basic_usage") do
           # region basic_usage
           response = Providers::OpenAIAgent.with(
             message: "What is the Model Context Protocol?"
@@ -284,7 +284,7 @@ module Providers
       end
 
       test "structured output usage" do
-        VCR.use_cassette("providers/openai/structured_output") do
+        VCR.use_cassette("docs/providers/openai/structured_output") do
           # region structured_output_usage
           response = DataExtractionAgent.extract_colors.generate_now
           colors = response.message.json_object
@@ -309,7 +309,7 @@ module Providers
       end
 
       test "embedding usage" do
-        VCR.use_cassette("providers/openai/embeddings_usage") do
+        VCR.use_cassette("docs/providers/openai/embeddings_usage") do
           # region embedding_usage
           class EmbeddingAgent < ApplicationAgent
             embed_with :openai, model: "text-embedding-3-small"

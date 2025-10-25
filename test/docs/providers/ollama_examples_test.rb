@@ -5,7 +5,7 @@ require "test_helper"
 module Providers
   class OllamaProviderTest < ActiveSupport::TestCase
     test "basic generation with Ollama" do
-      VCR.use_cassette("providers/ollama/basic_generation") do
+      VCR.use_cassette("docs/providers/ollama/basic_generation") do
         # region ollama_basic_example
         response = OllamaAgent.with(
           message: "What is a design pattern?"
@@ -21,7 +21,7 @@ module Providers
     end
 
     test "demonstrates advanced options configuration" do
-      VCR.use_cassette("providers/ollama/advanced_options") do
+      VCR.use_cassette("docs/providers/ollama/advanced_options") do
         # Example of advanced Ollama configuration
         # region ollama_advanced_options
         class AdvancedOllamaAgent < ApplicationAgent
@@ -53,7 +53,7 @@ module Providers
 
 
     test "demonstrates model loading configuration" do
-      VCR.use_cassette("providers/ollama/model_loading") do
+      VCR.use_cassette("docs/providers/ollama/model_loading") do
         # Keep models in memory for faster responses
         # region ollama_model_loading
         class FastOllamaAgent < ApplicationAgent
@@ -76,7 +76,7 @@ module Providers
 
 
     test "demonstrates GPU configuration" do
-      VCR.use_cassette("providers/ollama/gpu_configuration") do
+      VCR.use_cassette("docs/providers/ollama/gpu_configuration") do
         # Configure GPU usage for better performance
         # region ollama_gpu_configuration
         class GPUAgent < ApplicationAgent
@@ -101,7 +101,7 @@ module Providers
     end
 
     test "demonstrates quantized model usage" do
-      VCR.use_cassette("providers/ollama/quantized_model") do
+      VCR.use_cassette("docs/providers/ollama/quantized_model") do
         # Use quantized model for faster inference
         # region ollama_quantized_model
         class EfficientAgent < ApplicationAgent
@@ -149,7 +149,7 @@ module Providers
       end
       # endregion ollama_error_handling
 
-      VCR.use_cassette("providers/ollama/error_handling") do
+      VCR.use_cassette("docs/providers/ollama/error_handling") do
         response = RobustOllamaAgent.with(message: "Hi!").ask.generate_now
 
         assert response.success?
