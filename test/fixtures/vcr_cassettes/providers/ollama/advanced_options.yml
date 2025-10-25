@@ -1,0 +1,38 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is 2+2?"}],"model":"llama3","temperature":0.7,"options":{"num_ctx":4096,"num_gpu":1,"num_thread":8,"repeat_penalty":1.1,"mirostat":2,"mirostat_tau":5.0,"mirostat_eta":0.1}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 25 Oct 2025 00:25:12 GMT
+      Content-Length:
+      - '307'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-612","object":"chat.completion","created":1761351912,"model":"llama3","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"The
+        answer to 2+2 is... 4!"},"finish_reason":"stop"}],"usage":{"prompt_tokens":17,"completion_tokens":13,"total_tokens":30}}
+
+        '
+  recorded_at: Sat, 25 Oct 2025 00:25:12 GMT
+recorded_with: VCR 6.3.1

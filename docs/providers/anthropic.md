@@ -121,9 +121,7 @@ Anthropic provides access to the Claude model family. For the complete list of a
 
 - **`stream`** - Enable streaming responses (boolean, default: false)
 
-## Anthropic-Specific Features
-
-### Emulated JSON Object Support
+## Emulated JSON Object Support
 
 While Anthropic does not natively support structured response formats like OpenAI's `json_object` mode, ActiveAgent provides emulated support through a prompt engineering technique.
 
@@ -134,19 +132,19 @@ When you specify `response_format: { type: "json_object" }`, the framework:
 3. **Reconstructs the complete JSON** by prepending the `{` character
 4. **Removes the lead-in message** from the message stack for clean conversation history
 
-#### Usage Example
+### Usage Example
 
 <<< @/../test/docs/providers/anthropic_examples_test.rb#response_format_json_object_agent{ruby:line-numbers} [agent]
 
 <<< @/../test/docs/providers/anthropic_examples_test.rb#response_format_json_object_example{ruby:line-numbers} [usage]
 
-#### Best Practices
+### Best Practices
 
 - **Be explicit in your prompt**: Ask Claude to "return a JSON object" or "respond with valid JSON"
 - **Specify the schema**: Describe the expected structure in your prompt for better results
 - **Validate the output**: While Claude is reliable, always validate parsed JSON in production
 
-#### Limitations
+### Limitations
 
 Unlike OpenAI's native JSON mode:
 - **No schema enforcement**: Claude is not forced to conform to a specific schema
@@ -155,7 +153,7 @@ Unlike OpenAI's native JSON mode:
 
 For applications requiring guaranteed schema conformance, consider using the [Structured Output](/agents/structured-output) feature with providers that support native JSON schema validation.
 
-### Constitutional AI
+## Constitutional AI
 
 Claude is trained with Constitutional AI, making it particularly good at:
 - Following ethical guidelines

@@ -1,0 +1,39 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Hi!"}],"model":"llama3"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 25 Oct 2025 00:24:24 GMT
+      Content-Length:
+      - '374'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-104","object":"chat.completion","created":1761351864,"model":"llama3","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Hi!
+        It''s nice to meet you. Is there something I can help you with, or would you
+        like to chat?"},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":26,"total_tokens":38}}
+
+        '
+  recorded_at: Sat, 25 Oct 2025 00:24:24 GMT
+recorded_with: VCR 6.3.1

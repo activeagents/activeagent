@@ -22,13 +22,7 @@ Configure the Mock provider in your agent:
 
 Set up Mock provider in `config/active_agent.yml`:
 
-::: code-group
-
 <<< @/../test/dummy/config/active_agent.yml#mock_anchor{yaml:line-numbers}
-
-<<< @/../test/dummy/config/active_agent.yml#mock_dev_config{yaml:line-numbers}
-
-:::
 
 ### Environment Variables
 

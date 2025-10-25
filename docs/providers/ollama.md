@@ -22,20 +22,14 @@ Configure Ollama in your agent:
 
 Set up Ollama in `config/active_agent.yml`:
 
-::: code-group
-
 <<< @/../test/dummy/config/active_agent.yml#ollama_anchor{yaml:line-numbers}
-
-<<< @/../test/dummy/config/active_agent.yml#ollama_dev_config{yaml:line-numbers}
-
-:::
 
 ### Environment Variables
 
-Configure via environment:
+No API keys required. Optionally configure connection settings:
 
 ```bash
-OLLAMA_HOST=http://localhost:11434/v1
+OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=llama3
 ```
 
@@ -63,300 +57,86 @@ docker exec -it ollama ollama pull llama3
 
 ## Supported Models
 
+Ollama supports a wide range of open-source models that run locally on your machine. For the complete list of available models, see [Ollama's Model Library](https://ollama.ai/library).
+
 ### Popular Models
 
-- **llama3** - Meta's Llama 3 (8B, 70B)
-- **mistral** - Mistral 7B
-- **gemma** - Google's Gemma (2B, 7B)
-- **codellama** - Code-specialized Llama
-- **mixtral** - Mixture of experts model
-- **phi** - Microsoft's Phi-2
-- **neural-chat** - Intel's fine-tuned model
-- **qwen** - Alibaba's Qwen models
+| Model | Sizes | Context Window | Best For |
+|-------|-------|----------------|----------|
+| **llama3** | 8B, 70B | 8K tokens | General purpose reasoning |
+| **mistral** | 7B | 32K tokens | Balanced performance |
+| **gemma** | 2B, 7B | 8K tokens | Lightweight, efficient |
+| **codellama** | 7B, 13B, 34B | 16K tokens | Code generation and analysis |
+| **mixtral** | 8x7B | 32K tokens | High quality, mixture of experts |
+| **phi** | 2.7B | 2K tokens | Fast, small footprint |
+| **qwen** | 0.5B to 72B | 32K tokens | Multilingual support |
+| **deepseek-r1** | 1.5B to 70B | 64K tokens | Advanced reasoning |
 
-### List Available Models
+**Recommended model identifiers:**
+- **llama3** - Best for general use and reasoning
+- **codellama** - Best for code-related tasks
+- **mistral** - Best for long context understanding
 
-```ruby
-class OllamaAdmin < ApplicationAgent
-  generate_with :ollama
-
-  def list_models
-    # Get list of installed models
-    response = HTTParty.get("#{ollama_host}/api/tags")
-    response["models"]
-  end
-
-  private
-
-  def ollama_host
-    Rails.configuration.active_agent.dig(:ollama, :host) || "http://localhost:11434/v1"
-  end
-end
-```
-
-## Features
-
-### Local Inference
-
-Run models completely offline:
-
-<<< @/../test/docs/providers/ollama_examples_test.rb#ollama_local_inference{ruby:line-numbers}
-
-::: details Response Example
-<!-- @include: @/parts/examples/ollama-provider-test.rb-test-runs-local-inference.md -->
+::: tip Quantized Models
+Ollama offers quantized versions that reduce memory usage and increase speed with minimal quality loss. For example: `ollama pull qwen3:0.6b`
 :::
 
-### Model Switching
-
-Easily switch between models:
-
-```ruby
-class MultiModelAgent < ApplicationAgent
-  def code_review
-    # Use specialized code model
-    self.class.generate_with :ollama, model: "codellama"
-    @code = params[:code]
-    prompt
-  end
-
-  def general_chat
-    # Use general purpose model
-    self.class.generate_with :ollama, model: "llama3"
-    @message = params[:message]
-    prompt
-  end
-end
-```
-
-### Custom Models
-
-Use fine-tuned or custom models:
-
-```ruby
-class CustomModelAgent < ApplicationAgent
-  generate_with :ollama, model: "my-custom-model:latest"
-
-  before_action :ensure_model_exists
-
-  private
-
-  def ensure_model_exists
-    # Check if model is available
-    models = fetch_available_models
-    unless models.include?(generation_provider.model)
-      raise "Model #{generation_provider.model} not found. Run: ollama pull #{generation_provider.model}"
-    end
-  end
-end
-```
-
-### Structured Output
-
-Ollama can generate JSON-formatted responses through careful prompting and model selection. While Ollama doesn't have native structured output like OpenAI, many models can reliably produce JSON when properly instructed.
-
-#### Approach
-
-To get structured output from Ollama:
-
-1. **Choose the right model** - Models like Llama 3, Mixtral, and Mistral are good at following formatting instructions
-2. **Use clear prompts** - Explicitly request JSON format in your instructions
-3. **Set low temperature** - Use values like 0.1-0.3 for more consistent formatting
-4. **Parse and validate** - Always validate the response as it may not be valid JSON
-
-#### Example Approach
-
-```ruby
-class OllamaAgent < ApplicationAgent
-  generate_with :ollama,
-    model: "llama3",
-    temperature: 0.1  # Lower temperature for consistency
-
-  def extract_with_json_prompt
-    prompt(
-      instructions: <<~INST,
-        You must respond ONLY with valid JSON.
-        Extract the key information and format as:
-        {"field1": "value", "field2": "value"}
-        No explanation, just the JSON object.
-      INST
-      message: params[:text]
-    )
-  end
-end
-
-# Usage - parse with error handling
-response = agent.extract_with_json_prompt.generate_now
-begin
-  data = JSON.parse(response.message.content)
-rescue JSON::ParserError
-  # Handle malformed JSON
-end
-```
-
-#### Best Practices
-
-1. **Model Selection**: Test different models to find which works best for your use case
-2. **Prompt Engineering**: Be very explicit about JSON requirements
-3. **Validation**: Always validate and handle parsing errors
-4. **Local Processing**: Ideal for sensitive data that must stay on-premise
-
-#### Limitations
-
-- No guaranteed JSON output like OpenAI's strict mode
-- Quality varies significantly by model
-- May require multiple attempts or fallback logic
-- Complex schemas may be challenging
-
-For reliable structured output, consider using [OpenAI](/providers/openai-provider#structured-output) or [OpenRouter](/providers/open-router-provider#structured-output-support) providers. For local processing requirements where Ollama is necessary, implement robust validation and error handling.
-
-See the [Structured Output guide](/agents/structured-output) for more information about structured output patterns.
-
-### Streaming Responses
-
-Stream responses for better UX:
-
-```ruby
-class StreamingOllamaAgent < ApplicationAgent
-  generate_with :ollama,
-    model: "llama3",
-    stream: true
-
-  on_message_chunk do |chunk|
-    # Handle streaming chunks
-    Rails.logger.info "Chunk: #{chunk}"
-    broadcast_to_client(chunk)
-  end
-
-  def chat
-    prompt(message: params[:message])
-  end
-end
-```
-
-### Embeddings Support
-
-Generate embeddings locally using Ollama's embedding models. See the [Embeddings Framework Documentation](/framework/embeddings) for comprehensive coverage.
-
-#### Basic Embedding Generation
-
-```ruby
-class EmbeddingAgent < ApplicationAgent
-  embed_with :ollama,
-    model: "llama3",
-    embedding_model: "nomic-embed-text",
-    host: "http://localhost:11434"
-
-  def generate_embedding
-    # Generate embedding from text
-    embed("The quick brown fox jumps over the lazy dog")
-  end
-
-  def generate_batch_embeddings
-    # Generate embeddings for multiple texts
-    embed([
-      "First text string",
-      "Second text string"
-    ])
-  end
-end
-
-# Generate single embedding
-response = EmbeddingAgent.new.generate_embedding.embed_now
-embedding = response.message.content
-# => [0.123, -0.456, 0.789, ...] (array of floats)
-
-# Generate batch embeddings
-response = EmbeddingAgent.new.generate_batch_embeddings.embed_now
-embeddings = response.message.content
-# => [[0.123, ...], [0.456, ...]] (array of embedding arrays)
-```
-
-::: details Response Example
-<!-- @include: @/parts/examples/ollama-provider-test-test-embed-method-works-with-ollama-provider.md -->
-:::
-
-::: warning Connection Required
-Ollama must be running locally. If you see connection errors, start Ollama with:
-```bash
-ollama serve
-```
-:::
-
-#### Available Embedding Models
-
-- **nomic-embed-text** - High-quality text embeddings (768 dimensions)
-- **mxbai-embed-large** - Large embedding model (1024 dimensions)
-- **all-minilm** - Lightweight embeddings (384 dimensions)
-
-#### Pull Embedding Models
+### List Installed Models
 
 ```bash
-# Install embedding models
-ollama pull nomic-embed-text
-ollama pull mxbai-embed-large
+# List all locally available models
+ollama list
+
+# Pull a new model
+ollama pull llama3
+
+# Remove a model
+ollama rm llama3
 ```
-
-#### Error Handling
-
-Ollama provides helpful error messages when the service is not available:
-
-```ruby
-begin
-  response = EmbeddingAgent.new.generate_embedding.embed_now
-  embedding = response.message.content
-rescue Errno::ECONNREFUSED, Net::OpenTimeout => e
-  # Handle connection errors when Ollama is not running
-  Rails.logger.error "Ollama is not running: #{e.message}"
-
-  # Provide helpful feedback
-  puts "Error: Connection refused"
-  puts "Solution: Start Ollama with: ollama serve"
-
-  # Optional: Fallback to another provider
-  # Use OpenAI or another cloud provider as fallback
-end
-```
-
-This ensures developers get clear feedback about connection issues.
-
-For more embedding patterns and examples, see the [Embeddings Documentation](/framework/embeddings).
 
 ## Provider-Specific Parameters
 
-### Model Parameters
+### Required Parameters
 
 - **`model`** - Model name (e.g., "llama3", "mistral")
-- **`embedding_model`** - Embedding model name (e.g., "nomic-embed-text")
+
+### Sampling Parameters
+
 - **`temperature`** - Controls randomness (0.0 to 1.0)
-- **`top_p`** - Nucleus sampling
-- **`top_k`** - Top-k sampling
+- **`top_p`** - Nucleus sampling parameter (0.0 to 1.0)
+- **`top_k`** - Top-k sampling parameter (integer ≥ 0)
 - **`num_predict`** - Maximum tokens to generate
-- **`stop`** - Stop sequences
-- **`seed`** - For reproducible outputs
+- **`seed`** - For reproducible outputs (integer)
+- **`stop`** - Array of stop sequences
 
 ### System Configuration
 
 - **`host`** - Ollama server URL (default: `http://localhost:11434`)
+- **`keep_alive`** - Keep model loaded in memory (e.g., "5m", "1h")
 - **`timeout`** - Request timeout in seconds
-- **`keep_alive`** - Keep model loaded in memory
 
 ### Advanced Options
 
-```ruby
-class AdvancedOllamaAgent < ApplicationAgent
-  generate_with :ollama,
-    model: "llama3",
-    options: {
-      num_ctx: 4096,      # Context window size
-      num_gpu: 1,         # Number of GPUs to use
-      num_thread: 8,      # Number of threads
-      repeat_penalty: 1.1, # Penalize repetition
-      mirostat: 2,        # Mirostat sampling
-      mirostat_tau: 5.0,  # Mirostat tau parameter
-      mirostat_eta: 0.1   # Mirostat learning rate
-    }
-end
-```
+<<< @/../test/docs/providers/ollama_examples_test.rb#ollama_advanced_options{ruby:line-numbers}
+
+### Embeddings
+
+- **`embedding_model`** - Embedding model name (e.g., "nomic-embed-text")
+- **`host`** - Ollama server URL for embeddings
+
+### Streaming
+
+- **`stream`** - Enable streaming responses (boolean, default: false)
+
+## Local Inference
+
+Run models completely offline without external API calls. All inference happens on your machine without requiring an internet connection.
+
+**Privacy Benefits:**
+- All data stays on your machine
+- No external API calls
+- No internet connection required after model download
+- Full control over your data
 
 ## Performance Optimization
 
@@ -364,37 +144,17 @@ end
 
 Keep models in memory for faster responses:
 
-```ruby
-class FastOllamaAgent < ApplicationAgent
-  generate_with :ollama,
-    model: "llama3",
-    keep_alive: "5m"  # Keep model loaded for 5 minutes
-
-  def quick_response
-    @query = params[:query]
-    prompt
-  end
-end
-```
+<<< @/../test/docs/providers/ollama_examples_test.rb#ollama_model_loading{ruby:line-numbers}
 
 ### Hardware Acceleration
 
-Configure GPU usage:
+Configure GPU usage for better performance:
 
-```ruby
-class GPUAgent < ApplicationAgent
-  generate_with :ollama,
-    model: "llama3",
-    options: {
-      num_gpu: -1,  # Use all available GPUs
-      main_gpu: 0   # Primary GPU index
-    }
-end
-```
+<<< @/../test/docs/providers/ollama_examples_test.rb#ollama_gpu_configuration{ruby:line-numbers}
 
 ### Quantization
 
-Use quantized models for better performance:
+Use quantized models for faster inference with less memory:
 
 ```bash
 # Pull quantized versions
@@ -402,210 +162,67 @@ ollama pull llama3:8b-q4_0  # 4-bit quantization
 ollama pull llama3:8b-q5_1  # 5-bit quantization
 ```
 
-```ruby
-class EfficientAgent < ApplicationAgent
-  # Use quantized model for faster inference
-  generate_with :ollama, model: "llama3:8b-q4_0"
-end
-```
+<<< @/../test/docs/providers/ollama_examples_test.rb#ollama_quantized_model{ruby:line-numbers}
+
+## Structured Output
+
+Ollama does not have native structured output support. However, many models can generate JSON through careful prompting. For comprehensive structured output patterns, see the [Structured Output Documentation](/actions/structured-output).
+
+### Limitations
+
+- **No guaranteed JSON output** - Depends on model following instructions
+- **No schema enforcement** - Cannot guarantee specific field requirements
+- **Quality varies by model** - Llama 3, Mixtral, and Mistral work best
+- **Requires validation** - Always parse and validate responses
+
+::: tip
+For applications requiring guaranteed schema conformance, use [OpenAI](/providers/open-ai#structured-output) with strict mode or [Anthropic](/providers/anthropic#emulated-json-object-support). For local processing, implement robust validation and error handling.
+:::
+
+## Embeddings
+
+Generate embeddings locally using Ollama's embedding models. For comprehensive embedding usage patterns, see the [Embeddings Documentation](/agents/embeddings).
+
+### Available Embedding Models
+
+| Model | Dimensions | Best For |
+|-------|------------|----------|
+| **nomic-embed-text** | 768 | High-quality text embeddings |
+| **mxbai-embed-large** | 1024 | Large embedding model |
+| **all-minilm** | 384 | Lightweight embeddings |
 
 ## Error Handling
 
-Handle Ollama-specific errors:
+Ollama-specific error handling for connection failures and missing models. For comprehensive error handling strategies, see the [Error Handling Documentation](/agents/error-handling).
 
-```ruby
-class RobustOllamaAgent < ApplicationAgent
-  generate_with :ollama, model: "llama3"
+### Common Ollama Errors
 
-  rescue_from Faraday::ConnectionFailed do |error|
-    Rails.logger.error "Ollama connection failed: #{error.message}"
-    render_ollama_setup_instructions
-  end
+- **`Errno::ECONNREFUSED`** - Ollama service not running (start with `ollama serve`)
+- **`Net::OpenTimeout`** - Connection timeout
+- **`ActiveAgent::GenerationError`** - Model not found or generation failure
 
-  rescue_from ActiveAgent::GenerationError do |error|
-    if error.message.include?("model not found")
-      pull_model_and_retry
-    else
-      raise
-    end
-  end
+### Example
 
-  private
-
-  def pull_model_and_retry
-    system("ollama pull #{generation_provider.model}")
-    retry
-  end
-
-  def render_ollama_setup_instructions
-    "Ollama is not running. Start it with: ollama serve"
-  end
-end
-```
-
-## Testing
-
-Test with Ollama locally:
-
-```ruby
-class OllamaAgentTest < ActiveSupport::TestCase
-  setup do
-    skip "Ollama not available" unless ollama_available?
-  end
-
-  test "generates response with local model" do
-    response = OllamaAgent.prompt(
-      message: "Hello"
-    ).generate_now
-
-    assert_not_nil response.message.content
-    doc_example_output(response)
-  end
-
-  private
-
-  def ollama_available?
-    response = Net::HTTP.get_response(URI("http://localhost:11434/api/tags"))
-    response.code == "200"
-  rescue
-    false
-  end
-end
-```
-
-## Development Workflow
-
-### Local Development Setup
-
-```ruby
-# config/environments/development.rb
-Rails.application.configure do
-  config.active_agent = {
-    ollama: {
-      host: ENV['OLLAMA_HOST'] || 'http://localhost:11434',
-      model: ENV['OLLAMA_MODEL'] || 'llama3',
-      options: {
-        num_ctx: 4096,
-        temperature: 0.7
-      }
-    }
-  }
-end
-```
-
-### Docker Compose Setup
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  ollama:
-    image: ollama/ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-volumes:
-  ollama_data:
-```
+<<< @/../test/docs/providers/ollama_examples_test.rb#ollama_error_handling{ruby:line-numbers}
 
 ## Best Practices
 
-1. **Pre-pull models** - Download models before first use
-2. **Monitor memory usage** - Large models require significant RAM
-3. **Use appropriate models** - Balance size and capability
-4. **Keep models loaded** - Use keep_alive for frequently used models
-5. **Implement fallbacks** - Handle connection failures gracefully
-6. **Use quantization** - Reduce memory usage and increase speed
-7. **Test locally** - Ensure models work before deployment
-
-## Ollama-Specific Considerations
-
-### Privacy First
-
-```ruby
-class PrivacyFirstAgent < ApplicationAgent
-  generate_with :ollama, model: "llama3"
-
-  def process_pii
-    @personal_data = params[:personal_data]
-
-    # Data stays local - no external API calls
-    Rails.logger.info "Processing PII locally with Ollama"
-
-    prompt instructions: "Process this data privately"
-  end
-end
-```
-
-### Model Management
-
-```ruby
-class ModelManager
-  def self.ensure_model(model_name)
-    models = list_models
-    unless models.include?(model_name)
-      pull_model(model_name)
-    end
-  end
-
-  def self.list_models
-    response = HTTParty.get("http://localhost:11434/api/tags")
-    response["models"].map { |m| m["name"] }
-  end
-
-  def self.pull_model(model_name)
-    system("ollama pull #{model_name}")
-  end
-
-  def self.delete_model(model_name)
-    HTTParty.delete("http://localhost:11434/api/delete",
-      body: { name: model_name }.to_json,
-      headers: { 'Content-Type' => 'application/json' }
-    )
-  end
-end
-```
-
-### Deployment Considerations
-
-```ruby
-# Ensure Ollama is available in production
-class ApplicationAgent < ActiveAgent::Base
-  before_action :ensure_ollama_available, if: :using_ollama?
-
-  private
-
-  def using_ollama?
-    generation_provider.is_a?(ActiveAgent::Providers::OllamaProvider)
-  end
-
-  def ensure_ollama_available
-    HTTParty.get("#{ollama_host}/api/tags")
-  rescue => e
-    raise "Ollama is not available: #{e.message}"
-  end
-
-  def ollama_host
-    Rails.configuration.active_agent.dig(:ollama, :host)
-  end
-end
-```
+1. **Pre-pull models** - Download models before first use: `ollama pull llama3`
+2. **Monitor memory usage** - Large models require significant RAM (8GB+ recommended)
+3. **Use appropriate models** - Balance size, speed, and capability for your use case
+4. **Keep models loaded** - Use `keep_alive` parameter for frequently used models
+5. **Implement fallbacks** - Handle connection failures and missing models gracefully
+6. **Use quantization** - Reduce memory usage and increase speed with quantized models
+7. **Test locally** - Ensure models work in development before deployment
+8. **Consider GPU** - Use GPU acceleration for better performance with larger models
 
 ## Related Documentation
 
-- [Embeddings Framework](/framework/embeddings) - Complete guide to embeddings
-- [Providers Overview](/framework/providers)
-- [OpenAI Provider](/providers/openai-provider) - Cloud-based alternative with more models
-- [Configuration Guide](/getting-started#configuration)
-- [Ollama Documentation](https://ollama.ai/docs)
-- [Ollama Model Library](https://ollama.ai/library) - Available models including embedding models
-- [OpenRouter Provider](/providers/open-router-provider) - For cloud alternative
+- [Embeddings Framework](/agents/embeddings) - Complete guide to embeddings
+- [Structured Output](/actions/structured-output) - Structured output patterns
+- [Providers Overview](/framework/providers) - Provider comparison
+- [Configuration Guide](/getting-started#configuration) - Setup and configuration
+- [Error Handling](/agents/error-handling) - Error handling strategies
+- [Ollama Documentation](https://ollama.ai/docs) - Official Ollama docs
+- [Ollama Model Library](https://ollama.ai/library) - Available models
+
