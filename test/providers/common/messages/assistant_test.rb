@@ -8,11 +8,11 @@ module ActiveAgent
     module Common
       module Messages
         class AssistantTest < ActiveSupport::TestCase
-          test "json_object parses valid JSON with default options" do
+          test "parsed_json parses valid JSON with default options" do
             json_content = '{"firstName": "John", "lastName": "Doe"}'
             assistant_message =  ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_not_nil result
             # Default: symbolize_names: true, normalize_names: :underscore
@@ -22,11 +22,11 @@ module ActiveAgent
             assert_equal "Doe", result[:last_name]
           end
 
-          test "json_object with symbolize_names: false returns string keys" do
+          test "parsed_json with symbolize_names: false returns string keys" do
             json_content = '{"firstName": "John", "lastName": "Doe"}'
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object(symbolize_names: false)
+            result = assistant_message.parsed_json(symbolize_names: false)
 
             assert_not_nil result
             assert result.key?("first_name")
@@ -34,11 +34,11 @@ module ActiveAgent
             assert_not result.key?(:first_name)
           end
 
-          test "json_object with normalize_names: false preserves original keys" do
+          test "parsed_json with normalize_names: false preserves original keys" do
             json_content = '{"firstName": "John", "lastName": "Doe"}'
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object(normalize_names: false)
+            result = assistant_message.parsed_json(normalize_names: false)
 
             assert_not_nil result
             assert result.key?(:firstName)
@@ -46,11 +46,11 @@ module ActiveAgent
             assert_not result.key?(:first_name)
           end
 
-          test "json_object with both options false preserves original format" do
+          test "parsed_json with both options false preserves original format" do
             json_content = '{"firstName": "John", "lastName": "Doe"}'
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object(symbolize_names: false, normalize_names: false)
+            result = assistant_message.parsed_json(symbolize_names: false, normalize_names: false)
 
             assert_not_nil result
             assert result.key?("firstName")
@@ -58,11 +58,11 @@ module ActiveAgent
             assert_equal "John", result["firstName"]
           end
 
-          test "json_object handles nested JSON with normalization" do
+          test "parsed_json handles nested JSON with normalization" do
             json_content = '{"assistantProfile": {"firstName": "Jane", "homeAddress": {"streetName": "Main St"}}}'
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_not_nil result
             assert result.key?(:assistant_profile)
@@ -71,39 +71,39 @@ module ActiveAgent
             assert_equal "Main St", result[:assistant_profile][:home_address][:street_name]
           end
 
-          test "json_object returns nil for invalid JSON" do
+          test "parsed_json returns nil for invalid JSON" do
             invalid_json = "This is not JSON {invalid}"
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: invalid_json)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_nil result
           end
 
-          test "json_object returns nil for plain text content" do
+          test "parsed_json returns nil for plain text content" do
             plain_text = "Just a regular message"
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: plain_text)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_nil result
           end
 
-          test "json_object handles empty JSON object" do
+          test "parsed_json handles empty JSON object" do
             json_content = "{}"
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_not_nil result
             assert_equal({}, result)
           end
 
-          test "json_object handles JSON array" do
+          test "parsed_json handles JSON array" do
             json_content = '[{"firstName": "John"}, {"firstName": "Jane"}]'
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_not_nil result
             assert_equal 2, result.size
@@ -111,33 +111,33 @@ module ActiveAgent
             assert_equal "Jane", result[1][:first_name]
           end
 
-          test "json_object handles text at start of message" do
+          test "parsed_json handles text at start of message" do
             json_content = 'Here is the JSON requested:\n{"firstName": "John", "lastName": "Doe"}'
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_not_nil result
             assert_equal "John", result[:first_name]
             assert_equal "Doe", result[:last_name]
           end
 
-          test "json_object handles text at end of message" do
+          test "parsed_json handles text at end of message" do
             json_content = '{"firstName": "John", "lastName": "Doe"}\nThank you!'
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_not_nil result
             assert_equal "John", result[:first_name]
             assert_equal "Doe", result[:last_name]
           end
 
-          test "json_object handles text around message" do
+          test "parsed_json handles text around message" do
             json_content = 'Here is the JSON requested:\n{"firstName": "John", "lastName": "Doe"}\nThank you!'
             assistant_message = ActiveAgent::Providers::Common::Messages::Assistant.new(content: json_content)
 
-            result = assistant_message.json_object
+            result = assistant_message.parsed_json
 
             assert_not_nil result
             assert_equal "John", result[:first_name]

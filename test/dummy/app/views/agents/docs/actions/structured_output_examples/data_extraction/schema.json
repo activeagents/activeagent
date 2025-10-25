@@ -1,0 +1,26 @@
+{
+  "name": "resume_schema",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string" },
+      "email": { "type": "string" },
+      "experience": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "job_title": { "type": "string" },
+            "company": { "type": "string" },
+            "duration": { "type": "string" }
+          },
+          "required": ["job_title", "company", "duration"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["name", "email", "experience"],
+    "additionalProperties": false
+  }
+}

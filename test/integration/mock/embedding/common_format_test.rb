@@ -12,32 +12,32 @@ module Integration
           embed_with :mock
 
           TEMPLATES_DEFAULT = {
-            "model": "mock-embedding-model",
-            "input": "The quick brown fox jumps over the lazy dog"
+            model: "mock-model",
+            input: "The quick brown fox jumps over the lazy dog"
           }
           def templates_default
             embed
           end
 
           TEMPLATES_WITH_LOCALS = {
-            "model": "mock-embedding-model",
-            "input": "Learning Ruby programming is fun and rewarding"
+            model: "mock-model",
+            input: "Learning Ruby programming is fun and rewarding"
           }
           def templates_with_locals
             embed(locals: { topic: "Ruby", subject: "programming" })
           end
 
           INPUT_BARE = {
-            "model": "mock-embedding-model",
-            "input": "Your text string goes here"
+            model: "mock-model",
+            input: "Your text string goes here"
           }
           def input_bare
             embed("Your text string goes here")
           end
 
           INPUT_ARRAY = {
-            "model": "mock-embedding-model",
-            "input": [
+            model: "mock-model",
+            input: [
               "First text string goes here",
               "Second text string goes here"
             ]

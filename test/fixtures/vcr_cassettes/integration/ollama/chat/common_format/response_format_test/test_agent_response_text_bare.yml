@@ -1,0 +1,60 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"List three primary colors."}],"model":"deepseek-r1:latest","response_format":{"type":"text"}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 25 Oct 2025 21:27:53 GMT
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-931","object":"chat.completion","created":1761427673,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"In
+        the context of **pigment** and traditional **art**, there are three primary
+        colors:\n\n1.  Red\n2.  Yellow\n3.  Blue\n\nThese combine (subtractively)
+        to create all other colors.\n\nHowever, in the context of **light** and digital
+        displays (**additive color theory**), the three primary colors are:\n\n*   Red\n*   Green\n*   Blue\n\nOften
+        abbreviated as RGB.","reasoning":"Okay, the user asked me to list three primary
+        colors. Let me start by recalling that primary colors depend on context. In
+        art and design, it''s usually red, yellow, blue for pigments. The RYB model
+        is widely taught in schools, so the user might be expecting a basic answer
+        unless they specify another context.\n\nWait, but maybe they have a different
+        background? Like digital or physics. Primary colors there are red, green,
+        blue (RGB). Need to mention both possibilities because I don''t know for sure
+        what they''re referring to.\n\nHmm, should I just give the RYB model first
+        and then add RGB as an alternative? The user might not be aware that contexts
+        vary. They might think primary colors are a fixed set, but it''s actually
+        context-dependent. Including both models shows thoroughness without assuming
+        their knowledge level.\n\nAlso, considering why they''re asking. Maybe for
+        a school project or general curiosity. Either way, being clear and accurate
+        is key. Avoid technical jargon unless necessary. Keep the answer simple with
+        brief explanations for each color in each model to show understanding of basics
+        like light vs pigment mixing.\n\nNeed to check if there''s any ambiguity between
+        models. For example, RGB is additive (light sources) while subtractive (like
+        paints or digital screens) use RYB. The user didn''t specify, so it''s safer
+        to present both possibilities as they''re equally standard depending on context.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":381,"total_tokens":388}}
+
+        '
+  recorded_at: Sat, 25 Oct 2025 21:27:53 GMT
+recorded_with: VCR 6.3.1

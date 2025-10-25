@@ -1,0 +1,52 @@
+{
+  "name": "invoice_schema",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "invoice_number": {
+        "type": "string",
+        "description": "The invoice number."
+      },
+      "date": {
+        "type": "string",
+        "format": "date",
+        "description": "The invoice date."
+      },
+      "bill_to": {
+        "type": "string",
+        "description": "The name of the customer or company being billed."
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/line_item"
+        },
+        "description": "List of line items in the invoice."
+      },
+      "total": {
+        "type": "number",
+        "description": "The total amount of the invoice."
+      }
+    },
+    "required": ["invoice_number", "date", "bill_to", "items", "total"],
+    "additionalProperties": false,
+    "$defs": {
+      "line_item": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of the item or service."
+          },
+          "amount": {
+            "type": "number",
+            "description": "The amount for this line item."
+          }
+        },
+        "required": ["description", "amount"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "strict": true
+}

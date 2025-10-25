@@ -1,0 +1,193 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Extract resume data: Resume: John Smith\nEmail: john@example.com\nPhone:
+        555-1234\nEducation: BS Computer Science, MIT, 2015\nExperience: Software
+        Engineer at TechCo, 2015-2020","model":"gpt-4o","text":{"format":{"type":"json_schema","name":"resume_schema","schema":{"type":"object","properties":{"name":{"type":"string"},"email":{"type":"string"},"experience":{"type":"array","items":{"type":"object","properties":{"job_title":{"type":"string"},"company":{"type":"string"},"duration":{"type":"string"}},"required":["job_title","company","duration"],"additionalProperties":false}}},"required":["name","email","experience"],"additionalProperties":false},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 20:15:54 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999858'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_32a65c2599634974a12550a6aaeb097f
+      Openai-Processing-Ms:
+      - '4071'
+      X-Envoy-Upstream-Service-Time:
+      - '4178'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=FcU4fOjlsX9TxN777Ztsoj_0D1dP6SNFzT.sRWHWito-1761423354-1.0.1.1-DP8C680QyZojiyhPauCwYqfg7BXGmpmOL7QWBwl_pqX6HOlRtpv_0X8jY90yeqVbmySITDmxgmelR_5fStM48lCsgo4NhDfqREaW0ZLv5zQ;
+        path=/; expires=Sat, 25-Oct-25 20:45:54 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=SeNLdeiSKmPupIHjKU0wPVxBLxJUNMJWBlgO4XHmjHk-1761423354027-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9944635cdcba6801-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_04b6b970221493570068fd2ff5ed9c8196836f687166941762",
+          "object": "response",
+          "created_at": 1761423350,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "msg_04b6b970221493570068fd2ff81fb481968e9f5979202db689",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "{\"name\":\"John Smith\",\"email\":\"john@example.com\",\"experience\":[{\"job_title\":\"Software Engineer\",\"company\":\"TechCo\",\"duration\":\"2015-2020\"}]}"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "json_schema",
+              "description": null,
+              "name": "resume_schema",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "experience": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "job_title": {
+                          "type": "string"
+                        },
+                        "company": {
+                          "type": "string"
+                        },
+                        "duration": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "job_title",
+                        "company",
+                        "duration"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "email",
+                  "experience"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 123,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 36,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 159
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 25 Oct 2025 20:15:54 GMT
+recorded_with: VCR 6.3.1

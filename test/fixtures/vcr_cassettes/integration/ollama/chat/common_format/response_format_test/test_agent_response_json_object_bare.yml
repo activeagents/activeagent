@@ -1,0 +1,49 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Return a JSON object with three
+        primary colors in an array named ''colors''."}],"model":"deepseek-r1:latest","response_format":{"type":"json_object"}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 25 Oct 2025 21:27:28 GMT
+      Content-Length:
+      - '1182'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-88","object":"chat.completion","created":1761427648,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"{\"colors\":[\"red\",\"blue\",\"yellow\"]}","reasoning":"We
+        are to return a JSON object that has one key: \"colors\"\n The value of \"colors\"
+        should be an array containing the three primary colors.\n Primary colors typically
+        refer to red, blue, and yellow (in subtractive color models like paint) OR\n
+        In additive color models (like RGB), we have red, green, blue.\n However,
+        the problem doesn''t specify one model or another. Let''s assume the common
+        primary colors are red, blue, and yellow.\n\n So, we can create a JSON object:
+        { \"colors\": [\"red\", \"blue\", \"yellow\"] }\n\n But note: sometimes people
+        might think of RGB primaries (red, green, blue). However, without specification,
+        let''s choose subtractive as it is more traditional for primary colors in
+        art.\n\n If the problem intended any particular definition, we can adjust.
+        Since not specified, I''ll use red, blue, yellow.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":202,"completion_tokens":10,"total_tokens":212}}
+
+        '
+  recorded_at: Sat, 25 Oct 2025 21:27:28 GMT
+recorded_with: VCR 6.3.1

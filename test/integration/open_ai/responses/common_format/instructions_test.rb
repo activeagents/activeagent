@@ -14,8 +14,8 @@ module Integration
             generate_with :openai, model: "gpt-4.1"
 
             BASIC_REQUEST = {
-              "model": "gpt-4.1",
-              "input": "Hello, GPT!"
+              model: "gpt-4.1",
+              input: "Hello, GPT!"
             }
 
             def basic_request
@@ -23,9 +23,9 @@ module Integration
             end
 
             BASIC_REQUEST_WITH_OVERRIDE = {
-              "model": "gpt-4.1",
-              "instructions": "You are an overridden assistant.",
-              "input": "Hello, GPT!"
+              model: "gpt-4.1",
+              instructions: "You are an overridden assistant.",
+              input: "Hello, GPT!"
             }
 
             def basic_request_with_override
@@ -41,9 +41,9 @@ module Integration
             generate_with :openai, model: "gpt-4.1"
 
             BASIC_REQUEST = {
-              "model": "gpt-4.1",
-              "instructions": "Default auto-loaded instructions for testing.",
-              "input": "Hello, GPT!"
+              model: "gpt-4.1",
+              instructions: "Default auto-loaded instructions for testing.",
+              input: "Hello, GPT!"
             }
 
             def basic_request
@@ -51,9 +51,9 @@ module Integration
             end
 
             BASIC_REQUEST_WITH_OVERRIDE = {
-              "model": "gpt-4.1",
-              "instructions": "You are an overridden assistant.",
-              "input": "Hello, GPT!"
+              model: "gpt-4.1",
+              instructions: "You are an overridden assistant.",
+              input: "Hello, GPT!"
             }
 
             def basic_request_with_override
@@ -71,9 +71,9 @@ module Integration
                           instructions: "You are a configured assistant with default instructions."
 
             BASIC_REQUEST = {
-              "model": "gpt-4.1",
-              "instructions": "You are a configured assistant with default instructions.",
-              "input": "Hello, GPT!"
+              model: "gpt-4.1",
+              instructions: "You are a configured assistant with default instructions.",
+              input: "Hello, GPT!"
             }
 
             def basic_request
@@ -81,9 +81,9 @@ module Integration
             end
 
             BASIC_REQUEST_WITH_OVERRIDE = {
-              "model": "gpt-4.1",
-              "instructions": "You are an overridden assistant.",
-              "input": "Hello, GPT!"
+              model: "gpt-4.1",
+              instructions: "You are an overridden assistant.",
+              input: "Hello, GPT!"
             }
 
             def basic_request_with_override
@@ -101,9 +101,9 @@ module Integration
                           instructions: [ "You are a helpful assistant.", "Always be polite and professional." ]
 
             BASIC_REQUEST = {
-              "model": "gpt-4.1",
-              "instructions": "You are a helpful assistant.\nAlways be polite and professional.",
-              "input": "Hello, GPT!"
+              model: "gpt-4.1",
+              instructions: "You are a helpful assistant.\nAlways be polite and professional.",
+              input: "Hello, GPT!"
             }
 
             def basic_request
@@ -111,9 +111,9 @@ module Integration
             end
 
             BASIC_REQUEST_WITH_OVERRIDE = {
-              "model": "gpt-4.1",
-              "instructions": "You are an overridden assistant.\nPlease respond concisely.",
-              "input": "Hello, GPT!"
+              model: "gpt-4.1",
+              instructions: "You are an overridden assistant.\nPlease respond concisely.",
+              input: "Hello, GPT!"
             }
 
             def basic_request_with_override

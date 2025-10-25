@@ -1,0 +1,57 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"List three primary colors."}],"model":"openrouter/auto","response_format":{"type":"text"}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 21:37:50 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9944db783c06ed3f-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1761428268-U8rhu4q1FfOCVDtMCzn6\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761428270,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The
+        three primary colors are:\\n\\n1. **Red**\\n2. **Blue**\\n3. **Yellow**\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":21,\"total_tokens\":31,\"prompt_tokens_details\":null}}"
+  recorded_at: Sat, 25 Oct 2025 21:37:52 GMT
+recorded_with: VCR 6.3.1

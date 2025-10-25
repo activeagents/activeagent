@@ -17,14 +17,14 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     include ActiveModel::Validations
     include ActiveAgent::SchemaGenerator
 
-    attribute :name, :string
-    attribute :email, :string
-    attribute :age, :integer
+    attribute :name,   :string
+    attribute :email,  :string
+    attribute :age,    :integer
     attribute :active, :boolean
 
-    validates :name, presence: true, length: { minimum: 2, maximum: 100 }
+    validates :name,  presence: true, length: { minimum: 2, maximum: 100 }
     validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
-    validates :age, numericality: { greater_than_or_equal_to: 18 }
+    validates :age,   numericality: { greater_than_or_equal_to: 18 }
   end
   # endregion basic_user_model
 
@@ -35,15 +35,15 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     include ActiveModel::Validations
     include ActiveAgent::SchemaGenerator
 
-    attribute :title, :string
-    attribute :content, :string
+    attribute :title,        :string
+    attribute :content,      :string
     attribute :published_at, :datetime
-    attribute :tags, :string
-    attribute :status, :string
+    attribute :tags,         :string
+    attribute :status,       :string
 
-    validates :title, presence: true, length: { maximum: 200 }
+    validates :title,   presence: true, length: { maximum: 200 }
     validates :content, presence: true
-    validates :status, inclusion: { in: [ "draft", "published", "archived" ] }
+    validates :status,  inclusion: { in: [ "draft", "published", "archived" ] }
   end
   # endregion blog_post_model
 
@@ -53,15 +53,15 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     # endregion basic_schema_generation
 
     assert_equal "object", schema[:type]
-    assert schema[:properties].key?("name")
-    assert schema[:properties].key?("email")
-    assert schema[:properties].key?("age")
-    assert schema[:properties].key?("active")
+    assert schema[:properties].key?(:name)
+    assert schema[:properties].key?(:email)
+    assert schema[:properties].key?(:age)
+    assert schema[:properties].key?(:active)
 
-    assert_equal "string", schema[:properties]["name"][:type]
-    assert_equal "string", schema[:properties]["email"][:type]
-    assert_equal "integer", schema[:properties]["age"][:type]
-    assert_equal "boolean", schema[:properties]["active"][:type]
+    assert_equal "string", schema[:properties][:name][:type]
+    assert_equal "string", schema[:properties][:email][:type]
+    assert_equal "integer", schema[:properties][:age][:type]
+    assert_equal "boolean", schema[:properties][:active][:type]
 
     doc_example_output(schema)
   end
@@ -71,12 +71,12 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     schema = TestUser.to_json_schema
     # endregion schema_with_validations
 
-    assert schema[:required].include?("name")
-    assert schema[:required].include?("email")
-    assert_equal 2, schema[:properties]["name"][:minLength]
-    assert_equal 100, schema[:properties]["name"][:maxLength]
-    assert_equal "email", schema[:properties]["email"][:format]
-    assert_equal 18, schema[:properties]["age"][:minimum]
+    assert schema[:required].include?(:name)
+    assert schema[:required].include?(:email)
+    assert_equal 2, schema[:properties][:name][:minLength]
+    assert_equal 100, schema[:properties][:name][:maxLength]
+    assert_equal "email", schema[:properties][:email][:format]
+    assert_equal 18, schema[:properties][:age][:minimum]
 
     doc_example_output(schema)
   end
@@ -89,8 +89,8 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     assert_equal "blog_post_schema", schema[:name]
     assert schema[:strict]
     assert_equal "object", schema[:schema][:type]
-    assert schema[:schema][:properties].key?("title")
-    assert schema[:schema][:properties].key?("content")
+    assert schema[:schema][:properties].key?(:title)
+    assert schema[:schema][:properties].key?(:content)
     # In strict mode, all properties should be required
     assert_equal schema[:schema][:properties].keys.sort, schema[:schema][:required].sort
 
@@ -102,11 +102,11 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     schema = TestBlogPost.to_json_schema(exclude: [ :tags, :published_at ])
     # endregion schema_with_exclusions
 
-    assert schema[:properties].key?("title")
-    assert schema[:properties].key?("content")
-    assert schema[:properties].key?("status")
-    assert_not schema[:properties].key?("tags")
-    assert_not schema[:properties].key?("published_at")
+    assert schema[:properties].key?(:title)
+    assert schema[:properties].key?(:content)
+    assert schema[:properties].key?(:status)
+    assert_not schema[:properties].key?(:tags)
+    assert_not schema[:properties].key?(:published_at)
 
     doc_example_output(schema)
   end
@@ -116,7 +116,7 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     schema = TestBlogPost.to_json_schema
     # endregion schema_with_enums
 
-    assert_equal [ "draft", "published", "archived" ], schema[:properties]["status"][:enum]
+    assert_equal [ "draft", "published", "archived" ], schema[:properties][:status][:enum]
 
     doc_example_output(schema)
   end
@@ -127,7 +127,13 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     user_schema = TestUser.to_json_schema(strict: true, name: "user_extraction")
 
     # In actual usage, the agent would use the hash directly:
-    # prompt(output_schema: user_schema)
+    # prompt(
+    #   message: "Extract user data",
+    #   response_format: {
+    #     type: "json_schema",
+    #     json_schema: user_schema
+    #   }
+    # )
     # endregion agent_using_schema
 
     assert user_schema.is_a?(Hash)
@@ -144,21 +150,21 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     # endregion activerecord_schema_generation
 
     assert_equal "object", schema[:type]
-    assert schema[:properties].key?("name")
-    assert schema[:properties].key?("email")
-    assert schema[:properties].key?("age")
-    assert schema[:properties].key?("role")
-    assert schema[:properties].key?("active")
+    assert schema[:properties].key?(:name)
+    assert schema[:properties].key?(:email)
+    assert schema[:properties].key?(:age)
+    assert schema[:properties].key?(:role)
+    assert schema[:properties].key?(:active)
 
     # Check column types are properly mapped
-    assert_equal "string", schema[:properties]["name"][:type]
-    assert_equal "string", schema[:properties]["email"][:type]
-    assert_equal "integer", schema[:properties]["age"][:type]
-    assert_equal "boolean", schema[:properties]["active"][:type]
+    assert_equal "string", schema[:properties][:name][:type]
+    assert_equal "string", schema[:properties][:email][:type]
+    assert_equal "integer", schema[:properties][:age][:type]
+    assert_equal "boolean", schema[:properties][:active][:type]
 
     # Check required fields (non-nullable columns)
-    assert schema[:required].include?("name")
-    assert schema[:required].include?("email")
+    assert schema[:required].include?(:name)
+    assert schema[:required].include?(:email)
 
     doc_example_output(schema)
   end
@@ -168,10 +174,10 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     schema = User.to_json_schema(include_associations: true)
     # endregion activerecord_schema_with_associations
 
-    assert schema[:properties].key?("posts")
-    assert schema[:properties].key?("profile")
-    assert_equal "array", schema[:properties]["posts"][:type]
-    assert schema[:properties]["posts"][:items].key?(:"$ref")
+    assert schema[:properties].key?(:posts)
+    assert schema[:properties].key?(:profile)
+    assert_equal "array", schema[:properties][:posts][:type]
+    assert schema[:properties][:posts][:items].key?(:"$ref")
 
     doc_example_output(schema)
   end

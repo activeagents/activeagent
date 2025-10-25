@@ -1,0 +1,60 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"List three primary colors."}],"model":"deepseek-r1:latest","response_format":{"type":"text"}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 25 Oct 2025 21:27:40 GMT
+      Content-Length:
+      - '2016'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-259","object":"chat.completion","created":1761427660,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"In
+        art and design (referring to subtractive color mixing with pigments like paints),
+        the three traditional primary colors are generally considered **Red, Blue,
+        and Yellow**.\n\nHowever, it''s important to note that:\n\n*   **Additive
+        color theory** (used in light, e.g., RGB screens) considers different primaries:
+        Red, Green, and Blue.\n*   The exact choice can vary slightly depending on
+        the specific context or color model followed.","reasoning":"Okay, the user
+        is asking to list three primary colors. Let me start by recalling what primary
+        colors are. In color theory, there are different sets depending on context.\n\nFirst,
+        I need to address their question in a general sense. They might be thinking
+        for art or design. The common answer is red, blue, yellow as subtractive primaries.
+        But wait, subtractive refers to pigments, paints, etc., right? That''s the
+        standard RGB model vs. CMYK and other systems.\n\nThey could be interested
+        in either additive (like screen colors) or traditional art. Maybe they''re
+        an artist or a designer working with physical materials versus digital screens.
+        The answer should cover both possibilities without assuming their field unless
+        specified.\n\nBut why would someone ask this? They might be learning about
+        color basics for school, starting to paint, doing graphic design work, or
+        just curious. Including both systems shows thoroughness and invites them to
+        ask which one they need more details on.\n\nThe user''s needs aren''t just
+        the list; they probably want clarity on how primary colors differ between
+        contexts. Not all information sources explain these nuances. Explaining RGB
+        vs CMYK helps them avoid confusion later, especially if their work involves
+        both mediums or printing.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":345,"total_tokens":352}}
+
+        '
+  recorded_at: Sat, 25 Oct 2025 21:27:40 GMT
+recorded_with: VCR 6.3.1

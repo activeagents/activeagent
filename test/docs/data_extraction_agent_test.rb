@@ -30,7 +30,6 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       sample_resume_path = Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")
       # region data_extraction_agent_parse_resume
       prompt = DataExtractionAgent.with(
-        output_schema: :resume_schema,
         file_path: sample_resume_path
       ).parse_content
       # endregion data_extraction_agent_parse_resume
@@ -45,7 +44,7 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       response = prompt.generate_now
       doc_example_output(response)
 
-      # When output_schema IS present (:resume_schema), content is auto-parsed
+      # When using json_schema response_format, content is auto-parsed
       assert response.message.content.is_a?(Hash)
       assert response.message.content["name"].include?("John Doe")
       assert response.message.content["experience"].any? { |exp| exp["job_title"].include?("Software Engineer") }
@@ -57,7 +56,6 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
     VCR.use_cassette("data_extraction_agent_parse_resume_with_structured_output") do
       # region data_extraction_agent_parse_resume_with_structured_output
       prompt = DataExtractionAgent.with(
-        output_schema: :resume_schema,
         file_path: Rails.root.join("..", "..", "test", "fixtures", "files", "sample_resume.pdf")
       ).parse_content
       # endregion data_extraction_agent_parse_resume_with_structured_output
@@ -73,14 +71,13 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       response = prompt.generate_now
       # endregion data_extraction_agent_parse_resume_with_structured_output_response
       # region data_extraction_agent_parse_resume_with_structured_output_json
-      # When output_schema is present, content is already parsed
+      # When using json_schema response_format, content is already parsed
       json_response = response.message.content
       # endregion data_extraction_agent_parse_resume_with_structured_output_json
       doc_example_output(response)
       doc_example_output(json_response, "parse-resume-json-response")
 
       assert_equal "application/json", response.message.content_type
-      assert_equal "resume_schema", response.prompt.output_schema["format"]["name"]
       assert_equal json_response["name"], "John Doe"
       assert_equal json_response["email"], "john.doe@example.com"
       # Verify raw_content contains the JSON string
@@ -121,7 +118,10 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       sales_chart_path = Rails.root.join("..", "..", "test", "fixtures", "images", "sales_chart.png")
       # region data_extraction_agent_parse_chart_with_structured_output
       prompt = DataExtractionAgent.with(
-        output_schema: :chart_schema,
+        response_format: {
+          type: "json_schema",
+          json_schema: :chart_schema
+        },
         image_path: sales_chart_path
       ).parse_content
       # endregion data_extraction_agent_parse_chart_with_structured_output
@@ -138,15 +138,13 @@ class DataExtractionAgentTest < ActiveSupport::TestCase
       # endregion data_extraction_agent_parse_chart_with_structured_output_response
 
       # region data_extraction_agent_parse_chart_with_structured_output_json
-      # When output_schema is present, content is already parsed
+      # When using json_schema response_format, content is already parsed
       json_response = response.message.content
       # endregion data_extraction_agent_parse_chart_with_structured_output_json
 
       doc_example_output(response)
       doc_example_output(json_response, "parse-chart-json-response")
       assert_equal "application/json", response.message.content_type
-
-      assert_equal "chart_schema", response.prompt.output_schema["format"]["name"]
 
       assert_equal json_response["title"], "Quarterly Sales Report"
       assert json_response["data_points"].is_a?(Array), "Data points should be an array"

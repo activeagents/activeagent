@@ -1,0 +1,153 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"List three primary colors.","model":"gpt-5-nano","text":{"format":{"type":"text"}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 20:46:18 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '30000'
+      X-Ratelimit-Limit-Tokens:
+      - '180000000'
+      X-Ratelimit-Remaining-Requests:
+      - '29999'
+      X-Ratelimit-Remaining-Tokens:
+      - '179999772'
+      X-Ratelimit-Reset-Requests:
+      - 2ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_3f35b5411bdc46a5a5609ca636ce45a7
+      Openai-Processing-Ms:
+      - '6352'
+      X-Envoy-Upstream-Service-Time:
+      - '6365'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=R1bl.6dwo5.sixXD3OMt_TUOlVSPTR4Tnc9y0osMdTU-1761425178-1.0.1.1-Qp9.J55nCmX8YqJCVvMeoVeJe8RMf5buSC7BclZ8NKLcHXghdRBwEwiyqjGBUJp7SO8IubDvGHTU5VE6_.M2wR1tDeOfjr1m3GjDevC.LA4;
+        path=/; expires=Sat, 25-Oct-25 21:16:18 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=zZo9R60yAjPOquYOxjd9p0LpJ9Igl7qApZ0N14RZw9I-1761425178419-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 99448fdd09eef9ed-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_08528b13e1aeba370068fd371413b8819b8866107a44b52707",
+          "object": "response",
+          "created_at": 1761425172,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-5-nano-2025-08-07",
+          "output": [
+            {
+              "id": "rs_08528b13e1aeba370068fd37156674819ba8790df37da7646e",
+              "type": "reasoning",
+              "summary": []
+            },
+            {
+              "id": "msg_08528b13e1aeba370068fd3718f420819b9e56727bc982506a",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Red, blue, and yellow.\n\nNote: If you mean light (additive colors), the primaries are red, green, and blue. If you mean printing (subtractive), the primaries are cyan, magenta, and yellow."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": "medium",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 11,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 503,
+            "output_tokens_details": {
+              "reasoning_tokens": 448
+            },
+            "total_tokens": 514
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 25 Oct 2025 20:46:18 GMT
+recorded_with: VCR 6.3.1

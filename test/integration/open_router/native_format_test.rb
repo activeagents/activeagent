@@ -14,15 +14,15 @@ module Integration
         # OpenAI Provided Example
         ###############################################################
         TEXT_INPUT = {
-          "model": "openrouter/auto",
-          "messages": [
+          model: "openrouter/auto",
+          messages: [
             {
-              "role": "developer",
-              "content": "You are a helpful assistant."
+              role: "developer",
+              content: "You are a helpful assistant."
             },
             {
-              "role": "user",
-              "content": "Hello!"
+              role: "user",
+              content: "Hello!"
             }
           ]
         }
@@ -42,19 +42,19 @@ module Integration
         end
 
         IMAGE_INPUT = {
-          "model": "openai/gpt-5",
-          "messages": [
+          model: "openai/gpt-5",
+          messages: [
             {
-              "role": "user",
-              "content": [
+              role: "user",
+              content: [
                 {
-                  "type": "text",
-                  "text": "What is in this image?"
+                  type: "text",
+                  text: "What is in this image?"
                 },
                 {
-                  "type": "image_url",
-                  "image_url": {
-                    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                  type: "image_url",
+                  image_url: {
+                    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
                   }
                 }
               ]
@@ -85,18 +85,18 @@ module Integration
         end
 
         STREAMING = {
-          "model": "openrouter/auto",
-          "messages": [
+          model: "openrouter/auto",
+          messages: [
             {
-              "role": "developer",
-              "content": "You are a helpful assistant."
+              role: "developer",
+              content: "You are a helpful assistant."
             },
             {
-              "role": "user",
-              "content": "Hello!"
+              role: "user",
+              content: "Hello!"
             }
           ],
-          "stream": true
+          stream: true
         }
         def streaming
           prompt(
@@ -115,37 +115,37 @@ module Integration
         end
 
         FUNCTIONS = {
-          "model": "google/gemini-2.0-flash-001",
-          "messages": [
+          model: "google/gemini-2.0-flash-001",
+          messages: [
             {
-              "role": "user",
-              "content": "What is the weather like in Boston today?"
+              role: "user",
+              content: "What is the weather like in Boston today?"
             }
           ],
-          "tools": [
+          tools: [
             {
-              "type": "function",
-              "function": {
-                "name": "get_current_weather",
-                "description": "Get the current weather in a given location",
-                "parameters": {
-                  "type": "object",
-                  "properties": {
-                    "location": {
-                      "type": "string",
-                      "description": "The city and state, e.g. San Francisco, CA"
+              type: "function",
+              function: {
+                name: "get_current_weather",
+                description: "Get the current weather in a given location",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    location: {
+                      type: "string",
+                      description: "The city and state, e.g. San Francisco, CA"
                     },
-                    "unit": {
-                      "type": "string",
-                      "enum": [ "celsius", "fahrenheit" ]
+                    unit: {
+                      type: "string",
+                      enum: [ "celsius", "fahrenheit" ]
                     }
                   },
-                  "required": [ "location" ]
+                  required: [ "location" ]
                 }
               }
             }
           ],
-          "tool_choice": "auto"
+          tool_choice: "auto"
         }
         def functions
           prompt(
@@ -188,15 +188,15 @@ module Integration
         end
 
         LOGPROBS = {
-          "model": "gpt-4",
-          "messages": [
+          model: "gpt-4",
+          messages: [
             {
-              "role": "user",
-              "content": "Hello!"
+              role: "user",
+              content: "Hello!"
             }
           ],
-          "logprobs": true,
-          "top_logprobs": 2
+          logprobs: true,
+          top_logprobs: 2
         }
         def logprobs
           prompt(
@@ -213,11 +213,11 @@ module Integration
         end
 
         WEB_SEARCH = {
-          "model": "openrouter/auto",
-          "web_search_options": {},
-          "messages": [ {
-              "role": "user",
-              "content": "What was a positive news story from today?"
+          model: "openrouter/auto",
+          web_search_options: {},
+          messages: [ {
+              role: "user",
+              content: "What was a positive news story from today?"
           } ]
         }
         def web_search
@@ -235,38 +235,41 @@ module Integration
         # Extended Example
         ###############################################################
         STRUCTURED_OUTPUT = {
-          "model": "openai/gpt-4o",
-          "messages": [
+          model: "openai/gpt-4o",
+          messages: [
             {
-              "role": "user",
-              "content": "What is the weather like in London?"
+              role: "user",
+              content: "What is the weather like in London?"
             }
           ],
-          "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-              "name": "weather",
-              "strict": true,
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "location": {
-                    "type": "string",
-                    "description": "City or location name"
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "weather",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  location: {
+                    type: "string",
+                    description: "City or location name"
                   },
-                  "temperature": {
-                    "type": "number",
-                    "description": "Temperature in Celsius"
+                  temperature: {
+                    type: "number",
+                    description: "Temperature in Celsius"
                   },
-                  "conditions": {
-                    "type": "string",
-                    "description": "Weather conditions description"
+                  conditions: {
+                    type: "string",
+                    description: "Weather conditions description"
                   }
                 },
-                "required": [ "location", "temperature", "conditions" ],
-                "additionalProperties": false
+                required: [ "location", "temperature", "conditions" ],
+                additionalProperties: false
               }
             }
+          },
+          provider: {
+            require_parameters: true
           }
         }
         def structured_output

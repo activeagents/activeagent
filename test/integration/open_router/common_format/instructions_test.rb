@@ -13,11 +13,11 @@ module Integration
           generate_with :openrouter, model: "openai/gpt-4o"
 
           BASIC_REQUEST = {
-            "model": "openai/gpt-4o",
-            "messages": [
+            model: "openai/gpt-4o",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, OpenRouter!"
+                role: "user",
+                content: "Hello, OpenRouter!"
               }
             ]
           }
@@ -31,15 +31,15 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "openai/gpt-4o",
-            "messages": [
+            model: "openai/gpt-4o",
+            messages: [
               {
-                "role": "developer",
-                "content": "You are an overridden assistant."
+                role: "developer",
+                content: "You are an overridden assistant."
               },
               {
-                "role": "user",
-                "content": "Hello, OpenRouter!"
+                role: "user",
+                content: "Hello, OpenRouter!"
               }
             ]
           }
@@ -59,15 +59,15 @@ module Integration
           generate_with :openrouter, model: "openai/gpt-4o"
 
           BASIC_REQUEST = {
-            "model": "openai/gpt-4o",
-            "messages": [
+            model: "openai/gpt-4o",
+            messages: [
               {
-                "role": "developer",
-                "content": "Default auto-loaded instructions for testing."
+                role: "developer",
+                content: "Default auto-loaded instructions for testing."
               },
               {
-                "role": "user",
-                "content": "Hello, OpenRouter!"
+                role: "user",
+                content: "Hello, OpenRouter!"
               }
             ]
           }
@@ -81,15 +81,15 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "openai/gpt-4o",
-            "messages": [
+            model: "openai/gpt-4o",
+            messages: [
               {
-                "role": "developer",
-                "content": "You are an overridden assistant."
+                role: "developer",
+                content: "You are an overridden assistant."
               },
               {
-                "role": "user",
-                "content": "Hello, OpenRouter!"
+                role: "user",
+                content: "Hello, OpenRouter!"
               }
             ]
           }
@@ -111,15 +111,15 @@ module Integration
                         instructions: "You are a configured assistant with default instructions."
 
           BASIC_REQUEST = {
-            "model": "openai/gpt-4o",
-            "messages": [
+            model: "openai/gpt-4o",
+            messages: [
               {
-                "role": "developer",
-                "content": "You are a configured assistant with default instructions."
+                role: "developer",
+                content: "You are a configured assistant with default instructions."
               },
               {
-                "role": "user",
-                "content": "Hello, OpenRouter!"
+                role: "user",
+                content: "Hello, OpenRouter!"
               }
             ]
           }
@@ -133,15 +133,15 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "openai/gpt-4o",
-            "messages": [
+            model: "openai/gpt-4o",
+            messages: [
               {
-                "role": "developer",
-                "content": "You are an overridden assistant."
+                role: "developer",
+                content: "You are an overridden assistant."
               },
               {
-                "role": "user",
-                "content": "Hello, OpenRouter!"
+                role: "user",
+                content: "Hello, OpenRouter!"
               }
             ]
           }
@@ -163,11 +163,11 @@ module Integration
                         instructions: [ "You are a helpful assistant.", "Always be polite and professional." ]
 
           BASIC_REQUEST = {
-            "model": "openai/gpt-4o",
-            "messages": [
+            model: "openai/gpt-4o",
+            messages: [
               {
-                "role": "developer",
-                "content": [
+                role: "developer",
+                content: [
                   {
                     type: "text",
                     text: "You are a helpful assistant."
@@ -179,8 +179,8 @@ module Integration
                 ]
               },
               {
-                "role": "user",
-                "content": "Hello, OpenRouter!"
+                role: "user",
+                content: "Hello, OpenRouter!"
               }
             ]
           }
@@ -194,11 +194,11 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "openai/gpt-4o",
-            "messages": [
+            model: "openai/gpt-4o",
+            messages: [
               {
-                "role": "developer",
-                "content": [
+                role: "developer",
+                content: [
                   {
                     type: "text",
                     text: "You are an overridden assistant."
@@ -210,8 +210,8 @@ module Integration
                 ]
               },
               {
-                "role": "user",
-                "content": "Hello, OpenRouter!"
+                role: "user",
+                content: "Hello, OpenRouter!"
               }
             ]
           }

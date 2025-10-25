@@ -5,7 +5,7 @@ http_interactions:
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"input":"List three primary colors.","model":"gpt-5-nano","text":{"format":{"type":"text"}}}'
+      string: '{"input":"Extract as JSON: Alice, 35, alice@test.com","model":"gpt-4o","text":{"format":{"type":"json_object"}}}'
     headers:
       Content-Type:
       - application/json
@@ -25,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 24 Oct 2025 00:07:37 GMT
+      - Sat, 25 Oct 2025 18:09:56 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -33,15 +33,15 @@ http_interactions:
       Connection:
       - keep-alive
       X-Ratelimit-Limit-Requests:
-      - '30000'
+      - '10000'
       X-Ratelimit-Limit-Tokens:
-      - '180000000'
+      - '30000000'
       X-Ratelimit-Remaining-Requests:
-      - '29999'
+      - '9999'
       X-Ratelimit-Remaining-Tokens:
-      - '179999724'
+      - '29999962'
       X-Ratelimit-Reset-Requests:
-      - 2ms
+      - 6ms
       X-Ratelimit-Reset-Tokens:
       - 0s
       Openai-Version:
@@ -51,18 +51,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_4e13918404e240d4b1258990e4e0b46a
+      - req_5acbc68fa0084601afb5d0f032396638
       Openai-Processing-Ms:
-      - '6890'
+      - '1297'
       X-Envoy-Upstream-Service-Time:
-      - '6895'
+      - '1301'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=TyE97kIWRGl9unL4srTRxQTkx5SnWp7jQHulPPy3SMQ-1761264457-1.0.1.1-n8eiYI8wqvNdO03_oJys29g1SkMhUit9Ww00y_zHB8e5yJvbA_5_Unc2UUzKVLBXpBuGnmRcUTB04guveTZqCYZ_Ea76r.nGAo0rt.WakYc;
-        path=/; expires=Fri, 24-Oct-25 00:37:37 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=7XTxtV1cUYNAtbgPjug5GF6TEcg3AgwqSPbz7NDozyU-1761415796-1.0.1.1-_.uPe_EEoG4UkNwYHOkrKG75BHHjX.Cq8K4_x9VpaKy0SUSNNX.7Iqi2Kf5Wbqk4P8apgDltmy6u9FyLW.Zz5dRg3SO_WsrlqZi3Dod9lw8;
+        path=/; expires=Sat, 25-Oct-25 18:39:56 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=.EGXEfRsiidXAycTCNqncxbK1L_d5pe8sBrH8eFBzHw-1761264457924-0.0.1.1-604800000;
+      - _cfuvid=i8tow7XOabCpHRStnnf86zkWmN778xQhTccMirftGIU-1761415796448-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +71,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99353c02a97e91f0-SJC
+      - 9943aaef3bb3fac6-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_09fc0a50a558a9e20068fac3430840819a82be27cb0e49a36b",
+          "id": "resp_05f889d227f96caf0068fd127323288195b86a9170f4ea8577",
           "object": "response",
-          "created_at": 1761264451,
+          "created_at": 1761415795,
           "status": "completed",
           "background": false,
           "billing": {
@@ -91,15 +91,10 @@ http_interactions:
           "instructions": null,
           "max_output_tokens": null,
           "max_tool_calls": null,
-          "model": "gpt-5-nano-2025-08-07",
+          "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "rs_09fc0a50a558a9e20068fac3441654819aa4b5f907813d67ad",
-              "type": "reasoning",
-              "summary": []
-            },
-            {
-              "id": "msg_09fc0a50a558a9e20068fac34946d4819a83563d18254280bd",
+              "id": "msg_05f889d227f96caf0068fd1273f1dc81959bd9d5f2fe59fe21",
               "type": "message",
               "status": "completed",
               "content": [
@@ -107,7 +102,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "Red, blue, and yellow.\n\nNote: If talking about light, primaries are red, green, and blue. If printing, primaries are cyan, magenta, and yellow."
+                  "text": "{\n  \"name\": \"Alice\",\n  \"age\": 35,\n  \"email\": \"alice@test.com\"\n}"
                 }
               ],
               "role": "assistant"
@@ -117,7 +112,7 @@ http_interactions:
           "previous_response_id": null,
           "prompt_cache_key": null,
           "reasoning": {
-            "effort": "medium",
+            "effort": null,
             "summary": null
           },
           "safety_identifier": null,
@@ -126,7 +121,7 @@ http_interactions:
           "temperature": 1.0,
           "text": {
             "format": {
-              "type": "text"
+              "type": "json_object"
             },
             "verbosity": "medium"
           },
@@ -136,18 +131,18 @@ http_interactions:
           "top_p": 1.0,
           "truncation": "disabled",
           "usage": {
-            "input_tokens": 11,
+            "input_tokens": 19,
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 492,
+            "output_tokens": 26,
             "output_tokens_details": {
-              "reasoning_tokens": 448
+              "reasoning_tokens": 0
             },
-            "total_tokens": 503
+            "total_tokens": 45
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Fri, 24 Oct 2025 00:07:37 GMT
+  recorded_at: Sat, 25 Oct 2025 18:09:56 GMT
 recorded_with: VCR 6.3.1

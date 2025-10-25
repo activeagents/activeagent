@@ -14,14 +14,14 @@ module Integration
         # Basic Request
         ###############################################################
         BASIC_REQUEST = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
             {
-              "role": "user",
-              "content": "Hello, Claude!"
+              role: "user",
+              content: "Hello, Claude!"
             }
           ],
-          "max_tokens": 1024
+          max_tokens: 1024
         }
         def basic_request
           prompt(
@@ -36,16 +36,16 @@ module Integration
         # Request with System Prompt
         ###############################################################
         SYSTEM_PROMPT = {
-          "model": "claude-sonnet-4-5-20250929",
-          "system": "You are a helpful assistant.",
-          "messages": [
+          model: "claude-sonnet-4-5-20250929",
+          system: "You are a helpful assistant.",
+          messages: [
             {
-              "role": "user",
-              "content": "What is 2+2?"
+              role: "user",
+              content: "What is 2+2?"
             }
           ],
-          "max_tokens": 1024,
-          "temperature": 0.7
+          max_tokens: 1024,
+          temperature: 0.7
         }
         def system_prompt
           prompt(
@@ -62,31 +62,31 @@ module Integration
         # Request with Tools
         ###############################################################
         TOOLS_REQUEST = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
             {
-              "role": "user",
-              "content": "What's the weather in San Francisco?"
+              role: "user",
+              content: "What's the weather in San Francisco?"
             }
           ],
-          "max_tokens": 1024,
-          "tools": [
+          max_tokens: 1024,
+          tools: [
             {
-              "name": "get_weather",
-              "description": "Get the current weather in a given location",
-              "input_schema": {
-                "type": "object",
-                "properties": {
-                  "location": {
-                    "type": "string",
-                    "description": "The city and state, e.g. San Francisco, CA"
+              name: "get_weather",
+              description: "Get the current weather in a given location",
+              input_schema: {
+                type: "object",
+                properties: {
+                  location: {
+                    type: "string",
+                    description: "The city and state, e.g. San Francisco, CA"
                   }
                 },
-                "required": [ "location" ]
+                required: [ "location" ]
               }
             }
           ],
-          "tool_choice": { "type": "auto" }
+          tool_choice: { type: "auto" }
         }
         def tools_request
           prompt(
@@ -122,17 +122,17 @@ module Integration
         # Request with Extended Thinking
         ###############################################################
         EXTENDED_THINKING = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
             {
-              "role": "user",
-              "content": "Solve this complex math problem..."
+              role: "user",
+              content: "Solve this complex math problem..."
             }
           ],
-          "max_tokens": 4096,
-          "thinking": {
-            "type": "enabled",
-            "budget_tokens": 2048
+          max_tokens: 4096,
+          thinking: {
+            type: "enabled",
+            budget_tokens: 2048
           }
         }
         def extended_thinking
@@ -152,16 +152,16 @@ module Integration
         # Request with Metadata
         ###############################################################
         METADATA_REQUEST = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
             {
-              "role": "user",
-              "content": "Hello!"
+              role: "user",
+              content: "Hello!"
             }
           ],
-          "max_tokens": 1024,
-          "metadata": {
-            "user_id": "user-123"
+          max_tokens: 1024,
+          metadata: {
+            user_id: "user-123"
           }
         }
         def metadata_request
@@ -180,13 +180,13 @@ module Integration
         # Request with Multiple Messages
         ###############################################################
         MULTIPLE_MESSAGES = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "Hello there." },
-            { "role": "assistant", "content": "Hi, I'm Claude. How can I help you?" },
-            { "role": "user", "content": "Can you explain LLMs in plain English?" }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "Hello there." },
+            { role: "assistant", content: "Hi, I'm Claude. How can I help you?" },
+            { role: "user", content: "Can you explain LLMs in plain English?" }
           ],
-          "max_tokens": 1024
+          max_tokens: 1024
         }
         def multiple_messages
           prompt(
@@ -203,24 +203,24 @@ module Integration
         # User Message with Content Blocks
         ###############################################################
         USER_MESSAGE_CONTENT_BLOCKS = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
             {
-              "role": "user",
-              "content": [
-                { "type": "text", "text": "What's in this image?" },
+              role: "user",
+              content: [
+                { type: "text", text: "What's in this image?" },
                 {
-                  "type": "image",
-                  "source": {
-                    "type": "base64",
-                    "media_type": "image/jpeg",
-                    "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: "image/jpeg",
+                    data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
                   }
                 }
               ]
             }
           ],
-          "max_tokens": 1024
+          max_tokens: 1024
         }
         def user_message_content_blocks
           prompt(
@@ -248,36 +248,36 @@ module Integration
         # Assistant Message with Tool Use
         ###############################################################
         ASSISTANT_MESSAGE_TOOL_USE = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
             {
-              "role": "user",
-              "content": "What's the weather in San Francisco?"
+              role: "user",
+              content: "What's the weather in San Francisco?"
             },
             {
-              "role": "assistant",
-              "content": [
-                { "type": "text", "text": "I'll check the weather for you." },
+              role: "assistant",
+              content: [
+                { type: "text", text: "I'll check the weather for you." },
                 {
-                  "type": "tool_use",
-                  "id": "toolu_123",
-                  "name": "get_weather",
-                  "input": { "location": "San Francisco, CA" }
+                  type: "tool_use",
+                  id: "toolu_123",
+                  name: "get_weather",
+                  input: { location: "San Francisco, CA" }
                 }
               ]
             },
             {
-              "role": "user",
-              "content": [
+              role: "user",
+              content: [
                 {
-                  "type": "tool_result",
-                  "tool_use_id": "toolu_123",
-                  "content": "72°F and sunny"
+                  type: "tool_result",
+                  tool_use_id: "toolu_123",
+                  content: "72°F and sunny"
                 }
               ]
             }
           ],
-          "max_tokens": 1024
+          max_tokens: 1024
         }
         def assistant_message_tool_use
           prompt(
@@ -314,25 +314,25 @@ module Integration
         # Tool Choice: Auto (Default)
         ###############################################################
         TOOL_CHOICE_AUTO = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "What's the weather?" }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "What's the weather?" }
           ],
-          "max_tokens": 1024,
-          "tools": [
+          max_tokens: 1024,
+          tools: [
             {
-              "name": "get_weather",
-              "description": "Get weather",
-              "input_schema": {
-                "type": "object",
-                "properties": {
-                  "location": { "type": "string" }
+              name: "get_weather",
+              description: "Get weather",
+              input_schema: {
+                type: "object",
+                properties: {
+                  location: { type: "string" }
                 },
-                "required": [ "location" ]
+                required: [ "location" ]
               }
             }
           ],
-          "tool_choice": { "type": "auto" }
+          tool_choice: { type: "auto" }
         }
         def tool_choice_auto
           prompt(
@@ -361,25 +361,25 @@ module Integration
         # Tool Choice: Any (Force Tool Use)
         ###############################################################
         TOOL_CHOICE_ANY = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "What's the weather?" }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "What's the weather?" }
           ],
-          "max_tokens": 1024,
-          "tools": [
+          max_tokens: 1024,
+          tools: [
             {
-              "name": "get_weather",
-              "description": "Get weather",
-              "input_schema": {
-                "type": "object",
-                "properties": {
-                  "location": { "type": "string" }
+              name: "get_weather",
+              description: "Get weather",
+              input_schema: {
+                type: "object",
+                properties: {
+                  location: { type: "string" }
                 },
-                "required": [ "location" ]
+                required: [ "location" ]
               }
             }
           ],
-          "tool_choice": { "type": "any" }
+          tool_choice: { type: "any" }
         }
         def tool_choice_any
           prompt(
@@ -408,25 +408,25 @@ module Integration
         # Tool Choice: Specific Tool
         ###############################################################
         TOOL_CHOICE_SPECIFIC = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "What's the weather?" }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "What's the weather?" }
           ],
-          "max_tokens": 1024,
-          "tools": [
+          max_tokens: 1024,
+          tools: [
             {
-              "name": "get_weather",
-              "description": "Get weather",
-              "input_schema": {
-                "type": "object",
-                "properties": {
-                  "location": { "type": "string" }
+              name: "get_weather",
+              description: "Get weather",
+              input_schema: {
+                type: "object",
+                properties: {
+                  location: { type: "string" }
                 },
-                "required": [ "location" ]
+                required: [ "location" ]
               }
             }
           ],
-          "tool_choice": { "type": "tool", "name": "get_weather" }
+          tool_choice: { type: "tool", name: "get_weather" }
         }
         def tool_choice_specific
           prompt(
@@ -455,27 +455,27 @@ module Integration
         # Tool Choice: Disable Parallel Tool Use
         ###############################################################
         TOOL_CHOICE_DISABLE_PARALLEL = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "What's the weather?" }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "What's the weather?" }
           ],
-          "max_tokens": 1024,
-          "tools": [
+          max_tokens: 1024,
+          tools: [
             {
-              "name": "get_weather",
-              "description": "Get weather",
-              "input_schema": {
-                "type": "object",
-                "properties": {
-                  "location": { "type": "string" }
+              name: "get_weather",
+              description: "Get weather",
+              input_schema: {
+                type: "object",
+                properties: {
+                  location: { type: "string" }
                 },
-                "required": [ "location" ]
+                required: [ "location" ]
               }
             }
           ],
-          "tool_choice": {
-            "type": "auto",
-            "disable_parallel_tool_use": true
+          tool_choice: {
+            type: "auto",
+            disable_parallel_tool_use: true
           }
         }
         def tool_choice_disable_parallel
@@ -508,12 +508,12 @@ module Integration
         # Thinking Configuration: Disabled
         ###############################################################
         THINKING_DISABLED = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "Hello!" }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "Hello!" }
           ],
-          "max_tokens": 1024,
-          "thinking": { "type": "disabled" }
+          max_tokens: 1024,
+          thinking: { type: "disabled" }
         }
         def thinking_disabled
           prompt(
@@ -529,12 +529,12 @@ module Integration
         # Request with Streaming
         ###############################################################
         STREAMING = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "Tell me a story." }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "Tell me a story." }
           ],
-          "max_tokens": 1024,
-          "stream": true
+          max_tokens: 1024,
+          stream: true
         }
         def streaming
           prompt(
@@ -581,13 +581,13 @@ module Integration
         # Request with Temperature and Sampling Parameters
         ###############################################################
         SAMPLING_PARAMETERS = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "Write a creative story." }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "Write a creative story." }
           ],
-          "max_tokens": 2048,
-          "top_k": 50,
-          "top_p": 0.95
+          max_tokens: 2048,
+          top_k: 50,
+          top_p: 0.95
         }
         def sampling_parameters
           prompt(
@@ -604,12 +604,12 @@ module Integration
         # Request with Stop Sequences
         ###############################################################
         STOP_SEQUENCES = {
-          "model": "claude-sonnet-4-5-20250929",
-          "messages": [
-            { "role": "user", "content": "Generate a JSON object representing a person with a name, email, and phone number ." }
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            { role: "user", content: "Generate a JSON object representing a person with a name, email, and phone number ." }
           ],
-          "max_tokens": 1024,
-          "stop_sequences": [ "}" ]
+          max_tokens: 1024,
+          stop_sequences: [ "}" ]
         }
         def stop_sequences
           prompt(

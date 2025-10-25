@@ -12,8 +12,8 @@ module Integration
           embed_with :mock
 
           SINGLE_INPUT = {
-            "model": "mock-embedding-model",
-            "input": "Your text string goes here"
+            model: "mock-model",
+            input: "Your text string goes here"
           }
           def single_input
             embed(
@@ -22,8 +22,8 @@ module Integration
           end
 
           MULTI_INPUT = {
-            "model": "mock-embedding-model",
-            "input": [
+            model: "mock-model",
+            input: [
               "First text string goes here",
               "Second text string goes here"
             ]
@@ -38,9 +38,9 @@ module Integration
           end
 
           WITH_DIMENSIONS = {
-            "model": "mock-embedding-model",
-            "input": "Test with custom dimensions",
-            "dimensions": 768
+            model: "mock-model",
+            input: "Test with custom dimensions",
+            dimensions: 768
           }
           def with_dimensions
             embed(

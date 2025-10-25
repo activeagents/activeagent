@@ -18,7 +18,10 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     # Pass the multimodal message directly to prompt
     prompt(
       message: message,
-      output_schema: image_analysis_schema
+      response_format: {
+        type: "json_schema",
+        json_schema: image_analysis_schema
+      }
     )
   end
 
@@ -35,7 +38,10 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     # Pass the multimodal message directly to prompt
     prompt(
       message: message,
-      output_schema: receipt_schema
+      response_format: {
+        type: "json_schema",
+        json_schema: receipt_schema
+      }
     )
   end
 
@@ -87,24 +93,33 @@ class OpenRouterIntegrationAgent < ApplicationAgent
     # Allow disabling plugins entirely for models with built-in support
     options = params[:skip_plugin] ? { plugins: [] } : { plugins: [ pdf_plugin ] }
 
+    prompt_args = {
+      message: nil,
+      options: options
+    }
+
+    # Support both response_format and legacy output_schema
+    if params[:response_format]
+      prompt_args[:response_format] = params[:response_format]
+    elsif params[:output_schema]
+      prompt_args[:response_format] = {
+        type: "json_schema",
+        json_schema: params[:output_schema]
+      }
+    end
+
     if @pdf_url
-      prompt(
-        message: [
-          { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
-          { type: "file", file: { file_name: "test.pdf", file_data: @pdf_url } }
-        ],
-        options: options,
-        output_schema: params[:output_schema]
-      )
+      prompt_args[:message] = [
+        { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
+        { type: "file", file: { file_name: "test.pdf", file_data: @pdf_url } }
+      ]
+      prompt(**prompt_args)
     elsif @pdf_data
-      prompt(
-        message: [
-          { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
-          { type: "file", file: { file_name: "test.pdf", file_data: "data:application/pdf;base64,#{@pdf_data}" } }
-        ],
-        options: options,
-        output_schema: params[:output_schema]
-      )
+      prompt_args[:message] = [
+        { type: "text", text: params[:prompt_text] || "Analyze this PDF document and provide a summary." },
+        { type: "file", file: { file_name: "test.pdf", file_data: "data:application/pdf;base64,#{@pdf_data}" } }
+      ]
+      prompt(**prompt_args)
     else
       prompt(message: "No PDF provided")
     end

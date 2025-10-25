@@ -1,0 +1,59 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Return the three primary colors."}],"model":"openrouter/auto","response_format":{"type":"json_schema","json_schema":{"name":"primary_colors","schema":{"type":"object","properties":{"colors":{"type":"array","items":{"type":"string"}}},"required":["colors"],"additionalProperties":false},"strict":true}},"provider":{"require_parameters":true}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 21:39:05 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9944dd369d9ccf2f-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n{\"id\":\"gen-1761428340-SU9mlnrUYXcb0mV6q90c\",\"provider\":\"Novita\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761428342,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"
+        \   \\t{\\n    \\\"colors\\\": [\\\"red\\\", \\\"blue\\\", \\\"yellow\\\"]\\n
+        \   }\\n   \\t\\t\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"\",\"usage\":{\"prompt_tokens\":28,\"completion_tokens\":24,\"total_tokens\":52,\"prompt_tokens_details\":null,\"completion_tokens_details\":null}}"
+  recorded_at: Sat, 25 Oct 2025 21:39:05 GMT
+recorded_with: VCR 6.3.1

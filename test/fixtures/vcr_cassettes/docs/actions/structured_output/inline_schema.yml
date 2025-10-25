@@ -1,0 +1,166 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Extract colors: red, blue, green. Return as json.","model":"gpt-4o","text":{"format":{"type":"json_schema","name":"color_list","schema":{"type":"object","properties":{"colors":{"type":"array","items":{"type":"string"}}},"required":["colors"],"additionalProperties":false},"strict":true}}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 18:10:04 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999932'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_2a55720b297942868cddf019e89ff5ad
+      Openai-Processing-Ms:
+      - '1161'
+      X-Envoy-Upstream-Service-Time:
+      - '1169'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=V29GnGwP8tX_9wFVWvmC_VjKyrPcvNMmcxbyOP0tM4E-1761415804-1.0.1.1-SS8EAWPTGkhIjcrC9lYrEqg24gl0oWNDslv8o5c4hkHWFLdaIC5Xe1AH_oNA3ThPoJP9ckcN9AVTxiTCpnSlSCCcx.04sr7vrGCtXDD.wTQ;
+        path=/; expires=Sat, 25-Oct-25 18:40:04 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=YLlDHyDA82ZMtJNh56zLZOFQctYykImS0t2XeietbIs-1761415804855-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9943ab24cec02ca1-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_05a87f5ff7a5a27d0068fd127bb510819a9cd8c83682c809bc",
+          "object": "response",
+          "created_at": 1761415803,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "msg_05a87f5ff7a5a27d0068fd127c8530819aa755c41e6e220397",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "{\"colors\":[\"red\",\"blue\",\"green\"]}"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "json_schema",
+              "description": null,
+              "name": "color_list",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "colors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "colors"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 49,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 11,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 60
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sat, 25 Oct 2025 18:10:04 GMT
+recorded_with: VCR 6.3.1

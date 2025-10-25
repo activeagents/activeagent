@@ -42,7 +42,7 @@ No environment variables are required for the Mock provider. It doesn't make ext
 
 The Mock provider accepts most standard parameters for compatibility but doesn't enforce them:
 - `temperature`, `top_p`, `max_tokens` - Accepted but ignored
-- `output_schema` - Accepted but not validated or enforced
+- `response_format` - Accepted but not validated or enforced
 - Tool/function definitions - Accepted but tools won't be called
 
 ## Mock-Specific Features

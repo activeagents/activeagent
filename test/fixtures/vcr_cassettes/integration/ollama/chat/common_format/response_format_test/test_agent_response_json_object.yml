@@ -1,0 +1,60 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Return a JSON object with three
+        primary colors in an array named ''colors''."}],"model":"deepseek-r1:latest","response_format":{"type":"json_object"}}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 25 Oct 2025 21:28:38 GMT
+      Content-Length:
+      - '2014'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-696","object":"chat.completion","created":1761427718,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"{\n\n\n  \"colors\":
+        [\"red\", \"green\", \"blue\"]\n}","reasoning":"We are to return a JSON object
+        that contains an array of three primary colors.\n The primary colors typically
+        in the context of web design or common knowledge are red, blue, and green
+        (RGB).\n However, note that sometimes the traditional primary colors for pigments
+        (R-Y-B) include yellow as well, but since we need only three, \n RGB is often
+        used.\n\n But let''s confirm: In subtractive color (like paints), the primary
+        colors are typically cyan, magenta, and yellow. \n In additive color (like
+        computer screens), they are red, green, and blue.\n\n Since the prompt does
+        not specify, I''ll assume it wants the web RGB primary colors because that
+        is more versatile in digital contexts.\n If the context is for pigments (like
+        printing with CMYK) then cyan, magenta, yellow would be considered. But without
+        specification, \n to avoid confusion, let me use red, green, blue.\n\n However,
+        note: the three primary colors of light and the RGB color model are indeed
+        red, green, and blue.\n\n Let''s create a JSON object like:\n {\n   \"colors\":
+        [\"red\", \"green\", \"blue\"]\n }\n\n But wait, if we think about the traditional
+        pigments (subtractive) then it is often mentioned as yellow in some contexts.
+        \n The problem says ''primary colors'' without specifying RGB or CMYK.\n\n
+        Alternatively, we can consider the common understanding of primary colors
+        for young children or art classes which sometimes includes red, blue and yellow.\n\n
+        However, the prompt does not specify so I''ll stick to the most standard digital
+        primary: red, green, blue.\n\n If there is a specific requirement, it should
+        be provided. Since none was given, this is my best judgment.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":370,"completion_tokens":16,"total_tokens":386}}
+
+        '
+  recorded_at: Sat, 25 Oct 2025 21:28:38 GMT
+recorded_with: VCR 6.3.1

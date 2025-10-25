@@ -13,11 +13,11 @@ module Integration
           generate_with :mock
 
           BASIC_REQUEST = {
-            "model": "mock-model",
-            "messages": [
+            model: "mock-model",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Mock!"
+                role: "user",
+                content: "Hello, Mock!"
               }
             ]
           }
@@ -31,11 +31,11 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "mock-model",
-            "messages": [
+            model: "mock-model",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Mock!"
+                role: "user",
+                content: "Hello, Mock!"
               }
             ]
           }
@@ -55,11 +55,11 @@ module Integration
           generate_with :mock
 
           BASIC_REQUEST = {
-            "model": "mock-model",
-            "messages": [
+            model: "mock-model",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Mock!"
+                role: "user",
+                content: "Hello, Mock!"
               }
             ]
           }
@@ -73,11 +73,11 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "mock-model",
-            "messages": [
+            model: "mock-model",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Mock!"
+                role: "user",
+                content: "Hello, Mock!"
               }
             ]
           }
@@ -98,11 +98,11 @@ module Integration
                         instructions: "You are a configured assistant with default instructions."
 
           BASIC_REQUEST = {
-            "model": "mock-model",
-            "messages": [
+            model: "mock-model",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Mock!"
+                role: "user",
+                content: "Hello, Mock!"
               }
             ]
           }
@@ -116,11 +116,11 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "mock-model",
-            "messages": [
+            model: "mock-model",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Mock!"
+                role: "user",
+                content: "Hello, Mock!"
               }
             ]
           }
@@ -141,11 +141,11 @@ module Integration
                         instructions: [ "You are a helpful assistant.", "Always be polite and professional." ]
 
           BASIC_REQUEST = {
-            "model": "mock-model",
-            "messages": [
+            model: "mock-model",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Mock!"
+                role: "user",
+                content: "Hello, Mock!"
               }
             ]
           }
@@ -159,11 +159,11 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "mock-model",
-            "messages": [
+            model: "mock-model",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Mock!"
+                role: "user",
+                content: "Hello, Mock!"
               }
             ]
           }

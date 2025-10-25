@@ -6,11 +6,11 @@ module ActiveAgent
   module Providers
     module Common
       module Messages
-        # Assistant message - messages sent by the AI assistant
+        # Represents messages sent by the AI assistant in a conversation.
         class Assistant < Base
           attribute :role, :string, as: "assistant"
-          attribute :content, :string # Text content
-          attribute :name, :string # Optional name for the assistant
+          attribute :content, :string
+          attribute :name, :string
 
           validates :content, presence: true
 
@@ -18,12 +18,12 @@ module ActiveAgent
           #
           # Searches for the first occurrence of `{` or `[` and last occurrence of `}` or `]`,
           # then parses the content between them. Useful for extracting structured data from
-          # user messages that may contain additional text.
+          # assistant messages that may contain additional text around the JSON.
           #
-          # @param [Boolean] symbolize_names whether to symbolize hash keys
-          # @param [Symbol, nil] normalize_names key normalization method (e.g., :underscore)
+          # @param symbolize_names [Boolean] whether to symbolize hash keys
+          # @param normalize_names [Symbol, nil] key normalization method (e.g., :underscore)
           # @return [Hash, Array, nil] parsed JSON structure or nil if parsing fails
-          def json_object(symbolize_names: true, normalize_names: :underscore)
+          def parsed_json(symbolize_names: true, normalize_names: :underscore)
             start_char       = [ content.index("{"),  content.index("[") ].compact.min
             end_char         = [ content.rindex("}"), content.rindex("]") ].compact.max
             content_stripped = content[start_char..end_char] if start_char && end_char
@@ -47,6 +47,9 @@ module ActiveAgent
           rescue JSON::ParserError
             nil
           end
+
+          alias_method :json_object, :parsed_json
+          alias_method :parse_json,  :parsed_json
         end
       end
     end

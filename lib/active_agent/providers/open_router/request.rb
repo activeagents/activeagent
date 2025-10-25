@@ -67,6 +67,16 @@ module ActiveAgent
             super((messages || []) | [ value ])
           end
         end
+
+        # Common Format Compatability
+        def response_format=(value)
+          # If we are doing structured output, we need to ensure that we route to models that support it.
+          if %i[json_object json_schema].include?(value[:type].to_sym)
+            self.provider.require_parameters = true
+          end
+
+          super(value)
+        end
       end
     end
   end

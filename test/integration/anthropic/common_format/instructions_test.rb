@@ -13,14 +13,14 @@ module Integration
           generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
 
           BASIC_REQUEST = {
-            "model": "claude-sonnet-4-5-20250929",
-            "messages": [
+            model: "claude-sonnet-4-5-20250929",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Claude!"
+                role: "user",
+                content: "Hello, Claude!"
               }
             ],
-            "max_tokens": 1024
+            max_tokens: 1024
           }
 
           def basic_request
@@ -33,15 +33,15 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "claude-sonnet-4-5-20250929",
-            "system": "You are an overridden assistant.",
-            "messages": [
+            model: "claude-sonnet-4-5-20250929",
+            system: "You are an overridden assistant.",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Claude!"
+                role: "user",
+                content: "Hello, Claude!"
               }
             ],
-            "max_tokens": 1024
+            max_tokens: 1024
           }
 
           def basic_request_with_override
@@ -60,15 +60,15 @@ module Integration
           generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
 
           BASIC_REQUEST = {
-            "model": "claude-sonnet-4-5-20250929",
-            "system": "Default auto-loaded instructions for testing.",
-            "messages": [
+            model: "claude-sonnet-4-5-20250929",
+            system: "Default auto-loaded instructions for testing.",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Claude!"
+                role: "user",
+                content: "Hello, Claude!"
               }
             ],
-            "max_tokens": 1024
+            max_tokens: 1024
           }
 
           def basic_request
@@ -81,15 +81,15 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "claude-sonnet-4-5-20250929",
-            "system": "You are an overridden assistant.",
-            "messages": [
+            model: "claude-sonnet-4-5-20250929",
+            system: "You are an overridden assistant.",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Claude!"
+                role: "user",
+                content: "Hello, Claude!"
               }
             ],
-            "max_tokens": 1024
+            max_tokens: 1024
           }
 
           def basic_request_with_override
@@ -110,15 +110,15 @@ module Integration
                         instructions: "You are a configured assistant with default instructions."
 
           BASIC_REQUEST = {
-            "model": "claude-sonnet-4-5-20250929",
-            "system": "You are a configured assistant with default instructions.",
-            "messages": [
+            model: "claude-sonnet-4-5-20250929",
+            system: "You are a configured assistant with default instructions.",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Claude!"
+                role: "user",
+                content: "Hello, Claude!"
               }
             ],
-            "max_tokens": 1024
+            max_tokens: 1024
           }
 
           def basic_request
@@ -131,15 +131,15 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "claude-sonnet-4-5-20250929",
-            "system": "You are an overridden assistant.",
-            "messages": [
+            model: "claude-sonnet-4-5-20250929",
+            system: "You are an overridden assistant.",
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Claude!"
+                role: "user",
+                content: "Hello, Claude!"
               }
             ],
-            "max_tokens": 1024
+            max_tokens: 1024
           }
 
           def basic_request_with_override
@@ -160,18 +160,18 @@ module Integration
                         instructions: [ "You are a helpful assistant.", "Always be polite and professional." ]
 
           BASIC_REQUEST = {
-            "model": "claude-sonnet-4-5-20250929",
-            "system": [
-              { "type": "text", "text": "You are a helpful assistant." },
-              { "type": "text", "text": "Always be polite and professional." }
+            model: "claude-sonnet-4-5-20250929",
+            system: [
+              { type: "text", text: "You are a helpful assistant." },
+              { type: "text", text: "Always be polite and professional." }
             ],
-            "messages": [
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Claude!"
+                role: "user",
+                content: "Hello, Claude!"
               }
             ],
-            "max_tokens": 1024
+            max_tokens: 1024
           }
 
           def basic_request
@@ -184,18 +184,18 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            "model": "claude-sonnet-4-5-20250929",
-            "system": [
-              { "type": "text", "text": "You are an overridden assistant." },
-              { "type": "text", "text": "Please respond concisely." }
+            model: "claude-sonnet-4-5-20250929",
+            system: [
+              { type: "text", text: "You are an overridden assistant." },
+              { type: "text", text: "Please respond concisely." }
             ],
-            "messages": [
+            messages: [
               {
-                "role": "user",
-                "content": "Hello, Claude!"
+                role: "user",
+                content: "Hello, Claude!"
               }
             ],
-            "max_tokens": 1024
+            max_tokens: 1024
           }
 
           def basic_request_with_override

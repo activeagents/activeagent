@@ -146,9 +146,8 @@ Extract structured data from images, PDFs, and text:
 
 ```ruby
 prompt = DataExtractionAgent.with(
-  output_schema: :chart_schema,
   image_path: Rails.root.join("sales_chart.png")
-).parse_content
+).parse_content.generate_now
 ```
 
 ### Translation

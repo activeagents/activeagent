@@ -12,32 +12,32 @@ module Integration
           embed_with :openai, model: "text-embedding-3-small"
 
           TEMPLATES_DEFAULT = {
-            "model": "text-embedding-3-small",
-            "input": "The quick brown fox jumps over the lazy dog"
+            model: "text-embedding-3-small",
+            input: "The quick brown fox jumps over the lazy dog"
           }
           def templates_default
             embed
           end
 
           TEMPLATES_WITH_LOCALS = {
-            "model": "text-embedding-3-small",
-            "input": "Learning Ruby programming is fun and rewarding"
+            model: "text-embedding-3-small",
+            input: "Learning Ruby programming is fun and rewarding"
           }
           def templates_with_locals
             embed(locals: { topic: "Ruby", subject: "programming" })
           end
 
           INPUT_BARE = {
-            "model": "text-embedding-3-small",
-            "input": "Your text string goes here"
+            model: "text-embedding-3-small",
+            input: "Your text string goes here"
           }
           def input_bare
             embed("Your text string goes here")
           end
 
           INPUT_ARRAY = {
-            "model": "text-embedding-3-small",
-            "input": [
+            model: "text-embedding-3-small",
+            input: [
               "First text string goes here",
               "Second text string goes here"
             ]

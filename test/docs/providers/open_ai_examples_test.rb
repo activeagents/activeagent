@@ -287,7 +287,7 @@ module Providers
         VCR.use_cassette("docs/providers/openai/structured_output") do
           # region structured_output_usage
           response = DataExtractionAgent.extract_colors.generate_now
-          colors = response.message.json_object
+          colors = response.message.parsed_json
           # endregion structured_output_usage
 
           assert_kind_of Hash, colors

@@ -12,8 +12,8 @@ module Integration
           embed_with :openai, model: "text-embedding-3-small"
 
           SINGLE_INPUT = {
-            "model": "text-embedding-3-small",
-            "input": "Your text string goes here"
+            model: "text-embedding-3-small",
+            input: "Your text string goes here"
           }
           def single_input
             embed(
@@ -22,8 +22,8 @@ module Integration
           end
 
           MULTI_INPUT = {
-            "model": "text-embedding-3-small",
-            "input": [
+            model: "text-embedding-3-small",
+            input: [
               "First text string goes here",
               "Second text string goes here"
             ]

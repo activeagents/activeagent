@@ -12,32 +12,32 @@ module Integration
           embed_with :ollama, model: "all-minilm"
 
           TEMPLATES_DEFAULT = {
-            "model": "all-minilm",
-            "input": "The quick brown fox jumps over the lazy dog"
+            model: "all-minilm",
+            input: "The quick brown fox jumps over the lazy dog"
           }
           def templates_default
             embed
           end
 
           TEMPLATES_WITH_LOCALS = {
-            "model": "all-minilm",
-            "input": "Learning Ruby programming is fun and rewarding"
+            model: "all-minilm",
+            input: "Learning Ruby programming is fun and rewarding"
           }
           def templates_with_locals
             embed(locals: { topic: "Ruby", subject: "programming" })
           end
 
           INPUT_BARE = {
-            "model": "all-minilm",
-            "input": "Your text string goes here"
+            model: "all-minilm",
+            input: "Your text string goes here"
           }
           def input_bare
             embed("Your text string goes here")
           end
 
           INPUT_ARRAY = {
-            "model": "all-minilm",
-            "input": [
+            model: "all-minilm",
+            input: [
               "First text string goes here",
               "Second text string goes here"
             ]

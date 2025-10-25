@@ -153,7 +153,11 @@ module ActiveAgent
               when Text
                 value
               when Hash
-                Text.new(**value.symbolize_keys)
+                if value.key?(:json_schema)
+                  Text.new(**value.symbolize_keys.except(:type)) # Prevent Losing the Schema on Format setting
+                else
+                  Text.new(**value.symbolize_keys)
+                end
               when nil
                 nil
               else

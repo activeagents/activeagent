@@ -12,23 +12,23 @@ module Integration
           generate_with :openai, model: "gpt-4.1"
 
           TEXT_INPUT = {
-            "model": "gpt-4.1",
-            "input": "Tell me a three sentence bedtime story about a unicorn."
+            model: "gpt-4.1",
+            input: "Tell me a three sentence bedtime story about a unicorn."
           }
           def text_input
             prompt(input: "Tell me a three sentence bedtime story about a unicorn.")
           end
 
           IMAGE_INPUT = {
-            "model": "gpt-4.1",
-            "input": [
+            model: "gpt-4.1",
+            input: [
               {
-                "role": "user",
-                "content": [
-                  { "type": "input_text", "text": "what is in this image?" },
+                role: "user",
+                content: [
+                  { type: "input_text", text: "what is in this image?" },
                   {
-                    "type": "input_image",
-                    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                    type: "input_image",
+                    image_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
                   }
                 ]
               }
@@ -51,15 +51,15 @@ module Integration
           end
 
           FILE_INPUT = {
-            "model": "gpt-4.1",
-            "input": [
+            model: "gpt-4.1",
+            input: [
               {
-                "role": "user",
-                "content": [
-                  { "type": "input_text", "text": "what is in this file?" },
+                role: "user",
+                content: [
+                  { type: "input_text", text: "what is in this file?" },
                   {
-                    "type": "input_file",
-                    "file_url": "https://www.berkshirehathaway.com/letters/2024ltr.pdf"
+                    type: "input_file",
+                    file_url: "https://www.berkshirehathaway.com/letters/2024ltr.pdf"
                   }
                 ]
               }
@@ -82,9 +82,9 @@ module Integration
           end
 
           WEB_SEARCH = {
-            "model": "gpt-4.1",
-            "tools": [ { "type": "web_search_preview" } ],
-            "input": "What was a positive news story from today?"
+            model: "gpt-4.1",
+            tools: [ { type: "web_search_preview" } ],
+            input: "What was a positive news story from today?"
           }
           def web_search
             prompt(
@@ -94,30 +94,30 @@ module Integration
           end
 
           FILE_SEARCH = {
-            "model": "gpt-4.1",
-            "tools": [ {
-              "type": "file_search",
-              "vector_store_ids": [ "vs_1234567890" ],
-              "max_num_results": 20
+            model: "gpt-4.1",
+            tools: [ {
+              type: "file_search",
+              vector_store_ids: [ "vs_1234567890" ],
+              max_num_results: 20
             } ],
-            "input": "What are the attributes of an ancient brown dragon?"
+            input: "What are the attributes of an ancient brown dragon?"
           }
           def file_search
             prompt(
               tools: [ {
-                "type": "file_search",
-                "vector_store_ids": [ "vs_1234567890" ],
-                "max_num_results": 20
+                type: "file_search",
+                vector_store_ids: [ "vs_1234567890" ],
+                max_num_results: 20
               } ],
               input: "What are the attributes of an ancient brown dragon?"
             )
           end
 
           STREAMING = {
-            "model": "gpt-4.1",
-            "instructions": "You are a helpful assistant.",
-            "input": "Hello!",
-            "stream": true
+            model: "gpt-4.1",
+            instructions: "You are a helpful assistant.",
+            input: "Hello!",
+            stream: true
           }
           def streaming
             prompt(
@@ -128,30 +128,30 @@ module Integration
           end
 
           FUNCTIONS = {
-            "model": "gpt-4.1",
-            "input": "What is the weather like in Boston today?",
-            "tools": [
+            model: "gpt-4.1",
+            input: "What is the weather like in Boston today?",
+            tools: [
               {
-                "type": "function",
-                "name": "get_current_weather",
-                "description": "Get the current weather in a given location",
-                "parameters": {
-                  "type": "object",
-                  "properties": {
-                    "location": {
-                      "type": "string",
-                      "description": "The city and state, e.g. San Francisco, CA"
+                type: "function",
+                name: "get_current_weather",
+                description: "Get the current weather in a given location",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    location: {
+                      type: "string",
+                      description: "The city and state, e.g. San Francisco, CA"
                     },
-                    "unit": {
-                      "type": "string",
-                      "enum": [ "celsius", "fahrenheit" ]
+                    unit: {
+                      type: "string",
+                      enum: [ "celsius", "fahrenheit" ]
                     }
                   },
-                  "required": [ "location", "unit" ]
+                  required: [ "location", "unit" ]
                 }
               }
             ],
-            "tool_choice": "auto"
+            tool_choice: "auto"
           }
           def functions
             prompt(
@@ -184,10 +184,10 @@ module Integration
           end
 
           REASONING = {
-            "model": "o3-mini",
-            "input": "How much wood would a woodchuck chuck?",
-            "reasoning": {
-              "effort": "high"
+            model: "o3-mini",
+            input: "How much wood would a woodchuck chuck?",
+            reasoning: {
+              effort: "high"
             }
           }
           def reasoning

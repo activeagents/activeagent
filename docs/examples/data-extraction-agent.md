@@ -48,7 +48,7 @@ Active Agent can extract data from chart images:
 :::
 
 ## Structured Output
-Active Agent supports structured output using JSON schemas. Define schemas in your agent's views directory (e.g., `app/views/data_extraction_agent/`) and reference them using the `output_schema` parameter. [Learn more about prompt structure and schemas →](/actions/prompts)
+Active Agent supports structured output using JSON schemas. Define schemas in your agent's views directory (e.g., `app/views/data_extraction_agent/`) and reference them using `response_format: { type: "json_schema", json_schema: :schema_name }`. [Learn more about structured output →](/actions/structured-output)
 
 ### Structured Output Schemas
 

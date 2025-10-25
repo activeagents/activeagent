@@ -13,8 +13,8 @@ module Integration
 
           # Single input with default model (all-minilm)
           SINGLE_INPUT_DEFAULT_MODEL = {
-            "model": "all-minilm",
-            "input": "Your text string goes here"
+            model: "all-minilm",
+            input: "Your text string goes here"
           }
           def single_input_default_model
             embed(
@@ -24,8 +24,8 @@ module Integration
 
           # Multi input with default model (all-minilm)
           MULTI_INPUT_DEFAULT_MODEL = {
-            "model": "all-minilm",
-            "input": [
+            model: "all-minilm",
+            input: [
               "First text string goes here",
               "Second text string goes here"
             ]
@@ -41,8 +41,8 @@ module Integration
 
           # Single input with custom model (nomic-embed-text)
           SINGLE_INPUT_CUSTOM_MODEL = {
-            "model": "nomic-embed-text",
-            "input": "Your text string goes here"
+            model: "nomic-embed-text",
+            input: "Your text string goes here"
           }
           def single_input_custom_model
             embed(
@@ -53,8 +53,8 @@ module Integration
 
           # Multi input with custom model (nomic-embed-text)
           MULTI_INPUT_CUSTOM_MODEL = {
-            "model": "nomic-embed-text",
-            "input": [
+            model: "nomic-embed-text",
+            input: [
               "First text string goes here",
               "Second text string goes here"
             ]

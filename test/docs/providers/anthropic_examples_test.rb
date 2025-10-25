@@ -38,7 +38,7 @@ module Providers
         VCR.use_cassette("docs/providers/anthropic/response_format/json_object") do
           # region response_format_json_object_example
           response = DataExtractionAgent.extract_colors.generate_now
-          colors = response.message.json_object # Parsed JSON hash
+          colors = response.message.parsed_json # Parsed JSON hash
           # => { colors: ["red", "blue", "yellow"] }
           # endregion response_format_json_object_example
 

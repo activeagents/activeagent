@@ -9,7 +9,7 @@ http_interactions:
         London?"}],"model":"openai/gpt-4o","response_format":{"type":"json_schema","json_schema":{"name":"weather","strict":true,"schema":{"type":"object","properties":{"location":{"type":"string","description":"City
         or location name"},"temperature":{"type":"number","description":"Temperature
         in Celsius"},"conditions":{"type":"string","description":"Weather conditions
-        description"}},"required":["location","temperature","conditions"],"additionalProperties":false}}}}'
+        description"}},"required":["location","temperature","conditions"],"additionalProperties":false}}},"provider":{"require_parameters":true}}'
     headers:
       Content-Type:
       - application/json
@@ -31,7 +31,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 23:20:36 GMT
+      - Sat, 25 Oct 2025 21:59:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,10 +52,11 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99247c846f83c487-SJC
+      - 9944fae40919944c-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1761088835-2Qosjuf8gWASv7ZyQJyl\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761088835,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"location\\\":\\\"London\\\",\\\"temperature\\\":15,\\\"conditions\\\":\\\"Partly
-        cloudy with occasional showers\\\"}\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_65564d8ba5\",\"usage\":{\"prompt_tokens\":76,\"completion_tokens\":18,\"total_tokens\":94,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Tue, 21 Oct 2025 23:20:36 GMT
+      string: "\n         \n{\"id\":\"gen-1761429555-GaiNIz4vHHzYCERkFxzF\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761429555,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"location\\\":\\\"London\\\",\\\"temperature\\\":15,\\\"conditions\\\":\\\"Partly
+        cloudy with a slight chance of rain throughout the day. Light breeze from
+        the southwest.\\\"}\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":76,\"completion_tokens\":31,\"total_tokens\":107,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sat, 25 Oct 2025 21:59:16 GMT
 recorded_with: VCR 6.3.1

@@ -15,7 +15,7 @@ class MyAgent < ApplicationAgent
       template_name: "action_template", # Optional: The name of the view template to use
       instructions: { template: "instructions" }, # Optional instructions for the prompt generation
       actions: [], # Available actions for the agent to use
-      output_schema: :schema_name # Optional schema for structured output
+      response_format: { type: "json_schema", json_schema: :schema_name } # Optional schema for structured output
     )
   end
 end

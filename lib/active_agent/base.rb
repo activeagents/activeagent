@@ -18,11 +18,7 @@ require "active_agent/concerns/view"
 require "active_agent/providers/log_subscriber"
 
 module ActiveAgent
-  # Base class for creating AI-powered agents with prompt generation, tool calling,
-  # and conversation management.
-  #
-  # Extends AbstractController::Base with AI-specific functionality including provider
-  # management, streaming, and tooling capabilities.
+  # Provides AI-powered agents with prompt generation, tool calling, and conversation management.
   #
   # @example Basic agent
   #   class MyAgent < ActiveAgent::Base
@@ -60,9 +56,10 @@ module ActiveAgent
     PROTECTED_OPTIONS = %i[exception_handler stream_broadcaster tools_function]
     PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
 
-    # Logger instance conforming to Log4r or Ruby Logger interface.
+    # Logger instance for agent operations.
     #
     # Defaults to Rails.logger when used in Rails applications.
+    # Must conform to Log4r or Ruby Logger interface.
     #
     # @return [Logger, nil]
     cattr_accessor :logger
@@ -94,8 +91,8 @@ module ActiveAgent
 
     # Configures the generation provider and options for prompt generation.
     #
-    # Specifies the AI provider and shared configuration options across all actions.
-    # Options are merged with global provider config and inherited options.
+    # Options are merged with global provider config and inherited parent class options.
+    # Instructions are never inherited from parent classes.
     #
     # @param provider_reference [Symbol, String] generation provider (:openai, :anthropic, etc.)
     # @param agent_options [Hash] configuration options shared across actions
@@ -152,13 +149,18 @@ module ActiveAgent
 
     delegate :agent_name, to: :class
 
+    # @!attribute [w] agent_name
+    # Agent name override for custom view lookup paths.
+    # @return [String]
     attr_writer :agent_name
     alias_method :controller_path, :agent_name
 
+    # @!attribute [rw] prompt_options
     # Action-level prompt options merged with agent prompt options.
     # @return [Hash]
     attr_internal :prompt_options
 
+    # @!attribute [rw] embed_options
     # Action-level embed options merged with agent embed options.
     # @return [Hash]
     attr_internal :embed_options
@@ -170,7 +172,7 @@ module ActiveAgent
       self.embed_options  = (self.class.embed_options&.deep_dup  || {}).except(:trace_id)
     end
 
-    # Returns the agent name used as a path for view lookup.
+    # Agent name used as a path for view lookup.
     #
     # @return [String] agent name or "anonymous" for anonymous agents
     def agent_name
@@ -179,7 +181,7 @@ module ActiveAgent
 
     # Processes an agent action with ActiveSupport::Notifications instrumentation.
     #
-    # Actions can be triggered externally (Agent.action_name.generate_now) or internally
+    # Actions are triggered externally via Agent.action_name.generate_now or internally
     # through tool calls during AI generation workflows.
     #
     # @param method_name [Symbol, String] action method to process
@@ -196,10 +198,9 @@ module ActiveAgent
 
     # Merges action-level parameters into the prompt context.
     #
-    # Call from within an action to apply action-specific parameters.
-    # Processing is deferred until execution to maximize available context.
+    # Processing is deferred until execution to allow local overrides.
     #
-    # @param messages [Array] message strings or hashes to add to conversation
+    # @param messages [Array<String, Hash>] message strings or hashes to add to conversation
     # @param options [Hash] parameters to merge into prompt context
     # @return [void]
     #
@@ -235,8 +236,8 @@ module ActiveAgent
 
     # Executes prompt generation using the configured provider and options.
     #
-    # Core execution point triggered by generate_now or generate_later workflows.
-    # Renders templates as late as possible to allow local overrides.
+    # Triggered by generate_now or generate_later workflows. Templates are
+    # rendered as late as possible to allow local overrides.
     #
     # @return [ActiveAgent::Providers::Response]
     # @raise [RuntimeError] if no prompt provider is configured
@@ -254,33 +255,19 @@ module ActiveAgent
         exception_handler:,
         stream_broadcaster:,
         tools_function:,
-        instructions: prompt_view_instructions(prompt_options[:instructions])
-      ).compact!
+      )
 
-      # Fallback to message from template if no messages provided, rendered as late as
-      # possible to allow local overrides.
-      if parameters[:messages].blank?
-        template_message = prompt_view_message(action_name, **prompt_options[:locals])
-        parameters[:messages] = [ template_message ] if template_message.present?
-      end
+      # Apply Templates
+      parameters = process_prompt_templates(parameters, prompt_options)
 
-      prompt_provider_klass.new(**parameters).prompt
+      prompt_provider_klass.new(**parameters.compact).prompt
     end
 
-    # Executes prompt generation with exception handling (bang version).
-    #
-    # This is an alias for process_prompt that may be used in contexts
-    # where exception handling behavior differs.
-    #
-    # @return [ActiveAgent::Providers::Response]
-    # @raise [RuntimeError] if no prompt provider is configured
-    def process_prompt!
-      process_prompt
-    end
+    alias_method :process_prompt!, :process_prompt
 
     # Executes embedding generation using the configured provider and options.
     #
-    # Renders templates as late as possible to allow local overrides.
+    # Templates are rendered as late as possible to allow local overrides.
     #
     # @return [ActiveAgent::Providers::Response]
     # @raise [RuntimeError] if no embed provider is configured
@@ -308,14 +295,46 @@ module ActiveAgent
       embed_provider_klass.new(**parameters).embed
     end
 
-    # @return [Array<String>]
+    # @api private
     def action_methods
       super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s) - [ action_name ]
     end
 
     private
 
-    # @return [Hash]
+    # @api private
+    def process_prompt_templates(parameters, prompt_options)
+      # Resolve Instructions
+      parameters[:instructions] ||= prompt_view_instructions(prompt_options[:instructions])
+
+      # Resolve Message Template as fallback
+      if parameters[:messages].blank?
+        template_message = prompt_view_message(action_name, **prompt_options[:locals])
+        parameters[:messages] = [ template_message ] if template_message.present?
+      end
+
+      # Resolve Response Format
+      if parameters[:response_format]
+        parameters[:response_format] = process_prompt_templates_response_format(parameters[:response_format])
+      end
+
+      parameters
+    end
+
+    # @api private
+    def process_prompt_templates_response_format(response_format)
+      if response_format.is_a?(Symbol) || response_format.is_a?(String)
+        response_format = { type: response_format.to_s }
+      end
+
+      if response_format[:type].to_sym == :json_schema
+        response_format[:json_schema] = prompt_view_schema(response_format[:json_schema])
+      end
+
+      response_format
+    end
+
+    # @api private
     def instrument_payload(key)
       {
         agent: agent_name,
@@ -323,12 +342,12 @@ module ActiveAgent
       }
     end
 
-    # @return [String]
+    # @api private
     def instrument_name
       "active_agent"
     end
 
-    # @return [Array<String>]
+    # @api private
     def _protected_ivars
       PROTECTED_IVARS
     end

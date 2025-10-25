@@ -67,7 +67,7 @@ All generations return response objects:
 ```ruby
 response.message           # Most Recent Message
 response.messages          # Full Message Stack
-response.json_object       # Extracted JSON, if Parsable
+response.parsed_json       # Extracted JSON, if Parsable
 
 response.raw_request       # The most recent request in provider format
 response.raw_response      # The most recent response in provider format

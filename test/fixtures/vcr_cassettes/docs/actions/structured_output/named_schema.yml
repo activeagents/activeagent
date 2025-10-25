@@ -5,8 +5,7 @@ http_interactions:
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"input":"Return a JSON object with three primary colors in an array
-        named ''colors''.","model":"gpt-5-nano","text":{"format":{"type":"json_object"}}}'
+      string: '{"input":"Extract colors: red, blue, green. Return as json.","model":"gpt-4o","text":{"format":{"type":"json_schema","name":"resume_colors","schema":{"type":"object","properties":{"colors":{"type":"array","items":{"type":"string"}}},"required":["colors"],"additionalProperties":false},"strict":true}}}'
     headers:
       Content-Type:
       - application/json
@@ -26,7 +25,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Fri, 24 Oct 2025 00:14:54 GMT
+      - Sat, 25 Oct 2025 20:34:57 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -34,15 +33,15 @@ http_interactions:
       Connection:
       - keep-alive
       X-Ratelimit-Limit-Requests:
-      - '30000'
+      - '10000'
       X-Ratelimit-Limit-Tokens:
-      - '180000000'
+      - '30000000'
       X-Ratelimit-Remaining-Requests:
-      - '29999'
+      - '9999'
       X-Ratelimit-Remaining-Tokens:
-      - '179999946'
+      - '29999932'
       X-Ratelimit-Reset-Requests:
-      - 2ms
+      - 6ms
       X-Ratelimit-Reset-Tokens:
       - 0s
       Openai-Version:
@@ -52,18 +51,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_a622e3429b724f3bb1c59f244a0553dc
+      - req_2945ccce365045ce91f9704537a71b26
       Openai-Processing-Ms:
-      - '4647'
+      - '1071'
       X-Envoy-Upstream-Service-Time:
-      - '4654'
+      - '1075'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=eQYK62zjpASH6FjaOhn7UBH4OnpQSpoQPJKap1uMcT8-1761264894-1.0.1.1-RNSU8UHgNbGYnXUaLoD0okqNiybruyMgQieRKvrxFisalSeN_FMM7c34j6Hn_QUT0MQIgac3jwfpUic5e_PBWKdcCYZxGd8FrieYiULLClg;
-        path=/; expires=Fri, 24-Oct-25 00:44:54 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=1Wv5zF0Q1MWgS80bi6M_eCdD.WcZGZxGlQ.zXqYbPLg-1761424497-1.0.1.1-PJK8Gb8pdf3eIAqWMwMkS6n.SFIg1F5Rmu1ugbX.ihhZub.Q9UGV8yDB0U3hCK8Ah3.G5Yo5MmbtNzoG89L7tJyE9XgGFfDgRbW_wyimhBs;
+        path=/; expires=Sat, 25-Oct-25 21:04:57 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=cA4Cj6adWQIWzbdKOR32RYRZDh.5TB2d7VX4Axg3IFM-1761264894815-0.0.1.1-604800000;
+      - _cfuvid=Iw2gBp8QVukBxnOFZeCcfU3L2XVpwFrasUeoItRKTUk-1761424497043-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +71,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993546bb5ea3eb24-SJC
+      - 99447f5b5d0aaaac-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0658cdc1dd88bb430068fac4fa2d08819aa622a554732a9ac6",
+          "id": "resp_06b94d431d67a7bd0068fd346ff56c81939b3d25c92abd9b6b",
           "object": "response",
-          "created_at": 1761264890,
+          "created_at": 1761424496,
           "status": "completed",
           "background": false,
           "billing": {
@@ -92,15 +91,10 @@ http_interactions:
           "instructions": null,
           "max_output_tokens": null,
           "max_tool_calls": null,
-          "model": "gpt-5-nano-2025-08-07",
+          "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "rs_0658cdc1dd88bb430068fac4fadca4819a96b2bea8948adf84",
-              "type": "reasoning",
-              "summary": []
-            },
-            {
-              "id": "msg_0658cdc1dd88bb430068fac4fe62ec819a8cf6850185f1e684",
+              "id": "msg_06b94d431d67a7bd0068fd34709e5081938ae81d26af2fc72e",
               "type": "message",
               "status": "completed",
               "content": [
@@ -108,7 +102,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "{\"colors\":[\"red\",\"green\",\"blue\"]}"
+                  "text": "{\"colors\":[\"red\",\"blue\",\"green\"]}"
                 }
               ],
               "role": "assistant"
@@ -118,7 +112,7 @@ http_interactions:
           "previous_response_id": null,
           "prompt_cache_key": null,
           "reasoning": {
-            "effort": "medium",
+            "effort": null,
             "summary": null
           },
           "safety_identifier": null,
@@ -127,7 +121,25 @@ http_interactions:
           "temperature": 1.0,
           "text": {
             "format": {
-              "type": "json_object"
+              "type": "json_schema",
+              "description": null,
+              "name": "resume_colors",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "colors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "colors"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
             },
             "verbosity": "medium"
           },
@@ -137,18 +149,18 @@ http_interactions:
           "top_p": 1.0,
           "truncation": "disabled",
           "usage": {
-            "input_tokens": 21,
+            "input_tokens": 49,
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 272,
+            "output_tokens": 11,
             "output_tokens_details": {
-              "reasoning_tokens": 256
+              "reasoning_tokens": 0
             },
-            "total_tokens": 293
+            "total_tokens": 60
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Fri, 24 Oct 2025 00:14:54 GMT
+  recorded_at: Sat, 25 Oct 2025 20:34:57 GMT
 recorded_with: VCR 6.3.1

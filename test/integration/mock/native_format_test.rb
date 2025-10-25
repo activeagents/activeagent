@@ -14,11 +14,11 @@ module Integration
         # Basic Request
         ###############################################################
         BASIC_REQUEST = {
-          "model": "mock-model",
-          "messages": [
+          model: "mock-model",
+          messages: [
             {
-              "role": "user",
-              "content": "Hello, Mock!"
+              role: "user",
+              content: "Hello, Mock!"
             }
           ]
         }
@@ -34,14 +34,14 @@ module Integration
         # Request with Temperature
         ###############################################################
         TEMPERATURE_REQUEST = {
-          "model": "mock-model",
-          "messages": [
+          model: "mock-model",
+          messages: [
             {
-              "role": "user",
-              "content": "What is 2+2?"
+              role: "user",
+              content: "What is 2+2?"
             }
           ],
-          "temperature": 0.7
+          temperature: 0.7
         }
         def temperature_request
           prompt(
@@ -56,14 +56,14 @@ module Integration
         # Request with Max Tokens
         ###############################################################
         MAX_TOKENS_REQUEST = {
-          "model": "mock-model",
-          "messages": [
+          model: "mock-model",
+          messages: [
             {
-              "role": "user",
-              "content": "Tell me a story"
+              role: "user",
+              content: "Tell me a story"
             }
           ],
-          "max_tokens": 100
+          max_tokens: 100
         }
         def max_tokens_request
           prompt(
@@ -78,19 +78,19 @@ module Integration
         # Multiple Messages
         ###############################################################
         MULTIPLE_MESSAGES = {
-          "model": "mock-model",
-          "messages": [
+          model: "mock-model",
+          messages: [
             {
-              "role": "user",
-              "content": "Hello!"
+              role: "user",
+              content: "Hello!"
             },
             {
-              "role": "assistant",
-              "content": "Hi there! How can I help you?"
+              role: "assistant",
+              content: "Hi there! How can I help you?"
             },
             {
-              "role": "user",
-              "content": "What's the weather like?"
+              role: "user",
+              content: "What's the weather like?"
             }
           ]
         }
@@ -108,18 +108,18 @@ module Integration
         # User Message with Content Blocks
         ###############################################################
         USER_MESSAGE_CONTENT_BLOCKS = {
-          "model": "mock-model",
-          "messages": [
+          model: "mock-model",
+          messages: [
             {
-              "role": "user",
-              "content": [
+              role: "user",
+              content: [
                 {
-                  "type": "text",
-                  "text": "Hello"
+                  type: "text",
+                  text: "Hello"
                 },
                 {
-                  "type": "text",
-                  "text": "World"
+                  type: "text",
+                  text: "World"
                 }
               ]
             }
@@ -149,14 +149,14 @@ module Integration
         # Streaming
         ###############################################################
         STREAMING = {
-          "model": "mock-model",
-          "messages": [
+          model: "mock-model",
+          messages: [
             {
-              "role": "user",
-              "content": "Tell me a short story"
+              role: "user",
+              content: "Tell me a short story"
             }
           ],
-          "stream": true
+          stream: true
         }
         def streaming
           prompt(
@@ -171,15 +171,15 @@ module Integration
         # Sampling Parameters
         ###############################################################
         SAMPLING_PARAMETERS = {
-          "model": "mock-model",
-          "messages": [
+          model: "mock-model",
+          messages: [
             {
-              "role": "user",
-              "content": "Generate creative text"
+              role: "user",
+              content: "Generate creative text"
             }
           ],
-          "temperature": 0.8,
-          "max_tokens": 200
+          temperature: 0.8,
+          max_tokens: 200
         }
         def sampling_parameters
           prompt(
