@@ -11,7 +11,7 @@ module Providers
   #   response.message.content  #=> "Hi! How can I help you today?"
   # region agent
   class OpenRouterAgent < ApplicationAgent
-    generate_with :open_router, model: "qwen/qwen3-30b-a3b:free"
+    generate_with :open_router, model: "openrouter/auto"
 
     # @return [ActiveAgent::Generation]
     def ask

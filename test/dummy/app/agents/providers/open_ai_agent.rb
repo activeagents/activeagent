@@ -11,7 +11,7 @@ module Providers
   #   response.message.content  #=> "Hi! How can I help you today?"
   # region agent
   class OpenAIAgent < ApplicationAgent
-    generate_with :openai, model: "gpt-4o-mini"
+    generate_with :open_ai, model: "gpt-4o-mini"
 
     # @return [ActiveAgent::Generation]
     def ask

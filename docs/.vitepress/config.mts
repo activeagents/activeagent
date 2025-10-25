@@ -74,7 +74,7 @@ export default defineConfig({
         text: 'Framework',
         items: [
           // { text: 'Agents', link: '/agents' },
-          // { text: 'Providers', link: '/providers' },
+          { text: 'Providers', link: '/providers' },
           // { text: 'Actions', link: '/actions' },
           { text: 'Configuration', link: '/framework/configuration' },
           // { text: 'Instrumentation', link: '/framework/instrumentation' },

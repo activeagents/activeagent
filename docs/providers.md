@@ -1,9 +1,9 @@
 # Providers
 
-Providers are the backbone of the Active Agent framework, allowing seamless integration with various AI services. They provide a consistent interface for prompting and generating responses, making it easy to switch between different providers without changing the core logic of your application.
+Providers connect your agents to AI services through a unified interface. Switch between OpenAI, Anthropic, local models, or testing mocks without changing agent code.
 
 ## Available Providers
-You can use the following providers with Active Agent:
+
 ::: code-group
 
 <<< @/../test/dummy/app/agents/providers/anthropic_agent.rb#agent{ruby} [Anthropic]
@@ -15,61 +15,70 @@ You can use the following providers with Active Agent:
 <<< @/../test/dummy/app/agents/providers/open_router_agent.rb#agent{ruby} [OpenRouter]
 
 <<< @/../test/dummy/app/agents/providers/mock_agent.rb#agent{ruby} [Mock]
+
 :::
 
-## Provider-Specific Documentation
+## Choosing a Provider
 
-For detailed documentation on specific providers and their features:
+### [Anthropic](/providers/anthropic)
+**Best for:** Complex reasoning, coding tasks, long context
 
-- [OpenAI Provider](/providers/openai-provider) - GPT-4, GPT-3.5, function calling, vision, and Azure OpenAI support
-- [Anthropic Provider](/providers/anthropic-provider) - Claude 3.5 and Claude 3 models with extended context windows
-- [Ollama Provider](/providers/ollama-provider) - Local LLM inference for privacy-sensitive applications
-- [OpenRouter Provider](/providers/open-router-provider) - Multi-model routing with fallbacks, PDF processing, and vision support
-- [Mock Provider](/providers/mock-provider) - Testing provider for development without API costs
+Claude Sonnet 4.5, Haiku 4.5, and Opus 4.1 models. Extended thinking mode for deep analysis. 200K-1M context windows with up to 64K token outputs.
+
+**Choose when:** You need exceptional reasoning, prefer Claude's outputs, or require very long context windows. Strong at coding and analysis.
+
+### [Ollama](/providers/ollama)
+**Best for:** Local inference, privacy-sensitive data, development without API costs
+
+Run Llama 3, Mistral, Gemma, CodeLlama, and other open models locally. No API keys required. Full control over data.
+
+**Choose when:** Data cannot leave your infrastructure, you're developing offline, or you want to avoid API costs. Requires local setup.
+
+### [OpenAI](/providers/open_ai)
+**Best for:** Production applications, advanced reasoning, vision tasks
+
+GPT-4o, GPT-4.1, GPT-5, and o3 models. Two APIs available: Responses API (default) with built-in web search, image generation, and MCP integration, or Chat Completions API for standard interactions. 128K-200K context windows.
+
+**Choose when:** You need reliable, high-quality responses with strong reasoning. Vision support and structured output work well. Azure OpenAI compatible.
+
+### [OpenRouter](/providers/open_router)
+**Best for:** Multi-model flexibility, cost optimization, experimentation
+
+Access 200+ models from OpenAI, Anthropic, Google, Meta, and more through one API. Intelligent routing, automatic fallbacks, multimodal support, PDF processing.
+
+**Choose when:** You want to compare models, need fallback options, or want flexible provider switching. Good for reducing vendor lock-in.
+
+### [Mock](/providers/mock)
+**Best for:** Testing, development, offline work
+
+Predictable responses (pig latin conversion) with no API calls. Simulates real provider behavior for testing agent logic.
+
+**Choose when:** Writing tests, developing without network access, or avoiding API costs during development.
 
 ## Configuration
 
-ActiveAgent applies configuration in a clear hierarchy, with settings closer to execution taking precedence:
-
-1. **Runtime Options** - Parameters in `prompt` method (highest priority)
-2. **Agent Options** - Parameters in `generate_with`
-3. **Global Configuration** - Parameters in `config/active_agent.yml`
+Configuration applies in order of precedence:
 
 ```ruby
-# Global: temperature: 0.7 (config/active_agent.yml)
+# 1. Global config (config/active_agent.yml)
+# temperature: 0.7
 
 class MyAgent < ApplicationAgent
-  generate_with :openai, temperature: 0.5  # Overrides global
+  # 2. Agent-level config
+  generate_with :openai, temperature: 0.5
 
   def analyze
-    prompt(temperature: 0.9)  # Overrides agent-level
+    # 3. Runtime config (highest precedence)
+    prompt(temperature: 0.9)
   end
 end
 ```
 
-For detailed configuration precedence rules, environment-specific settings, and best practices, see **[Configuration](/framework/configuration)**.
+For environment-specific settings and advanced configuration, see **[Configuration](/framework/configuration)**.
 
 ## Response Objects
 
-Providers return specialized response objects that encapsulate generation results, usage statistics, and debugging information. ActiveAgent provides two response types depending on the operation:
-
-### Prompt Response
-
-The `ActiveAgent::Providers::Common::PromptResponse` class encapsulates conversational/completion responses from `generate_now` operations.
-
-#### Attributes
-
-- **`message`** - The most recent message in the conversation
-- **`messages`** - The complete list of messages from the conversation
-- **`context`** - The original request context sent to the provider
-- **`raw_request`** - The provider-formatted API request for debugging
-- **`raw_response`** - The unprocessed API response with provider-specific metadata
-- **`usage`** - Token usage statistics hash with `prompt_tokens`, `completion_tokens`, and `total_tokens`
-- **`prompt_tokens`** - Number of tokens in the input
-- **`completion_tokens`** - Number of tokens in the output
-- **`total_tokens`** - Total tokens used (prompt + completion)
-
-#### Example Usage
+All providers return standardized response objects:
 
 <<< @/../test/docs/framework/providers_examples_test.rb#generation_response_usage{ruby:line-numbers}
 
@@ -77,54 +86,17 @@ The `ActiveAgent::Providers::Common::PromptResponse` class encapsulates conversa
 <!-- @include: @/parts/examples/providers-examples-test.rb-test-response-object-usage.md -->
 :::
 
-### Embed Response
+**Common attributes:**
+- `message` / `messages` - Response content and conversation history
+- `prompt_tokens` / `completion_tokens` - Token usage for cost tracking
+- `raw_request` / `raw_response` - Provider-specific data for debugging
+- `context` - Original request sent to provider
 
-The `ActiveAgent::Providers::Common::EmbedResponse` class encapsulates embedding responses from `embed_now` operations.
-
-#### Attributes
-
-- **`data`** - Array of embedding objects with vector data
-- **`context`** - The original request context sent to the provider
-- **`raw_request`** - The provider-formatted API request for debugging
-- **`raw_response`** - The unprocessed API response with provider-specific metadata
-- **`usage`** - Token usage statistics hash (format varies by provider)
-- **`prompt_tokens`** - Number of tokens processed for embeddings
-
-#### Key Differences from Prompt Response
-
-- **No `message` or `messages`**: Embeddings return vector data, not conversational messages
-- **`data` attribute**: Contains the embedding vectors as arrays of floats
-- **Usage statistics**: Only tracks input tokens (`prompt_tokens`), no completion tokens
-
-#### Example Structure
+Embedding responses use `data` instead of `message`:
 
 ```ruby
 response = generation.embed_now
-
-# Access embedding vector data
-embedding_vector = response.data.first[:embedding]  # Array of floats
-
-# Check usage statistics
-tokens_used = response.prompt_tokens
-
-# Inspect raw API response
-raw_data = response.raw_response
-```
-
-The response objects ensure you have full visibility into both the input context and the raw provider response, making it easy to debug generation issues or access provider-specific response metadata.
-
-## Embeddings
-
-Providers support generating text embeddings for semantic search, clustering, and similarity matching. Use `embed_now` for synchronous embedding generation or `embed_later` for background processing.
-
-```ruby
-class EmbeddingAgent < ApplicationAgent
-  embed_with :openai, embedding_model: "text-embedding-3-large"
-end
-
-# Generate embeddings
-response = EmbeddingAgent.embed(input: "Sample text").embed_now
 vector = response.data.first[:embedding]  # Array of floats
 ```
 
-For comprehensive embedding documentation including similarity search, batch processing, provider-specific models, and advanced patterns, see **[Embeddings](/agents/embeddings)**.
+For embedding documentation including similarity search and batch processing, see **[Embeddings](/agents/embeddings)**.
