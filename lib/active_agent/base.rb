@@ -57,6 +57,7 @@ module ActiveAgent
     include Observers
     include Previews
 
+    PROTECTED_OPTIONS = %i[exception_handler stream_broadcaster tools_function]
     PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [ :@_action_has_layout ]
 
     # Logger instance conforming to Log4r or Ruby Logger interface.
@@ -242,7 +243,7 @@ module ActiveAgent
     def process_prompt
       fail "Prompt Provider not Configured" unless prompt_provider_klass
 
-      parameters = prompt_options.except(:locals)
+      parameters = prompt_options.except(:locals, *PROTECTED_OPTIONS)
 
       # Render out proc/lamda attributes before rendering templates
       parameters.deep_transform_values! { it.respond_to?(:call) ? it.call : it }
@@ -286,7 +287,7 @@ module ActiveAgent
     def process_embed
       fail "Embed Provider not Configured" unless embed_provider_klass
 
-      parameters = embed_options.except(:locals)
+      parameters = embed_options.except(:locals, *PROTECTED_OPTIONS)
 
       # Render out proc/lamda attributes before rendering templates
       parameters.deep_transform_values! { it.respond_to?(:call) ? it.call : it }

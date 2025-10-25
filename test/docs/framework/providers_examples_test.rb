@@ -49,14 +49,14 @@ module Framework
         end
         # endregion custom_host_configuration
 
-        assert_equal "anthropic", AnthropicConfigAgent.generation_provider_name
-        assert_equal "open_router", OpenRouterConfigAgent.generation_provider_name
-        assert_equal "openai", CustomHostAgent.generation_provider_name
+        assert_equal ActiveAgent::Providers::AnthropicProvider, AnthropicConfigAgent.prompt_provider_klass
+        assert_equal ActiveAgent::Providers::OpenRouterProvider, OpenRouterConfigAgent.prompt_provider_klass
+        assert_equal ActiveAgent::Providers::OpenAIProvider, CustomHostAgent.prompt_provider_klass
       end
     end
 
     test "response object usage" do
-      VCR.use_cassette("generation_response_usage_example") do
+      VCR.use_cassette("docs/framework/providers_examples/generation_response_usage_example") do
         # region generation_response_usage
         response = ApplicationAgent.prompt(message: "Hello").generate_now
 

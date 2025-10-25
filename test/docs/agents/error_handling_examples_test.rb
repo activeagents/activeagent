@@ -70,74 +70,6 @@ module Docs
         end
       end
 
-      class ExceptionHandler < ActiveSupport::TestCase
-        test "exception handler with fallback" do
-          # region exception_handler
-          class GracefulAgent < ApplicationAgent
-            generate_with :anthropic,
-              model: "claude-3-5-sonnet-20241022",
-              exception_handler: ->(exception) {
-                Rails.logger.error("Generation failed: #{exception.message}")
-                { error: "Service temporarily unavailable" }
-              }
-
-            def chat(message)
-              prompt message
-            end
-          end
-
-          result = GracefulAgent.chat("Hello")
-          # => { error: "Service temporarily unavailable" }
-          # endregion exception_handler
-
-          VCR.use_cassette("docs/agents/error_handling_examples/exception_handler") do
-            # The mock provider won't actually raise an error, so we'll just verify the agent is configured correctly
-            result_response = result.generate_now
-            assert_not_nil result_response
-          end
-        end
-      end
-
-      class ConditionalHandling < ActiveSupport::TestCase
-        test "conditional exception handling" do
-          # region conditional_handling
-          class SmartAgent < ApplicationAgent
-            generate_with :anthropic,
-              model: "claude-3-5-sonnet-20241022",
-              exception_handler: ->(exception) {
-                case exception
-                when Timeout::Error
-                  Rails.cache.fetch("last_response") || { error: "Timeout" }
-                when StandardError
-                  Rails.logger.error("Unexpected: #{exception}")
-                  nil  # Re-raise to trigger rescue_from handler
-                end
-              }
-
-            rescue_from StandardError, with: :handle_error
-
-            def chat(message)
-              prompt message
-            end
-
-            private
-
-            def handle_error(exception)
-              ErrorTracker.notify(exception)
-              { error: "Request failed" }
-            end
-          end
-          # endregion conditional_handling
-
-          VCR.use_cassette("docs/agents/error_handling_examples/conditional_handling") do
-            response = SmartAgent.chat("Hello").generate_now
-
-            assert_not_nil response
-            assert response.message.content.is_a?(String)
-          end
-        end
-      end
-
       class RescueHandlers < ActiveSupport::TestCase
         test "rescue from with agent context" do
           # region rescue_handlers
@@ -180,21 +112,10 @@ module Docs
           class ProductionAgent < ApplicationAgent
             generate_with :openai,
               model: "gpt-4o",
-              # 1. Retry network failures
               retries: true,
-              retries_count: 3,
-              # 2. Transform provider errors
-              exception_handler: ->(exception) {
-                case exception
-                when Timeout::Error
-                  { error: "Timeout", retry_after: 60 }
-                else
-                  nil  # Re-raise for rescue_from
-                end
-              }
+              retries_count: 3
 
-            # 3. Application-level recovery
-            rescue_from StandardError, with: :handle_error
+            rescue_from Timeout::Error, with: :handle_timeout
 
             def analyze(content)
               prompt "Analyze content: #{content}"
@@ -202,9 +123,8 @@ module Docs
 
             private
 
-            def handle_error(exception)
-              ErrorTracker.notify(exception, context: { agent: self.class.name })
-              { error: "Analysis failed" }
+            def handle_timeout(exception)
+              { error: "Timeout", retry_after: 60 }
             end
           end
           # endregion combining_strategies
@@ -224,13 +144,18 @@ module Docs
           class RealtimeChatAgent < ApplicationAgent
             generate_with :anthropic,
               model: "claude-3-5-sonnet-20241022",
-              retries: false,
-              exception_handler: ->(exception) {
-                { error: "Service unavailable" }
-              }
+              retries: false
+
+            rescue_from StandardError, with: :handle_error
 
             def chat(message)
               prompt message
+            end
+
+            private
+
+            def handle_error(exception)
+              { error: "Service unavailable" }
             end
           end
           # endregion fast_failure
@@ -269,17 +194,19 @@ module Docs
         test "graceful degradation with cached responses" do
           # region graceful_degradation
           class ResilientAgent < ApplicationAgent
-            generate_with :anthropic,
-              model: "claude-3-5-sonnet-20241022",
-              exception_handler: ->(exception) {
-                Rails.logger.warn("Primary failed, using fallback")
-                Rails.cache.fetch("last_successful_response") do
-                  { error: "Service unavailable" }
-                end
-              }
+            rescue_from StandardError, with: :handle_error
 
             def analyze(data)
               prompt "Complex analysis of: #{data}"
+            end
+
+            private
+
+            def handle_error(exception)
+              Rails.logger.warn("Primary failed, using fallback")
+              Rails.cache.fetch("last_successful_response") do
+                { error: "Service unavailable" }
+              end
             end
           end
           # endregion graceful_degradation

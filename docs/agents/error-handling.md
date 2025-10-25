@@ -1,10 +1,9 @@
 # Error Handling
 
-ActiveAgent provides three layers of error handling for building resilient agents:
+ActiveAgent provides two complementary layers of error handling for building resilient agents:
 
 1. **Retries** - Automatically retry transient network failures
-2. **Exception Handlers** - Transform provider errors into fallback responses
-3. **Rescue Handlers** - Application-level error recovery with agent context
+2. **Rescue Handlers** - Application-level error recovery with agent context
 
 ## Retries
 
@@ -14,35 +13,22 @@ ActiveAgent automatically retries network failures 3 times with exponential back
 
 See **[Retries](/framework/retries)** for custom retry strategies, conditional logic, and monitoring.
 
-## Exception Handlers
-
-Exception handlers run after retries are exhausted. Return a fallback value or `nil` to re-raise:
-
-<<< @/../test/docs/agents/error_handling_examples_test.rb#exception_handler {ruby:line-numbers}
-
-### Conditional Handling
-
-Handle different errors differently:
-
-<<< @/../test/docs/agents/error_handling_examples_test.rb#conditional_handling {ruby:line-numbers}
-
 ## Rescue Handlers
 
-Use `rescue_from` for application-level error recovery with full agent context:
+Use `rescue_from` for application-level error recovery with full agent context. Handle different error types with specific strategies:
 
 <<< @/../test/docs/agents/error_handling_examples_test.rb#rescue_handlers {ruby:line-numbers}
 
 ## Combining Strategies
 
-Layer all three for comprehensive error handling:
+Combine retries with rescue handlers for comprehensive error handling:
 
 <<< @/../test/docs/agents/error_handling_examples_test.rb#combining_strategies {ruby:line-numbers}
 
 **Execution flow:**
 
 1. Retries run first for transient network failures
-2. Exception handler runs when retries exhausted (can return fallback or re-raise)
-3. Rescue handlers catch re-raised exceptions with full agent context
+2. Rescue handlers catch exceptions after retries are exhausted
 
 ## Monitoring
 
@@ -56,7 +42,7 @@ See **[Instrumentation](/framework/instrumentation)** for complete monitoring do
 
 ### Fast Failure for Real-Time
 
-Disable retries for user-facing features:
+Disable retries and provide immediate fallback for user-facing features:
 
 <<< @/../test/docs/agents/error_handling_examples_test.rb#fast_failure {ruby:line-numbers}
 
