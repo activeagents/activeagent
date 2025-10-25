@@ -73,7 +73,7 @@ export default defineConfig({
       {
         text: 'Framework',
         items: [
-          // { text: 'Agents', link: '/agents' },
+          { text: 'Agents', link: '/agents' },
           { text: 'Providers', link: '/providers' },
           // { text: 'Actions', link: '/actions' },
           { text: 'Configuration', link: '/framework/configuration' },
@@ -96,10 +96,8 @@ export default defineConfig({
         text: 'Actions',
         items: [
           // { text: 'Messages', link: '/actions/messages' },
-          // { text: 'Actions', link: '/actions/actions' },
           // { text: 'Prompts', link: '/actions/prompts' },
           // { text: 'Tools', link: '/actions/tools' },
-          // { text: 'Tool Calling', link: '/actions/tool-calling' },
         ]
       },
       {

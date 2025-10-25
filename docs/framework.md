@@ -25,15 +25,31 @@ ActiveAgent is the AI framework for Rails. It extends the familiar MVC architect
 
 ::: code-group
 
-<<< @/../test/dummy/app/agents/overview/support_agent.rb#overview_support_agent {ruby:line-numbers}
+```ruby [app/agents/overview/support_agent.rb]
+class SupportAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o-mini"
 
-<<< @/../test/dummy/app/views/overview/support_agent/help.text.erb {erb}
+  # @return [ActiveAgent::Generation]
+  def help
+    prompt
+  end
+end
+```
+
+```erb [app/views/overview/support_agent/help.text.erb]
+You are a helpful support agent. Answer this question:
+
+<%= params[:question] %>
+```
 
 :::
 
 **Usage:**
 
-<<< @/../test/docs/support_agent_test.rb#overview_example {ruby:line-numbers}
+```ruby
+response = SupportAgent.with(question: "How do I reset my password?").help.generate_now
+response.message.content  #=> "To reset your password..."
+```
 
 ::: details Response Example
 <!-- @include: @/parts/examples/support-agent-test.rb-test-overview-example.md -->

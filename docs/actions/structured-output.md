@@ -30,7 +30,13 @@ ActiveAgent includes a `SchemaGenerator` module that creates JSON schemas from:
 
 ActiveAgent can automatically generate schemas from your Rails models:
 
-<<< @/../test/schema_generator_test.rb#agent_using_schema {ruby:line-numbers}
+```ruby
+# Generate schema from model - returns a Ruby hash
+user_schema = TestUser.to_json_schema(strict: true, name: "user_extraction")
+
+# In actual usage, the agent would use the hash directly:
+# prompt(output_schema: user_schema)
+```
 
 ### Basic Structured Output Example
 
@@ -87,23 +93,45 @@ The response will automatically have:
 
 Create schemas from ActiveModel classes with validations:
 
-<<< @/../test/schema_generator_test.rb#basic_user_model {ruby:line-numbers}
+```ruby
+class TestUser
+  include ActiveModel::Model
+  include ActiveModel::Attributes
+  include ActiveModel::Validations
+  include ActiveAgent::SchemaGenerator
+
+  attribute :name, :string
+  attribute :email, :string
+  attribute :age, :integer
+  attribute :active, :boolean
+
+  validates :name, presence: true, length: { minimum: 2, maximum: 100 }
+  validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :age, numericality: { greater_than_or_equal_to: 18 }
+end
+```
 
 Generate the schema:
 
-<<< @/../test/schema_generator_test.rb#basic_schema_generation {ruby:line-numbers}
+```ruby
+schema = TestUser.to_json_schema
+```
 
 ### From ActiveRecord
 
 Generate schemas from database-backed models:
 
-<<< @/../test/schema_generator_test.rb#activerecord_schema_generation {ruby:line-numbers}
+```ruby
+schema = User.to_json_schema
+```
 
 ### Strict Schemas
 
 For providers requiring strict schemas (like OpenAI):
 
-<<< @/../test/schema_generator_test.rb#strict_schema_generation {ruby:line-numbers}
+```ruby
+schema = TestBlogPost.to_json_schema(strict: true, name: "blog_post_schema")
+```
 
 In strict mode:
 - All properties are marked as required
@@ -114,7 +142,9 @@ In strict mode:
 
 Exclude sensitive or unnecessary fields from schemas:
 
-<<< @/../test/schema_generator_test.rb#schema_with_exclusions {ruby:line-numbers}
+```ruby
+schema = TestBlogPost.to_json_schema(exclude: [ :tags, :published_at ])
+```
 
 ## JSON Response Handling
 
@@ -193,7 +223,12 @@ Different AI providers have varying levels of structured output support:
 
 The [Data Extraction Agent](/examples/data-extraction-agent#structured-output) demonstrates comprehensive structured output usage:
 
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output {ruby:line-numbers}
+```ruby
+prompt = DataExtractionAgent.with(
+  output_schema: :chart_schema,
+  image_path: sales_chart_path
+).parse_content
+```
 
 ### Integration with Rails Models
 

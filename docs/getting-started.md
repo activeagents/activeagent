@@ -79,7 +79,12 @@ Active Agent is designed to work seamlessly with Rails applications. The framewo
 
 Define an `ApplicationAgent` class that inherits from `ActiveAgent::Base`. This serves as the base class for all agents in your application, similar to how `ApplicationController` works:
 
-<<< @/../test/dummy/app/agents/application_agent.rb {ruby}
+```ruby
+class ApplicationAgent < ActiveAgent::Base
+  generate_with :openai, model: "gpt-4o-mini"
+  embed_with :openai, model: "text-embedding-3-small"
+end
+```
 
 This sets up the `ApplicationAgent` to use OpenAI as the provider. You can replace `:openai` with any other supported provider, such as `:anthropic`, `:ollama`, `:open_router`, or `:mock` (for testing).
 
@@ -87,7 +92,11 @@ This sets up the `ApplicationAgent` to use OpenAI as the provider. You can repla
 
 For testing and quick prototyping, Active Agent provides a direct `Agent.prompt(...)` method for simple message-based interactions:
 
-<<< @/../test/docs/application_agent_test.rb#application_agent_prompt_context_message_generation{ruby:line-numbers}
+```ruby
+message = "Test Application Agent"
+prompt = ApplicationAgent.prompt(message: message)
+response = prompt.generate_now
+```
 
 ::: details Response Example
 <!-- @include: @/parts/examples/application-agent-test.rb-test-it-renders-a-prompt-with-an-plain-text-message-and-generates-a-response.md -->
@@ -132,7 +141,39 @@ The generator creates:
 
 Here's the generated `TravelAgent` class:
 
-<<< @/../test/dummy/app/agents/travel_agent.rb {ruby}
+```ruby
+class TravelAgent < ApplicationAgent
+  MockUser = Data.define(:name) unless defined?(MockUser)
+  before_action :set_user
+
+  def search
+    @departure = params[:departure]
+    @destination = params[:destination]
+    @results = params[:results] || []
+    prompt(content_type: :html)
+  end
+
+  def book
+    @flight_id = params[:flight_id]
+    @passenger_name = params[:passenger_name]
+    @confirmation_number = params[:confirmation_number]
+    prompt(content_type: :text)
+  end
+
+  def confirm
+    @confirmation_number = params[:confirmation_number]
+    @passenger_name = params[:passenger_name]
+    @flight_details = params[:flight_details]
+    prompt(content_type: :text)
+  end
+
+  private
+
+  def set_user
+    @user = params[:user] || MockUser.new(name: "Guest")
+  end
+end
+```
 
 **Key concepts:**
 - Each action is a public instance method
@@ -144,7 +185,19 @@ Here's the generated `TravelAgent` class:
 
 Each action has a corresponding view template that renders the message content. For example, the `search` action uses `app/views/travel_agent/search.text.erb`:
 
-<<< @/../test/dummy/app/views/travel_agent/search.text.erb {erb}
+```erb
+Travel Search Results
+====================
+
+Searching for flights from <%= @departure %> to <%= @destination %>
+
+Available flights:
+<% @results.each_with_index do |flight, i| %>
+<%= i + 1 %>. <%= flight[:airline] %> - $<%= flight[:price] %> (Departure: <%= flight[:departure] %>)
+<% end %>
+
+Please let me know which flight you'd like to book.
+```
 
 The template has access to:
 - Instance variables set in the action (`@departure`, `@destination`, `@results`)
@@ -230,7 +283,19 @@ end
 
 Create `app/views/travel_agent/instructions.text.erb`:
 
-<<< @/../test/dummy/app/views/travel_agent/instructions.text.erb {erb}
+```erb
+This agent is currently interacting with <%= @user.name %> to find a hotel near their travel destination.
+The agent should use the following actions to achieve the desired outcome:
+
+<% controller.action_schemas.each do |action| %>
+  <%= action["function"]["name"] %>: <%= action["function"]["description"] %>
+<% end %>
+
+requirements:
+- The agent should use the `search` action to find hotels in the requested location.
+- The agent should use the `book` action to book a hotel for the user.
+- The agent should use the `confirm` action to confirm the booking with the user.
+```
 
 **3. Inline in the `prompt` call:**
 

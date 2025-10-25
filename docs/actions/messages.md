@@ -9,22 +9,51 @@ Messages can be structured as a Message object or hash with the following attrib
 - `content`: The content of the message, which can be plain text or formatted content.
 - `requested_actions`: An array of actions that the agent requested to be performed in response to the message. This is used to handle tool use requests from the agent.
 
-<<< @/../test/docs/support_agent_test.rb#messages_structure{ruby:line-numbers}
+```ruby
+# Messages include system, user, assistant, and tool messages
+assert response.prompt.messages.size >= 5
+
+# Group messages by role
+system_messages = response.prompt.messages.select { |m| m.role == :system }
+user_messages = response.prompt.messages.select { |m| m.role == :user }
+assistant_messages = response.prompt.messages.select { |m| m.role == :assistant }
+tool_messages = response.prompt.messages.select { |m| m.role == :tool }
+```
 
 
 ## Instructions as system messages to the agent
 A `:system` message is used to provide instructions to the agent. This message is used to set the context for the generation process and can be used to provide additional information about the interaction to the agent. Instructions can include how an agent should use their available tool actions to achieve a desired outcome as well as render embedded ruby representations of retrieved data to augment the generation process with contextual information prior to user-agent interactions.
 
-<<< @/../test/dummy/app/views/travel_agent/instructions.text.erb {erb}
+```erb
+This agent is currently interacting with <%= @user.name %> to find a hotel near their travel destination.
+The agent should use the following actions to achieve the desired outcome:
+
+<% controller.action_schemas.each do |action| %>
+  <%= action["function"]["name"] %>: <%= action["function"]["description"] %>
+<% end %>
+
+requirements:
+- The agent should use the `search` action to find hotels in the requested location.
+- The agent should use the `book` action to book a hotel for the user.
+- The agent should use the `confirm` action to confirm the booking with the user.
+```
 
 ### Agent instructions
 Agent's can use `generate_with` to define instructions for the agent.
 
-<<< @/../test/dummy/app/agents/application_agent.rb {4 ruby:line-numbers}
+```ruby
+class ApplicationAgent < ActiveAgent::Base
+  generate_with :openai, model: "gpt-4o-mini"
+  embed_with :openai, model: "text-embedding-3-small"
+end
+```
 
 Agent's can also use implicit instructions by defining an `instructions` view in the agent's view directory.
 
-<<< @/../test/dummy/app/views/application_agent/instructions.text.erb {erb}
+```erb
+# app/views/application_agent/instructions.text.erb
+# (Instructions can be defined here as ERB template)
+```
 
 
 
@@ -36,15 +65,25 @@ An `:assistant` message is used to represent the agent's response to the user. T
 
 ### Messages with Requested Actions
 
-<<< @/../test/docs/support_agent_test.rb#messages_with_actions{ruby:line-numbers}
+```ruby
+# Assistant messages with requested_actions indicate tool calls
+assistant_with_actions = assistant_messages.find { |m| m.requested_actions&.any? }
+assert assistant_with_actions, "Should have assistant message with requested actions"
+```
 
 ## The system responds to agent requested actions with :tool messages
 Agent performed actions result in `:tool` message. These messages are used to represent the response to a tool call made by the agent. This message is used to provide additional information about the tool call, such as the name of the tool and any arguments that were passed to the tool. The system can use this message to provide a response message containing the result of the tool call and can also include links or other interactive elements.
 
-<<< @/../test/docs/support_agent_test.rb#tool_messages{ruby:line-numbers}
+```ruby
+# Tool messages contain the results of tool calls
+assert_includes tool_messages.first.content, "https://cataas.com/cat/"
+```
 
 ## Building Message Context
 
 Messages form the conversation history that provides context for the agent. [Learn how messages flow through generation →](/agents/generation)
 
-<<< @/../test/docs/support_agent_test.rb#message_context{ruby:line-numbers}
+```ruby
+# The response message is the last message in the context
+assert_equal response.message, response.prompt.messages.last
+```
