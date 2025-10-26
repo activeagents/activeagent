@@ -8,6 +8,26 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":"Return a JSON object with three
         primary colors in an array named ''colors''."}],"model":"openrouter/auto","response_format":{"type":"json_object"},"provider":{"require_parameters":true}}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -16,19 +36,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '223'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 21:38:12 GMT
+      - Sun, 26 Oct 2025 19:07:47 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,10 +69,10 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9944dc03bff1fa9a-SJC
+      - 994c3d0b8b03d039-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n{\"id\":\"gen-1761428291-d6gF4For8PEGZNuPkCt2\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761428292,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n
-        \ \\\"colors\\\": [\\\"red\\\", \\\"blue\\\", \\\"yellow\\\"]\\n  }\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":19,\"completion_tokens\":16,\"total_tokens\":35,\"prompt_tokens_details\":null}}"
-  recorded_at: Sat, 25 Oct 2025 21:38:13 GMT
+      string: "\n         \n{\"id\":\"gen-1761505665-ZClX4M7VF5OUbaEjosgy\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761505667,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n
+        \ \\\"colors\\\": [\\\"red\\\", \\\"green\\\", \\\"blue\\\"]\\n  }\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":19,\"completion_tokens\":16,\"total_tokens\":35,\"prompt_tokens_details\":null}}"
+  recorded_at: Sun, 26 Oct 2025 19:07:47 GMT
 recorded_with: VCR 6.3.1

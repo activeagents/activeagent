@@ -8,25 +8,47 @@ http_interactions:
       string: '{"input":[{"role":"assistant","content":"I can help with programming
         questions."},{"role":"user","content":"What are the benefits of ActiveRecord?"}],"model":"gpt-4o-mini"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '172'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 07:45:30 GMT
+      - Sun, 26 Oct 2025 19:14:30 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +74,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_8cff771536c848078dce4d8dbf8f1fca
+      - req_8a5239e604e64cb7a3f6949d382dca97
       Openai-Processing-Ms:
-      - '11841'
+      - '6324'
       X-Envoy-Upstream-Service-Time:
-      - '11845'
+      - '6326'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=uCLoZKnbSrhUF2RI24m1lqCOGWcwPl5khBOzQFEsWsc-1761378330-1.0.1.1-IfJzN6A_fLr3MJeeqFd1v5x0AxRAKl1LLflWLxv4FMyGDHqIpa.gHIAb9e7isuRRFyZWa9kaPSEwPR90v2yhLbEcp1s6j_6No16nxzbrFF4;
-        path=/; expires=Sat, 25-Oct-25 08:15:30 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=MWW7AVLU42ocva3I.kPBK54tbwaIuL_8fIxpvYrdKU0-1761506070-1.0.1.1-z3vrsSSNZRdWmgOBT9aWYLzFbfBRJr3dXh8uSZuEZtj25wcJk6vMSe9m4HqX0Sjk_Doo3Kb27qnkvIwCj8LlidWdGHeIXXnFbt8LhsU0eNM;
+        path=/; expires=Sun, 26-Oct-25 19:44:30 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=LLGV3muyywmaDX6VGrY9HNq.pXPU66pMGY7TgloS2AU-1761378330714-0.0.1.1-604800000;
+      - _cfuvid=Q0sjihaqk8O7eRmrPCVJ0SBZFYCkKNqBzo.hRBoo.aM-1761506070598-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +94,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 994017fa6e7a67fc-SJC
+      - 994c46c54920d8a7-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0a23e0b90f5f3f990068fc800ede98819893b1abe75784e80a",
+          "id": "resp_0ea16bba48cf246f0068fe731042e481938e2f80f7ba637527",
           "object": "response",
-          "created_at": 1761378318,
+          "created_at": 1761506064,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +117,7 @@ http_interactions:
           "model": "gpt-4o-mini-2024-07-18",
           "output": [
             {
-              "id": "msg_0a23e0b90f5f3f990068fc8010468c8198b1e90e358705d10b",
+              "id": "msg_0ea16bba48cf246f0068fe7310ed748193a67ad20f4c445e63",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +125,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "ActiveRecord is a powerful Object-Relational Mapping (ORM) tool provided by Ruby on Rails, and it offers several benefits:\n\n1. **Simplicity**: ActiveRecord abstracts the database interactions, allowing developers to interact with the database using Ruby objects rather than SQL queries. This simplifies code and makes it more readable.\n\n2. **Convention over Configuration**: ActiveRecord follows sensible conventions, reducing the amount of configuration needed. For instance, it automatically infers table names from models and column types from attributes.\n\n3. **Associations**: It provides a simple way to define associations between models, such as `has_many`, `belongs_to`, and `has_and_belongs_to_many`, which makes it easy to handle relationships.\n\n4. **Validation**: ActiveRecord offers built-in validation features, allowing developers to enforce data integrity rules before saving records to the database.\n\n5. **Migrations**: It includes a robust migration system that helps developers version control their database schema changes, allowing easy updates and rollbacks.\n\n6. **Database Agnosticism**: ActiveRecord abstracts database interactions so that developers can switch database systems with minimal changes to their codebase.\n\n7. **Query Interface**: It provides a powerful and flexible query interface, allowing developers to construct complex queries using a simple Ruby syntax.\n\n8. **Callbacks**: ActiveRecord supports lifecycle callbacks, which are methods that can be triggered before or after certain events (like `save`, `create`, etc.), allowing for custom behavior.\n\n9. **Eager Loading**: To optimize database queries and reduce N+1 query problems, ActiveRecord supports eager loading, allowing for the loading of associated records in one query.\n\n10. **Scopes**: Developers can define reusable query scopes to encapsulate commonly used queries, making the code cleaner and more maintainable.\n\nThese features make ActiveRecord a popular choice for Rails developers, providing a balance between power and ease of use."
+                  "text": "ActiveRecord is a powerful Object-Relational Mapping (ORM) layer in Ruby on Rails that provides several benefits:\n\n1. **Simplicity**: ActiveRecord abstracts complex SQL queries into intuitive Ruby methods, making it easier to interact with the database.\n\n2. **Convention over Configuration**: It follows Rails' principle of convention over configuration, allowing developers to work efficiently without needing to configure everything explicitly.\n\n3. **Associations**: ActiveRecord makes it easy to define relationships between models (e.g., `belongs_to`, `has_many`, `has_one`), simplifying the management of related data.\n\n4. **Validation**: Built-in validation methods streamline data integrity checks before saving records to the database.\n\n5. **Migrations**: ActiveRecord provides a way to manage database schema changes through migrations, making it easier to version control the database structure.\n\n6. **Query Interface**: Offers a powerful query interface that allows developers to create complex queries using Ruby syntax instead of raw SQL.\n\n7. **Callbacks**: ActiveRecord supports callbacks that run at various stages of the lifecycle of an ActiveRecord object, helping with automation and maintenance of data.\n\n8. **Eager Loading**: Reduces the number of queries sent to the database by loading associated records when they are needed, improving performance.\n\n9. **Scopes**: Allows developers to define commonly-used queries as default scopes or class methods to reuse throughout the application.\n\n10. **Database Agnostic**: ActiveRecord provides a unified interface for multiple database systems, enabling flexibility in choosing or changing the backend.\n\nThese benefits contribute to enhanced productivity, maintainability, and scalability in web applications using Ruby on Rails."
                 }
               ],
               "role": "assistant"
@@ -136,14 +158,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 390,
+            "output_tokens": 336,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 416
+            "total_tokens": 362
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 25 Oct 2025 07:45:30 GMT
+  recorded_at: Sun, 26 Oct 2025 19:14:30 GMT
 recorded_with: VCR 6.3.1

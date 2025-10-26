@@ -7,6 +7,26 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"Explain RESTful APIs"}],"model":"openai/gpt-4o","models":["anthropic/claude-sonnet-4","google/gemini-pro-1.5"]}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -15,19 +35,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '150'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 04:35:25 GMT
+      - Sun, 26 Oct 2025 19:15:39 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,10 +68,57 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993f01cb1bbf963f-SJC
+      - 994c48992dd3679a-SJC
     body:
       encoding: ASCII-8BIT
-      string: !binary |-
-        CiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKeyJpZCI6Imdlbi0xNzYxMzY2OTI0LWkxR0lxaXhzYmtJVFJNUEFSMEdxIiwicHJvdmlkZXIiOiJPcGVuQUkiLCJtb2RlbCI6Im9wZW5haS9ncHQtNG8iLCJvYmplY3QiOiJjaGF0LmNvbXBsZXRpb24iLCJjcmVhdGVkIjoxNzYxMzY2OTI0LCJjaG9pY2VzIjpbeyJsb2dwcm9icyI6bnVsbCwiZmluaXNoX3JlYXNvbiI6InN0b3AiLCJuYXRpdmVfZmluaXNoX3JlYXNvbiI6InN0b3AiLCJpbmRleCI6MCwibWVzc2FnZSI6eyJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6IlJFU1RmdWwgQVBJcywgb3IgUmVwcmVzZW50YXRpb25hbCBTdGF0ZSBUcmFuc2ZlciBBUElzLCBhcmUgYSB0eXBlIG9mIHdlYiBzZXJ2aWNlIEFQSSB0aGF0IGFkaGVyZSB0byB0aGUgcHJpbmNpcGxlcyBhbmQgY29uc3RyYWludHMgb2YgUkVTVCBhcmNoaXRlY3R1cmUuIFJFU1Qgd2FzIGludHJvZHVjZWQgYnkgUm95IEZpZWxkaW5nIGluIGhpcyBkb2N0b3JhbCBkaXNzZXJ0YXRpb24gaW4gMjAwMCBhbmQgcHJvdmlkZXMgYSBzZXQgb2YgZ3VpZGVsaW5lcyB0aGF0IGVuc3VyZSBzY2FsYWJsZSwgcGVyZm9ybWFudCwgYW5kIGludGVyb3BlcmFibGUgd2ViIHNlcnZpY2VzLlxuXG5IZXJlIGFyZSB0aGUga2V5IHByaW5jaXBsZXMgb2YgUkVTVGZ1bCBBUElzOlxuXG4xLiAqKlN0YXRlbGVzc25lc3MqKjogRWFjaCByZXF1ZXN0IGZyb20gYSBjbGllbnQgdG8gdGhlIHNlcnZlciBtdXN0IGNvbnRhaW4gYWxsIHRoZSBpbmZvcm1hdGlvbiB0aGUgc2VydmVyIG5lZWRzIHRvIGZ1bGZpbGwgdGhhdCByZXF1ZXN0LiBUaGUgc2VydmVyIGRvZXMgbm90IHN0b3JlIGFueSBzZXNzaW9uIGluZm9ybWF0aW9uIGFib3V0IHRoZSBjbGllbnQuIFRoaXMgbWFrZXMgUkVTVCBBUElzIHNjYWxhYmxlLCBhcyB0aGUgc2VydmVyIGRvZXMgbm90IG5lZWQgdG8gbWFuYWdlIHVzZXIgc2Vzc2lvbnMuXG5cbjIuICoqQ2xpZW50LVNlcnZlciBBcmNoaXRlY3R1cmUqKjogUkVTVCBwcm9tb3RlcyBhIHNlcGFyYXRpb24gYmV0d2VlbiB0aGUgY2xpZW50IGFuZCB0aGUgc2VydmVyLiBUaGlzIGFsbG93cyBmb3IgaW5kZXBlbmRlbnQgZXZvbHV0aW9uIG9mIHRoZSBjbGllbnQgYW5kIHNlcnZlciBhcHBsaWNhdGlvbnMsIGFzIGxvbmcgYXMgdGhlIGludGVyZmFjZSBiZXR3ZWVuIHRoZW0gaXMgbm90IGNoYW5nZWQuXG5cbjMuICoqVW5pZm9ybSBJbnRlcmZhY2UqKjogUkVTVGZ1bCBBUElzIGhhdmUgYSB1bmlmb3JtIGludGVyZmFjZSB0aGF0IHNpbXBsaWZpZXMgYW5kIGRlY291cGxlcyB0aGUgYXJjaGl0ZWN0dXJlLiBUaGlzIG1lYW5zIHRoYXQgdGhlIHdheSBkYXRhIGFuZCBmdW5jdGlvbmFsaXR5IGFyZSBleHBvc2VkIHRocm91Z2ggdGhlIEFQSSBzaG91bGQgYmUgY29uc2lzdGVudCwgbWFraW5nIGl0IGVhc2llciBmb3IgZGlmZmVyZW50IGNsaWVudHMgdG8gaW50ZXJhY3Qgd2l0aCB0aGUgc3lzdGVtLlxuXG40LiAqKlJlc291cmNlIElkZW50aWZpY2F0aW9uKio6IFJlc291cmNlcyBhcmUgaWRlbnRpZmllZCBieSBVUkxzIG9yIFVSSXMuIEVhY2ggcmVzb3VyY2UgaW4gYSBSRVNUZnVsIGFyY2hpdGVjdHVyZSBpcyBhIHBpZWNlIG9mIGRhdGEgb3IgZnVuY3Rpb25hbGl0eSB0aGF0IGNhbiBiZSBtYW5pcHVsYXRlZCB3aXRoIEhUVFAgbWV0aG9kcy5cblxuNS4gKipSZXByZXNlbnRhdGlvbnMqKjogUmVzb3VyY2VzIGNhbiBoYXZlIG11bHRpcGxlIHJlcHJlc2VudGF0aW9ucyBhbmQgYXJlIHR5cGljYWxseSByZXR1cm5lZCBpbiBhIGZvcm1hdCBsaWtlIEpTT04gb3IgWE1MLiBUaGlzIGFsbG93cyBjbGllbnRzIHRvIGNvbnN1bWUgZGF0YSBpbiBhIGZvcm0gdGhhdCdzIG1vc3QgY29udmVuaWVudCBmb3IgdGhlbS5cblxuNi4gKipTdGF0ZWxlc3MgQ29tbXVuaWNhdGlvbioqOiBSRVNUIGVuc3VyZXMgdGhhdCBlYWNoIGNvbW11bmljYXRpb24gYmV0d2VlbiB0aGUgY2xpZW50IGFuZCB0aGUgc2VydmVyIGlzIHN0YXRlbGVzcywgbWVhbmluZyBubyBjb250ZXh0IG9yIHNlc3Npb24gaXMga2VwdCBvbiB0aGUgc2VydmVyIGZvciB0aGUgY2xpZW50LiBBbnkgc2Vzc2lvbiBzdGF0ZSBpcyBrZXB0IGVudGlyZWx5IG9uIHRoZSBjbGllbnTigJlzIHNpZGUuXG5cbjcuICoqQ2FjaGluZyoqOiBSRVNUZnVsIEFQSXMgc2hvdWxkIGJlIGRlc2lnbmVkIHRvIGVuY291cmFnZSB0aGUgY2FjaGluZyBvZiByZXNwb25zZXMuIElmIGEgcmVzcG9uc2UgaXMgY2FjaGVhYmxlLCBpdCBzaG91bGQgYmUgZXhwbGljaXRseSBzdGF0ZWQsIGFsbG93aW5nIGJvdGggY2xpZW50cyBhbmQgaW50ZXJtZWRpYXJpZXMgdG8gcmVkdWNlIHRoZSBudW1iZXIgb2YgaW50ZXJhY3Rpb25zIGFuZCBzcGVlZCB1cCB0aGUgQVBJLlxuXG44LiAqKkxheWVyZWQgU3lzdGVtKio6IFJFU1QgYWxsb3dzIGFuIGFyY2hpdGVjdHVyZSB0byBiZSBjb21wb3NlZCBvZiBtdWx0aXBsZSBsYXllcnMsIHdpdGggZGlmZmVyZW50IGNvbXBvbmVudHMgbWFuYWdpbmcgZGlmZmVyZW50IGNvbmNlcm5zLiBGb3IgaW5zdGFuY2UsIGNhY2hpbmcgYW5kIGxvYWQgYmFsYW5jaW5nIG1pZ2h0IGJlIGhhbmRsZWQgYnkgc2VwYXJhdGUgaW50ZXJtZWRpYXRlIHNlcnZlcnMuXG5cbjkuICoqQ29kZSBvbiBEZW1hbmQgKG9wdGlvbmFsKSoqOiBTZXJ2ZXJzIGNhbiBleHRlbmQgY2xpZW50IGZ1bmN0aW9uYWxpdHkgYnkgdHJhbnNmZXJyaW5nIGV4ZWN1dGFibGUgY29kZSwgc3VjaCBhcyBKYXZhU2NyaXB0LiBIb3dldmVyLCB0aGlzIGlzIGFuIG9wdGlvbmFsIGNvbnN0cmFpbnQgYW5kIGlzIGxlc3MgZnJlcXVlbnRseSB1c2VkLlxuXG5JbiBwcmFjdGljZSwgUkVTVGZ1bCBBUElzIG9mdGVuIHVzZSBzdGFuZGFyZCBIVFRQIG1ldGhvZHMgdG8gcGVyZm9ybSBvcGVyYXRpb25zIG9uIHJlc291cmNlczpcblxuLSAqKkdFVCoqOiBSZXRyaWV2ZSBhIHJlc291cmNlLlxuLSAqKlBPU1QqKjogQ3JlYXRlIGEgcmVzb3VyY2UuXG4tICoqUFVUKio6IFVwZGF0ZSBhIHJlc291cmNlLlxuLSAqKkRFTEVURSoqOiBSZW1vdmUgYSByZXNvdXJjZS5cblxuQWRvcHRpbmcgUkVTVGZ1bCBwcmluY2lwbGVzIG1lYW5zIGNyZWF0aW5nIEFQSXMgdGhhdCBhcmUgc2ltcGxlLCBlZmZpY2llbnQsIGFuZCBoaWdobHkgc2NhbGFibGUsIHdoaWNoIGlzIHdoeSB0aGV5IGhhdmUgYmVjb21lIHRoZSBmb3VuZGF0aW9uIGZvciBtYW55IG1vZGVybiB3ZWIgc2VydmljZXMuIiwicmVmdXNhbCI6bnVsbCwicmVhc29uaW5nIjpudWxsfX1dLCJzeXN0ZW1fZmluZ2VycHJpbnQiOiJmcF9jYmYxNzg1NTY3IiwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MTEsImNvbXBsZXRpb25fdG9rZW5zIjo1NjYsInRvdGFsX3Rva2VucyI6NTc3LCJwcm9tcHRfdG9rZW5zX2RldGFpbHMiOnsiY2FjaGVkX3Rva2VucyI6MCwiYXVkaW9fdG9rZW5zIjowfSwiY29tcGxldGlvbl90b2tlbnNfZGV0YWlscyI6eyJyZWFzb25pbmdfdG9rZW5zIjowfX19
-  recorded_at: Sat, 25 Oct 2025 04:35:31 GMT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761506139-YisKnQ01gKlwMY56qOfD\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761506139,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"RESTful
+        APIs are a type of web service architecture that applies the principles of
+        Representational State Transfer (REST) for creating and interacting with web
+        services. REST was introduced by Roy Fielding in his 2000 doctoral dissertation,
+        and it has become a widely adopted standard for designing networked applications.\\n\\n###
+        Core Principles of RESTful APIs:\\n\\n1. **Statelessness**: Each request from
+        a client to a server must contain all the information the server needs to
+        fulfill that request. This means that the server does not store any session
+        state about the client, and each request is processed as an independent transaction.\\n\\n2.
+        **Client-Server Architecture**: REST promotes a separation of concerns, where
+        clients and servers interact through a uniform interface. Clients are responsible
+        for managing user interfaces and application states, while servers handle
+        the storage and retrieval of resources.\\n\\n3. **Cacheability**: Responses
+        from the server must be explicitly marked as cacheable or non-cacheable. If
+        a response is cacheable, then the client can reuse that response data for
+        later, similar requests, which improves efficiency and performance.\\n\\n4.
+        **Uniform Interface**: This principle is one of the key aspects of REST. It
+        simplifies and decouples the architecture, which enables each part to evolve
+        independently. There are four constraints within this principle:\\n   - **Identification
+        of resources**: Resources are identified using URIs. Each resource, such as
+        a user or a product, has a specific URL.\\n   - **Manipulation of resources
+        through representations**: Clients manipulate resources using their representations,
+        such as JSON or XML.\\n   - **Self-descriptive messages**: Each message includes
+        enough information to describe how to process the message. This includes a
+        clear definition of how to process the payload.\\n   - **Hypermedia as the
+        engine of application state (HATEOAS)**: Clients interact with the application
+        entirely through provided links, navigating the available choices dynamically.\\n\\n5.
+        **Layered System**: REST architecture can have multiple layers, with each
+        layer having specific responsibilities, like load balancing or shared caches,
+        enhancing system flexibility and scalability.\\n\\n### Usage of RESTful APIs:\\n\\nRESTful
+        APIs commonly use standard HTTP methods to perform operations on resources:\\n\\n-
+        **GET**: Retrieve a representation of a resource.\\n- **POST**: Create a new
+        resource or perform some action.\\n- **PUT**: Update an existing resource.\\n-
+        **DELETE**: Remove a resource.\\n\\n### Benefits of RESTful APIs:\\n\\n- **Scalability**:
+        By using a stateless operation and layering, RESTful APIs can scale easily.\\n-
+        **Flexibility and Portability**: The separation of client and server helps
+        in the portability of the interface across different platforms and devices.\\n-
+        **Simplicity and Uniformity**: RESTful APIs operate through a uniform set
+        of operations, making the API easier to understand and use.\\n\\n### Widely
+        Used Formats:\\n\\n- **JSON (JavaScript Object Notation)**: Due to its lightweight
+        and human-readable format, JSON is widely preferred for RESTful APIs.\\n-
+        **XML (eXtensible Markup Language)**: Another format that is used but is more
+        verbose than JSON.\\n\\nRESTful APIs provide a powerful standard for building
+        web services, favored for their simplicity and alignment with the stateless
+        nature of HTTP. This has led to their pervasive use across a wide array of
+        applications and industries.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":674,\"total_tokens\":685,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:15:49 GMT
 recorded_with: VCR 6.3.1

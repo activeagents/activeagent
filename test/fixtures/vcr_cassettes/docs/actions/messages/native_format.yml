@@ -8,25 +8,47 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"What''s
         in this image?"},{"type":"input_image","image_url":"https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png?scale-down-to=64"}]}],"model":"gpt-4o-mini"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '237'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 07:48:02 GMT
+      - Sun, 26 Oct 2025 19:14:24 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,7 +62,7 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '29999'
       X-Ratelimit-Remaining-Tokens:
-      - '149999237'
+      - '149999235'
       X-Ratelimit-Reset-Requests:
       - 2ms
       X-Ratelimit-Reset-Tokens:
@@ -52,18 +74,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_71c8ee62b15749e59702e137a5b75b76
+      - req_76c10ad6a5794f7ab332c3e3d3a96627
       Openai-Processing-Ms:
-      - '2752'
+      - '2637'
       X-Envoy-Upstream-Service-Time:
-      - '2760'
+      - '2659'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=_lDcMuBocDRueHjsYz39F3lE.IqvYz42FDOZ5NIXzBM-1761378482-1.0.1.1-FT09VJkHITw4JmVt8_.UHJUX.7L3nCcsTaTMEMcjZRnrwq1oaLDQwNdVPWK4tRxlro9QVsVAqT8WaVArKC2QpkF5XqGEdPS83Xa9wGMyttM;
-        path=/; expires=Sat, 25-Oct-25 08:18:02 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=zxCbyk00KVCCQrS609ZkCgXlHBeycJTIdreWkehKhoo-1761506064-1.0.1.1-ZzEe9B4B5FSACuRdxcFVnVzkIAvzrUwT6lx_BohVtkm.6NKtN3vqou0JXkrZUNtcEOosKKIAo_JtfKKY2.L0PRIX19vd3k_Qxd7y0BopgEk;
+        path=/; expires=Sun, 26-Oct-25 19:44:24 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=x.HnmF7PEGlUiTvNjyErkN6ok1BMiywurUid3xXOdJE-1761378482260-0.0.1.1-604800000;
+      - _cfuvid=r5fYBA32W3BNS5JAS75uiLRNqZxoRPhyvFq2ZVc5S5w-1761506064103-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +94,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99401be8ae53f98f-SJC
+      - 994c46b39e772364-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_07ca24a1c101f1d00068fc80af8774819880d34a7f83686a41",
+          "id": "resp_0a4683244bb246460068fe730d7e10819780d39dabf91f82aa",
           "object": "response",
-          "created_at": 1761378479,
+          "created_at": 1761506061,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +117,7 @@ http_interactions:
           "model": "gpt-4o-mini-2024-07-18",
           "output": [
             {
-              "id": "msg_07ca24a1c101f1d00068fc80b075dc8198a76d49cf0df8dc41",
+              "id": "msg_0a4683244bb246460068fe730e716081978d5acf0bd50fe8f5",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +125,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "The image appears to contain text and a graphic logo that likely represents \"Active Agents.\" The logo seems to have a design that includes a stylized figure with sunglasses and a playful, perhaps mischievous, appearance. If you need further details or specific inquiries about it, let me know!"
+                  "text": "The image appears to feature a stylized text logo that says \"ACTIVE AGENTS,\" possibly with a graphic or emblem associated with it. The design seems bold and eye-catching, possibly indicating a brand or organization. If you need further details or context about the logo, please let me know!"
                 }
               ],
               "role": "assistant"
@@ -145,5 +167,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 25 Oct 2025 07:48:02 GMT
+  recorded_at: Sun, 26 Oct 2025 19:14:24 GMT
 recorded_with: VCR 6.3.1

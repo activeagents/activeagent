@@ -7,25 +7,47 @@ http_interactions:
       encoding: UTF-8
       string: '{"input":"Analyze: Temperature readings: 20, 22, 21, 23, 22","model":"gpt-4o"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '78'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 02:16:33 GMT
+      - Sun, 26 Oct 2025 19:14:51 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -51,18 +73,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_5463475c0d8746c999046e971911c51e
+      - req_a7ff8e3e03e64c74b432c1ae6997a769
       Openai-Processing-Ms:
-      - '4308'
+      - '11134'
       X-Envoy-Upstream-Service-Time:
-      - '4313'
+      - '11139'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=hbHkTp2.XPPX9bHtPqYkhUfqkNnmq9hBJhk_VpmW8kw-1761444993-1.0.1.1-ZNf4KqAu7Ukk9yhj0IWDiLnMeiO190C0OQ_LjRKBaVKyS8o72_dum0TSlWhwbdWoKk_WKz.oNEyqI.47wpGzjgUfOGYYkNA3DERzXq3CIxU;
-        path=/; expires=Sun, 26-Oct-25 02:46:33 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=pGlhpwcGhLxNWR_sqevMnCul77bxF3aLw_GzHnyBh80-1761506091-1.0.1.1-lXpQZDKPgLNopa0ksZsFdHQTNOg9HnAs3eu1ZT.ouAwXRPKDke.WjikvZyvFrIxeG1cUZmxe.maXGtBA.KSx8fonIX_m2dfmLi0UiKDtExA;
+        path=/; expires=Sun, 26-Oct-25 19:44:51 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=snehSw2xGq7GTPCKAkZoLlxl1S2gW13_BlRLAdlAitE-1761444993210-0.0.1.1-604800000;
+      - _cfuvid=IzPG9Q61zt9qeSBvwzJAto9spcCLeYl_HzBzVLLIPjI-1761506091856-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +93,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 994673a96a096d29-SJC
+      - 994c472c08d9ed3b-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0bed2408812640470068fd847ce724819a905f355a18e1ce02",
+          "id": "resp_04e5a12b2427c2f60068fe7320b320819aa6313e899b73cd06",
           "object": "response",
-          "created_at": 1761444989,
+          "created_at": 1761506080,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,7 +116,7 @@ http_interactions:
           "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "msg_0bed2408812640470068fd847db8e0819a96e0985cabaac146",
+              "id": "msg_04e5a12b2427c2f60068fe73215354819a8ec5a1cf105dff36",
               "type": "message",
               "status": "completed",
               "content": [
@@ -102,7 +124,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "Let's analyze the temperature readings: 20, 22, 21, 23, 22.\n\n### Mean (Average)\nTo find the mean:\n\\[\n\\text{Mean} = \\frac{20 + 22 + 21 + 23 + 22}{5} = \\frac{108}{5} = 21.6\n\\]\n\n### Median\nTo find the median, sort the numbers:\n20, 21, 22, 22, 23\n\nThe middle value is 22, so the median is 22.\n\n### Mode\nThe mode is the value that appears most frequently. Here, 22 appears twice, making it the mode.\n\n### Range\nThe range is the difference between the highest and lowest values:\n\\[\n\\text{Range} = 23 - 20 = 3\n\\]\n\n### Summary\n- **Mean**: 21.6\n- **Median**: 22\n- **Mode**: 22\n- **Range**: 3\n\nThe data is relatively close in values, with a small range and consistent mean and median, indicating a stable temperature trend."
+                  "text": "To analyze the temperature readings of 20, 22, 21, 23, and 22, we can calculate several statistical measures:\n\n1. **Mean (Average):**\n   \\[\n   \\text{Mean} = \\frac{20 + 22 + 21 + 23 + 22}{5} = \\frac{108}{5} = 21.6\n   \\]\n\n2. **Median:**\n   - List the numbers in order: 20, 21, 22, 22, 23\n   - The median (middle value) is 22.\n\n3. **Mode:**\n   - The number that appears most frequently is 22.\n\n4. **Range:**\n   - The difference between the highest and lowest values: \\(23 - 20 = 3\\)\n\n5. **Variance:**\n   \\[\n   \\text{Variance} = \\frac{(20 - 21.6)^2 + (22 - 21.6)^2 + (21 - 21.6)^2 + (23 - 21.6)^2 + (22 - 21.6)^2}{5}\n   \\]\n   \\[\n   = \\frac{(1.6)^2 + (0.4)^2 + (0.6)^2 + (1.4)^2 + (0.4)^2}{5} \n   \\]\n   \\[\n   = \\frac{2.56 + 0.16 + 0.36 + 1.96 + 0.16}{5} \n   \\]\n   \\[\n   = \\frac{5.2}{5} = 1.04\n   \\]\n\n6. **Standard Deviation:**\n   \\[\n   \\text{Standard Deviation} = \\sqrt{1.04} \\approx 1.02\n   \\]\n\nThese readings suggest a small variation in temperature around the average of 21.6, with consistent observations as indicated by the low standard deviation. The most common temperature is 22."
                 }
               ],
               "role": "assistant"
@@ -135,14 +157,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 235,
+            "output_tokens": 427,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 261
+            "total_tokens": 453
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sun, 26 Oct 2025 02:16:33 GMT
+  recorded_at: Sun, 26 Oct 2025 19:14:51 GMT
 recorded_with: VCR 6.3.1

@@ -28,7 +28,7 @@ module ActiveAgent
       def api_prompt_execute(parameters)
         super
 
-      rescue Faraday::ConnectionFailed => exception
+      rescue ::OpenAI::Errors::APIConnectionError => exception
         log_connection_error(exception)
         raise exception
       end
@@ -39,9 +39,9 @@ module ActiveAgent
       # @return [Object] The embedding response from Ollama
       def api_embed_execute(parameters)
         instrument("embeddings_request.provider.active_agent")
-        client.embeddings(parameters:).deep_symbolize_keys
+        client.embeddings.create(**parameters).as_json.deep_symbolize_keys
 
-      rescue Faraday::ConnectionFailed => exception
+      rescue ::OpenAI::Errors::APIConnectionError => exception
         log_connection_error(exception)
         raise exception
       end

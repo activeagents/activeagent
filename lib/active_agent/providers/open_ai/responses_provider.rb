@@ -23,8 +23,14 @@ module ActiveAgent
         # @param parameters [Hash] The responses request parameters
         # @return [Hash, nil] The symbolized API response or nil if empty
         def api_prompt_execute(parameters)
-          instrument("api_request.provider.active_agent", model: parameters[:model])
-          client.responses.create(parameters:).presence&.deep_symbolize_keys
+          instrument("api_request.provider.active_agent", model: parameters[:model], streaming: !!parameters[:stream])
+
+          unless parameters[:stream]
+            client.responses.create(**parameters)
+          else
+            client.responses.stream(**parameters.except(:stream)).each(&parameters[:stream])
+            nil
+          end
         end
 
         # Processes streaming response chunks from OpenAI's Responses API.
@@ -33,36 +39,33 @@ module ActiveAgent
         # output items, content parts, and function calls. Manages the message
         # stack and broadcasts streaming updates.
         #
-        # @param api_response_chunk [Hash] The streaming response chunk
+        # @param api_response_event [Hash] The streaming response chunk
         # @return [void]
-        def process_stream_chunk(api_response_chunk)
-          api_response_chunk.deep_symbolize_keys!
+        def process_stream_chunk(api_response_event)
+          instrument("stream_chunk_processing.provider.active_agent", chunk_type: api_response_event.type)
 
-          type = api_response_chunk[:type].to_sym
-          instrument("stream_chunk_processing.provider.active_agent", chunk_type: type)
-
-          case type
+          case api_response_event.type
           # Response Created
           when :"response.created", :"response.in_progress"
             broadcast_stream_open
 
           # -> Message Created
           when :"response.output_item.added"
-            process_stream_output_item_added(api_response_chunk)
+            process_stream_output_item_added(api_response_event)
 
           # -> -> Content Part Create
           when :"response.content_part.added"
 
           # -> -> -> Content Text Append
           when :"response.output_text.delta"
-            message = message_stack.find { _1[:id] == api_response_chunk[:item_id] }
-            message[:content] += api_response_chunk[:delta]
-            broadcast_stream_update(message, api_response_chunk[:delta])
+            message = message_stack.find { _1[:id] == api_response_event[:item_id] }
+            message[:content] += api_response_event[:delta]
+            broadcast_stream_update(message, api_response_event[:delta])
 
           # -> -> -> Content Text Completed [Full Text]
           when :"response.output_text.done"
-            message = message_stack.find { _1[:id] == api_response_chunk[:item_id] }
-            message[:content] = api_response_chunk[:text]
+            message = message_stack.find { _1[:id] == api_response_event[:item_id] }
+            message[:content] = api_response_event[:text]
             broadcast_stream_update(message, nil) # Don't double send content
 
           # -> -> -> Content Function Call Append
@@ -74,7 +77,7 @@ module ActiveAgent
 
           # -> Message Completed
           when :"response.output_item.done"
-            process_stream_output_item_done(api_response_chunk)
+            process_stream_output_item_done(api_response_event)
 
           # Response Completed
           when :"response.completed"
@@ -87,32 +90,32 @@ module ActiveAgent
 
         # Processes output item added events from the streaming response.
         #
-        # @param api_response_chunk [Hash] The response chunk containing the added item
+        # @param api_response_event [Hash] The response chunk containing the added item
         # @return [void]
-        def process_stream_output_item_added(api_response_chunk)
-          case (type = api_response_chunk[:item][:type].to_sym)
+        def process_stream_output_item_added(api_response_event)
+          case api_response_event.item.type
           when :message
             # PATCH: API returns an empty array instead of empty string due to a bug in their serialization
-            message_stack << { content: "" }.merge(api_response_chunk[:item].compact_blank)
+            message_stack << { content: "" }.merge(api_response_event.item.to_h.compact_blank)
           when :function_call
             # No-Op: Wait for FC to Land (-> response.output_item.done)
           else
-            fail "Unexpected Item Type: #{type}"
+            fail "Unexpected Item Type: #{api_response_event.item.type}"
           end
         end
 
         # Processes output item completion events from the streaming response.
         #
-        # @param api_response_chunk [Hash] The response chunk containing the completed item
+        # @param api_response_event [Hash] The response chunk containing the completed item
         # @return [void]
-        def process_stream_output_item_done(api_response_chunk)
-          case (type = api_response_chunk[:item][:type].to_sym)
+        def process_stream_output_item_done(api_response_event)
+          case api_response_event.item.type
           when :message
             # No-Op: Message Up to Date
           when :function_call
-            message_stack << api_response_chunk.dig(:item)
+            message_stack << api_response_event.item
           else
-            fail "Unexpected Item Type: #{type}"
+            fail "Unexpected Item Type: #{api_response_event.item.type}"
           end
         end
 

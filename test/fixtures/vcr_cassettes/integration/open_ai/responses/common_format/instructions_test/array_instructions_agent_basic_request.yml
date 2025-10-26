@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":"Hello, GPT!","instructions":"You are a helpful assistant.\nAlways
         be polite and professional.","model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '123'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:32:58 GMT
+      - Sun, 26 Oct 2025 18:37:53 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,7 +60,7 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '9999'
       X-Ratelimit-Remaining-Tokens:
-      - '29999954'
+      - '29999953'
       X-Ratelimit-Reset-Requests:
       - 6ms
       X-Ratelimit-Reset-Tokens:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_ddd0233212674b6b84083a3c2ce3a060
+      - req_b5810d3351da4746875ae0883036f47f
       Openai-Processing-Ms:
-      - '1011'
+      - '909'
       X-Envoy-Upstream-Service-Time:
-      - '1020'
+      - '913'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=T2p9tLtVqRqrSa1h2UmfZTKvPwxarvW0Sl77IRUUypw-1760758378-1.0.1.1-_q8bOIRnWb3qSy2OG2W.GJwumlTMP1KmhMcPtWc_WM1NuLr9fh840IlSlqXrI.BJ80_sDUAVk8kS.5MrZjk2nz4mb.X9y8AdCszQMZSiUfc;
-        path=/; expires=Sat, 18-Oct-25 04:02:58 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=mR3Gs12sxe3mMSjWFSzjbhwCU3jiFEhym8BNISHzZIQ-1761503873-1.0.1.1-t6TPG93FPFqAapK7r7ZYlzekbsFCyTwjtk3Bapg.EBTfQYDxJLGiFFUmrh0Yo6Grv8NMFXfCEfBJGCLevSD0OhWTF.6rW4QWGYRs2zK.n68;
+        path=/; expires=Sun, 26-Oct-25 19:07:53 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=C59IVzuxs0zgQHxz8pB8FtkudYUDf_3EZF2FDqsZpgg-1760758378174-0.0.1.1-604800000;
+      - _cfuvid=KHMHeNE8lJ0dloRZMmIBZueuBbefaIwr1Ibzb._Cl70-1761503873444-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9904f8b0faf4c487-SJC
+      - 994c1142def715e3-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_05896d78ddb5eb150068f30a692854819884c38f632d3e2686",
+          "id": "resp_08b00ebcc789233e0068fe6a8086b0819ba6b8b2d49886c9bd",
           "object": "response",
-          "created_at": 1760758377,
+          "created_at": 1761503872,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +115,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_05896d78ddb5eb150068f30a69c93c8198b2e26958cb434a32",
+              "id": "msg_08b00ebcc789233e0068fe6a811484819b8341d155ed636188",
               "type": "message",
               "status": "completed",
               "content": [
@@ -145,5 +165,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 18 Oct 2025 03:32:58 GMT
+  recorded_at: Sun, 26 Oct 2025 18:37:53 GMT
 recorded_with: VCR 6.3.1

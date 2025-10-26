@@ -8,25 +8,45 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What''s
         in this image?"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}}]}],"model":"gpt-5"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '267'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 00:17:34 GMT
+      - Sun, 26 Oct 2025 18:24:22 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -38,13 +58,13 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '4929'
+      - '4170'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '4951'
+      - '4206'
       X-Ratelimit-Limit-Input-Images:
       - '250000'
       X-Ratelimit-Limit-Requests:
@@ -64,16 +84,16 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 1ms
       X-Request-Id:
-      - req_9695ab7664c3499cb2ae4268d6127adf
+      - req_cf738e9954b64fb08797acf582f615d5
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=PHdnPz9Vpo9GiyZnD5XHM2SHrPk62MRaR8pqOtTgBtQ-1761005854-1.0.1.1-JODncjASQcIQ4w2vPFO.8tAetQTITi_cMpBXqFKCNge4jxnPBo.ScNmLquCQATWV0Eef4sT1sHBtq73dUR0ehLz.OZjBZ_jDJCub3jSgvuk;
-        path=/; expires=Tue, 21-Oct-25 00:47:34 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=HX2fjRQs5AW8g51iBwcOaZAwkg_leY8iXHCZJ8enMpU-1761503062-1.0.1.1-xgdO8eLrEoYpGEgrMysQCJwkgCdNJa0obfjeJ5Nc1Uwaj66gZMEFAerZYjTgOTUIoyh0jknmoC2UiVqerDfDfDaB6wTpzFst8Wq9Z91kDos;
+        path=/; expires=Sun, 26-Oct-25 18:54:22 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=CbrOL7KWIkg2zGvfwFvsQyAJDQaknXBU7_JnWdpR92U-1761005854449-0.0.1.1-604800000;
+      - _cfuvid=FDXQrF6D8ckeo0H5PATu2wyutOuK3XG6pB4xXFR3vM4-1761503062372-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -82,46 +102,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991c927eef0d17d8-SJC
+      - 994bfd60fed9ed35-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
-      string: |
-        {
-          "id": "chatcmpl-CSuM5ZnqvyKU3FiEFGc8FbvgbvBKi",
-          "object": "chat.completion",
-          "created": 1761005849,
-          "model": "gpt-5-2025-08-07",
-          "choices": [
-            {
-              "index": 0,
-              "message": {
-                "role": "assistant",
-                "content": "- A small green seedling sprouting from dark soil on a wooden surface\n- Two hands cupping/protecting the plant\n- Water droplets falling onto the seedling\n- Dark background with light highlighting the plant and hands",
-                "refusal": null,
-                "annotations": []
-              },
-              "finish_reason": "stop"
-            }
-          ],
-          "usage": {
-            "prompt_tokens": 221,
-            "completion_tokens": 247,
-            "total_tokens": 468,
-            "prompt_tokens_details": {
-              "cached_tokens": 0,
-              "audio_tokens": 0
-            },
-            "completion_tokens_details": {
-              "reasoning_tokens": 192,
-              "audio_tokens": 0,
-              "accepted_prediction_tokens": 0,
-              "rejected_prediction_tokens": 0
-            }
-          },
-          "service_tier": "default",
-          "system_fingerprint": null
-        }
-  recorded_at: Tue, 21 Oct 2025 00:17:34 GMT
+      string: !binary |-
+        ewogICJpZCI6ICJjaGF0Y21wbC1DVXpoYWVMSnZQWUh4d1U3Tk9ZTmVKM2habVFNcCIsCiAgIm9iamVjdCI6ICJjaGF0LmNvbXBsZXRpb24iLAogICJjcmVhdGVkIjogMTc2MTUwMzA1OCwKICAibW9kZWwiOiAiZ3B0LTUtMjAyNS0wOC0wNyIsCiAgImNob2ljZXMiOiBbCiAgICB7CiAgICAgICJpbmRleCI6IDAsCiAgICAgICJtZXNzYWdlIjogewogICAgICAgICJyb2xlIjogImFzc2lzdGFudCIsCiAgICAgICAgImNvbnRlbnQiOiAiSXTigJlzIGp1c3QgYSBzb2xpZCBncmVlbiBpbWFnZeKAlG5vIG9iamVjdHMgb3IgdGV4dCwganVzdCBhIHBsYWluIGdyZWVuIGJhY2tncm91bmQuIiwKICAgICAgICAicmVmdXNhbCI6IG51bGwsCiAgICAgICAgImFubm90YXRpb25zIjogW10KICAgICAgfSwKICAgICAgImZpbmlzaF9yZWFzb24iOiAic3RvcCIKICAgIH0KICBdLAogICJ1c2FnZSI6IHsKICAgICJwcm9tcHRfdG9rZW5zIjogMjIxLAogICAgImNvbXBsZXRpb25fdG9rZW5zIjogMTU2LAogICAgInRvdGFsX3Rva2VucyI6IDM3NywKICAgICJwcm9tcHRfdG9rZW5zX2RldGFpbHMiOiB7CiAgICAgICJjYWNoZWRfdG9rZW5zIjogMCwKICAgICAgImF1ZGlvX3Rva2VucyI6IDAKICAgIH0sCiAgICAiY29tcGxldGlvbl90b2tlbnNfZGV0YWlscyI6IHsKICAgICAgInJlYXNvbmluZ190b2tlbnMiOiAxMjgsCiAgICAgICJhdWRpb190b2tlbnMiOiAwLAogICAgICAiYWNjZXB0ZWRfcHJlZGljdGlvbl90b2tlbnMiOiAwLAogICAgICAicmVqZWN0ZWRfcHJlZGljdGlvbl90b2tlbnMiOiAwCiAgICB9CiAgfSwKICAic2VydmljZV90aWVyIjogImRlZmF1bHQiLAogICJzeXN0ZW1fZmluZ2VycHJpbnQiOiBudWxsCn0K
+  recorded_at: Sun, 26 Oct 2025 18:24:22 GMT
 recorded_with: VCR 6.3.1

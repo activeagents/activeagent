@@ -7,6 +7,26 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"Explain abstraction"}],"model":"openrouter/auto","user":"user-123"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -15,19 +35,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '106'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 04:37:16 GMT
+      - Sun, 26 Oct 2025 19:17:57 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,42 +68,41 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993f047b781f7ab2-SJC
+      - 994c4bf04916235b-SJC
     body:
       encoding: ASCII-8BIT
       string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
         \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
         \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n{\"id\":\"gen-1761367034-qZvI4ddTdbLhz2cXEfts\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761367035,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Abstraction
-        is a fundamental concept in computer science, particularly in the context
-        of programming, that helps manage complexity by hiding unnecessary details
-        and showing only the relevant data and functionality. Here are some key aspects
-        of abstraction:\\n\\n1. **Hiding Implementation Details**: Abstraction allows
-        you to define what a function or object does without needing to know how it
-        does it. This is done through interfaces, abstract classes, or function signatures.
-        For example, when you call a function like `print(x)`, you don't need to know
-        how the `print` function works internally; you just need to know that it will
-        print the value of `x`.\\n\\n2. **Focusing on Essentials**: By hiding unnecessary
-        details, abstraction helps you focus on the essential features of an object
-        or function. This makes your code easier to understand and work with.\\n\\n3.
-        **Reusability**: Abstraction allows you to create reusable code. Once you've
-        defined an abstraction, you can use it in multiple places without having to
-        rewrite the underlying code each time.\\n\\n4. **Encapsulation**: Abstraction
-        often goes hand in hand with encapsulation, which is the bundling of data
-        and methods that operate on that data within the same object. Encapsulation
-        helps protect the data from external interference and misuse.\\n\\nHere's
-        a simple example in Python:\\n\\n```python\\nclass Animal:\\n    def __init__(self,
-        name):\\n        self.name = name\\n\\n    def speak(self):\\n        pass
-        \ # Abstract method, to be implemented by subclasses\\n\\nclass Dog(Animal):\\n
-        \   def speak(self):\\n        return f\\\"{self.name} says: Woof!\\\"\\n\\nclass
-        Cat(Animal):\\n    def speak(self):\\n        return f\\\"{self.name} says:
-        Meow!\\\"\\n\\n# You can create instances of Dog and Cat and call speak without
-        knowing how they implement it\\ndog = Dog(\\\"Fido\\\")\\nprint(dog.speak())
-        \ # Output: Fido says: Woof!\\n\\ncat = Cat(\\\"Whiskers\\\")\\nprint(cat.speak())
-        \ # Output: Whiskers says: Meow!\\n```\\n\\nIn this example, `Animal` is an
-        abstract class with an abstract method `speak`. The subclasses `Dog` and `Cat`
-        provide their own implementations of `speak`. The user of these classes doesn't
-        need to know how `speak` is implemented; they just need to know that it will
-        return a string representing the animal's sound.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":493,\"total_tokens\":500,\"prompt_tokens_details\":null}}"
-  recorded_at: Sat, 25 Oct 2025 04:37:23 GMT
+        \        \n\n         \n{\"id\":\"gen-1761506275-ayQrm99hdssMNsr4BaCc\",\"provider\":\"Novita\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761506277,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Abstraction
+        is a fundamental concept in computer science and programming that allows us
+        to manage complexity by hiding unnecessary details and focusing on the essential
+        features or behaviors of an object or system. Here are some key aspects of
+        abstraction:\\n\\n1. **Hiding Complexity**: Abstraction helps to hide the
+        complex implementation details and only expose the necessary features to the
+        user. This makes the system easier to understand and use. For example, when
+        you drive a car, you don't need to understand the intricate details of the
+        engine's internal combustion process; you just need to know how to operate
+        the steering wheel, pedals, and other controls to drive.\\n\\n2. **Focusing
+        on Essentials**: Abstraction allows us to focus on the essential features
+        and behaviors of an object or system. It helps to define what an object is
+        and what it can do, without getting bogged down in the details of how it does
+        it. For instance, when we talk about a 'circle', we abstract away the complex
+        mathematical formula for its circumference and just think about its shape
+        and properties like radius.\\n\\n3. **Data Abstraction**: In programming,
+        abstraction can be achieved through data structures like classes, objects,
+        and interfaces. These allow us to define what data an object should have and
+        what operations can be performed on it, without revealing the internal details
+        of how that data is stored or how those operations are implemented.\\n\\n4.
+        **Functional Abstraction**: This involves defining a function that performs
+        a specific task, without revealing the internal details of how that task is
+        accomplished. The function's name and parameters serve as an abstraction of
+        its behavior.\\n\\n5. **Abstraction Levels**: Systems can be broken down into
+        different levels of abstraction, each focusing on different aspects of the
+        system. For example, in a car, the highest level of abstraction might be the
+        user interface (steering wheel, pedals), while the lowest level might be the
+        individual components like pistons and spark plugs.\\n\\nIn summary, abstraction
+        is a powerful tool that helps us to manage complexity, improve code readability,
+        and make our systems more understandable and maintainable.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":427,\"total_tokens\":435,\"prompt_tokens_details\":null,\"completion_tokens_details\":null}}"
+  recorded_at: Sun, 26 Oct 2025 19:18:05 GMT
 recorded_with: VCR 6.3.1

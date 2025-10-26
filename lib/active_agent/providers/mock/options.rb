@@ -21,8 +21,8 @@ module ActiveAgent
           super(**deep_compact(kwargs))
         end
 
-        def serialize
-          super
+        def extra_headers
+          {}
         end
       end
     end

@@ -9,6 +9,26 @@ http_interactions:
         me a fun fact about Ruby programming."},{"type":"text","text":"Now explain
         why that''s interesting."}]}],"model":"openai/gpt-4o"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -17,19 +37,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '195'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 21:55:15 GMT
+      - Sun, 26 Oct 2025 19:07:13 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -50,25 +70,25 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9923ff83e8adfa62-SJC
+      - 994c3c3e0de867ac-SJC
     body:
       encoding: ASCII-8BIT
       string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n{\"id\":\"gen-1761083715-QeM4v1d8IlcdaiaCS54H\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761083715,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
-        fun fact about Ruby programming is that its creator, Yukihiro Matsumoto (often
-        referred to as \\\"Matz\\\"), designed Ruby to make programmers happy, focusing
-        on productivity and enjoyment. He wanted to create a language that was not
-        only powerful but also enjoyable to write, which led him to develop Ruby with
-        simple, elegant syntax inspired by languages like Perl, Smalltalk, Eiffel,
-        Ada, and Lisp. \\n\\nThe interesting aspect of this fact is that it highlights
-        the philosophy behind Ruby, which is quite different from many other programming
-        languages that often prioritize performance or technical capability first.
-        By focusing on developer happiness, Ruby fosters a community and environment
-        where creativity and expressiveness are valued. This approach has influenced
-        how modern programming languages are designed, as seen in languages like Python
-        and Elixir, which also prioritize developer experience. This philosophy has
-        contributed significantly to Ruby's popularity, especially in web development
-        through frameworks like Ruby on Rails.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_65564d8ba5\",\"usage\":{\"prompt_tokens\":21,\"completion_tokens\":185,\"total_tokens\":206,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Tue, 21 Oct 2025 21:55:21 GMT
+        \        \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761505633-DlEUhU66Pa2IW9Ysr4Yr\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761505633,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        fun fact about Ruby programming is that its creator, Yukihiro \\\"Matz\\\"
+        Matsumoto, designed the language to make programmers happy. This philosophy
+        is often summarized by the Ruby community mantra, \\\"Matz is nice and so
+        we are nice\\\" (MINASWAN). \\n\\nThis fact is interesting because it highlights
+        a fundamental philosophy behind Ruby's design and evolution. Unlike many programming
+        languages that prioritize machine efficiency, Ruby focuses on developer happiness
+        and productivity. Matz aimed to create a language that was natural and easy
+        to read, borrowing the best aspects of other languages like Perl, Smalltalk,
+        and Lisp.\\n\\nThe emphasis on programmer satisfaction has influenced Ruby's
+        features such as its elegant syntax, flexibility, and the vibrant community
+        that supports it. This community-centered culture encourages collaboration
+        and sharing, which has led to a rich collection of libraries and tools that
+        make development faster and more enjoyable. As a result, Ruby is not only
+        a tool for solving technical problems but also a medium for creative and joyful
+        expression in software development.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_65564d8ba5\",\"usage\":{\"prompt_tokens\":21,\"completion_tokens\":204,\"total_tokens\":225,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:07:17 GMT
 recorded_with: VCR 6.3.1

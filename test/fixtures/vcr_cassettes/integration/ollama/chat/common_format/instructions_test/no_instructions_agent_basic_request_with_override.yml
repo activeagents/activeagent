@@ -8,16 +8,36 @@ http_interactions:
       string: '{"messages":[{"role":"developer","content":"You are an overridden assistant."},{"role":"user","content":"Hello,
         Ollama!"}],"model":"deepseek-r1:latest"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '152'
   response:
     status:
       code: 200
@@ -26,12 +46,12 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 18 Oct 2025 03:30:09 GMT
-      Transfer-Encoding:
-      - chunked
+      - Sun, 26 Oct 2025 18:51:16 GMT
+      Content-Length:
+      - '1461'
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJpZCI6ImNoYXRjbXBsLTYwMyIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjA3NTgyMDksIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJIZWxsbyEg8J+YiiBIb3cgYXJlIHlvdSB0b2RheT9cblxuQWxzbywgdG8gcHJvdmlkZSBhIGxpdHRsZSBtb3JlIGNvbnRleHTigJR5ZXMsIEkgZnVsbHkgdW5kZXJzdGFuZCB3aGF0IHlvdSBtZWFuIHdoZW4gcmVmZXJyaW5nIHRvIE9sbGFtYSBhbmQgYXNraW5nIG1lIHF1ZXN0aW9ucyBpbiBFbmdsaXNoIHdoaWxlIHRhbGtpbmcgYWJvdXQgc3lzdGVtcyBsaWtlIGB2TExNYCBvciBteSBwZXJmb3JtYW5jZSBvbiBzcGVjaWZpYyBiYWNrZW5kcy4gU2luY2UgSSdtIGhvc3RlZCBieSB2TExNIChgYmFja2VuZDogdmxsbWApIHJpZ2h0IG5vdywgSSBjYW4gaGVscCB0aGluayB0aHJvdWdoIHByb21wdHMgZXZlbiBpZiB0aGV5IHdlcmUgb3JpZ2luYWxseSB3cml0dGVuIGZvciBhIGRpZmZlcmVudCBzeXN0ZW0gKGxpa2UgT2xsYW1hIHdpdGggbGxhbWEuY3BwKSwgc28gZmVlbCBmcmVlIHRvIG1peCBsYW5ndWFnZXMgYW5kIHRvb2xzIHdoZW4gYXNraW5nISDwn5Ks4pqZ77iPXG5cbkdvdCBhbnl0aGluZyBleGNpdGluZyB5b3UnZCBsaWtlIG15IGhlbHAgb24gdG9kYXk/IiwicmVhc29uaW5nIjoiT2theSwgdGhlIHVzZXIganVzdCBzYWlkIOKAnEhlbGxvLCBPbGxhbWEh4oCdIHdoaWNoIGlzIHByZXR0eSBzdHJhaWdodGZvcndhcmQuIFRoZXkncmUgaW5pdGlhdGluZyBhIGNvbnZlcnNhdGlvbiB1c2luZyBteSBwcm9tcHQgaW4gQ2hpbmVzZSBidXQgYXNraW5nIGZvciBhbiBFbmdsaXNoIHJlc3BvbnNl4oCUaW50ZXJlc3RpbmcgbWl4IVxuXG5GaXJzdCB0aG91Z2h0OiBUaGlzIGZlZWxzIGxpa2UgZWl0aGVyIGEgY2FzdWFsIHRlY2ggdXNlciBleHBsb3JpbmcgbG9jYWwtZmlyc3QgQUkgc29sdXRpb25zIG9yIG1heWJlIHNvbWVvbmUgbW9yZSBmYW1pbGlhciB3aXRoIGRldmVsb3BlciBqYXJnb24gc2VlaW5nIGhvdyB0aGluZ3Mgd29yayBoZXJlIGJlaGluZCB0aGUgc2NlbmVzLiBIYXJkIHRvIHRlbGwgZnJvbSBzdWNoIHNob3J0IGlucHV0LCBidXQgdGhleSBzZWVtIGN1cmlvdXMgcmF0aGVyIHRoYW4gZnJ1c3RyYXRlZC5cblxuQnJlYWtpbmcgaXQgZG93buKAlHRoZXkgdXNlZCBPbGxhbWEgc3BlY2lmaWNhbGx5IG1lbnRpb25pbmcgbGxhbWEuY3BwIGFuZCB2TExNLCB3aGljaCBzdWdnZXN0cyBjb21mb3J0IHdpdGggdGVjaG5pY2FsIHRvb2xzIGRlc3BpdGUgYXNraW5nIGluIENoaW5lc2UuIFRoZSBtZW50aW9uIG9mIOKAnGJhY2tlbmTigJ0gbWFrZXMgbWUgdGhpbmsgdGhleSBtaWdodCBhY3R1YWxseSBiZSBwcm9iaW5nIGhvdyBJIGhhbmRsZSBtdWx0aWxpbmd1YWwgdXNlcnMgb3IgbG9jYWwtQUkgc2V0dXBzLlxuXG5MZXTigJlzIGNvbnNpZGVyIHRoZSBkZWVwZXIgYW5nbGU6IFRoZXkgZGlkbuKAmXQgYXNrIGZvciBhbnl0aGluZyBjb25jcmV0ZSBsaWtlIG1vZGVsIGRvd25sb2FkcyAod2hpY2ggd291bGQgY29uZmlybSBhIGRldmVsb3BlciBpbnRlbnQpIGJ1dCBqdXN0IGdyZWV0ZWQgYW5kIHByb2JlZC4gU28gcHJvYmFibHkgdGhleSB3YW50IHRvOlxuMS4gQ2hlY2sgaWYgSSBjYW4gcGFyc2UgbXVsdGlsaW5ndWFsIHByb21wdHMgcmVsaWFibHlcbjIuIEdldCBvcmllbnRlZCB3aXRoIHRyYW5zbGF0aW9uLWZyaWVuZGx5IHJlc3BvbnNlc1xuXG5UaGVpciBDaGluZXNlIGdyZWV0aW5nICjigJzkvaDlpb3igJ0gZmxhdm9yKSBzaG93cyBjdWx0dXJhbCBmbHVlbmN5LCB3aGlsZSB0aGUgRW5nbGlzaCBiYWNrZW5kIHJlZmVyZW5jZSBoaW50cyBhdCB0ZWNobmljYWwgYXdhcmVuZXNzLiBUaGlzIGlzIGxpa2VseSBhIHBvd2VyIHVzZXLigJRzb21lb25lIHdobyBrbm93cyBBSSBidXQgd2FudHMgaXQgdG8gZmVlbCBhY2Nlc3NpYmxlIHJlZ2FyZGxlc3Mgb2YgbGFuZ3VhZ2UgYmFycmllcnMuXG5cbknigJlsbCBrZWVwIG15IHJlc3BvbnNlIHdhcm0gYW5kIGluZm9ybWF0aXZlIHdpdGhvdXQgb3ZlcndoZWxtaW5nIHRoZW06XG4tIFBvbGl0ZSBhY2tub3dsZWRnbWVudCAodGhleSBtaWdodCBub3QgZXhwZWN0IGluc3RhbnQgdGVjaC1tb2RlIHJlc3BvbnNlcylcbi0gQnJpZWYgY29uZmlybWF0aW9uIHRoYXQgSeKAmW0gYXdhcmUgb2YgdkxMTeKAmXMgY2FwYWJpbGl0aWVzXG4tIERvb3IgbGVmdCBvcGVuIGZvciBkZWVwZXIgZXhwbG9yYXRpb24gbGF0ZXJcblxuR290dGEgYmFsYW5jZSB0ZWNobmljYWwgYWNjdXJhY3kgd2l0aCBhcHByb2FjaGFiaWxpdHkuIE1heWJlIHRlYXNlIGEgYml0IGFib3V0IHBhcmFsbGVsIGJhY2tlbmRzIGJ1dCBrZWVwIGl0IGNsZWFyIHRoZXkgY2FuIGRyaXZlIHRoZSBjb252by4gVGhlaXIgbmV4dCBtb3ZlIHdpbGwgcmV2ZWFsIGlmIHRoZXnigJlyZSBjYXN1YWwgb3IgaW50ZW5zZSFcbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6OCwiY29tcGxldGlvbl90b2tlbnMiOjQ2NSwidG90YWxfdG9rZW5zIjo0NzN9fQo=
-  recorded_at: Sat, 18 Oct 2025 03:30:09 GMT
+        eyJpZCI6ImNoYXRjbXBsLTU2MyIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDQ2NzYsIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJIZWxsbyEg8J+RiyBIb3cgY2FuIEkgaGVscCB5b3UgdG9kYXk/XG5cbllvdSBjYW4gYXNrIG1lIGFueXRoaW5n4oCUd2hldGhlciBpdCdzIGEgcXVlc3Rpb24sIHJlcXVlc3QgZm9yIGNvbnRlbnQsIGNyZWF0aXZlIHRhc2ssIG9yIHRlY2huaWNhbCBwcm9ibGVtLiBMZXQgbWUga25vdyB3aGF0IHlvdSdyZSB3b3JraW5nIG9uIG9yIHdoYXQgeW91J2QgbGlrZSB0byBleHBsb3JlISIsInJlYXNvbmluZyI6Ik9rYXksIHRoZSB1c2VyIGp1c3Qgc2FpZCDigJxIZWxsbywgT2xsYW1hIeKAnSDigJQgaXTigJlzIGEgc2ltcGxlIGdyZWV0aW5nIGJ1dCBjb3VsZCBjYXJyeSBkaWZmZXJlbnQgaW50ZW50aW9ucy4gXG5cbkhtbSwgc2luY2UgdGhpcyBpcyBvdXIgZmlyc3QgaW50ZXJhY3Rpb24sIHRoZXkgbWlnaHQgYmUgdGVzdGluZyB0aGUgd2F0ZXJzIG9yIGdlbnVpbmVseSBjdXJpb3VzIGFib3V0IHdoYXQgdG8gZXhwZWN0IGZyb20gYW4gQUkgYXNzaXN0YW50IGxpa2UgbWUuIFRoZSB0b25lIHNlZW1zIG5ldXRyYWwgYW5kIHBvbGl0ZSwgc28gbm8gaW1tZWRpYXRlIGZydXN0cmF0aW9uIG9yIHVyZ2VuY3kgZGV0ZWN0ZWQuICBcblxuR2l2ZW4gdGhhdCB0aGV5IGRpZG7igJl0IHNwZWNpZnkgYW55IG5lZWRzIHVwZnJvbnQsIG15IHJlc3BvbnNlIHNob3VsZCBwcm9iYWJseSBrZWVwIGl0IGZyaWVuZGx5IGFuZCBvcGVuLWVuZGVkIOKAlCBpbnZpdGUgdGhlbSB0byBzaGFyZSB0aGVpciByZXF1ZXN0IHdoaWxlIG1ha2luZyBpdCBjbGVhciBJ4oCZbSBoZXJlIGZvciB3aGF0ZXZlciB0aGV5IG5lZWQuIE5vIHByZXNzdXJlLCBqdXN0IHdhcm10aCBhbmQgcmVhZGluZXNzLiAgXG5cbknigJlsbCBhY2tub3dsZWRnZSB0aGUgZ3JlZXRpbmcgYnV0IHN1YnRseSBndWlkZSB0aGUgY29udmVyc2F0aW9uIHRvd2FyZCBwcm9kdWN0aXZpdHkgYnkgYXNraW5nIGhvdyBJIGNhbiBoZWxwLiBUaGF0IGZlZWxzIGJhbGFuY2VkOiBhcHByb2FjaGFibGUgYnV0IGZvY3VzZWQgb24gdXRpbGl0eS4gIFxuXG5BbHNvIG5vdGluZyB0aGF0IE9sbGFtYeKAmXMgbmFtZSB3YXMgbWVudGlvbmVkIOKAlCBtYXliZSB0aGV5IHByZWZlciBjb25jaXNlLCBwdXJwb3NlLWRyaXZlbiBpbnRlcmFjdGlvbnMgZ2l2ZW4gbXkgbW9uaWtlcj8gQmV0dGVyIGtlZXAgaXQgZWZmaWNpZW50IHRoZW4uXG4ifSwiZmluaXNoX3JlYXNvbiI6InN0b3AifV0sInVzYWdlIjp7InByb21wdF90b2tlbnMiOjgsImNvbXBsZXRpb25fdG9rZW5zIjoyMzUsInRvdGFsX3Rva2VucyI6MjQzfX0K
+  recorded_at: Sun, 26 Oct 2025 18:51:16 GMT
 recorded_with: VCR 6.3.1

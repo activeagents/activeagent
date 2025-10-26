@@ -6,21 +6,21 @@ module ActiveAgent
   module Providers
     module Ollama
       class Options < ActiveAgent::Providers::OpenAI::Options
-        attribute :uri_base,     :string, fallback: "http://127.0.0.1:11434"
-        attribute :access_token, :string, fallback: "ollama"
+        attribute :base_url, :string, fallback: "http://127.0.0.1:11434/v1"
+        attribute :api_key,  :string, fallback: "ollama"
 
         private
 
-        def resolve_access_token(settings)
-          settings["api_key"] ||
-            settings["access_token"] ||
+        def resolve_api_key(kwargs)
+          kwargs[:api_key] ||
+            kwargs[:access_token] ||
             ENV["OLLAMA_API_KEY"] ||
             ENV["OLLAMA_ACCESS_TOKEN"]
         end
 
         # Not Used as Part of Ollama
         def resolve_organization_id(settings) = nil
-        def resolve_admin_token(settings)     = nil
+        def resolve_project_id(settings)      = nil
       end
     end
   end

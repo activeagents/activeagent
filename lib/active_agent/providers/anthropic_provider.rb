@@ -66,11 +66,11 @@ module ActiveAgent
       # @param parameters [Hash]
       # @return [Object, nil] response object for non-streaming requests, nil for streaming
       def api_prompt_execute(parameters)
+        instrument("api_request.provider.active_agent", model: parameters[:model], streaming: !!parameters[:stream])
+
         unless parameters[:stream]
-          instrument("api_request.provider.active_agent", model: parameters[:model], streaming: false)
           client.messages.create(**parameters)
         else
-          instrument("api_request.provider.active_agent", model: parameters[:model], streaming: true)
           client.messages.stream(**parameters.except(:stream)).each(&parameters[:stream])
           nil
         end

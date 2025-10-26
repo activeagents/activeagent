@@ -4,8 +4,8 @@ require_relative "concerns/retries"
 # Maps provider types to their gem dependencies.
 # @private
 GEM_LOADERS = {
-  anthropic: [ "anthropic",   "~> 1.12", "anthropic" ],
-  openai:    [ "ruby-openai", "~> 8.3",  "openai" ]
+  anthropic: [ "anthropic", "~> 1.12", "anthropic" ],
+  openai:    [ "openai",    "~> 0.34", "openai" ]
 }
 
 # Loads and requires a provider's gem dependency.
@@ -158,7 +158,7 @@ module ActiveAgent
           retriable { api_prompt_execute(api_parameters) }
         end
 
-        process_prompt_finished(api_response)
+        process_prompt_finished(api_response.as_json&.deep_symbolize_keys)
       end
 
       # Orchestrates the complete embedding request lifecycle.
@@ -194,6 +194,11 @@ module ActiveAgent
       def api_request_build(request, request_type)
         parameters          = request_type.serialize(request)
         parameters[:stream] = process_stream if request.try(:stream)
+
+        if options.extra_headers.present?
+          parameters[:request_options] = { extra_headers: options.extra_headers }.deep_merge(parameters[:request_options] || {})
+        end
+
         parameters
       end
 
@@ -357,10 +362,10 @@ module ActiveAgent
       # @return [Array<Hash>] embedding objects with :index, :object, :embedding keys
       # @raise [RuntimeError] when response format is unexpected
       def process_embed_finished_data(api_response)
-        case (type = api_response[:object])
-        when "list"
+        case (type = api_response[:object].to_sym)
+        when :list
           api_response[:data]
-        when "embedding"
+        when :embedding
           [ { index: 0 }.merge(api_response.slice(:index, :object, :embedding)) ]
         else
           fail "Unexpected Embed Object Type: #{type}"

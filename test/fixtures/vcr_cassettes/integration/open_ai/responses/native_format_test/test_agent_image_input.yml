@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"what
         is in this image?"},{"type":"input_image","image_url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}]}],"model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '307'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:51:13 GMT
+      - Sun, 26 Oct 2025 18:34:32 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_39e9ca6657a84672a705a585df60a64d
+      - req_b7ed01506e4c498b8b07f54a6f268969
       Openai-Processing-Ms:
-      - '3785'
+      - '4039'
       X-Envoy-Upstream-Service-Time:
-      - '3789'
+      - '4044'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=Wo3Sqil601MVAhtoPZa3hXrtFB4sQjMDFesxV1LoD0g-1760759473-1.0.1.1-jryDeNYOC4FMbFVlPj7OSKMj5l5iVY9x_IpU_85dQCTEdoqfJXoRhiYSFWN6vjnHK9VauwWDDMsejNBjQCerZp9s9owLcw10mAGku8Q0dQE;
-        path=/; expires=Sat, 18-Oct-25 04:21:13 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=nMir_tz.PFlu2pBvz2UwDANPSgIUhGasur.9jsCIfDQ-1761503672-1.0.1.1-MT5EpRItCHcy2KX20D.dsAQQgD1tBVtQEu61vLQropbiJMEP4vfWNVyjn52rXW8eB7VHMSqk2HUWPYb9HmH8wwEmGk5FnTeWi_NKmMeNSG4;
+        path=/; expires=Sun, 26-Oct-25 19:04:32 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=n2FHccI2d3SHnPbV6UizTRFyz8e1pdoVCiPr6pJpwxA-1760759473839-0.0.1.1-604800000;
+      - _cfuvid=Hd2XF37PITZH1vKO1XtDqqgGaRiYSqT.vCd7jTBKRbc-1761503672848-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9905135facf21698-SJC
+      - 994c0c49dfe506a9-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_02e846e96036b8b30068f30eae0f78819892de40d109734520",
+          "id": "resp_062327f831d155190068fe69b4cf948199946b0c1154c654ff",
           "object": "response",
-          "created_at": 1760759470,
+          "created_at": 1761503669,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +115,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_02e846e96036b8b30068f30eb073288198be7a914e91fbdd98",
+              "id": "msg_062327f831d155190068fe69b6f148819994362cd35f774ad8",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +123,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "This image shows a scenic landscape with a wooden boardwalk or pathway that stretches into the distance through a field of tall green grass. The sky above is blue with scattered white clouds, and there are trees and shrubs in the background. The overall setting appears to be a nature reserve, park, or open countryside during a bright and sunny day."
+                  "text": "This image shows a wooden boardwalk path going through a grassy field or meadow. On both sides of the boardwalk, there is tall green grass, and in the distance, there are some bushes and trees. The sky above is blue with some white clouds, indicating a pleasant, sunny day. The scene is peaceful and natural, suggesting a location such as a nature reserve, park, or countryside trail."
                 }
               ],
               "role": "assistant"
@@ -136,14 +156,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 69,
+            "output_tokens": 82,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 1187
+            "total_tokens": 1200
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 18 Oct 2025 03:51:13 GMT
+  recorded_at: Sun, 26 Oct 2025 18:34:32 GMT
 recorded_with: VCR 6.3.1

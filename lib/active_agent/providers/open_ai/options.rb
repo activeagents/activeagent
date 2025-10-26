@@ -6,82 +6,67 @@ module ActiveAgent
   module Providers
     module OpenAI
       class Options < Common::BaseModel
-        attribute :access_token,    :string
-        attribute :uri_base,        :string
-        attribute :request_timeout, :integer
-        attribute :organization_id, :string
-        attribute :admin_token,     :string
-        attribute :log_errors,      :boolean, default: false
+        attribute :api_key,         :string
+        attribute :organization,    :string # Organization ID
+        attribute :project,         :string # Project ID ,
+        attribute :webhook_secret,  :string
+        attribute :base_url,        :string
 
-        # For Azure?
-        attribute :api_type
+        attribute :max_retries,         :integer, default: ::OpenAI::Client::DEFAULT_MAX_RETRIES
+        attribute :timeout,             :float,   default: ::OpenAI::Client::DEFAULT_TIMEOUT_IN_SECONDS
+        attribute :initial_retry_delay, :float,   default: ::OpenAI::Client::DEFAULT_INITIAL_RETRY_DELAY
+        attribute :max_retry_delay,     :float,   default: ::OpenAI::Client::DEFAULT_MAX_RETRY_DELAY
 
-        validates :access_token, presence: true
+        validates :api_key, presence: true
 
         # Backwards Compatibility
-        alias_attribute :host,    :uri_base
-        alias_attribute :api_key, :access_token
+        alias_attribute :host,            :base_url
+        alias_attribute :uri_base,        :base_url
+        alias_attribute :organization_id, :organization
+        alias_attribute :project_id,      :project
+        alias_attribute :access_token,    :api_key
+        alias_attribute :request_timeout, :timeout
 
         # Initialize from a hash (kwargs) with fallback to environment variables and OpenAI gem configuration
         def initialize(kwargs = {})
           kwargs = kwargs.deep_symbolize_keys if kwargs.respond_to?(:deep_symbolize_keys)
 
           super(**deep_compact(kwargs.except(:default_url_options).merge(
-            access_token:    kwargs[:access_token]    || resolve_access_token(kwargs),
-            admin_token:     kwargs[:admin_token]     || resolve_admin_token(kwargs),
-            log_errors:      kwargs[:log_errors]      || resolve_log_errors(kwargs),
-            organization_id: kwargs[:organization_id] || resolve_organization_id(kwargs),
+            api_key:         resolve_api_key(kwargs),
+            organization_id: resolve_organization_id(kwargs),
+            project_id:      resolve_project_id(kwargs),
           )))
+        end
+
+        def extra_headers
+          {}
         end
 
         private
 
-        def resolve_access_token(kwargs)
+        def resolve_api_key(kwargs)
           kwargs[:api_key] ||
-            openai_configuration_access_token ||
+            kwargs[:access_token] ||
+            ENV["OPENAI_API_KEY"] ||
+            ENV["OPEN_AI_API_KEY"] ||
             ENV["OPENAI_ACCESS_TOKEN"] ||
             ENV["OPEN_AI_ACCESS_TOKEN"]
         end
 
-        def resolve_admin_token(kwargs)
-            openai_configuration_admin_token ||
-            ENV["OPENAI_ADMIN_TOKEN"] ||
-            ENV["OPEN_AI_ADMIN_TOKEN"]
-        end
-
-        def resolve_log_errors(kwargs)
-          return nil unless defined?(::Rails)
-          ::Rails.env.local?
-        rescue
-          nil
-        end
-
         def resolve_organization_id(kwargs)
-            openai_configuration_organization_id ||
+          kwargs[:organization] ||
+            kwargs[:organization_id] ||
+            ENV["OPENAI_ORG_ID"] ||
+            ENV["OPEN_AI_ORG_ID"] ||
             ENV["OPENAI_ORGANIZATION_ID"] ||
             ENV["OPEN_AI_ORGANIZATION_ID"]
         end
 
-
-        def openai_configuration_access_token
-          return nil unless defined?(::OpenAI)
-          ::OpenAI.configuration.access_token
-        rescue
-          nil
-        end
-
-        def openai_configuration_organization_id
-          return nil unless defined?(::OpenAI)
-          ::OpenAI.configuration.organization_id
-        rescue
-          nil
-        end
-
-        def openai_configuration_admin_token
-          return nil unless defined?(::OpenAI)
-          ::OpenAI.configuration.admin_token
-        rescue
-          nil
+        def resolve_project_id(kwargs)
+          kwargs[:project] ||
+            kwargs[:project_id]
+            ENV["OPENAI_PROJECT_ID"] ||
+            ENV["OPEN_AI_PROJECT_ID"]
         end
       end
     end

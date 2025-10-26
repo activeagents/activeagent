@@ -7,25 +7,47 @@ http_interactions:
       encoding: UTF-8
       string: '{"input":"John Smith is 25 years old and his email is john@example.com","model":"gpt-4o","text":{"format":{"type":"json_schema","name":"user_data","schema":{"type":"object","properties":{"name":{"type":"string","minLength":2},"email":{"type":"string","format":"email"},"age":{"type":"integer","minimum":18}},"required":["age","email","name"],"additionalProperties":false},"strict":true}}}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '388'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 18:10:03 GMT
+      - Sun, 26 Oct 2025 19:12:20 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -51,18 +73,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_1759ff50ca7948b5940cc723d42b9048
+      - req_56ffcfc760104d9798cc6aac43f12b1c
       Openai-Processing-Ms:
-      - '999'
+      - '1117'
       X-Envoy-Upstream-Service-Time:
-      - '1003'
+      - '1123'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=65kAzcH9e5.4ma31yoxkfs_89tEucyuaQGIl2UwfSBI-1761415803-1.0.1.1-5UGFnHi7rUXNhzkLVVPMCOskYQF1P5YoOlxtcRKMOGpfB3EgmsGrmEUuG5.OjjqKTi4D4_B1bVV08YmFzlsnEFffWrSYcnueKpxRVTUiOoY;
-        path=/; expires=Sat, 25-Oct-25 18:40:03 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=0DCahcHB4q5OGl17byXA2sCYtuq6Q6qa2azjfHNF5w4-1761505940-1.0.1.1-VJHy3m4f.SgUOJNvUF7x2lUYpRZKihC0Got1ZA8HIEPMp6TqL.sg6CqA2iag7_l6.jdKnJPFqt6j4T2XGVc9bblxFjxAxOL3ekNgtHz0XCQ;
+        path=/; expires=Sun, 26-Oct-25 19:42:20 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=Ta8gZ5ZKHfHFQF.az2jB8vN00xlKJSxdJCj_Ho1ZxVQ-1761415803583-0.0.1.1-604800000;
+      - _cfuvid=mSInfJiHcXWbtxn4KVM3xoUitIDXk3BFuT6oYEG.yBg-1761505940762-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +93,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9943ab1dcb30cf05-SJC
+      - 994c43ba499debf3-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0da19879729a19a30068fd127a948081999a59b7482794a67c",
+          "id": "resp_0a9a41cb00218d910068fe7293a24881979492e6b1970f187c",
           "object": "response",
-          "created_at": 1761415802,
+          "created_at": 1761505939,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,7 +116,7 @@ http_interactions:
           "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "msg_0da19879729a19a30068fd127b17508199a8221223591df516",
+              "id": "msg_0a9a41cb00218d910068fe729455a481978a45b1bd8f60b93b",
               "type": "message",
               "status": "completed",
               "content": [
@@ -170,5 +192,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 25 Oct 2025 18:10:03 GMT
+  recorded_at: Sun, 26 Oct 2025 19:12:20 GMT
 recorded_with: VCR 6.3.1

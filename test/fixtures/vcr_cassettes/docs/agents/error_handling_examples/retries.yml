@@ -7,25 +7,47 @@ http_interactions:
       encoding: UTF-8
       string: '{"input":"Analyze this content: test","model":"gpt-4o"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '55'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Fri, 24 Oct 2025 22:41:04 GMT
+      - Sun, 26 Oct 2025 19:13:39 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -51,18 +73,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_997b4c4688b444bfad5d29c43c34f529
+      - req_6d2bce084efc4979b236887f85ea332a
       Openai-Processing-Ms:
-      - '1567'
+      - '1325'
       X-Envoy-Upstream-Service-Time:
-      - '1574'
+      - '1329'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=OCxZMtkZxuelrFJz1cjz3I8dcYia2QK8l_VC7fFNnbU-1761345664-1.0.1.1-stczG7Vr9NL_e95wFP970dSNl_1oM_BTWMZP3UcDHG0MFjfcPD0tOXpqxQhjqNgsFjn936UlEOW9Qn6R2BJgrUMIrCp_71u2V3qiTmiSJgs;
-        path=/; expires=Fri, 24-Oct-25 23:11:04 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=eFUExGkAZv4Ur3T06IKs00k2jvJVJ_dN1FZbqFvKMIw-1761506019-1.0.1.1-YAcg_XUPOSBV9cbtOGgYLRPx5PfJ4YAgx18EmCTCecar06A7JsGSuYkYmX5ZYliFRL0f9oM._ivHJLSt9QUfCiQ29Paib0BDYv5rkxqoGEY;
+        path=/; expires=Sun, 26-Oct-25 19:43:39 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=1V5RjzpE9cGMXPlN2Dk_dbdCumPLEMvKRNyeWns0V4I-1761345664591-0.0.1.1-604800000;
+      - _cfuvid=ZwSD.xTsNq_.VlMI.7gx5NxGmYIdOg_tA29gRF8juW4-1761506019204-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +93,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993cfab9898a1949-SJC
+      - 994c45a36e8915ce-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_087d33ff928438550068fc007f08308198b646d2216468a122",
+          "id": "resp_09d743a5d98784c80068fe72e1e1e4819b93be01c4ed58a7e6",
           "object": "response",
-          "created_at": 1761345663,
+          "created_at": 1761506017,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,7 +116,7 @@ http_interactions:
           "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "msg_087d33ff928438550068fc00802a248198b2495efe99db88af",
+              "id": "msg_09d743a5d98784c80068fe72e2630c819b8703313f65f6c271",
               "type": "message",
               "status": "completed",
               "content": [
@@ -102,7 +124,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "Sure, could you please provide more details or specify what you'd like analyzed about the content labeled \"test\"?"
+                  "text": "It looks like you entered the word \"test,\" but there isn't enough context for a detailed analysis. Could you provide more information or clarify what specific content or topic you'd like analyzed?"
                 }
               ],
               "role": "assistant"
@@ -135,14 +157,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 22,
+            "output_tokens": 37,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 34
+            "total_tokens": 49
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Fri, 24 Oct 2025 22:41:04 GMT
+  recorded_at: Sun, 26 Oct 2025 19:13:39 GMT
 recorded_with: VCR 6.3.1

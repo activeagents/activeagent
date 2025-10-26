@@ -93,6 +93,8 @@ module ActiveAgent
 
               def cast(value)
                 case value
+                when ::OpenAI::Internal::Type::BaseModel
+                  cast(value.to_h)
                 when Base
                   value
                 when String

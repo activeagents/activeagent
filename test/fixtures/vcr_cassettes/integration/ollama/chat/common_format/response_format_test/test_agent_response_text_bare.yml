@@ -7,16 +7,36 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"List three primary colors."}],"model":"deepseek-r1:latest","response_format":{"type":"text"}}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '132'
   response:
     status:
       code: 200
@@ -25,36 +45,38 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 25 Oct 2025 21:27:53 GMT
+      - Sun, 26 Oct 2025 18:50:47 GMT
       Transfer-Encoding:
       - chunked
     body:
       encoding: UTF-8
-      string: '{"id":"chatcmpl-931","object":"chat.completion","created":1761427673,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"In
-        the context of **pigment** and traditional **art**, there are three primary
-        colors:\n\n1.  Red\n2.  Yellow\n3.  Blue\n\nThese combine (subtractively)
-        to create all other colors.\n\nHowever, in the context of **light** and digital
-        displays (**additive color theory**), the three primary colors are:\n\n*   Red\n*   Green\n*   Blue\n\nOften
-        abbreviated as RGB.","reasoning":"Okay, the user asked me to list three primary
-        colors. Let me start by recalling that primary colors depend on context. In
-        art and design, it''s usually red, yellow, blue for pigments. The RYB model
-        is widely taught in schools, so the user might be expecting a basic answer
-        unless they specify another context.\n\nWait, but maybe they have a different
-        background? Like digital or physics. Primary colors there are red, green,
-        blue (RGB). Need to mention both possibilities because I don''t know for sure
-        what they''re referring to.\n\nHmm, should I just give the RYB model first
-        and then add RGB as an alternative? The user might not be aware that contexts
-        vary. They might think primary colors are a fixed set, but it''s actually
-        context-dependent. Including both models shows thoroughness without assuming
-        their knowledge level.\n\nAlso, considering why they''re asking. Maybe for
-        a school project or general curiosity. Either way, being clear and accurate
-        is key. Avoid technical jargon unless necessary. Keep the answer simple with
-        brief explanations for each color in each model to show understanding of basics
-        like light vs pigment mixing.\n\nNeed to check if there''s any ambiguity between
-        models. For example, RGB is additive (light sources) while subtractive (like
-        paints or digital screens) use RYB. The user didn''t specify, so it''s safer
-        to present both possibilities as they''re equally standard depending on context.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":381,"total_tokens":388}}
+      string: '{"id":"chatcmpl-987","object":"chat.completion","created":1761504647,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Okay,
+        three primary colors can refer slightly different things depending on the
+        context:\n\n1.  **Red** - This is one of the traditional RYB (Red, Yellow,
+        Blue) primaries used in pigment mixing for art and painting, and part of two
+        main color theory systems.\n2.  **Yellow**: Also a standard RYB primary. Crucially,
+        these three form the subtractive RGB (Cyan, Magenta, Yellow) system''s base
+        plus blue.\n\n**It depends on the context:**\n\n*   If thinking about **pigment/light
+        reflection**, especially traditional art, it''s often considered Red, Blue,
+        *and* **Yellow**\n*   If thinking about the **RGB color model** used for television
+        screens, computer monitors, and projectors (*additive primary colors*), it
+        is considered Red, Green, *and* **Blue (RGB)**\n\nSo, three common examples
+        are: Red, Yellow, and Blue; orRed, Green, and Blue","reasoning":"Okay, the
+        user is asking me to list three primary colors. This seems like a straightforward
+        question about basic color theory.\n\nPrimary colors are fundamental in various
+        fields like art and design because they form the basis for mixing other colors
+        without needing any pre-existing pigments or light sources. I need to be clear
+        that this depends on context - there are subtractive primaries (for pigments,
+        paints) vs additive primaries (for light). But since their question doesn''t
+        specify which system, I should provide both options.\n\nI think choosing three
+        would be appropriate here because listing just two wouldn''t cover either
+        color model. So I''ll include red in the RGB additive system and explain it
+        clearly so they understand the difference between these approaches.\n\nThey
+        might be a student or someone curious about basic concepts as this is such
+        a fundamental question with no other context given. I should maintain an informative
+        but accessible tone, keeping my answer simple yet comprehensive enough to
+        satisfy possible follow-up questions.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":394,"total_tokens":401}}
 
         '
-  recorded_at: Sat, 25 Oct 2025 21:27:53 GMT
+  recorded_at: Sun, 26 Oct 2025 18:50:47 GMT
 recorded_with: VCR 6.3.1

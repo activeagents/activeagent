@@ -24,19 +24,19 @@ Add your provider gem:
 ::: code-group
 
 ```bash [OpenAI]
-bundle add ruby-openai
+bundle add openai
 ```
 
 ```bash [Anthropic]
-bundle add ruby-anthropic
+bundle add anthropic
 ```
 
 ```bash [Ollama]
-bundle add ruby-openai  # Ollama uses OpenAI-compatible API
+bundle add openai  # Ollama uses OpenAI-compatible API
 ```
 
 ```bash [OpenRouter]
-bundle add ruby-openai  # OpenRouter uses OpenAI-compatible API
+bundle add openai  # OpenRouter uses OpenAI-compatible API
 ```
 
 :::

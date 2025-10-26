@@ -7,6 +7,26 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"What is encapsulation?"}],"model":"openrouter/auto","provider":{"allow_fallbacks":true,"require_parameters":false,"data_collection":"deny"}}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -15,19 +35,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '179'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 04:38:24 GMT
+      - Sun, 26 Oct 2025 19:18:46 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,38 +68,38 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993f0628ffaeebe5-SJC
+      - 994c4d1f88ab22ae-SJC
     body:
       encoding: ASCII-8BIT
       string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
         \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n{\"id\":\"gen-1761367102-kGNJSGleLDz0UnJUVdCS\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761367104,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Encapsulation
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761506324-k5MP8KAWC9ZLW5esD6TD\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761506326,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Encapsulation
         is one of the fundamental concepts in object-oriented programming (OOP). It
-        is the practice of keeping fields within a class private (or protected) and
-        providing access to them through public methods (getters and setters). This
-        helps to achieve data hiding and abstraction, which are crucial for software
-        security, stability, and maintainability.\\n\\nHere are some key aspects of
-        encapsulation:\\n\\n1. **Data Hiding**: Encapsulation hides the internal state
-        of an object from the outside world. This means that the internal data (attributes)
-        of an object are not directly accessible from outside the object. Instead,
-        they can only be accessed or modified through methods (functions) provided
-        by the class.\\n\\n2. **Abstraction**: Encapsulation allows you to define
-        what data is accessible and how it can be accessed. This helps to create a
-        clear interface for interacting with an object, making the code easier to
-        understand and use.\\n\\n3. **Control**: By using methods to access and modify
-        data, you can add logic and validation to ensure that the data remains in
-        a valid state. This gives you control over how the data is used and helps
-        to prevent errors.\\n\\n4. **Protection**: Encapsulation protects the internal
-        data from being accidentally modified or accessed in an unauthorized way.
-        This can help prevent bugs and security vulnerabilities.\\n\\nHere's a simple
+        is the practice of keeping fields within a class private and providing access
+        to them via public methods (getters and setters). This helps to achieve data
+        hiding and abstraction. Here's a simple breakdown:\\n\\n1. **Data Hiding**:
+        Encapsulation hides the internal state of an object from the outside world.
+        This means that the internal data (attributes or fields) of an object are
+        not directly accessible. Instead, they can only be accessed or modified through
+        methods (functions) provided by the class.\\n\\n2. **Abstraction**: Encapsulation
+        also helps in achieving abstraction. It allows us to define what should be
+        exposed to the outside world and what should be hidden. We can provide a simplified
+        view of the object by exposing only what's necessary.\\n\\nHere's a simple
         example in Python:\\n\\n```python\\nclass BankAccount:\\n    def __init__(self,
-        balance=0):\\n        self.__balance = balance  # Private attribute\\n\\n
-        \   def deposit(self, amount):\\n        if amount > 0:\\n            self.__balance
-        += amount\\n\\n    def withdraw(self, amount):\\n        if 0 < amount <=
-        self.__balance:\\n            self.__balance -= amount\\n\\n    def get_balance(self):\\n
-        \       return self.__balance\\n```\\n\\nIn this example, the `balance` attribute
-        is private (denoted by the double underscore prefix), and the only way to
-        access or modify it is through the `deposit`, `withdraw`, and `get_balance`
-        methods. This helps to ensure that the balance is always a valid amount.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":421,\"total_tokens\":430,\"prompt_tokens_details\":null}}"
-  recorded_at: Sat, 25 Oct 2025 04:38:30 GMT
+        balance):\\n        self.__balance = balance  # Private attribute\\n\\n    def
+        get_balance(self):  # Getter method\\n        return self.__balance\\n\\n
+        \   def set_balance(self, amount):  # Setter method\\n        if amount <
+        0:\\n            print(\\\"Cannot set negative balance\\\")\\n            return\\n
+        \       self.__balance = amount\\n\\n# Creating an instance of BankAccount\\naccount
+        = BankAccount(1000)\\n\\n# Trying to access the private attribute directly
+        (This will raise an AttributeError)\\nprint(account.__balance)  # Raises AttributeError:
+        'BankAccount' object has no attribute '__balance'\\n\\n# Accessing the attribute
+        using getter method\\nprint(account.get_balance())  # Outputs: 1000\\n\\n#
+        Modifying the attribute using setter method\\naccount.set_balance(500)\\nprint(account.get_balance())
+        \ # Outputs: 500\\n```\\n\\nIn this example, the `balance` attribute is private
+        and can only be accessed or modified through the `get_balance` and `set_balance`
+        methods. This is encapsulation in action.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":413,\"total_tokens\":422,\"prompt_tokens_details\":null}}"
+  recorded_at: Sun, 26 Oct 2025 19:18:58 GMT
 recorded_with: VCR 6.3.1

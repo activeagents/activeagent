@@ -8,25 +8,45 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":"What was a positive news story
         from today?"}],"model":"gpt-4o-search-preview","web_search_options":{}}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '141'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:50:59 GMT
+      - Sun, 26 Oct 2025 18:23:27 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -38,13 +58,13 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '7089'
+      - '9211'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '7229'
+      - '9236'
       X-Ratelimit-Limit-Requests:
       - '1000'
       X-Ratelimit-Limit-Tokens:
@@ -58,16 +78,16 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_a216bfc93c6e4293ae765ed25fa6811c
+      - req_8140d68fcbe69852813ef35cae5d227e
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=ua8w9oPWh8UIwZsgclkvPjqH79n1.4T45B59Bpz24PU-1760759459-1.0.1.1-JyHByPHBWhCr_qJPvfcR6_kByoWMoY6KMinJwtfhBMxO1jh6X6GfVmMrO.kBGNtZBnw1d_OmaL_nOzPruG1RYPcpCWOoRfFAyGp2ZLHpbxI;
-        path=/; expires=Sat, 18-Oct-25 04:20:59 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=asVGTdFGehi8QTmNsspSSgl1vOGqg0wb9mEmqVF4NSA-1761503007-1.0.1.1-H19b68qtuIMj7gZVKoGVZLoQJQ7MkzX_R_0BL3jTN6YSKsRHnaCo8xGpVwGQs0xYWQnoI8i7GT1WQ3B3LNr6jDqmgDYpn2a5TmWnk9_IuLY;
+        path=/; expires=Sun, 26-Oct-25 18:53:27 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=XW_1MsJXrVqMbu9LXhmCiQDfHEBp92_Rlhiv64wvgRk-1760759459915-0.0.1.1-604800000;
+      - _cfuvid=VShGNnBlRXz0IlNOLtEMgrPNVEjmrpHlLi6cVQvq6cM-1761503007740-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -76,109 +96,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 990512f139b11722-SJC
+      - 994bfbec38e5227e-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
-      string: |
-        {
-          "id": "chatcmpl-79f6009d-b8c5-4872-b132-a6e66f35c91f",
-          "object": "chat.completion",
-          "created": 1760759452,
-          "model": "gpt-4o-search-preview-2025-03-11",
-          "choices": [
-            {
-              "index": 0,
-              "message": {
-                "role": "assistant",
-                "content": "As of early morning on October 18, 2025, specific positive news stories from today are not yet available. However, here are some uplifting stories from recent days:\n\n- **Rediscovery of Indonesia's 'Lost' Egg-Laying Mammal**: A species thought to be extinct has been rediscovered in Indonesia, bringing hope to conservationists and highlighting the resilience of wildlife. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Ireland's Movement for Phone-Free Childhoods**: Ireland is leading a gentle movement encouraging phone-free childhoods, aiming to foster better mental health and social skills among children. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **UK's Seabird Population Revival**: The UK has successfully revived its seabird population after decades of decline, showcasing effective conservation efforts. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Ancient Giant Hand Ax Discovery in Saudi Arabia**: Archaeologists in Saudi Arabia have discovered an ancient giant hand ax, reshaping our understanding of human history. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Japan's Discovery of Over 100,000 Ancient Coins**: Japanese archaeologists have unearthed over 100,000 ancient coins, providing valuable insights into the country's history. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Hempcrete Approved for Greener Homes in the US**: Hempcrete has gained approval in the US for building greener homes, marking a significant step towards sustainable construction. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\n- **Lost Victorian Passport Unlocks New Chapter in Britain's Art History**: The discovery of a lost Victorian passport has unveiled a new chapter in Britain's art history, offering fresh perspectives on the era. ([positivenews.today](https://positivenews.today/?utm_source=openai))\n\nThese stories highlight recent positive developments across various fields. ",
-                "refusal": null,
-                "annotations": [
-                  {
-                    "type": "url_citation",
-                    "url_citation": {
-                      "end_index": 441,
-                      "start_index": 372,
-                      "title": "Positive News Today | Daily Newspaper with positive news",
-                      "url": "https://positivenews.today/?utm_source=openai"
-                    }
-                  },
-                  {
-                    "type": "url_citation",
-                    "url_citation": {
-                      "end_index": 708,
-                      "start_index": 639,
-                      "title": "Positive News Today | Daily Newspaper with positive news",
-                      "url": "https://positivenews.today/?utm_source=openai"
-                    }
-                  },
-                  {
-                    "type": "url_citation",
-                    "url_citation": {
-                      "end_index": 942,
-                      "start_index": 873,
-                      "title": "Positive News Today | Daily Newspaper with positive news",
-                      "url": "https://positivenews.today/?utm_source=openai"
-                    }
-                  },
-                  {
-                    "type": "url_citation",
-                    "url_citation": {
-                      "end_index": 1187,
-                      "start_index": 1118,
-                      "title": "Positive News Today | Daily Newspaper with positive news",
-                      "url": "https://positivenews.today/?utm_source=openai"
-                    }
-                  },
-                  {
-                    "type": "url_citation",
-                    "url_citation": {
-                      "end_index": 1436,
-                      "start_index": 1367,
-                      "title": "Positive News Today | Daily Newspaper with positive news",
-                      "url": "https://positivenews.today/?utm_source=openai"
-                    }
-                  },
-                  {
-                    "type": "url_citation",
-                    "url_citation": {
-                      "end_index": 1690,
-                      "start_index": 1621,
-                      "title": "Positive News Today | Daily Newspaper with positive news",
-                      "url": "https://positivenews.today/?utm_source=openai"
-                    }
-                  },
-                  {
-                    "type": "url_citation",
-                    "url_citation": {
-                      "end_index": 1973,
-                      "start_index": 1904,
-                      "title": "Positive News Today | Daily Newspaper with positive news",
-                      "url": "https://positivenews.today/?utm_source=openai"
-                    }
-                  }
-                ]
-              },
-              "finish_reason": "stop"
-            }
-          ],
-          "usage": {
-            "prompt_tokens": 9,
-            "completion_tokens": 427,
-            "total_tokens": 436,
-            "prompt_tokens_details": {
-              "cached_tokens": 0,
-              "audio_tokens": 0
-            },
-            "completion_tokens_details": {
-              "reasoning_tokens": 0,
-              "audio_tokens": 0,
-              "accepted_prediction_tokens": 0,
-              "rejected_prediction_tokens": 0
-            }
-          },
-          "system_fingerprint": ""
-        }
-  recorded_at: Sat, 18 Oct 2025 03:50:59 GMT
+      string: !binary |-
+        ewogICJpZCI6ICJjaGF0Y21wbC1iMzA5MjkyNS0yN2U5LTRlYjMtYTk0YS1mNzU1YzE5YjhlODEiLAogICJvYmplY3QiOiAiY2hhdC5jb21wbGV0aW9uIiwKICAiY3JlYXRlZCI6IDE3NjE1MDI5OTgsCiAgIm1vZGVsIjogImdwdC00by1zZWFyY2gtcHJldmlldy0yMDI1LTAzLTExIiwKICAiY2hvaWNlcyI6IFsKICAgIHsKICAgICAgImluZGV4IjogMCwKICAgICAgIm1lc3NhZ2UiOiB7CiAgICAgICAgInJvbGUiOiAiYXNzaXN0YW50IiwKICAgICAgICAiY29udGVudCI6ICJPbiBPY3RvYmVyIDI2LCAyMDI1LCBzZXZlcmFsIHBvc2l0aXZlIGRldmVsb3BtZW50cyBvY2N1cnJlZCB3b3JsZHdpZGU6XG5cbi0gKipUaW1vci1MZXN0ZSBKb2lucyBBU0VBTioqOiBUaW1vci1MZXN0ZSBiZWNhbWUgdGhlIDExdGggbWVtYmVyIHN0YXRlIG9mIHRoZSBBc3NvY2lhdGlvbiBvZiBTb3V0aGVhc3QgQXNpYW4gTmF0aW9ucyAoQVNFQU4pLCBtYXJraW5nIHRoZSBmaXJzdCBleHBhbnNpb24gb2YgdGhlIG9yZ2FuaXphdGlvbiBzaW5jZSBDYW1ib2RpYSdzIGVudHJ5IGluIDE5OTkuIChbZW4ud2lraXBlZGlhLm9yZ10oaHR0cHM6Ly9lbi53aWtpcGVkaWEub3JnL3dpa2kvMjAyNT91dG1fc291cmNlPW9wZW5haSkpXG5cbi0gKipHcmVhdGVyIENvcGVuaGFnZW4gTGlnaHQgUmFpbCBPcGVucyoqOiBUaGUgc291dGhlcm4gcGhhc2Ugb2YgdGhlIEdyZWF0ZXIgQ29wZW5oYWdlbiBMaWdodCBSYWlsIGNvbW1lbmNlZCBvcGVyYXRpb25zIGJldHdlZW4gUsO4ZG92cmUgTm9yZCBhbmQgSXNow7hqIHN0YXRpb24sIGVuaGFuY2luZyBwdWJsaWMgdHJhbnNwb3J0YXRpb24gaW4gdGhlIHJlZ2lvbi4gKFtlbi53aWtpcGVkaWEub3JnXShodHRwczovL2VuLndpa2lwZWRpYS5vcmcvd2lraS8yMDI1X2luX3JhaWxfdHJhbnNwb3J0P3V0bV9zb3VyY2U9b3BlbmFpKSlcblxuLSAqKlBhc3NlbmdlciBTZXJ2aWNlcyBSZXN1bWUgQmV0d2VlbiBNb3Njb3cgYW5kIEFsbWF0eSoqOiBQYXNzZW5nZXIgdHJhaW4gc2VydmljZXMgYmV0d2VlbiBNb3Njb3csIFJ1c3NpYSwgYW5kIEFsbWF0eSwgS2F6YWtoc3RhbiwgcmVzdW1lZCwgc3RyZW5ndGhlbmluZyBjb25uZWN0aXZpdHkgYmV0d2VlbiB0aGUgdHdvIGNpdGllcy4gKFtlbi53aWtpcGVkaWEub3JnXShodHRwczovL2VuLndpa2lwZWRpYS5vcmcvd2lraS8yMDI1X2luX3JhaWxfdHJhbnNwb3J0P3V0bV9zb3VyY2U9b3BlbmFpKSlcblxuLSAqKkphcGFuJ3MgSFRWLVggUmVzdXBwbHkgU3BhY2VjcmFmdCBEZWJ1dHMqKjogSmFwYW4gbGF1bmNoZWQgaXRzIG5ldyByZXN1cHBseSBzcGFjZWNyYWZ0LCBIVFYtWCwgYWJvYXJkIHRoZSBIMyByb2NrZXQgYXMgcGFydCBvZiB0aGUgSFRWLVgxIHByb2dyYW0sIG1hcmtpbmcgYSBzaWduaWZpY2FudCBhZHZhbmNlbWVudCBpbiBzcGFjZSBsb2dpc3RpY3MuIChbZW4ud2lraXBlZGlhLm9yZ10oaHR0cHM6Ly9lbi53aWtpcGVkaWEub3JnL3dpa2kvMjAyNV9pbl9zcGFjZWZsaWdodD91dG1fc291cmNlPW9wZW5haSkpXG5cbi0gKipOZXcgWmVhbGFuZCdzIFNvdXRoZXJuZXIgVHJhaW4gU2VydmljZSBSZXN0YXJ0cyoqOiBUaGUgU291dGhlcm5lciBwYXNzZW5nZXIgc2VydmljZSBiZXR3ZWVuIENocmlzdGNodXJjaCBhbmQgRHVuZWRpbiBpbiBOZXcgWmVhbGFuZCByZXN1bWVkIG9wZXJhdGlvbnMsIHByb3ZpZGluZyBpbXByb3ZlZCB0cmF2ZWwgb3B0aW9ucyBmb3IgcmVzaWRlbnRzIGFuZCB0b3VyaXN0cy4gKFtlbi53aWtpcGVkaWEub3JnXShodHRwczovL2VuLndpa2lwZWRpYS5vcmcvd2lraS8yMDI1X2luX3JhaWxfdHJhbnNwb3J0P3V0bV9zb3VyY2U9b3BlbmFpKSlcblxuVGhlc2UgZXZlbnRzIHJlZmxlY3QgcHJvZ3Jlc3MgaW4gaW50ZXJuYXRpb25hbCBjb29wZXJhdGlvbiwgdHJhbnNwb3J0YXRpb24gaW5mcmFzdHJ1Y3R1cmUsIGFuZCBzcGFjZSBleHBsb3JhdGlvbi4gIiwKICAgICAgICAicmVmdXNhbCI6IG51bGwsCiAgICAgICAgImFubm90YXRpb25zIjogWwogICAgICAgICAgewogICAgICAgICAgICAidHlwZSI6ICJ1cmxfY2l0YXRpb24iLAogICAgICAgICAgICAidXJsX2NpdGF0aW9uIjogewogICAgICAgICAgICAgICJlbmRfaW5kZXgiOiAzNTMsCiAgICAgICAgICAgICAgInN0YXJ0X2luZGV4IjogMjc5LAogICAgICAgICAgICAgICJ0aXRsZSI6ICIyMDI1IiwKICAgICAgICAgICAgICAidXJsIjogImh0dHBzOi8vZW4ud2lraXBlZGlhLm9yZy93aWtpLzIwMjU/dXRtX3NvdXJjZT1vcGVuYWkiCiAgICAgICAgICAgIH0KICAgICAgICAgIH0sCiAgICAgICAgICB7CiAgICAgICAgICAgICJ0eXBlIjogInVybF9jaXRhdGlvbiIsCiAgICAgICAgICAgICJ1cmxfY2l0YXRpb24iOiB7CiAgICAgICAgICAgICAgImVuZF9pbmRleCI6IDY1NCwKICAgICAgICAgICAgICAic3RhcnRfaW5kZXgiOiA1NjIsCiAgICAgICAgICAgICAgInRpdGxlIjogIjIwMjUgaW4gcmFpbCB0cmFuc3BvcnQiLAogICAgICAgICAgICAgICJ1cmwiOiAiaHR0cHM6Ly9lbi53aWtpcGVkaWEub3JnL3dpa2kvMjAyNV9pbl9yYWlsX3RyYW5zcG9ydD91dG1fc291cmNlPW9wZW5haSIKICAgICAgICAgICAgfQogICAgICAgICAgfSwKICAgICAgICAgIHsKICAgICAgICAgICAgInR5cGUiOiAidXJsX2NpdGF0aW9uIiwKICAgICAgICAgICAgInVybF9jaXRhdGlvbiI6IHsKICAgICAgICAgICAgICAiZW5kX2luZGV4IjogOTQwLAogICAgICAgICAgICAgICJzdGFydF9pbmRleCI6IDg0OCwKICAgICAgICAgICAgICAidGl0bGUiOiAiMjAyNSBpbiByYWlsIHRyYW5zcG9ydCIsCiAgICAgICAgICAgICAgInVybCI6ICJodHRwczovL2VuLndpa2lwZWRpYS5vcmcvd2lraS8yMDI1X2luX3JhaWxfdHJhbnNwb3J0P3V0bV9zb3VyY2U9b3BlbmFpIgogICAgICAgICAgICB9CiAgICAgICAgICB9LAogICAgICAgICAgewogICAgICAgICAgICAidHlwZSI6ICJ1cmxfY2l0YXRpb24iLAogICAgICAgICAgICAidXJsX2NpdGF0aW9uIjogewogICAgICAgICAgICAgICJlbmRfaW5kZXgiOiAxMjM2LAogICAgICAgICAgICAgICJzdGFydF9pbmRleCI6IDExNDcsCiAgICAgICAgICAgICAgInRpdGxlIjogIjIwMjUgaW4gc3BhY2VmbGlnaHQiLAogICAgICAgICAgICAgICJ1cmwiOiAiaHR0cHM6Ly9lbi53aWtpcGVkaWEub3JnL3dpa2kvMjAyNV9pbl9zcGFjZWZsaWdodD91dG1fc291cmNlPW9wZW5haSIKICAgICAgICAgICAgfQogICAgICAgICAgfSwKICAgICAgICAgIHsKICAgICAgICAgICAgInR5cGUiOiAidXJsX2NpdGF0aW9uIiwKICAgICAgICAgICAgInVybF9jaXRhdGlvbiI6IHsKICAgICAgICAgICAgICAiZW5kX2luZGV4IjogMTU0OCwKICAgICAgICAgICAgICAic3RhcnRfaW5kZXgiOiAxNDU2LAogICAgICAgICAgICAgICJ0aXRsZSI6ICIyMDI1IGluIHJhaWwgdHJhbnNwb3J0IiwKICAgICAgICAgICAgICAidXJsIjogImh0dHBzOi8vZW4ud2lraXBlZGlhLm9yZy93aWtpLzIwMjVfaW5fcmFpbF90cmFuc3BvcnQ/dXRtX3NvdXJjZT1vcGVuYWkiCiAgICAgICAgICAgIH0KICAgICAgICAgIH0KICAgICAgICBdCiAgICAgIH0sCiAgICAgICJmaW5pc2hfcmVhc29uIjogInN0b3AiCiAgICB9CiAgXSwKICAidXNhZ2UiOiB7CiAgICAicHJvbXB0X3Rva2VucyI6IDksCiAgICAiY29tcGxldGlvbl90b2tlbnMiOiAzNjAsCiAgICAidG90YWxfdG9rZW5zIjogMzY5LAogICAgInByb21wdF90b2tlbnNfZGV0YWlscyI6IHsKICAgICAgImNhY2hlZF90b2tlbnMiOiAwLAogICAgICAiYXVkaW9fdG9rZW5zIjogMAogICAgfSwKICAgICJjb21wbGV0aW9uX3Rva2Vuc19kZXRhaWxzIjogewogICAgICAicmVhc29uaW5nX3Rva2VucyI6IDAsCiAgICAgICJhdWRpb190b2tlbnMiOiAwLAogICAgICAiYWNjZXB0ZWRfcHJlZGljdGlvbl90b2tlbnMiOiAwLAogICAgICAicmVqZWN0ZWRfcHJlZGljdGlvbl90b2tlbnMiOiAwCiAgICB9CiAgfSwKICAic3lzdGVtX2ZpbmdlcnByaW50IjogIiIKfQo=
+  recorded_at: Sun, 26 Oct 2025 18:23:27 GMT
 recorded_with: VCR 6.3.1

@@ -7,6 +7,26 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"Hello!"}],"model":"gpt-4","logprobs":true,"top_logprobs":2}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -15,19 +35,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '98'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:53:58 GMT
+      - Sun, 26 Oct 2025 19:06:26 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,22 +68,26 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9905177698deaaaf-SJC
+      - 994c3b15ef9f9e5c-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"id":"gen-1760759637-He0xET5xebAKdwd01P0a","provider":"OpenAI","model":"openai/gpt-4","object":"chat.completion","created":1760759637,"choices":[{"logprobs":{"content":[{"token":"Hello","bytes":[72,101,108,108,111],"logprob":-0.016666941,"top_logprobs":[{"token":"Hello","bytes":[72,101,108,108,111],"logprob":-0.016666941},{"token":"Hi","bytes":[72,105],"logprob":-4.111729}]},{"token":"!","bytes":[33],"logprob":-0.0050005824,"top_logprobs":[{"token":"!","bytes":[33],"logprob":-0.0050005824},{"token":"
-        there","bytes":[32,116,104,101,114,101],"logprob":-5.43782}]},{"token":" How","bytes":[32,72,111,119],"logprob":-0.00010807293,"top_logprobs":[{"token":"
-        How","bytes":[32,72,111,119],"logprob":-0.00010807293},{"token":" What","bytes":[32,87,104,97,116],"logprob":-10.06677}]},{"token":"
-        can","bytes":[32,99,97,110],"logprob":-0.0028350651,"top_logprobs":[{"token":"
-        can","bytes":[32,99,97,110],"logprob":-0.0028350651},{"token":" may","bytes":[32,109,97,121],"logprob":-5.8735514}]},{"token":"
-        I","bytes":[32,73],"logprob":-0.00039325762,"top_logprobs":[{"token":" I","bytes":[32,73],"logprob":-0.00039325762},{"token":"
-        assist","bytes":[32,97,115,115,105,115,116],"logprob":-7.86904}]},{"token":"
-        assist","bytes":[32,97,115,115,105,115,116],"logprob":-0.0035348518,"top_logprobs":[{"token":"
-        assist","bytes":[32,97,115,115,105,115,116],"logprob":-0.0035348518},{"token":"
-        help","bytes":[32,104,101,108,112],"logprob":-5.655661}]},{"token":" you","bytes":[32,121,111,117],"logprob":-0.000021650272,"top_logprobs":[{"token":"
-        you","bytes":[32,121,111,117],"logprob":-0.000021650272},{"token":" your","bytes":[32,121,111,117,114],"logprob":-12.569131}]},{"token":"
-        today","bytes":[32,116,111,100,97,121],"logprob":-0.00028600733,"top_logprobs":[{"token":"
-        today","bytes":[32,116,111,100,97,121],"logprob":-0.00028600733},{"token":"?","bytes":[63],"logprob":-8.264334}]},{"token":"?","bytes":[63],"logprob":-0.0930275,"top_logprobs":[{"token":"?","bytes":[63],"logprob":-0.0930275},{"token":"?\n","bytes":[63,10],"logprob":-2.4242692}]}],"refusal":[]},"finish_reason":"stop","native_finish_reason":"stop","index":0,"message":{"role":"assistant","content":"Hello!
-        How can I assist you today?","refusal":null,"reasoning":null}}],"system_fingerprint":null,"usage":{"prompt_tokens":9,"completion_tokens":9,"total_tokens":18,"prompt_tokens_details":{"cached_tokens":0,"audio_tokens":0},"completion_tokens_details":{"reasoning_tokens":0}}}'
-  recorded_at: Sat, 18 Oct 2025 03:53:58 GMT
+      string: "\n         \n\n         \n{\"id\":\"gen-1761505585-dJf0XcRglnQd7eObnGKf\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4\",\"object\":\"chat.completion\",\"created\":1761505585,\"choices\":[{\"logprobs\":{\"content\":[{\"token\":\"Hello\",\"bytes\":[72,101,108,108,111],\"logprob\":-0.018639851,\"top_logprobs\":[{\"token\":\"Hello\",\"bytes\":[72,101,108,108,111],\"logprob\":-0.018639851},{\"token\":\"Hi\",\"bytes\":[72,105],\"logprob\":-4.0054812}]},{\"token\":\"!\",\"bytes\":[33],\"logprob\":-0.0037265648,\"top_logprobs\":[{\"token\":\"!\",\"bytes\":[33],\"logprob\":-0.0037265648},{\"token\":\"
+        there\",\"bytes\":[32,116,104,101,114,101],\"logprob\":-5.7523246}]},{\"token\":\"
+        How\",\"bytes\":[32,72,111,119],\"logprob\":-0.00009817902,\"top_logprobs\":[{\"token\":\"
+        How\",\"bytes\":[32,72,111,119],\"logprob\":-0.00009817902},{\"token\":\"
+        What\",\"bytes\":[32,87,104,97,116],\"logprob\":-10.163146}]},{\"token\":\"
+        can\",\"bytes\":[32,99,97,110],\"logprob\":-0.0023799269,\"top_logprobs\":[{\"token\":\"
+        can\",\"bytes\":[32,99,97,110],\"logprob\":-0.0023799269},{\"token\":\" may\",\"bytes\":[32,109,97,121],\"logprob\":-6.048679}]},{\"token\":\"
+        I\",\"bytes\":[32,73],\"logprob\":-0.0003236647,\"top_logprobs\":[{\"token\":\"
+        I\",\"bytes\":[32,73],\"logprob\":-0.0003236647},{\"token\":\" assist\",\"bytes\":[32,97,115,115,105,115,116],\"logprob\":-8.061221}]},{\"token\":\"
+        assist\",\"bytes\":[32,97,115,115,105,115,116],\"logprob\":-0.0027651752,\"top_logprobs\":[{\"token\":\"
+        assist\",\"bytes\":[32,97,115,115,105,115,116],\"logprob\":-0.0027651752},{\"token\":\"
+        help\",\"bytes\":[32,104,101,108,112],\"logprob\":-5.902763}]},{\"token\":\"
+        you\",\"bytes\":[32,121,111,117],\"logprob\":-0.000024749568,\"top_logprobs\":[{\"token\":\"
+        you\",\"bytes\":[32,121,111,117],\"logprob\":-0.000024749568},{\"token\":\"
+        today\",\"bytes\":[32,116,111,100,97,121],\"logprob\":-12.424961}]},{\"token\":\"
+        today\",\"bytes\":[32,116,111,100,97,121],\"logprob\":-0.00026932248,\"top_logprobs\":[{\"token\":\"
+        today\",\"bytes\":[32,116,111,100,97,121],\"logprob\":-0.00026932248},{\"token\":\"?\",\"bytes\":[63],\"logprob\":-8.355238}]},{\"token\":\"?\",\"bytes\":[63],\"logprob\":-0.108841814,\"top_logprobs\":[{\"token\":\"?\",\"bytes\":[63],\"logprob\":-0.108841814},{\"token\":\"?\\n\",\"bytes\":[63,10],\"logprob\":-2.2745829}]}],\"refusal\":[]},\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Hello!
+        How can I assist you today?\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":null,\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":9,\"total_tokens\":18,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:06:26 GMT
 recorded_with: VCR 6.3.1

@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":"Hello, GPT!","instructions":"You are a configured assistant
         with default instructions.","model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '116'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:32:51 GMT
+      - Sun, 26 Oct 2025 18:37:51 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_d4eb109b4488470784e6992cff7ca9e8
+      - req_3c8f029156a641a185e363f21340c11b
       Openai-Processing-Ms:
-      - '2026'
+      - '1466'
       X-Envoy-Upstream-Service-Time:
-      - '2030'
+      - '1470'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=nqmdnZ0iLsi3Mn76NNg7ZRSxAt2.C0x2gFQL0mKRKTI-1760758371-1.0.1.1-SKmWHysc5nKIDmndeuYtWUw6kweFUKoezmen_I3Zz5bUfenVymK69JKMkZe6jL._IS7Yc_Rd3LEHVxmVFChwUh28Wql9f5piKEgUjN9oQM4;
-        path=/; expires=Sat, 18-Oct-25 04:02:51 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=xmlZV.NzcGrPvP8fjTC4ANULNYcg_rfjLp_uAHTni0E-1761503871-1.0.1.1-wmN4CXAWfjQm3J6s4aDS9SgGiEXDViZ494OQ4K8axNn.ILSPn8oIwNgpFa6GW5wSzy5sZsgtMYXoM.rf3RLkGO7eSjA4YDlbdQCTZBwUOUE;
+        path=/; expires=Sun, 26-Oct-25 19:07:51 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=dRlIXaBh0QBPYDvb4EJhoYlR9Sf5WTd46hdd6TX5vBA-1760758371386-0.0.1.1-604800000;
+      - _cfuvid=fyj7edEZNVZdpquyxFUDSqZUiSI8MtMKbDPuG_hYxik-1761503871474-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9904f87bde70ce50-SJC
+      - 994c11331b6b15ff-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_00343221eef41ca90068f30a615d9481988b63216179600d3c",
+          "id": "resp_0e49cd122e05cdf30068fe6a7dfef0819bb3c33d521d489536",
           "object": "response",
-          "created_at": 1760758369,
+          "created_at": 1761503870,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +115,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_00343221eef41ca90068f30a630b9881989d66522b6fd52d4d",
+              "id": "msg_0e49cd122e05cdf30068fe6a7f21d8819b9c15bcf7278cc171",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +123,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "Hello! How can I help you today? \ud83d\ude0a"
+                  "text": "Hello! How can I assist you today? \ud83d\ude0a"
                 }
               ],
               "role": "assistant"
@@ -145,5 +165,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 18 Oct 2025 03:32:51 GMT
+  recorded_at: Sun, 26 Oct 2025 18:37:51 GMT
 recorded_with: VCR 6.3.1

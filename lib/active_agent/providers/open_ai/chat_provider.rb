@@ -24,7 +24,13 @@ module ActiveAgent
         # @return [Hash, nil] The symbolized API response or nil if empty
         def api_prompt_execute(parameters)
           instrument("api_request.provider.active_agent", model: parameters[:model])
-          client.chat(parameters:).presence&.deep_symbolize_keys
+
+          unless parameters[:stream]
+            client.chat.completions.create(**parameters)
+          else
+            client.chat.completions.stream(**parameters.except(:stream)).each(&parameters[:stream])
+            nil
+          end
         end
 
         # Processes streaming response chunks from OpenAI's chat API.
@@ -32,34 +38,46 @@ module ActiveAgent
         # Handles message deltas, content updates, and completion detection.
         # Manages the message stack and broadcasts streaming updates.
         #
-        # @param api_response_chunk [Hash] The streaming response chunk
+        # @param api_response_event [OpenAI::Helpers::Streaming::ChatChunkEvent] The streaming response chunk
         # @return [void]
-        def process_stream_chunk(api_response_chunk)
-          api_response_chunk.deep_symbolize_keys!
-
+        def process_stream_chunk(api_response_event)
           instrument("stream_chunk_processing.provider.active_agent")
 
-          broadcast_stream_open
-          return unless api_response_chunk.dig(:choices, 0)
+          # Called Multiple Times: [Chunk<T>, T]<Content, ToolsCall>
+          case api_response_event.type
+          when :chunk
+            api_message = api_response_event.chunk.choices.first
 
-          # If we have a delta, we need to update a message in the stack
-          if (api_message = api_response_chunk.dig(:choices, 0))
-            message = find_or_create_message(api_message[:index])
-            message = message_merge_delta(message, api_message[:delta])
+            # If we have a delta, we need to update a message in the stack
+            message = find_or_create_message(api_message.index)
+            message = message_merge_delta(message, api_message.delta.as_json.deep_symbolize_keys)
 
             # Stream back content changes as they come in
-            if api_message.dig(:delta, :content)
-              broadcast_stream_update(message_stack.last, api_message.dig(:delta, :content))
+            if api_message.delta.content
+              broadcast_stream_update(message_stack.last, api_message.delta.content)
             end
+
+            # If this is the last api_chunk to be processed
+            return unless api_message.finish_reason
+
+            instrument("stream_finished.provider.active_agent", finish_reason: api_message.finish_reason)
+          when :"content.delta"
+            # Returns the deltas, without context
+            # => {type: :"content.delta", delta: "", snapshot: "", parsed: nil}
+            # => {type: :"content.delta", delta: "Hi", snapshot: "Hi", parsed: nil}
+          when :"content.done"
+            # Returns the full content when complete
+            # => {type: :"content.done", content: "Hi there! How can I help you today?", parsed: nil}
+
+            # Once we are finished, close out and run tooling callbacks (Recursive)
+            process_prompt_finished
+          when :"tool_calls.function.arguments.delta"
+            # => {type: :"tool_calls.function.arguments.delta", name: "get_current_weather", index: 0, arguments: "", parsed: nil, arguments_delta: ""}
+          when :"tool_calls.function.arguments.done"
+            # => => {type: :"tool_calls.function.arguments.done", index: 0, name: "get_current_weather", arguments: "{\"location\":\"Boston, MA\"}", parsed: nil}
+          else
+            fail "Unexpected Response Event Type: #{api_response_event.type}"
           end
-
-          # If this is the last api_response_chunk to be processed
-          return unless api_response_chunk.dig(:choices, 0, :finish_reason)
-
-          instrument("stream_finished.provider.active_agent", finish_reason: api_response_chunk.dig(:choices, 0, :finish_reason))
-
-          # Once we are finished, close out and run tooling callbacks (Recursive)
-          process_prompt_finished
         end
 
         # Processes function/tool calls from the API response.

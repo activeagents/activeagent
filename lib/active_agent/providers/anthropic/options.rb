@@ -6,12 +6,15 @@ module ActiveAgent
   module Providers
     module Anthropic
       class Options < Common::BaseModel
-        attribute :base_url,    :string,  default: "https://api.anthropic.com"
-        attribute :max_retries, :integer, default: 2
-        attribute :timeout,     :float,   default: 600.0
+        attribute :api_key,  :string
+        attribute :base_url, :string,  default: "https://api.anthropic.com"
 
-        attribute :api_key,        :string
         attribute :anthropic_beta, :string
+
+        attribute :max_retries,         :integer, default: ::Anthropic::Client::DEFAULT_MAX_RETRIES
+        attribute :timeout,             :float,   default: ::Anthropic::Client::DEFAULT_TIMEOUT_IN_SECONDS
+        attribute :initial_retry_delay, :float,   default: ::Anthropic::Client::DEFAULT_INITIAL_RETRY_DELAY
+        attribute :max_retry_delay,     :float,   default: ::Anthropic::Client::DEFAULT_MAX_RETRY_DELAY
 
         # Common Interface Compatibility
         alias_attribute :access_token, :api_key
@@ -41,16 +44,8 @@ module ActiveAgent
         def resolve_access_token(kwargs)
           kwargs[:api_key] ||
             kwargs[:access_token] ||
-            anthropic_configuration_access_token ||
             ENV["ANTHROPIC_ACCESS_TOKEN"] ||
             ENV["ANTHROPIC_API_KEY"]
-        end
-
-        def anthropic_configuration_access_token
-          return nil unless defined?(::Anthropic)
-          ::Anthropic.configuration.access_token
-        rescue
-          nil
         end
       end
     end

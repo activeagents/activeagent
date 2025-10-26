@@ -7,25 +7,45 @@ http_interactions:
       encoding: UTF-8
       string: '{"input":"Tell me a three sentence bedtime story about a unicorn.","model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '85'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:53:17 GMT
+      - Sun, 26 Oct 2025 18:35:30 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -51,18 +71,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_256a06a076074201916740f41cfa4de6
+      - req_fd8720cd16234fd9b6f3ad91f8d4829b
       Openai-Processing-Ms:
-      - '2550'
+      - '3019'
       X-Envoy-Upstream-Service-Time:
-      - '2556'
+      - '3024'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=gALwkfTyxtjCn56xOrtI3ew.vpl8hIyOEr2KteYms2U-1760759597-1.0.1.1-d8ZRjPowGYV3smBg7sm.iF5rak6f4u9gJLSYLdnHB3URtb3uXM.WKbAr0j8D6D5HI.HXnTMfo2scZw2AJViGJaxmMCIw6RGsOKUq497IUIQ;
-        path=/; expires=Sat, 18-Oct-25 04:23:17 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=L2g5unYxfUmkMFoo50amN73YEJ.coPp6PKyLAUM57ZQ-1761503730-1.0.1.1-FFcgU2Qrp_mNbFh2d9.68bSiwy.gMVxJIkcIB4QXuUVru7F3IcZU6VDAPLY1kqnBZlyG.xctDN6zssU8025mELkMabJzVTPjx42cZ2GWwDU;
+        path=/; expires=Sun, 26-Oct-25 19:05:30 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=vq3NB9Z.iLqaeWEouAAZgo9VNJ5erxudhb1hJ6rKl9g-1760759597632-0.0.1.1-604800000;
+      - _cfuvid=lAgl1tgJFrLe6KCuPhWWxjDwwrTKa2zCn46Wrrylp.w-1761503730790-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +91,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99051669fbcacf82-SJC
+      - 994c0dba59f17ac7-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0a17e728635c44cf0068f30f2b10c48196a9fddc21641c14f5",
+          "id": "resp_0d29bf565b1c42e50068fe69efc64c819a85b2886b242386f8",
           "object": "response",
-          "created_at": 1760759595,
+          "created_at": 1761503728,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,7 +114,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_0a17e728635c44cf0068f30f2c26588196bc96be5e6d2d67a9",
+              "id": "msg_0d29bf565b1c42e50068fe69f125ec819ab677b9c902ccd2ce",
               "type": "message",
               "status": "completed",
               "content": [
@@ -102,7 +122,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "In a moonlit meadow, a gentle unicorn named Starshine danced among the silver blossoms, spreading magic with every step. One night, she found a lost firefly and carried it home on her shimmering horn. Grateful and happy, the firefly glowed brighter than ever, lighting peaceful dreams for all the woodland creatures."
+                  "text": "In a quiet meadow under the silver moonlight, a gentle unicorn named Luna discovered a glowing flower that sang lullabies. She carried the magical blossom to her friends, and its sweet melody filled their dreams with wonder. As Luna drifted to sleep, she knew that a world full of magic awaited her when she awoke."
                 }
               ],
               "role": "assistant"
@@ -144,5 +164,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 18 Oct 2025 03:53:17 GMT
+  recorded_at: Sun, 26 Oct 2025 18:35:30 GMT
 recorded_with: VCR 6.3.1

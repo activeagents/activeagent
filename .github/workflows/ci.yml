@@ -28,6 +28,9 @@ jobs:
       BUNDLE_RETRY: 3
       BUNDLE_GEMFILE: ${{ matrix.gemfile }}
       CI: true
+      ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
+      OPEN_AI_API_KEY: OPEN_AI_API_KEY
+      OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
     strategy:
       fail-fast: false
       matrix:

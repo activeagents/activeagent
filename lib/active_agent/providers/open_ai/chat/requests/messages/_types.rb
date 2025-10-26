@@ -65,6 +65,8 @@ module ActiveAgent
             class MessageType < ActiveModel::Type::Value
               def cast(value)
                 case value
+                when ::OpenAI::Models::Chat::ChatCompletionMessage
+                  cast(value.to_h)
                 when Base
                   value
                 when String

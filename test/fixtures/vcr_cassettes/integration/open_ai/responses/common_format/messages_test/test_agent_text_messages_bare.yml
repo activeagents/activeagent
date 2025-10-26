@@ -9,25 +9,45 @@ http_interactions:
         me a fun fact about Ruby programming."},{"type":"input_text","text":"Now explain
         why that''s interesting."}]}],"model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '198'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 04:51:55 GMT
+      - Sun, 26 Oct 2025 18:36:08 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -53,18 +73,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_6f5dcf93738e45f18461f21b80faef7f
+      - req_b187d0a39bba4052b2b062f893014e5e
       Openai-Processing-Ms:
-      - '5180'
+      - '3594'
       X-Envoy-Upstream-Service-Time:
-      - '5186'
+      - '3599'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=R.G3OrDAM92a5hS9nHxu7Kxx2TWiiCoGaRAejtOGF_g-1761022315-1.0.1.1-9nm9guiLKOv21b2wFIpxWe2AZr6GboVhY8KGzUZWYu3XEmgv9EKc97Jn0JwVion70ziE08ZEgBaNCnl4rZMPd0eYZQEl3gu4X0vXp_TvUmU;
-        path=/; expires=Tue, 21-Oct-25 05:21:55 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=tB_PscR6D.3OhojPOKruSBi330jz1p94mCHWmXHv8D8-1761503768-1.0.1.1-JEFbMMAAwTPnR0MGfLn.KE3Q7gWkGLl.XA9t5n.bHSEcjPMb.kV2rlD9P9nnzs4J8cKguGMQTL54evuuw0NsSzpo46FPejkd5s6aPmbJHEY;
+        path=/; expires=Sun, 26-Oct-25 19:06:08 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=kZGYBMEzzRItOzDSpQlyDBX2PsT.ezUi3MAX2uxgZ1o-1761022315465-0.0.1.1-604800000;
+      - _cfuvid=QRwoZ.ZflmAHD9qabq_oPABjUclZyvT.dtVcrQmTmKU-1761503768245-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -73,16 +93,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991e245b5cf7250d-SJC
+      - 994c0ea0bf81cf0a-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_038d60dafd01a6c50068f711664ae8819aaaed1bd7f9b39cfc",
+          "id": "resp_0059a9df8e74ff3a0068fe6a14a3d0819a9d2a2ad3acf22c46",
           "object": "response",
-          "created_at": 1761022310,
+          "created_at": 1761503764,
           "status": "completed",
           "background": false,
           "billing": {
@@ -96,7 +116,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_038d60dafd01a6c50068f71167b8e4819a85be25ceb285710c",
+              "id": "msg_0059a9df8e74ff3a0068fe6a15399c819a8329afc16e64286f",
               "type": "message",
               "status": "completed",
               "content": [
@@ -104,7 +124,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "**Fun Fact:**  \nIn Ruby, *everything is an object*\u2014even basic data types like numbers, booleans, and `nil`.\n\n**Why this is interesting:**  \nIn many programming languages, basic types like integers or booleans are primitive types, which means they aren\u2019t full-fledged objects and don\u2019t have methods. In Ruby, the number `5` is actually an instance of the `Integer` class, and you can call methods on it, like `5.times { puts \"Hi!\" }`. Even `nil` is an object (of the `NilClass`!), and `true`/`false` are instances of `TrueClass` and `FalseClass`.\n\nThis design gives Ruby a *uniform* and *flexible* way of treating *all* data, so you can use object-oriented techniques and custom behaviors everywhere\u2014even with basic values! It makes the language more consistent and powerful for metaprogramming, and often leads to more readable and expressive code."
+                  "text": "**Fun fact about Ruby:**  \nRuby allows you to **reopen and modify existing classes at runtime**\u2014even its core classes!\n\nFor example:\n\n```ruby\nclass String\n  def shout\n    self.upcase + \"!\"\n  end\nend\n\nputs \"hello\".shout  # Outputs: HELLO!\n```\n\n**Why is this interesting?**  \nThis feature is called \"open classes\" or \"monkey patching.\" It\u2019s powerful because it lets programmers customize or extend the behavior of any class without touching the original source code. You can tailor built-in classes like `String`, `Array`, or your own classes on the fly to fit specific needs, making Ruby code exceptionally flexible and expressive.\n\nHowever, it's a double-edged sword\u2014it can cause confusion or bugs if different parts of an application modify the same class in conflicting ways. So while it encourages creativity and rapid development, it also requires discipline and clear communication within teams. This dynamic nature is a hallmark of Ruby\u2019s philosophy: **favoring developer happiness and expressiveness** over rigid structure."
                 }
               ],
               "role": "assistant"
@@ -137,14 +157,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 203,
+            "output_tokens": 217,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 224
+            "total_tokens": 238
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 21 Oct 2025 04:51:55 GMT
+  recorded_at: Sun, 26 Oct 2025 18:36:08 GMT
 recorded_with: VCR 6.3.1

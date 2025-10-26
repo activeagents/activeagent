@@ -8,6 +8,26 @@ http_interactions:
       string: '{"messages":[{"role":"developer","content":"You are an overridden assistant."},{"role":"user","content":"Hello,
         OpenRouter!"}],"model":"openai/gpt-4o"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -16,19 +36,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '151'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:45:09 GMT
+      - Sun, 26 Oct 2025 19:07:38 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,11 +69,12 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99050a908e7feb22-SJC
+      - 994c3cd9bc32ce6c-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n{\"id\":\"gen-1760759109-dn1sKFw929EZkRk9fdGl\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1760759109,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Hello!
-        It seems like you mentioned \\\"OpenRouter,\\\" but I'm here to help you as
-        an AI language model. How can I assist you today?\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":22,\"completion_tokens\":30,\"total_tokens\":52,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Sat, 18 Oct 2025 03:45:09 GMT
+      string: "\n         \n\n         \n{\"id\":\"gen-1761505657-cUHOCGAalljZTVmSwXPR\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761505657,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Hello!
+        It looks like you might be mistaking me for a different service. I'm here
+        to assist you with any questions or information you might need. How can I
+        help you today?\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":22,\"completion_tokens\":37,\"total_tokens\":59,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:07:39 GMT
 recorded_with: VCR 6.3.1

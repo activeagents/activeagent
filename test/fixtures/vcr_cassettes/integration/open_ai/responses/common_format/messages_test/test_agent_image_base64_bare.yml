@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"What''s
         in this image?"},{"type":"input_image","image_url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}]}],"model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '266'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 05:28:47 GMT
+      - Sun, 26 Oct 2025 18:36:15 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_36898c616d2a4ea8961de9c18e67e345
+      - req_9c5947b842414a51b903cf377a6b4d90
       Openai-Processing-Ms:
-      - '1949'
+      - '1868'
       X-Envoy-Upstream-Service-Time:
-      - '1955'
+      - '1872'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=WW.hNnHRwD4HFfEpXTFP814xu6b5CyB88H7oS1OCN.Y-1761024527-1.0.1.1-VxWE1lk.k6nKImnSYOlyezFhMNpaFJhoK8LOhMVCk_I23kHa8Q1KqpY_0mJI0t9CzLnmBmh3yG9qoOcOavXGBv6etuPUDXdy4ptAi6SLVK8;
-        path=/; expires=Tue, 21-Oct-25 05:58:47 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=w7l77btr8KHaPDCx7V9UhaH6qn8Q1y76Y.6LlaKZwZ8-1761503775-1.0.1.1-csT_o1_X2xGWiyEMdBe4.Yul8Cgp8ln29zx3YScl.FC0l2yVv25gGzCTKA0B_BwA08DkkJkEeK0Qtq6o4E0YESNN.ZlfNkc_OVHboBJPehA;
+        path=/; expires=Sun, 26-Oct-25 19:06:15 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=9qB9dLx829zr2tCEB6WgSWT55PwtmwE13QR2kpn9HyA-1761024527915-0.0.1.1-604800000;
+      - _cfuvid=cumS73rW1tttZDsGqwe.jMZQiBQghrlihe9K1sqOcaA-1761503775318-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991e5a770e9bcee9-SJC
+      - 994c0ed7ac51eb2d-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_03346adb5a0de2650068f71a0df950819ba7cd4626dddfb5fd",
+          "id": "resp_08dd15e0e7a413670068fe6a1d6ec4819799b9845be1798394",
           "object": "response",
-          "created_at": 1761024526,
+          "created_at": 1761503773,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +115,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_03346adb5a0de2650068f71a0f2b48819bb93693b9fcca9fa8",
+              "id": "msg_08dd15e0e7a413670068fe6a1e7300819796eecec86436d53c",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +123,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "The image is completely filled with a solid green color and does not contain any distinguishable objects, text, or patterns."
+                  "text": "This image is a solid green color with no distinguishable objects, patterns, or features. It appears to be a plain, uniform green background."
                 }
               ],
               "role": "assistant"
@@ -136,14 +156,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 25,
+            "output_tokens": 30,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 292
+            "total_tokens": 297
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 21 Oct 2025 05:28:47 GMT
+  recorded_at: Sun, 26 Oct 2025 18:36:15 GMT
 recorded_with: VCR 6.3.1

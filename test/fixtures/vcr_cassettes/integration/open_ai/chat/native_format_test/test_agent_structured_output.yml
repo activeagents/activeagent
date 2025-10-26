@@ -13,25 +13,45 @@ http_interactions:
         diagnostics and treatment planning. Key topics include machine learning, neural
         networks, and predictive analytics."}],"model":"gpt-4o-2024-08-06","response_format":{"type":"json_schema","json_schema":{"name":"research_paper_extraction","schema":{"type":"object","properties":{"title":{"type":"string"},"authors":{"type":"array","items":{"type":"string"}},"abstract":{"type":"string"},"keywords":{"type":"array","items":{"type":"string"}}},"required":["title","authors","abstract","keywords"],"additionalProperties":false},"strict":true}}}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '919'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 23:24:48 GMT
+      - Sun, 26 Oct 2025 18:23:11 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -43,13 +63,13 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '905'
+      - '797'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '1046'
+      - '956'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -63,16 +83,16 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_f7be5cfc80744b84ab7496878a44ed06
+      - req_852025f56fac4717bd99e6a25fed32c8
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=fZYHZQKfh0cZDfCgG1GCpC8pOM2pM7ZZWgV_Tv6URvI-1761089088-1.0.1.1-8rMQixAD4gy5kymL3AUliIOY4z_EPgCXM1Uai5BuMhg4ydDhg7_RP6y2blWZ3jHjaLso6DkDzLmg1iffXOyTaSVXaZ0l.7fZhpHldh0iwro;
-        path=/; expires=Tue, 21-Oct-25 23:54:48 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=K8fnaxHt1r9iXMOH5dXfKVqu0_LmpJ.RCAXK_pZDkkc-1761502991-1.0.1.1-d0Dz67CNoIuOQFPAf8nOBP6l6ytIJO0f6zJ0K8TPuhEpbSrKw3Gu3nz8Sekyw6nQoYQ2cKwSk5o3dpTN.0FOJqoXwwOG3qWHe0LjgD_hJ4Q;
+        path=/; expires=Sun, 26-Oct-25 18:53:11 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=8Arn.6nJsu5ck6YlqhlLxoaRUrsVg8xOQKQ1Z89Sr9A-1761089088876-0.0.1.1-604800000;
+      - _cfuvid=zndQK69NgfFkwoVVRycqJCXI1O.1.WFgqmFD5VTgGq4-1761502991344-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -81,23 +101,23 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 992482abefc3ebe5-SJC
+      - 994bfbb53a84d438-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-CTG0dJA8n7Xx1BJ2ymASukZFtxlqj",
+          "id": "chatcmpl-CUzgUPXuXgQk0cQpUKTq7SYgRCMkZ",
           "object": "chat.completion",
-          "created": 1761089087,
+          "created": 1761502990,
           "model": "gpt-4o-2024-08-06",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "{\"title\":\"The Impact of Artificial Intelligence on Modern Healthcare\",\"authors\":[\"Dr. Jane Smith\",\"Dr. John Doe\"],\"abstract\":\"This paper explores the transformative role of AI in medical diagnostics and treatment planning.\",\"keywords\":[\"machine learning\",\"neural networks\",\"predictive analytics\"]}",
+                "content": "{\"title\":\"The Impact of Artificial Intelligence on Modern Healthcare\",\"authors\":[\"Dr. Jane Smith\",\"Dr. John Doe\"],\"abstract\":\"This paper explores the transformative role of AI in medical diagnostics and treatment planning.\",\"keywords\":[\"Artificial Intelligence\",\"Medical Diagnostics\",\"Treatment Planning\",\"Machine Learning\",\"Neural Networks\",\"Predictive Analytics\"]}",
                 "refusal": null,
                 "annotations": []
               },
@@ -107,8 +127,8 @@ http_interactions:
           ],
           "usage": {
             "prompt_tokens": 152,
-            "completion_tokens": 56,
-            "total_tokens": 208,
+            "completion_tokens": 65,
+            "total_tokens": 217,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
@@ -121,7 +141,7 @@ http_interactions:
             }
           },
           "service_tier": "default",
-          "system_fingerprint": "fp_f64f290af2"
+          "system_fingerprint": "fp_a788c5aef0"
         }
-  recorded_at: Tue, 21 Oct 2025 23:24:48 GMT
+  recorded_at: Sun, 26 Oct 2025 18:23:11 GMT
 recorded_with: VCR 6.3.1

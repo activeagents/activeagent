@@ -7,25 +7,47 @@ http_interactions:
       encoding: UTF-8
       string: '{"input":"Search: quantum computing papers from 2023","model":"gpt-4o"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '71'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 02:16:28 GMT
+      - Sun, 26 Oct 2025 19:14:40 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -51,18 +73,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_843940da08204e36895bc9daeb9f0618
+      - req_2e2e9e73e96b402c87dfbdc0e2156013
       Openai-Processing-Ms:
-      - '3146'
+      - '3873'
       X-Envoy-Upstream-Service-Time:
-      - '3149'
+      - '3880'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=j6gsvbegIOu477OuN0.GIlcIl9WtKYRmEOQOc7vsVqQ-1761444988-1.0.1.1-kLaNwDEztR7SR.QzKaoImXk0K1axc.CRlTA95_Q.NDJEyhrsPTdsFcwiC_SGcNNorTf3klEa_EVXr3DNedVnc2JM2.hsH36RhWGDBR0qfag;
-        path=/; expires=Sun, 26-Oct-25 02:46:28 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=3hELe3zVMTPevUKKe8vVi2ihS_9buld0.O8a_N8IfrA-1761506080-1.0.1.1-cilb.1DIVxblTjznKR_J1u7xU3qtCRCj4RgT0bVL3P1mF3shVBP_p7SNfSGb6jwr1ZXblT4zxvZL_a4FfowgI81EkyRwUR8hOzy4o3cVs34;
+        path=/; expires=Sun, 26-Oct-25 19:44:40 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=6RXm5F3bgHNg3m8uL.Y1mnaNtdFe0rjUVGeXoqFxG.c-1761444988322-0.0.1.1-604800000;
+      - _cfuvid=MccA90DzjBV00Few_Ub7wk6GoPYclkVBviuF1fyT9Os-1761506080564-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +93,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99467394e9c015a0-SJC
+      - 994c4712bdcced36-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_05708dcbf78e60ba0068fd847929a0819397c4701e871ec461",
+          "id": "resp_0e9ceed22c06c4800068fe731cadd481979fb0a8ab731f473e",
           "object": "response",
-          "created_at": 1761444985,
+          "created_at": 1761506076,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,7 +116,7 @@ http_interactions:
           "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "msg_05708dcbf78e60ba0068fd8479a43081938b0e95e5019eeb8f",
+              "id": "msg_0e9ceed22c06c4800068fe731dbdd08197b2cd1bef752d045f",
               "type": "message",
               "status": "completed",
               "content": [
@@ -102,7 +124,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "I can't perform real-time searches, but I can suggest ways to find quantum computing papers from 2023:\n\n1. **arXiv.org**: This is a free distribution service and an open-access archive for scholarly articles in the fields of physics, mathematics, computer science, and more. You can search for quantum computing papers by visiting [arXiv.org](https://arxiv.org/) and entering relevant keywords.\n\n2. **Google Scholar**: Use [Google Scholar](https://scholar.google.com/) to search for recent papers. You can set the publication year filter to 2023 to find the latest research.\n\n3. **Journals**: Check journals such as Physical Review Letters, Nature Quantum Information, and Quantum for recent publications.\n\n4. **ResearchGate and Academia.edu**: These platforms allow you to follow researchers and access recent papers that may not yet be formally published.\n\n5. **University and Conference Repositories**: Many universities and conferences publish proceedings and papers. Check the websites of major quantum computing conferences (e.g., QIP, IEEE Quantum) for recent papers.\n\nIf you have access to academic libraries or subscriptions, databases like IEEE Xplore and SpringerLink can also be invaluable resources for finding cutting-edge research."
+                  "text": "I can't browse the internet in real time, but I can help you find quantum computing papers from 2023! You can search for recent papers on platforms like arXiv, Google Scholar, or IEEE Xplore. These platforms frequently publish the latest research articles. You can use keywords such as \"quantum computing 2023\" and filter the results by year to find the most recent publications.\n\nAdditionally, academic institutions and conferences often release papers on their websites or in their proceedings, so checking those could also be helpful."
                 }
               ],
               "role": "assistant"
@@ -135,14 +157,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 253,
+            "output_tokens": 106,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 269
+            "total_tokens": 122
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sun, 26 Oct 2025 02:16:28 GMT
+  recorded_at: Sun, 26 Oct 2025 19:14:40 GMT
 recorded_with: VCR 6.3.1

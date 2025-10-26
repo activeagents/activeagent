@@ -9,16 +9,36 @@ http_interactions:
         the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
         city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '442'
   response:
     status:
       code: 200
@@ -27,68 +47,70 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 26 Oct 2025 00:23:13 GMT
-      Transfer-Encoding:
-      - chunked
+      - Sun, 26 Oct 2025 19:16:10 GMT
+      Content-Length:
+      - '1678'
     body:
       encoding: UTF-8
-      string: '{"id":"chatcmpl-923","object":"chat.completion","created":1761438193,"model":"qwen3:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"","reasoning":"Okay,
+      string: '{"id":"chatcmpl-393","object":"chat.completion","created":1761506170,"model":"qwen3:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"","reasoning":"Okay,
         the user is asking for the weather in Boston. Let me check the tools available.
         There''s a function called get_current_weather that requires a location and
-        an optional unit. The location is specified as Boston, but the unit isn''t
-        mentioned. Since the unit is optional, maybe I should default to Celsius or
-        Fahrenheit. Wait, the user didn''t specify, so perhaps I should include both?
-        No, the function parameters have the unit as a separate field with enum values.
-        Wait, looking back, the parameters for the function have \"unit\" as a field
-        with enum [\"celsius\", \"fahrenheit\"]. But the user didn''t specify, so
-        maybe I should assume a default. However, the function might require the unit
-        to be provided. Wait, no, the parameters show that \"unit\" is not in the
-        required array. The required parameter is only \"location\". So the unit is
-        optional. Therefore, I can call the function with just the location. But the
-        example in the description shows \"San Francisco, CA\" as the location. So
-        the user''s query is \"Boston\", so the location argument should be \"Boston\".
-        Wait, but maybe the function expects a city and state. The user just said
-        \"Boston\", which is a city. Should I assume the state? Like Boston, MA? But
-        the user didn''t specify. Hmm. The function''s parameters say the location
-        is a string, e.g., \"San Francisco, CA\". So maybe the function expects the
-        location to include the state. But the user just said \"Boston\". Should I
-        call it as \"Boston\" or \"Boston, MA\"? The function might not know the state,
-        but perhaps the API can handle it. Alternatively, maybe the user intended
-        Boston, MA. But since the user didn''t specify, maybe I should just use \"Boston\"
-        as the location. The function might handle it. So the tool call would be get_current_weather
-        with arguments {\"location\": \"Boston\"}. Wait, but the unit is optional.
-        The user didn''t specify, so maybe the function has a default. But the function''s
-        parameters don''t mention a default. So maybe the unit is required? Wait,
-        looking back: the parameters have \"unit\" as a property with enum, but it''s
-        not in the required array. So the unit is optional. Therefore, the function
-        can be called with just the location. So the tool call would be {\"name\":
-        \"get_current_weather\", \"arguments\": {\"location\": \"Boston\"}}. But maybe
-        the user expects Fahrenheit, as in the US. But since it''s optional, maybe
-        the function defaults to a particular unit. However, since the user didn''t
-        specify, it''s safer to not include the unit and let the function handle it.
-        So the tool call is as above.\n","tool_calls":[{"id":"call_4twg61i6","index":0,"type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"Boston\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":178,"completion_tokens":589,"total_tokens":767}}
+        an optional unit. The user didn''t specify Celsius or Fahrenheit, so I should
+        default to one. Since the unit is optional, maybe I can omit it, but the parameters
+        show unit is not required. Wait, looking back, the parameters have \"unit\"
+        as optional because it''s not in the required array. So I just need to provide
+        the location. The function will handle the unit if not specified. So the correct
+        call is get_current_weather with location set to \"Boston, MA\". Wait, the
+        user just said Boston, not Boston, MA. But the example in the description
+        uses \"San Francisco, CA\". Should I include the state abbreviation? Maybe
+        the function can handle just the city name. Let me see. The parameters for
+        location are a string, so perhaps providing \"Boston\" is sufficient. However,
+        sometimes weather APIs require the state. But since the user didn''t specify,
+        maybe the function can handle it with just the city. I''ll proceed with \"Boston\"
+        as the location. So the tool call should be {\"name\": \"get_current_weather\",
+        \"arguments\": {\"location\": \"Boston\"}}.\n","tool_calls":[{"id":"call_46lqzfd9","index":0,"type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"Boston\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":178,"completion_tokens":283,"total_tokens":461}}
 
         '
-  recorded_at: Sun, 26 Oct 2025 00:23:13 GMT
+  recorded_at: Sun, 26 Oct 2025 19:16:10 GMT
 - request:
     method: post
     uri: http://127.0.0.1:11434/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"messages":[{"role":"user","content":"What''s the weather in Boston?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_4twg61i6","index":0,"type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"Boston\"}"}}]},{"role":"tool","content":"{\"location\":\"Boston\",\"unit\":\"fahrenheit\",\"temperature\":\"22\"}","tool_call_id":"call_4twg61i6"}],"model":"qwen3:latest","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
+      string: '{"messages":[{"role":"user","content":"What''s the weather in Boston?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_46lqzfd9","function":{"arguments":"{\"location\":\"Boston\"}","name":"get_current_weather"},"type":"function","index":0}]},{"role":"tool","content":"{\"location\":\"Boston\",\"unit\":\"fahrenheit\",\"temperature\":\"22\"}","tool_call_id":"call_46lqzfd9"}],"model":"qwen3:latest","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
         the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
         city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '756'
   response:
     status:
       code: 200
@@ -97,12 +119,12 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 26 Oct 2025 00:23:19 GMT
-      Content-Length:
-      - '1069'
+      - Sun, 26 Oct 2025 19:16:23 GMT
+      Transfer-Encoding:
+      - chunked
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJpZCI6ImNoYXRjbXBsLTY4MCIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE0MzgxOTksIm1vZGVsIjoicXdlbjM6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJUaGUgY3VycmVudCB0ZW1wZXJhdHVyZSBpbiBCb3N0b24gaXMgMjLCsEYuIiwicmVhc29uaW5nIjoiT2theSwgdGhlIHVzZXIgYXNrZWQgZm9yIHRoZSB3ZWF0aGVyIGluIEJvc3Rvbi4gSSBjYWxsZWQgdGhlIGdldF9jdXJyZW50X3dlYXRoZXIgZnVuY3Rpb24gd2l0aCBsb2NhdGlvbiBzZXQgdG8gQm9zdG9uLiBUaGUgcmVzcG9uc2UgY2FtZSBiYWNrIHdpdGggYSB0ZW1wZXJhdHVyZSBvZiAyMiwgYnV0IHRoZSB1bml0IGlzbid0IHNwZWNpZmllZC4gV2FpdCwgdGhlIGZ1bmN0aW9uIHBhcmFtZXRlcnMgaGF2ZSBhbiBvcHRpb25hbCB1bml0IHBhcmFtZXRlciB3aXRoIGVudW0gdmFsdWVzIG9mIGNlbHNpdXMgb3IgZmFocmVuaGVpdC4gU2luY2UgdGhlIHVzZXIgZGlkbid0IHNwZWNpZnkgdGhlIHVuaXQsIG1heWJlIEkgc2hvdWxkIGFzc3VtZSB0aGUgZGVmYXVsdC4gQnV0IHRoZSBmdW5jdGlvbidzIHJlcXVpcmVkIHBhcmFtZXRlciBpcyBsb2NhdGlvbiwgYW5kIHVuaXQgaXMgb3B0aW9uYWwuIFRoZSByZXNwb25zZSBmcm9tIHRoZSB0b29sIGluY2x1ZGVzIHVuaXQgYXMgZmFocmVuaGVpdCwgc28gbWF5YmUgdGhlIGZ1bmN0aW9uIGRlZmF1bHRzIHRvIEZhaHJlbmhlaXQgaWYgbm90IHByb3ZpZGVkLiBUaGUgdXNlcidzIHF1ZXN0aW9uIGRpZG4ndCBtZW50aW9uIGEgdW5pdCwgc28gaXQncyBzYWZlIHRvIHByZXNlbnQgdGhlIHRlbXBlcmF0dXJlIGluIEZhaHJlbmhlaXQuIFNvIHRoZSBhbnN3ZXIgaXMgMjLCsEYuIEkgc2hvdWxkIHN0YXRlIHRoYXQgY2xlYXJseS5cbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MjI1LCJjb21wbGV0aW9uX3Rva2VucyI6MTY3LCJ0b3RhbF90b2tlbnMiOjM5Mn19Cg==
-  recorded_at: Sun, 26 Oct 2025 00:23:19 GMT
+        eyJpZCI6ImNoYXRjbXBsLTc3NCIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDYxODMsIm1vZGVsIjoicXdlbjM6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJUaGUgY3VycmVudCB0ZW1wZXJhdHVyZSBpbiBCb3N0b24gaXMgMjLCsEYuIiwicmVhc29uaW5nIjoiT2theSwgdGhlIHVzZXIgYXNrZWQgZm9yIHRoZSB3ZWF0aGVyIGluIEJvc3Rvbi4gSSBjYWxsZWQgdGhlIGdldF9jdXJyZW50X3dlYXRoZXIgZnVuY3Rpb24gd2l0aCBsb2NhdGlvbiBzZXQgdG8gQm9zdG9uLiBUaGUgcmVzcG9uc2UgY2FtZSBiYWNrIHdpdGggYSB0ZW1wZXJhdHVyZSBvZiAyMiwgYnV0IHRoZSB1bml0IGlzbid0IHNwZWNpZmllZC4gV2FpdCwgdGhlIGZ1bmN0aW9uIHBhcmFtZXRlcnMgaW5jbHVkZSBhIHVuaXQgcGFyYW1ldGVyIHdpdGggZW51bSB2YWx1ZXMgb2YgY2Vsc2l1cyBvciBmYWhyZW5oZWl0LiBUaGUgdXNlciBkaWRuJ3Qgc3BlY2lmeSB0aGUgdW5pdCwgc28gbWF5YmUgSSBzaG91bGQgYXNzdW1lIHRoZSBkZWZhdWx0LiBCdXQgdGhlIGZ1bmN0aW9uIHJlcXVpcmVzIHRoZSB1bml0IHRvIGJlIHByb3ZpZGVkLiBXYWl0LCBsb29raW5nIGJhY2sgYXQgdGhlIGZ1bmN0aW9uIGRlZmluaXRpb24sIHRoZSB1bml0IGlzIHBhcnQgb2YgdGhlIHBhcmFtZXRlcnMgYnV0IGluIHRoZSBkZXNjcmlwdGlvbiwgaXQncyBlbXB0eS4gV2FpdCwgdGhlIGZ1bmN0aW9uJ3MgcGFyYW1ldGVycyBoYXZlIFwidW5pdFwiIGFzIGEgcHJvcGVydHkgd2l0aCBhbiBlbnVtIG9mIGNlbHNpdXMgYW5kIGZhaHJlbmhlaXQuIEJ1dCBpbiB0aGUgaW5pdGlhbCB0b29sIGRlZmluaXRpb24sIHRoZSB1bml0J3MgZGVzY3JpcHRpb24gaXMgZW1wdHkuIE1heWJlIHRoZSB1bml0IGlzIG9wdGlvbmFsPyBXYWl0LCB0aGUgcmVxdWlyZWQgYXJyYXkgb25seSBpbmNsdWRlcyBcImxvY2F0aW9uXCIsIHNvIHVuaXQgaXMgb3B0aW9uYWwuIEJ1dCBpbiB0aGUgZnVuY3Rpb24gY2FsbCwgdGhlIHVzZXIgZGlkbid0IHNwZWNpZnkgdGhlIHVuaXQuIFNvIHRoZSBmdW5jdGlvbiBtaWdodCBoYXZlIGEgZGVmYXVsdCwgb3IgbWF5YmUgdGhlIGFzc2lzdGFudCBzaG91bGQgY2hvb3NlIGEgZGVmYXVsdC4gU2luY2UgdGhlIHVzZXIgZGlkbid0IHNwZWNpZnksIHBlcmhhcHMgdGhlIGFzc2lzdGFudCBzaG91bGQgdXNlIGZhaHJlbmhlaXQgYXMgdGhlIGRlZmF1bHQsIGVzcGVjaWFsbHkgc2luY2UgdGhlIHJlc3BvbnNlIGZyb20gdGhlIHRvb2wgaW5jbHVkZXMgZmFocmVuaGVpdC4gV2FpdCwgdGhlIHJlc3BvbnNlIGZyb20gdGhlIHRvb2wgaGFzIHVuaXQgYXMgZmFocmVuaGVpdCBhbmQgdGVtcGVyYXR1cmUgMjIuIFNvIHRoZSB0b29sJ3MgcmVzcG9uc2UgaW5jbHVkZXMgdGhlIHVuaXQuIEJ1dCB0aGUgdXNlcidzIG9yaWdpbmFsIHF1ZXN0aW9uIGRpZG4ndCBzcGVjaWZ5IHRoZSB1bml0LiBTbyB0aGUgYXNzaXN0YW50IHNob3VsZCBwcmVzZW50IHRoZSB0ZW1wZXJhdHVyZSBpbiBmYWhyZW5oZWl0LCBhcyB0aGF0J3Mgd2hhdCB0aGUgdG9vbCByZXR1cm5lZC4gU28gdGhlIGFuc3dlciBpcyAyMsKwRiBpbiBCb3N0b24uIEJ1dCBJIHNob3VsZCBjaGVjayBpZiB0aGUgdW5pdCB3YXMgc3BlY2lmaWVkIGluIHRoZSBmdW5jdGlvbiBjYWxsLiBXYWl0LCBpbiB0aGUgZnVuY3Rpb24gY2FsbCwgdGhlIGFzc2lzdGFudCBzZW50IHtcImxvY2F0aW9uXCI6XCJCb3N0b25cIn0gYW5kIGRpZG4ndCBpbmNsdWRlIHVuaXQuIEJ1dCB0aGUgdG9vbCdzIHJlc3BvbnNlIGhhcyB1bml0IGFzIGZhaHJlbmhlaXQuIE1heWJlIHRoZSB0b29sIGRlZmF1bHRzIHRvIGZhaHJlbmhlaXQgaWYgbm90IHByb3ZpZGVkLiBTbyB0aGUgYW5zd2VyIHNob3VsZCBzdGF0ZSB0aGUgdGVtcGVyYXR1cmUgaW4gZmFocmVuaGVpdC4gU28gdGhlIGZpbmFsIHJlc3BvbnNlIGlzIFwiVGhlIGN1cnJlbnQgdGVtcGVyYXR1cmUgaW4gQm9zdG9uIGlzIDIywrBGLlwiXG4ifSwiZmluaXNoX3JlYXNvbiI6InN0b3AifV0sInVzYWdlIjp7InByb21wdF90b2tlbnMiOjIyNSwiY29tcGxldGlvbl90b2tlbnMiOjQwMSwidG90YWxfdG9rZW5zIjo2MjZ9fQo=
+  recorded_at: Sun, 26 Oct 2025 19:16:24 GMT
 recorded_with: VCR 6.3.1

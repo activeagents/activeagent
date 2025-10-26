@@ -7,16 +7,36 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"List three primary colors."}],"model":"deepseek-r1:latest","response_format":{"type":"text"}}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '132'
   response:
     status:
       code: 200
@@ -25,36 +45,30 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 25 Oct 2025 21:27:40 GMT
+      - Sun, 26 Oct 2025 18:51:01 GMT
       Content-Length:
-      - '2016'
+      - '1582'
     body:
       encoding: UTF-8
-      string: '{"id":"chatcmpl-259","object":"chat.completion","created":1761427660,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"In
-        art and design (referring to subtractive color mixing with pigments like paints),
-        the three traditional primary colors are generally considered **Red, Blue,
-        and Yellow**.\n\nHowever, it''s important to note that:\n\n*   **Additive
-        color theory** (used in light, e.g., RGB screens) considers different primaries:
-        Red, Green, and Blue.\n*   The exact choice can vary slightly depending on
-        the specific context or color model followed.","reasoning":"Okay, the user
-        is asking to list three primary colors. Let me start by recalling what primary
-        colors are. In color theory, there are different sets depending on context.\n\nFirst,
-        I need to address their question in a general sense. They might be thinking
-        for art or design. The common answer is red, blue, yellow as subtractive primaries.
-        But wait, subtractive refers to pigments, paints, etc., right? That''s the
-        standard RGB model vs. CMYK and other systems.\n\nThey could be interested
-        in either additive (like screen colors) or traditional art. Maybe they''re
-        an artist or a designer working with physical materials versus digital screens.
-        The answer should cover both possibilities without assuming their field unless
-        specified.\n\nBut why would someone ask this? They might be learning about
-        color basics for school, starting to paint, doing graphic design work, or
-        just curious. Including both systems shows thoroughness and invites them to
-        ask which one they need more details on.\n\nThe user''s needs aren''t just
-        the list; they probably want clarity on how primary colors differ between
-        contexts. Not all information sources explain these nuances. Explaining RGB
-        vs CMYK helps them avoid confusion later, especially if their work involves
-        both mediums or printing.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":345,"total_tokens":352}}
+      string: '{"id":"chatcmpl-319","object":"chat.completion","created":1761504661,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Three
+        primary colors commonly used in art, design, and pigmentation are:\n\n1.  **Red**\n2.  **Yellow**\n3.  **Blue**\n\n*(Often
+        taught simply as \"red, yellow, blue\").*","reasoning":"Okay, the user is
+        asking me to list three primary colors. This seems like a simple question
+        on color theory basics.\n\nI need to consider what \"primary\" means here
+        - it could refer to different contexts with slightly varying definitions.
+        The most common reference would be the RGB model used in digital screens and
+        printing where red, green (or blue-green), and blue are typically considered
+        primary colors for light emission systems. For physical paint applications,
+        the RYB/impulse theory defines primary colors differently.\n\nSince \"red,
+        yellow, blue\" is often taught in schools as a more universally applicable
+        definition suitable for children learning art basics, I can provide this simpler
+        version too without making it overly technical unless specified by context.\n\nThe
+        user''s simple request suggests they''re probably looking for an educational
+        response covering both standard definitions. It might be someone teaching
+        basic color theory or just needing quick info for a project. The answer should
+        include explanations but stay concise to match the straightforward nature
+        of their query.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":247,"total_tokens":254}}
 
         '
-  recorded_at: Sat, 25 Oct 2025 21:27:40 GMT
+  recorded_at: Sun, 26 Oct 2025 18:51:01 GMT
 recorded_with: VCR 6.3.1

@@ -8,16 +8,36 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":"Return a JSON object with three
         primary colors in an array named ''colors''."}],"model":"deepseek-r1:latest","response_format":{"type":"json_object"}}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '187'
   response:
     status:
       code: 200
@@ -26,24 +46,24 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 25 Oct 2025 21:27:28 GMT
+      - Sun, 26 Oct 2025 18:51:08 GMT
       Content-Length:
-      - '1182'
+      - '1210'
     body:
       encoding: UTF-8
-      string: '{"id":"chatcmpl-88","object":"chat.completion","created":1761427648,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"{\"colors\":[\"red\",\"blue\",\"yellow\"]}","reasoning":"We
-        are to return a JSON object that has one key: \"colors\"\n The value of \"colors\"
-        should be an array containing the three primary colors.\n Primary colors typically
-        refer to red, blue, and yellow (in subtractive color models like paint) OR\n
-        In additive color models (like RGB), we have red, green, blue.\n However,
-        the problem doesn''t specify one model or another. Let''s assume the common
-        primary colors are red, blue, and yellow.\n\n So, we can create a JSON object:
-        { \"colors\": [\"red\", \"blue\", \"yellow\"] }\n\n But note: sometimes people
-        might think of RGB primaries (red, green, blue). However, without specification,
-        let''s choose subtractive as it is more traditional for primary colors in
-        art.\n\n If the problem intended any particular definition, we can adjust.
-        Since not specified, I''ll use red, blue, yellow.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":202,"completion_tokens":10,"total_tokens":212}}
+      string: '{"id":"chatcmpl-517","object":"chat.completion","created":1761504668,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"{\"_result\":[\"red\",\"yellow\",\"green\"]}","reasoning":"We
+        are going to return a JSON object that has a key \"_result\" which contains
+        an array of three primary colors.\n The typical primary colors in the context
+        of this problem might be red, blue, and yellow. \n However, note that sometimes
+        people say RGB primary colors (red, green, blue) but traditionally, the subtractive
+        color primaries are cyan, magenta, and yellow.\n But since the user specifically
+        said \"primary colors\", without further specification, I''ll go with red,
+        blue, and yellow as these are often considered in elementary contexts.\n\n
+        Let''s define:\n   - Three primary colors: \"red\", \"blue\", \"yellow\"\n\n
+        We want to return a JSON object like:\n {\n   \"_result\": [\"red\", \"blue\",
+        \"yellow\"]\n }\n\n However, note that the problem does not specify which
+        ones. Since it says \"three primary colors\", I''ll assume the common ones.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":201,"completion_tokens":11,"total_tokens":212}}
 
         '
-  recorded_at: Sat, 25 Oct 2025 21:27:28 GMT
+  recorded_at: Sun, 26 Oct 2025 18:51:08 GMT
 recorded_with: VCR 6.3.1

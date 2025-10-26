@@ -7,25 +7,45 @@ http_interactions:
       encoding: UTF-8
       string: '{"input":"Return the three primary colors.","model":"gpt-5-nano","text":{"format":{"type":"json_schema","name":"primary_colors","schema":{"type":"object","properties":{"colors":{"type":"array","items":{"type":"string"}}},"required":["colors"],"additionalProperties":false},"strict":true}}}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '289'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 20:46:26 GMT
+      - Sun, 26 Oct 2025 18:37:46 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -39,7 +59,7 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '29999'
       X-Ratelimit-Remaining-Tokens:
-      - '179999745'
+      - '179999742'
       X-Ratelimit-Reset-Requests:
       - 2ms
       X-Ratelimit-Reset-Tokens:
@@ -51,18 +71,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_b1faf1e8eea042b6b4f6b23dc7c2d6ac
+      - req_19416ae6a8cf4908ab330148eef0c2e5
       Openai-Processing-Ms:
-      - '8008'
+      - '4948'
       X-Envoy-Upstream-Service-Time:
-      - '8088'
+      - '4953'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=sQfY5Bxh53xoqktrPse8.q10_vpEUl2a_I6CvKL9XNU-1761425186-1.0.1.1-vzqsXpM6Cf8SpdKBdDtHEskqlEzcacBi5WY83ZDd8fUGOf95_JcfDcEhDNqSNaYdw2h9MhN3eObpvzwiAQvfaHDWGswqBRhjjWCqoOf6AnQ;
-        path=/; expires=Sat, 25-Oct-25 21:16:26 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=6G2oJDt8orux6HwfuHn.BXhbVCHLDi5e3cuT3vMGwOM-1761503866-1.0.1.1-3qXrBOcw3k.8HGEwqUZCStTUF4qSws_7BeLE06pyHAvrsOaO5WmXfNp6Kh.wpKNaA2X0gwPcUqDHoDMIxo5LJpySvX6rmgqUM8f9iCFIf6s;
+        path=/; expires=Sun, 26-Oct-25 19:07:46 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=9uWfQHmzWdjkGuj2nH6oh7DM6pVM0IDyrXuwxXUZI3o-1761425186686-0.0.1.1-604800000;
+      - _cfuvid=vvmGibfmvLa9AudEjV54eFkS6UC8FwXErQ7leNMOYpk-1761503866763-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +91,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 994490060ed91563-SJC
+      - 994c11001fdf942f-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0b875daaf41c448f0068fd371abef4819b8c782d1b0d46274c",
+          "id": "resp_04cddc6f47dac4eb0068fe6a75d47c819a940fc0d20ea8a05a",
           "object": "response",
-          "created_at": 1761425179,
+          "created_at": 1761503862,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,12 +114,12 @@ http_interactions:
           "model": "gpt-5-nano-2025-08-07",
           "output": [
             {
-              "id": "rs_0b875daaf41c448f0068fd371dd228819b8abcf77d0feaaab8",
+              "id": "rs_04cddc6f47dac4eb0068fe6a76b054819ab47d42a7941074df",
               "type": "reasoning",
               "summary": []
             },
             {
-              "id": "msg_0b875daaf41c448f0068fd37220254819bbf3ed93128e72382",
+              "id": "msg_04cddc6f47dac4eb0068fe6a7a4b90819aafbacf347b02b8aa",
               "type": "message",
               "status": "completed",
               "content": [
@@ -107,7 +127,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "{\"colors\":[\"red\",\"green\",\"blue\"]}"
+                  "text": "{\"colors\":[\"red\",\"blue\",\"yellow\"]}"
                 }
               ],
               "role": "assistant"
@@ -158,14 +178,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 340,
+            "output_tokens": 532,
             "output_tokens_details": {
-              "reasoning_tokens": 320
+              "reasoning_tokens": 512
             },
-            "total_tokens": 380
+            "total_tokens": 572
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 25 Oct 2025 20:46:26 GMT
+  recorded_at: Sun, 26 Oct 2025 18:37:46 GMT
 recorded_with: VCR 6.3.1

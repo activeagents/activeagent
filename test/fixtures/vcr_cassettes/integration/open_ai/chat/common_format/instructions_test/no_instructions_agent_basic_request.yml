@@ -7,25 +7,45 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"Hello, GPT!"}],"model":"gpt-5"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '70'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 02:38:45 GMT
+      - Sun, 26 Oct 2025 18:24:09 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -37,13 +57,13 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '2598'
+      - '2080'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '2624'
+      - '2312'
       X-Ratelimit-Limit-Requests:
       - '15000'
       X-Ratelimit-Limit-Tokens:
@@ -51,22 +71,22 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '14999'
       X-Ratelimit-Remaining-Tokens:
-      - '39999994'
+      - '39999995'
       X-Ratelimit-Reset-Requests:
       - 4ms
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_86f3d152453a42ceb46d19ecdda2d7d4
+      - req_2c6f5f4eb7de4cf68c633f283a15a581
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=ExjMcpuz9W3NpF9YXPJGJbuCmr3CGFnmJjn9wZTZaDA-1760755125-1.0.1.1-.JhN2_CYXHJUcMGq7f0APo4teptemWmBSBb1iftD9iNOuMOaD3zJeEhdQBePRHoCY3yXqt67xlurymO2baWNjXk_W_P3V14Tj66.o082hk8;
-        path=/; expires=Sat, 18-Oct-25 03:08:45 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=fVT7yAFNjRteHXV3_qDhrphBtfplWSctbL9QV4P0fqk-1761503049-1.0.1.1-Z7UHJWXhbxWr9.J6IUMvlA_5sS6QsIAsyQHTLcDpaTxSTjQzJ6I4lFpHGMBglXGBVUgg.dWa83ouY56ByPjTP1N_6uortpukyY6M_AEK3vQ;
+        path=/; expires=Sun, 26-Oct-25 18:54:09 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=EDKVSRimX3oS2k_LXeJlzZVu0hnJTKGeYQH56fee2xw-1760755125118-0.0.1.1-604800000;
+      - _cfuvid=eiBRhpk0cWzwpMn34rMKe0biKRLsYDBlqxzPD_Z40xQ-1761503049774-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -75,23 +95,23 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9904a93af8b31703-SJC
+      - 994bfd1e3adbfa26-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-CRr86KoFPvoOT4TAqnhbO10jdk1jm",
+          "id": "chatcmpl-CUzhPMiwWkuswwXPZQ4gpKI6EOCx6",
           "object": "chat.completion",
-          "created": 1760755122,
+          "created": 1761503047,
           "model": "gpt-5-2025-08-07",
           "choices": [
             {
               "index": 0,
               "message": {
                 "role": "assistant",
-                "content": "Hi! How can I help today? I can brainstorm ideas, explain concepts, write or edit text, debug code, plan projects, or answer questions.",
+                "content": "Hi there! How can I help you today?",
                 "refusal": null,
                 "annotations": []
               },
@@ -100,14 +120,14 @@ http_interactions:
           ],
           "usage": {
             "prompt_tokens": 10,
-            "completion_tokens": 104,
-            "total_tokens": 114,
+            "completion_tokens": 19,
+            "total_tokens": 29,
             "prompt_tokens_details": {
               "cached_tokens": 0,
               "audio_tokens": 0
             },
             "completion_tokens_details": {
-              "reasoning_tokens": 64,
+              "reasoning_tokens": 0,
               "audio_tokens": 0,
               "accepted_prediction_tokens": 0,
               "rejected_prediction_tokens": 0
@@ -116,5 +136,5 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": null
         }
-  recorded_at: Sat, 18 Oct 2025 02:38:45 GMT
+  recorded_at: Sun, 26 Oct 2025 18:24:09 GMT
 recorded_with: VCR 6.3.1

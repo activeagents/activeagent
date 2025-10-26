@@ -81,6 +81,16 @@ end
 - Move to new `generate_with` configuration pattern
 - Update template paths to new structure
 - Change generator command from `rails g active_agent` to `rails g active_agent:agent`
+- **Update provider gems in your Gemfile:**
+  ```ruby
+  # Remove these
+  gem "ruby-openai"
+  gem "ruby-anthropic"
+  
+  # Add these
+  gem "openai"          # Official OpenAI SDK
+  gem "anthropic"       # Official Anthropic SDK
+  ```
 
 ### Added
 
@@ -139,7 +149,9 @@ end
 - Complete rewrite: 205 new provider files
 - Unified `BaseProvider` interface across OpenAI, Anthropic, Ollama, OpenRouter
 - Type-safe options with structured definitions per provider
-- Anthropic gem: `ruby-anthropic ~> 0.4.2` → `anthropic ~> 1.12`
+- **Migrated to official provider gems:**
+  - OpenAI: `ruby-openai ~> 8.3` → `openai ~> 0.34` (unofficial 3rd-party → official OpenAI SDK)
+  - Anthropic: `ruby-anthropic ~> 0.4.2` → `anthropic ~> 1.12` (unofficial 3rd-party → official Anthropic SDK)
 
 **Architecture:**
 - Parameter handling: Simplified to 3-step Collect → Merge → Translate pattern

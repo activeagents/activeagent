@@ -9,25 +9,47 @@ http_interactions:
         555-1234\nEducation: BS Computer Science, MIT, 2015\nExperience: Software
         Engineer at TechCo, 2015-2020","model":"gpt-4o","text":{"format":{"type":"json_schema","name":"resume_schema","schema":{"type":"object","properties":{"name":{"type":"string"},"email":{"type":"string"},"experience":{"type":"array","items":{"type":"object","properties":{"job_title":{"type":"string"},"company":{"type":"string"},"duration":{"type":"string"}},"required":["job_title","company","duration"],"additionalProperties":false}}},"required":["name","email","experience"],"additionalProperties":false},"strict":true}}}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '679'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 01:05:55 GMT
+      - Sun, 26 Oct 2025 19:12:25 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -53,18 +75,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_140fbc6408274d959d8ceca7b024c63e
+      - req_654b25a7eb974fcea22b47ff067d7065
       Openai-Processing-Ms:
-      - '1569'
+      - '1264'
       X-Envoy-Upstream-Service-Time:
-      - '1578'
+      - '1267'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=ylHa8SkWjvUznwUnHxK8X5_manvZu5cTzmbFiNHiOyA-1761440755-1.0.1.1-LQUzfqNC6MP2TalHF3fJlAJyBcqVmlJ2i2LiRgqICF5cJ2dsyT._b9NpW3m1.yl9nV0UPB8B7iqbvV6M9YD6Wwjnq.ewXCj73B._9XOj6H4;
-        path=/; expires=Sun, 26-Oct-25 01:35:55 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=MqCa75hPEXZdMUCLQbQlPWpOc_sRIbBJGWl_x1sXwKs-1761505945-1.0.1.1-YDysXxAm0YOCMxKzvZ9kkhEoT2H4LI4re3tHKAYy4LyyjrgDp3v_3Wxx_4CHb_MrbQUUeZ7vNvSHba3F4X_9uP14.lAJxOKzeX_Im_UeoAk;
+        path=/; expires=Sun, 26-Oct-25 19:42:25 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=ShMkF8eSKfkBVRM_npn.OddCG43.TgvcmUh3x8gHdrI-1761440755134-0.0.1.1-604800000;
+      - _cfuvid=hToenRAY8fV94WWl1wl10Vtyp9mO6g3sCqmtfbFpvbk-1761505945957-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -73,16 +95,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99460c457b8d238f-SJC
+      - 994c43d8d9e57803-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0de98175d3a453260068fd73f1996081998b3feb3c39ac40a1",
+          "id": "resp_0bc156705279abd80068fe7298ae9c8194ae8e1319a5e28d0d",
           "object": "response",
-          "created_at": 1761440753,
+          "created_at": 1761505944,
           "status": "completed",
           "background": false,
           "billing": {
@@ -96,7 +118,7 @@ http_interactions:
           "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "msg_0de98175d3a453260068fd73f2828c81999e8e56637b216f44",
+              "id": "msg_0bc156705279abd80068fe7299795c819490c54e2e0c712a98",
               "type": "message",
               "status": "completed",
               "content": [
@@ -189,5 +211,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sun, 26 Oct 2025 01:05:55 GMT
+  recorded_at: Sun, 26 Oct 2025 19:12:25 GMT
 recorded_with: VCR 6.3.1

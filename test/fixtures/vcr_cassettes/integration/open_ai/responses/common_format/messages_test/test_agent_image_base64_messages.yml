@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"What''s
         in this image?"},{"type":"input_image","image_url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}]}],"model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '266'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 05:28:49 GMT
+      - Sun, 26 Oct 2025 18:35:51 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,7 +60,7 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '9999'
       X-Ratelimit-Remaining-Tokens:
-      - '29999234'
+      - '29999235'
       X-Ratelimit-Reset-Requests:
       - 6ms
       X-Ratelimit-Reset-Tokens:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_a39c3c422dc746fbb6ef5016f4471edc
+      - req_ff593f654803465692b476e53f03f7a5
       Openai-Processing-Ms:
-      - '1434'
+      - '2107'
       X-Envoy-Upstream-Service-Time:
-      - '1487'
+      - '2111'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=oTg0T6cEdY4PpMRZQoNKXyv4z1dpumdZ39l9rA1oFk4-1761024529-1.0.1.1-vGU5Bw9q3_9WseTb6.dstVj57DXMSJz5TivepwCwx.1cHkhVbDB.g7nGr9YxDj1TFpjIqRVVor19SZCOU2oQcsvvhHwJMVtb3YxaF1Gdtiw;
-        path=/; expires=Tue, 21-Oct-25 05:58:49 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=.aeUWvy7QcB1ZKHne2rCXXQpFi_FVQ0S_w9JRjnh_tA-1761503751-1.0.1.1-RYU3kgTQwi6A7DG9.LUUK1UvPFHgiYzF2q_BdJBkmifUw5jt2969BxINyvSAN0GMDX0uT6YxJcKxOXdD26nmZdqaSWLSsRK8w4TbLUpobTw;
+        path=/; expires=Sun, 26-Oct-25 19:05:51 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=LPTNhfv_1uKimI3f6riLWCMXEt1bfzHJ7gj3Z65nBNE-1761024529612-0.0.1.1-604800000;
+      - _cfuvid=o6qG_WBQ.zwGqPbvZO5jAefkNkOyF1k8tGgV0ONolqU-1761503751563-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991e5a83e9eb4f08-SJC
+      - 994c0e41c982d025-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_08209d12c589d44b0068f71a103104819892b40c7a1ec12091",
+          "id": "resp_0abf098fba6b2faf0068fe6a0573fc8198b34b98039df837d5",
           "object": "response",
-          "created_at": 1761024528,
+          "created_at": 1761503749,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +115,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_08209d12c589d44b0068f71a112d80819883d3461de6628585",
+              "id": "msg_0abf098fba6b2faf0068fe6a06d76c8198b3b4eb132125f37b",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +123,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "This image is a solid green color with no discernible objects or patterns."
+                  "text": "This image is a solid bright green color with no discernible objects, patterns, or text."
                 }
               ],
               "role": "assistant"
@@ -136,14 +156,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 16,
+            "output_tokens": 20,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 283
+            "total_tokens": 287
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 21 Oct 2025 05:28:49 GMT
+  recorded_at: Sun, 26 Oct 2025 18:35:51 GMT
 recorded_with: VCR 6.3.1

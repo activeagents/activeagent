@@ -8,6 +8,26 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What''s
         in this image?"},{"type":"image_url","image_url":{"url":"https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png?scale-down-to=64"}}]}],"model":"openai/gpt-4o"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -16,19 +36,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '242'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 04:38:17 GMT
+      - Sun, 26 Oct 2025 19:16:25 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,11 +69,11 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993f06045b61cf1a-SJC
+      - 994c49b4588215a8-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1761367097-G4OOMa4upBw70V0Ix1oV\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761367097,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The
-        image contains a logo with the text \\\"ACTIVE AGENTS\\\" and a devil emoji
-        wearing sunglasses. The design uses a red and black color scheme.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":267,\"completion_tokens\":30,\"total_tokens\":297,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Sat, 25 Oct 2025 04:38:18 GMT
+      string: "\n         \n\n         \n{\"id\":\"gen-1761506184-L0yXRRgzNIKW76urfi4x\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761506184,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The
+        image contains a logo with a devil face emoji wearing sunglasses, next to
+        the text \\\"ACTIVE AIDANTS.\\\"\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":267,\"completion_tokens\":23,\"total_tokens\":290,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:16:25 GMT
 recorded_with: VCR 6.3.1

@@ -7,25 +7,47 @@ http_interactions:
       encoding: UTF-8
       string: '{"input":"Your text","model":"text-embedding-3-small"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '54'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 05:31:04 GMT
+      - Sun, 26 Oct 2025 19:19:09 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -41,7 +63,7 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '104'
+      - '75'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
@@ -49,9 +71,9 @@ http_interactions:
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - envoy-router-5cf9f869cb-wkdlb
+      - envoy-router-bffbfc7f9-d9kgd
       X-Envoy-Upstream-Service-Time:
-      - '354'
+      - '96'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -65,23 +87,23 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_fa4e0b993d404521a28c7366d202fddb
+      - req_c5e7c9845aa44f68b78e43709e0eaf84
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=DrTnxNqZJIT4L7HWYJlTdNMNFqpijZlRHTADmJI5Op8-1761370264-1.0.1.1-8zn5fehbGlFoiMBksBQWX5_1JwHvfAbgARj5z6_JwrVjLTJ0v0pu.3gMD4K7jfY87N1zuih8dR96qJVJ1LtDpxDOKvOkY63yUkWA3CHY9Yw;
-        path=/; expires=Sat, 25-Oct-25 06:01:04 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=ikEUbsIxJS_o5jD4he6etmXeZhEWGzSgMpxFifXWoEU-1761506349-1.0.1.1-5.uBak22osK4xQf9CGbKRUCfzoR8KZAzwZlcZNop2PqY3KIVwN5bqw4K_cnAZqs_7B9jcAYW7nPL3Vm00Nz_OB9qHmAWAsF_JMVUKHDUl9g;
+        path=/; expires=Sun, 26-Oct-25 19:49:09 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=kwqe4.4IuF.9GoD._RLVoYUKHjWvUx5PznHfPZCKpO0-1761370264068-0.0.1.1-604800000;
+      - _cfuvid=VzFCfbKvqeeBQRTO8YTXBPKCmpRjxdUJR1txRfabf2E-1761506349455-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       X-Content-Type-Options:
       - nosniff
       Server:
       - cloudflare
       Cf-Ray:
-      - 993f5350789caaa9-SJC
+      - 994c4dbac9b915ef-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
@@ -1639,5 +1661,5 @@ http_interactions:
             "total_tokens": 2
           }
         }
-  recorded_at: Sat, 25 Oct 2025 05:31:04 GMT
+  recorded_at: Sun, 26 Oct 2025 19:19:09 GMT
 recorded_with: VCR 6.3.1

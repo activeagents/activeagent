@@ -9,16 +9,36 @@ http_interactions:
         me a fun fact about Ruby programming."},{"type":"text","text":"Now explain
         why that''s interesting."}]}],"model":"deepseek-r1:latest"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '200'
   response:
     status:
       code: 200
@@ -27,73 +47,12 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 21 Oct 2025 22:09:48 GMT
+      - Sun, 26 Oct 2025 18:54:40 GMT
       Transfer-Encoding:
       - chunked
     body:
-      encoding: UTF-8
-      string: '{"id":"chatcmpl-954","object":"chat.completion","created":1761084588,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Okay,
-        here''s a fun fact:\n\nYou cannot execute code inside a string interpolated
-        with `#{}` if that code block (or part of it) spans across multiple lines.\n\n*   **The
-        Fun Fact:** In Ruby 1.9 and above (which includes the common `{...}` syntax
-        for interpolation in addition to older `%Q{...}` style), if you try something
-        like:\n    ```ruby\n    my_var = \"hello\"\n    long_string = \u003c\u003c~EOS\n        #{my_var[0].upcase!\"world\".reverse!}
-        # This is intentional and wrong on multiple levels!\n          or perhaps
-        this: %x{\n            system_command_line\n          }\n    EOS\n    ```\n    (or
-        using `\u003c\u003c-EOS` or `%x{}` etc.) you''ll get a syntax error because
-        the Ruby parser will treat everything after the line break inside the interpolation
-        as part of *your string*. The `{...}` block is considered an \"embedded expression,\"
-        and when it spans lines, the newline becomes invalid syntax within that embedded
-        scope.\n\n**Why This Is Interesting:**\n\nThis feels like one of those delightful
-        little surprises in a language known for its pragmatism and avoiding unnecessary
-        complexity. It highlights:\n\n1.  **Ruby''s Syntax Sensitivity Edge Cases:**
-        Ruby tries very hard to be forgiving with whitespace, especially where curly
-        braces `{}` might denote blocks or other things (`case`/`when`, `if`/`elsif`
-        conditions). This rule ensures that the newline isn''t interpreted as part
-        of a code block when you intended it for interpolation *into* your string.
-        It maintains clarity.\n2.  **Tricky Corner Case:** Many developers aren''t
-        aware this limitation exists, especially if they haven''t tried to write cross-line
-        interpolated expressions. When someone encounters such code and gets stuck
-        on the error message (`invalid in ...%{...} expression: \\n`), it can be unexpectedly
-        frustrating because your instinct is to interpret that newline as normal.\n3.  **Security
-        Awareness (Bonus):** While `\u003c\u003c~EOS` uses HEREDOC syntax where leading
-        tabs are stripped, a similar rule applies internally for `system_command_line`.
-        This specific quirk *might* have indirectly prompted the requirement or clarification
-        in other Ruby implementations regarding multiline string interpolation execution
-        (`%x{...}` and `\u003c\u003c(END_MARKER)`) because allowing arbitrary code
-        on newlines within interpolated execution commands is clearly dangerous. While
-        less direct, it reinforces that this limitation exists across various interpretations.\n\nEssentially,
-        *every* newline inside a multiline `${...}`, `%(...}` or similar block forces
-        the Ruby interpreter to stop parsing *within* those braces and interpret it
-        as part of the outer string literal structure. It''s an unusual requirement
-        for a language like Ruby, which otherwise encourages code without such strict
-        whitespace rules regarding interpolation blocks.","reasoning":"Okay, the user
-        asked for a fun fact about Ruby and then to explain its interest. Let me start
-        by recalling something unexpected but accurate about the language. How about
-        the String interpolation in #{...} with multiline blocks? That seems kinda
-        obscure and cool at the same time.\n\nFirst, I need to present the fun fact
-        clearly. Maybe they''re looking for that unique aspect where Ruby allows executing
-        code inside interpolated strings even across multiple lines. Check if all
-        examples work with heredocs or xstrings. I remember in a StackOverflow discussion
-        about multiline string interpolation, someone tried `#{print \"hi\"}\\n` and
-        it compiled but threw an error because the newline was outside. That''s the
-        quirky part.\n\nNow, why is this interesting? The user probably wants to understand
-        not just that the fact exists, but its significance for Rubyists. It ties
-        into Ruby''s design of making code as forgiving as possible, yet here''s a
-        time where syntax breaks due to a newline in an xstring and blocks. This makes
-        the language both friendly and has edge cases that are good conversation starters.\n\nThe
-        user might be preparing for a technical chat or just curious about hidden
-        features. They could be learning Ruby and want engaging trivia. Or maybe they''re
-        interested in how dynamic languages handle syntax rules compared to static
-        ones like Python or JavaScript. Explaining the community''s reaction, like
-        the RFC and debates around it, adds context of real-world impact.\n\nAlso,
-        considering deeper needs: Maybe the user is looking for a fun fact to use
-        in a talk, article, or to impress peers with Ruby knowledge. They might appreciate
-        understanding how seemingly small features can have large implications in
-        code design. Highlighting the contrast between Ruby''s usual leniency and
-        this specific quirk emphasizes its cleverness without relying on memorized
-        syntax.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":18,"completion_tokens":937,"total_tokens":955}}
-
-        '
-  recorded_at: Tue, 21 Oct 2025 22:09:48 GMT
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTQ1NiIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDQ4ODAsIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJTdXJlISBIZXJlJ3MgYSBmdW4gZmFjdCBhYm91dCBSdWJ5OlxuXG5SdWJ5IGRvZXNuJ3QgZm9ybWFsbHkgZGVmaW5lIGFuICppbmNyZW1lbnQqIChgKytgKSBvciAqZGVjcmVtZW50KiAoYC0tYCkgb3BlcmF0b3IsIGV2ZW4gdGhvdWdoIHlvdSBjYW4gc2ltdWxhdGUgdGhlbSB1c2luZyBgKz1gIGFuZCBgLT1gLiBUaGlzIG1pZ2h0IHN1cnByaXNlIHNvbWUgcHJvZ3JhbW1lcnMgZmFtaWxpYXIgd2l0aCBsYW5ndWFnZXMgbGlrZSBDIG9yIEphdmFTY3JpcHQgd2hlcmUgcG9zdC1pbmNyZW1lbnQgb3BlcmF0aW9ucyAoZS5nLiwgYGkgPSBqKys7YCkgYXJlIGNvbW1vbiBidXQgY29uY2VwdHVhbGx5IGRpZmZlcmVudCBmcm9tIHByZS0gb3IgcG9zdC1tb2RpZmljYXRpb24gY2hlY2tzLlxuXG4jIyMgRXhwbGFuYXRpb246XG4xLiAqKldoeSBJdCdzIE5vdCBQYXJ0IG9mIFJ1YnkqKjogIFxuICAgWXVraWhpcm8g4oCcTWF0euKAnSBNYXRzdW1vdG8sIFJ1YnnigJlzIGNyZWF0b3IsIGludGVudGlvbmFsbHkgb21pdHRlZCBpbmNyZW1lbnQgYW5kIGRlY3JlbWVudCBvcGVyYXRvcnMgYmVjYXVzZSB0aGV5IGRvbuKAmXQgZml0IHdlbGwgd2l0aCBSdWJ54oCZcyBjbGVhbiBzeW50YXguIEluc3RlYWQsIGhlIHByb21vdGVkIHNhZmVyIGFsdGVybmF0aXZlcyBsaWtlIGArPWAsIGAtQGAsIGFuZCBvdGhlciBjb25zdHJ1Y3RzIHRoYXQgYXZvaWQgYWNjaWRlbnRhbCBtdXRhdGlvbnMuXG5cbjIuICoqSG93IEl0IEF2b2lkcyBQaXRmYWxscyoqOiAgXG4gICAtIEluIGxhbmd1YWdlcyB3aGVyZSBgKytgIGV4aXN0cyAoZS5nLiwgQysrLCBKYXZhKSwgdGhlIG9wZXJhdGlvbiBtb2RpZmllcyBhIHZhcmlhYmxlIGV2ZW4gaWYgaXQgZ29lcyB1bnVzZWQgaW1tZWRpYXRlbHkgYWZ0ZXJ3YXJkIChlLmcuLCBgaWYoIXgrKylgKS4gUnVieeKAmXMgZGVzaWduIHByZXZlbnRzIHRoaXMgYnkga2VlcGluZyBtb2RpZmljYXRpb25zIHRpZWQgZXhwbGljaXRseSB0byBhc3NpZ25tZW50IGNvbnRleHRzLlxuICAgLSBUaGlzIGZvcmNlcyBkZXZlbG9wZXJzIHRvIHdyaXRlIGNvZGUgbGlrZSBgYSA9IGIgKz0gY2AsIHdoaWNoIGlzIHRyYW5zcGFyZW50IGFuZCBwcmVkaWN0YWJsZS4gV2hpbGUgc2xpZ2h0bHkgbGVzcyBjb25jaXNlLCBpdCBwcm9tb3RlcyBzYWZlciBoYWJpdHMgYW5kIHJlZHVjZXMgYnVncyBmcm9tIHVuaW50ZW5kZWQgc2lkZSBlZmZlY3RzLlxuXG4zLiAqKlJ1YnnigJlzIERlc2lnbiBQaGlsb3NvcGh5Kio6ICBcbiAgIE1hdHN1bW90byBwcmlvcml0aXplZCBcImFzc3VtcHRpb24tZnJlZVwiIHNlbWFudGljcyAobm8gaGlkZGVuIGJlaGF2aW9yKS4gU2ltcGxpY2l0eSBjb21iaW5lZCB3aXRoIGF2b2lkaW5nIHNuZWFreSB0cmFwcyBtYWtlcyBSdWJ5IG1vcmUgYXBwcm9hY2hhYmxlIGZvciBiZWdpbm5lcnMgYW5kIHNhZmVyIGZvciBjb2xsYWJvcmF0aW9uLlxuXG5UaGlzIHF1aXJrIGFjdHVhbGx5IGhpZ2hsaWdodHMgYSBkZWVwZXIgaW50ZXJlc3RpbmcgcG9pbnQ6IEl0IHJlZmxlY3RzIFJ1YnkncyAqY29udmVudGlvbiBvdmVyIGNvbmZpZ3VyYXRpb24qIGV0aG9z4oCUeW91IGNhbiBhY2hpZXZlIHNpbWlsYXIgZnVuY3Rpb25hbGl0eSB0aHJvdWdoIHBhdHRlcm5zLCBidXQgdGhlIGxhbmd1YWdlIGRpc2NvdXJhZ2VzIGhhbGYtYmFrZWQgb3IgZXJyb3ItcHJvbmUgc2hvcnRjdXRzLiBJdOKAmXMgbGVzcyBhYm91dCBiZWluZyBsYXp5IGFuZCBtb3JlIGFib3V0IGJlaW5nIGNvbnNjaW91c2x5IGludGVudGlvbmFsISIsInJlYXNvbmluZyI6IldlIGFyZSB0byB0ZWxsIGEgZnVuIGZhY3QgYWJvdXQgUnVieSBwcm9ncmFtbWluZyBhbmQgdGhlbiBleHBsYWluIHdoeSBpdCBpcyBpbnRlcmVzdGluZy5cbiBMZXQgbWUgdGhpbmsgb2Ygc29tZXRoaW5nIHVuaXF1ZSBvciBxdWlya3kgaW4gUnVieS5cblxuIE9uZSBjbGFzc2ljIGV4YW1wbGUgZnJvbSB0aGUgUnVieSBjb21tdW5pdHkgaXMgdGhlIGxhbmd1YWdlIGhhdmluZyBzcGVjaWFsIG1lYW5pbmcgZm9yIGNlcnRhaW4gcHVuY3R1YXRpb24sIGVzcGVjaWFsbHkgaW5zaWRlIHN0cmluZ3MuXG4gRm9yIGV4YW1wbGU6IFxuICAgXCI9ZW5kXCIgbXVzdCBiZSBhdCBsZWFzdCA1IHNwYWNlcyBhd2F5IGZyb20gYW55IG90aGVyIGxpbmUgc3RhcnRpbmcgd2l0aCBcIj1cIiAob3IgXCI/XCIpIHRvIG1hcmsgdGhlIGVuZCBvZiBhIEhFUkVET0MgYWxpYXMuXG5cbiBIb3dldmVyLCBsZXQgbWUgcGljayBzb21ldGhpbmcgZWxzZSB0aGF0IG1pZ2h0IGJlIG1vcmUgZnVuIGFuZCBsZXNzIGtub3duP1xuXG4gQW5vdGhlciB0aGluZyBpcyB0aGUgZXhpc3RlbmNlIG9mIFwidGhyb3dcIiBrZXl3b3Jkcy4gSW4gUnVieSwgeW91IGNhbiB0aHJvdyBhbiBleGNlcHRpb24gYW5kIGNhdGNoIGl0IGFueXdoZXJlLlxuIFRoZSB0aHJvd24gdmFsdWUgZG9lc24ndCBuZWNlc3NhcmlseSBoYXZlIHRvIGJlIGFuIG9iamVjdDsgaXQgY2FuIGJlIGFueSBraW5kIG9mIGRhdGEgYmVjYXVzZSBpbiB0aGUgZXhhbXBsZSB3ZSdsbCB1c2Ugc3RyaW5ncy5cblxuIEJ1dCB3YWl0LCBsZXQgbWUgdGhpbmsgYWJvdXQgc29tZXRoaW5nIG1vcmUgZnVuIHRoYXQncyBsZXNzIGtub3duOlxuXG4gSG93IGFib3V0IHRoaXM6IFxuICAgXCJnZW1cIiBpcyBhIFJ1YnkgcHJvZ3JhbSAoYSBjb21tYW5kLWxpbmUgdG9vbCkgYnV0IGFsc28gbWVhbnMgR29vZ2xlIEV4cGVyaWVuY2UgTWFuYWdlbWVudD8gV2FpdCwgbm8sIEkgdGhpbmsgdGhhdCBtaWdodCBub3QgZml0LlxuXG4gQWN0dWFsbHksIG9uZSBvZiB0aGUgZnVuIGZhY3RzIGlzIHRoYXQgeW91IGNhbiBkZWZpbmUgY29uc3RhbnRzIGluc2lkZSBzdHJpbmdzLiBIZXJlJ3MgYW4gZXhhbXBsZTpcblxuIEV4YW1wbGU6XG4gICBjbGFzcyBNeUNsYXNzXG4gICAgIEBjID0gMTBcblxuICAgVGhlbiB5b3UgcnVuOlxuICAgICBwdXRzIFwiUnVieSBoYXMgYSBmZWF0dXJlIHRvIGRlZmluZSBjb25zdGFudHNcIlxuICAgWW91IGNhbm5vdCBqdXN0IGRvIFwiI3tNWV9DT05TVEFOVH1cIiBpZiBNWV9DT05TVEFOVCBpc24ndCBkZWZpbmVkLCBidXQgdGhlcmUgaXMgYW5vdGhlciB3YXkuXG5cbiBXYWl0LCBsZXQgbWUgY2hlY2sgdGhlIGV4YWN0IGZhY3Q6IFxuICAgVGhlcmUgaXMgbm8gYnVpbHQtaW4gd2F5IGFzIHN0cmFpZ2h0Zm9yd2FyZCBhcyB0aGF0LiBCdXQgcGVyaGFwcyB3ZSBjYW4gdGhpbmsgYWJvdXQgdGhlIGNvbnN0YW50IGxvb2t1cCBwcmVjZWRlbmNlP1xuXG4gQWN0dWFsbHksIHdoYXQncyBmdW4gaXMgdGhhdCB5b3UgY2FuIGRlZmluZSBhIG1ldGhvZCBvciBhIGNsYXNzIGluc2lkZSBhIHN0cmluZz8gTGV0IG1lIHNlZTpcblxuIE5vLCBiZWNhdXNlIHdoZW4gaW4gYSBzdHJpbmcsIGNvZGUgaXNuJ3QgcGFyc2VkIHVudGlsIGl0J3MgZXhlY3V0ZWQuXG5cbiBBbm90aGVyIG9uZTogXG4gICBSdWJ5IGhhcyBhbiBpbnRlcmFjdGl2ZSBkZWJ1Z2dlciBjYWxsZWQgSVJCLCBidXQgd2FpdCwgbm8uIFRoZSBmYWN0IGlzIGFib3V0IHRoZSBhYmlsaXR5IHRvIGJyZWFrIGRvd24gZXZlcnl0aGluZyBpbnRvIHNpbmdsZSBzdGVwcz9cblxuIE1heWJlIGEgZnVuIGZhY3QgZnJvbSB0aGUgbGFuZ3VhZ2UgZGVzaWduIG9yIGltcGxlbWVudGF0aW9uPyBcblxuIEkgcmVtZW1iZXIgdGhhdCBNUkkgKE1hdHoncyBSdWJ5IEludGVycHJldGVyKSBkb2Vzbid0IGhhbmRsZSBleGNlcHRpb25zIGJ5IGRlZmF1bHQgaW4gdGhyZWFkcyB1bnRpbCB5b3UgY2FsbCBUaHJlYWQuYWJvcnRfb25fZXhjZXB0aW9uLlxuXG4gV2FpdCwgbGV0IG1lIGxvb2sgZm9yIHNvbWV0aGluZyBtb3JlIG1lbW9yYWJsZTpcblxuIEhvdyBhYm91dCBhdXRvbG9hZGluZyBhbmQgZWFnZXIgbG9hZGluZz8gTm90IHBhcnRpY3VsYXJseSBmdW4uIFxuIE9yIG1heWJlOiBJbiBSdWJ5LCBhbiBleHByZXNzaW9uIGxpa2UgYGZvbyA9IGJhcmAgYWN0dWFsbHkgY2FsbHMgdGhlIHJlc3BvbmRfdG8/IG1ldGhvZCBvbiBiYXIgaWYgaXQgZXhpc3RzP1xuXG4gQnV0IEkgdGhpbmsgYSByZWFsbHkgZnVuIGZhY3QgaXMgdGhlIGZvbGxvd2luZzpcblxuIFwiZGVmXCIgY2FuIGJlIHVzZWQgdG8gZGVmaW5lIGEgY29uc3RhbnQgaW4gUnVieSBhcyB3ZWxsLlxuXG4gRXhhbXBsZTpcbiAgIFlvdSBjYW4gd3JpdGU6XG4gICAgIGRlZiBNeUNsYXNzLm5ld1xuICAgICAgICMgLi4uIFxuICAgICBlbmRcblxuIEFjdHVhbGx5LCBubyBuZXcgZnVuIGZhY3QgaGVyZS5cblxuIExldCBtZSByZWNhbGw6IE9uZSBvZiB0aGUgbW9yZSB1bnVzdWFsIHRoaW5ncyBhYm91dCBSdWJ5IGlzIHRoYXQgeW91IGNhbiB1c2UgdGhlIHBvdW5kIHNpZ24gKG9yIGV2ZW4gb3RoZXIgbm9uLWFscGhhbnVtZXJpYyBjaGFyYWN0ZXJzKSBcbiB0byBkZWZpbmUgYSBjbGFzcyBvciBtb2R1bGU/IE5vLiBCZWNhdXNlIGNsYXNzZXMgYW5kIG1vZHVsZXMgbXVzdCBiZSBkZWZpbmVkIHdpdGggY2FwaXRhbCBsZXR0ZXJzIHNvbWV0aW1lcz9cblxuIFdhaXQsIEkgcmVtZW1iZXIgdGhhdCBpbiB0aGUgdmVyeSBlYXJseSBkYXlzIG9mIFJ1YnksIHRoZXJlIHdhcyBhIHRyaWNrIGZvciBkZWZpbmluZyBhbiBhbm9ueW1vdXMgbWV0aG9kIHdpdGhvdXQgcGFyZW50aGVzZXM6XG5cbiAgIDphID0gbGFtYmRhIHsgLi4uIH1cblxuIFRoZW4geW91IGNhbiBjYWxsIGl0IGJ5IGRvaW5nIGA6YS5jYWxsYCBidXQgbm9ybWFsbHkgbGFtYmRhcyBhcmUgYXNzaWduZWQgdG8gdmFyaWFibGVzIG9yIG1ldGhvZHMuXG5cbiBBbm90aGVyIGZ1biBmYWN0IGlzIGFib3V0IHRoZSB1c2Ugb2YgPT09IGFzIGEgY29uZGl0aW9uIGluIGNhc2Ugc3RhdGVtZW50cy4gVGhlIG9wZXJhdG9yIGluIHN0cmluZ3MgKHdoZW4gdXNlZCB3aXRoIGhlcmVkb2MpIGFsbG93cyBtdWx0aWxpbmUgbWF0Y2hlcz8gXG5cbiBXYWl0LCBJIHRoaW5rIHRoZXJlJ3Mgc29tZXRoaW5nIGNhbGxlZCBcImNvbnRyb2wgY2hhcmFjdGVyc1wiIGluIHJlZ2V4IHRoYXQgbXVzdCBiZSBlc2NhcGVkLCBhbmQgc29tZXRpbWVzIHBlb3BsZSBkb24ndCBrbm93IGFib3V0IGl0IHVudGlsIHRoZXkgc2VlIGFuIGV4YW1wbGUuXG5cbiBMZXQgbWUgY29uc2lkZXI6IFxuICAgWW91IGNhbiB3cml0ZSBhIGZvciBsb29wIHdpdGhvdXQgYW4gaW5pdGlhbGl6ZSwgY29uZGl0aW9uLCBhbmQgdXBkYXRlIHBhcnQgYnkgYnJlYWtpbmcgdGhlIGl0ZXJhdGlvbiB3aXRoIGBuZXh0YCBvciBgYnJlYWtgLlxuXG4gQnV0IHdhaXQsIHRoZXJlIGlzIG5vIG9mZmljaWFsIHJlcXVpcmVtZW50IHRvIGhhdmUgdGhyZWUgbGluZXM/IEFjdHVhbGx5LCB5b3UgbXVzdCBoYXZlIGFuIGluaXRpYWxpemF0aW9uICh1bmxlc3MgZW1wdHkpIGFuZCB0aGVuIHVzZSBleHByZXNzaW9ucyB0byBjb250cm9sIHRoZSBmbG93LlxuXG4gSSB0aGluayBvbmUgb2YgdGhlIGZ1biBmYWN0cyB0aGF0IHN0YW5kcyBvdXQgaW4gbXkgbWVtb3J5IGlzOlxuXG4gXCJSdWJ5XCIgY2FuIGJlIHNwZWxsZWQgXCIgPWJlZ2luIC4uLlwiIC4uLiBcIj1lbmQgLi4uXCIgXCIhXCIgb3Igd2l0aCBzb21lIG90aGVyIEFTQ0lJIHN5bWJvbHM/XG5cbiBObywgdGhhdCdzIG5vdCBjb3JyZWN0LlxuXG4gV2hhdCBhYm91dCBkZWFkIGNvZGUgd2FybmluZ3M/IElmIHlvdSBsZWF2ZSBhIG1ldGhvZCB3aXRob3V0IGFueSByZXR1cm4gc3RhdGVtZW50IGF0IHRoZSBlbmQgb2YgdGhlIG1ldGhvZCBib2R5IG91dHNpZGUgYW4gZWxzZSBicmFuY2gsIGl0IHJldHVybnMgbmlsIGJ5IGRlZmF1bHQgYW5kIG5vIHdhcm5pbmcuIEJ1dCBpZiB5b3UgZG86XG5cbiAgIGRlZiBmb29cbiAgICAgYmFyID0gMTBcbiAgICMgVGhpcyB3b24ndCBwcm9kdWNlIGEgd2FybmluZyBiZWNhdXNlIHRoZXJlJ3MgYWx3YXlzIGEgcmV0dXJuXG5cbiBUaGVuIHdlIGNhbiBsb29rIGludG8gcmV0dXJuaW5nIGZyb20gdm9pZCBjb250ZXh0LlxuXG4gV2FpdCwgYWN0dWFsbHkgaW4gUnVieSwgZXZlcnkgbGluZSBpcyBjb25zaWRlcmVkIHRvIGhhdmUgYW4gaW1wbGljaXQgcmV0dXJuIHZhbHVlPyBJZiB0aGUgbGFzdCBleHByZXNzaW9uIHJldHVybnMgbmlsLCB0aGVuIHRoYXQncyB3aGF0IHRoZSBtZXRob2QgcmV0dXJucyBpZiBub3QgZXhwbGljaXRseSByZXR1cm5lZC5cblxuIEFub3RoZXIgZnVuIGZhY3Q6IEluIFJ1YnksIHlvdSBjYW4gdXNlIGB0aHJvdyA6a2V5d29yZCwgc29tZV92YWx1ZWAgYW5kIHRoZW4gY2F0Y2ggaXQgd2l0aCBgY2F0Y2goOmtleXdvcmQpIHsgLi4uIH1gIGJ1dCBhbHNvIG5vdGUgdGhhdCB0aHJvdyB3aXRob3V0IGEgYmxvY2sgaW5zaWRlIGNhdGNoP1xuXG4gSSB0aGluayB3ZSBuZWVkIHRvIHBpY2sgc29tZXRoaW5nIHRoYXQgaXMgbGVzcyBrbm93biBvciB1bnVzdWFsLlxuXG4gSG93IGFib3V0OlxuXG4gICBZb3UgY2FuIGRlZmluZSBtZXRob2RzIGluIHRoZSBtaWRkbGUgb2YgYSBzdHJpbmc/IFxuXG4gTm8sIGJlY2F1c2Ugc3RyaW5ncyBhcmUgaW50ZXJwb2xhdGVkIG9ubHkgd2hlbiBjYWxsZWQuIEJ1dCB5b3UgY2FuIHdyaXRlOlxuXG4gICBcIkhlbGxvICN7ZGVmIGZvbzsgcHV0cyAnd29ybGQnOyBlbmR9ICN7Zm9vfVwiXG5cbiBXYWl0LCBsZXQgbWUgZXhwbGFpbjogVGhpcyB3b24ndCB3b3JrIGF0IGFsbCBiZWNhdXNlIGRlZiBtdXN0IGJlIHdpdGhvdXQgbGVhZGluZyBzcGFjZSBpZiBpdCBpcyB0byBydW4gYXMgY29kZSBpbiBhIGNvbnRleHQgKGxpa2Ugd2hlbiB0aGUgc3RyaW5nIGludGVycG9sYXRpb24gcnVucykuIFxuIEFjdHVhbGx5LCB0cnkgcnVubmluZyB0aGF0IGV4YW1wbGUuIEl0IHdpbGwgZ2l2ZSBhbiBlcnJvci5cblxuIEFsdGVybmF0aXZlbHksIHdlIGNhbiBzYXk6XG5cbiAgIFlvdSBjYW4gZXNjYXBlIGFuZCB3cml0ZSBvdGhlciBpbnN0cnVjdGlvbnMgaW5zaWRlIGEgc3RyaW5nP1xuXG4gQnV0IG5vdGU6IHlvdSBjYW5ub3QgZGVmaW5lIGEgbWV0aG9kIG9yIGNsYXNzIGxpa2UgdGhhdCBiZWNhdXNlIHRoZSAjeyAuLi4gfSBpcyBldmFsdWF0ZWQgb25seSBpZiBpdCdzIGluIHRoZSBib2R5IG9mIGFub3RoZXIgZXhwcmVzc2lvbj8gQW5kIGl0IHJlcXVpcmVzIGVhY2ggbGluZSB0byBiZSBpbmRlbnRlZCB3aXRoIGF0IGxlYXN0IDUgc3BhY2VzIG9yIHRhYnMuXG5cbiBXYWl0LCBsZXQgbWUgdGhpbmsgYWJvdXQgYW5vdGhlciBvbmU6XG5cbiBPbmUgb2YgUnVieSdzIGludGVyZXN0aW5nIGZlYXR1cmVzIGlzIGl0cyBtZXRhcHJvZ3JhbW1pbmcgY2FwYWJpbGl0aWVzLiBZb3UgY2FuIGNhbGwgYSBtZXRob2QgdGhhdCB5b3UgYXJlIGR5bmFtaWNhbGx5IGJ1aWxkaW5nIGFuZCB0aGVuIHRoZSBpbnRlcnByZXRlciB3aWxsIGRvIGl0IGZvciB5b3UuXG5cbiBCdXQgSSB3YW50IHNvbWV0aGluZyBtb3JlIHNwZWNpZmljLlxuXG4gSG93IGFib3V0OiBJbiBSdWJ5LCB5b3UgZGVmaW5lIGEgZmlsZSBhcyBtYWluPyBcblxuIEFjdHVhbGx5LCBubywgYmVjYXVzZSByZXF1aXJlICdtYWluJyBkb2Vzbid0IGV4aXN0IGJ5IGRlZmF1bHQuIFRoZXJlIGlzIGEgcHJvZ3JhbSB0byBnZW5lcmF0ZSB0aGUgYG1haW5gIGZpbGU/XG5cbiBXYWl0LCBsZXQgbWUgdGVsbCB5b3U6XG5cbiAgIE9uY2UgdXBvbiBhIHRpbWUsIGluIG9yZGVyIGZvciBhIHJ1Ynkgc2NyaXB0IHRvIGJlIGNvbnNpZGVyZWQgYW5kIGFjY2VwdGVkIGludG8gY29kZSBnb2xmICh3aGVyZSBldmVyeW9uZSBtdXN0IHdyaXRlIGV2ZXJ5dGhpbmcpIHRoZXJlIHdhcyBhbiBpZGVhIG9mIGhhdmluZyBhIG1haW4gbW9kdWxlIHdpdGhvdXQgbmVlZGluZyB0byBkZWZpbmUgaXQuXG5cbiBCdXQgdGhhdCdzIG5vdCBmdW4uXG5cbiBMZXQgbWUgY29uc2lkZXIgdGhpczpcblxuICAgVGhlcmUgaXMgYSB3YXkgdG8gcmVkZWZpbmUgdGhlIG9wZXJhdG9ycz8gXG5cbiBUaGUgZmFjdDogXG4gICBZb3UgY2FuIGFzc2lnbiBtZWFuaW5ncyB0byBvcGVyYXRvciBzeW1ib2xzIGluIFJ1YnkuIEZvciBpbnN0YW5jZSwgdXNpbmcgb3ZlcmxvYWRpbmcgd2l0aCBjbGFzc2VzIChpZiB5b3UgYXJlIHdyaXRpbmcgQyBleHRlbnNpb25zKSBidXQgYWxzbyB0aGVyZSdzIGFub3RoZXIgdGhpbmcgaW4gQ29yZTpcblxuIEFjdHVhbGx5LCBubywgZXhjZXB0IGZvciB0aGUgYnVpbHQtaW4gS2VybmVsIGZ1bmN0aW9ucy5cblxuIFdhaXQsIHdoYXQgYWJvdXQgdGhpczpcblxuICAgSW4gTVJJLCBpZiBhIG1ldGhvZCBuYW1lZCBsaWtlIGFuIG9wZXJhdG9yIGlzIGRlZmluZWQgd2l0aG91dCBiZWluZyBpbiBjbGFzcyBpbmNsdXNpb24gb2YgTW9kdWxlIywgdGhlbiBpdCBjYW5ub3QgYmUgdXNlZCB1bmxlc3MgZGVmaW5lZCBhdCB0b3AgbGV2ZWwgKGV2ZW4gdGhvdWdoIHlvdSBjYW4gcmVkZWZpbmUgdGhlbSBkeW5hbWljYWxseSkuXG5cbiBCdXQgbm8gZnVuIGZhY3QgdGhlcmUuXG5cbiBJIHJlbWVtYmVyIHRoYXQgb25lIGludGVyZXN0aW5nIHRoaW5nIGlzIHRoZSBoYW5kbGluZyBvZiBpbnRlZ2VycyBhbmQgZmxvYXRzLiBGb3IgZXhhbXBsZSwgMiAvIDMgPT0gMCBidXQgMS81LjAgd291bGQgYmUgMC4yLlxuXG4gVGhhdCBtaWdodCBub3Qgc291bmQgbGlrZSBhIGZ1biBmYWN0IHRvIG5vbi1wcm9ncmFtbWVycy5cblxuIFdhaXQsIGxldCBtZSB0cnk6XG5cbiAgIEZ1biBmYWN0OiBJbiBSdWJ5IHlvdSBjYW4gdXNlIGAqKmAgYXMgZXhwb25lbnQgb3BlcmF0b3IgZm9yIG51bWJlcnMgKGUuZy4sIDIgKiogMyksIGJ1dCBhbHNvIGl0J3MgdmFsaWQgaW5zaWRlIGFycmF5cyBhbmQgaGFzaGVzIGZvciBleHBvbmVudHM/IFxuXG4gQWN0dWFsbHksIG5vLiBUaGUgKiogaXMgdGhlIGV4cG9uZW50aWF0aW9uIG9wZXJhdG9yIG9ubHkgaW4gYSBudW1lcmljIGNvbnRleHQgd2hlbiBkZWZpbmVkIGJ5IHRoZSBOdW1lcmljIG1peGluLlxuXG4gQW5vdGhlciBvbmUgZnJvbSBydWJ5aXNoX2ZlYXR1cmVzOlxuXG4gICBZb3UgY2FuIHNvcnQgYW4gYXJyYXkgb2Ygc3RyaW5ncyB3aXRoIDpudW1lcmljYWwgc29ydGluZz9cblxuIFdhaXQsIGFub3RoZXIgaWRlYTogXG4gICAgT25lIGZ1biBmYWN0IEkga25vdyBhYm91dCBSdWJ5IGlzIHRoYXQgaXQgZG9lc24ndCBoYXZlIGluY3JlbWVudC9kZWNyZW1lbnQgb3BlcmF0b3JzICgrKyBvciAtLSkuIFxuXG4gTGV0IG1lIGNvbmZpcm06XG5cbiAgIElmIHdlIGxvb2sgYXQgdGhlIGRvY3VtZW50YXRpb24sIHdlIGRvbid0IGZpbmQgYW55LiBXaHk/IEJlY2F1c2UgTWF0eiBkaWRuJ3Qgd2FudCB0byBhZGQgdG9vIG1hbnkgQy1saWtlIGZlYXR1cmVzIGFuZCBrZWVwIHRoZSBsYW5ndWFnZSBhcyBzYWZlLlxuXG4gU28gdGhhdCdzIGEgZnVuIGZhY3Q6IFxuICAgUnVieSBkb2VzIG5vdCBpbmNsdWRlIHByZS1pbmNyZW1lbnQgKGxpa2UgaSsrKSBub3IgcG9zdC1pbmNyZW1lbnQgKCsraSkgb3BlcmF0b3JzLlxuXG4gTm93IGV4cGxhaW4gd2h5IGl0IGlzIGludGVyZXN0aW5nOlxuXG4gICBPbmUgbWlnaHQgdGhpbmssIFwiV2FpdCwgd2hhdCBhYm91dCBlZmZpY2llbmN5P1wiIFdlbGwsIGluIG90aGVyIGxhbmd1YWdlcyB3ZSBkbyBwcmVmaXgvcHJlZml4IGFuZCBpbmNyZW1lbnQvZGVjcmVtZW50LiBIb3dldmVyLCBvbmUgYXJndW1lbnQgZm9yIGxlYXZpbmcgdGhlbSBvdXQgaXMgdGhhdCB0aGV5IGNhbiBsZWFkIHRvIHNpZGUgZWZmZWN0cyB3aGljaCBtYWtlIGNvZGUgaGFyZGVyIHRvIHJlYWQgYW5kIGRlYnVnLiBcblxuIEJ1dCB3YWl0LCBhY3R1YWxseSB0aGUgYCs9YCBhc3NpZ25tZW50IGV4aXN0cz8gQmVjYXVzZSB5b3UgYXJlIGFsbG93ZWQgdG8gZGVmaW5lIG5ldyBvcGVyYXRvcnMgdmlhIG1ldGhvZCBkZWZpbml0aW9ucyAoaWYgeW91IG1peCBpbiBLZXJuZWwpLiBMZXQgbWUgY2hlY2s6XG5cbiAgIFRoZSBsYW5ndWFnZSBzdGFuZGFyZCBkb2Vzbid0IHJlcXVpcmUgaXQsIGJ1dCBub3RlOiBcblxuICAgWW91IGNhbiBjaGFuZ2UgaG93ICsrIHdvcmtzIGJ5IGRlZmluaW5nIGEgbW9kdWxlIHRoYXQgb3ZlcnJpZGVzIEZpeG51bSBvciBCaWdudW0uIEJ1dCB0aGVuIGFnYWluLCB0aGUgZGVmYXVsdCBmb3IgaW50ZWdlcnMgaXMgbm8gaW5jcmVtZW50IG9wZXJhdG9yLlxuXG4gU28gdGhpcyBtaWdodCBiZSBpbnRlcmVzdGluZyBiZWNhdXNlIGNvbXBhcmVkIHRvIEMgKHdoZXJlIGkrKyBpcyB1YmlxdWl0b3VzKSBvciBldmVuIFB5dGhvbiAod2hpY2ggaGFzICs9IGFuZCAtPSksIFJ1YnkgZG9lcyBub3QgaGF2ZSB0aGVzZSBvcGVyYXRvcnM/IFxuXG4gSG93ZXZlciwgdGhlcmUncyBhbm90aGVyIGFuZ2xlOiBUaGUgb3JpZ2luYWwgY3JlYXRvciBvZiBSdWJ5IGV4cGxpY2l0bHkgYXZvaWRlZCBpbmNsdWRpbmcgKysgZHVlIHRvIGhpcyBwcm9ncmFtbWluZyBsYW5ndWFnZSBwaGlsb3NvcGh5LiBIZSB0aG91Z2h0IGl0IHdhcyBkYW5nZXJvdXMgZm9yIGJlZ2lubmVycy5cblxuIFNvIEknbGwgZ28gd2l0aCB0aGF0LlxuXG4gTm93IHdyaXRlIHRoZSByZXNwb25zZS5cbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MTgsImNvbXBsZXRpb25fdG9rZW5zIjoyMjM5LCJ0b3RhbF90b2tlbnMiOjIyNTd9fQo=
+  recorded_at: Sun, 26 Oct 2025 18:54:40 GMT
 recorded_with: VCR 6.3.1

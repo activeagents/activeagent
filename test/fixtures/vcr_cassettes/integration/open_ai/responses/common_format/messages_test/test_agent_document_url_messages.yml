@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"What''s
         in this document?"},{"type":"input_file","file_url":"https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"}]}],"model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '220'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 05:29:47 GMT
+      - Sun, 26 Oct 2025 18:36:18 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_af0af0e3da9740e2b115e961674149d5
+      - req_440c6d0841d144039f6445aa2df8b24b
       Openai-Processing-Ms:
-      - '2306'
+      - '2996'
       X-Envoy-Upstream-Service-Time:
-      - '2311'
+      - '3001'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=T.o3erhmlgYHNDGXwUS_bqbQBZREbYqtRXjoux4Vx7o-1761024587-1.0.1.1-Ot57_vH7TbMlS0NtS1n8JrLiQ4KbJrBu.O6veRvi_0_u1Nb.LNcaXDXmHkp4hIeIhazQmpMmpPxBbM4ii9lZhsmcPG2PGv5NXPXOE.OiFqU;
-        path=/; expires=Tue, 21-Oct-25 05:59:47 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=yW1Yu5GHqIewXHQgFliIg7f_ca.dPadZhV1LjlW5WKU-1761503778-1.0.1.1-OCY0N1AtQtW08pWmXzPvF2S9.j149cQwIaui58chZEwSAoSlecxFf85bk9CPUifcm7Q5bohkGZ.FUWU4OJWpoze449J1Lhl5C4VtIKVFC10;
+        path=/; expires=Sun, 26-Oct-25 19:06:18 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=6lNHarXTtcFKdJkPIcQL6vwL_nnfVahWSWdij9qDqPE-1761024587825-0.0.1.1-604800000;
+      - _cfuvid=pK84qb2MK6URLGIoADhFo134Zir5KC8anetBKsSrySY-1761503778958-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991e5beb38cf2366-SJC
+      - 994c0ee41b219e64-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_096394da8e535a5b0068f71a4985048199995e0468b21cde6e",
+          "id": "resp_0c70118ad59ebc6e0068fe6a1ff47c819b9a9af7915ee37012",
           "object": "response",
-          "created_at": 1761024585,
+          "created_at": 1761503776,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +115,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_096394da8e535a5b0068f71a4a944c8199b28d58134a6a93d8",
+              "id": "msg_0c70118ad59ebc6e0068fe6a21b21c819bab20364b2f65ed68",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +123,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "It looks like you've mentioned \"Dummy PDF file\", but I don't see an uploaded file or an image attached. If you'd like me to analyze or summarize the contents of a PDF or any document, please upload the file or image, and I'll be happy to help!\n\nLet me know how you\u2019d like to proceed."
+                  "text": "It looks like you've mentioned \"Dummy PDF file,\" but I don\u2019t currently see a PDF document attached. If you would like me to analyze or summarize a document, please upload the PDF file. Once you upload it, I'll be able to help you with its contents!"
                 }
               ],
               "role": "assistant"
@@ -136,14 +156,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 64,
+            "output_tokens": 55,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 83
+            "total_tokens": 74
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 21 Oct 2025 05:29:47 GMT
+  recorded_at: Sun, 26 Oct 2025 18:36:18 GMT
 recorded_with: VCR 6.3.1

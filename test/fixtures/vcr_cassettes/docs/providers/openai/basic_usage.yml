@@ -5,28 +5,49 @@ http_interactions:
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"input":"What is the Model Context Protocol?","instructions":"You
-        are a helpful AI assistant.","model":"gpt-4o-mini"}'
+      string: '{"input":"What is the Model Context Protocol?","model":"gpt-4o-mini"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '69'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Fri, 24 Oct 2025 23:25:11 GMT
+      - Sun, 26 Oct 2025 19:13:47 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,7 +61,7 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '29999'
       X-Ratelimit-Remaining-Tokens:
-      - '149999957'
+      - '149999967'
       X-Ratelimit-Reset-Requests:
       - 2ms
       X-Ratelimit-Reset-Tokens:
@@ -52,18 +73,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_7caf443961a64b01913d4f18b5030e3a
+      - req_e02baa3ce0524c87bd2b3b1c41650155
       Openai-Processing-Ms:
-      - '3942'
+      - '4269'
       X-Envoy-Upstream-Service-Time:
-      - '3945'
+      - '4275'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=zRfFLiVC4UlSpkIVSCv.VH3bYMVXJUyd1ycbNlop1r4-1761348311-1.0.1.1-lzlfmrvbtfeKII.phnDQpZnnRIolP9RXsJyJtlkQ2G8Qon3NuxGLDcG9Fvmj2Uejf2p1t_Io7pCZF11CO4eCL.hYlvjPiJ4uoRY0GxF2wxM;
-        path=/; expires=Fri, 24-Oct-25 23:55:11 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=NUnIkGvf_Qumr3VNulFRZQjufjF3DQsQkHrfS4fex5c-1761506027-1.0.1.1-i3VakTUNo1NqDBZeG4SqKrgKywKrQ2XeGgx2qYcqMUH6W4KesJ5b2RrLcqW5Q5ywvsVqgkvZjBAZyZvZZUm3PTP9JXa6mb9zk1MTyz2EqSk;
+        path=/; expires=Sun, 26-Oct-25 19:43:47 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=wowA9NqvEV8w_4jNkkTpq5pCph.F_4QxpyvgUswqY.8-1761348311994-0.0.1.1-604800000;
+      - _cfuvid=Xk_MY.yoi3SzVU16jhu8wT7PIoGcW20s22Xbck.XBQc-1761506027952-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +93,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993d3b4b491e17e2-SJC
+      - 994c45c74dd2a230-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_08a37dce303fba2f0068fc0ad409d08196a977de0f74442d9e",
+          "id": "resp_09261f6092487a700068fe72e7aaf881979ddbb1223a9d13f3",
           "object": "response",
-          "created_at": 1761348308,
+          "created_at": 1761506023,
           "status": "completed",
           "background": false,
           "billing": {
@@ -89,13 +110,13 @@ http_interactions:
           },
           "error": null,
           "incomplete_details": null,
-          "instructions": "You are a helpful AI assistant.",
+          "instructions": null,
           "max_output_tokens": null,
           "max_tool_calls": null,
           "model": "gpt-4o-mini-2024-07-18",
           "output": [
             {
-              "id": "msg_08a37dce303fba2f0068fc0ad4f2e48196b3f4cb47c8c8ae61",
+              "id": "msg_09261f6092487a700068fe72e83c68819797c61f7086496c5d",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +124,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "The Model Context Protocol (MCP) is a framework designed to enhance the development and maintenance of machine learning models. It aims to ensure that models are not only trained effectively but also contextualized within their operating environment. Here are some key aspects:\n\n1. **Model Lifecycle Management**: MCP addresses the entire lifecycle of machine learning models, from conception through deployment and continuous monitoring.\n\n2. **Contextual Information**: Models are accompanied by metadata that describes the context in which they operate, including data sources, training conditions, and performance metrics. This helps in understanding model behavior and implications.\n\n3. **Interoperability**: MCP promotes standardization, which facilitates communication between different systems and stakeholders, improving collaboration and integration.\n\n4. **Versioning and Traceability**: It supports tracking changes and maintaining versions of models and their corresponding data, ensuring reproducibility and accountability.\n\n5. **Ethical and Compliance Considerations**: The protocol includes guidelines for ensuring models follow ethical standards and comply with regulations, addressing issues like bias and fairness.\n\nBy providing a structured approach, the Model Context Protocol aims to improve the reliability, transparency, and effectiveness of machine learning models in real-world applications."
+                  "text": "The Model Context Protocol (MCP) is a specification designed to provide a standardized way for different models and their metadata in artificial intelligence systems to communicate effectively. MCP focuses on addressing the complexities of managing context across various AI models, enabling them to share information, understand one another, and work together more efficiently.\n\n### Key Features of the Model Context Protocol:\n\n1. **Standardization**: It creates a common framework that different AI systems can utilize, minimizing the need for custom solutions.\n\n2. **Interoperability**: Facilitates collaboration between different AI modules and systems, allowing them to function cohesively.\n\n3. **Context Management**: Helps maintain and interpret context within the data and models, which is crucial for accurate predictions and decision-making.\n\n4. **Extensibility**: Allows for the addition of new features and capabilities without disrupting existing models.\n\n5. **Support for Various Models**: MCP can be applied across different types of AI models, including machine learning, neural networks, and more.\n\nBy implementing the Model Context Protocol, developers and researchers can enhance the integration of AI systems, leading to improved performance, better understanding, and more adaptable AI solutions."
                 }
               ],
               "role": "assistant"
@@ -132,18 +153,18 @@ http_interactions:
           "top_p": 1.0,
           "truncation": "disabled",
           "usage": {
-            "input_tokens": 25,
+            "input_tokens": 14,
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 237,
+            "output_tokens": 234,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 262
+            "total_tokens": 248
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Fri, 24 Oct 2025 23:25:11 GMT
+  recorded_at: Sun, 26 Oct 2025 19:13:47 GMT
 recorded_with: VCR 6.3.1

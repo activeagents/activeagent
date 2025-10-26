@@ -7,25 +7,45 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"What is the capital of France?"}],"model":"gpt-5"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '89'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 00:11:10 GMT
+      - Sun, 26 Oct 2025 18:24:24 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -37,13 +57,13 @@ http_interactions:
       Openai-Organization:
       - ORGANIZATION_ID
       Openai-Processing-Ms:
-      - '1536'
+      - '2389'
       Openai-Project:
       - PROJECT_ID
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
-      - '1560'
+      - '2427'
       X-Ratelimit-Limit-Requests:
       - '15000'
       X-Ratelimit-Limit-Tokens:
@@ -57,16 +77,16 @@ http_interactions:
       X-Ratelimit-Reset-Tokens:
       - 0s
       X-Request-Id:
-      - req_10e866720cf54342a25ee443a0914260
+      - req_f5290bd1358042e2aa130d0245088329
       X-Openai-Proxy-Wasm:
       - v0.1
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=IIitdDhawduK0QOm3_S7v5glcnMYPbyg5FoH6rH.J4g-1761005470-1.0.1.1-0rjPavps7KBK0KJi.h2OIetNE3ydh721Xj4gBMT6ufFPY4c9LrvskaUyucKXwcdtm35nzpwAAWJlQfoi11YjPQiW7HLkmanq9MB7FSsmjX4;
-        path=/; expires=Tue, 21-Oct-25 00:41:10 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=1Jv02AzE2FYwqMacTtSeb2hwBZN4sR9bXJ9DjE19TC4-1761503064-1.0.1.1-8rc8nRxk2eVx9Z3.Xn_SVorxeRpUrW80Qs1zt0XiYKVyhI2CJ_iBc6THlEvUl6QcWDU535CTlHCZpZVFY2zXJfe.EwnlLI8.boyCXfQwfko;
+        path=/; expires=Sun, 26-Oct-25 18:54:24 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=8dBlkFaVPm9Dh0xVfM71hjIK6mzaQTrdlR6JRvtCB5k-1761005470461-0.0.1.1-604800000;
+      - _cfuvid=ibb50cgO8e1YzEA4AVBWrkxGspc0dlxzaXN94NXQC54-1761503064932-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -75,16 +95,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991c8933fcec963f-SJC
+      - 994bfd7c3d041748-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |
         {
-          "id": "chatcmpl-CSuFwwKX3o3Pglr6Ro4iIaP7g10JB",
+          "id": "chatcmpl-CUzheZtWzlUBQMo64EeJBNkl7BJLE",
           "object": "chat.completion",
-          "created": 1761005468,
+          "created": 1761503062,
           "model": "gpt-5-2025-08-07",
           "choices": [
             {
@@ -116,5 +136,5 @@ http_interactions:
           "service_tier": "default",
           "system_fingerprint": null
         }
-  recorded_at: Tue, 21 Oct 2025 00:11:10 GMT
+  recorded_at: Sun, 26 Oct 2025 18:24:24 GMT
 recorded_with: VCR 6.3.1

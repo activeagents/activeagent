@@ -9,7 +9,7 @@ module ActiveAgent
   module Providers
     module OpenRouter
       class Options < ActiveAgent::Providers::OpenAI::Options
-        attribute :uri_base, :string, as: "https://openrouter.ai/api/v1"
+        attribute :base_url, :string, as: "https://openrouter.ai/api/v1"
         attribute :app_name, :string, fallback: "ActiveAgent"
         attribute :site_url, :string, fallback: "https://activeagents.ai/"
 
@@ -23,9 +23,7 @@ module ActiveAgent
         end
 
         def serialize
-          super.except(:app_name, :site_url).tap do |hash|
-            hash[:extra_headers] = extra_headers unless extra_headers.blank?
-          end
+          super.except(:app_name, :site_url)
         end
 
         # We fallback to ActiveAgent but allow empty strings to unset
@@ -38,27 +36,27 @@ module ActiveAgent
 
         private
 
-        # Not Used as Part of Open Router
-        def resolve_organization_id(settings) = nil
-        def resolve_admin_token(settings)     = nil
-
-        def resolve_access_token(settings)
-          settings["api_key"] ||
+        def resolve_api_key(kwargs)
+          kwargs["api_key"] ||
             ENV["OPENROUTER_API_KEY"] ||
             ENV["OPEN_ROUTER_API_KEY"] ||
             ENV["OPENROUTER_ACCESS_TOKEN"] ||
             ENV["OPEN_ROUTER_ACCESS_TOKEN"]
         end
 
-        def resolve_app_name(settings)
+        # Not Used as Part of Open Router
+        def resolve_organization_id(kwargs) = nil
+        def resolve_project_id(kwargs)      = nil
+
+        def resolve_app_name(kwargs)
           if defined?(Rails) && Rails.application
             Rails.application.class.name.split("::").first
           end
         end
 
-        def resolve_site_url(settings)
-          # First check ActiveAgent settings
-          return settings[:default_url_options][:host] if settings.dig(:default_url_options, :host)
+        def resolve_site_url(kwargs)
+          # First check ActiveAgent kwargs
+          return kwargs[:default_url_options][:host] if kwargs.dig(:default_url_options, :host)
 
           # Then check Rails routes default_url_options
           if defined?(Rails) && Rails.application&.routes&.default_url_options&.any?

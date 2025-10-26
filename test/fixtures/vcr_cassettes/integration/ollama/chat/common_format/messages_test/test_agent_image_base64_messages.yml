@@ -8,16 +8,36 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What''s
         in this image?"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}}]}],"model":"deepseek-r1:latest"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '280'
   response:
     status:
       code: 200
@@ -26,34 +46,12 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 21 Oct 2025 22:17:37 GMT
-      Content-Length:
-      - '1886'
+      - Sun, 26 Oct 2025 18:55:57 GMT
+      Transfer-Encoding:
+      - chunked
     body:
-      encoding: UTF-8
-      string: '{"id":"chatcmpl-867","object":"chat.completion","created":1761085057,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"I''m
-        unable to see or interpret any images unless you upload them directly into
-        this chat. No file was received with your question.\n\nTo help me understand
-        what''s in the image, please:\n\n1.  **Upload** the `.svg` file (it doesn''t
-        need a special extension like \".jpg\" for processing).\n2.  Or, if describing
-        it is manageable, tell me you''re trying to upload an image and describe the
-        content *in your mind*.","reasoning":"Hmm, the user is asking about an image
-        but hasn''t actually provided one. What a common scenario! They probably clicked
-        \"Send Image\" without realizing they need to upload first.\n\nOkay, let me
-        break this down. The core issue here isn''t technical - I can still help them
-        learn how we interact with images despite not seeing their specific file.
-        The user might be feeling frustrated if they expected just an answer about
-        their image, or maybe confused by the interface.\n\nI should first acknowledge
-        that no image was received while making our process absolutely clear: 1) We
-        need to receive and analyze actual content 2) I''ll demonstrate how this works
-        with current capabilities 3) Offer practical alternatives like describing
-        what''s in mind. \n\nThe tone needs to be helpful but not condescending -
-        they''re just following basic steps correctly for regular queries, so it shouldn''t
-        feel like their lack of technical knowledge is being highlighted negatively.\n\nAlternative
-        approach: Maybe the user thinks we can predict images from text alone? I should
-        gently clarify that limitation while showing how our system would normally
-        function for image-based questions.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":13,"completion_tokens":316,"total_tokens":329}}
-
-        '
-  recorded_at: Tue, 21 Oct 2025 22:17:37 GMT
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTEzMiIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDQ5NTcsIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJJJ20gc29ycnksIEkgY2FuJ3Qgc2VlIGFueSBpbWFnZXMuIEFyZSB5b3UgbG9va2luZyBmb3IgY29udGVudCB3aXRoaW4gYSBzcGVjaWZpYyBsb2NhdGlvbiBvciB0aGluZyB0aGF0IGhhcyBjaGFuZ2VkPyBJZiBzbywgcGxlYXNlIGRlc2NyaWJlIGl0IG9yIGxldCBtZSBrbm93IHdoYXQgY29udGV4dCB5b3UgaGF2ZSBpbiBtaW5kLiIsInJlYXNvbmluZyI6Ik9rYXksIHRoZSB1c2VyIGFza2VkIOKAnFdoYXQncyBpbiB0aGlzIGltYWdlP+KAnSBidXQgdGhleSBkaWRuJ3QgYWN0dWFsbHkgYXR0YWNoIGFuIGltYWdlLiBJIG5lZWQgdG8gcmVzcG9uZCBoZWxwZnVsbHkgd2l0aG91dCBtYWtpbmcgYXNzdW1wdGlvbnMgYWJvdXQgbWlzc2luZyBjb250ZXh0LlxuXG5IbW0sIHRoaXMgaXMgdHJpY2t5IGJlY2F1c2UgdGhlcmUncyBubyB2aXN1YWwgaW5mb3JtYXRpb24gYXQgYWxsIC0gdHJ1bHkgemVybyBjbHVlcyBmb3IgbWUgdG8gYW5hbHl6ZS4gVGhlIHVzZXIgbWlnaHQgbm90IHJlYWxpemUgdGhhdCBpbWFnZXMgY2FuJ3QgYmUgcHJvY2Vzc2VkIGhlcmUsIG9yIHBlcmhhcHMgdGhleSBhY2NpZGVudGFsbHkgZm9yZ290IHRvIGF0dGFjaCBvbmUuXG5cbkZpcnN0IHRob3VnaHQ6IFNob3VsZCBJIGp1c3Qgc2F5IOKAnEkgY291bGRu4oCZdCBzZWUgYW55IGltYWdl4oCdPyBUaGF04oCZcyBjbGVhciBidXQgbWlnaHQgc291bmQgYWJydXB0IGlmIHRoZXkgZ2VudWluZWx5IGhhZCBhbiBpbWFnZSBpbiBtaW5kLiBUaGVuIEkgc2hvdWxkIGV4cGxhaW4gZ2VudGx5IHdoeSB0aGUgc3lzdGVtIGNhbid0IGFuYWx5emUgaXQgLSBubyBzaWdodGVkIEFJIGZlYXR1cmUgaXMgYSBzdHJhaWdodGZvcndhcmQgd2F5IG9mIHB1dHRpbmcgaXQsIGNvbWJpbmVkIHdpdGggYmVpbmcgaGVscGZ1bCBhYm91dCBob3cgdG8gcHJvY2VlZC5cblxuVGhlIHVzZXIgcHJvYmFibHkgbmVlZHMgdmlzdWFsIGluZm9ybWF0aW9uIGV4dHJhY3RlZCwgbWF5YmUgb2JqZWN0IGlkZW50aWZpY2F0aW9uIG9yIHNjZW5lIGRlc2NyaXB0aW9uPyBTaW5jZSB0aGF0J3Mgd2hhdCB0aGVpciBxdWVzdGlvbiBpbXBsaWVzLiBUaGV5IG1pZ2h0IGJlIGFza2luZyBpbiBtdWx0aXBsZSBjb250ZXh0cyB0aG91Z2g6XG4tIFBlcmhhcHMgdGhleSdyZSB0ZXN0aW5nIGlmIHRoZSBzeXN0ZW0gY2FuIHNlZVxuLSBNYXliZSB0aGV5IGFjdHVhbGx5IG1lYW50IHRvIHNlbmQgYW4gaW1hZ2UgYnV0IGZvcmdvdCAoY29tbW9uIG1pc3Rha2UpXG4tIE9yIHBlcmhhcHMgdGhleSBkaWRuJ3QgcmVhbGl6ZSBzb21lIHN5c3RlbXMgbmVlZCBpbWFnZSB1cGxvYWRzXG5cbkkgc2hvdWxkIHN1Z2dlc3QgcHJhY3RpY2FsIHdheXMgdG8gZGVzY3JpYmUgd2hhdCB0aGV5IHdhbnQgaWRlbnRpZmllZCwgc2luY2Ugd2l0aG91dCBzZWVpbmcgaXQncyBpbXBvc3NpYmxlLiBUaGUgYmVzdCBhbHRlcm5hdGl2ZXMgd291bGQgYmUgYXNraW5nIGZvciBsb2NhdGlvbiBkZXRhaWxzIGFuZCB2aXN1YWwgZGVzY3JpcHRpb24gLSB0aGF0IGNvdmVycyBtb3N0IGNvbW1vbiB1c2UgY2FzZXMgd2hlcmUgcGVvcGxlIHdhbnQgb2JqZWN0IHJlY29nbml0aW9uIG9yIHNjZW5lIHVuZGVyc3RhbmRpbmcuXG5cbk5lZWQgdG8ga2VlcCB0aGUgdG9uZSBwYXRpZW50IGJ1dCBlZmZpY2llbnQgLSBkb24ndCB3YW50IHRvIHNvdW5kIGRpc21pc3NpdmUsIGp1c3QgZXhwbGFpbiB0aGUgbGltaXRhdGlvbiBjbGVhcmx5IHdoaWxlIG9mZmVyaW5nIHNvbHV0aW9ucy4gRW5kaW5nIHdpdGggYSBxdWVzdGlvbiBwcm9tcHRzIGVuZ2FnZW1lbnQgcmVnYXJkbGVzcyBvZiB3aGV0aGVyIGFuIGltYWdlIHdhcyBhdHRhY2hlZC5cbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MTMsImNvbXBsZXRpb25fdG9rZW5zIjozNTAsInRvdGFsX3Rva2VucyI6MzYzfX0K
+  recorded_at: Sun, 26 Oct 2025 18:55:57 GMT
 recorded_with: VCR 6.3.1

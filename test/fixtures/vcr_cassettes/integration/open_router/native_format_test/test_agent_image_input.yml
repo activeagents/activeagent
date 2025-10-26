@@ -8,6 +8,26 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What
         is in this image?"},{"type":"image_url","image_url":{"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}}]}],"model":"openai/gpt-5"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -16,19 +36,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '315'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:53:59 GMT
+      - Sun, 26 Oct 2025 19:06:27 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,25 +69,25 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9905177bedd3ee17-SJC
+      - 994c3b1dbf8c8ea2-SJC
     body:
       encoding: ASCII-8BIT
       string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1760759638-H9Mu1jQXFgzxd8edrj6Q\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-5\",\"object\":\"chat.completion\",\"created\":1760759638,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"completed\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
-        scenic landscape with a wooden boardwalk leading through tall green grass
-        in a meadow or marsh. There are bushes and distant trees, and above is a blue
-        sky with scattered, wispy clouds.\",\"refusal\":null,\"reasoning\":\"**Describing
-        the image**\\n\\nI need to describe what's seen in the image. It seems to
-        show a serene landscape with a wooden boardwalk winding through a grassy field
-        or marsh, under a blue sky dotted with clouds. The scene likely also includes
-        green grass, shrubs, and trees. I want to keep my description concise, around
-        1-3 sentences, while explaining that it's a lovely path through a natural
-        setting. Let's create that description!\",\"reasoning_details\":[{\"type\":\"reasoning.summary\",\"summary\":\"**Describing
-        the image**\\n\\nI need to describe what's seen in the image. It seems to
-        show a serene landscape with a wooden boardwalk winding through a grassy field
-        or marsh, under a blue sky dotted with clouds. The scene likely also includes
-        green grass, shrubs, and trees. I want to keep my description concise, around
-        1-3 sentences, while explaining that it's a lovely path through a natural
-        setting. Let's create that description!\",\"format\":\"openai-responses-v1\",\"index\":0},{\"type\":\"reasoning.encrypted\",\"data\":\"gAAAAABo8w9atfrO2uv3iAA-leHRLufcv8XEak1BqHD-AQLUI3IXoaqpwpdUUEIDkC0OufeSprvIoRTYsXOJ7-rMUU6cb461ksCFMEhm9boIu3f83-L1v5x2B8zQGduVnHv27RuWirSpd8BfPQhQEye-cTdeYdvxvcnkSOKf_7zw25fVPcJ3y1HunOWctZ6IlUwFUXDg7NTPN-6uyA-UQmrzwsEMQBssOpap3VcRTej4_acLaq_nn3I37kcwLxKmxsK_Gdg8Jm_IM1kHl4IGvYyayHHNi24L_mpEyHx7jyQFZa3KhaOebJsFJJa1_KFmSFhtPCJIcIJViaghXFSklu5CMDzblfUXXKLn15AkIGYtQVd8Vn173NeL1c32lU5-3JPFIxVL5JnhtDpQCRAgIkC68Wwzs_UVj5SAo8uOiv0MdBT6jgT59QA1lbJ_4TXWBWJFXwLja-bn03i3unvDSQCxwJxzF-5OzbibdOE6HwJb5oYOp6ICGJc0ec8gRdM2gwBPK1Ocj26ugIG_40K2gDiAAwjYQku-w3n0McOrwVNwmrlnQEo0aeAqpUt21L3lNe3DrpXVr6R6_1prBdrx_hwKuuvvzVFOy6dZh7HNcvb8HmsG_RDOjwAEkDWhdsQFu3XilMLTLgn3I7G0sAViU2eQJ4hkgAmHOeMG22Tmzkahn1vyZ2GBidr-3AmOfGAXl5ZQjoQHjTyFZ2dnvNMeaSrbBnycicl16cI58R5ig449u07xOn7ZJYpy9sJnU1dk-BcB0_5NvqzGnbzJHHaiwbKBjLk8OY2VAFdkXssteJYTajfVBBfh7OxqpAHTpLz8R_p5DfNIX1ZQdZatKtgE13OwVU-Dnn7umIQcP6fDpE0zp25mKgwP2IxjLvQrBjI1AKf456ds5W6MuNRjNK2WNnhwzqPUoZROJsj6A3SI6ERh3ZmDpiQeP6vUT8Xuwdl3Y6YS8agmoygi8RIAzCNDp11qvLxQGgMI6IuJyn1MlR7nDTZL8zeQTHj7w7BTOMarbWUAyp2L6zt1MSUYUMgvmyRLA7_PszE72oL1f-pQAoU1_5TfXdzJ6ftUxfGn5Xdi5v4SokMfuuPE8E7BYd0-J_krxVgAVEtwFzQSalCaw4dnuZb5CDH1YmVvLSK0t6bibZ0fVNqaOAxx3af-0KCR67wyj4B2zkb-Etc6BNM12XZfW6xzRckw1iClsv3NpVVfpvdBjGn9aP6tMfiWdkuQ69k30GUgAVOlvDtH3R-7ef7rdHhgO3cHVOqTjxq1mT2U7nTZ75f7G-TzKcL-CKmGxb0CxXbRpgntZeWvYzDTtYiGTQOpCQZ5Rx5IZidVRuusXUj1VG6XgwkL1ilj5tlNAzu16cyrTyfLDf9jh3eSG1YKHyb1DNReC7WUtOdu9EB3PilNTu9rvmdEZw7KF0vPR0o-9ADQ1p3EJn6XS68fxWLbSpZjQdqC3cz4LdZtiIoF4_kWfJ7Y98RN\",\"id\":\"rs_01e4525f07e6a2a60168f30f57e5cc8196b693823abbbc90d5\",\"format\":\"openai-responses-v1\",\"index\":0}]}}],\"usage\":{\"prompt_tokens\":922,\"completion_tokens\":109,\"total_tokens\":1031,\"completion_tokens_details\":{\"reasoning_tokens\":64}}}"
-  recorded_at: Sat, 18 Oct 2025 03:54:03 GMT
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n{\"id\":\"gen-1761505586-NWN2E5TE1bd9RvWkhcwv\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-5\",\"object\":\"chat.completion\",\"created\":1761505586,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"completed\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        wooden boardwalk path running through a lush green field or marsh, with tall
+        grass and bushes under a blue sky with scattered clouds.\",\"refusal\":null,\"reasoning\":\"**Describing
+        the image**\\n\\nI need to provide a concise description without identifying
+        any people. This image shows a scenic landscape featuring a wooden boardwalk
+        path running through a lush green meadow or marsh. It's surrounded by tall
+        grass and bushes, all under a bright blue sky dotted with scattered clouds.
+        I'll keep the details minimal and straightforward, focusing on the overall
+        beauty of the landscape.\",\"reasoning_details\":[{\"type\":\"reasoning.summary\",\"summary\":\"**Describing
+        the image**\\n\\nI need to provide a concise description without identifying
+        any people. This image shows a scenic landscape featuring a wooden boardwalk
+        path running through a lush green meadow or marsh. It's surrounded by tall
+        grass and bushes, all under a bright blue sky dotted with scattered clouds.
+        I'll keep the details minimal and straightforward, focusing on the overall
+        beauty of the landscape.\",\"format\":\"openai-responses-v1\",\"index\":0},{\"type\":\"reasoning.encrypted\",\"data\":\"gAAAAABo_nE4od3eeTqO9erZfIkIqniAzQTLUr_LGacBNGQTTrIbocTDVV5M5V4-592RtN0qWaFCyskBKRaTGqQw3PD9Vmgnkts0eWA_ybKdWbF19ZUwLTSL2JGsZSJ2dkXky0BIKki6jdKhgj4GGh1Y6mGHF5tzrdfQKcS1Y-H-gbistb04ZsR7FifWIXsx4KZUoeyV6NENp24vLxHz5uzRqMH-heXwmQhseJekpjWhSgtBT-7CF8Rr4IH7Mwc4D3P-oL47V3EO8UDHfKgbkaYfaprDORcAEfyx28qNA1OB0GX5o2jQ5gPa_LvUOgH4YpFZUxshu8a0sLgJ2y3ouVrRAR9Ej-DV1LwKr6Meh_1lBzeyZ-yaRfBYIgqmEqkGCwFfx6GCNgYdqUaAFtJY7Xe2MG5OZFoYnGR9F-Bx97NReEOJNaHh8SfNCupIdi4lj_9pkaQ0uAZITOB6lIoDyUkrymyBIlXkLZZJ3pDJPcJsqRP57V_93dTz7jzFVYfcfmTqwB7MNhJDuNFe7Mzhyx2-mMwBzx9IBWb0loa0h2Ed4AueVd1nc6jqXISJB_DU7IQYEJgSon5SfgndDZ8Xo_V-TAZfEx9J94wOvRkxYqWiN70Ri5F4gY5SQRhgOpRc-HVvATgeIYzv_39Ak17kISYK3TLzOqMZ3zVuERmL4cAt0eERwYjWHjfe-W0wQ2bfYVsTN2gHah9dlMChDnDwONP6P6j3a3PbbpVhgP_E4zhdzEtGwZeNFTmzak6XUlNht5ACOz1dVnYJaKXBxcz0fOS4tDPri3zn6qsb3c_Kt_d-yRM2deDhocEkvOS7et8xT-vKXZHbf6KTF5nhS55bFiJ-PstCDGEEoZ6ORzDXI9Wzv0GhmDCSswwN0XA6VNRuabqEcWDLsNq4G9biob-co8Evhbx7fr8j7dedHwNU-HfSqRXqaFIpnG3L6WGOjlR9jEIz-dzoQngUIToV0SO5p0ERTL5x2x0IMqBHn6EBeSlmpMf3hmyN_HF5HkSlmzVMvWP3aVIyKSwLMpEHS6H-dMnIq1USMz1cmZwhkTn9jvfG8uzRzp921gro92o0VzuUCWoirwhLZubgPsTgLkCt-JBEygSVuj75AhffQj7WJeIBK4soUWY6pQOD9HukEvFgiXNoKgM-trq_GQOyP_QFEVCjmwRrH3M2GPYe-qFpeBYq3goKXFOCX8GgtDB9EganyKETxBIeyxEA7IXfoknS3dzm_BeRYhAEpAE4u7LxrS_Jvq3KQ_QrOO3I-k9og3n5SNtgFY9FRd1hvncWWQeAwE8ik32o4Vk-Lml7hkDeTNSSjyvEBVsfEceVVLjKk1zDcAp2CcTy8UftX7daAhAKtZ8yGsf-ZsrqoIjprXJfcpE73dr8y1FztnqyRWn4jWYq6HfJmvNaPy_d\",\"id\":\"rs_08df4d774212ba2b0168fe713547dc8190b9da44eba6f02df2\",\"format\":\"openai-responses-v1\",\"index\":0}]}}],\"usage\":{\"prompt_tokens\":922,\"completion_tokens\":97,\"total_tokens\":1019,\"completion_tokens_details\":{\"reasoning_tokens\":64}}}"
+  recorded_at: Sun, 26 Oct 2025 19:06:32 GMT
 recorded_with: VCR 6.3.1

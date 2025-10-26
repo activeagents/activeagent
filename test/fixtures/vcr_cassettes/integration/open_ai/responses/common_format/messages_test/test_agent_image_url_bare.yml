@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"What''s
         in this image?"},{"type":"input_image","image_url":"https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png?scale-down-to=64"}]}],"model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '233'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 04:55:21 GMT
+      - Sun, 26 Oct 2025 18:36:13 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_6cd588e5c84743e9bb3b52c261c97e30
+      - req_e59c809a32f844aabd23bea70bcd6b19
       Openai-Processing-Ms:
-      - '3180'
+      - '4895'
       X-Envoy-Upstream-Service-Time:
-      - '3189'
+      - '4900'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=F7TLgpAKac8oU82dK0Rzz.P6psHlPKerh9nkX2KVp7g-1761022521-1.0.1.1-.46JxoFQqs2L1q._bngIrQb2hnSnW0xAnDgBY1HHCk9Oe3h62vRnZOn9TE6BQ5YVzYBO849bQFtl9MP3QSagd38Ijr1BQLHAJ052kmjW2.Q;
-        path=/; expires=Tue, 21-Oct-25 05:25:21 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=khsFcFRG7EC1pfOPuJ6drE_vO3JamSKRZHios6Q7jCw-1761503773-1.0.1.1-jBwd4Rl5aZxyoHEUgNlq2dHD31J4dSFtsgS1PSFPWh9CjPbxbsaAcXT9MA8_yljv9NrynuQ1MFZA.K4upABBGDlAVRdcmYH6kUbg5WrEzT0;
+        path=/; expires=Sun, 26-Oct-25 19:06:13 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=bNF7TY4lpXSOnDiw6ZbNZzX2j1jJyNJNdTqhVjWKfv0-1761022521252-0.0.1.1-604800000;
+      - _cfuvid=HP.5N5qpiOyus2YXHhwvnnlBxxjktXqWDNQhsbJQ4M4-1761503773321-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991e29719ef315d6-SJC
+      - 994c0eb80ae567c7-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_00bae1322ee6437c0068f7123614e4819b81695ba6f4933c60",
+          "id": "resp_0cb6835ac70be14c0068fe6a1869808194aee92a15cc928a7d",
           "object": "response",
-          "created_at": 1761022518,
+          "created_at": 1761503768,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +115,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_00bae1322ee6437c0068f71237bffc819baf829dc9d50d62c6",
+              "id": "msg_0cb6835ac70be14c0068fe6a1b9d608194a9cbb1f48d1dc4fc",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +123,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "The image contains a logo featuring a red, sunglasses-wearing face on the left, followed by the text \"ACTIVE AUDITS\" in bold, red capital letters. The design has a dynamic and modern appearance."
+                  "text": "This image contains a logo that features a stylized red face wearing sunglasses and a headset, followed by the bold red text \"ACTIVE AUDITS.\" The design suggests it is likely used for branding or representing a business or organization named \"Active Audits.\""
                 }
               ],
               "role": "assistant"
@@ -136,14 +156,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 43,
+            "output_tokens": 51,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 310
+            "total_tokens": 318
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 21 Oct 2025 04:55:21 GMT
+  recorded_at: Sun, 26 Oct 2025 18:36:13 GMT
 recorded_with: VCR 6.3.1

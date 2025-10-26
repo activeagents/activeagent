@@ -7,6 +7,26 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"Define inheritance"}],"model":"openrouter/auto","provider":{"sort":"price","max_price":{"prompt":0.3,"completion":0.5}}}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -15,19 +35,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '159'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 04:38:07 GMT
+      - Sun, 26 Oct 2025 19:18:09 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,46 +68,42 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993f05bd695b232b-SJC
+      - 994c4c38bdb22385-SJC
     body:
       encoding: ASCII-8BIT
       string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
         \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
         \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761367085-PsqbjXkMOlvR2PeaBgQ8\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761367087,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Inheritance
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n{\"id\":\"gen-1761506287-9a7QV1v7iQ3UfLgEkAHe\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761506289,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Inheritance
         is a fundamental concept in object-oriented programming (OOP) that allows
-        one class (subclass or derived class) to acquire properties and methods of
-        another class (superclass or base class). It promotes code reusability and
-        establishes a \\\"is-a\\\" relationship between the two classes. Here are
-        some key aspects of inheritance:\\n\\n1. **Base Class (Superclass or Parent
-        Class)**: This is the class whose properties and methods are inherited by
-        another class.\\n\\n2. **Derived Class (Subclass or Child Class)**: This is
-        the class that inherits properties and methods from another class.\\n\\n3.
-        **Inheritance Types**:\\n\\n   - **Single Inheritance**: A class inherits
-        from a single base class.\\n\\n     ```python\\n     class Animal:\\n         def
-        __init__(self, name):\\n             self.name = name\\n\\n         def speak(self):\\n
-        \            pass\\n\\n     class Dog(Animal):  # Dog inherits from Animal\\n
-        \        def speak(self):\\n             return f\\\"{self.name} says Woof!\\\"\\n
-        \    ```\\n\\n   - **Multiple Inheritance**: A class inherits from multiple
-        base classes.\\n\\n     ```python\\n     class Flyable:\\n         def fly(self):\\n
-        \            pass\\n\\n     class Bird(Animal, Flyable):  # Bird inherits
-        from both Animal and Flyable\\n         pass\\n     ```\\n\\n   - **Multilevel
-        Inheritance**: A class inherits from a class that itself inherits from another
-        class.\\n\\n     ```python\\n     class Mammal(Animal):  # Mammal inherits
-        from Animal\\n         def mammal_specific_method(self):\\n             pass\\n\\n
-        \    class Human(Mammal):  # Human inherits from Mammal\\n         pass\\n
-        \    ```\\n\\n   - **Hierarchical Inheritance**: Multiple classes inherit
-        from a single base class.\\n\\n     ```python\\n     class Dog(Animal):\\n
-        \        pass\\n\\n     class Cat(Animal):\\n         pass\\n     ```\\n\\n4.
-        **Overriding**: A subclass can provide its own implementation of a method
-        that is already defined in the superclass.\\n\\n5. **Overloading**: Inheritance
-        does not support method overloading (multiple methods with the same name but
-        different parameters) in the same way as some other languages. In Python,
-        you can achieve similar behavior using default arguments or variable-length
-        arguments.\\n\\n6. **Polymorphism**: Inheritance enables polymorphism, which
-        allows objects of different classes to be treated as objects of a common superclass.\\n\\n7.
-        **Encapsulation and Access Modifiers**: Inheritance also allows subclasses
-        to access and modify the protected and private members of the superclass,
-        depending on the language's access modifier rules.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":521,\"total_tokens\":528,\"prompt_tokens_details\":null}}"
-  recorded_at: Sat, 25 Oct 2025 04:38:16 GMT
+        one class to acquire properties and methods of another. It represents the
+        \\\"is-a\\\" relationship, where a new class is based on an existing class.
+        Here's a simple breakdown:\\n\\n1. **Base Class/Parent Class/Superclass**:
+        This is the class from which other classes inherit. It provides the initial
+        set of properties and methods.\\n\\n2. **Derived Class/Child Class/Subclass**:
+        This is the class that inherits from the base class. It can add new properties
+        and methods, or override existing ones from the base class.\\n\\nHere's a
+        simple example in a few popular programming languages:\\n\\n**Python:**\\n\\n```python\\nclass
+        Animal:\\n    def __init__(self, name):\\n        self.name = name\\n\\n    def
+        speak(self):\\n        pass\\n\\nclass Dog(Animal):  # Dog inherits from Animal\\n
+        \   def speak(self):\\n        return f\\\"{self.name} says Woof!\\\"\\n\\ndog
+        = Dog(\\\"Buddy\\\")\\nprint(dog.speak())  # Output: Buddy says Woof!\\n```\\n\\n**Java:**\\n\\n```java\\nclass
+        Animal {\\n    public String name;\\n\\n    public Animal(String name) {\\n
+        \       this.name = name;\\n    }\\n\\n    public void speak() {\\n        System.out.println(\\\"Animal
+        makes a sound\\\");\\n    }\\n}\\n\\nclass Dog extends Animal {  // Dog extends
+        Animal\\n    public Dog(String name) {\\n        super(name);\\n    }\\n\\n
+        \   @Override\\n    public void speak() {\\n        System.out.println(name
+        + \\\" says Woof!\\\");\\n    }\\n}\\n\\nDog dog = new Dog(\\\"Buddy\\\");\\ndog.speak();
+        \ // Output: Buddy says Woof!\\n```\\n\\n**C++:**\\n\\n```cpp\\n#include <iostream>\\n\\nclass
+        Animal {\\npublic:\\n    Animal(std::string name) : name(name) {}\\n\\n    virtual
+        void speak() {\\n        std::cout << \\\"Animal makes a sound\\\\n\\\";\\n
+        \   }\\n\\nprivate:\\n    std::string name;\\n};\\n\\nclass Dog : public Animal
+        {  // Dog inherits from Animal\\npublic:\\n    Dog(std::string name) : Animal(name)
+        {}\\n\\n    void speak() override {\\n        std::cout << name << \\\" says
+        Woof!\\\\n\\\";\\n    }\\n};\\n\\nint main() {\\n    Dog dog(\\\"Buddy\\\");\\n
+        \   dog.speak();  // Output: Buddy says Woof!\\n    return 0;\\n}\\n```\\n\\nInheritance
+        allows for code reuse, establishes \\\"is-a\\\" relationships, and promotes
+        polymorphism. It's a key principle in object-oriented programming.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":508,\"total_tokens\":515,\"prompt_tokens_details\":null}}"
+  recorded_at: Sun, 26 Oct 2025 19:18:20 GMT
 recorded_with: VCR 6.3.1

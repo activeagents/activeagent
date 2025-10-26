@@ -8,25 +8,47 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"Summarize
         this document"},{"type":"input_file","file_url":"https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"}]}],"model":"gpt-4o-mini"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '223'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 07:46:55 GMT
+      - Sun, 26 Oct 2025 19:14:21 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +74,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_7f6ec01e673b4584b3a2afae67ac7872
+      - req_25e9f30b4ac84324a1441e54c4073e13
       Openai-Processing-Ms:
-      - '5723'
+      - '1765'
       X-Envoy-Upstream-Service-Time:
-      - '5735'
+      - '1769'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=jQSRism0eXTJVIro38FBBQCXrbAjNoQFIMOC2DriQPY-1761378415-1.0.1.1-GMO57lxBlMvxPkU3sCkseUokNXZ.3R.j6ztrdDWp7EjityNKhfjJvRYXUoKJisYRHiZlac8V2isdoW4yaHI8zSo5EA3CooyKuRXuKjxRJI4;
-        path=/; expires=Sat, 25-Oct-25 08:16:55 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=ZZh8lg6K75sNf82ivmodTAmahAEgINz.I3B0YFDZS.k-1761506061-1.0.1.1-_FKWFri3xvnqKMjkwflxJYhy5y9nyib.63jUbThvf5tAfeK5Nwlmm.5hL6JRyzYfAu1NIv_D0.Rx1zcGANXBNQu7EnI8ZJL7gK.MoWBmsdc;
+        path=/; expires=Sun, 26-Oct-25 19:44:21 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=uLzhaVEvccfvSOMW5OQtEFDZ1.mNiwZl_zfNwKFKBpU-1761378415207-0.0.1.1-604800000;
+      - _cfuvid=ujIJNSuPq2ZTKX3VJE2x2Pm.QBbgc1JYKjwPH3OHZiw-1761506061307-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +94,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99401a2eed4ce678-SJC
+      - 994c46a7bce8cf0e-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0ea34169b7732f730068fc80697b20819687b5aacbbefe8698",
+          "id": "resp_09a0b3d369daf8960068fe730b873c819a87f1e429b9e2b323",
           "object": "response",
-          "created_at": 1761378410,
+          "created_at": 1761506060,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +117,7 @@ http_interactions:
           "model": "gpt-4o-mini-2024-07-18",
           "output": [
             {
-              "id": "msg_0ea34169b7732f730068fc806e97988196b7a20267d3a5c1ad",
+              "id": "msg_09a0b3d369daf8960068fe730c6c7c819abe95b5fe777c3b5a",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +125,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "It seems you've referenced a \"Dummy PDF file\" without providing the content. If you can share the text or key points from the document, I'll be happy to help you summarize it!"
+                  "text": "It seems like you mentioned a \"Dummy PDF file\" but didn't provide the actual content or details of the document. Please share the key points or text from the document so I can help summarize it!"
                 }
               ],
               "role": "assistant"
@@ -136,14 +158,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 38,
+            "output_tokens": 41,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 57
+            "total_tokens": 60
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 25 Oct 2025 07:46:55 GMT
+  recorded_at: Sun, 26 Oct 2025 19:14:21 GMT
 recorded_with: VCR 6.3.1

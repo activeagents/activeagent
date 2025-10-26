@@ -74,7 +74,7 @@ module ActiveAgent
       # @return [Object] The embedding response from OpenAI
       def api_embed_execute(parameters)
         instrument("embeddings_request.provider.active_agent")
-        client.embeddings(parameters:).deep_symbolize_keys
+        client.embeddings.create(**parameters).as_json.deep_symbolize_keys
       end
     end
   end

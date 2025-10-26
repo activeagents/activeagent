@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":"Return a JSON object with three primary colors in an array
         named ''colors''.","model":"gpt-5-nano","text":{"format":{"type":"json_object"}}}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '148'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 20:46:11 GMT
+      - Sun, 26 Oct 2025 18:37:01 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -40,7 +60,7 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '29999'
       X-Ratelimit-Remaining-Tokens:
-      - '179999763'
+      - '179999760'
       X-Ratelimit-Reset-Requests:
       - 2ms
       X-Ratelimit-Reset-Tokens:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_d4bfa4e801d4403f87b4010b2df509e3
+      - req_56adbcf509474beb84adbfeeac279c9b
       Openai-Processing-Ms:
-      - '5038'
+      - '4119'
       X-Envoy-Upstream-Service-Time:
-      - '5939'
+      - '4128'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=01934WlAyL5qg4i.nfzxpvTWQ62kQEL3Yvv2HmqTCZk-1761425171-1.0.1.1-UBK6TKc3kQ985RFcsm9lUyipZt8_ISOnX2fE_rUInFZsBM6gScJ9kkwQgnF4u_JPxRGCjzV7b9gPMB8b245TJzu4BDtNNjS6u.tgDYn5nPU;
-        path=/; expires=Sat, 25-Oct-25 21:16:11 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=VtaE9WZIXjLbXHDiW.uFHJzLElQ0tzdcPd_z9Zgpn1Q-1761503821-1.0.1.1-SJ7wHwDzp9RXRGR560yxgiuGegjJPwk_myljtEgi1HfTs.6QVWwccP5PeK7zn1ErMYFY_NO5ZZDCUMVDlLRmf1CXB_XsVBAGkehbZrhDpak;
+        path=/; expires=Sun, 26-Oct-25 19:07:01 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=5a1SdOz.F193VrzBx5VkfrC3SMtAh0NoOL8oJ5px3bc-1761425171899-0.0.1.1-604800000;
+      - _cfuvid=XQvNxNWT8pilkcznveSOEPt8hr3Ytxwmg0pv9kJNX8I-1761503821473-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99448fb6fd90eb31-SJC
+      - 994c0fe9ea3415b4-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0e23ee0c8973bab10068fd370ee96c819b94d6ad93b915a78b",
+          "id": "resp_0dcfe3e9c28ef2170068fe6a495b64819a83f9f2fb7a31e9fc",
           "object": "response",
-          "created_at": 1761425167,
+          "created_at": 1761503817,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,12 +115,12 @@ http_interactions:
           "model": "gpt-5-nano-2025-08-07",
           "output": [
             {
-              "id": "rs_0e23ee0c8973bab10068fd371023f4819b8376594f4e0a3ab7",
+              "id": "rs_0dcfe3e9c28ef2170068fe6a4a1a70819aabe6e4982843f9da",
               "type": "reasoning",
               "summary": []
             },
             {
-              "id": "msg_0e23ee0c8973bab10068fd37135b04819ba8f1169da02a881c",
+              "id": "msg_0dcfe3e9c28ef2170068fe6a4d021c819a8335befd96f5ea83",
               "type": "message",
               "status": "completed",
               "content": [
@@ -108,7 +128,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "{\"colors\":[\"red\",\"green\",\"blue\"]}"
+                  "text": "{\"colors\":[\"red\",\"blue\",\"yellow\"]}"
                 }
               ],
               "role": "assistant"
@@ -141,14 +161,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 464,
+            "output_tokens": 336,
             "output_tokens_details": {
-              "reasoning_tokens": 448
+              "reasoning_tokens": 320
             },
-            "total_tokens": 485
+            "total_tokens": 357
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 25 Oct 2025 20:46:11 GMT
+  recorded_at: Sun, 26 Oct 2025 18:37:01 GMT
 recorded_with: VCR 6.3.1

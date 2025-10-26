@@ -29,16 +29,16 @@ Add the generation provider gem you want to use:
 
 ```bash
 # OpenAI
-bundle add ruby-openai
+bundle add openai
 
 # Anthropic
-bundle add ruby-anthropic
+bundle add anthropic
 
 # Ollama (uses OpenAI-compatible API)
-bundle add ruby-openai
+bundle add openai
 
 # OpenRouter (uses OpenAI-compatible API)
-bundle add ruby-openai
+bundle add openai
 ```
 
 ### Setup

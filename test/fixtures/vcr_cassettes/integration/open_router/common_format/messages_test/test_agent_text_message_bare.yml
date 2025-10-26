@@ -8,6 +8,26 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":"Explain quantum computing in
         bare terms."}],"model":"openai/gpt-4o"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -16,19 +36,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '107'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 21:55:10 GMT
+      - Sun, 26 Oct 2025 19:07:06 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -49,27 +69,39 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9923ff62cdec06a9-SJC
+      - 994c3c135d20ebe5-SJC
     body:
       encoding: ASCII-8BIT
       string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761083709-iNFrTiZywQFwdrCKv3dm\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761083709,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Quantum
-        computing is a new way of processing information using the principles of quantum
-        mechanics, which is the science of how things work at the smallest scales,
-        like atoms and subatomic particles. In classical computing, information is
-        processed using bits, which can be either a 0 or a 1. However, quantum computing
-        uses quantum bits, or qubits, which can be both 0 and 1 at the same time due
-        to a property called superposition. This allows quantum computers to process
-        a vast amount of information simultaneously.\\n\\nAdditionally, qubits can
-        be entangled, meaning the state of one qubit can depend on the state of another,
-        no matter how far apart they are. This property, called entanglement, allows
-        quantum computers to potentially solve complex problems much faster than classical
-        computers. Quantum computers also use interference, the idea that quantum
-        states can combine in ways that amplify some outcomes and cancel others, thus
-        steering the computation in useful ways.\\n\\nOverall, quantum computing holds
-        great promise for tasks that are very difficult for classical computers, like
-        simulating molecules for drug discovery or factoring large numbers for cryptography.
-        However, building practical quantum computers is extremely challenging and
-        is the subject of ongoing research.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_65564d8ba5\",\"usage\":{\"prompt_tokens\":14,\"completion_tokens\":238,\"total_tokens\":252,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Tue, 21 Oct 2025 21:55:15 GMT
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761505626-HbMIobfqUGGASBbKJO4y\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761505626,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Quantum
+        computing is an advanced area of computing that leverages the principles of
+        quantum mechanics, a fundamental theory in physics, to process information
+        in a fundamentally different way from classical computers. Here are the bare-bones
+        basics:\\n\\n1. **Qubits:** While classical computers use bits as the smallest
+        unit of data, which can be either 0 or 1, quantum computers use qubits. A
+        qubit can exist in a state of 0, 1, or both simultaneously thanks to a quantum
+        property called superposition. This allows quantum computers to process a
+        vast amount of possibilities at once.\\n\\n2. **Superposition:** This principle
+        allows qubits to be in multiple states simultaneously. It provides quantum
+        computers with an exponential increase in processing power over classical
+        computers, which process information in a linear sequence of bits.\\n\\n3.
+        **Entanglement:** Another quantum property that quantum computers utilize
+        is entanglement. Qubits can be entangled, meaning the state of one qubit is
+        directly related to the state of another, no matter how far apart they are.
+        This phenomenon allows for the correlation of qubit states, which is used
+        to highly increase computations and solve complex problems more efficiently.\\n\\n4.
+        **Quantum Gates:** In quantum computing, quantum gates manipulate qubits combined
+        with operations that perform tasks similar to logic gates in classical computing.
+        However, due to the properties of superposition and entanglement, quantum
+        gates can perform complex transformations on the qubits and handle operations
+        efficiently.\\n\\n5. **Quantum Speedup:** The combination of superposition,
+        entanglement, and quantum gates allows quantum computers to perform certain
+        calculations much more quickly than classical computers. This potential speedup
+        has significant implications for fields like cryptography, optimization, and
+        simulations of quantum physical phenomena.\\n\\nOverall, quantum computing
+        is still in its early stages and requires a lot of research and technological
+        development to solve real-world problems, but its potential to revolutionize
+        computing is immense.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_65564d8ba5\",\"usage\":{\"prompt_tokens\":14,\"completion_tokens\":387,\"total_tokens\":401,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:07:12 GMT
 recorded_with: VCR 6.3.1

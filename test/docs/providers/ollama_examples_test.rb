@@ -128,7 +128,7 @@ module Providers
       class RobustOllamaAgent < ApplicationAgent
         generate_with :ollama, model: "llama3"
 
-        rescue_from Faraday::ConnectionFailed do |error|
+        rescue_from ::OpenAI::Errors::APIConnectionError do |error|
           Rails.logger.error "Ollama not running: #{error.message}"
           "Ollama is not running. Start it with: ollama serve"
         end

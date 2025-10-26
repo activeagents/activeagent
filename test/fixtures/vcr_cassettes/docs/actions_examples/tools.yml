@@ -9,25 +9,47 @@ http_interactions:
         city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]},"description":"Get
         the current weather in a given location"}]}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '392'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 01:04:31 GMT
+      - Sun, 26 Oct 2025 19:19:10 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -41,7 +63,7 @@ http_interactions:
       X-Ratelimit-Remaining-Requests:
       - '9999'
       X-Ratelimit-Remaining-Tokens:
-      - '29999711'
+      - '29999710'
       X-Ratelimit-Reset-Requests:
       - 6ms
       X-Ratelimit-Reset-Tokens:
@@ -53,18 +75,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_01f579aa84cc4d5cab868aee2f9c0b7b
+      - req_fe8e632d980c451caa0850dd3be57d23
       Openai-Processing-Ms:
-      - '1280'
+      - '892'
       X-Envoy-Upstream-Service-Time:
-      - '1283'
+      - '895'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=HatYQqg_7WN252kou8Pv9T8yp3qSddRzfKPTMotV6Co-1761440671-1.0.1.1-BGiQcoNfVHvGnHdIJpHxyPtNKNj_VI7VD1yn3G4on0Xznuh1qYEsWOG7gCoiJFC4JwSKmmq5j9jScssK.razUzBcAQkpeG1UK7sV4fiffac;
-        path=/; expires=Sun, 26-Oct-25 01:34:31 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=KHfcglAzvdDceqVZ4SfQ4.TbCb6IAqOAIekQx0jVLHk-1761506350-1.0.1.1-nbxTBn4ATtOI4O5R1tU5N3WGsKMgZ8NwgREA_cgTAZSfS2J7f4uEUr81yCTNWjGv0bEbeiJW6hF8VN8od0Bvw06gniYkdA9p28mW9tnSDRs;
+        path=/; expires=Sun, 26-Oct-25 19:49:10 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=naIW4FPSCiM..JhLHJtO7_HO3hCGbV5vUOwsnBPR9p4-1761440671568-0.0.1.1-604800000;
+      - _cfuvid=Bev0nnZ77A.VZP6wKy7IQ5ttaUkfMC.mWIfc0iILuVA-1761506350556-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -73,16 +95,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99460a3c9f0bce38-SJC
+      - 994c4dbcbbfffa4a-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0d400cd0813215ec0068fd739e46f4819b958e7161a262be56",
+          "id": "resp_02a608d25ee3fd5b0068fe742da4108194bd391d783dbac1bb",
           "object": "response",
-          "created_at": 1761440670,
+          "created_at": 1761506349,
           "status": "completed",
           "background": false,
           "billing": {
@@ -96,11 +118,11 @@ http_interactions:
           "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "fc_0d400cd0813215ec0068fd739f21b4819bb0b7fdb6cf74e89b",
+              "id": "fc_02a608d25ee3fd5b0068fe742e47c0819487f372910c0f986a",
               "type": "function_call",
               "status": "completed",
-              "arguments": "{\"location\":\"Boston, MA\",\"unit\":\"fahrenheit\"}",
-              "call_id": "call_f441I9cLURpWMLXR6k7KlLRd",
+              "arguments": "{\"location\":\"Boston, MA\",\"unit\":\"celsius\"}",
+              "call_id": "call_2wUC6jJmkQW19Wc8qOoNo7zh",
               "name": "get_current_weather"
             }
           ],
@@ -168,37 +190,59 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sun, 26 Oct 2025 01:04:31 GMT
+  recorded_at: Sun, 26 Oct 2025 19:19:10 GMT
 - request:
     method: post
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"input":[{"role":"user","content":"What''s the weather in Boston?"},{"id":"fc_0d400cd0813215ec0068fd739f21b4819bb0b7fdb6cf74e89b","status":"completed","type":"function_call","call_id":"call_f441I9cLURpWMLXR6k7KlLRd","name":"get_current_weather","arguments":"{\"location\":\"Boston,
-        MA\",\"unit\":\"fahrenheit\"}"},{"type":"function_call_output","call_id":"call_f441I9cLURpWMLXR6k7KlLRd","output":"{\"location\":\"Boston,
-        MA\",\"unit\":\"fahrenheit\",\"temperature\":\"22\",\"conditions\":\"sunny\"}"}],"model":"gpt-4o","tools":[{"type":"function","name":"get_current_weather","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+      string: '{"input":[{"role":"user","content":"What''s the weather in Boston?"},{"id":"fc_02a608d25ee3fd5b0068fe742e47c0819487f372910c0f986a","status":"completed","type":"function_call","call_id":"call_2wUC6jJmkQW19Wc8qOoNo7zh","name":"get_current_weather","arguments":"{\"location\":\"Boston,
+        MA\",\"unit\":\"celsius\"}"},{"type":"function_call_output","call_id":"call_2wUC6jJmkQW19Wc8qOoNo7zh","output":"{\"location\":\"Boston,
+        MA\",\"unit\":\"celsius\",\"temperature\":\"22\",\"conditions\":\"sunny\"}"}],"model":"gpt-4o","tools":[{"type":"function","name":"get_current_weather","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
         city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]},"description":"Get
         the current weather in a given location"}]}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '847'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 01:04:32 GMT
+      - Sun, 26 Oct 2025 19:19:12 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -224,18 +268,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_951eacc6c2f74c59b6540ceaed4a47ef
+      - req_eb3e8ef2f66f4875b23a6f51ca55ea5d
       Openai-Processing-Ms:
-      - '948'
+      - '1456'
       X-Envoy-Upstream-Service-Time:
-      - '953'
+      - '1462'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=BMbwaVJDKqgaG7QAmiarC9YuZHLS_0HPDH88pYTAB34-1761440672-1.0.1.1-FzVAUE49vZ3AF6bUTWAaLm_YOdtT_SwuClrWx7htdl2eRm7vaFARFC_3Nd3GV7Fw4wFUX_jTcls9vCoJpfuCfgb42YbcgT8eR7bcV.7OefU;
-        path=/; expires=Sun, 26-Oct-25 01:34:32 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=umZRE4zybVErf_TFmXzM9xOg1qnKhbs7UU65M_aUo5Y-1761506352-1.0.1.1-EVPj.S8ap0SHu0FM36ybx_Blvp7M4Q9.oxouHBkhnDvX8jsTmQKrckNAjWwGw0kheKJ2AYJSq2DiRUHHAOAy9p.bwR1VM63G_lsd19cGWLM;
+        path=/; expires=Sun, 26-Oct-25 19:49:12 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=cO3adfF.FfsHDdz7YiOg6VTakSo_9VTspqACX_pM3B4-1761440672642-0.0.1.1-604800000;
+      - _cfuvid=bS6uriDBNmDTA52qw9EBhuY7EcHwjCOV0D2QdeT7U.A-1761506352174-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -244,16 +288,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99460a45a93e7ab0-SJC
+      - 994c4dc35c9feb20-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0d400cd0813215ec0068fd739fafac819b826c3b1711772cd1",
+          "id": "resp_02a608d25ee3fd5b0068fe742eb4bc8194ab14b121ae3df19c",
           "object": "response",
-          "created_at": 1761440671,
+          "created_at": 1761506351,
           "status": "completed",
           "background": false,
           "billing": {
@@ -267,7 +311,7 @@ http_interactions:
           "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "msg_0d400cd0813215ec0068fd73a04608819b921bbc97c6b5399d",
+              "id": "msg_02a608d25ee3fd5b0068fe742fbcec81948b3b3cff3a1b94b9",
               "type": "message",
               "status": "completed",
               "content": [
@@ -275,7 +319,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "The current weather in Boston, MA is sunny with a temperature of 22\u00b0F."
+                  "text": "The weather in Boston is currently 22\u00b0C and sunny."
                 }
               ],
               "role": "assistant"
@@ -336,14 +380,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 19,
+            "output_tokens": 14,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 144
+            "total_tokens": 139
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sun, 26 Oct 2025 01:04:32 GMT
+  recorded_at: Sun, 26 Oct 2025 19:19:12 GMT
 recorded_with: VCR 6.3.1

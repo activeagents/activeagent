@@ -8,25 +8,47 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"Analyze
         this image"},{"type":"input_image","image_url":"https://picsum.photos/200"}]}],"model":"gpt-4o-mini"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '174'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 01:04:37 GMT
+      - Sun, 26 Oct 2025 19:21:25 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +74,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_54edd03758c4413cb8136f6e703bf5d0
+      - req_a8161626118841d290fd3acfb9829dd2
       Openai-Processing-Ms:
-      - '4193'
+      - '3231'
       X-Envoy-Upstream-Service-Time:
-      - '4197'
+      - '3235'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=emLejS_YhzcfV_ljKZqjMq746NNzXZpYVJbAt3sfQM0-1761440677-1.0.1.1-WMqyFyZpP9x5eLY6Q7aSqjGxGpBesSfk5ey1dQTabu.A7wi0IVwrST0ZI1_ZNQs6aiHNbFA.KPNtKHQJPZWB6NU8pkxttrdGUvq_ugtSJqw;
-        path=/; expires=Sun, 26-Oct-25 01:34:37 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=Gqqd92NHbR1KoluG65cbxQ2VSvBlrxLUwfSHgghDkf0-1761506485-1.0.1.1-oaLhixVVrOaPeYoQvxMN7MFBIsIE.jDf13PrAx.PwJXGVj2lr1JaRE46Xb1gW_XB2ikIP4ygTUDfuaBvXunyZe3vkzSyIpYZB9NOmrdC.9U;
+        path=/; expires=Sun, 26-Oct-25 19:51:25 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=P0CTvoKtcgqL_CBK69elaMrrQDN_UVUQNibMYA5FKJs-1761440677015-0.0.1.1-604800000;
+      - _cfuvid=Vz3gBvfSZYXtvzdF6oDI9tharBZP7VH.Wpo74xuWcWw-1761506485527-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +94,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 99460a4ccfde689a-SJC
+      - 994c50f9fb37eb24-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0acc887404aab6670068fd73a0d0508199a6be3ba5810b8a52",
+          "id": "resp_0693e8e270c091eb0068fe74b247a48196b7a564f83d2a265e",
           "object": "response",
-          "created_at": 1761440673,
+          "created_at": 1761506483,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +117,7 @@ http_interactions:
           "model": "gpt-4o-mini-2024-07-18",
           "output": [
             {
-              "id": "msg_0acc887404aab6670068fd73a2be3481998ee47efc0e35164e",
+              "id": "msg_0693e8e270c091eb0068fe74b420f88196ae5835ca9066b4ee",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +125,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "The image depicts a person, likely a woman, joyfully dancing or spinning in a field during sunset. The sunlight creates a bright halo effect around her, enhancing the feeling of warmth and freedom. The setting appears to be serene and natural, with tall grass and trees in the background, which contributes to the overall mood of tranquility and joy. The use of light in the image adds a dreamy quality, making it visually striking and emotionally uplifting."
+                  "text": "This image depicts a serene, glacial landscape. The soft blue tones suggest a cold environment, likely depicting ice or glaciers reflecting in still water. The overall color palette is muted, creating a calm and tranquil atmosphere. The composition highlights the vastness of the natural scene, with the horizon seemingly stretching infinitely. This kind of landscape is often associated with remote, untouched wilderness, potentially hinting at themes of environmental beauty and fragility."
                 }
               ],
               "role": "assistant"
@@ -136,14 +158,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 89,
+            "output_tokens": 87,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 8599
+            "total_tokens": 8597
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sun, 26 Oct 2025 01:04:36 GMT
+  recorded_at: Sun, 26 Oct 2025 19:21:25 GMT
 recorded_with: VCR 6.3.1

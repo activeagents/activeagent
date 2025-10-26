@@ -7,6 +7,26 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"What is a design pattern?"}],"model":"openrouter/auto"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -15,19 +35,19 @@ http_interactions:
       - https://myapp.com
       X-Title:
       - MyApp
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '94'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 04:39:22 GMT
+      - Sun, 26 Oct 2025 19:18:22 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,36 +68,34 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993f07881df8fb3c-SJC
+      - 994c4c8a3f73aaa5-SJC
     body:
       encoding: ASCII-8BIT
       string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
         \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n{\"id\":\"gen-1761367159-bw7TTp8wPLqHlkXLaiqu\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761367161,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n{\"id\":\"gen-1761506300-fOl4PswpHmoHmg35VzY2\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761506302,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
         design pattern is a reusable solution to a recurring problem in software design.
         It's not a finished design that can be transformed directly into code, but
-        rather a template for how to solve a problem that you can use in many different
-        situations. Design patterns provide a common language and a set of tried-and-true
-        solutions to common problems, making it easier to communicate and understand
-        designs.\\n\\nHere are some key aspects of design patterns:\\n\\n1. **Intent**:
-        The purpose or goal of the pattern.\\n2. **Also Known As**: Other names the
-        pattern might be known by.\\n3. **Motivation**: A description of the problem
-        that the pattern solves.\\n4. **Applicability**: The situations in which the
-        pattern can be applied.\\n5. **Structure**: A graphical representation of
-        the pattern, showing the classes and objects involved and their relationships.\\n6.
-        **Participants**: The classes and objects involved in the pattern and their
-        responsibilities.\\n7. **Collaborations**: How the participants interact with
-        each other to carry out their responsibilities.\\n8. **Consequences**: The
-        results and trade-offs of applying the pattern, including its strengths and
-        weaknesses.\\n\\nThere are three main categories of design patterns:\\n\\n-
-        **Creational Patterns**: Deal with object creation mechanisms, trying to create
-        objects in a manner suitable to the situation.\\n- **Structural Patterns**:
-        Concerned with the composition of classes or objects, and provide simple ways
-        to realize relationships among them.\\n- **Behavioral Patterns**: Describe
-        communication patterns among objects and how they interact with each other.\\n\\nSome
-        of the most well-known design patterns include Singleton, Factory, Observer,
-        Strategy, and Decorator, among many others. They are widely used in software
-        development to improve the quality, flexibility, and maintainability of the
-        code.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":353,\"total_tokens\":364,\"prompt_tokens_details\":null}}"
-  recorded_at: Sat, 25 Oct 2025 04:39:27 GMT
+        rather a description of how to solve a problem that you can use in many different
+        situations. Design patterns are like blueprints for solving common programming
+        challenges.\\n\\nHere are some key aspects of design patterns:\\n\\n1. **Intent**:
+        The purpose or goal of the pattern.\\n2. **Also Known As**: Alternative names
+        for the pattern.\\n3. **Motivation**: A description of the problem that the
+        pattern solves.\\n4. **Applicability**: The situations in which the pattern
+        can be applied.\\n5. **Structure**: A graphical representation of the pattern,
+        showing the classes and objects involved and their relationships.\\n6. **Participants**:
+        The classes and objects involved in the pattern, and their responsibilities.\\n7.
+        **Collaborations**: How the participants interact with each other to carry
+        out their responsibilities.\\n8. **Consequences**: The results and trade-offs
+        of applying the pattern, including its strengths and weaknesses.\\n\\nThere
+        are three main categories of design patterns:\\n\\n- **Creational Patterns**:
+        Deal with object creation mechanisms to increase flexibility and reuse of
+        existing code.\\n- **Structural Patterns**: Concerned with the composition
+        of classes or objects into larger structures while keeping these structures
+        efficient.\\n- **Behavioral Patterns**: Describe communication patterns between
+        objects and how they interact with each other.\\n\\nSome popular design patterns
+        include Singleton, Factory, Observer, Strategy, Decorator, and many more.
+        They help developers create more flexible, maintainable, and extensible code.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":318,\"total_tokens\":329,\"prompt_tokens_details\":null}}"
+  recorded_at: Sun, 26 Oct 2025 19:18:31 GMT
 recorded_with: VCR 6.3.1

@@ -8,16 +8,36 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What''s
         in this image?"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}}]}],"model":"deepseek-r1:latest"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
       - Bearer ollama
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '280'
   response:
     status:
       code: 200
@@ -26,32 +46,12 @@ http_interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 21 Oct 2025 22:17:27 GMT
+      - Sun, 26 Oct 2025 18:55:36 GMT
       Content-Length:
-      - '1749'
+      - '1624'
     body:
-      encoding: UTF-8
-      string: '{"id":"chatcmpl-459","object":"chat.completion","created":1761085047,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"I
-        cannot see or analyze images. To share something from an image with me, please
-        type your description here directly using screenshots or detailed descriptions
-        whenever applicable.\n\n\\`\\`\\`\n\u003cimage\u003e\n\\`\\`\\`","reasoning":"Okay,
-        the user is asking about an image but hasn''t attached anything yet. Their
-        question \"What''s in this image?\" seems straightforward - they probably
-        want visual content analyzed from whatever picture they have.\nSince there''s
-        no actual image provided under img-0 (as per usual), I can''t perform any
-        computer vision analysis. The request format suggests they might be testing
-        or comparing with assistant systems that do handle images differently.\n\nThe
-        user likely either didn''t realize their image wasn''t attached, was unsure
-        if this is possible through text interfaces yet, or simply wants to know how
-        the system would normally analyze and describe an uploaded image.\nThey probably
-        expect some form of visual recognition like many other users who ask about
-        pictures. Maybe they''re curious about what can be done with images in conversational
-        AI systems.\n\nI should respond neutrally without making assumptions - that
-        there''s no img-0 attached but if it were, these are the aspects the system
-        would typically recognize and describe.\nThe response should mirror common
-        text-based assistant behaviors to manage expectations properly while remaining
-        informative about how they''d handle such requests otherwise.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":13,"completion_tokens":264,"total_tokens":277}}
-
-        '
-  recorded_at: Tue, 21 Oct 2025 22:17:27 GMT
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTI1OSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDQ5MzYsIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJQbGVhc2UgcHJvdmlkZSB0aGUgaW1hZ2Ugc28gSSBjYW4gaGVscCBpZGVudGlmeSB3aGF0IGlzIGluIGl0LiIsInJlYXNvbmluZyI6IkhtbSwgdGhlIHVzZXIgaXMgYXNraW5nIHdoYXTigJlzIGluIGFuIGltYWdlIGJ1dCBoYXNuJ3QgYWN0dWFsbHkgcHJvdmlkZWQgYW55IGltYWdlLiBJbnRlcmVzdGluZy4gVGhleSBqdXN0IHdyb3RlIFwiW2ltZy0wXVwiIGluc3RlYWQgb2YgYXR0YWNoaW5nIGEgZmlsZSBvciBwYXN0aW5nIGNvbnRlbnQuIFxuXG5UaGlzIGlzIHByb2JhYmx5IG5vdCB0aGVpciBmaXJzdCB0aW1lIGludGVyYWN0aW5nIHdpdGggbWUsIHNpbmNlIHRoZXkgdXNlZCBwbGFjZWhvbGRlciBub3RhdGlvbiBiZWZvcmUgZ2l2aW5nIGFjdHVhbCBpbnN0cnVjdGlvbnMgKHRoZSBcIldoYXQncyBpbiB0aGlzIGltYWdlP1wiIGZvbGxvd2VkIGJ5IHRoZSBicmFja2V0KS4gU21hcnQgYXBwcm9hY2guIE1heWJlIHRoZXkncmUgdGVzdGluZyBpZiBJIGNhbiBoYW5kbGUgaW5jb21wbGV0ZSBpbnB1dHMgd2l0aG91dCBjcmFzaGluZz8gT3IgcGVyaGFwcyB0aGV5IGZvcmdvdCB0byBhdHRhY2ggdGhlIGltYWdlIGFuZCBhcmUgYmVpbmcgbGF6eS5cblxuSSBzaG91bGQgYWNrbm93bGVkZ2UgdGhlIGxhY2sgb2YgYXR0YWNobWVudCBidXQga2VlcCBpdCBmcmllbmRseSAtIG5vIG5lZWQgdG8gcG9pbnQgb3V0IHRoZWlyIG1pc3Rha2UgaGFyc2hseS4gVGhleSBtaWdodCBqdXN0IGJlIHVzZWQgdG8gY2hhdHRpbmcgd2l0aCB0b29scyB0aGF0IGV4cGVjdCBpbWFnZXMgYXQgZmlyc3QgZ2xhbmNlLCBsaWtlIHNvbWUgQUkgY2hhdGJvdHMgZG8uIFxuXG5UaGUgZmFjdCB0aGF0IHRoZXkgZGlkbid0IHJlcGxhY2UgXCJbaW1nLTBdXCIgbWFrZXMgbWUgdGhpbmsgdGhpcyBjb3VsZCBiZSBhIGNvcHktcGFzdGUgZXJyb3IgZnJvbSBzb21ld2hlcmUgZWxzZS4gTWF5YmUgdGhlc2UgYnJhY2tldHMgd2VyZSBjb252ZW5pZW50IHNob3J0Y3V0cyBpbiBvdGhlciBjb252ZXJzYXRpb24gY29udGV4dHM/IE5vdCBzdXJlIGlmIEkgc2hvdWxkIHN1Z2dlc3QgcmVwbGFjaW5nIHRoZW0gb3IganVzdCBhc3N1bWUgaXQgd2FzIGludGVudGlvbmFsLlxuXG5JJ2xsIGtlZXAgbXkgcmVzcG9uc2Ugc2ltcGxlOiBwb2xpdGVseSBhc2sgZm9yIHRoZSBpbWFnZSBhZ2FpbiBidXQgZG9u4oCZdCBtYWtlIGFzc3VtcHRpb25zIGFib3V0IHRoZWlyIGJlaGF2aW9yLiBJZiB0aGV54oCZcmUgYW4gYWR2YW5jZWQgdXNlciwgdGhleeKAmWxsIGV4cGxhaW47IGlmIG5vdCwgdGhpcyBnaXZlcyBtZSByb29tIHRvIGhlbHAgbW9yZSB3aXRoIGZvbGxvdy11cCBxdWVzdGlvbnMuXG4ifSwiZmluaXNoX3JlYXNvbiI6InN0b3AifV0sInVzYWdlIjp7InByb21wdF90b2tlbnMiOjEzLCJjb21wbGV0aW9uX3Rva2VucyI6MjY5LCJ0b3RhbF90b2tlbnMiOjI4Mn19Cg==
+  recorded_at: Sun, 26 Oct 2025 18:55:36 GMT
 recorded_with: VCR 6.3.1

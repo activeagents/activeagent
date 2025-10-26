@@ -18,7 +18,7 @@ module ActiveAgent
         #
         # @return [OpenAI::Client] The configured OpenAI client
         def client
-          ::OpenAI::Client.new(options.serialize)
+          ::OpenAI::Client.new(**options.serialize)
         end
 
         # Returns the service name for OpenAI providers.

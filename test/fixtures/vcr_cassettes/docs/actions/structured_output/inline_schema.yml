@@ -7,25 +7,47 @@ http_interactions:
       encoding: UTF-8
       string: '{"input":"Extract colors: red, blue, green. Return as json.","model":"gpt-4o","text":{"format":{"type":"json_schema","name":"color_list","schema":{"type":"object","properties":{"colors":{"type":"array","items":{"type":"string"}}},"required":["colors"],"additionalProperties":false},"strict":true}}}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '298'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 18:10:04 GMT
+      - Sun, 26 Oct 2025 19:12:13 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -51,18 +73,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_2a55720b297942868cddf019e89ff5ad
+      - req_ec1547b22caf4ff1aac511c827de6672
       Openai-Processing-Ms:
-      - '1161'
+      - '1425'
       X-Envoy-Upstream-Service-Time:
-      - '1169'
+      - '1431'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=V29GnGwP8tX_9wFVWvmC_VjKyrPcvNMmcxbyOP0tM4E-1761415804-1.0.1.1-SS8EAWPTGkhIjcrC9lYrEqg24gl0oWNDslv8o5c4hkHWFLdaIC5Xe1AH_oNA3ThPoJP9ckcN9AVTxiTCpnSlSCCcx.04sr7vrGCtXDD.wTQ;
-        path=/; expires=Sat, 25-Oct-25 18:40:04 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=LrAwUx.pAsPN7O32YEGvQyruSqCL9nJe0NAlOJdcwEw-1761505933-1.0.1.1-bCC7h_jDkWP4IUb2H9FUGpmoLP38hPA6ctL.9VLUTjoLXfEfe__QlsdhrLBNRQT7jZOERWw0wMJH_TGjOY7RZRbIxzrOj19RQLQUmZyplnU;
+        path=/; expires=Sun, 26-Oct-25 19:42:13 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=YLlDHyDA82ZMtJNh56zLZOFQctYykImS0t2XeietbIs-1761415804855-0.0.1.1-604800000;
+      - _cfuvid=NVJxDb4E4BxBpmgdZs6zWCcIVPNZ8PUDjHtSIoOWrBk-1761505933166-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -71,16 +93,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9943ab24cec02ca1-SJC
+      - 994c43871d33944c-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_05a87f5ff7a5a27d0068fd127bb510819a9cd8c83682c809bc",
+          "id": "resp_0a6b720f08266d3e0068fe728bc0b0819881ee4f88d9a9ee78",
           "object": "response",
-          "created_at": 1761415803,
+          "created_at": 1761505932,
           "status": "completed",
           "background": false,
           "billing": {
@@ -94,7 +116,7 @@ http_interactions:
           "model": "gpt-4o-2024-08-06",
           "output": [
             {
-              "id": "msg_05a87f5ff7a5a27d0068fd127c8530819aa755c41e6e220397",
+              "id": "msg_0a6b720f08266d3e0068fe728c9eec81988a5ce9c6af42fbdf",
               "type": "message",
               "status": "completed",
               "content": [
@@ -162,5 +184,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sat, 25 Oct 2025 18:10:04 GMT
+  recorded_at: Sun, 26 Oct 2025 19:12:13 GMT
 recorded_with: VCR 6.3.1

@@ -8,25 +8,45 @@ http_interactions:
       string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"What''s
         in this image?"},{"type":"input_image","image_url":"https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png?scale-down-to=64"}]}],"model":"gpt-4.1"}'
     headers:
-      Content-Type:
-      - application/json
-      Authorization:
-      - Bearer ACCESS_TOKEN
-      Openai-Organization:
-      - ORGANIZATION_ID
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
-      - "*/*"
+      - application/json
       User-Agent:
       - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '233'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 05:28:44 GMT
+      - Sun, 26 Oct 2025 18:35:58 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -52,18 +72,18 @@ http_interactions:
       Openai-Project:
       - PROJECT_ID
       X-Request-Id:
-      - req_76ed7ddd39ff43bc8537864d909fd744
+      - req_9de9702878024309a65394aff22ac881
       Openai-Processing-Ms:
-      - '3539'
+      - '5909'
       X-Envoy-Upstream-Service-Time:
-      - '3542'
+      - '5915'
       Cf-Cache-Status:
       - DYNAMIC
       Set-Cookie:
-      - __cf_bm=i2zFGVnalpi_Yqj9IZnw_wffAuOzRam7xpZL.9Z8KVg-1761024524-1.0.1.1-gyf7LOvkiA6siwokdWVZeMoTsFcZQMZKmax0HEhY3LqZoI6qdAO_wCI8x7P_oDgBvip9FcmmD3U9typiyyTGyjq1PY_GxRXSHWiyliSErt8;
-        path=/; expires=Tue, 21-Oct-25 05:58:44 GMT; domain=.api.openai.com; HttpOnly;
+      - __cf_bm=LdZq39igm2f3rqBhRJSorr95Aac0C3sT_aLnvk1xWs0-1761503758-1.0.1.1-m_ZaTJNL8ASMhwA9K0KDHJZo9rTN1u9fH8JU4LLaC1XfaYyt9rJT5SP768xrhWiEa0MUd39RVqThDtSooonK8Oh4RkCaUafNmWS8Yxljok0;
+        path=/; expires=Sun, 26-Oct-25 19:05:58 GMT; domain=.api.openai.com; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=02rxFFc7U.zWXfFfLCivzoZthxaUIKQUS52DQZW5.AI-1761024524456-0.0.1.1-604800000;
+      - _cfuvid=Ylj7v7kW14nsHawIqnGmVPJeDkc3OBPCFR2b4Fp0bWc-1761503758120-0.0.1.1-604800000;
         path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
@@ -72,16 +92,16 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 991e5a575ea77ac7-SJC
+      - 994c0e501fb02db2-SJC
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_082790b0d8a64b1e0068f71a08e7008193a9e237386b4b13f5",
+          "id": "resp_0f566a40099e5fdb0068fe6a08340881939632274413c04b99",
           "object": "response",
-          "created_at": 1761024521,
+          "created_at": 1761503752,
           "status": "completed",
           "background": false,
           "billing": {
@@ -95,7 +115,7 @@ http_interactions:
           "model": "gpt-4.1-2025-04-14",
           "output": [
             {
-              "id": "msg_082790b0d8a64b1e0068f71a0a436c81938244af90cd6fa7e9",
+              "id": "msg_0f566a40099e5fdb0068fe6a0c318c8193be7c0f3bc2353096",
               "type": "message",
               "status": "completed",
               "content": [
@@ -103,7 +123,7 @@ http_interactions:
                   "type": "output_text",
                   "annotations": [],
                   "logprobs": [],
-                  "text": "This image contains a stylized logo with the words \"ACTIVE AUDITS\" in bold, uppercase letters. To the left of the text, there is a graphic of a red, round character wearing dark sunglasses and a headset, conveying a secret agent or spy theme. The overall style and color scheme suggest a dynamic, action-oriented brand or concept."
+                  "text": "This image features a logo with the text \"ACTIVE AGENTS.\" To the left of the text, there is a red circular character or icon with sunglasses and black hair, giving a cool or secret agent vibe. The design and style suggest it could be related to a game, team, or group branding."
                 }
               ],
               "role": "assistant"
@@ -136,14 +156,14 @@ http_interactions:
             "input_tokens_details": {
               "cached_tokens": 0
             },
-            "output_tokens": 70,
+            "output_tokens": 62,
             "output_tokens_details": {
               "reasoning_tokens": 0
             },
-            "total_tokens": 337
+            "total_tokens": 329
           },
           "user": null,
           "metadata": {}
         }
-  recorded_at: Tue, 21 Oct 2025 05:28:44 GMT
+  recorded_at: Sun, 26 Oct 2025 18:35:58 GMT
 recorded_with: VCR 6.3.1

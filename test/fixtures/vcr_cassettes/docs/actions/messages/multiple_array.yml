@@ -9,6 +9,26 @@ http_interactions:
         me a fun fact about Ruby."},{"type":"text","text":"Now explain why that''s
         interesting."}]}],"model":"openai/gpt-4o-mini"}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -17,19 +37,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '188'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 07:45:36 GMT
+      - Sun, 26 Oct 2025 19:14:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -50,23 +70,10 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9940186bae14cf1b-SJC
+      - 994c46936afcebed-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761378336-8K1ri8jbrYZIldXH7hQJ\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1761378336,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
-        fun fact about Ruby is that it was designed with developer happiness in mind.
-        Yukihiro \\\"Matz\\\" Matsumoto, the creator of Ruby, aimed to create a language
-        that was both powerful and easy to use, allowing programmers to express their
-        ideas in a natural and intuitive way. This philosophy is reflected in Ruby's
-        elegant syntax and flexible structure.\\n\\nThis fact is interesting because
-        it highlights a fundamental aspect of programming language design that often
-        gets overlooked: the human experience. Many programming languages prioritize
-        performance or technical capabilities, but Ruby's focus on developer happiness
-        encourages creativity and productivity. It fosters a positive environment
-        for coding, which can lead to more innovative solutions and a more enjoyable
-        development process. As a result, Ruby has garnered a passionate community
-        of developers who appreciate not just the language itself, but also the philosophy
-        behind it.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":20,\"completion_tokens\":165,\"total_tokens\":185,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Sat, 25 Oct 2025 07:45:40 GMT
+      string: !binary |-
+        CiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKCiAgICAgICAgIAoKICAgICAgICAgCgogICAgICAgICAKeyJpZCI6Imdlbi0xNzYxNTA2MDU2LXRnTGhJamdXQUhLTFdjY0F2SnJaIiwicHJvdmlkZXIiOiJPcGVuQUkiLCJtb2RlbCI6Im9wZW5haS9ncHQtNG8tbWluaSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDYwNTYsImNob2ljZXMiOlt7ImxvZ3Byb2JzIjpudWxsLCJmaW5pc2hfcmVhc29uIjoic3RvcCIsIm5hdGl2ZV9maW5pc2hfcmVhc29uIjoic3RvcCIsImluZGV4IjowLCJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiQSBmdW4gZmFjdCBhYm91dCBSdWJ5IGlzIHRoYXQgaXQgd2FzIGNyZWF0ZWQgYnkgWXVraWhpcm8gTWF0c3Vtb3RvIGluIHRoZSBtaWQtMTk5MHMgYW5kIGRlc2lnbmVkIHRvIG1ha2UgcHJvZ3JhbW1pbmcgZW5qb3lhYmxlIGZvciBkZXZlbG9wZXJzLiBNYXRzdW1vdG/igJlzIHBoaWxvc29waHksIG9mdGVuIHN1bW1lZCB1cCBhcyDigJxvcHRpbWl6aW5nIGZvciBwcm9ncmFtbWVyIGhhcHBpbmVzcyzigJ0gbGVkIHRvIGZlYXR1cmVzIGxpa2UgZHluYW1pYyB0eXBpbmcsIGVsZWdhbnQgc3ludGF4LCBhbmQgYSBzdHJvbmcgZm9jdXMgb24gc2ltcGxpY2l0eSBhbmQgcHJvZHVjdGl2aXR5LlxuXG5UaGlzIGlzIGludGVyZXN0aW5nIGJlY2F1c2UgaXQgaGlnaGxpZ2h0cyB0aGUgYnJvYWRlciBnb2FsIGJlaGluZCBwcm9ncmFtbWluZyBsYW5ndWFnZSBkZXNpZ246IG1ha2luZyB0aGUgZXhwZXJpZW5jZSBlbmpveWFibGUgYW5kIGludHVpdGl2ZSBmb3IgdGhlIGRldmVsb3Blci4gV2hpbGUgbWFueSBsYW5ndWFnZXMgZW1waGFzaXplIHBlcmZvcm1hbmNlIG9yIHN0cmljdCBzeW50YXgsIFJ1YnnigJlzIGVtcGhhc2lzIG9uIGhhcHBpbmVzcyBlbmNvdXJhZ2VzIG1vcmUgY3JlYXRpdml0eSBhbmQgZXhwZXJpbWVudGF0aW9uLiBUaGUgcmVzdWx0IGlzIGEgdmlicmFudCBjb21tdW5pdHkgYW5kIGEgd2VhbHRoIG9mIHBvd2VyZnVsIHdlYiBmcmFtZXdvcmtzLCBtb3N0IG5vdGFibHkgUnVieSBvbiBSYWlscywgd2hpY2ggaGFzIG1hZGUgd2ViIGRldmVsb3BtZW50IG1vcmUgYWNjZXNzaWJsZSBhbmQgZW5qb3lhYmxlIGZvciBtYW55IHByb2dyYW1tZXJzLiIsInJlZnVzYWwiOm51bGwsInJlYXNvbmluZyI6bnVsbH19XSwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfNTYwYWY2ZTU1OSIsInVzYWdlIjp7InByb21wdF90b2tlbnMiOjIwLCJjb21wbGV0aW9uX3Rva2VucyI6MTQ2LCJ0b3RhbF90b2tlbnMiOjE2NiwicHJvbXB0X3Rva2Vuc19kZXRhaWxzIjp7ImNhY2hlZF90b2tlbnMiOjAsImF1ZGlvX3Rva2VucyI6MH0sImNvbXBsZXRpb25fdG9rZW5zX2RldGFpbHMiOnsicmVhc29uaW5nX3Rva2VucyI6MH19fQ==
+  recorded_at: Sun, 26 Oct 2025 19:14:19 GMT
 recorded_with: VCR 6.3.1

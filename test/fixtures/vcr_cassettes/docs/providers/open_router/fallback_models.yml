@@ -7,6 +7,26 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"Explain polymorphism in OOP"}],"model":"openai/gpt-4o","models":["anthropic/claude-sonnet-4","google/gemini-pro-1.5"]}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -15,19 +35,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '157'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 04:37:24 GMT
+      - Sun, 26 Oct 2025 19:17:21 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,45 +68,39 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 993f04b89ffdcf87-SJC
+      - 994c4b154acfeb1e-SJC
     body:
       encoding: ASCII-8BIT
       string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
-        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761367043-SOh0bP6BAsHYgIbcCmHO\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761367044,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Polymorphism
-        is one of the core concepts of Object-Oriented Programming (OOP) and it refers
-        to the ability of different objects to be treated as instances of the same
-        class through a common interface. The most common type of polymorphism in
-        OOP is through methods.\\n\\n### Types of Polymorphism\\n\\n1. **Compile-Time
-        Polymorphism (Static Binding or Method Overloading):**\\n   - This type of
-        polymorphism is resolved during the compile time.\\n   - Method Overloading:
-        It occurs when multiple methods have the same name with different parameters
-        (either in number, type, or order) within the same class or in a subclass.
-        The compiler determines the appropriate method based on the method signature
-        during compile time.\\n   - Example: \\n     ```java\\n     class Printer
-        {\\n         void print(int num) {\\n             System.out.println(\\\"Integer:
-        \\\" + num);\\n         }\\n         void print(String text) {\\n             System.out.println(\\\"String:
-        \\\" + text);\\n         }\\n     }\\n     ```\\n\\n2. **Runtime Polymorphism
-        (Dynamic Binding or Method Overriding):**\\n   - This type of polymorphism
-        is resolved during runtime.\\n   - Method Overriding: It occurs when a subclass
-        has a method with the same name and signature as a method in its superclass.
-        The decisions regarding which method to call are made at runtime based on
-        the object's actual type.\\n   - Example:\\n     ```java\\n     class Animal
-        {\\n         void sound() {\\n             System.out.println(\\\"Animal sound\\\");\\n
-        \        }\\n     }\\n\\n     class Dog extends Animal {\\n         @Override\\n
-        \        void sound() {\\n             System.out.println(\\\"Bark\\\");\\n
-        \        }\\n     }\\n\\n     public class Test {\\n         public static
-        void main(String[] args) {\\n             Animal myDog = new Dog();\\n             myDog.sound();
-        \ // Outputs: Bark\\n         }\\n     }\\n     ```\\n   - In the example
-        above, even though `myDog` is declared as an `Animal`, it refers to an instance
-        of `Dog`, and thus the `sound` method of `Dog` is invoked.\\n\\n### Importance
-        of Polymorphism\\n\\n- **Code Reusability:** By using polymorphism, a single
-        function can operate on different types of objects, enhancing reusability.\\n-
-        **Scalability and Maintainability:** Polymorphism allows systems to be easily
-        extended and modified. Adding new subclasses or method implementations doesn't
-        require changing existing code.\\n- **Interface Implementation:** It allows
-        objects to be manipulated regardless of their specific class, upholding the
-        principle of programming to an interface rather than an implementation.\\n\\nOverall,
-        polymorphism contributes to the flexibility and scalability of code, making
-        it easier to handle changes and complexity in software design.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":13,\"completion_tokens\":541,\"total_tokens\":554,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Sat, 25 Oct 2025 04:37:29 GMT
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761506240-NS8EtGeNDB2PUr8wMyOb\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761506240,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Polymorphism
+        is a fundamental concept in object-oriented programming (OOP) that refers
+        to the ability of different objects to respond to the same message, or method
+        call, in different ways. It allows for methods to operate on objects of different
+        classes through a common interface. There are two primary types of polymorphism
+        in OOP: compile-time (or static) polymorphism and runtime (or dynamic) polymorphism.\\n\\n1.
+        **Compile-time Polymorphism (Static Polymorphism):**\\n   - Achieved through
+        method overloading and operator overloading.\\n   - Method Overloading: This
+        involves having multiple methods in the same class with the same name but
+        different signatures (different parameter lists). The correct method to invoke
+        is determined at compile time based on the method signature.\\n   - Operator
+        Overloading: This allows operators (like +, -, *, etc.) to have different
+        meanings based on their context, often used in languages like C++.\\n\\n2.
+        **Runtime Polymorphism (Dynamic Polymorphism):**\\n   - Achieved through method
+        overriding. This involves redefining a method in a subclass that is already
+        defined in the superclass.\\n   - The actual method that gets invoked is determined
+        at runtime, based on the object's type (not the reference type).\\n   - It
+        requires a base class reference (or pointer) and a derived class object. In
+        many OOP languages, this is typically implemented using virtual functions
+        or interfaces.\\n   - This type of polymorphism gives flexibility and allows
+        one to write more generic and reusable code. It is the cornerstone of achieving
+        runtime dynamic behavior in applications.\\n\\n### Benefits of Polymorphism:\\n-
+        **Simplified Code Management:** It allows developers to write more generic
+        code and handle different types via a unified interface.\\n- **Extensibility:**
+        New object types can be introduced with minimal changes to existing code.\\n-
+        **Maintenance and Scalability:** Enhances code readability and maintenance
+        as changes in code are less prone to errors.\\n- **Dynamic Behavior:** Provides
+        flexibility in reusing existing implementations while allowing for new implementations.\\n\\nBy
+        leveraging polymorphism effectively, software architects can design systems
+        that are easier to scale, maintain, and enhance over time.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":13,\"completion_tokens\":432,\"total_tokens\":445,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:17:25 GMT
 recorded_with: VCR 6.3.1

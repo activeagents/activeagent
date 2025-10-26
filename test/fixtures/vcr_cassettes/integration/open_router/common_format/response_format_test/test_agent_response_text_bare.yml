@@ -7,6 +7,26 @@ http_interactions:
       encoding: UTF-8
       string: '{"messages":[{"role":"user","content":"List three primary colors."}],"model":"openrouter/auto","response_format":{"type":"text"}}'
     headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
       Content-Type:
       - application/json
       Authorization:
@@ -15,19 +35,19 @@ http_interactions:
       - https://example.com
       X-Title:
       - Dummy
-      Accept-Encoding:
-      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
-      Accept:
-      - "*/*"
-      User-Agent:
-      - Ruby
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '129'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 21:37:50 GMT
+      - Sun, 26 Oct 2025 19:11:40 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -48,10 +68,10 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 9944db783c06ed3f-SJC
+      - 994c42b85b378b9e-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n\n         \n{\"id\":\"gen-1761428268-U8rhu4q1FfOCVDtMCzn6\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761428270,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The
-        three primary colors are:\\n\\n1. **Red**\\n2. **Blue**\\n3. **Yellow**\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":21,\"total_tokens\":31,\"prompt_tokens_details\":null}}"
-  recorded_at: Sat, 25 Oct 2025 21:37:52 GMT
+      string: "\n         \n{\"id\":\"gen-1761505898-0fcO8q9LWMwgPyrSVKrk\",\"provider\":\"InferenceNet\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761505900,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The
+        three primary colors are:\\n\\n1. Red\\n2. Blue\\n3. Yellow\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"\",\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":18,\"total_tokens\":30}}"
+  recorded_at: Sun, 26 Oct 2025 19:11:40 GMT
 recorded_with: VCR 6.3.1
