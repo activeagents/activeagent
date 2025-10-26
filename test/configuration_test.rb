@@ -17,45 +17,43 @@ class ConfigurationTest < ActiveSupport::TestCase
   test "initializes with default values" do
     config = ActiveAgent::Configuration.new
 
-    assert_equal true, config.retries
-    assert_equal 3, config.retries_count
-    assert_includes config.retries_on, EOFError
-    assert_includes config.retries_on, Timeout::Error
+    # Configuration now primarily stores provider settings
+    assert_not_nil config
   end
 
   # Test custom initialization
   test "initializes with custom settings" do
     config = ActiveAgent::Configuration.new(
-      retries_count: 5
+      openai: { service: "OpenAI", model: "gpt-4o" }
     )
 
-    assert_equal 5, config.retries_count
+    assert_equal "OpenAI", config[:openai]["service"]
   end
 
   # Test hash-like access
   test "supports hash-like access with []" do
-    config = ActiveAgent::Configuration.new(retries_count: 10)
+    config = ActiveAgent::Configuration.new(
+      openai: { model: "gpt-4o" }
+    )
 
-    assert_equal 10, config[:retries_count]
-    assert_equal 10, config["retries_count"]
+    assert_equal "gpt-4o", config[:openai]["model"]
+    assert_equal "gpt-4o", config["openai"]["model"]
   end
 
   test "supports hash-like assignment with []=" do
     config = ActiveAgent::Configuration.new
 
-    config[:retries_count] = 7
-    assert_equal 7, config.retries_count
-
-    config["retries"] = false
-    assert_equal false, config.retries
+    config[:openai] = { model: "gpt-4o" }
+    assert_equal "gpt-4o", config[:openai]["model"]
   end
 
   # Test method_missing delegation
   test "accesses configuration via method syntax" do
-    config = ActiveAgent::Configuration.new(retries_count: 15)
+    config = ActiveAgent::Configuration.new(
+      openai: { model: "gpt-4o" }
+    )
 
-    assert_equal 15, config.retries_count
-    assert_equal true, config.retries
+    assert_equal "gpt-4o", config.openai["model"]
   end
 
   test "returns nil for undefined configuration keys" do
@@ -68,40 +66,8 @@ class ConfigurationTest < ActiveSupport::TestCase
   test "respond_to_missing? works correctly" do
     config = ActiveAgent::Configuration.new
 
-    assert config.respond_to?(:retries)
-    assert config.respond_to?(:retries_count)
+    assert config.respond_to?(:logger)
     refute config.respond_to?(:nonexistent_key)
-  end
-
-  # Test retries setter validation
-  test "retries accepts false" do
-    config = ActiveAgent::Configuration.new
-    config.retries = false
-    assert_equal false, config.retries
-  end
-
-  test "retries accepts true" do
-    config = ActiveAgent::Configuration.new
-    config.retries = true
-    assert_equal true, config.retries
-  end
-
-  test "retries accepts callable object" do
-    retry_proc = ->(block) { block.call }
-    config = ActiveAgent::Configuration.new
-    config.retries = retry_proc
-
-    assert_equal retry_proc, config.retries
-  end
-
-  test "retries raises error for invalid value" do
-    config = ActiveAgent::Configuration.new
-
-    error = assert_raises(ArgumentError) do
-      config.retries = "invalid"
-    end
-
-    assert_includes error.message, "retries must be false, true, or a callable object"
   end
 
   # Test provider configuration storage
@@ -144,27 +110,6 @@ class ConfigurationTest < ActiveSupport::TestCase
   end
 
   # Test YAML file loading
-  test "loads configuration from YAML file" do
-    yaml_content = <<~YAML
-      development:
-        retries: false
-        retries_count: 10
-    YAML
-
-    Tempfile.create([ "config", ".yml" ]) do |file|
-      file.write(yaml_content)
-      file.rewind
-
-      ENV["RAILS_ENV"] = "development"
-      config = ActiveAgent::Configuration.load(file.path)
-
-      assert_equal false, config.retries
-      assert_equal 10, config.retries_count
-    ensure
-      ENV.delete("RAILS_ENV")
-    end
-  end
-
   test "loads provider configuration from YAML file" do
     yaml_content = <<~YAML
       development:
@@ -216,8 +161,9 @@ class ConfigurationTest < ActiveSupport::TestCase
 
   test "falls back to root config if environment not found" do
     yaml_content = <<~YAML
-      retries: false
-      retries_count: 20
+      openai:
+        service: "OpenAI"
+        model: "gpt-4o"
     YAML
 
     Tempfile.create([ "config", ".yml" ]) do |file|
@@ -227,8 +173,8 @@ class ConfigurationTest < ActiveSupport::TestCase
       ENV["RAILS_ENV"] = "nonexistent_env"
       config = ActiveAgent::Configuration.load(file.path)
 
-      assert_equal false, config.retries
-      assert_equal 20, config.retries_count
+      assert_equal "OpenAI", config[:openai][:service]
+      assert_equal "gpt-4o", config[:openai][:model]
     ensure
       ENV.delete("RAILS_ENV")
     end
@@ -237,9 +183,8 @@ class ConfigurationTest < ActiveSupport::TestCase
   test "returns empty config when file does not exist" do
     config = ActiveAgent::Configuration.load("/path/to/nonexistent/file.yml")
 
-    # Should still have default values
-    assert_equal true, config.retries
-    assert_equal 3, config.retries_count
+    # Should still be a valid configuration object
+    assert_not_nil config
   end
 
   # Test global configuration methods
@@ -252,32 +197,31 @@ class ConfigurationTest < ActiveSupport::TestCase
 
   test "ActiveAgent.configure yields configuration" do
     ActiveAgent.configure do |config|
-      config.retries = false
-      config.retries_count = 99
+      config[:openai] = { service: "OpenAI", model: "gpt-4o" }
     end
 
-    assert_equal false, ActiveAgent.configuration.retries
-    assert_equal 99, ActiveAgent.configuration.retries_count
+    assert_equal "OpenAI", ActiveAgent.configuration[:openai]["service"]
+    assert_equal "gpt-4o", ActiveAgent.configuration[:openai]["model"]
   end
 
   test "ActiveAgent.configure returns configuration" do
     result = ActiveAgent.configure do |config|
-      config.retries_count = 42
+      config[:anthropic] = { service: "Anthropic" }
     end
 
     assert_instance_of ActiveAgent::Configuration, result
-    assert_equal 42, result.retries_count
+    assert_equal "Anthropic", result[:anthropic]["service"]
   end
 
   test "ActiveAgent.reset_configuration! creates new instance" do
-    ActiveAgent.configuration.retries_count = 50
+    ActiveAgent.configuration[:test_key] = "test_value"
     original = ActiveAgent.configuration
 
     ActiveAgent.reset_configuration!
     new_config = ActiveAgent.configuration
 
     refute_same original, new_config
-    assert_equal 3, new_config.retries_count # default value
+    assert_nil new_config[:test_key]
   end
 
   test "ActiveAgent::Base.logger can be manually set in configure block" do
@@ -312,10 +256,10 @@ class ConfigurationTest < ActiveSupport::TestCase
   test "ActiveAgent.configuration_load sets global configuration" do
     yaml_content = <<~YAML
       development:
-        retries_count: 25
         openai:
           service: "OpenAI"
           model: "gpt-4o"
+          max_retries: 5
     YAML
 
     Tempfile.create([ "config", ".yml" ]) do |file|
@@ -325,8 +269,8 @@ class ConfigurationTest < ActiveSupport::TestCase
       ENV["RAILS_ENV"] = "development"
       ActiveAgent.configuration_load(file.path)
 
-      assert_equal 25, ActiveAgent.configuration.retries_count
       assert_equal "OpenAI", ActiveAgent.configuration[:openai][:service]
+      assert_equal 5, ActiveAgent.configuration[:openai][:max_retries]
     ensure
       ENV.delete("RAILS_ENV")
     end
@@ -345,37 +289,8 @@ class ConfigurationTest < ActiveSupport::TestCase
     assert_equal "openai", config[:providers][0]["name"]
   end
 
-  # Test retries_on default error classes
-  test "retries_on includes network-related errors by default" do
-    config = ActiveAgent::Configuration.new
-
-    assert_includes config.retries_on, EOFError
-    assert_includes config.retries_on, Errno::ECONNREFUSED
-    assert_includes config.retries_on, Errno::ECONNRESET
-    assert_includes config.retries_on, Errno::EHOSTUNREACH
-    assert_includes config.retries_on, Errno::EINVAL
-    assert_includes config.retries_on, Errno::ENETUNREACH
-    assert_includes config.retries_on, Errno::ETIMEDOUT
-    assert_includes config.retries_on, SocketError
-    assert_includes config.retries_on, Timeout::Error
-  end
-
-  test "retries_on can be modified" do
-    config = ActiveAgent::Configuration.new
-    original_count = config.retries_on.size
-
-    config.retries_on << RuntimeError
-
-    assert_equal original_count + 1, config.retries_on.size
-    assert_includes config.retries_on, RuntimeError
-  end
-
   # Test DEFAULTS constant
   test "DEFAULTS constant is frozen" do
     assert ActiveAgent::Configuration::DEFAULTS.frozen?
-  end
-
-  test "DEFAULTS retries_on is frozen" do
-    assert ActiveAgent::Configuration::DEFAULTS[:retries_on].frozen?
   end
 end

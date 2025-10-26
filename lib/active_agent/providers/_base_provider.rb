@@ -1,5 +1,5 @@
 require_relative "common/response"
-require_relative "concerns/retries"
+require_relative "concerns/exception_handler"
 
 # Maps provider types to their gem dependencies.
 # @private
@@ -38,7 +38,7 @@ module ActiveAgent
     #   {#process_stream_chunk}, {#process_prompt_finished_extract_messages},
     #   and {#process_prompt_finished_extract_function_calls}
     class BaseProvider
-      include Retries
+      include ExceptionHandler
 
       class ProvidersError < StandardError; end
 
@@ -57,11 +57,8 @@ module ActiveAgent
       def initialize(kwargs = {})
         assert_service!(kwargs.delete(:service))
 
-        configure_retries(
-          exception_handler: kwargs.delete(:exception_handler),
-          retries:           kwargs.delete(:retries),
-          retries_count:     kwargs.delete(:retries_count),
-          retries_on:        kwargs.delete(:retries_on)
+        configure_exception_handler(
+          exception_handler: kwargs.delete(:exception_handler)
         )
 
         self.trace_id           = kwargs[:trace_id]
@@ -155,7 +152,7 @@ module ActiveAgent
         # @todo Validate Request
         api_parameters = api_request_build(request, prompt_request_type)
         api_response   = instrument("api_call.provider.active_agent", streaming: api_parameters[:stream].present?) do
-          retriable { api_prompt_execute(api_parameters) }
+          with_exception_handling { api_prompt_execute(api_parameters) }
         end
 
         process_prompt_finished(api_response.as_json&.deep_symbolize_keys)
@@ -168,7 +165,7 @@ module ActiveAgent
         # @todo Validate Request
         api_parameters = api_request_build(request, embed_request_type)
         api_response   = instrument("embed_call.provider.active_agent") do
-          retriable { api_embed_execute(api_parameters) }
+          with_exception_handling { api_embed_execute(api_parameters) }
         end
 
         process_embed_finished(api_response)

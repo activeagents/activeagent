@@ -1,194 +1,167 @@
 # Retries
 
-LLM service APIs are inherently unstable, with requests frequently failing due to rate limits, temporary outages, network issues, and other transient errors. To handle this reality, ActiveAgent includes a basic built-in retry system that automatically retries failed requests.
+LLM service APIs are inherently unstable, with requests frequently failing due to rate limits, temporary outages, network issues, and other transient errors. ActiveAgent relies on the built-in retry mechanisms provided by each provider's underlying SDK (ruby-openai, anthropic-rb, etc.), which implement sophisticated retry strategies with exponential backoff and rate limit handling.
 
-**Important:** The built-in retry system is designed for development and light usage. For production environments, you should implement a custom retry strategy using a library like [Retriable](https://github.com/kamui/retriable) or [Sidekiq's retry mechanism](https://github.com/sidekiq/sidekiq/wiki/Error-Handling) that provides exponential backoff, jitter, and sophisticated retry policies.
+## Provider-Native Retries
 
-## Default Retry Behavior
-
-By default, ActiveAgent automatically retries failed requests up to 3 times when network errors occur.
+Each provider SDK includes its own retry logic that's specifically tuned for that provider's API:
 
 **When retries trigger:**
 - Network timeouts and connection errors
+- Rate limit responses (429 status codes)
+- Temporary server errors (500, 502, 503, 504)
 - Socket errors and DNS failures
-- Any exception class listed in `retries_on`
+- Provider-specific transient errors
 
 **Retry behavior:**
-- Retries are automatic and transparent
-- Exponential backoff: 1s, 2s, 4s `(2^(attempt-1) seconds)`
-- Original request is repeated with same parameters
-- After max retries, the original exception is raised
+- Automatic exponential backoff
+- Rate limit header awareness
+- Jitter to prevent thundering herd
+- Provider-optimized retry policies
+- After max retries, an exception is raised
 
 ## Configuration
 
-### Disabling Retries
+### OpenAI and OpenRouter
 
-Disable automatic retries completely:
+Both OpenAI and OpenRouter use the ruby-openai gem which provides comprehensive retry configuration:
 
 ```ruby
-ActiveAgent.configure do |config|
-  config.retries = false
-end
+# config/activeagent.yml
+openai:
+  service: "OpenAI"
+  access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
+  max_retries: 5           # Number of retry attempts (default: 3)
+  timeout: 600.0           # Total request timeout in seconds (default: 120)
+  initial_retry_delay: 1.0 # Initial delay between retries (default: 1.0)
+  max_retry_delay: 8.0     # Maximum delay between retries (default: 8.0)
 ```
 
-### Adjusting Retry Count
+The ruby-openai gem automatically:
+- Retries on network errors and rate limits
+- Uses exponential backoff with jitter
+- Respects Retry-After headers from the API
+- Handles 429, 500, 502, 503, 504 status codes
 
-Change the maximum number of retry attempts:
+### Anthropic
 
-```ruby
-ActiveAgent.configure do |config|
-  config.retries = true
-  config.retries_count = 5  # Retry up to 5 times
-end
-```
-
-### Custom Exception Classes
-
-Add custom exception classes that should trigger retries:
+The Anthropic provider uses the anthropic-rb gem with similar retry configuration:
 
 ```ruby
-ActiveAgent.configure do |config|
-  config.retries = true
-  config.retries_on = [
-    Errno::ECONNRESET,
-    Errno::ETIMEDOUT,
-    SocketError,
-    Timeout::Error,
-    CustomNetworkError,      # Add your custom error
-    AnotherTransientError    # Multiple custom errors
-  ]
-end
-```
-
-Or append to the default list:
-
-```ruby
-ActiveAgent.configure do |config|
-  config.retries_on << CustomNetworkError
-  config.retries_on << AnotherTransientError
-end
-```
-
-## Per-Provider
-
-Some providers have their own built-in retry mechanisms. You can disable ActiveAgent's retries and rely on the provider's implementation:
-
-```ruby
-# Disable ActiveAgent retries
-ActiveAgent.configure do |config|
-  config.retries = false
-end
-
-# Configure provider-specific retries in active_agent.yml
+# config/activeagent.yml
 anthropic:
   service: "Anthropic"
   access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
-  max_retries: 5  # Anthropic's built-in retry config
-  timeout: 600.0
+  max_retries: 5           # Number of retry attempts (default: 2)
+  timeout: 600.0           # Total request timeout in seconds (default: 600)
+  initial_retry_delay: 0.5 # Initial delay between retries (default: 0.5)
+  max_retry_delay: 2.0     # Maximum delay between retries (default: 2.0)
 ```
 
-See individual provider documentation for their retry capabilities:
+### Ollama
 
-- **[Anthropic Provider](/providers/anthropic)** - Has `max_retries` configuration
-- **[OpenAI Provider](/providers/open_ai)** - Uses ruby-openai gem retry logic
-- **[OpenRouter Provider](/providers/open_router)** - Inherits OpenAI configuration
-- **[Ollama Provider](/providers/ollama)** - Local calls typically don't need retries
+Ollama runs locally and typically doesn't need extensive retry configuration, but you can still configure timeouts:
 
-## Per-Agent
+```ruby
+# config/activeagent.yml
+ollama:
+  service: "Ollama"
+  host: "http://localhost:11434"
+  timeout: 300.0  # Adjust for long-running local models
+```
 
-Retry settings can also be configured on a per-agent basis, overriding the global configuration:
+## Per-Agent Configuration
+
+You can override retry settings on a per-agent basis:
 
 ```ruby
 class MyAgent < ApplicationAgent
   generate_with :openai,
     model: "gpt-4o",
-    retries: true,
-    retries_count: 5,
-    retries_on: [Net::ReadTimeout, CustomNetworkError]
+    max_retries: 10,  # More aggressive retries for critical agents
+    timeout: 1200.0
 end
 ```
 
-For more advanced error handling patterns including exception handlers and recovery strategies, see **[Error Handling](/agents/error-handling)**.
+## Disabling Retries
 
-
-## Custom Retry Strategies
-
-For more sophisticated retry logic, provide a custom retry strategy using a Proc or lambda:
-
-### Using Retriable Gem
+To disable retries completely (not recommended for production):
 
 ```ruby
-# Gemfile
-gem 'retriable'
-
-# Configuration
-ActiveAgent.configure do |config|
-  config.retries = ->(block) {
-    Retriable.retriable(
-      tries: 5,
-      on: [Net::ReadTimeout, Timeout::Error],
-      base_interval: 1.0,
-      multiplier: 2.0,
-      rand_factor: 0.5
-    ) do
-      block.call
-    end
-  }
-end
-```
-
-### Conditional Retry Logic
-
-Retry based on specific conditions:
-
-```ruby
-ActiveAgent.configure do |config|
-  config.retries = ->(block) {
-    attempts = 0
-    max_attempts = 3
-
-    begin
-      attempts += 1
-      block.call
-    rescue StandardError => e
-      # Only retry on specific HTTP status codes
-      if e.respond_to?(:response) &&
-         [429, 502, 503, 504].include?(e.response.code.to_i) &&
-         attempts < max_attempts
-
-        # Extract retry-after header if present
-        retry_after = e.response.headers['Retry-After']
-        sleep(retry_after ? retry_after.to_i : 2)
-        retry
-      else
-        raise e
-      end
-    end
-  }
-end
+# config/activeagent.yml
+openai:
+  service: "OpenAI"
+  access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
+  max_retries: 0  # Disable retries
 ```
 
 ## Monitoring Retries
 
-Use instrumentation to monitor retry behavior:
+Use instrumentation to monitor API calls and detect retry patterns:
 
 ```ruby
 ActiveSupport::Notifications.subscribe("generate.active_agent") do |name, start, finish, id, payload|
-  if payload[:error]
-    Rails.logger.warn("Generation failed: #{payload[:error]}")
+  duration = finish - start
+
+  # Long durations may indicate retries occurred
+  if duration > 30
+    Rails.logger.warn("Generation took #{duration}s, agent: #{payload[:agent_class]}")
   end
 
-  duration = finish - start
-  if duration > 5
-    Rails.logger.warn("Generation took #{duration}s - may have retried")
+  if payload[:error]
+    Rails.logger.error("Generation failed: #{payload[:error]}")
   end
 end
 ```
 
-See [Instrumentation](/framework/instrumentation) for detailed monitoring options.
+Provider SDKs may also log retry attempts. Enable debug logging to see detailed retry information:
+
+```ruby
+# For ruby-openai debugging
+ENV['OPENAI_LOG'] = 'debug'
+
+# For general Rails logging
+ActiveAgent.configure do |config|
+  config.logger.level = Logger::DEBUG
+end
+```
+
+## Advanced Retry Strategies
+
+For advanced retry patterns beyond what the provider SDKs offer, consider:
+
+### Background Job Retries
+
+Use Sidekiq's retry mechanism for job-level retries:
+
+```ruby
+class GenerationJob < ApplicationJob
+  queue_as :default
+
+  retry_on Net::ReadTimeout, wait: :exponentially_longer, attempts: 10
+  retry_on SomeProvider::RateLimitError, wait: 1.minute, attempts: 5
+
+  def perform(agent_class, input)
+    agent_class.constantize.generate(input:)
+  end
+end
+```
+
+## Error Handling
+
+For comprehensive error handling patterns including exception handlers and recovery strategies, see **[Error Handling](/agents/error-handling)**.
+
+## Provider Documentation
+
+Each provider SDK has detailed documentation on their retry implementation:
+
+- **[ruby-openai](https://github.com/alexrudall/ruby-openai)** - OpenAI and OpenRouter
+- **[anthropic-rb](https://github.com/alexrudall/anthropic)** - Anthropic Claude
+- **[ruby-ollama](https://github.com/gbaptista/ollama-ai)** - Ollama (local)
 
 ## Related Documentation
 
 - **[Configuration](/framework/configuration)** - Framework and provider configuration
+- **[Error Handling](/agents/error-handling)** - Agent-level error handling
 - **[Instrumentation](/framework/instrumentation)** - Monitoring and logging
-- **[Providers](/framework/providers)** - Provider-specific behavior and configuration
+- **[Providers](/providers)** - Provider-specific documentation

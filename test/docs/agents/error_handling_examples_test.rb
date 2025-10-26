@@ -52,8 +52,7 @@ module Docs
           class RobustAgent < ApplicationAgent
             generate_with :openai,
               model: "gpt-4o",
-              retries: true,
-              retries_count: 5
+              max_retries: 5
 
             def analyze(content)
               prompt "Analyze this content: #{content}"
@@ -112,8 +111,7 @@ module Docs
           class ProductionAgent < ApplicationAgent
             generate_with :openai,
               model: "gpt-4o",
-              retries: true,
-              retries_count: 3
+              max_retries: 3
 
             rescue_from Timeout::Error, with: :handle_timeout
 
@@ -124,7 +122,7 @@ module Docs
             private
 
             def handle_timeout(exception)
-              { error: "Timeout", retry_after: 60 }
+              { error: "Timeout" }
             end
           end
           # endregion combining_strategies
@@ -144,7 +142,7 @@ module Docs
           class RealtimeChatAgent < ApplicationAgent
             generate_with :anthropic,
               model: "claude-3-5-sonnet-20241022",
-              retries: false
+              max_retries: 0
 
             rescue_from StandardError, with: :handle_error
 
@@ -178,8 +176,8 @@ module Docs
           discard_on SomeUnrecoverableError
 
           def perform(data)
-            # Disable ActiveAgent retries, let Sidekiq handle it
-            AsyncAgent.with(data:, retries: false).process
+            # Disable Network retries, let Sidekiq handle it
+            AsyncAgent.with(data:, max_retries: 0).process
           end
         end
         # endregion background_job_integration

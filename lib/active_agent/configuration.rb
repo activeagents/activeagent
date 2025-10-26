@@ -11,28 +11,17 @@ module ActiveAgent
   # Configuration class for ActiveAgent global settings.
   #
   # Provides configuration options for generation behavior, error handling,
-  # logging, and retry strategies. Configuration can be set globally using
-  # the {ActiveAgent.configure} method or loaded from a YAML file for
+  # and logging. Configuration can be set globally using the
+  # {ActiveAgent.configure} method or loaded from a YAML file for
   # provider-specific settings.
   #
   # = Global Configuration
   #
-  # Use {ActiveAgent.configure} for framework-level settings like retry behavior
-  # and logging.
+  # Use {ActiveAgent.configure} for framework-level settings like logging.
   #
   # @example Basic configuration
   #   ActiveAgent.configure do |config|
-  #     config.retries = true
-  #     config.retries_count = 5
-  #   end
-  #
-  # @example Custom retry strategy
-  #   ActiveAgent.configure do |config|
-  #     config.retries = ->(block) do
-  #       Retriable.retriable(tries: 3, on: [Net::ReadTimeout]) do
-  #         block.call
-  #       end
-  #     end
+  #     config.logger = Logger.new(STDOUT)
   #   end
   #
   # = Provider Configuration
@@ -81,41 +70,7 @@ module ActiveAgent
     # Default configuration values.
     #
     # @return [Hash] Hash of default configuration values
-    DEFAULTS = {
-      retries: true,
-      retries_count: 3,
-      retries_on: [
-        EOFError,
-        Errno::ECONNREFUSED,
-        Errno::ECONNRESET,
-        Errno::EHOSTUNREACH,
-        Errno::EINVAL,
-        Errno::ENETUNREACH,
-        Errno::ETIMEDOUT,
-        SocketError,
-        Timeout::Error
-      ].freeze
-    }.freeze
-
-    # @!attribute [rw] retries
-    #   Retry strategy for generation requests.
-    #   Can be false (no retries), true (built-in retries), or a Proc for custom logic.
-    #   @return [Boolean, Proc] Retry strategy (default: true)
-    #   @see #retries=
-    attr_accessor :retries
-
-    # @!attribute [rw] retries_count
-    #   Maximum number of retry attempts for generation requests.
-    #   @return [Integer] Maximum retry attempts (default: 3)
-    attr_accessor :retries_count
-
-    # @!attribute [rw] retries_on
-    #   Array of exception classes that should trigger retries.
-    #   Only used when {#retries} is set to true (built-in retry logic).
-    #   @return [Array<Class>] Exception classes to retry on (default: network-related errors)
-    #   @see #retries
-    #   @see #retries_count
-    attr_accessor :retries_on
+    DEFAULTS = {}.freeze
 
     # Gets the logger used by ActiveAgent.
     #
@@ -145,37 +100,28 @@ module ActiveAgent
     # environment-specific settings based on RAILS_ENV or ENV environment variables.
     # Falls back to the root level settings if no environment key is found.
     #
-    # The YAML file can contain both framework-level settings (retries, logging, etc.)
-    # and provider-specific configurations (API keys, models, parameters). Provider
-    # configurations are stored as nested hashes and can be accessed via the [] operator.
+    # The YAML file contains provider-specific configurations (API keys, models,
+    # parameters, retry settings). Provider configurations are stored as nested hashes
+    # and can be accessed via the [] operator.
     #
     # @param filename [String] Path to the YAML configuration file
     # @return [Configuration] A new Configuration instance with loaded settings
-    #
-    # @example Framework settings only
-    #   # config/activeagent.yml
-    #   development:
-    #     retries: true
-    #     retries_count: 3
-    #   production:
-    #     retries: true
-    #     retries_count: 5
     #
     # @example Provider-specific configuration with YAML anchors
     #   # config/activeagent.yml
     #   openai: &openai
     #     service: "OpenAI"
     #     access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
-    #     retries: false
+    #     max_retries: 3
     #
     #   anthropic: &anthropic
     #     service: "Anthropic"
     #     access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
+    #     max_retries: 5
     #
     #   open_router: &open_router
     #     service: "OpenRouter"
     #     access_token: <%= Rails.application.credentials.dig(:open_router, :access_token) %>
-    #     retries_count: 5
     #
     #   development:
     #     openai:
@@ -231,20 +177,15 @@ module ActiveAgent
     #
     # When loading from a YAML file via {Configuration.load}, all settings from
     # the environment-specific section are passed as the settings hash, including
-    # any provider configurations defined in the file.
+    # Initializes a new Configuration instance with optional settings.
     #
-    # @param settings [Hash] Optional settings to override defaults
-    # @option settings [Boolean, Proc] :retries (true) Retry strategy
-    # @option settings [Integer] :retries_count (3) Maximum retry attempts
-    # @option settings [Array<Class>] :retries_on Network error classes to retry on
+    # Settings typically come from a YAML configuration file loaded via {.load}.
+    # The configuration object stores provider-specific settings as nested hashes.
+    #
+    # @param settings [Hash] Optional settings to load
     #
     # @example With default settings
     #   config = ActiveAgent::Configuration.new
-    #
-    # @example With custom settings
-    #   config = ActiveAgent::Configuration.new(
-    #     retries: false
-    #   )
     #
     # @example With provider configurations (typically from YAML)
     #   config = ActiveAgent::Configuration.new(
@@ -257,56 +198,13 @@ module ActiveAgent
       end
     end
 
-    # Configures the retry strategy for generation requests.
-    #
-    # @param strategy [Boolean, Proc]
-    #   - false: disables retries completely
-    #   - true: uses built-in retry logic (default)
-    #   - Proc: custom retry wrapper that receives a block to execute
-    #
-    # @raise [ArgumentError] If strategy is not false, true, or a callable object
-    #
-    # @example Disable retries
-    #   config.retries = false
-    #
-    # @example Use built-in retries (default)
-    #   config.retries = true
-    #
-    # @example Custom retry wrapper with Retriable gem
-    #   config.retries = ->(block) {
-    #     Retriable.retriable(tries: 5, on: [Net::ReadTimeout, Timeout::Error]) do
-    #       block.call
-    #     end
-    #   }
-    #
-    # @example Circuit breaker pattern
-    #   config.retries = ->(block) {
-    #     CircuitBreaker.handle do
-    #       block.call
-    #     end
-    #   }
-    #
-    # @see #retries_count
-    # @see #retries_on
-    def retries=(strategy)
-      unless strategy == false || strategy == true || strategy.respond_to?(:call)
-        raise ArgumentError, "retries must be false, true, or a callable object (Proc/Lambda)"
-      end
-      @retries = strategy
-    end
-
     # Retrieves a configuration value by key.
     #
-    # This method provides hash-like access to both framework settings and
-    # provider configurations. Framework settings correspond to the defined
-    # accessors, while provider configurations are stored as nested hashes.
+    # This method provides hash-like access to provider configurations.
+    # Provider configurations are stored as nested hashes.
     #
     # @param key [String, Symbol] Configuration key to retrieve
     # @return [Object, nil] The configuration value or nil if not found
-    #
-    # @example Accessing framework settings
-    #   config[:retries]  # => true
-    #   config["retries"] # => true
     #
     # @example Accessing provider configurations
     #   config[:openai]     # => { "service" => "OpenAI", "model" => "gpt-4o", ... }
@@ -364,7 +262,7 @@ module ActiveAgent
     # @example
     #   original = ActiveAgent.configuration
     #   backup = original.deep_dup
-    #   backup[:retries] = false  # doesn't affect original
+    #   backup[:openai] = { service: "OpenAI" }  # doesn't affect original
     def deep_dup
       new_config = Configuration.new
       instance_variables.each do |var|
@@ -494,18 +392,6 @@ module ActiveAgent
   # @yield [config] Yields the configuration instance
   # @yieldparam config [Configuration] The configuration to modify
   # @return [Configuration] The modified configuration instance
-  #
-  # @example Basic configuration
-  #   ActiveAgent.configure do |config|
-  #     config.retries = false
-  #   end
-  #
-  # @example Configuring retry behavior
-  #   ActiveAgent.configure do |config|
-  #     config.retries = true
-  #     config.retries_count = 5
-  #     config.retries_on << CustomNetworkError
-  #   end
   #
   # @example Custom logger (non-Rails environments)
   #   ActiveAgent.configure do |config|

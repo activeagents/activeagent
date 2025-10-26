@@ -91,6 +91,26 @@ end
   gem "openai"          # Official OpenAI SDK
   gem "anthropic"       # Official Anthropic SDK
   ```
+- **Migrate from framework retries to provider-native retries:**
+  ```ruby
+  # Remove framework retry configuration
+  # ActiveAgent.configure do |config|
+  #   config.retries = true
+  #   config.retries_count = 5
+  # end
+  
+  # Use provider-specific retry settings instead
+  # config/activeagent.yml
+  openai:
+    service: "OpenAI"
+    max_retries: 5          # Provider SDK handles retries
+    timeout: 600.0
+    
+  anthropic:
+    service: "Anthropic"
+    max_retries: 5
+    timeout: 600.0
+  ```
 
 ### Added
 
@@ -122,9 +142,9 @@ end
 - Provider-specific options: `dimensions`, `encoding_format`
 
 **Error Handling:**
-- Per-agent retry configuration: `retries`, `retries_count`, `retries_on`
 - `rescue_from` integration with agent context
-- Better exception propagation
+- Exception handler concern for agent-level error handling
+- Provider-native retry mechanisms (OpenAI, Anthropic SDKs)
 
 **Documentation:**
 - 185 documentation files in VitePress site
@@ -148,6 +168,8 @@ end
 **Providers:**
 - Complete rewrite: 205 new provider files
 - Unified `BaseProvider` interface across OpenAI, Anthropic, Ollama, OpenRouter
+- Retry logic: Now uses provider SDK native retries (ruby-openai, anthropic-rb)
+- Provider SDKs handle exponential backoff, rate limits, jitter automatically
 - Type-safe options with structured definitions per provider
 - **Migrated to official provider gems:**
   - OpenAI: `ruby-openai ~> 8.3` → `openai ~> 0.34` (unofficial 3rd-party → official OpenAI SDK)
@@ -207,6 +229,13 @@ end
 - `ActiveAgent::Rescuable` (replaced by `Rescue` concern)
 - `ActiveAgent::Sanitizers` (functionality moved to concerns)
 - `ActiveAgent::PromptHelper` (functionality moved to concerns)
+- `ActiveAgent::Providers::Retries` (replaced by `ExceptionHandler` - retry logic now in provider SDKs)
+
+**Configuration:**
+- `ActiveAgent.configuration.retries` (use provider SDK `max_retries` instead)
+- `ActiveAgent.configuration.retries_count` (use provider SDK `max_retries` instead)
+- `ActiveAgent.configuration.retries_on` (provider SDKs handle error classes automatically)
+- Framework-level retry configuration (moved to provider-native implementations)
 
 **Directories:**
 - `lib/active_agent/action_prompt/`
