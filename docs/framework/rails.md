@@ -73,8 +73,8 @@ rails generate active_agent:agent support respond
 Creates:
 ```
 app/agents/support_agent.rb
-app/views/support_agent/instructions.md.erb
-app/views/support_agent/respond.md.erb
+app/views/agents/support/instructions.md.erb
+app/views/agents/support/respond.md.erb
 test/docs/support_agent_test.rb
 ```
 
@@ -126,7 +126,7 @@ end
 
 And generates schema file:
 ```
-app/views/data_agent/parse.schema.json
+app/views/agents/data/parse.schema.json
 ```
 
 JSON object without schema validation:

@@ -288,7 +288,7 @@ module ActiveAgent
       # Fallback to input from template if no input provided, rendered as late as
       # possible to allow local overrides.
       if parameters[:input].blank?
-        template_input = embed_view_input(action_name, **embed_options[:locals])
+        template_input = embed_view_input(action_name, strict: true, **embed_options[:locals])
         parameters[:input] = template_input if template_input.present?
       end
 

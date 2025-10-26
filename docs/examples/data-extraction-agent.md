@@ -17,11 +17,173 @@ rails generate active_agent:agent data_extraction parse_content
 
 ::: code-group
 
-<<< @/../test/docs/examples/data_extraction_agent.rb {ruby}
+```ruby [data_extraction_agent.rb]
+class DataExtractionAgent < ApplicationAgent
+  before_action :set_multimodal_content, only: [:parse_content]
 
-<<< @/../test/dummy/app/views/data_extraction_agent/chart_schema.json.erb {json}
+  def parse_content
+    prompt_args = {
+      message: params[:message] || "Parse the content of the file or image",
+      image_data: @image_data,
+      file_data: @file_data
+    }
 
-<<< @/../test/dummy/app/views/data_extraction_agent/resume_schema.json.erb {json}
+    if params[:response_format]
+      prompt_args[:response_format] = params[:response_format]
+    elsif params[:output_schema]
+      # Support legacy output_schema parameter
+      prompt_args[:response_format] = {
+        type: "json_schema",
+        json_schema: params[:output_schema]
+      }
+    end
+
+    prompt(**prompt_args)
+  end
+
+  def describe_cat_image
+    prompt(
+      message: "Describe the cat in the image",
+      image_data: CatImageService.fetch_base64_image
+    )
+  end
+
+  private
+
+  def set_multimodal_content
+    if params[:file_path].present?
+      @file_data ||= "data:application/pdf;base64,#{Base64.encode64(File.read(params[:file_path]))}"
+    elsif params[:image_path].present?
+      @image_data ||= "data:image/jpeg;base64,#{Base64.encode64(File.read(params[:image_path]))}"
+    end
+  end
+end
+```
+
+```json [chart_schema.json.erb]
+{
+  "format": {
+    "type": "json_schema",
+    "name": "chart_schema",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title of the chart."
+        },
+        "data_points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/data_point"
+          }
+        }
+      },
+      "required": ["title", "data_points"],
+      "additionalProperties": false,
+      "$defs": {
+        "data_point": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "The label for the data point."
+            },
+            "value": {
+              "type": "number",
+              "description": "The value of the data point."
+            }
+          },
+          "required": ["label", "value"],
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}
+```
+
+```json [resume_schema.json.erb]
+{
+  "format": {
+    "type": "json_schema",
+    "name": "resume_schema",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The full name of the individual."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the individual."
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the individual."
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/education"
+          }
+        },
+        "experience": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/experience"
+          }
+        }
+      },
+      "required": ["name", "email", "phone", "education", "experience"],
+      "additionalProperties": false,
+      "$defs": {
+        "education": {
+          "type": "object",
+          "properties": {
+            "degree": {
+              "type": "string",
+              "description": "The degree obtained."
+            },
+            "institution": {
+              "type": "string",
+              "description": "The institution where the degree was obtained."
+            },
+            "year": {
+              "type": "integer",
+              "description": "The year of graduation."
+            }
+          },
+          "required": ["degree", "institution", "year"],
+          "additionalProperties": false
+        },
+        "experience": {
+          "type": "object",
+          "properties": {
+            "job_title": {
+              "type": "string",
+              "description": "The job title held."
+            },
+            "company": {
+              "type": "string",
+              "description": "The company where the individual worked."
+            },
+            "duration": {
+              "type": "string",
+              "description": "The duration of employment."
+            }
+          },
+          "required": ["job_title", "company", "duration"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "strict": true
+  }
+}
+```
 
 :::
 
@@ -31,7 +193,14 @@ rails generate active_agent:agent data_extraction parse_content
 
 Active Agent can extract descriptions from images without structured output:
 
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_describe_cat_image {ruby:line-numbers}
+```ruby
+prompt = DataExtractionAgent.describe_cat_image
+response = prompt.generate_now
+
+# The response contains a natural language description
+puts response.message.content
+# => "The cat in the image appears to have a primarily dark gray coat..."
+```
 
 ::: details Basic Cat Image Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-describe-cat-image-creates-a-multimodal-prompt-with-image-and-text-content.md -->
@@ -41,14 +210,26 @@ Active Agent can extract descriptions from images without structured output:
 
 Active Agent can extract data from chart images:
 
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart {ruby:line-numbers}
+```ruby
+sales_chart_path = Rails.root.join("test", "fixtures", "images", "sales_chart.png")
+
+prompt = DataExtractionAgent.with(
+  image_path: sales_chart_path
+).parse_content
+
+response = prompt.generate_now
+
+# The response contains chart analysis
+puts response.message.content
+# => "The image is a bar chart titled 'Quarterly Sales Report'..."
+```
 
 ::: details Basic Chart Image Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-chart-content-from-image-data.md -->
 :::
 
 ## Structured Output
-Active Agent supports structured output using JSON schemas. Define schemas in your agent's views directory (e.g., `app/views/data_extraction_agent/`) and reference them using `response_format: { type: "json_schema", json_schema: :schema_name }`. [Learn more about structured output →](/actions/structured-output)
+Active Agent supports structured output using JSON schemas. Define schemas in your agent's views directory (e.g., `app/views/agents/data_extraction/`) and reference them using `response_format: { type: "json_schema", json_schema: :schema_name }`. [Learn more about structured output →](/actions/structured-output)
 
 ### Structured Output Schemas
 
@@ -106,24 +287,47 @@ See the [OpenRouter Provider documentation](/providers/open-router-provider#stru
 ![Chart Image](https://raw.githubusercontent.com/activeagents/activeagent/refs/heads/main/test/fixtures/images/sales_chart.png)
 
 Extract chart data with a predefined schema `chart_schema`:
-::: code-group
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output {ruby:line-numbers}
 
-<<< @/../test/dummy/app/views/data_extraction_agent/chart_schema.json.erb {json}
-:::
+```ruby
+sales_chart_path = Rails.root.join("test", "fixtures", "images", "sales_chart.png")
+
+prompt = DataExtractionAgent.with(
+  response_format: {
+    type: "json_schema",
+    json_schema: :chart_schema
+  },
+  image_path: sales_chart_path
+).parse_content
+
+response = prompt.generate_now
+
+# When using json_schema response_format, content is already parsed
+json_response = response.message.content
+
+puts json_response["title"]
+# => "Quarterly Sales Report"
+puts json_response["data_points"].first
+# => {"label"=>"Q1", "value"=>25000}
+```
 
 #### Response
 
 :::: tabs
 
 == Response Object
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output_response {ruby}
+```ruby
+response = prompt.generate_now
+# Response has parsed JSON content
+```
 ::: details Generation Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-chart-content-from-image-data-with-structured-output-schema.md -->
 :::
 == JSON Output
 
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_chart_with_structured_output_json {ruby}
+```ruby
+# When using json_schema response_format, content is already parsed
+json_response = response.message.content
+```
 ::: details Parse Chart JSON Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-parse-chart-json-response.md -->
 :::
@@ -133,10 +337,21 @@ Extract chart data with a predefined schema `chart_schema`:
 
 Extract information from PDF resumes:
 
-::: code-group
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_resume {ruby:line-numbers}
-<<< @/../test/dummy/app/views/data_extraction_agent/resume_schema.json.erb {json}
-:::
+```ruby
+sample_resume_path = Rails.root.join("test", "fixtures", "files", "sample_resume.pdf")
+
+prompt = DataExtractionAgent.with(
+  file_path: sample_resume_path
+).parse_content
+
+response = prompt.generate_now
+
+# When using json_schema response_format, content is auto-parsed
+puts response.message.content["name"]
+# => "John Doe"
+puts response.message.content["experience"].first["job_title"]
+# => "Senior Software Engineer"
+```
 
 #### Parse Resume with Structured Output
 [![Sample Resume](/sample_resume.png)](https://docs.activeagents.ai/sample_resume.pdf)
@@ -146,13 +361,27 @@ Extract resume data with a predefined `resume_schema`:
 
 == Prompt Generation
 
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_resume_with_structured_output_response {ruby:line-numbers}
+```ruby
+prompt = DataExtractionAgent.with(
+  file_path: Rails.root.join("test", "fixtures", "files", "sample_resume.pdf")
+).parse_content
+
+response = prompt.generate_now
+```
 ::: details Generation Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-resume-creates-a-multimodal-prompt-with-file-data-with-structured-output-schema.md -->
 :::
 == JSON Output
 
-<<< @/../test/docs/data_extraction_agent_test.rb#data_extraction_agent_parse_resume_with_structured_output_json {ruby:line-numbers}
+```ruby
+# When using json_schema response_format, content is already parsed
+json_response = response.message.content
+
+puts json_response["name"]
+# => "John Doe"
+puts json_response["email"]
+# => "john.doe@example.com"
+```
 ::: details Parse Resume JSON Response Example
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-parse-resume-json-response.md -->
 :::

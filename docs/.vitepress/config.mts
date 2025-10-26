@@ -66,10 +66,10 @@ export default defineConfig({
         text: 'Overview',
         link: '/framework',
       },
-      // {
-      //   text: 'Getting Started',
-      //   link: '/getting-started',
-      // },
+      {
+        text: 'Getting Started',
+        link: '/getting-started',
+      },
       {
         text: 'Framework',
         items: [

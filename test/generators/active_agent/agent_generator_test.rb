@@ -52,7 +52,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     run_generator %w[user create]
 
     assert_file "app/agents/user_agent.rb"
-    assert_file "app/views/user_agent/create.md.erb"
+    assert_file "app/views/agents/user/create.md.erb"
   end
 
   test "handles class collision checking" do
@@ -66,46 +66,46 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     run_generator %w[user create --format=text]
 
     assert_file "app/agents/user_agent.rb"
-    assert_file "app/views/user_agent/create.text.erb"
-    assert_no_file "app/views/user_agent/create.md.erb"
+    assert_file "app/views/agents/user/create.text.erb"
+    assert_no_file "app/views/agents/user/create.md.erb"
   end
 
   test "uses default markdown format when no format option provided" do
     run_generator [ "user", "create" ]
 
     assert_file "app/agents/user_agent.rb"
-    assert_file "app/views/user_agent/create.md.erb"
-    assert_no_file "app/views/user_agent/create.text.erb"
+    assert_file "app/views/agents/user/create.md.erb"
+    assert_no_file "app/views/agents/user/create.text.erb"
   end
 
   test "generates schema files when json_schema flag is set" do
     run_generator %w[user create --json-schema]
 
     assert_file "app/agents/user_agent.rb"
-    assert_file "app/views/user_agent/create.md.erb"
-    assert_file "app/views/user_agent/create.schema.json"
+    assert_file "app/views/agents/user/create.md.erb"
+    assert_file "app/views/agents/user/create.schema.json"
   end
 
   test "does not generate schema files without json_schema flag" do
     run_generator %w[user create]
 
-    assert_file "app/views/user_agent/create.md.erb"
-    assert_no_file "app/views/user_agent/create.schema.json"
+    assert_file "app/views/agents/user/create.md.erb"
+    assert_no_file "app/views/agents/user/create.schema.json"
   end
 
   test "handles multiple actions with json_schema" do
     run_generator %w[user create update --json-schema]
 
-    assert_file "app/views/user_agent/create.md.erb"
-    assert_file "app/views/user_agent/create.schema.json"
-    assert_file "app/views/user_agent/update.md.erb"
-    assert_file "app/views/user_agent/update.schema.json"
+    assert_file "app/views/agents/user/create.md.erb"
+    assert_file "app/views/agents/user/create.schema.json"
+    assert_file "app/views/agents/user/update.md.erb"
+    assert_file "app/views/agents/user/update.schema.json"
   end
 
   test "generates view files with correct content" do
     run_generator %w[user create]
 
-    assert_file "app/views/user_agent/create.md.erb" do |content|
+    assert_file "app/views/agents/user/create.md.erb" do |content|
       assert_match(/User#create/, content)
     end
   end
@@ -113,8 +113,8 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "format option works with nested generators" do
     run_generator %w[admin/user create --format=text]
 
-    assert_file "app/views/admin/user_agent/create.text.erb"
-    assert_no_file "app/views/admin/user_agent/create.md.erb"
+    assert_file "app/views/agents/admin/user/create.text.erb"
+    assert_no_file "app/views/agents/admin/user/create.md.erb"
   end
 
   test "handles erb generator override with proactive detection" do
@@ -125,7 +125,7 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
       run_generator %w[user create]
 
       assert_file "app/agents/user_agent.rb"
-      assert_file "app/views/user_agent/create.md.erb"
+      assert_file "app/views/agents/user/create.md.erb"
     ensure
       # Restore original template engine
       Rails::Generators.options[:rails][:template_engine] = original_template_engine
@@ -164,8 +164,8 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     run_generator %w[user create --json-object]
 
     assert_file "app/agents/user_agent.rb"
-    assert_file "app/views/user_agent/create.md.erb"
-    assert_no_file "app/views/user_agent/create.schema.json"
+    assert_file "app/views/agents/user/create.md.erb"
+    assert_no_file "app/views/agents/user/create.schema.json"
   end
 
   test "handles multiple actions with json_object" do
@@ -176,8 +176,8 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
       assert_match(/prompt\(params\[:message\], response_format: :json_object\)/, content)
       assert_match(/def update/, content)
     end
-    assert_no_file "app/views/user_agent/create.schema.json"
-    assert_no_file "app/views/user_agent/update.schema.json"
+    assert_no_file "app/views/agents/user/create.schema.json"
+    assert_no_file "app/views/agents/user/update.schema.json"
   end
 
   private

@@ -86,7 +86,23 @@ result = generation.generate_now
 
 ### Complete Test Example
 
-<<< @/../test/docs/builtin_tools_doc_test.rb#web_search_example{ruby:line-numbers}
+Here's a complete example of testing an agent with parameters:
+
+<<< @/../test/docs/agents_examples_test.rb#quick_example_support_agent{ruby:line-numbers}
+
+And the corresponding test:
+
+```ruby
+test "demonstrates basic agent with callbacks" do
+  VCR.use_cassette("docs/agents_examples/quick_example_support_agent") do
+    response = SupportAgent.with(user_id: 1, message: "Need help").help.generate_now
+
+    assert response.success?
+    assert_not_nil response.message.content
+    assert response.message.content.length > 0
+  end
+end
+```
 
 ### Testing with VCR
 
@@ -121,11 +137,26 @@ ActiveAgent supports using concerns to share functionality across agents:
 
 ### Creating a Test for a Concern
 
-<<< @/../test/docs/concern_tools_test.rb#10-23{ruby:line-numbers}
+```ruby
+test "research agent includes concern actions as available tools" do
+  # The concern adds these actions which should be available as tools
+  expected_actions = [
+    "search_papers",
+    "analyze_data"
+  ]
 
-### Testing Concern Configuration
+  agent = ResearchAgent.new
+  agent_actions = agent.action_methods
 
-<<< @/../test/docs/concern_tools_test.rb#119-124{ruby:line-numbers}
+  expected_actions.each do |action|
+    assert_includes agent_actions, action, "Expected #{action} to be available from concern"
+  end
+end
+```
+
+### Example Concern
+
+<<< @/../test/docs/agents_examples_test.rb#concerns_research_tools{ruby:line-numbers}
 
 ## Generating Documentation Examples
 

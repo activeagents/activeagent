@@ -51,8 +51,7 @@ rails generate active_agent:install
 
 This creates:
 - `config/active_agent.yml`: Configuration file for generation providers
-- `app/agents`: Directory for your agent classes
-- `app/views/agent_*`: Directory for agent prompt/view templates
+- `app/agents/application_agent.rb`: Base agent class
 
 ### Quick Example
 
@@ -60,19 +59,16 @@ Define an application agent:
 
 ```ruby
 class ApplicationAgent < ActiveAgent::Base
-  generate_with :openai,
-    instructions: "You are a helpful assistant.",
-    model: "gpt-4o-mini",
-    temperature: 0.7
+  generate_with :openai, model: "gpt-4o-mini"
 end
 ```
 
 Use your agent:
 
 ```ruby
-message = "Test Application Agent"
-prompt = ApplicationAgent.with(message: message).prompt_context
-response = prompt.generate_now
+response = ApplicationAgent.prompt(message: "Hello, world!").generate_now
+puts response.message
+# => "Hello! How can I help you today?"
 ```
 
 ### Your First Agent
@@ -112,20 +108,17 @@ Configure generation providers in `config/active_agent.yml`:
 development:
   openai:
     service: "OpenAI"
-    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    access_token: <%= Rails.application.credentials.dig(:openai, :access_token) %>
     model: "gpt-4o-mini"
-    embeddings_model: "text-embedding-3-small"
 
   anthropic:
     service: "Anthropic"
-    api_key: <%= Rails.application.credentials.dig(:anthropic, :api_key) %>
-    model: "claude-3-5-sonnet"
+    access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
+    model: "claude-sonnet-4.5"
 
   ollama:
     service: "Ollama"
     model: "llama3.2"
-    embeddings_model: "nomic-embed-text"
-    host: "http://localhost:11434/v1"
 ```
 
 ## Features
@@ -165,8 +158,7 @@ Agents can use tools to perform actions:
 
 ```ruby
 # Agent with tool support
-message = "Show me a cat"
-prompt = SupportAgent.with(message: message).prompt_context
+prompt = SupportAgent.prompt(message: "Show me a cat")
 response = prompt.generate_now
 # Response includes tool call results
 ```

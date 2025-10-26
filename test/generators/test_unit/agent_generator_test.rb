@@ -9,7 +9,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "generates test files" do
     run_generator [ "user", "create", "update" ]
 
-    assert_file "test/docs/user_agent_test.rb" do |content|
+    assert_file "test/agents/user_agent_test.rb" do |content|
       assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)
       assert_match(/test "create"/, content)
       assert_match(/test "update"/, content)
@@ -29,7 +29,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "generates files with namespace" do
     run_generator [ "admin/user", "create" ]
 
-    assert_file "test/docs/admin/user_agent_test.rb" do |content|
+    assert_file "test/agents/admin/user_agent_test.rb" do |content|
       assert_match(/class Admin::UserAgentTest < ActiveAgent::TestCase/, content)
     end
 
@@ -46,7 +46,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "strips agent suffix from file name" do
     run_generator [ "user_agent", "create" ]
 
-    assert_file "test/docs/user_agent_test.rb" do |content|
+    assert_file "test/agents/user_agent_test.rb" do |content|
       assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)
     end
   end
@@ -54,7 +54,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "generates test without actions" do
     run_generator [ "user" ]
 
-    assert_file "test/docs/user_agent_test.rb" do |content|
+    assert_file "test/agents/user_agent_test.rb" do |content|
       assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)
       assert_no_match(/^  test "/, content) # No actual test methods (only commented ones)
     end

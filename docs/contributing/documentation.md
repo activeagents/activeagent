@@ -167,8 +167,17 @@ Show multiple related files together:
 
 ```markdown
 ::: code-group
-<<< @/../test/docs/examples/translation_agent.rb {ruby:line-numbers}
-<<< @/../test/dummy/app/views/translation_agent/translate.json.jbuilder {ruby:line-numbers}
+```ruby [translation_agent.rb]
+class TranslationAgent < ApplicationAgent
+  def translate
+    prompt
+  end
+end
+\```
+```ruby [translate.json.jbuilder]
+json.action_name "translate"
+json.message params[:message]
+\```
 :::
 ```
 
@@ -177,7 +186,13 @@ Show multiple related files together:
 Display test code alongside its actual result:
 
 ```markdown
-<<< @/../test/docs/data_extraction_agent_test.rb#extract_data {ruby:line-numbers}
+\```ruby
+prompt = DataExtractionAgent.with(
+  image_path: image_path
+).parse_content
+
+response = prompt.generate_now
+\```
 
 ::: details Response
 <!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-extract-data.md -->

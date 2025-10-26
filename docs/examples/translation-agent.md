@@ -15,7 +15,15 @@ rails generate active_agent:agent translation translate
 
 ## Implementation
 
-<<< @/../test/docs/examples/translation_agent.rb {ruby}
+```ruby
+class TranslationAgent < ApplicationAgent
+  generate_with :openai, instructions: "Translate the given text from one language to another."
+
+  def translate
+    prompt
+  end
+end
+```
 
 ## Usage Examples
 
@@ -23,13 +31,32 @@ rails generate active_agent:agent translation translate
 
 The translation agent accepts a message and target locale:
 
-<<< @/../test/docs/translation_agent_test.rb#translation_agent_render_translate_prompt {ruby:line-numbers}
+```ruby
+translate_prompt = TranslationAgent.with(
+  message: "Hi, I'm Justin",
+  locale: "japanese"
+).translate
+
+puts translate_prompt.message.content
+# => "translate: Hi, I'm Justin; to japanese"
+
+puts translate_prompt.instructions
+# => "Translate the given text from one language to another."
+```
 
 ### Translation Generation
 
 Generate a translation using the configured AI provider:
 
-<<< @/../test/docs/translation_agent_test.rb#translation_agent_translate_prompt_generation {ruby:line-numbers}
+```ruby
+response = TranslationAgent.with(
+  message: "Hi, I'm Justin",
+  locale: "japanese"
+).translate.generate_now
+
+puts response.message.content
+# => "こんにちは、私はジャスティンです。"
+```
 
 ::: details Response Example
 <!-- @include: @/parts/examples/translation-agent-test.rb-test-it-renders-a-translate-prompt-and-generates-a-translation.md -->
@@ -46,4 +73,6 @@ Generate a translation using the configured AI provider:
 
 The translation agent uses view templates to format prompts:
 
-<<< @/../test/dummy/app/views/translation_agent/translate.text.erb {erb}
+```erb
+translate: <%= params[:message] %>; to <%= params[:locale] %>
+```

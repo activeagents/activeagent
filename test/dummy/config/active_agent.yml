@@ -37,13 +37,11 @@ development:
   openai:
     <<: *openai
     model: "gpt-4o-mini"
-    temperature: 0.7
   # endregion openai_dev_config
   # region open_router_dev_config
   open_router:
     <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
-    temperature: 0.7
   # endregion open_router_dev_config
   # region ollama_dev_config
   ollama:
