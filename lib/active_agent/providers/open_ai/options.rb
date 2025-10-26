@@ -13,6 +13,9 @@ module ActiveAgent
         attribute :admin_token,     :string
         attribute :log_errors,      :boolean, default: false
 
+        # For Azure?
+        attribute :api_type
+
         validates :access_token, presence: true
 
         # Backwards Compatibility
