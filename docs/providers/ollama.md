@@ -181,7 +181,7 @@ For applications requiring guaranteed schema conformance, use [OpenAI](/provider
 
 ## Embeddings
 
-Generate embeddings locally using Ollama's embedding models. For comprehensive embedding usage patterns, see the [Embeddings Documentation](/agents/embeddings).
+Generate embeddings locally using Ollama's embedding models. For comprehensive embedding usage patterns, see the [Embeddings Documentation](/actions/embeddings).
 
 ### Available Embedding Models
 
@@ -218,7 +218,9 @@ Ollama-specific error handling for connection failures and missing models. For c
 
 ## Related Documentation
 
-- [Embeddings Framework](/agents/embeddings) - Complete guide to embeddings
+- [Streaming](/agents/streaming) - Real-time response streaming patterns
+- [Embeddings Framework](/actions/embeddings) - Complete guide to embeddings
+- [Configuration](/framework/configuration) - Global provider setup
 - [Structured Output](/actions/structured-output) - Structured output patterns
 - [Providers Overview](/framework/providers) - Provider comparison
 - [Configuration Guide](/getting-started#configuration) - Setup and configuration

@@ -99,4 +99,4 @@ response = generation.embed_now
 vector = response.data.first[:embedding]  # Array of floats
 ```
 
-For embedding documentation including similarity search and batch processing, see **[Embeddings](/agents/embeddings)**.
+For embedding documentation including similarity search and batch processing, see **[Embeddings](/actions/embeddings)**.

@@ -81,45 +81,25 @@ MyAgent.prompt(message: "Hello").generate_now
 MyAgent.embed(input: "Text").embed_now
 ```
 
-### The `prompt()` Interface
+### Actions Interface
 
-Configure generation context within actions:
+Agents define actions using `prompt()` or `embed()` to configure generation context:
+
+**Prompting**
 
 ```ruby
 def my_action
   # Simple message
   prompt "User message"
-
-  # With options
-  prompt message: "Hello", temperature: 0.8
-
-  # Multiple messages
-  prompt messages: ["First", "Second"]
-
-  # With media
-  prompt image: "image.jpg", message: "Describe this"
 end
-```
 
-Views are rendered automatically if they exist (e.g., `app/views/my_agent/my_action.text.erb`).
-
-### The `embed()` Interface
-
-Configure embedding generation:
-
-```ruby
 def embed_text
+  # Simple input
   embed "Text to embed"
-
-  # With options
-  embed input: "Text", model: "text-embedding-3-large"
-
-  # Multiple inputs
-  embed input: ["Text 1", "Text 2"]
 end
 ```
 
-See [Embeddings](/agents/embeddings) for details.
+See [Actions](/actions) for complete documentation on messages, tools, structured output, and embeddings.
 
 ## Advanced Features
 
@@ -276,11 +256,11 @@ response = TravelAgent.with(
 - [Instructions](/agents/instructions) - System prompts that guide behavior
 - [Callbacks](/agents/callbacks) - Lifecycle hooks and event handling
 - [Streaming](/agents/streaming) - Real-time response updates
-- [Embeddings](/agents/embeddings) - Vector generation for semantic search
 - [Error Handling](/agents/error-handling) - Retries and graceful degradation
 
 **Related Topics:**
 - [Tool Calling](/actions/tool-calling) - Use agent actions as AI-callable tools
 - [Structured Output](/actions/structured-output) - Extract typed data with schemas
+- [Embeddings](/actions/embeddings) - Vector generation for semantic search
 - [Testing](/framework/testing) - Test agents and concerns
 - [Instrumentation](/framework/instrumentation) - Monitor with notifications

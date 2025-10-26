@@ -251,7 +251,7 @@ OpenAI's strict mode ensures the model cannot produce invalid output, making it 
 
 ## Embeddings
 
-Generate high-quality text embeddings using OpenAI's embedding models. For general embedding usage, see the [Embeddings Documentation](/agents/embeddings).
+Generate high-quality text embeddings using OpenAI's embedding models. For general embedding usage, see the [Embeddings Documentation](/actions/embeddings).
 
 #### Available Embedding Models
 
@@ -279,7 +279,7 @@ OpenAI's text-embedding-3 models support configurable dimensions for cost optimi
 Dimension reduction (256-3072 for text-embedding-3-large, 256-1536 for text-embedding-3-small) reduces storage costs while maintaining good performance. This feature is unique to OpenAI's text-embedding-3 models.
 :::
 
-For similarity search, batch processing, and advanced embedding patterns, see the [Embeddings Documentation](/agents/embeddings).
+For similarity search, batch processing, and advanced embedding patterns, see the [Embeddings Documentation](/actions/embeddings).
 
 ## Azure OpenAI
 

@@ -36,7 +36,7 @@ ActiveAgent provides `before_embedding`, `after_embedding`, and `around_embeddin
 
 <<< @/../test/docs/agents/callbacks_examples_test.rb#embedding_callbacks {ruby:line-numbers}
 
-See [Embeddings](/agents/embeddings) for complete documentation.
+See [Embeddings](/actions/embeddings) for complete documentation.
 
 ## Streaming Callbacks
 

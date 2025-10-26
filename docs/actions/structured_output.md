@@ -13,13 +13,13 @@ Two JSON response formats:
 
 ## Provider Support
 
-| Provider | `json_object` | `json_schema` | Notes |
-|----------|---------------|---------------|-------|
-| **OpenAI** | ✅ Native | ✅ Native (Responses API only) | Full support with strict mode |
-| **Anthropic** | ✅ Emulated | ❌ | Prompt engineering technique |
-| **OpenRouter** | ✅ Native | ✅ Native | Depends on underlying model |
-| **Ollama** | ✅ Native | ✅ Native | Depends on model capabilities |
-| **Mock** | ✅ Accepted | ✅ Accepted | Not validated or enforced |
+| Provider       | `json_object` | `json_schema` | Notes |
+|:---------------|:-------------:|:-------------:|:------|
+| **OpenAI**     | 🟩            | 🟩             | Native support with strict mode (Responses API only for json_schema) |
+| **Anthropic**  | 🟦            | ❌             | Emulated via prompt engineering technique |
+| **OpenRouter** | 🟩            | 🟩             | Native support, depends on underlying model |
+| **Ollama**     | 🟨            | 🟨             | Model-dependent, support varies by model |
+| **Mock**       | 🟩            | 🟩             | Accepted but not validated or enforced |
 
 ## JSON Object Mode
 

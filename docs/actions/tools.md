@@ -1,269 +1,104 @@
----
-title: Tools and Actions
----
-# {{ $frontmatter.title }}
+# Tools
 
-ActiveAgent supports tool/function calling, allowing agents to interact with external services and perform actions during multi-turn conversations.
+Tools extend agents with callable functions that LLMs can trigger during generation. ActiveAgent provides a unified interface across providers while highlighting provider-specific capabilities.
 
-## Overview
+## Quick Start
 
-Tools enable agents to:
-- Call actions during generation
-- Receive tool results as part of the conversation
-- Continue generation with tool results to provide final answers
-- Chain multiple tool calls to solve complex tasks
+Define a method in your agent and register it as a tool:
 
-## How Tool Calling Works
+<<< @/../test/docs/actions/tools_examples_test.rb#quick_start_weather_agent {ruby:line-numbers}
+<<< @/../test/docs/actions/tools_examples_test.rb#quick_start_weather_usage {ruby:line-numbers}
 
-When an agent needs to use a tool during generation:
+The LLM calls `get_weather` automatically when it needs weather data, and uses the result to generate its response.
 
-1. The agent requests a tool call with specific parameters
-2. ActiveAgent executes the corresponding action method
-3. The tool result is added to the conversation as a "tool" message
-4. Generation continues automatically with the tool result
-5. The agent can make additional tool calls or provide a final response
+## Provider Support Matrix
 
-## Basic Example
+| Provider       | Functions | Server-side Tools | MCP Support | Notes |
+|:---------------|:---------:|:-----------------:|:-----------:|:------|
+| **OpenAI**     | 🟩        | 🟩                | 🟩          | Server-side tools and MCP require Responses API |
+| **Anthropic**  | 🟩        | 🟩                | 🟨          | MCP in beta |
+| **OpenRouter** | 🟩        | ❌                | 🟦          | MCP via converted tool definitions; model-dependent capabilities |
+| **Ollama**     | 🟩        | ❌                | ❌          | Model-dependent capabilities |
+| **Mock**       | 🟦        | ❌                | ❌          | Accepted but not enforced |
 
-Here's a support agent with a simple tool that fetches cat images:
+## Functions (Universal Support)
 
-```ruby
-class SupportAgent < ApplicationAgent
-  generate_with :openai, model: "gpt-4o-mini", instructions: "You're a support agent. Your job is to help users with their questions."
+Functions are the core tool capability supported by all providers. Define methods in your agent that the LLM can call with appropriate parameters.
 
-  def get_cat_image
-    prompt(content_type: "image_url", context_id: params[:context_id]) do |format|
-      format.text { render plain: CatImageService.fetch_image_url }
-    end
-  end
-end
-```
+### Basic Function Registration
 
-The agent can call the `get_cat_image` tool when needed:
+Register functions by passing tool definitions to the `tools` parameter:
 
-```ruby
-# Agent receives request and calls the tool
-response = SupportAgent.with(
-  message: "Can you show me a cat picture?",
-  context_id: "user_123"
-).get_cat_image.generate_now
-
-# The agent calls the get_cat_image action and uses the result
-```
-
-## Tool Usage Example
-
-Here's how an agent uses tools to fulfill user requests:
-
-```ruby
-message = "Show me a cat"
-prompt = SupportAgent.prompt(message: message)
-```
-
-### Tool Call Response
-
-When a tool is called, the response includes the tool's output in the conversation:
-
-```ruby
-response = prompt.generate_now
-```
-
-::: details Response Example
-<!-- @include: @/parts/examples/support-agent-test.rb-test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions.md -->
+::: code-group
+<<< @/../test/docs/actions/tools_examples_test.rb#anthropic_basic_function {ruby:line-numbers} [Anthropic]
+<<< @/../test/docs/actions/tools_examples_test.rb#ollama_basic_function {ruby:line-numbers} [Ollama]
+<<< @/../test/docs/actions/tools_examples_test.rb#openai_basic_function {ruby:line-numbers} [OpenAI]
+<<< @/../test/docs/actions/tools_examples_test.rb#openrouter_basic_function {ruby:line-numbers} [OpenRouter]
 :::
 
-## Tool Response Structure
+When the LLM decides to call a tool, ActiveAgent routes the call to your agent method and returns the result automatically.
 
-When tools are used, the response includes:
-- **System Message**: Initial instructions for the agent
-- **User Message**: The original user request
-- **Assistant Message**: The agent's decision to use a tool
-- **Tool Message**: The result from the tool execution
+### Tool Choice Control
 
-The final response contains 4 messages showing the complete tool interaction flow.
-
-## Tool Response Formats
-
-Tools can return different types of content:
-
-### Simple Action Response
-
-The support agent's cat image tool returns image URLs:
+Control which tools the LLM can use:
 
 ```ruby
-class SupportAgent < ApplicationAgent
-  def get_cat_image
-    prompt(content_type: "image_url", context_id: params[:context_id]) do |format|
-      format.text { render plain: CatImageService.fetch_image_url }
-    end
-  end
-end
+# Let the model decide (default)
+prompt(message: "...", tools: tools, tool_choice: "auto")
+
+# Force the model to use a tool
+prompt(message: "...", tools: tools, tool_choice: "required")
+
+# Prevent tool usage
+prompt(message: "...", tools: tools, tool_choice: "none")
+
+# Force a specific tool (provider-dependent)
+prompt(message: "...", tools: tools, tool_choice: { type: "function", name: "get_weather" })
 ```
 
-### Using Concerns for Tool Organization
+## Server-Side Tools (Provider-Specific)
 
-Complex agents can use concerns to organize multiple tools:
+Some providers offer built-in tools that run on their servers, providing capabilities like web search and code execution without custom implementation.
 
-```ruby
-class ResearchAgent < ApplicationAgent
-  include ResearchTools
+### OpenAI Built-in Tools
 
-  # Configure the agent to use OpenAI with specific settings
-  generate_with :openai, model: "gpt-4o"
+OpenAI's **Responses API** provides several built-in tools (requires GPT-5, GPT-4.1, o3, etc.) including Web Search for current information, File Search for querying vector stores, and other tools like image generation, code interpreter, and computer use. For complete details and examples, see [OpenAI's tools documentation](https://platform.openai.com/docs/guides/tools) and the [OpenAI Provider documentation](/providers/open_ai#built-in-tools).
 
-  # Configure research tools at the class level
-  configure_research_tools(
-    enable_web_search: true,
-    mcp_servers: [ "arxiv", "github" ],
-    default_search_context: "high"
-  )
+### Anthropic Built-in Tools
 
-  # Agent-specific action that uses both concern tools and custom logic
-  def comprehensive_research
-    @topic = params[:topic]
-    @depth = params[:depth] || "detailed"
+Anthropic provides web access and specialized capabilities including Web Search for real-time information, Web Fetch (Beta) for specific URLs, Extended Thinking to show reasoning processes, and Computer Use (Beta) for interface interaction. For complete details and examples, see [Anthropic's tool use documentation](https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview).
 
-    # This action combines multiple tools
-    prompt(
-      message: "Conduct comprehensive research on: #{@topic}",
-      tools: build_comprehensive_tools
-    )
-  end
+## Model Context Protocol (MCP)
 
-  def literature_review
-    @topic = params[:topic]
-    @sources = params[:sources] || [ "arxiv", "pubmed" ]
+MCP (Model Context Protocol) enables agents to connect to external services and APIs. Think of it as a universal adapter for integrating tools and data sources.
 
-    # Use the concern's search_with_mcp_sources internally
-    mcp_tools = build_mcp_tools(@sources)
+### OpenAI MCP Integration
 
-    prompt(
-      message: "Conduct a literature review on: #{@topic}\nFocus on peer-reviewed sources from the last 5 years.",
-      tools: [
-        { type: "web_search_preview", search_context_size: "high" },
-        *mcp_tools
-      ]
-    )
-  end
+OpenAI supports MCP through their Responses API in two ways: pre-built connectors for popular services (Dropbox, Google Drive, GitHub, Slack, and more) and custom MCP servers. For complete details on OpenAI's MCP support, connector IDs, and configuration options, see [OpenAI's MCP documentation](https://platform.openai.com/docs/guides/mcp).
 
-  # ...
-end
-```
+### Anthropic MCP Integration
 
-The research agent includes the `ResearchTools` concern which provides multiple tool actions like `search_academic_papers` and `search_with_mcp_sources`.
+Anthropic supports MCP servers via the `mcp_servers` parameter (beta feature). You can connect up to 20 MCP servers per request. For the latest on Anthropic's MCP implementation and configuration, see [Anthropic's MCP documentation](https://docs.anthropic.com/en/docs/build-with-claude/mcp).
 
-## Implementing Tools
+### OpenRouter MCP Integration
 
-Tools are defined as methods in your agent class. The tool's JSON schema is defined in the corresponding view template:
+::: info Coming Soon
+MCP support for OpenRouter is currently under development and will be available in a future release.
+:::
 
-### Tool Implementation
+## Troubleshooting
 
-```ruby
-def get_cat_image
-  prompt(content_type: "image_url", context_id: params[:context_id]) do |format|
-    format.text { render plain: CatImageService.fetch_image_url }
-  end
-end
-```
+### Tool Not Being Called
 
-### Tool Schema Definition
+If the LLM doesn't call your function when expected, improve the tool description or use `tool_choice: "required"` to force tool usage.
 
-Define tool schemas using JSON views to describe parameters:
+### Invalid Parameters
 
-```erb
-<%= {
-  type: :function,
-  function: {
-    name: 'get_cat_image',
-    description: "This action takes no params and gets a random cat image and returns it as a base64 string.",
-    parameters: {
-      type: :object,
-      properties: {}
-    }
-  }
-}.to_json.html_safe %>
-```
+If the LLM passes unexpected parameters, add detailed parameter descriptions with `enum` for restricted choices and mark required parameters explicitly.
 
-This schema tells the AI model:
-- The tool name and description
-- Required and optional parameters
-- Parameter types and descriptions
+## Related Documentation
 
-### More Complex Tool Schema
-
-For tools with parameters, define them in the schema:
-
-```ruby
-json.type "function"
-json.function do
-  json.name action_name
-  json.description "Search for academic papers on a given topic with optional filters"
-  json.parameters do
-    json.type "object"
-    json.properties do
-      json.query do
-        json.type "string"
-        json.description "The search query for academic papers"
-      end
-      json.year_from do
-        json.type "integer"
-        json.description "Start year for publication date filter"
-      end
-      json.year_to do
-        json.type "integer"
-        json.description "End year for publication date filter"
-      end
-      json.field do
-        json.type "string"
-        json.description "Academic field or discipline"
-        json.enum [ "computer_science", "medicine", "physics", "biology", "chemistry", "mathematics", "engineering", "social_sciences" ]
-      end
-    end
-    json.required [ "query" ]
-  end
-end
-```
-
-## Built-in Tools
-
-Some providers support built-in tools that don't require custom implementation:
-
-```ruby
-class ResearchAgent < ApplicationAgent
-  generate_with :openai, model: "gpt-4o"
-
-  def comprehensive_research
-    @topic = params[:topic]
-
-    # Use built-in web search tool
-    prompt(
-      message: "Research: #{@topic}",
-      tools: [
-        { type: "web_search_preview", search_context_size: "high" },
-        { type: "image_generation" }
-      ]
-    )
-  end
-end
-```
-
-For more details on built-in tools, see the [OpenAI Provider documentation](/providers/openai-provider#built-in-tools-responses-api).
-
-## Implementation Details
-
-The tool calling flow is handled by the `perform_generation` method:
-
-1. **Initial Generation**: The agent receives the user message and generates a response
-2. **Tool Request**: If the response includes `requested_actions`, tools are called
-3. **Tool Execution**: Each action is executed via `perform_action`
-4. **Result Handling**: Tool results are added as "tool" messages
-5. **Continuation**: Generation continues with `continue_generation`
-6. **Completion**: The process repeats until no more tools are requested
-
-This creates a natural conversation flow where the agent can gather information through tools before providing a final answer. [Understanding the complete generation cycle →](/agents/generation)
-
-## See Also
-
-- [Using Concerns](/framework/concerns) - Organizing tools with concerns
-- [OpenAI Built-in Tools](/providers/openai-provider#built-in-tools-responses-api) - Provider-specific tool features
-- [Agent Generation](/agents/generation) - Complete generation cycle documentation
+- [Messages](/actions/messages) - Learn about conversation structure
+- [Streaming](/agents/streaming) - Use tools with streaming responses
+- [OpenAI Provider](/providers/open_ai) - OpenAI-specific tool features
+- [Anthropic Provider](/providers/anthropic) - Anthropic-specific capabilities
