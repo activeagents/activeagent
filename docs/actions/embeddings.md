@@ -4,35 +4,35 @@ Generate vector embeddings from text to enable semantic search, clustering, and 
 
 ## Quick Start
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#quick_start{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#quick_start{ruby:line-numbers}
 
 ## Basic Usage
 
 Generate embeddings using `embed` with synchronous or asynchronous execution:
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#direct_embedding{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#direct_embedding{ruby:line-numbers}
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#background_processing{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#background_processing{ruby:line-numbers}
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#multiple_inputs{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#multiple_inputs{ruby:line-numbers}
 
 ## Response Structure
 
 Embedding responses contain the vector data:
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#response_structure{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#response_structure{ruby:line-numbers}
 
 ## Configuration
 
 Configure the embedding provider using `embed_with`:
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#basic_configuration{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#basic_configuration{ruby:line-numbers}
 
 ### Mixing Providers
 
 Use different providers for prompting and embeddings:
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#mixing_providers{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#mixing_providers{ruby:line-numbers}
 
 This lets you choose the best provider for each task—for example, using Anthropic's Claude for reasoning while leveraging OpenAI's specialized embedding models.
 
@@ -40,11 +40,11 @@ This lets you choose the best provider for each task—for example, using Anthro
 
 **OpenAI**
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#openai_options{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#openai_options{ruby:line-numbers}
 
 **Ollama**
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#ollama_configuration{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#ollama_configuration{ruby:line-numbers}
 
 See [OpenAI Provider](/providers/open_ai) and [Ollama Provider](/providers/ollama) for more options.
 
@@ -52,7 +52,7 @@ See [OpenAI Provider](/providers/open_ai) and [Ollama Provider](/providers/ollam
 
 Process embeddings with before and after callbacks:
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#embedding_callbacks{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#embedding_callbacks{ruby:line-numbers}
 
 See [Callbacks](/agents/callbacks) for more on callback functionality.
 
@@ -60,15 +60,15 @@ See [Callbacks](/agents/callbacks) for more on callback functionality.
 
 Compare text similarity using cosine similarity:
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#cosine_similarity{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#cosine_similarity{ruby:line-numbers}
 
 ## Model Dimensions
 
 Different models produce different embedding dimensions:
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#model_dimensions{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#model_dimensions{ruby:line-numbers}
 
-<<< @/../test/docs/agents/embeddings_examples_test.rb#reducing_dimensions{ruby:line-numbers}
+<<< @/../test/docs/actions/embeddings_examples_test.rb#reducing_dimensions{ruby:line-numbers}
 
 ## Related Documentation
 

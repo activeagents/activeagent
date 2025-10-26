@@ -74,8 +74,8 @@ export default defineConfig({
         text: 'Framework',
         items: [
           { text: 'Agents', link: '/agents' },
+          { text: 'Actions', link: '/actions' },
           { text: 'Providers', link: '/providers' },
-          // { text: 'Actions', link: '/actions' },
           { text: 'Configuration', link: '/framework/configuration' },
           { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Retries', link: '/framework/retries' },

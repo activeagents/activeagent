@@ -1,0 +1,152 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Artificial intelligence has revolutionized many industries.
+        Machine learning algorithms can now process vast amounts of data to identify
+        patterns and make predictions. Deep learning, a subset of machine learning,
+        has enabled breakthroughs in image recognition, natural language processing,
+        and autonomous systems.","instructions":"Summarize in 2-3 sentences","model":"gpt-4o-mini","temperature":0.3}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 01:04:40 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '30000'
+      X-Ratelimit-Limit-Tokens:
+      - '150000000'
+      X-Ratelimit-Remaining-Requests:
+      - '29999'
+      X-Ratelimit-Remaining-Tokens:
+      - '149999910'
+      X-Ratelimit-Reset-Requests:
+      - 2ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_6cc1fbdd10f1481fb2e01f7e71495208
+      Openai-Processing-Ms:
+      - '2185'
+      X-Envoy-Upstream-Service-Time:
+      - '2190'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=g04VXeHEF6mAxzaWiU_bkjDHZOmgRQ37XB4Ok5Em4tE-1761440680-1.0.1.1-gLdWcIsMzFVYahiKrJgtJHu3PHVpHum1dPMxADeOdp.BAJYlttM0WZ068pBZpx62xatIAuZMHGEAnS8Wq.lNEn.EmH2z1PLbM56eiIyXY2o;
+        path=/; expires=Sun, 26-Oct-25 01:34:40 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=YdqGABwqlEI.WdX3YH.AO5ocOA_kLK7DgQDempvhkC0-1761440680379-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 99460a6bbed8cf09-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_031f8ed33cd04cee0068fd73a633b4819a9d32a2370f703d8e",
+          "object": "response",
+          "created_at": 1761440678,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": "Summarize in 2-3 sentences",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-mini-2024-07-18",
+          "output": [
+            {
+              "id": "msg_031f8ed33cd04cee0068fd73a70c5c819a8d9a43439112e343",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Artificial intelligence has transformed various industries by utilizing machine learning algorithms to analyze large datasets for pattern recognition and predictions. Deep learning, a specialized area within machine learning, has led to significant advancements in fields such as image recognition, natural language processing, and autonomous systems."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 0.3,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 69,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 52,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 121
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 01:04:40 GMT
+recorded_with: VCR 6.3.1

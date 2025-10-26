@@ -1,462 +1,76 @@
 # Actions
-Actions are the recommended way to organize agent behaviors in production applications. Active Agent can optionally use Action View to render Message content for [Prompt](./prompts.md) context objects when complex formatting is needed.
-
-## Prompt
-The `prompt` method is used to render the action's content as a message in a prompt. The `prompt` method is similar to `mail` in Action Mailer or `render` in Action Controller. It can render view templates for complex formatting, or work without templates by passing message content directly.
-
-```ruby
-# The prompt method is typically called within an action
-class MyAgent < ApplicationAgent
-  def my_action
-    prompt(
-      content_type: :text, # or :json, :html, etc.
-      message: "Hello, world!", # The message content (can be passed directly without a template)
-      messages: [], # Additional messages to include in the prompt context
-      template_name: "action_template", # Optional: The name of the view template to use
-      instructions: { template: "instructions" }, # Optional instructions for the prompt generation
-      actions: [], # Available actions for the agent to use
-      response_format: { type: "json_schema", json_schema: :schema_name } # Optional schema for structured output
-    )
-  end
-end
-
-# To use the agent with parameters:
-MyAgent.with(param: value).my_action.generate_now
-```
-
-These Prompt objects contain the context Messages and available Actions. These actions are the interface that agents can use to interact with tools through text and JSON views or interact with users through text and HTML views.
-
-Actions can be used to render Prompt objects with `:assistant` [Messages](/actions/messages) back to a user or `:tool` Messages to provide the result of an action back to the Agent.
-
-## Defining Actions
-You can define actions in your agent class that can be used to interact with the agent.
-
-```ruby
-# app/agents/translation_agent.rb
-class TranslationAgent < ApplicationAgent
-  generate_with :openai, instructions: "Translate the given text from one language to another."
-
-  def translate
-    prompt
-  end
-end
-```
-
-```ruby
-# app/views/translation_agent/translate.json.jbuilder
-json.type :function
-json.function do
-  json.name action_name
-  json.description "This action takes params locale and message and returns a translated message."
-  json.parameters do
-    json.type :object
-    json.properties do
-      json.locale do
-        json.type :string
-        json.description "The target language for translation."
-      end
-      json.message do
-        json.type :string
-        json.description "The text to be translated."
-      end
-    end
-  end
-end
-```
-
-```erb
-<!-- app/views/translation_agent/translate.text.erb -->
-translate: <%= params[:message] %>; to <%= params[:locale] %>
-```
-
-## Set up instructions
-
-You can configure instructions in several ways when using `generate_with`, as
-
-#### 1. Use the default instructions template
-If you don't pass anything for instructions, it will automatically try to use the default instructions template: `instructions.text.erb`
-
-```ruby
-# app/agents/scoped_agents/translation_agent_with_default_instructions_template.rb
-module ScopedAgents
-  class TranslationAgentWithDefaultInstructionsTemplate < ApplicationAgent
-    generate_with :openai
-
-    def translate
-      prompt
-    end
-  end
-end
-```
-
-```erb
-<!-- app/views/scoped_agents/translation_agent_with_default_instructions_template/instructions.text.erb -->
-# Default Instructions
-
-Translate the given text from <%= params[:source_language].presence || "one" %> language to another.
-```
-
-#### 2. Use a custom instructions template (global or per action)
-You can provide custom instructions using a template. This can be done in two ways:
-  * **Globally**, by setting an instructions template for the whole agent.
-  * **Per action**, by specifying a different template for a specific prompt call.
-To do this, pass a `Hash` with a `template` key to the `instructions` option:
-
-```ruby
-# app/agents/scoped_agents/translation_agent_with_custom_instructions_template.rb
-module ScopedAgents
-  class TranslationAgentWithCustomInstructionsTemplate < ApplicationAgent
-    generate_with :openai, instructions: {
-      template: :custom_instructions, locals: { from: "English", to: "French" }
-    }
-
-    before_action :add_custom_instructions
-
-    def translate
-      prompt
-    end
-
-    def translate_with_overridden_instructions
-      prompt(instructions: { template: :overridden_instructions })
-    end
-
-    private
-
-    def add_custom_instructions
-      @additional_instruction = "translation additional instruction"
-    end
-  end
-end
-```
-
-```erb
-<!-- app/views/scoped_agents/translation_agent_with_custom_instructions_template/custom_instructions.text.erb -->
-# Custom Instructions
-
-<%= @additional_instruction %>
-Translate the given text from <%= from %> to <%= to %>.
-```
-
-```erb
-<!-- app/views/scoped_agents/translation_agent_with_custom_instructions_template/overridden_instructions.text.erb -->
-# Overridden Instructions
-
-Translate the given text from one language to another.
-```
-
-#### 3. Use plain text instructions
-You can also directly pass a string of instructions
-
-```ruby
-# app/agents/translation_agent.rb
-class TranslationAgent < ApplicationAgent
-  generate_with :openai, instructions: "Translate the given text from one language to another."
-
-  def translate
-    prompt
-  end
-end
-```
-
-## Call to Actions
-These actions can be invoked by the agent to perform specific tasks and receive the results or in your Rails app's controllers, models, or jobs to prompt the agent for generation with a templated prompt message. By default, public instance methods defined in the agent class are included in the context as available actions. You can also define actions in a separate concern module and include them in your agent class.
-
-```ruby
-# test/docs/translation_agent_test.rb
-translate_prompt = TranslationAgent.with(message: "Hi, I'm Justin", locale: "japanese").translate
-
-assert_equal "translate: Hi, I'm Justin; to japanese\n", translate_prompt.message.content
-assert_equal "Translate the given text from one language to another.", translate_prompt.instructions
-```
-
-## Action params
-Agent Actions can accept parameters, which are passed as a hash to the action method. You pass arguments to agent's using the `with` method and access parameters using the `params` method, just like Mailer Actions.
-
-```ruby
-# test/docs/actions_examples_test.rb
-# Pass parameters using the with method
-agent = TravelAgent.with(
-  message: "Book this flight",
-  flight_id: "AA456",
-  passenger_name: "Alice Johnson"
-)
-
-# Access parameters in the action using params
-booking_prompt = agent.book
-assert booking_prompt.message.content.include?("AA456")
-assert booking_prompt.message.content.include?("Alice Johnson")
-```
-
-### Parameters vs Runtime Options
-
-When using the `with` method, it's important to understand the distinction:
-- **Regular parameters** (like `message`, `user_id`, etc.) are accessed via the `params` method in your actions
-- **Runtime options** (like `model`, `temperature`, etc.) should be passed via the `:options` key to configure the provider
-
-Example:
-```ruby
-**Explanation:**
-
-- **Action parameters** (e.g., `destination`, `user_id`) should be passed via the `:params` hash and accessed with `params[:key]`
-- **Runtime options** (like `model`, `temperature`, etc.) should be passed via the `:options` key to configure the provider
-- This separation provides clarity between business logic parameters and AI configuration
-
-```ruby
-# In the agent class:
-generate_with :openai, model: "gpt-4o-mini"
-
-# When calling with runtime options:
-TravelAgent.with(
-  destination: "Paris",    # Business logic params
-  user_id: 123,           # Business logic params
-  options: {
-    temperature: 0.9      # Provider configuration
-  }
-).search
-
-# In the action, access regular params:
-def search
-  destination = params[:destination]  # "Paris"
-  user_id = params[:user_id]         # 123
-  # Runtime options are automatically applied to generation
-end
-```
-
-## Using Actions to prompt the Agent with a templated message
-You can call these actions directly to render a prompt to the agent directly to generate the requested object.
-
-```ruby
-# test/docs/translation_agent_test.rb
-response = TranslationAgent.with(
-  message: "Hi, I'm Justin",
-  locale: "japanese"
-).translate.generate_now
-assert_equal "こんにちは、私はジャスティンです。", response.message.content
-```
-
-## Using Agents with Actions
-You can also provide an Agent with a prompt that includes actions and messages. The agent can then use these actions to perform tasks and generate responses based on the provided context.
-
-```ruby
-# test/docs/actions_examples_test.rb
-# Use Agent.prompt() to create a prompt with actions
-prompt = TravelAgent.prompt(message: "I need to book a flight to Paris")
-
-# The agent will have access to all available actions
-assert prompt.actions.is_a?(Array)
-assert prompt.actions.size > 0
-# Actions are available as function schemas
-
-# Generate a response (in real usage)
-# response = prompt.generate_now
-```
-
-In this example, calling `TravelAgent.prompt(message: ...)` creates a prompt with all available actions. The agent will determine which actions to use during generation. The agent can then call the `search` action to find hotels, `book` action to initialize a hotel booking, or `confirm` action to finalize a booking, as needed based on the prompt context.
-
-### Content Types
-
-Actions can render different content types based on their purpose:
-
-```ruby
-# test/docs/actions_examples_test.rb
-# HTML content for rich UI
-search_result = TravelAgent.with(
-  departure: "NYC",
-  destination: "London",
-  results: [ { airline: "British Airways", price: 599, departure: "9:00 AM" } ]
-).search
-assert search_result.message.content.include?("Travel Search Results")
-assert search_result.message.content.include?("British Airways")
-
-# Text content for simple responses
-confirm_result = TravelAgent.with(
-  confirmation_number: "ABC123",
-  passenger_name: "Test User"
-).confirm
-assert confirm_result.message.content.include?("Your booking has been confirmed!")
-assert confirm_result.message.content.include?("ABC123")
-```
-
-The `prompt` takes the following options:
-- `content_type`: Specifies the type of content to be rendered (e.g., `:text`, `:json`, `:html`).
-- `message`: The `message.content` to be displayed in the prompt.
-- `messages`: An array of messages objects to be included in the prompt's context.
-- `template_name`: Specifies the name of the template to be used for rendering the action's response.
-- `instructions`: Additional guidance for the prompt generation. This can be:
-  * A string with custom instructions (e.g., "Help the user find a hotel");
-  * A hash referencing a template (e.g., { template: :custom_template });
-
-```ruby
-# app/agents/travel_agent.rb
-class TravelAgent < ApplicationAgent
-  MockUser = Data.define(:name) unless defined?(MockUser)
-  before_action :set_user
-
-  def search
-    @departure = params[:departure]
-    @destination = params[:destination]
-    @results = params[:results] || []
-    prompt(content_type: :html)
-  end
-
-  def book
-    @flight_id = params[:flight_id]
-    @passenger_name = params[:passenger_name]
-    @confirmation_number = params[:confirmation_number]
-    prompt(content_type: :text)
-  end
-
-  def confirm
-    @confirmation_number = params[:confirmation_number]
-    @passenger_name = params[:passenger_name]
-    @flight_details = params[:flight_details]
-    prompt(content_type: :text)
-  end
-
-  private
-
-  def set_user
-    @user = params[:user] || MockUser.new(name: "Guest")
-  end
-end
-```
-
-## Action View Templates & Partials
-While partials can be used in the JSON views the action's json view should primarily define the tool schema, then secondarily define the tool's output using a partial to render results of the tool call all in a single JSON action view template. Use the JSON action views for tool schema definitions and results, and use the text or HTML action views for rendering the action's response to the user.
-
-### Runtime options
-Runtime options can be passed to agents in several ways:
-
-1. **Via the `with` method** - Pass runtime options using the `:options` parameter:
-```ruby
-# Pass runtime options via the with method
-agent = MyAgent.with(
-  message: "Hello",
-  options: {
-    model: "gpt-4o",
-    temperature: 0.7
-  }
-)
-```
-
-2. **In the `prompt` method** - Pass runtime options directly in the prompt call:
-```ruby
-# Pass runtime options in the prompt method
-prompt = agent.my_action.generate_now(
-  model: "gpt-4o",
-  temperature: 0.9
-)
-```
-
-3. **Supported runtime option types**:
-```ruby
-# Various runtime options are supported
-MyAgent.with(
-  options: {
-    model: "gpt-4o-mini",
-    temperature: 0.5,
-    max_tokens: 1000,
-    stream: true
-  }
-)
-```
-
-Available runtime options include:
-- `model`: The model to use for generation (e.g., "gpt-4o", "claude-3")
-- `temperature`: Controls randomness in generation (0.0 to 1.0)
-- `max_tokens`: Maximum number of tokens to generate
-- `stream`: If set to `true`, the response will be streamed in real-time
-- `top_p`: Nucleus sampling parameter
-- `frequency_penalty`: Penalizes repeated tokens based on frequency
-- `presence_penalty`: Penalizes repeated tokens based on presence
-- `seed`: For deterministic generation
-- `stop`: Sequences where generation should stop
-- `response_format`: Format for structured outputs
-
-::: details Runtime Options Example
-<!-- @include: @/parts/examples/option-hierarchy-test.rb-test-runtime-options-example-output.md -->
-:::
-
-**Option precedence**: When options are specified in multiple places, they follow this hierarchy:
-1. Config options (lowest priority)
-2. Agent-level options (set with `generate_with`)
-3. Explicit options (passed via `:options` parameter)
-4. Runtime options (highest priority)
-
-## How Agents use Actions
-1. The agent receives a request from the user, which may include a message or an action to be performed.
-2. The agent processes the request and determines if an action needs to be invoked.
-3. If an action is invoked, the agent calls the corresponding method and passes the parameters to it.
-4. The action method executes the logic defined in the agent and may interact with tools or perform other tasks.
-5. The action method returns a response, which can be a rendered view, JSON data, or any other content type specified in the `prompt` method.
-6. The agent updates the context with the action's result and prepares the response to be sent back to the user.
-
-## Tool Execution Flow
-
-When an agent calls an action:
-
-1. The agent receives a response from the provider, which includes the generated content and any actions that need to be performed.
-
-### Respond to User
-1. You provide the model with a prompt or conversation history, along with a set of tools.
-2. Based on the context, the model may decide to call a tool.
-3. If a tool is called, it will execute and return data.
-4. This data can then be passed to a view for rendering to the user.
-
-
-### Respond to Agent
-1. The user interacts with UI elements connected to Action Controllers that call Agent's to generate content or the user enters a message in the chat UI.
-2. The message is sent to the controller action
-3. In your controller action, the language model generates tool calls during the `generate_*` call.
-4. All tool calls are persistent in context and renderable to the User
-5. Tools are executed using their process action method and their results are forwarded to the context.
-6. You can return the tool result from the `after_generate` callback.
-7. Tool calls that require user interactions can be displayed in the UI. The tool calls and results are available as tool invocation parts in the parts property of the last assistant message.
-8. When the user interaction is done, render tool result can be used to add the tool result to the chat or UI view element.
-9. When there are tool calls in the last assistant message and all tool results are available, this flow is reiterated.
-
-## Features
-- Automatically included in the agent's context as tools.
-- Schema rendering for tool definitions.
-- Support for multiple Action View template content types (e.g., text, JSON, HTML).
-- Customizable actions with dynamic view templates for Retrieval Augmented Generation (RAG).
-- Prompt method to render the action's content in the prompt context.
-
-## Tool Definitions
-Tool schema definitions are also view templates that can be rendered to the agent. They are used to define the structure and parameters of the tools that the agent can use. Tool definitions are typically defined in JSON format and can include properties, required fields, and descriptions. They can be represented in various formats, such as jbuilder, JSON, or ERB templates, to provide a structured way to define the tools available to the agent.
-
-```erb
-<!-- app/views/support_agent/get_cat_image.json.erb -->
-<%= {
-  type: :function,
-  function: {
-    name: 'get_cat_image',
-    description: "This action takes no params and gets a random cat image and returns it as a base64 string.",
-    parameters: {
-      type: :object,
-      properties: {}
-    }
-  }
-}.to_json.html_safe %>
-```
-
-## Tool Calling Example
-
-Here's an example of how agents handle tool calls using the support agent. [See complete tool calling workflows →](/actions/tool-calling)
-
-```ruby
-# test/docs/support_agent_test.rb
-message = "Show me a cat"
-prompt = SupportAgent.prompt(message: message)
-```
-
-The agent generates a response that includes a tool call request:
-
-```ruby
-# test/docs/support_agent_test.rb
-response = prompt.generate_now
-```
-
-::: details Tool Call Response Example
-<!-- @include: @/parts/examples/support-agent-test.rb-test-it-renders-a-prompt-context-generates-a-response-with-a-tool-call-and-performs-the-requested-actions.md -->
-:::
+
+Actions are public methods in your agent that define specific AI behaviors. Each action calls `prompt()` to generate text or `embed()` to create vector embeddings.
+
+Think of actions like controller actions in Rails—they define what your agent can do and how it responds to different requests.
+
+## Quick Example
+
+Define an action by creating a method that calls `prompt()`:
+
+<<< @/../test/docs/actions_examples_test.rb#quick_example_summary_agent{ruby:line-numbers}
+<<< @/../test/docs/actions_examples_test.rb#quick_example_summary_usage{ruby:line-numbers}
+
+## Action Capabilities
+
+Actions can use these capabilities to build sophisticated AI interactions:
+
+### [Messages](/actions/messages)
+
+Control conversation context with text, images, and documents:
+
+<<< @/../test/docs/actions_examples_test.rb#messages_with_image{ruby:line-numbers}
+
+### [Tools](/actions/tools)
+
+Let AI call Ruby methods during generation:
+
+<<< @/../test/docs/actions_examples_test.rb#tools_weather_agent{ruby:line-numbers}
+
+### [Structured Output](/actions/structured_output)
+
+Enforce JSON responses with schemas:
+
+<<< @/../test/docs/actions_examples_test.rb#structured_output_extract{ruby:line-numbers}
+
+### [Embeddings](/actions/embeddings)
+
+Generate vectors for semantic search:
+
+<<< @/../test/docs/actions_examples_test.rb#embeddings_vectorize{ruby:line-numbers}
+
+## Common Patterns
+
+### Multi-Capability Actions
+
+Combine multiple capabilities in a single action for complex behaviors.
+
+<!-- <<< @/../test/docs/actions_examples_test.rb#multi_capability_action{ruby:line-numbers} -->
+
+Use this pattern when you need the AI to:
+- Search for information AND structure the results
+- Process data with tools AND validate the output format
+- Combine multimodal inputs (text + images) with structured responses
+
+### Chaining Generations
+
+Build multi-step workflows by passing previous responses as conversation history.
+
+<!-- <<< @/../test/docs/actions_examples_test.rb#chaining_generations{ruby:line-numbers} -->
+
+This approach works well for:
+- Multi-turn conversations where context matters
+- Iterative refinement (generate → critique → improve)
+- Workflows where each step builds on previous results
+
+### Multiple Actions Per Agent
+
+Define multiple actions in a single agent for related behaviors.
+
+<!-- <<< @/../test/docs/actions_examples_test.rb#multiple_actions_per_agent{ruby:line-numbers} -->
+
+## Related Documentation
+
+- [Agents](/agents) - Understanding the agent lifecycle and invocation
+- [Generation](/agents/generation) - Synchronous and asynchronous execution
+- [Callbacks](/agents/callbacks) - Hooks for before/after action execution
