@@ -1,0 +1,148 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Analyze: Temperature readings: 20, 22, 21, 23, 22","model":"gpt-4o"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 02:16:33 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999955'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_5463475c0d8746c999046e971911c51e
+      Openai-Processing-Ms:
+      - '4308'
+      X-Envoy-Upstream-Service-Time:
+      - '4313'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=hbHkTp2.XPPX9bHtPqYkhUfqkNnmq9hBJhk_VpmW8kw-1761444993-1.0.1.1-ZNf4KqAu7Ukk9yhj0IWDiLnMeiO190C0OQ_LjRKBaVKyS8o72_dum0TSlWhwbdWoKk_WKz.oNEyqI.47wpGzjgUfOGYYkNA3DERzXq3CIxU;
+        path=/; expires=Sun, 26-Oct-25 02:46:33 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=snehSw2xGq7GTPCKAkZoLlxl1S2gW13_BlRLAdlAitE-1761444993210-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994673a96a096d29-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0bed2408812640470068fd847ce724819a905f355a18e1ce02",
+          "object": "response",
+          "created_at": 1761444989,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "msg_0bed2408812640470068fd847db8e0819a96e0985cabaac146",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Let's analyze the temperature readings: 20, 22, 21, 23, 22.\n\n### Mean (Average)\nTo find the mean:\n\\[\n\\text{Mean} = \\frac{20 + 22 + 21 + 23 + 22}{5} = \\frac{108}{5} = 21.6\n\\]\n\n### Median\nTo find the median, sort the numbers:\n20, 21, 22, 22, 23\n\nThe middle value is 22, so the median is 22.\n\n### Mode\nThe mode is the value that appears most frequently. Here, 22 appears twice, making it the mode.\n\n### Range\nThe range is the difference between the highest and lowest values:\n\\[\n\\text{Range} = 23 - 20 = 3\n\\]\n\n### Summary\n- **Mean**: 21.6\n- **Median**: 22\n- **Mode**: 22\n- **Range**: 3\n\nThe data is relatively close in values, with a small range and consistent mean and median, indicating a stable temperature trend."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 26,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 235,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 261
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 02:16:33 GMT
+recorded_with: VCR 6.3.1

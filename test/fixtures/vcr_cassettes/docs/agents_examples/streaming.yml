@@ -1,0 +1,148 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Tell me a short joke","model":"gpt-4o-mini","stream":true}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 02:16:19 GMT
+      Content-Type:
+      - text/event-stream; charset=utf-8
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_11e9fd84774946b290b4444c4d2b76bb
+      Openai-Processing-Ms:
+      - '444'
+      X-Envoy-Upstream-Service-Time:
+      - '451'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=ivyKX0pvEjmd2kJue.LBiW9Jsy2ZV.7BNl.0MATMGF0-1761444979-1.0.1.1-6ESKSf6CnyVFudLWwPAw4IL9_oJaG7KByE8RYean_zEXNKnZU.uu_mku.fJOjft8.W1SDCZd6VnQDm8PJ0nyiW_.wra5a8YDJyiL.ptlP7g;
+        path=/; expires=Sun, 26-Oct-25 02:46:19 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=dl8t_nqERkXl0c4R9GkYqgAujIcmrE8vgS9WGw8jfRY-1761444979576-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9946736c6d62df9a-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |+
+        event: response.created
+        data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_03b73c2e1829381c0068fd847320008190a8f4cae1a5e12564","object":"response","created_at":1761444979,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4o-mini-2024-07-18","output":[],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+        event: response.in_progress
+        data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_03b73c2e1829381c0068fd847320008190a8f4cae1a5e12564","object":"response","created_at":1761444979,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4o-mini-2024-07-18","output":[],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+        event: response.output_item.added
+        data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","type":"message","status":"in_progress","content":[],"role":"assistant"}}
+
+        event: response.content_part.added
+        data: {"type":"response.content_part.added","sequence_number":3,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":""}}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":"Why","logprobs":[],"obfuscation":"ArWnSG6qM8wSS"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":5,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" did","logprobs":[],"obfuscation":"McVxxAhdo7Xe"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":6,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" the","logprobs":[],"obfuscation":"V6aJyGO3yWNf"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":7,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" scare","logprobs":[],"obfuscation":"nhs4hFEjiA"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":8,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":"crow","logprobs":[],"obfuscation":"FbUAVjtNHQHb"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":9,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" win","logprobs":[],"obfuscation":"P1cGWcfHNvS5"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":10,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" an","logprobs":[],"obfuscation":"trPTzr6CGbFQw"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":11,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" award","logprobs":[],"obfuscation":"UcEkF3ut2T"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":12,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":"?","logprobs":[],"obfuscation":"BliTYT8MgdTLQYe"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":13,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" \n\n","logprobs":[],"obfuscation":"1IbHnQqq51E1Q"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":14,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":"Because","logprobs":[],"obfuscation":"f6UEyk18F"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":15,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" he","logprobs":[],"obfuscation":"Q9EYNzXpalIUN"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":16,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" was","logprobs":[],"obfuscation":"rwHnmChkLhSL"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":17,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" outstanding","logprobs":[],"obfuscation":"T9Fj"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":18,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" in","logprobs":[],"obfuscation":"DzRavVvJ3f01z"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":19,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" his","logprobs":[],"obfuscation":"QGYZwR9y73ff"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":20,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":" field","logprobs":[],"obfuscation":"1YQ1bIXY7t"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":21,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"delta":"!","logprobs":[],"obfuscation":"EBu90iDs1UwriWJ"}
+
+        event: response.output_text.done
+        data: {"type":"response.output_text.done","sequence_number":22,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"text":"Why did the scarecrow win an award? \n\nBecause he was outstanding in his field!","logprobs":[]}
+
+        event: response.content_part.done
+        data: {"type":"response.content_part.done","sequence_number":23,"item_id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"Why did the scarecrow win an award? \n\nBecause he was outstanding in his field!"}}
+
+        event: response.output_item.done
+        data: {"type":"response.output_item.done","sequence_number":24,"output_index":0,"item":{"id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"Why did the scarecrow win an award? \n\nBecause he was outstanding in his field!"}],"role":"assistant"}}
+
+        event: response.completed
+        data: {"type":"response.completed","sequence_number":25,"response":{"id":"resp_03b73c2e1829381c0068fd847320008190a8f4cae1a5e12564","object":"response","created_at":1761444979,"status":"completed","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4o-mini-2024-07-18","output":[{"id":"msg_03b73c2e1829381c0068fd8474bb8c8190bf5bd93ea9e90b8c","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"Why did the scarecrow win an award? \n\nBecause he was outstanding in his field!"}],"role":"assistant"}],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":12,"input_tokens_details":{"cached_tokens":0},"output_tokens":19,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":31},"user":null,"metadata":{}}}
+
+  recorded_at: Sun, 26 Oct 2025 02:16:21 GMT
+recorded_with: VCR 6.3.1
+...

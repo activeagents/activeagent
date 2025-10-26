@@ -1,0 +1,148 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Search: quantum computing papers from 2023","model":"gpt-4o"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 02:16:28 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999965'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_843940da08204e36895bc9daeb9f0618
+      Openai-Processing-Ms:
+      - '3146'
+      X-Envoy-Upstream-Service-Time:
+      - '3149'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=j6gsvbegIOu477OuN0.GIlcIl9WtKYRmEOQOc7vsVqQ-1761444988-1.0.1.1-kLaNwDEztR7SR.QzKaoImXk0K1axc.CRlTA95_Q.NDJEyhrsPTdsFcwiC_SGcNNorTf3klEa_EVXr3DNedVnc2JM2.hsH36RhWGDBR0qfag;
+        path=/; expires=Sun, 26-Oct-25 02:46:28 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=6RXm5F3bgHNg3m8uL.Y1mnaNtdFe0rjUVGeXoqFxG.c-1761444988322-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 99467394e9c015a0-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_05708dcbf78e60ba0068fd847929a0819397c4701e871ec461",
+          "object": "response",
+          "created_at": 1761444985,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "msg_05708dcbf78e60ba0068fd8479a43081938b0e95e5019eeb8f",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "I can't perform real-time searches, but I can suggest ways to find quantum computing papers from 2023:\n\n1. **arXiv.org**: This is a free distribution service and an open-access archive for scholarly articles in the fields of physics, mathematics, computer science, and more. You can search for quantum computing papers by visiting [arXiv.org](https://arxiv.org/) and entering relevant keywords.\n\n2. **Google Scholar**: Use [Google Scholar](https://scholar.google.com/) to search for recent papers. You can set the publication year filter to 2023 to find the latest research.\n\n3. **Journals**: Check journals such as Physical Review Letters, Nature Quantum Information, and Quantum for recent publications.\n\n4. **ResearchGate and Academia.edu**: These platforms allow you to follow researchers and access recent papers that may not yet be formally published.\n\n5. **University and Conference Repositories**: Many universities and conferences publish proceedings and papers. Check the websites of major quantum computing conferences (e.g., QIP, IEEE Quantum) for recent papers.\n\nIf you have access to academic libraries or subscriptions, databases like IEEE Xplore and SpringerLink can also be invaluable resources for finding cutting-edge research."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 16,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 253,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 269
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 02:16:28 GMT
+recorded_with: VCR 6.3.1
