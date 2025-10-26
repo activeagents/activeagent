@@ -167,7 +167,7 @@ Show multiple related files together:
 
 ```markdown
 ::: code-group
-<<< @/../test/dummy/app/agents/translation_agent.rb {ruby:line-numbers}
+<<< @/../test/docs/examples/translation_agent.rb {ruby:line-numbers}
 <<< @/../test/dummy/app/views/translation_agent/translate.json.jbuilder {ruby:line-numbers}
 :::
 ```

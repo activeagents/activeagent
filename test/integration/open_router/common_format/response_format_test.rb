@@ -137,7 +137,7 @@ module Integration
           def response_json_schema_named
             prompt(
               "Return the three primary colors.",
-              response_format: { type: "json_schema", json_schema: "other_schema" }
+              response_format: { type: "json_schema", json_schema: "other" }
             )
           end
         end

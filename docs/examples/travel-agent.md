@@ -9,7 +9,7 @@ The TravelAgent demonstrates how to build an AI agent that can interact with use
 
 ## Agent Definition
 
-<<< @/../test/dummy/app/agents/travel_agent.rb {ruby}
+<!-- <<< @/../test/docs/examples/travel_agent.rb {ruby} -->
 
 ## Tool Schemas
 
@@ -49,7 +49,7 @@ Each action has corresponding view templates that format the response:
 
 When you create a prompt context and generate a response, the LLM can call the TravelAgent's tools:
 
-<<< @/../test/docs/travel_agent_test.rb#travel_agent_search_llm {ruby:line-numbers}
+<!-- <<< @/../test/docs/travel_agent_test.rb#travel_agent_search_llm {ruby:line-numbers} -->
 
 ::: details Response Example
 <!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-search-action-with-LLM-interaction.md -->
@@ -57,7 +57,7 @@ When you create a prompt context and generate a response, the LLM can call the T
 
 ### Booking a Flight
 
-<<< @/../test/docs/travel_agent_test.rb#travel_agent_book_llm {ruby:line-numbers}
+<!-- <<< @/../test/docs/travel_agent_test.rb#travel_agent_book_llm {ruby:line-numbers} -->
 
 ::: details Response Example
 <!-- @include: @/parts/examples/travel-agent-test.rb-travel_agent_book_llm.md -->
@@ -65,7 +65,7 @@ When you create a prompt context and generate a response, the LLM can call the T
 
 ### Confirming a Booking
 
-<<< @/../test/docs/travel_agent_test.rb#travel_agent_confirm_llm {ruby:line-numbers}
+<!-- <<< @/../test/docs/travel_agent_test.rb#travel_agent_confirm_llm {ruby:line-numbers} -->
 
 ::: details Response Example
 <!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-confirm-action-with-LLM-interaction.md -->
@@ -73,7 +73,7 @@ When you create a prompt context and generate a response, the LLM can call the T
 
 ### Full Conversation Flow
 
-<<< @/../test/docs/travel_agent_test.rb#travel_agent_conversation_flow {ruby:line-numbers}
+<!-- <<< @/../test/docs/travel_agent_test.rb#travel_agent_conversation_flow {ruby:line-numbers} -->
 
 ::: details Response Example
 <!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-full-conversation-flow-with-LLM.md -->
@@ -83,7 +83,7 @@ When you create a prompt context and generate a response, the LLM can call the T
 
 You can also call actions directly with parameters:
 
-<<< @/../test/docs/travel_agent_test.rb#travel_agent_search_html {ruby:line-numbers}
+<!-- <<< @/../test/docs/travel_agent_test.rb#travel_agent_search_html {ruby:line-numbers} -->
 
 ::: details Response Example
 <!-- @include: @/parts/examples/travel-agent-test.rb-test-travel-agent-search-view-renders-HTML-format.md -->
@@ -155,7 +155,7 @@ The framework automatically:
 
 The TravelAgent demonstrates how different actions can use different response formats:
 
-<<< @/../test/docs/travel_agent_test.rb#travel_agent_multi_format {ruby:line-numbers}
+<!-- <<< @/../test/docs/travel_agent_test.rb#travel_agent_multi_format {ruby:line-numbers} -->
 
 - **Search**: Uses HTML format for rich UI display
 - **Book**: Uses text format for simple confirmation messages

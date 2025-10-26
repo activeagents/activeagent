@@ -1,0 +1,5 @@
+# <%= class_name %>#<%= @action %>
+
+Add your message template here. You can use ERB to access instance variables and params.
+
+Example: <%%= @message %>

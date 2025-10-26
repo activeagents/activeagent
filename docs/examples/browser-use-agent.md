@@ -31,7 +31,7 @@ rails generate active_agent:agent browser_use navigate click extract_text screen
 
 ::: code-group
 
-<<< @/../test/dummy/app/agents/browser_agent.rb {ruby}
+<<< @/../test/docs/examples/browser_agent.rb {ruby}
 
 <<< @/../test/dummy/app/views/browser_agent/instructions.text.erb {erb}
 

@@ -57,7 +57,7 @@ module Docs
             "Extract colors: red, blue, green. Return as json.",
             response_format: {
               type:        "json_schema",
-              json_schema: :colors_schema
+              json_schema: :colors
             }
           )
           # endregion named_json_schema_agent

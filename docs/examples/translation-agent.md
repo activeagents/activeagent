@@ -15,7 +15,7 @@ rails generate active_agent:agent translation translate
 
 ## Implementation
 
-<<< @/../test/dummy/app/agents/translation_agent.rb {ruby}
+<<< @/../test/docs/examples/translation_agent.rb {ruby}
 
 ## Usage Examples
 

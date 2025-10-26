@@ -17,7 +17,7 @@ rails generate active_agent:agent data_extraction parse_content
 
 ::: code-group
 
-<<< @/../test/dummy/app/agents/data_extraction_agent.rb {ruby}
+<<< @/../test/docs/examples/data_extraction_agent.rb {ruby}
 
 <<< @/../test/dummy/app/views/data_extraction_agent/chart_schema.json.erb {json}
 

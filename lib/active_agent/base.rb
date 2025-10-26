@@ -308,7 +308,7 @@ module ActiveAgent
       parameters[:instructions] ||= prompt_view_instructions(prompt_options[:instructions])
 
       # Resolve Message Template as fallback
-      if parameters[:messages].blank?
+      if (parameters[:messages] || parameters[:input]).blank?
         template_message = prompt_view_message(action_name, strict: parameters[:instructions].blank?, **prompt_options[:locals])
         parameters[:messages] = [ template_message ] if template_message.present?
       end

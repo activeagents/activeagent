@@ -1,5 +1,5 @@
 require "test_helper"
-require "generators/active_agent/agent_generator"
+require "generators/active_agent/agent/agent_generator"
 
 class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   tests ActiveAgent::Generators::AgentGenerator
@@ -48,11 +48,11 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     end
   end
 
-  test "invokes template engine hook" do
+  test "invokes template engine hook with markdown by default" do
     run_generator %w[user create]
 
     assert_file "app/agents/user_agent.rb"
-    assert_file "app/views/user_agent/create.text.erb"
+    assert_file "app/views/user_agent/create.md.erb"
   end
 
   test "handles class collision checking" do
@@ -62,87 +62,59 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     assert_respond_to generator, :check_class_collision
   end
 
-  test "respects formats option" do
-    run_generator %w[user create --formats=html json]
+  test "respects format option for text" do
+    run_generator %w[user create --format=text]
 
     assert_file "app/agents/user_agent.rb"
-    # This test ensures the formats option is passed to template engine hooks
-    # The actual format handling is tested in the ERB generator tests
+    assert_file "app/views/user_agent/create.text.erb"
+    assert_no_file "app/views/user_agent/create.md.erb"
   end
 
-  test "uses default formats when no formats option provided" do
+  test "uses default markdown format when no format option provided" do
     run_generator [ "user", "create" ]
 
     assert_file "app/agents/user_agent.rb"
-    # Default behavior should work as before
+    assert_file "app/views/user_agent/create.md.erb"
+    assert_no_file "app/views/user_agent/create.text.erb"
   end
 
-  test "passes formats option with text and html" do
-    run_generator %w[user create --formats=html text]
+  test "generates schema files when json_schema flag is set" do
+    run_generator %w[user create --json-schema]
 
     assert_file "app/agents/user_agent.rb"
-    assert_file "app/views/user_agent/create.html.erb"
-    assert_file "app/views/user_agent/create.text.erb"
-    # Should not create json file when not specified
-    assert_no_file "app/views/user_agent/create.json.erb"
+    assert_file "app/views/user_agent/create.md.erb"
+    assert_file "app/views/user_agent/create.schema.json"
   end
 
-  test "respects formats option for generating specific formats only" do
-    run_generator %w[user create --formats=html text]
+  test "does not generate schema files without json_schema flag" do
+    run_generator %w[user create]
 
-    assert_file "app/views/user_agent/create.html.erb"
-    assert_file "app/views/user_agent/create.text.erb"
-    assert_no_file "app/views/user_agent/create.json.erb"
+    assert_file "app/views/user_agent/create.md.erb"
+    assert_no_file "app/views/user_agent/create.schema.json"
   end
 
-  test "respects formats option for single format" do
-    run_generator %w[user create --formats=json]
+  test "handles multiple actions with json_schema" do
+    run_generator %w[user create update --json-schema]
 
-    assert_no_file "app/views/user_agent/create.html.erb"
-    assert_no_file "app/views/user_agent/create.text.erb"
-    assert_file "app/views/user_agent/create.json.erb"
+    assert_file "app/views/user_agent/create.md.erb"
+    assert_file "app/views/user_agent/create.schema.json"
+    assert_file "app/views/user_agent/update.md.erb"
+    assert_file "app/views/user_agent/update.schema.json"
   end
 
-  test "uses default text format when no formats specified" do
-    run_generator [ "user", "create" ]
+  test "generates view files with correct content" do
+    run_generator %w[user create]
 
-    assert_file "app/views/user_agent/create.text.erb"
-    assert_no_file "app/views/user_agent/create.html.erb"
-    assert_no_file "app/views/user_agent/create.json.erb"
-  end
-
-  test "handles multiple actions with custom formats" do
-    run_generator %w[user create update --formats=html json]
-
-    assert_file "app/views/user_agent/create.html.erb"
-    assert_file "app/views/user_agent/create.json.erb"
-    assert_file "app/views/user_agent/update.html.erb"
-    assert_file "app/views/user_agent/update.json.erb"
-    assert_no_file "app/views/user_agent/create.text.erb"
-    assert_no_file "app/views/user_agent/update.text.erb"
-  end
-
-  test "generates view files with correct content in the specified formats" do
-    run_generator %w[user create --formats=html json]
-
-    assert_file "app/views/user_agent/create.html.erb" do |content|
+    assert_file "app/views/user_agent/create.md.erb" do |content|
       assert_match(/User#create/, content)
-      assert_match(/<%= @message %>/, content) # Should be unescaped in the final file
-    end
-
-    assert_file "app/views/user_agent/create.json.erb" do |content|
-      assert_match(/action_name/, content)
-      assert_match(/function/, content)
-      assert_match(/\.to_json\.html_safe/, content)
     end
   end
 
-  test "formats option works with nested generators" do
-    run_generator %w[admin/user create --formats=html]
+  test "format option works with nested generators" do
+    run_generator %w[admin/user create --format=text]
 
-    assert_file "app/views/admin/user_agent/create.html.erb"
-    assert_no_file "app/views/admin/user_agent/create.text.erb"
-    assert_no_file "app/views/admin/user_agent/create.json.erb"
+    assert_file "app/views/admin/user_agent/create.text.erb"
+    assert_no_file "app/views/admin/user_agent/create.md.erb"
   end
 
   test "handles erb generator override with proactive detection" do
@@ -150,14 +122,62 @@ class ActiveAgent::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     Rails::Generators.options[:rails][:template_engine] = :nonexistent
 
     begin
-      run_generator %w[user create --formats=html]
+      run_generator %w[user create]
 
       assert_file "app/agents/user_agent.rb"
-      assert_file "app/views/user_agent/create.html.erb"
+      assert_file "app/views/user_agent/create.md.erb"
     ensure
       # Restore original template engine
       Rails::Generators.options[:rails][:template_engine] = original_template_engine
     end
+  end
+
+  test "generates default prompt format without response_format" do
+    run_generator %w[user create]
+
+    assert_file "app/agents/user_agent.rb" do |content|
+      assert_match(/def create/, content)
+      assert_match(/prompt\(params\[:message\]\)/, content)
+      assert_no_match(/response_format/, content)
+    end
+  end
+
+  test "generates prompt with json_schema response_format when flag is set" do
+    run_generator %w[user create --json-schema]
+
+    assert_file "app/agents/user_agent.rb" do |content|
+      assert_match(/def create/, content)
+      assert_match(/prompt\(params\[:message\], response_format: :json_schema\)/, content)
+    end
+  end
+
+  test "generates prompt with json_object response_format when flag is set" do
+    run_generator %w[user create --json-object]
+
+    assert_file "app/agents/user_agent.rb" do |content|
+      assert_match(/def create/, content)
+      assert_match(/prompt\(params\[:message\], response_format: :json_object\)/, content)
+    end
+  end
+
+  test "does not generate schema files with json_object flag" do
+    run_generator %w[user create --json-object]
+
+    assert_file "app/agents/user_agent.rb"
+    assert_file "app/views/user_agent/create.md.erb"
+    assert_no_file "app/views/user_agent/create.schema.json"
+  end
+
+  test "handles multiple actions with json_object" do
+    run_generator %w[user create update --json-object]
+
+    assert_file "app/agents/user_agent.rb" do |content|
+      assert_match(/def create/, content)
+      assert_match(/prompt\(params\[:message\], response_format: :json_object\)/, content)
+      assert_match(/def update/, content)
+    end
+    assert_no_file "app/views/user_agent/create.schema.json"
+    assert_no_file "app/views/user_agent/update.schema.json"
   end
 
   private

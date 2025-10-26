@@ -140,6 +140,9 @@ autoload :Mime, "action_dispatch/http/mime_type"
 # Register markdown MIME type for template rendering, Not needed in Rails 8.1
 Mime::Type.register "text/markdown", :md, [], %w[md markdown] unless Mime::Type.lookup_by_extension(:md)
 
+# Register schema+json MIME type for JSON schema template rendering
+Mime::Type.register "application/schema+json", :"schema.json", [ "application/schema+json" ], %w[schema] unless Mime::Type.lookup_by_extension(:"schema.json")
+
 # Configure ActionView integration when loaded.
 #
 # Sets up default formats and MIME type implementation for rendering

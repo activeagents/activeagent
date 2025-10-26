@@ -1,0 +1,78 @@
+Description:
+    Generates a new agent and its views. Passes the agent name, either
+    CamelCased or under_scored, and an optional list of actions as arguments.
+
+    This generates an agent class in app/agents and invokes your template
+    engine and test framework generators. If no ApplicationAgent exists,
+    it will be created automatically.
+
+    By default, markdown format templates are created. You can specify text
+    format using the --format option. Optionally generate JSON schema files
+    for actions using the --json-schema flag, or use --json-object for
+    JSON object response format without schemas.
+
+Options:
+    --format=FORMAT       Specify format for templates (default: markdown)
+                          Can be: text, markdown
+                          Example: --format=text
+
+    --json-schema         Generate JSON schema files for each action
+                          Creates action_name.schema.json files
+                          Sets response_format: :json_schema in agent methods
+
+    --json-object         Generate agent methods with JSON object response format
+                          Sets response_format: :json_object in agent methods
+                          Does not create schema files
+
+Examples:
+    `bin/rails generate active_agent:agent inventory search`
+
+    creates an inventory agent with markdown templates:
+        Agent:        app/agents/inventory_agent.rb
+        Instructions: app/views/inventory_agent/instructions.md.erb
+        View:         app/views/inventory_agent/search.md.erb
+        Test:         test/docs/inventory_agent_test.rb
+
+    `bin/rails generate active_agent:agent inventory search --format=text`
+
+    creates an inventory agent with text templates:
+        Agent:        app/agents/inventory_agent.rb
+        Instructions: app/views/inventory_agent/instructions.text.erb
+        View:         app/views/inventory_agent/search.text.erb
+        Test:         test/docs/inventory_agent_test.rb
+
+    `bin/rails generate active_agent:agent inventory search --json-schema`
+
+    creates an inventory agent with markdown templates and JSON schema:
+        Agent:        app/agents/inventory_agent.rb
+        Instructions: app/views/inventory_agent/instructions.md.erb
+        View:         app/views/inventory_agent/search.md.erb
+        Schema:       app/views/inventory_agent/search.schema.json
+        Test:         test/docs/inventory_agent_test.rb
+
+    `bin/rails generate active_agent:agent inventory search --json-object`
+
+    creates an inventory agent with JSON object response format:
+        Agent:        app/agents/inventory_agent.rb
+        Instructions: app/views/inventory_agent/instructions.md.erb
+        View:         app/views/inventory_agent/search.md.erb
+        Test:         test/docs/inventory_agent_test.rb
+
+    `bin/rails generate active_agent:agent inventory search update report`
+
+    creates an inventory agent with multiple actions:
+        Agent:        app/agents/inventory_agent.rb
+        Instructions: app/views/inventory_agent/instructions.md.erb
+        Views:        app/views/inventory_agent/search.md.erb
+                      app/views/inventory_agent/update.md.erb
+                      app/views/inventory_agent/report.md.erb
+        Test:         test/docs/inventory_agent_test.rb
+
+    `bin/rails generate active_agent:agent admin/user create --json-schema`
+
+    creates a namespaced admin/user agent with schema:
+        Agent:        app/agents/admin/user_agent.rb
+        Instructions: app/views/admin/user_agent/instructions.md.erb
+        View:         app/views/admin/user_agent/create.md.erb
+        Schema:       app/views/admin/user_agent/create.schema.json
+        Test:         test/docs/admin/user_agent_test.rb

@@ -67,9 +67,7 @@ rails generate active_agent:install
 
 This command creates:
 - `config/active_agent.yml`: Configuration file for providers and their settings
-- `app/agents/`: Directory for your agent classes
-- `app/views/layouts/agent.text.erb`: Layout file for agent prompt/view templates
-- `app/views/agent_*/`: Directories for your agent prompt/view templates
+- `app/agents/application_agent.rb`: Base agent class for your application
 
 ## Usage
 

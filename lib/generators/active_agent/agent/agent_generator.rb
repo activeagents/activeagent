@@ -3,9 +3,11 @@
 module ActiveAgent
   module Generators
     class AgentGenerator < ::Rails::Generators::NamedBase
-      source_root File.expand_path("templates", __dir__)
+      source_root File.expand_path("../templates", __dir__)
       argument :actions, type: :array, default: [], banner: "method method"
-      class_option :formats, type: :array, default: [ "text" ], desc: "Specify formats to generate (text, html, json)"
+      class_option :format, type: :string, default: "markdown", desc: "Specify format for templates (text or markdown)"
+      class_option :json_schema, type: :boolean, default: false, desc: "Generate JSON schema files for actions"
+      class_option :json_object, type: :boolean, default: false, desc: "Generate actions with JSON object response format"
 
       check_class_collision suffix: "Agent"
 
@@ -31,8 +33,16 @@ module ActiveAgent
 
       private
 
-      def formats
-        options[:formats].map(&:to_sym)
+      def format
+        options[:format].to_sym
+      end
+
+      def json_schema?
+        options[:json_schema]
+      end
+
+      def json_object?
+        options[:json_object]
       end
 
       def file_name # :doc:

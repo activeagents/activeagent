@@ -62,10 +62,10 @@ export default defineConfig({
       { text: 'GitHub', link: 'https://github.com/activeagents/activeagent' }
     ],
     sidebar: [
-      // {
-      //   text: 'Overview',
-      //   link: '/framework',
-      // },
+      {
+        text: 'Overview',
+        link: '/framework',
+      },
       // {
       //   text: 'Getting Started',
       //   link: '/getting-started',
@@ -78,6 +78,7 @@ export default defineConfig({
           { text: 'Configuration', link: '/framework/configuration' },
           { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Retries', link: '/framework/retries' },
+          { text: 'Rails Integration', link: '/framework/rails' },
           // { text: 'Testing', link: '/framework/testing' },
         ]
       },

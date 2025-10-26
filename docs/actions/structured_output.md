@@ -69,17 +69,17 @@ Reference schema files from your agent's view directory:
 
 ::: code-group
 <<< @/../test/docs/actions/structured_output_examples_test.rb#json_schema_with_view_agent {ruby:line-numbers} [data_extract_agent.rb]
-<<< @/../test/dummy/app/views/agents/docs/actions/structured_output_examples/data_extraction/schema.json {json:line-numbers} [schema.json]
+<<< @/../test/dummy/app/views/agents/docs/actions/structured_output_examples/data_extraction/parse_resume.schema.json {json:line-numbers} [data_extraction/parse_resume.schema.json]
 :::
 
 ### Schema Loading
 
-Schemas are loaded from standard view paths, searched in priority order:
+Schemas are loaded from standard view paths as `{action_name}.schema.json`:
 
-1. **Action-level**: `views/agents/{agent}/{action}/schema.json`
-2. **Agent-level**: `views/agents/{agent}/schema.json`
+1. **Action-specific**: `views/agents/{agent}/{action}.schema.json`
+2. **Custom named**: `views/agents/{agent}/{custom_name}.schema.json`
 
-When `response_format: :json_schema`, it loads `schema.json` from the action or agent directory.
+When `response_format: :json_schema`, it loads `{action_name}.schema.json` by default.
 
 ### Named Schemas
 
@@ -87,7 +87,7 @@ Share schemas across multiple actions by referencing schema files by name:
 
 <<< @/../test/docs/actions/structured_output_examples_test.rb#named_json_schema_agent {ruby:line-numbers}
 
-Place shared schemas at the agent level (e.g., `views/agents/my_agent/colors_schema.json`) and reference them from any action. Use this pattern for:
+Place shared schemas at the agent level (e.g., `views/agents/my_agent/colors.schema.json`) and reference them from any action. Use this pattern for:
 - Reusing schemas across multiple actions in the same agent
 - Organizing related schemas in one location
 - Maintaining consistency across agent methods

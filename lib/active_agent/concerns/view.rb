@@ -96,6 +96,11 @@ module ActiveAgent
 
     # Renders JSON schema from template or returns Hash directly.
     #
+    # Schema templates are looked up as `{name}.schema.json`:
+    # - When value is `true` or `nil`: looks for `{action_name}.schema.json`
+    # - When value is a String/Symbol: looks for `{value}.schema.json`
+    # - When value is a Hash: returns the Hash directly
+    #
     # @param value [Hash, String, Symbol, Boolean, nil]
     # @return [Hash, String, nil]
     def prompt_view_schema(value)
@@ -103,9 +108,9 @@ module ActiveAgent
       when Hash
         value
       when String, Symbol
-        JSON.parse(view_render_template(value, strict: true), symbolize_names: true)
+        JSON.parse(view_render_template(value, strict: true, formats: [ :"schema.json" ]), symbolize_names: true)
       when true, nil
-        JSON.parse(view_render_template("schema", strict: true), symbolize_names: true)
+        JSON.parse(view_render_template(action_name, strict: true, formats: [ :"schema.json" ]), symbolize_names: true)
       end
     end
 
@@ -130,12 +135,15 @@ module ActiveAgent
     #
     # @param template_name [String, Symbol] template file name without extension
     # @param strict [Boolean] if true, raises error when template not found
+    # @param format [Symbol, nil] specific format to look for (e.g., :json, :html)
     # @param locals [Hash] local variables passed to template
     # @return [String, nil] nil if template not found and not strict
-    def view_render_template(template_name, strict: false, **locals)
-      return if !strict && !lookup_context.exists?(template_name, _prefixes, false)
+    def view_render_template(template_name, strict: false, formats: nil, **locals)
+      options = { formats: }.compact
 
-      template = lookup_context.find_template(template_name, _prefixes, false)
+      return if !strict && !lookup_context.exists?(template_name, _prefixes, false, [], **options)
+
+      template = lookup_context.find_template(template_name, _prefixes, false, [], **options)
 
       render_to_string(template: template.virtual_path, locals:, layout: false).chomp.presence
     end
