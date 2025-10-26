@@ -217,7 +217,7 @@ module ActiveAgent
 
             hash[name.to_sym] = case value
             when BaseModel then value.to_hash
-            when Array     then value.map { it.is_a?(BaseModel) ? it.to_hash : it }
+            when Array     then value.map { _1.is_a?(BaseModel) ? _1.to_hash : _1 }
             else
               value
             end

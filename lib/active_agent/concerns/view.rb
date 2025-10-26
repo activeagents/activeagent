@@ -76,7 +76,7 @@ module ActiveAgent
         view_render_template(value[:template], **value[:locals])
 
       when nil, true
-        view_render_template("instructions", strict: value == true, **params.dig(:instructions, :locals))
+        view_render_template("instructions", strict: value == true, **(params.dig(:instructions, :locals) || {}))
 
       else
         raise ArgumentError, "Instructions must be Hash, String, Symbol or nil"

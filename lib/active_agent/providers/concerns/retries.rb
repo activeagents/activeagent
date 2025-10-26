@@ -178,7 +178,7 @@ module ActiveAgent
       rescue => exception
         attempt += 1
 
-        is_retriable = retries_on.any? { exception.is_a?(it) }
+        is_retriable = retries_on.any? { exception.is_a?(_1) }
 
         if is_retriable && attempt <= retries_count
           backoff_time = 2 ** (attempt - 1)

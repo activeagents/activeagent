@@ -41,7 +41,7 @@ module ActiveAgent
       def prepare_prompt_request_tools
         return unless request.tool_choice
 
-        functions_used = message_stack.pluck(:content).flatten.select { it[:type] == "tool_use" }.pluck(:name)
+        functions_used = message_stack.pluck(:content).flatten.select { _1[:type] == "tool_use" }.pluck(:name)
 
         if (request.tool_choice.type == "any" && functions_used.any?) ||
           (request.tool_choice.type == "tool" && functions_used.include?(request.tool_choice.name))
@@ -211,7 +211,7 @@ module ActiveAgent
       #
       # @return [Array<Hash>] function call hashes with :name, :input, and :id keys
       def process_prompt_finished_extract_function_calls
-        message_stack.pluck(:content).flatten.select { it in { type: "tool_use" } }.map do |api_function_call|
+        message_stack.pluck(:content).flatten.select { _1 in { type: "tool_use" } }.map do |api_function_call|
           json_buf = api_function_call.delete(:json_buf)
           api_function_call[:input] = JSON.parse(json_buf, symbolize_names: true) if json_buf
           api_function_call

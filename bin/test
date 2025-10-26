@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
-require "dotenv"
-Dotenv.load(".env.test")
+unless ENV["CI"]
+  require "dotenv"
+  Dotenv.load(".env.test")
+end
 
 $: << File.expand_path("../test", __dir__)
 

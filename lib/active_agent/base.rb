@@ -247,7 +247,7 @@ module ActiveAgent
       parameters = prompt_options.except(:locals, *PROTECTED_OPTIONS)
 
       # Render out proc/lamda attributes before rendering templates
-      parameters.deep_transform_values! { it.respond_to?(:call) ? it.call : it }
+      parameters.deep_transform_values! { _1.respond_to?(:call) ? _1.call : _1 }
 
       # Apply Callbacks
       parameters.merge!(
@@ -277,7 +277,7 @@ module ActiveAgent
       parameters = embed_options.except(:locals, *PROTECTED_OPTIONS)
 
       # Render out proc/lamda attributes before rendering templates
-      parameters.deep_transform_values! { it.respond_to?(:call) ? it.call : it }
+      parameters.deep_transform_values! { _1.respond_to?(:call) ? _1.call : _1 }
 
       # Apply Callbacks
       parameters.merge!(
@@ -288,7 +288,7 @@ module ActiveAgent
       # Fallback to input from template if no input provided, rendered as late as
       # possible to allow local overrides.
       if parameters[:input].blank?
-        template_input = embed_view_input(action_name, strict: true, **embed_options[:locals])
+        template_input = embed_view_input(action_name, strict: true, **(embed_options[:locals] || {}))
         parameters[:input] = template_input if template_input.present?
       end
 
@@ -309,7 +309,7 @@ module ActiveAgent
 
       # Resolve Message Template as fallback
       if (parameters[:messages] || parameters[:input]).blank?
-        template_message = prompt_view_message(action_name, strict: parameters[:instructions].blank?, **prompt_options[:locals])
+        template_message = prompt_view_message(action_name, strict: parameters[:instructions].blank?, **(prompt_options[:locals] || {}))
         parameters[:messages] = [ template_message ] if template_message.present?
       end
 

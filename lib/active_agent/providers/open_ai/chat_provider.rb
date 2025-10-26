@@ -123,7 +123,7 @@ module ActiveAgent
         # @param id [Integer] The message index ID
         # @return [Hash] The found or newly created message
         def find_or_create_message(id)
-          message = message_stack.find { it[:index] == id }
+          message = message_stack.find { _1[:index] == id }
           return message if message
 
           message_stack << { index: id }
@@ -146,7 +146,7 @@ module ActiveAgent
             when Array
               value.each do |delta_item|
                 if delta_item.is_a?(Hash) && delta_item[:index]
-                  hash_item = hash[key].find { |it| it[:index] == delta_item[:index] }
+                  hash_item = hash[key].find { _1[:index] == delta_item[:index] }
                   if hash_item
                     hash_merge_delta(hash_item, delta_item)
                   else

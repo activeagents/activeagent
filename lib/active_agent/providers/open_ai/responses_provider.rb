@@ -55,13 +55,13 @@ module ActiveAgent
 
           # -> -> -> Content Text Append
           when :"response.output_text.delta"
-            message = message_stack.find { it[:id] == api_response_chunk[:item_id] }
+            message = message_stack.find { _1[:id] == api_response_chunk[:item_id] }
             message[:content] += api_response_chunk[:delta]
             broadcast_stream_update(message, api_response_chunk[:delta])
 
           # -> -> -> Content Text Completed [Full Text]
           when :"response.output_text.done"
-            message = message_stack.find { it[:id] == api_response_chunk[:item_id] }
+            message = message_stack.find { _1[:id] == api_response_chunk[:item_id] }
             message[:content] = api_response_chunk[:text]
             broadcast_stream_update(message, nil) # Don't double send content
 
@@ -148,7 +148,7 @@ module ActiveAgent
         #
         # @return [Array<Hash>] Array of function call objects with type "function_call"
         def process_prompt_finished_extract_function_calls
-          message_stack.select { it[:type] == "function_call" }
+          message_stack.select { _1[:type] == "function_call" }
         end
       end
     end
