@@ -1,126 +1,154 @@
 ---
 title: Active Agent
-model:
-  - title: Prompts (Model)
-    link: /actions/prompts
-    icon: 💬
-    details: The data model containing messages, context, actions (tools), and configuration for AI generation.
-view:
-  - title: Templates (View)
-    link: /framework/action-prompt
-    icon: 📄
-    details: ERB templates that render prompts and messages in text, HTML, or JSON formats.
-controller:
-  - title: Agents (Controller)
-    link: /framework/agents
-    icon: <img src="/activeagent.png" />
-    details: Controllers that orchestrate AI interactions with actions, callbacks, streaming, and tool execution.
-
 ---
 # {{ $frontmatter.title }}
 
-ActiveAgent is the AI framework for Rails. It extends the familiar MVC architecture to AI-powered applications, letting you build intelligent agents using the same patterns you already know—controllers, actions, and views.
+ActiveAgent extends Rails MVC to AI interactions. Build intelligent agents using familiar patterns—controllers, actions, callbacks, and views.
 
 ## Quick Example
 
 ::: code-group
-
-```ruby [app/agents/overview/support_agent.rb]
-class SupportAgent < ApplicationAgent
-  generate_with :openai, model: "gpt-4o-mini"
-
-  # @return [ActiveAgent::Generation]
-  def help
-    prompt
-  end
-end
-```
-
-```erb [app/views/overview/support_agent/help.text.erb]
-You are a helpful support agent. Answer this question:
-
-<%= params[:question] %>
-```
-
+<<< @/../test/docs/framework_examples_test.rb#quick_example_support_agent{ruby:line-numbers} [support_agent.rb]
+<<< @/../test/dummy/app/views/agents/framework_examples_test/quick_example_test/support/instructions.md.erb{md:line-numbers} [support_agent/instructions.md.erb]
 :::
 
 **Usage:**
 
-```ruby
-response = SupportAgent.with(question: "How do I reset my password?").help.generate_now
-response.message.content  #=> "To reset your password..."
-```
+<<< @/../test/docs/framework_examples_test.rb#quick_example_support_agent_usage{ruby:line-numbers}
 
 ::: details Response Example
-<!-- @include: @/parts/examples/support-agent-test.rb-test-overview-example.md -->
+<!-- @include: @/parts/examples/framework-examples-test.rb-test-quick-example-support-agent-usage.md -->
 :::
 
-**That's it.** Agents are controllers. Actions render prompts. Views format messages. If you know Rails, you know ActiveAgent.
+## Agent Oriented Programming
 
-## Why ActiveAgent?
+ActiveAgent applies Agent Oriented Programming (AOP) to Rails—a paradigm where agents are the primary building blocks. Agents combine behavior (instructions), state (context), and capabilities (tools) into autonomous components.
 
-ActiveAgent brings **Agent Oriented Programming (AOP)** to Rails. Design applications using modular, reusable agents that integrate seamlessly into your existing codebase. Build complex AI-driven features with the Object-Oriented Ruby patterns you use every day.
+**Programming Paradigm Shift:**
 
-**Key benefits:**
-- **Familiar patterns** - No new mental models, just Rails doing AI
-- **Modular design** - Agents are classes, easy to test and organize
-- **Production ready** - Streaming, callbacks, async jobs, structured output
-- **Provider agnostic** - OpenAI, Anthropic, Ollama, OpenRouter—unified interface
+| Concept | Object-Oriented | Agent-Oriented |
+|---------|----------------|----------------|
+| **Unit** | Object | Agent |
+| **Parameters** | message, args, block | prompt, context, tools |
+| **Computation** | method, send, return | perform, generate, response |
+| **State** | instance variables | prompt context |
+| **Flow** | method calls | prompt-response cycles |
+| **Constraints** | coded logic | written instructions |
 
-## MVC Architecture
+Write instructions instead of algorithms. Define context instead of managing state. Coordinate through prompts instead of method chains.
 
-ActiveAgent extends Rails MVC concepts to AI interactions. Using familiar patterns that made Rails the framework of choice for web applications, ActiveAgent brings the same productivity to AI-powered features.
+## Understanding Agents
+
+Agents mirror how users interact with systems—they have identity, behavior, and goals:
+
+| Aspect | User | Agent |
+|--------|------|-------|
+| **Who** | Persona | Archetype |
+| **Behavior** | Stories | Instructions |
+| **State** | Scenario | Context |
+| **What** | Objective | Goal |
+| **How** | Actions | Tools |
+
+When you define an agent, you create a specialized participant that interacts with your application through prompts, maintains conversation context, and uses tools to accomplish objectives.
+
+## Core Architecture
 
 ![ActiveAgent-Controllers](https://github.com/user-attachments/assets/70d90cd1-607b-40ab-9acf-c48cc72af65e)
 
+**Three Key Objects:**
+
+- **Agent** (Controller) - Manages lifecycle, defines actions, configures providers
+- **Generation** (Request Proxy) - Coordinates execution, holds configuration, provides synchronous/async methods. Created by invocation, it's lazy—execution doesn't start until you call `.generate_now`, `.embed_now`, or `.generate_later`.
+- **Response** (Result) - Contains messages, metadata, token usage, and parsed output. Returned after Generation executes.
+
+**Request-Response Lifecycle:**
+
+1. **Invocation** → Generation object created with parameters
+2. **Callbacks** → `before_generation` hooks execute
+3. **Action** → Agent method called (optional for direct invocations)
+4. **Prompt/Embed** → `prompt()` or `embed()` configures request context
+5. **Template** → ERB view renders (if template exists)
+6. **Request** → Provider request built with messages, tools, options
+7. **Execution** → API called (with streaming/tool execution if configured)
+8. **Processing** → Response parsed, messages extracted
+9. **Callbacks** → `after_generation` hooks execute
+10. **Return** → Response object with message and metadata
+
+**Three Invocation Patterns:**
+
+<<< @/../test/docs/framework_examples_test.rb#invocation_pattern_direct{ruby:line-numbers}
+<<< @/../test/docs/framework_examples_test.rb#invocation_pattern_parameterized{ruby:line-numbers}
+<<< @/../test/docs/framework_examples_test.rb#invocation_pattern_action_based{ruby:line-numbers}
+
+See [Generation](/agents/generation) for complete execution details.
+
+## MVC Mapping
+
+ActiveAgent maps Rails MVC patterns to AI interactions:
+
 ### Model: Prompt Interface
 
-The **prompt** and **embed** interfaces are your data models for provider interactions. They define how context, messages, actions (tools), and configuration flow through the generation cycle.
+The **prompt** and **embed** interfaces are runtime configuration objects built inside agent actions. Calling `prompt(message: "...", tools: [...])` or `embed(input: "...")` returns a Generation object configured with messages, tools, response_format, temperature, and other parameters that define the AI request.
 
-Agent actions use these interfaces to structure data for AI providers—just like how controller actions work with model data.
-
-<FeatureCards :cards="$frontmatter.model" />
+Use these methods in your action methods to build the request context before execution. See [Messages](/actions/messages) for complete details.
 
 ### View: Message Templates
 
-**Action View templates** optionally render your prompts and instructions. When you call `prompt` or `embed`, ActiveAgent can render ERB templates into formatted content, or you can pass content directly as parameters.
+**ERB templates** render instructions, messages, and schemas for AI requests. Templates are optional—you can pass strings or hashes directly.
 
-Templates support text, HTML, and JSON formats—giving you full control over how instructions, prompt messages, and embed inputs are structured and sent to AI providers.
+- **Instructions** - System prompts that guide agent behavior (`.text.erb`, `.md.erb`)
+- **Messages** - User/assistant conversation content (`.text.erb`, `.md.erb`, `.html.erb`)
+- **Schemas** - JSON response format definitions (`.json`)
 
-<FeatureCards :cards="$frontmatter.view" />
+See [Instructions](/agents/instructions), [Messages](/actions/messages), and [Structured Output](/actions/structured_output) for template patterns.
 
 ### Controller: Agents
 
-**Agents** are controllers for AI interactions. They orchestrate the generation request-response cycle, manage context through callbacks, coordinate with AI providers, and handle both synchronous and asynchronous generation.
+**Agents** are controllers with actions (public methods), callbacks (`before_generation`, `after_generation`), and provider configuration (`generate_with`, `embed_with`).
 
-Define actions as public methods. Use callbacks for lifecycle hooks (`before_action`, `after_generation`). Stream responses in real-time with `on_stream`. It's the controller pattern, applied to AI.
+Actions call `prompt()` or `embed()` to configure requests. Callbacks manage context and side effects. Configuration sets defaults for model, temperature, and other options. See [Agents](/agents) for complete patterns.
 
-<FeatureCards :cards="$frontmatter.controller" />
+## Integration Points
 
-## How It Works
+ActiveAgent integrates with Rails features and AI capabilities:
 
-The request-response cycle mirrors Rails controllers:
-
-1. **Action called** - You call an agent action method with parameters
-2. **Context prepared** - Instance variables and callbacks set up the context
-3. **View rendered** - ERB template renders into prompt messages via `prompt()` or `embed()` interface
-4. **AI generates** - Provider sends prompt to AI service and streams response
-5. **Response processed** - Callbacks handle the generated content
-6. **Result returned** - Structured data or message content returned to caller
-
-This familiar flow means you can test agents like controllers, organize code like any Rails app, and build AI features using patterns you already understand.
+- **[Providers](/providers)** - Swap AI services (OpenAI, Anthropic, Ollama, OpenRouter)
+- **[Instructions](/agents/instructions)** - System prompts from templates or strings
+- **[Callbacks](/agents/callbacks)** - Lifecycle hooks for context and logging
+- **[Tools](/actions/tools)** - Agent methods as AI-callable functions
+- **[Structured Output](/actions/structured_output)** - JSON schemas for response format
+- **[Streaming](/agents/streaming)** - Real-time response updates
+- **[Messages](/actions/messages)** - Multimodal conversation context
+- **[Embeddings](/actions/embeddings)** - Vector generation for semantic search
 
 ## Next Steps
 
-Ready to build your first agent?
+**Start Here:**
+- **[Getting Started](/getting-started)** - Build your first agent (step-by-step tutorial)
+- **[Agents](/agents)** - Deep dive into agent patterns and lifecycle
+- **[Actions](/actions)** - Define capabilities with messages, tools, and schemas
 
-- **[Getting Started](/getting-started)** - Install and create your first agent in 5 minutes
-- **[Framework Guide](/framework/agents)** - Deep dive into agents, actions, and prompts
-- **[Examples](/examples/data-extraction-agent)** - See real-world agent implementations
+**Core Features:**
+- [Generation](/agents/generation) - Synchronous and asynchronous execution
+- [Instructions](/agents/instructions) - System prompts and behavior guidance
+- [Messages](/actions/messages) - Conversation context with multimodal support
+- [Providers](/providers) - OpenAI, Anthropic, Ollama, OpenRouter configuration
 
-Or explore specific features:
-- [Tool Calling](/actions/tool-calling) - Let agents execute Ruby methods
-- [Structured Output](/agents/structured-output) - Extract data with JSON schemas
-- [Streaming](/agents/callbacks#on-stream-callbacks) - Real-time response updates
-- [Providers](/framework/providers) - OpenAI, Anthropic, Ollama, and more
+**Advanced:**
+- [Tools](/actions/tools) - AI-callable Ruby methods and MCP integration
+- [Structured Output](/actions/structured_output) - JSON schemas and validation
+- [Streaming](/agents/streaming) - Real-time response updates
+- [Callbacks](/agents/callbacks) - Lifecycle hooks and event handling
+- [Testing](/framework/testing) - Test agents with fixtures and VCR
+
+**Rails Integration:**
+- [Configuration](/framework/configuration) - Environment-specific settings
+- [Instrumentation](/framework/instrumentation) - Logging and monitoring
+- [Rails Integration](/framework/rails-integration) - ActionCable, ActiveJob, and more
+
+**Examples:**
+- [Data Extraction](/examples/data-extraction-agent) - Parse structured data from documents
+- [Translation](/examples/translation-agent) - Multi-step translation workflows
+- [Travel Agent](/examples/travel-agent) - Tool use and multi-turn conversations
+- [Browser Use](/examples/browser-use-agent) - Web scraping with AI
 

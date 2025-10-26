@@ -90,8 +90,8 @@ module ActiveAgent
     # @param action_name [String, Symbol]
     # @param locals [Hash]
     # @return [String, nil]
-    def prompt_view_message(action_name, **locals)
-      view_render_template(action_name, **locals)
+    def prompt_view_message(action_name, strict:, **locals)
+      view_render_template(action_name, strict:, **locals)
     end
 
     # Renders JSON schema from template or returns Hash directly.

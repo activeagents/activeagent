@@ -1,0 +1,149 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"How do I reset my password?","instructions":"You are a helpful
+        support agent.","model":"gpt-4o-mini"}'
+    headers:
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 02:57:12 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '30000'
+      X-Ratelimit-Limit-Tokens:
+      - '150000000'
+      X-Ratelimit-Remaining-Requests:
+      - '29999'
+      X-Ratelimit-Remaining-Tokens:
+      - '149999955'
+      X-Ratelimit-Reset-Requests:
+      - 2ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_860bdae3816a4a268e38e2414124f697
+      Openai-Processing-Ms:
+      - '6741'
+      X-Envoy-Upstream-Service-Time:
+      - '6748'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=KQPNfvrJAOiptUdiVd5OuQ4b.foEl.80_dcFnQAJTpQ-1761447432-1.0.1.1-cMrGTWPaY5OIIa2Xa5MxHJTFxvgQ4vLzRT9UoRCGWio7TpUFaYkbLdzDl4k9vzFATH3afhmCPBSfP82PJyvKqtGPA8_UQ1cajVC0vMyJvj8;
+        path=/; expires=Sun, 26-Oct-25 03:27:12 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=2WW6wH64eqcxSUwDwgesloDAvpram29WeRuoGoZriME-1761447432835-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9946af2a9f1fceb1-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0004f4a9611bf0620068fd8e02174c819bbe74c486f6dcb102",
+          "object": "response",
+          "created_at": 1761447426,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": "You are a helpful support agent.",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-mini-2024-07-18",
+          "output": [
+            {
+              "id": "msg_0004f4a9611bf0620068fd8e038188819b89ac4dc5e7ae5daa",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "To reset your password, follow these general steps:\n\n1. **Visit the Login Page**: Go to the website or app where you need to reset your password.\n\n2. **Click on 'Forgot Password?'**: Look for a link or button that says \"Forgot Password?\" or something similar, usually found near the login area.\n\n3. **Enter Your Information**: Provide the email address or username associated with your account.\n\n4. **Check Your Email**: Look for an email from the service with a password reset link or code. Make sure to check your spam or junk folder if you don't see it.\n\n5. **Follow the Instructions**: Click the link in the email and follow the instructions to create a new password. You may need to enter your new password twice for confirmation.\n\n6. **Log In with Your New Password**: Once the password has been changed, you should be able to log in with your new password.\n\nIf you encounter any issues, make sure to check the help section of the website or contact their customer support for assistance."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 25,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 215,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 240
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 02:57:12 GMT
+recorded_with: VCR 6.3.1
