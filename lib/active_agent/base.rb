@@ -89,7 +89,7 @@ module ActiveAgent
       alias_method :default_params=, :default
     end
 
-    # Configures the generation provider and options for prompt generation.
+    # Configures generation provider and options for prompt generation.
     #
     # Options are merged with global provider config and inherited parent class options.
     # Instructions are never inherited from parent classes.
@@ -114,7 +114,7 @@ module ActiveAgent
       self.prompt_options = global_options.merge(inherited_options).merge(agent_options)
     end
 
-    # Configures the embedding provider and options for embedding generation.
+    # Configures embedding provider and options for embedding generation.
     #
     # @param provider_reference [Symbol, String] embedding provider (:openai, :anthropic, etc.)
     # @param agent_options [Hash] configuration options for embedding generation
@@ -188,7 +188,8 @@ module ActiveAgent
     # @param args [Array]
     # @param kwargs [Hash]
     # @return [void]
-    def process(method_name, *args, **kwargs) # :nodoc:
+    # @api private
+    def process(method_name, *args, **kwargs)
       payload = { agent: self.class.name, action: method_name, args:, kwargs: }
 
       ActiveSupport::Notifications.instrument("process.active_agent", payload) do
@@ -196,7 +197,7 @@ module ActiveAgent
       end
     end
 
-    # Merges action-level parameters into the prompt context.
+    # Merges action-level parameters into prompt context.
     #
     # Processing is deferred until execution to allow local overrides.
     #
@@ -218,7 +219,7 @@ module ActiveAgent
       prompt_options.merge!({ messages: }.compact_blank.merge!(options))
     end
 
-    # Merges action-level parameters into the embedding context.
+    # Merges action-level parameters into embedding context.
     #
     # @param input [String, Array<String>, nil] text to embed
     # @param options [Hash] parameters to merge into embedding context
@@ -234,7 +235,7 @@ module ActiveAgent
       embed_options.merge!(new_options)
     end
 
-    # Executes prompt generation using the configured provider and options.
+    # Executes prompt generation using configured provider and options.
     #
     # Triggered by generate_now or generate_later workflows. Templates are
     # rendered as late as possible to allow local overrides.
@@ -244,7 +245,41 @@ module ActiveAgent
     def process_prompt
       fail "Prompt Provider not Configured" unless prompt_provider_klass
 
-      parameters = prompt_options.except(:locals, *PROTECTED_OPTIONS)
+      parameters = prepare_prompt_parameters
+
+      run_callbacks(:prompting) do
+        prompt_provider_klass.new(**parameters).prompt
+      end
+    end
+
+    alias_method :process_prompt!, :process_prompt
+
+    # Executes embedding generation using configured provider and options.
+    #
+    # Templates are rendered as late as possible to allow local overrides.
+    #
+    # @return [ActiveAgent::Providers::Response]
+    # @raise [RuntimeError] if no embed provider is configured
+    def process_embed
+      fail "Embed Provider not Configured" unless embed_provider_klass
+
+      parameters = prepare_embed_parameters
+
+      run_callbacks(:embedding) do
+        embed_provider_klass.new(**parameters).embed
+      end
+    end
+
+    # @api private
+    def action_methods
+      super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s) - [ action_name ]
+    end
+
+    private
+
+    # @api private
+    def prepare_prompt_parameters
+      parameters = prompt_options.deep_dup.except(:locals, *PROTECTED_OPTIONS)
 
       # Render out proc/lamda attributes before rendering templates
       parameters.deep_transform_values! { _1.respond_to?(:call) ? _1.call : _1 }
@@ -260,23 +295,12 @@ module ActiveAgent
       # Apply Templates
       parameters = process_prompt_templates(parameters, prompt_options)
 
-      run_callbacks(:prompting) do
-        prompt_provider_klass.new(**parameters.compact).prompt
-      end
+      parameters.compact
     end
 
-    alias_method :process_prompt!, :process_prompt
-
-    # Executes embedding generation using the configured provider and options.
-    #
-    # Templates are rendered as late as possible to allow local overrides.
-    #
-    # @return [ActiveAgent::Providers::Response]
-    # @raise [RuntimeError] if no embed provider is configured
-    def process_embed
-      fail "Embed Provider not Configured" unless embed_provider_klass
-
-      parameters = embed_options.except(:locals, *PROTECTED_OPTIONS)
+    # @api private
+    def prepare_embed_parameters
+      parameters = embed_options.deep_dup.except(:locals, *PROTECTED_OPTIONS)
 
       # Render out proc/lamda attributes before rendering templates
       parameters.deep_transform_values! { _1.respond_to?(:call) ? _1.call : _1 }
@@ -294,17 +318,8 @@ module ActiveAgent
         parameters[:input] = template_input if template_input.present?
       end
 
-      run_callbacks(:embedding) do
-        embed_provider_klass.new(**parameters).embed
-      end
+      parameters.compact
     end
-
-    # @api private
-    def action_methods
-      super - ActiveAgent::Base.public_instance_methods(false).map(&:to_s) - [ action_name ]
-    end
-
-    private
 
     # @api private
     def process_prompt_templates(parameters, prompt_options)
