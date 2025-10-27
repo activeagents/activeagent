@@ -371,4 +371,299 @@ class CallbacksTest < ActiveSupport::TestCase
 
     assert_equal [ :before_generation, :before_around, :prompting_executed, :after_around, :after_generation ], agent.callback_order
   end
+
+  test "prepend_before_prompt adds callback at the beginning" do
+    agent_class = Class.new(TestAgent) do
+      before_prompt :second_callback
+      prepend_before_prompt :first_callback
+
+      def first_callback
+        @callback_order << :first
+      end
+
+      def second_callback
+        @callback_order << :second
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :first, :second, :prompting_executed ], agent.callback_order
+  end
+
+  test "prepend_after_prompt adds callback at the beginning of after callbacks" do
+    agent_class = Class.new(TestAgent) do
+      after_prompt :second_callback
+      prepend_after_prompt :first_callback
+
+      def first_callback
+        @callback_order << :first
+      end
+
+      def second_callback
+        @callback_order << :second
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    # After callbacks run in reverse order, so prepended one runs last
+    assert_equal [ :prompting_executed, :second, :first ], agent.callback_order
+  end
+
+  test "prepend_around_prompt adds callback at the beginning" do
+    agent_class = Class.new(TestAgent) do
+      around_prompt :second_callback
+      prepend_around_prompt :first_callback
+
+      def first_callback
+        @callback_order << :first_before
+        yield
+        @callback_order << :first_after
+      end
+
+      def second_callback
+        @callback_order << :second_before
+        yield
+        @callback_order << :second_after
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :first_before, :second_before, :prompting_executed, :second_after, :first_after ], agent.callback_order
+  end
+
+  test "skip_before_prompt removes previously defined callback" do
+    parent_class = Class.new(TestAgent) do
+      before_prompt :parent_callback
+
+      def parent_callback
+        @callback_order << :parent_before
+      end
+    end
+
+    child_class = Class.new(parent_class) do
+      skip_before_prompt :parent_callback
+      before_prompt :child_callback
+
+      def child_callback
+        @callback_order << :child_before
+      end
+    end
+
+    agent = child_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :child_before, :prompting_executed ], agent.callback_order
+  end
+
+  test "skip_after_prompt removes previously defined callback" do
+    parent_class = Class.new(TestAgent) do
+      after_prompt :parent_callback
+
+      def parent_callback
+        @callback_order << :parent_after
+      end
+    end
+
+    child_class = Class.new(parent_class) do
+      skip_after_prompt :parent_callback
+      after_prompt :child_callback
+
+      def child_callback
+        @callback_order << :child_after
+      end
+    end
+
+    agent = child_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :prompting_executed, :child_after ], agent.callback_order
+  end
+
+  test "skip_around_prompt removes previously defined callback" do
+    parent_class = Class.new(TestAgent) do
+      around_prompt :parent_callback
+
+      def parent_callback
+        @callback_order << :parent_around_before
+        yield
+        @callback_order << :parent_around_after
+      end
+    end
+
+    child_class = Class.new(parent_class) do
+      skip_around_prompt :parent_callback
+      around_prompt :child_callback
+
+      def child_callback
+        @callback_order << :child_around_before
+        yield
+        @callback_order << :child_around_after
+      end
+    end
+
+    agent = child_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :child_around_before, :prompting_executed, :child_around_after ], agent.callback_order
+  end
+
+  test "append_before_prompt is alias for before_prompt" do
+    agent_class = Class.new(TestAgent) do
+      append_before_prompt :track_before
+
+      def track_before
+        @callback_order << :before_prompt
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :before_prompt, :prompting_executed ], agent.callback_order
+  end
+
+  test "prepend_before_embed adds callback at the beginning" do
+    agent_class = Class.new(TestAgent) do
+      before_embed :second_callback
+      prepend_before_embed :first_callback
+
+      def first_callback
+        @callback_order << :first
+      end
+
+      def second_callback
+        @callback_order << :second
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:embedding) do
+      agent.callback_order << :embedding_executed
+    end
+
+    assert_equal [ :first, :second, :embedding_executed ], agent.callback_order
+  end
+
+  test "skip_before_embed removes previously defined callback" do
+    parent_class = Class.new(TestAgent) do
+      before_embed :parent_callback
+
+      def parent_callback
+        @callback_order << :parent_before
+      end
+    end
+
+    child_class = Class.new(parent_class) do
+      skip_before_embed :parent_callback
+      before_embed :child_callback
+
+      def child_callback
+        @callback_order << :child_before
+      end
+    end
+
+    agent = child_class.new
+    agent.run_callbacks(:embedding) do
+      agent.callback_order << :embedding_executed
+    end
+
+    assert_equal [ :child_before, :embedding_executed ], agent.callback_order
+  end
+
+  test "append_before_embed is alias for before_embed" do
+    agent_class = Class.new(TestAgent) do
+      append_before_embed :track_before
+
+      def track_before
+        @callback_order << :before_embed
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:embedding) do
+      agent.callback_order << :embedding_executed
+    end
+
+    assert_equal [ :before_embed, :embedding_executed ], agent.callback_order
+  end
+
+  test "prepend_before_generation works for backward compatibility" do
+    agent_class = Class.new(TestAgent) do
+      before_generation :second_callback
+      prepend_before_generation :first_callback
+
+      def first_callback
+        @callback_order << :first
+      end
+
+      def second_callback
+        @callback_order << :second
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :first, :second, :prompting_executed ], agent.callback_order
+  end
+
+  test "skip_before_generation works for backward compatibility" do
+    parent_class = Class.new(TestAgent) do
+      before_generation :parent_callback
+
+      def parent_callback
+        @callback_order << :parent_before
+      end
+    end
+
+    child_class = Class.new(parent_class) do
+      skip_before_generation :parent_callback
+    end
+
+    agent = child_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :prompting_executed ], agent.callback_order
+  end
+
+  test "append_before_generation is alias for before_generation" do
+    agent_class = Class.new(TestAgent) do
+      append_before_generation :track_before
+
+      def track_before
+        @callback_order << :before_generation
+      end
+    end
+
+    agent = agent_class.new
+    agent.run_callbacks(:prompting) do
+      agent.callback_order << :prompting_executed
+    end
+
+    assert_equal [ :before_generation, :prompting_executed ], agent.callback_order
+  end
 end

@@ -30,9 +30,21 @@ Register multiple callbacks and apply them conditionally with `:if` and `:unless
 
 Execution order: `load_context`, `check_rate_limit` (if enabled), [generation], `log_response`
 
+## Callback Control
+
+Like Rails controller callbacks, `prepend_*`, `skip_*`, and `append_*` variants are available for all callback types:
+
+```ruby
+class ChildAgent < BaseAgent
+  prepend_before_prompt :critical_setup  # Runs before inherited callbacks
+  skip_after_prompt :log_response        # Remove inherited callback
+  append_before_prompt :final_setup      # Same as before_prompt
+end
+```
+
 ## Embedding Callbacks
 
-ActiveAgent provides `before_embed`, `after_embed`, and `around_embed` callbacks for embedding operations. Behavior is identical to generation callbacks:
+ActiveAgent provides `before_embed`, `after_embed`, and `around_embed` callbacks for embedding operations. All callback control methods (`prepend_*`, `skip_*`, `append_*`) work the same as prompting callbacks:
 
 <<< @/../test/docs/agents/callbacks_examples_test.rb#embedding_callbacks {ruby:line-numbers}
 

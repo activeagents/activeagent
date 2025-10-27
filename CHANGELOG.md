@@ -133,8 +133,10 @@ end
 - Comprehensive retry mechanisms with exponential backoff
 
 **Callbacks:**
-- `before_generate`, `after_generate`, `around_generate`
+- `before_prompt`, `after_prompt`, `around_prompt` (with `*_generation` aliases for backward compatibility)
+- `before_embed`, `after_embed`, `around_embed` for embedding lifecycle
 - `on_stream_open`, `on_stream`, `on_stream_close` with optional `StreamChunk` parameter
+- `prepend_*`, `skip_*`, `append_*` variants for all callback types (matching Rails controller callbacks)
 
 **Embeddings:**
 - Redesigned API supporting provider mixing
