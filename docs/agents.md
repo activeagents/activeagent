@@ -18,7 +18,7 @@ Usage:
 The request-response cycle mirrors Rails controllers:
 
 1. **Action called** - `Agent.with(params).action`
-2. **Callbacks run** - `before_generation`, `before_prompting`
+2. **Callbacks run** - `before_generation`, `before_prompt`
 3. **Context built** - `prompt()` or `embed()` configures messages
 4. **View rendered** - ERB template (if exists) renders content
 5. **Provider executes** - AI service generates response

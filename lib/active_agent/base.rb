@@ -260,7 +260,9 @@ module ActiveAgent
       # Apply Templates
       parameters = process_prompt_templates(parameters, prompt_options)
 
-      prompt_provider_klass.new(**parameters.compact).prompt
+      run_callbacks(:prompting) do
+        prompt_provider_klass.new(**parameters.compact).prompt
+      end
     end
 
     alias_method :process_prompt!, :process_prompt
@@ -292,7 +294,9 @@ module ActiveAgent
         parameters[:input] = template_input if template_input.present?
       end
 
-      embed_provider_klass.new(**parameters).embed
+      run_callbacks(:embedding) do
+        embed_provider_klass.new(**parameters).embed
+      end
     end
 
     # @api private

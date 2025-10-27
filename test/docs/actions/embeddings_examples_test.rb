@@ -171,8 +171,8 @@ module Docs
             class TrackedAgent < ApplicationAgent
               embed_with :openai, model: "text-embedding-3-small"
 
-              before_embedding :log_start
-              after_embedding :log_complete
+              before_embed :log_start
+              after_embed :log_complete
 
               private
 

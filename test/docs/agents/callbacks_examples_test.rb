@@ -191,8 +191,8 @@ module Docs
         test "embedding callbacks" do
           # region embedding_callbacks
           class EmbeddingAgent < ApplicationAgent
-            before_embedding :validate_input
-            around_embedding :measure_time
+            before_embed :validate_input
+            around_embed :measure_time
 
             def process_text
               embed(input: params[:text])

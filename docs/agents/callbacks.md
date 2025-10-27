@@ -1,6 +1,6 @@
 # Callbacks
 
-ActiveAgent provides `before_generation`, `after_generation`, and `around_generation` callbacks for the generation lifecycle. These callbacks are also available with the `*_prompting` alias (e.g., `before_prompting`, `after_prompting`, `around_prompting`).
+ActiveAgent provides `before_generation`, `after_generation`, and `around_generation` callbacks for the generation lifecycle. These callbacks are also available with the `*_prompting` alias (e.g., `before_prompt`, `after_prompt`, `around_prompt`).
 
 ## Before Generation
 
@@ -32,7 +32,7 @@ Execution order: `load_context`, `check_rate_limit` (if enabled), [generation], 
 
 ## Embedding Callbacks
 
-ActiveAgent provides `before_embedding`, `after_embedding`, and `around_embedding` callbacks for embedding operations. Behavior is identical to generation callbacks:
+ActiveAgent provides `before_embed`, `after_embed`, and `around_embed` callbacks for embedding operations. Behavior is identical to generation callbacks:
 
 <<< @/../test/docs/agents/callbacks_examples_test.rb#embedding_callbacks {ruby:line-numbers}
 

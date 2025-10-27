@@ -12,7 +12,7 @@ module ActiveAgent
   #
   # @example Before prompting callback
   #   class MyAgent < ActiveAgent::Base
-  #     before_prompting :load_context
+  #     before_prompt :load_context
   #
   #     def load_context
   #       @user_data = User.find(params[:user_id])
@@ -21,7 +21,7 @@ module ActiveAgent
   #
   # @example After prompting with condition
   #   class MyAgent < ActiveAgent::Base
-  #     after_prompting :log_response, if: :production?
+  #     after_prompt :log_response, if: :production?
   #
   #     def log_response
   #       Logger.info("Generated response: #{context.messages.last}")
@@ -30,7 +30,7 @@ module ActiveAgent
   #
   # @example Around embedding for timing
   #   class MyAgent < ActiveAgent::Base
-  #     around_embedding :measure_time
+  #     around_embed :measure_time
   #
   #     def measure_time
   #       start = Time.now
@@ -50,8 +50,8 @@ module ActiveAgent
     module ClassMethods
       # Registers callbacks for the prompting lifecycle.
       #
-      # Dynamically defines `before_prompting`, `after_prompting`, and
-      # `around_prompting` class methods. Multiple callbacks execute in
+      # Dynamically defines `before_prompt`, `after_prompt`, and
+      # `around_prompt` class methods. Multiple callbacks execute in
       # registration order for before/around, and reverse order for after.
       #
       # @param names [Symbol, Array<Symbol>] method name(s) to call
@@ -59,14 +59,14 @@ module ActiveAgent
       # @yield callback implementation when using block form
       #
       # @example Multiple before callbacks
-      #   before_prompting :load_user, :check_permissions
+      #   before_prompt :load_user, :check_permissions
       #
       # @example Block syntax
-      #   after_prompting do
+      #   after_prompt do
       #     cache.write("last_response", context.messages.last)
       #   end
       [ :before, :after, :around ].each do |callback|
-        define_method "#{callback}_prompting" do |*names, &blk|
+        define_method "#{callback}_prompt" do |*names, &blk|
           _insert_callbacks(names, blk) do |name, options|
             set_callback(:prompting, callback, name, options)
           end
@@ -82,8 +82,8 @@ module ActiveAgent
 
         # Registers callbacks for the embedding lifecycle.
         #
-        # Dynamically defines `before_embedding`, `after_embedding`, and
-        # `around_embedding` class methods. Behavior identical to prompting
+        # Dynamically defines `before_embed`, `after_embed`, and
+        # `around_embed` class methods. Behavior identical to prompting
         # callbacks but invoked during embedding operations.
         #
         # @param names [Symbol, Array<Symbol>] method name(s) to call
@@ -91,9 +91,9 @@ module ActiveAgent
         # @yield callback implementation when using block form
         #
         # @example Track embedding calls
-        #   before_embedding :increment_counter
-        #   after_embedding :store_embedding
-        define_method "#{callback}_embedding" do |*names, &blk|
+        #   before_embed :increment_counter
+        #   after_embed :store_embedding
+        define_method "#{callback}_embed" do |*names, &blk|
           _insert_callbacks(names, blk) do |name, options|
             set_callback(:embedding, callback, name, options)
           end
