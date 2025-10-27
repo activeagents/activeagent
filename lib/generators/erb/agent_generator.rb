@@ -40,7 +40,7 @@ module Erb # :nodoc:
 
           # Create schema file if requested
           if json_schema?
-            schema_file = "#{action}.schema.json"
+            schema_file = "#{action}.json"
             schema_path = File.join(view_base_path, schema_file)
             template "schema.json.tt", schema_path
           end

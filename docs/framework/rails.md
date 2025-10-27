@@ -126,7 +126,7 @@ end
 
 And generates schema file:
 ```
-app/views/agents/data/parse.schema.json
+app/views/agents/data/parse.json
 ```
 
 JSON object without schema validation:

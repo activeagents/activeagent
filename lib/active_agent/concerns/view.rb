@@ -96,9 +96,9 @@ module ActiveAgent
 
     # Renders JSON schema from template or returns Hash directly.
     #
-    # Schema templates are looked up as `{name}.schema.json`:
-    # - When value is `true` or `nil`: looks for `{action_name}.schema.json`
-    # - When value is a String/Symbol: looks for `{value}.schema.json`
+    # Schema templates are looked up as `{name}.json`:
+    # - When value is `true` or `nil`: looks for `{action_name}.json`
+    # - When value is a String/Symbol: looks for `{value}.json`
     # - When value is a Hash: returns the Hash directly
     #
     # @param value [Hash, String, Symbol, Boolean, nil]
@@ -108,9 +108,9 @@ module ActiveAgent
       when Hash
         value
       when String, Symbol
-        JSON.parse(view_render_template(value, strict: true, formats: [ :"schema.json" ]), symbolize_names: true)
+        JSON.parse(view_render_template(value, strict: true, formats: [ :json ]), symbolize_names: true)
       when true, nil
-        JSON.parse(view_render_template(action_name, strict: true, formats: [ :"schema.json" ]), symbolize_names: true)
+        JSON.parse(view_render_template(action_name, strict: true, formats: [ :json ]), symbolize_names: true)
       end
     end
 

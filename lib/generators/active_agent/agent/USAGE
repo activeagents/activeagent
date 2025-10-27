@@ -17,7 +17,7 @@ Options:
                           Example: --format=text
 
     --json-schema         Generate JSON schema files for each action
-                          Creates action_name.schema.json files
+                          Creates action_name.json files
                           Sets response_format: :json_schema in agent methods
 
     --json-object         Generate agent methods with JSON object response format
@@ -47,7 +47,7 @@ Examples:
         Agent:        app/agents/inventory_agent.rb
         Instructions: app/views/inventory_agent/instructions.md.erb
         View:         app/views/inventory_agent/search.md.erb
-        Schema:       app/views/inventory_agent/search.schema.json
+        Schema:       app/views/inventory_agent/search.json
         Test:         test/docs/inventory_agent_test.rb
 
     `bin/rails generate active_agent:agent inventory search --json-object`
@@ -74,5 +74,5 @@ Examples:
         Agent:        app/agents/admin/user_agent.rb
         Instructions: app/views/admin/user_agent/instructions.md.erb
         View:         app/views/admin/user_agent/create.md.erb
-        Schema:       app/views/admin/user_agent/create.schema.json
+        Schema:       app/views/admin/user_agent/create.json
         Test:         test/docs/admin/user_agent_test.rb

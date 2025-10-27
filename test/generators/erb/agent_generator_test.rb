@@ -46,7 +46,7 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "generates schema files when json_schema flag is set" do
     run_generator [ "user", "create", "--json-schema" ]
 
-    assert_file "app/views/agents/user/create.schema.json" do |content|
+    assert_file "app/views/agents/user/create.json" do |content|
       assert_match(/"type": "object"/, content)
       assert_match(/"properties"/, content)
     end
@@ -55,14 +55,14 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "generates multiple schema files for multiple actions" do
     run_generator [ "user", "create", "update", "--json-schema" ]
 
-    assert_file "app/views/agents/user/create.schema.json"
-    assert_file "app/views/agents/user/update.schema.json"
+    assert_file "app/views/agents/user/create.json"
+    assert_file "app/views/agents/user/update.json"
   end
 
   test "does not generate schema files without json_schema flag" do
     run_generator [ "user", "create" ]
 
-    assert_no_file "app/views/agents/user/create.schema.json"
+    assert_no_file "app/views/agents/user/create.json"
   end
 
   test "adds instruction view to agents view directory with markdown by default" do

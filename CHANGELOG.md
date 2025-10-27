@@ -67,7 +67,7 @@ end
 **Template paths:**
 - Instructions: `app/views/agents/{agent_name_without_agent_suffix}/instructions.{md,text}.erb`
 - Messages: `app/views/agents/{agent_name_without_agent_suffix}/{action_name}.{md,text}.erb`
-- Schemas: `app/views/agents/{agent_name_without_agent_suffix}/{action_name}.schema.json`
+- Schemas: `app/views/agents/{agent_name_without_agent_suffix}/{action_name}.json`
 
 **Generator changes:**
 - Command: `rails g active_agent` → `rails g active_agent:agent`
@@ -86,7 +86,7 @@ end
   # Remove these
   gem "ruby-openai"
   gem "ruby-anthropic"
-  
+
   # Add these
   gem "openai"          # Official OpenAI SDK
   gem "anthropic"       # Official Anthropic SDK
@@ -98,26 +98,26 @@ end
   #   config.retries = true
   #   config.retries_count = 5
   # end
-  
+
   # Use provider-specific retry settings instead
   # config/activeagent.yml
   openai:
     service: "OpenAI"
     max_retries: 5          # Provider SDK handles retries
     timeout: 600.0
-    
+
   anthropic:
     service: "Anthropic"
     max_retries: 5
     timeout: 600.0
   ```
 
-### Added
+### Addedbu
 
 **Core Framework:**
 - `ActiveAgent::Base` inheriting from `AbstractController::Base`
 - Modular concerns: `Callbacks`, `Observers`, `Parameterized`, `Preview`, `Provider`, `Queueing`, `Rescue`, `Streaming`, `Tooling`, `View`
-- Template loading: Instructions from `instructions.{md,text}.erb`, messages from `{action_name}.{md,text}.erb`, schemas from `{action_name}.schema.json`
+- Template loading: Instructions from `instructions.{md,text}.erb`, messages from `{action_name}.{md,text}.erb`, schemas from `{action_name}.json`
 - Five ways to set instructions: default template, inline string, custom template with locals, method reference, array
 - Dynamic template bindings with `params`, instance variables, local variables
 
