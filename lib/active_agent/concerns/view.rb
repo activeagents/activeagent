@@ -72,8 +72,7 @@ module ActiveAgent
         value.presence
 
       when Hash
-        raise ArgumentError, "Expected `:template` key in instructions hash" unless value[:template]
-        view_render_template(value[:template], **value[:locals])
+        view_render_template(value[:template] || "instructions",  strict: true, **value[:locals])
 
       when nil, true
         view_render_template("instructions", strict: value == true, **(params.dig(:instructions, :locals) || {}))

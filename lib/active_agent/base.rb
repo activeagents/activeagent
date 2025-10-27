@@ -324,7 +324,7 @@ module ActiveAgent
     # @api private
     def process_prompt_templates(parameters, prompt_options)
       # Resolve Instructions
-      parameters[:instructions] ||= prompt_view_instructions(prompt_options[:instructions])
+      parameters[:instructions] = prompt_view_instructions(parameters[:instructions])
 
       # Resolve Message Template as fallback
       if (parameters[:messages] || parameters[:input]).blank?
