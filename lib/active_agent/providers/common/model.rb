@@ -15,13 +15,13 @@ module ActiveAgent
       #
       #   class Message < BaseModel
       #     attribute :role, :string, as: "user"
-      #     attribute :type, :string, default: "plain/text"
+      #     attribute :type, :string, fallback: "plain/text"
       #     attribute :content, :string
       #   end
       #
       #   message = Message.new(content: "Hello")
       #   message.to_h      #=> { role: "user", type: "plain/text", content: "Hello" }
-      #   message.serialize #=> { role: "user", content: "Hello" }
+      #   message.serialize #=> { role: "user", type: "plain/text", content: "Hello" }
       class BaseModel
         include ActiveModel::Model
         include ActiveModel::Attributes
@@ -117,8 +117,17 @@ module ActiveAgent
           end
         end
 
-        # Sometimes we need drop attributes during message response to request construction or
-        # between inherited providers which support different attributes.
+        # Drops specified attributes by defining no-op setters.
+        #
+        # This is useful when converting between providers that support different attributes
+        # or when dropping attributes during message response to request construction.
+        # The attributes can still be read if defined elsewhere, but setting them has no effect.
+        #
+        # @param attributes [Array<Symbol>] attribute names to drop
+        # @return [void]
+        #
+        # @example
+        #   drop_attributes :metadata, :extra_info
         def self.drop_attributes(*attributes)
           attributes.each do |attribute|
             define_method("#{attribute}=") do |value|
@@ -139,13 +148,16 @@ module ActiveAgent
 
         # Initializes a new instance with the given attributes.
         #
-        # Settings can be provided as a hash or keyword arguments. Hash keys are
-        # sorted to prioritize nested objects during initialization for backwards compatibility.
-        # A special internal key `__default_values` can be passed to get an instance with
-        # only default values without any overrides.
+        # Attributes can be provided as a hash. Hash keys are sorted to prioritize nested
+        # objects during initialization for backwards compatibility. A special internal key
+        # `__default_values` can be passed to get an instance with only default values
+        # without any overrides.
         #
-        # @param kwargs [Hash] attribute hash to initialize with
-        # @return [void]
+        # @param kwargs [Hash] attributes to initialize the instance with
+        # @return [BaseModel] the initialized instance
+        #
+        # @example
+        #   Message.new(role: "user", content: "Hello")
         def initialize(kwargs = {})
           # To allow us to get a list of attribute defaults without initialized overrides
           return super(nil) if kwargs.key?(:'__default_values')
@@ -177,9 +189,8 @@ module ActiveAgent
         # Nested hashes and arrays are processed recursively. Empty hashes and
         # arrays after compaction are also removed.
         #
-        # @param hash [Hash, nil] hash to compact
-        # @param kwargs [Hash] hash as keyword arguments
-        # @return [Hash] compacted hash
+        # @param kwargs [Hash] hash to compact
+        # @return [Hash] compacted hash with nil values and empty collections removed
         #
         # @example
         #   deep_compact({ a: 1, b: nil, c: { d: nil, e: 2 } })
@@ -259,10 +270,15 @@ module ActiveAgent
         # Serializes the model using attribute type serializers.
         #
         # Iterates through each attribute and uses its ActiveModel::Type serializer
-        # to convert the value to its serialized form. This provides a consistent
-        # serialization path that respects custom type logic.
+        # to convert the value to its serialized form. Only non-default values are included,
+        # except for required attributes (those defined with `:as` or `:fallback` options).
+        # This provides a compressed serialization that respects custom type logic.
         #
-        # @return [Hash] serialized representation with compressed values
+        # @return [Hash] serialized representation with non-default and required attributes
+        #
+        # @example
+        #   message = Message.new(role: "user", content: "Hello")
+        #   message.serialize  #=> { role: "user", content: "Hello" }
         def serialize
           default_values = self.class.new(__default_values: true).attributes
           required_attrs = self.class.required_attributes
@@ -305,11 +321,40 @@ module ActiveAgent
           "#<#{self.class.name} {\n  #{attrs}\n}>"
         end
 
-        # Returns a pretty-printed string representation.
-        #
-        # @return [String] formatted string representation
         # @see #inspect
         alias_method :to_s, :inspect
+
+        # Compares two models based on their serialized representations.
+        #
+        # Uses the serialized hash to compare models, allowing for sorting and equality
+        # comparisons based on attribute values rather than object identity.
+        #
+        # @param other [BaseModel] the model to compare against
+        # @return [Integer, nil] -1, 0, 1, or nil if not comparable
+        #
+        # @example
+        #   model1 = Message.new(content: "A")
+        #   model2 = Message.new(content: "B")
+        #   model1 <=> model2  #=> -1
+        def <=>(other)
+          serialize <=> other&.serialize
+        end
+
+        # Compares equality based on serialized representation.
+        #
+        # Two models are equal if their serialized hashes are equal, regardless
+        # of object identity. This allows value-based equality comparisons.
+        #
+        # @param other [BaseModel] the model to compare against
+        # @return [Boolean]
+        #
+        # @example
+        #   model1 = Message.new(content: "Hello")
+        #   model2 = Message.new(content: "Hello")
+        #   model1 == model2  #=> true
+        def ==(other)
+          serialize == other&.serialize
+        end
       end
     end
   end
