@@ -8,11 +8,11 @@ require_relative "anthropic/_types"
 
 module ActiveAgent
   module Providers
-    # Provider implementation for Anthropic's Claude models.
+    # Handles communication with Anthropic's Claude models.
     #
-    # Handles communication with Anthropic's API, including message creation,
-    # streaming responses, and tool/function calling. Supports Claude's unique
-    # features like thinking mode and content blocks.
+    # Supports message creation, streaming responses, tool calling, and Claude-specific
+    # features like thinking mode and content blocks. Manages tool choice cleanup to
+    # prevent endless looping when tools have been used in conversation history.
     #
     # @see BaseProvider
     class AnthropicProvider < BaseProvider
@@ -29,6 +29,7 @@ module ActiveAgent
       # Removes forced tool choice from subsequent requests to prevent endless looping
       # when the tool has already been used in the conversation.
       #
+      # @see BaseProvider#prepare_prompt_request
       # @return [Request]
       def prepare_prompt_request
         prepare_prompt_request_tools
@@ -61,28 +62,15 @@ module ActiveAgent
         })
       end
 
-      # Executes the prompt request via Anthropic's API.
-      #
-      # @param parameters [Hash]
-      # @return [Object, nil] response object for non-streaming requests, nil for streaming
-      def api_prompt_execute(parameters)
-        instrument("api_request.provider.active_agent", model: parameters[:model], streaming: !!parameters[:stream])
-
-        unless parameters[:stream]
-          client.messages.create(**parameters)
-        else
-          client.messages.stream(**parameters.except(:stream)).each(&parameters[:stream])
-          nil
-        end
-        # rescue ::Anthropic::Error => exception
-        #   raise exception.cause if exception.cause
-        #   raise exception
+      def api_prompt_executer
+        client.messages
       end
 
       # Processes streaming response chunks from Anthropic's API.
       #
-      # Handles various chunk types including message creation, content blocks,
-      # deltas for text and tool use, and completion events.
+      # Handles chunk types: message_start, content_block_start, content_block_delta,
+      # content_block_stop, message_delta, message_stop. Manages text deltas,
+      # tool use inputs, and Claude's thinking/signature blocks.
       #
       # @param api_response_chunk [Object]
       # @return [void]
@@ -154,12 +142,9 @@ module ActiveAgent
         end
       end
 
-      # Processes function/tool calls from the API response.
+      # Executes tool calls and creates user message with results.
       #
-      # Executes each tool call and creates a user message with the results
-      # for the next iteration of the conversation.
-      #
-      # @param api_function_calls [Array<Hash>]
+      # @param api_function_calls [Array<Hash>] with :name, :input, and :id keys
       # @return [void]
       def process_function_calls(api_function_calls)
         content = api_function_calls.map do |api_function_call|
@@ -188,7 +173,10 @@ module ActiveAgent
         )
       end
 
-      # Extracts messages from the completed API response.
+      # Extracts messages from completed API response.
+      #
+      # Handles JSON response format by merging the leading `{` prefix back into
+      # the message content after removing the assistant lead-in message.
       #
       # @param api_response [Object]
       # @return [Array<Hash>, nil]
@@ -205,11 +193,12 @@ module ActiveAgent
         [ message ]
       end
 
-      # Extracts function calls from the message stack.
+      # Extracts function calls from message stack.
       #
-      # Looks for tool_use content blocks and processes any JSON buffers into proper input parameters.
+      # Processes tool_use content blocks and converts JSON buffers into proper
+      # input parameters for function execution.
       #
-      # @return [Array<Hash>] function call hashes with :name, :input, and :id keys
+      # @return [Array<Hash>] with :name, :input, and :id keys
       def process_prompt_finished_extract_function_calls
         message_stack.pluck(:content).flatten.select { _1 in { type: "tool_use" } }.map do |api_function_call|
           json_buf = api_function_call.delete(:json_buf)

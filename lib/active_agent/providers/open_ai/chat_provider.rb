@@ -13,29 +13,22 @@ module ActiveAgent
       # @see Base
       # @see https://platform.openai.com/docs/api-reference/chat
       class ChatProvider < Base
+        # @return [Class] the options class for this provider
         def self.options_klass
           Options
         end
 
+        # @return [Chat::RequestType] request type instance for chat completions
         def self.prompt_request_type
           Chat::RequestType.new
         end
 
         protected
 
-        # Executes a chat completion request via OpenAI's API.
-        #
-        # @param parameters [Hash] The chat completion request parameters
-        # @return [Hash, nil] The symbolized API response or nil if empty
-        def api_prompt_execute(parameters)
-          instrument("api_request.provider.active_agent", model: parameters[:model])
-
-          unless parameters[:stream]
-            client.chat.completions.create(**parameters)
-          else
-            client.chat.completions.stream(**parameters.except(:stream)).each(&parameters[:stream])
-            nil
-          end
+        # @return [OpenAI::Client::Completions] the API client for chat completions
+        # @see Base#api_prompt_executer
+        def api_prompt_executer
+          client.chat.completions
         end
 
         # Processes streaming response chunks from OpenAI's chat API.
@@ -43,8 +36,16 @@ module ActiveAgent
         # Handles message deltas, content updates, and completion detection.
         # Manages the message stack and broadcasts streaming updates.
         #
-        # @param api_response_event [OpenAI::Helpers::Streaming::ChatChunkEvent] The streaming response chunk
+        # Handles multiple event types:
+        # - `:chunk` - Message content and tool call deltas
+        # - `:"content.delta"` - Incremental content updates
+        # - `:"content.done"` - Complete content delivery
+        # - `:"tool_calls.function.arguments.delta"` - Tool argument deltas
+        # - `:"tool_calls.function.arguments.done"` - Complete tool arguments
+        #
+        # @param api_response_event [OpenAI::Helpers::Streaming::ChatChunkEvent]
         # @return [void]
+        # @see Base#process_stream_chunk
         def process_stream_chunk(api_response_event)
           instrument("stream_chunk_processing.provider.active_agent")
 
@@ -90,8 +91,9 @@ module ActiveAgent
         # Executes each tool call and creates tool response messages
         # for the next iteration of the conversation.
         #
-        # @param api_function_calls [Array<Hash>] Array of function call objects
+        # @param api_function_calls [Array<Hash>] function call objects with :type, :id, and :function keys
         # @return [void]
+        # @see Base#process_function_calls
         def process_function_calls(api_function_calls)
           api_function_calls.each do |api_function_call|
             content = case api_function_call[:type]
@@ -113,8 +115,9 @@ module ActiveAgent
 
         # Extracts messages from the completed API response.
         #
-        # @param api_response [Hash] The completed API response
-        # @return [Array<Hash>, nil] Array containing the message hash or nil
+        # @param api_response [Hash]
+        # @return [Array<Hash>, nil] single-element array with message or nil if no message
+        # @see Base#process_prompt_finished_extract_messages
         def process_prompt_finished_extract_messages(api_response)
           api_message = api_response&.dig(:choices, 0, :message)
 
@@ -123,7 +126,8 @@ module ActiveAgent
 
         # Extracts function calls from the last message in the stack.
         #
-        # @return [Array<Hash>, nil] Array of tool call hashes or nil
+        # @return [Array<Hash>, nil] tool call objects or nil if no tool calls
+        # @see Base#process_prompt_finished_extract_function_calls
         def process_prompt_finished_extract_function_calls
           message_stack.last[:tool_calls]
         end
@@ -132,9 +136,9 @@ module ActiveAgent
         #
         # Separated from hash_merge_delta to allow Ollama to override role handling.
         #
-        # @param message [Hash] The current message being built
-        # @param delta [Hash] The delta to merge into the message
-        # @return [Hash] The merged message
+        # @param message [Hash]
+        # @param delta [Hash]
+        # @return [Hash] the merged message
         def message_merge_delta(message, delta)
           hash_merge_delta(message, delta)
         end
@@ -143,8 +147,8 @@ module ActiveAgent
 
         # Finds an existing message by ID or creates a new one.
         #
-        # @param id [Integer] The message index ID
-        # @return [Hash] The found or newly created message
+        # @param id [Integer]
+        # @return [Hash] found or newly created message
         def find_or_create_message(id)
           message = message_stack.find { _1[:index] == id }
           return message if message
@@ -158,9 +162,9 @@ module ActiveAgent
         # Handles the complex delta merging needed for OpenAI's streaming API,
         # including arrays with indexed items and string concatenation.
         #
-        # @param hash [Hash] The target hash to merge into
-        # @param delta [Hash] The delta changes to apply
-        # @return [Hash] The merged hash
+        # @param hash [Hash] target hash to merge into
+        # @param delta [Hash] delta changes to apply
+        # @return [Hash] the merged hash
         def hash_merge_delta(hash, delta)
           delta.each do |key, value|
             case hash[key]

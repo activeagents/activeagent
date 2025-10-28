@@ -81,7 +81,6 @@ module ActiveAgent
         fail(NotImplementedError)
       end
 
-      # Delegate instance methods to class methods
       delegate :service_name, :tag_name, :namespace, :options_klass, :prompt_request_type, :embed_request_type, to: :class
 
       # Initializes a provider instance.
@@ -131,8 +130,6 @@ module ActiveAgent
 
       protected
 
-      # Validates service name matches provider.
-      #
       # @param name [String, nil]
       # @raise [RuntimeError] when service name doesn't match provider
       def assert_service!(name)
@@ -141,8 +138,8 @@ module ActiveAgent
 
       # Instruments an event for logging and metrics.
       #
-      # @param name [String] event name
-      # @param payload [Hash] additional event data
+      # @param name [String]
+      # @param payload [Hash]
       # @yield block to instrument
       # @return [Object] block result
       def instrument(name, payload = {}, &block)
@@ -198,7 +195,7 @@ module ActiveAgent
       # Builds API request parameters from request object.
       #
       # @param request [Request]
-      # @param request_type [ActiveModel::Type::Value] The type to use for serialization
+      # @param request_type [ActiveModel::Type::Value] type for serialization
       # @return [Hash]
       def api_request_build(request, request_type)
         parameters          = request_type.serialize(request)
@@ -211,8 +208,6 @@ module ActiveAgent
         parameters
       end
 
-      # Creates streaming callback proc.
-      #
       # @return [Proc] invoked for each response chunk
       def process_stream
         proc do |api_response_chunk|
@@ -226,7 +221,26 @@ module ActiveAgent
       # @param request_parameters [Hash]
       # @return [Object] provider-specific API response
       # @raise [NotImplementedError]
-      def api_prompt_execute(request_parameters)
+      def api_prompt_execute(parameters)
+        instrument("api_request.provider.active_agent", model: parameters[:model], streaming: !!parameters[:stream])
+
+        unless parameters[:stream]
+          api_prompt_executer.create(**parameters)
+        else
+          api_prompt_executer.stream(**parameters.except(:stream)).each(&parameters[:stream])
+          nil
+        end
+      end
+
+      # Returns provider-specific API executer for prompt requests.
+      #
+      # Since all currently implemented providers use stainless gems, subclasses
+      # only need to override endpoint selection.
+      #
+      # @abstract
+      # @return [Object] provider-specific API client
+      # @raise [NotImplementedError]
+      def api_prompt_executer
         fail NotImplementedError, "Subclass expected to implement"
       end
 
@@ -251,7 +265,7 @@ module ActiveAgent
 
       # Broadcasts stream open event.
       #
-      # Only fires once per request cycle even during multi-turn tool calling.
+      # Fires once per request cycle even during multi-turn tool calling.
       #
       # @return [void]
       def broadcast_stream_open
@@ -264,7 +278,7 @@ module ActiveAgent
 
       # Broadcasts stream update with message content delta.
       #
-      # @param message [Hash, Object] current message state
+      # @param message [Hash, Object]
       # @param delta [String, nil] incremental content chunk
       # @return [void]
       def broadcast_stream_update(message, delta = nil)
@@ -273,7 +287,7 @@ module ActiveAgent
 
       # Broadcasts stream close event.
       #
-      # Only fires once per request cycle even during multi-turn tool calling.
+      # Fires once per request cycle even during multi-turn tool calling.
       #
       # @return [void]
       def broadcast_stream_close
@@ -348,8 +362,6 @@ module ActiveAgent
         fail NotImplementedError, "Subclass expected to implement"
       end
 
-      # Processes completed embedding API response.
-      #
       # @param api_response [Hash]
       # @return [Common::EmbedResponse]
       def process_embed_finished(api_response)
