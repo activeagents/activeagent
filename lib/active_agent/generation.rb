@@ -81,9 +81,7 @@ module ActiveAgent
     #
     # @return [ActiveAgent::Providers::Response]
     def prompt_now!
-      agent.handle_exceptions do
-        agent.process_prompt!
-      end
+      agent.process_prompt!
     end
     alias generate_now! prompt_now!
 
@@ -91,9 +89,7 @@ module ActiveAgent
     #
     # @return [ActiveAgent::Providers::Response]
     def prompt_now
-      agent.handle_exceptions do
-        agent.process_prompt
-      end
+      agent.process_prompt
     end
     alias generate_now prompt_now
 
@@ -111,9 +107,7 @@ module ActiveAgent
     #
     # @return [ActiveAgent::Providers::Response] embedding response with vector data
     def embed_now
-      agent.handle_exceptions do
-        agent.process_embed
-      end
+      agent.process_embed
     end
 
     # Queues embedding generation for background execution.
