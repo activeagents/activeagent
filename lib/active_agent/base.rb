@@ -348,6 +348,7 @@ module ActiveAgent
 
       if response_format[:type].to_sym == :json_schema
         response_format[:json_schema] = prompt_view_schema(response_format[:json_schema])
+        response_format[:json_schema].deep_transform_keys! { _1.to_s.camelize(:lower) }
       end
 
       response_format

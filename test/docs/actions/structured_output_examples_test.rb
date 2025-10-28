@@ -195,17 +195,17 @@ module Docs
 
         test "generate schema from activemodel" do
           # region generate_schema_activemodel
-          schema = User.to_json_schema
+          json_schema = User.to_json_schema
           # => { type: "object", properties: { name: {...}, email: {...} }, required: [...] }
           # endregion generate_schema_activemodel
 
-          assert_kind_of Hash, schema
-          assert_equal "object", schema[:type]
-          assert_includes schema[:properties].keys, :name
-          assert_includes schema[:properties].keys, :email
-          assert_includes schema[:properties].keys, :age
-          assert_includes schema[:required], :name
-          assert_includes schema[:required], :email
+          assert_kind_of Hash, json_schema
+          assert_equal "object", json_schema[:schema][:type]
+          assert_includes json_schema[:schema][:properties].keys, :name
+          assert_includes json_schema[:schema][:properties].keys, :email
+          assert_includes json_schema[:schema][:properties].keys, :age
+          assert_includes json_schema[:schema][:required], :name
+          assert_includes json_schema[:schema][:required], :email
         end
 
         test "use generated schema in agent" do

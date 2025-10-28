@@ -211,6 +211,7 @@ end
 - Options mutation during generation
 - Template rendering without blocks
 - Schema generator key symbolization for consistent hash key types
+- SchemaGenerator now consistently wraps schemas in `{ name:, schema:, strict: }` format regardless of `strict:` option
 - Rails 8 and 8.1 compatibility
 - Multi-turn conversation handling
 

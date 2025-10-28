@@ -11,11 +11,11 @@
         "items": {
           "type": "object",
           "properties": {
-            "job_title": { "type": "string" },
+            "jobTitle": { "type": "string" },
             "company": { "type": "string" },
             "duration": { "type": "string" }
           },
-          "required": ["job_title", "company", "duration"],
+          "required": ["jobTitle", "company", "duration"],
           "additionalProperties": false
         }
       }

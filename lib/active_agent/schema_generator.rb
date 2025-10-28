@@ -126,30 +126,26 @@ module ActiveAgent
           type: "object",
           properties: {},
           required: [],
-          additionalProperties: options.fetch(:additional_properties, false)
+          additional_properties: options.fetch(:additional_properties, false)
         }
 
         if defined?(ActiveRecord::Base) && model_class < ActiveRecord::Base
-          build_activerecord_schema(model_class, schema, options)
+          schema = build_activerecord_schema(schema, model_class, options)
         elsif defined?(ActiveModel::Model) && model_class.include?(ActiveModel::Model)
-          build_activemodel_schema(model_class, schema, options)
+          schema = build_activemodel_schema(schema, model_class, options)
         else
           raise ArgumentError, "Model must be an ActiveRecord or ActiveModel class"
         end
 
-        if options[:strict]
-          # OpenAI strict mode requires all properties to be in the required array
-          # So we add all properties to required if strict mode is enabled
-          schema[:required] = schema[:properties].keys.sort
+        # OpenAI strict mode requires all properties to be in the required array
+        # So we add all properties to required if strict mode is enabled
+        schema[:required] = schema[:properties].keys.sort if options[:strict]
 
-          {
-            name: options[:name] || model_class.name.underscore,
-            schema: schema,
-            strict: true
-          }
-        else
-          schema
-        end
+        {
+          name: options[:name] || model_class.name.underscore,
+          schema: schema,
+          strict: options[:strict]
+        }.compact
       end
 
       class << self
@@ -160,12 +156,12 @@ module ActiveAgent
         # Extracts column information, associations, and validations to build
         # a comprehensive schema representation.
         #
-        # @param model_class [Class] The ActiveRecord model class
         # @param schema [Hash] The schema hash to populate
+        # @param model_class [Class] The ActiveRecord model class
         # @param options [Hash] Schema generation options
         #
         # @return [void]
-        def build_activerecord_schema(model_class, schema, options)
+        def build_activerecord_schema(schema, model_class, options)
           model_class.columns.each do |column|
             next if options[:exclude]&.include?(column.name.to_sym)
             next if column.name == "id" && !options[:include_id]
@@ -179,24 +175,26 @@ module ActiveAgent
           end
 
           if model_class.reflect_on_all_associations.any?
-            add_associations_to_schema(model_class, schema, options)
+            schema = add_associations_to_schema(schema, model_class, options)
           end
 
           if model_class.respond_to?(:validators)
-            add_validations_to_schema(model_class, schema, options)
+            schema = add_validations_to_schema(schema, model_class, options)
           end
+
+          schema
         end
 
         # Builds a JSON Schema from an ActiveModel class.
         #
         # Extracts attribute types and validations to build a schema representation.
         #
-        # @param model_class [Class] The ActiveModel class
         # @param schema [Hash] The schema hash to populate
+        # @param model_class [Class] The ActiveModel class
         # @param options [Hash] Schema generation options
         #
         # @return [void]
-        def build_activemodel_schema(model_class, schema, options)
+        def build_activemodel_schema(schema, model_class, options)
           if model_class.respond_to?(:attribute_types)
             model_class.attribute_types.each do |name, type|
               next if options[:exclude]&.include?(name.to_sym)
@@ -204,11 +202,15 @@ module ActiveAgent
               property = build_property_from_type(type)
               schema[:properties][name.to_sym] = property
             end
+          else
+            raise ArgumentError, "#{model_class.name} does not define any attributes. Use `attribute :name, :type` to define attributes."
           end
 
           if model_class.respond_to?(:validators)
-            add_validations_to_schema(model_class, schema, options)
+            schema = add_validations_to_schema(schema, model_class, options)
           end
+
+          schema
         end
 
         # Builds a JSON Schema property definition from an ActiveRecord column.
@@ -228,7 +230,7 @@ module ActiveAgent
           case column.type
           when :string, :text
             if column.limit
-              property[:maxLength] = column.limit
+              property[:max_length] = column.limit
             end
           when :integer, :bigint
             property[:type] = "integer"
@@ -311,13 +313,13 @@ module ActiveAgent
         # Supports has_many, has_one, belongs_to, and has_and_belongs_to_many
         # associations. Can optionally include nested schemas for associated models.
         #
-        # @param model_class [Class] The ActiveRecord model class
         # @param schema [Hash] The schema hash to populate
+        # @param model_class [Class] The ActiveRecord model class
         # @param options [Hash] Schema generation options
         #
         # @return [void]
-        def add_associations_to_schema(model_class, schema, options)
-          return unless options[:include_associations]
+        def add_associations_to_schema(schema, model_class, options)
+          return schema unless options[:include_associations]
 
           schema[:$defs] ||= {}
 
@@ -350,6 +352,8 @@ module ActiveAgent
               end
             end
           end
+
+          schema
         end
 
         # Adds validation constraints to the schema.
@@ -357,12 +361,12 @@ module ActiveAgent
         # Translates ActiveModel validations (presence, length, numericality,
         # inclusion, format) into corresponding JSON Schema constraints.
         #
-        # @param model_class [Class] The model class
         # @param schema [Hash] The schema hash to populate
+        # @param model_class [Class] The model class
         # @param options [Hash] Schema generation options (unused but kept for consistency)
         #
         # @return [void]
-        def add_validations_to_schema(model_class, schema, options)
+        def add_validations_to_schema(schema, model_class, options)
           model_class.validators.each do |validator|
             validator.attributes.each do |attribute|
               next unless schema[:properties][attribute.to_sym]
@@ -372,17 +376,17 @@ module ActiveAgent
                 schema[:required] << attribute.to_sym unless schema[:required].include?(attribute.to_sym)
               when ActiveModel::Validations::LengthValidator
                 if validator.options[:minimum]
-                  schema[:properties][attribute.to_sym][:minLength] = validator.options[:minimum]
+                  schema[:properties][attribute.to_sym][:min_length] = validator.options[:minimum]
                 end
                 if validator.options[:maximum]
-                  schema[:properties][attribute.to_sym][:maxLength] = validator.options[:maximum]
+                  schema[:properties][attribute.to_sym][:max_length] = validator.options[:maximum]
                 end
               when ActiveModel::Validations::NumericalityValidator
                 if validator.options[:greater_than]
-                  schema[:properties][attribute.to_sym][:exclusiveMinimum] = validator.options[:greater_than]
+                  schema[:properties][attribute.to_sym][:exclusive_minimum] = validator.options[:greater_than]
                 end
                 if validator.options[:less_than]
-                  schema[:properties][attribute.to_sym][:exclusiveMaximum] = validator.options[:less_than]
+                  schema[:properties][attribute.to_sym][:exclusive_maximum] = validator.options[:less_than]
                 end
                 if validator.options[:greater_than_or_equal_to]
                   schema[:properties][attribute.to_sym][:minimum] = validator.options[:greater_than_or_equal_to]
@@ -403,6 +407,8 @@ module ActiveAgent
               end
             end
           end
+
+          schema
         end
       end
     end
