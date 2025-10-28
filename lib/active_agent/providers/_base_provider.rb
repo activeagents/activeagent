@@ -1,3 +1,5 @@
+require "active_support/delegation"
+
 require_relative "common/response"
 require_relative "concerns/exception_handler"
 
@@ -39,6 +41,7 @@ module ActiveAgent
     #   and {#process_prompt_finished_extract_function_calls}
     class BaseProvider
       include ExceptionHandler
+      extend ActiveSupport::Delegation
 
       class ProvidersError < StandardError; end
 
@@ -46,6 +49,40 @@ module ActiveAgent
                     :request, :message_stack,        # Runtime
                     :stream_broadcaster, :streaming, # Callback (Streams)
                     :tools_function                  # Callback (Tools)
+
+      # @return [String] provider name extracted from class name (e.g., "Anthropic", "OpenAI")
+      def self.service_name
+        name.split("::").last.delete_suffix("Provider")
+      end
+
+      # @return [String] module-qualified provider name (e.g., "Anthropic", "OpenAI::Chat")
+      def self.tag_name
+        name.delete_prefix("ActiveAgent::Providers::").delete_suffix("Provider")
+      end
+
+      # @return [Module] provider's namespace module (e.g., ActiveAgent::Providers::OpenAI)
+      def self.namespace
+        "#{name.deconstantize}::#{service_name}".safe_constantize
+      end
+
+      # @return [Class] provider's options class
+      def self.options_klass
+        namespace::Options
+      end
+
+      # @return [ActiveModel::Type::Value] provider-specific request type for prompt casting/serialization
+      def self.prompt_request_type
+        namespace::RequestType.new
+      end
+
+      # @return [ActiveModel::Type::Value] provider-specific request type for embedding casting/serialization
+      # @raise [NotImplementedError] when provider doesn't support embeddings
+      def self.embed_request_type
+        fail(NotImplementedError)
+      end
+
+      # Delegate instance methods to class methods
+      delegate :service_name, :tag_name, :namespace, :options_klass, :prompt_request_type, :embed_request_type, to: :class
 
       # Initializes a provider instance.
       #
@@ -91,31 +128,6 @@ module ActiveAgent
           resolve_embed
         end
       end
-
-      # @return [String] provider name extracted from class name (e.g., "Anthropic", "OpenAI")
-      def service_name
-        self.class.name.split("::").last.delete_suffix("Provider")
-      end
-
-      # @return [String] module-qualified provider name (e.g., "Anthropic", "OpenAI::Chat")
-      def tag_name
-        self.class.name.delete_prefix("ActiveAgent::Providers::").delete_suffix("Provider")
-      end
-
-      # @return [Module] provider's namespace module (e.g., ActiveAgent::Providers::OpenAI)
-      def namespace
-        "#{self.class.name.deconstantize}::#{service_name}".safe_constantize
-      end
-
-      # @return [Class] provider's options class
-      def options_klass = namespace::Options
-
-      # @return [ActiveModel::Type::Value] provider-specific request type for prompt casting/serialization
-      def prompt_request_type = namespace::RequestType.new
-
-      # @return [ActiveModel::Type::Value] provider-specific request type for embedding casting/serialization
-      # @raise [NotImplementedError] when provider doesn't support embeddings
-      def embed_request_type = fail(NotImplementedError)
 
       protected
 

@@ -14,17 +14,19 @@ module ActiveAgent
       #
       # @see ActiveAgent::Providers::BaseProvider
       class Base < ActiveAgent::Providers::BaseProvider
+        # Returns the service name for OpenAI providers.
+        #
+        # @return [String] Always returns "OpenAI"
+        def self.service_name
+          "OpenAI"
+        end
+
         # Returns a configured OpenAI client instance.
         #
         # @return [OpenAI::Client] The configured OpenAI client
         def client
           ::OpenAI::Client.new(**options.serialize)
         end
-
-        # Returns the service name for OpenAI providers.
-        #
-        # @return [String] Always returns "OpenAI"
-        def service_name = "OpenAI"
 
         protected
 

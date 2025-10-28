@@ -7,28 +7,42 @@ require_relative "open_router/_types"
 
 module ActiveAgent
   module Providers
-    # Provider implementation for OpenRouter's multi-model API.
+    # Provides access to OpenRouter's multi-model API.
     #
-    # Extends OpenAI::ChatProvider to work with OpenRouter's OpenAI-compatible API.
-    # Provides access to multiple AI models through a single interface with features
-    # like model fallbacks, cost tracking, and provider metadata.
+    # Extends OpenAI provider to work with OpenRouter's OpenAI-compatible API,
+    # enabling access to multiple AI models through a single interface with
+    # model fallbacks, cost tracking, and provider metadata.
     #
     # @see OpenAI::ChatProvider
     # @see https://openrouter.ai/docs
     class OpenRouterProvider < OpenAI::ChatProvider
-      def service_name        = "OpenRouter"
-      def options_klass       = namespace::Options
-      def prompt_request_type = namespace::RequestType.new
+      # @return [String]
+      def self.service_name
+        "OpenRouter"
+      end
+
+      # @return [Class]
+      def self.options_klass
+        namespace::Options
+      end
+
+      # @return [ActiveModel::Type::Value]
+      def self.prompt_request_type
+        namespace::RequestType.new
+      end
 
       protected
 
-      # Merges streaming delta into the message.
+      # Merges streaming delta into the message with role cleanup.
       #
-      # Handles OpenRouter's role copying behavior which mimics OpenAI's design.
+      # Overrides parent to handle OpenRouter's role copying behavior which duplicates
+      # the role field in every streaming chunk, requiring manual cleanup to prevent
+      # message corruption.
       #
-      # @param message [Hash] The current message being built
-      # @param delta [Hash] The delta to merge into the message
-      # @return [Hash] The merged message
+      # @see OpenAI::ChatProvider#message_merge_delta
+      # @param message [Hash]
+      # @param delta [Hash]
+      # @return [Hash]
       def message_merge_delta(message, delta)
         message[:role] = delta.delete(:role) if delta[:role] # Copy a Bad Design (OpenAI's Chat API) Badly, Win Bad Prizes
 

@@ -23,6 +23,13 @@ module ActiveAgent
     #
     # @see https://platform.openai.com/docs/guides/migrate-to-responses
     class OpenAIProvider < OpenAI::Base
+      # Returns the embedding request type for OpenAI.
+      #
+      # @return [ActiveModel::Type::Value] The OpenAI embedding request type
+      def self.embed_request_type
+        OpenAI::Embedding::RequestType.new
+      end
+
       attr_internal :api_version
       attr_internal :raw_options
 
@@ -60,11 +67,6 @@ module ActiveAgent
           OpenAI::ResponsesProvider.new(raw_options).prompt
         end
       end
-
-      # Returns the embedding request type for OpenAI.
-      #
-      # @return [ActiveModel::Type::Value] The OpenAI embedding request type
-      def embed_request_type = OpenAI::Embedding::RequestType.new
 
       protected
 

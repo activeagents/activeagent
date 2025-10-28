@@ -13,8 +13,13 @@ module ActiveAgent
       # @see Base
       # @see https://platform.openai.com/docs/api-reference/responses
       class ResponsesProvider < Base
-        def options_klass       = Options
-        def prompt_request_type = Responses::RequestType.new
+        def self.options_klass
+          Options
+        end
+
+        def self.prompt_request_type
+          Responses::RequestType.new
+        end
 
         protected
 

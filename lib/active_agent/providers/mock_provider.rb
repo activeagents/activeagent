@@ -17,18 +17,18 @@ module ActiveAgent
     #
     # @see BaseProvider
     class MockProvider < BaseProvider
+      # Returns the embedding request type for Mock.
+      #
+      # @return [ActiveModel::Type::Value] The Mock embedding request type
+      def self.embed_request_type
+        Mock::EmbeddingRequestType.new
+      end
+
       # Returns a mock client (just returns self since we don't need a real client).
       #
       # @return [MockProvider] Returns self
       def client
         self
-      end
-
-      # Returns the embedding request type for Mock.
-      #
-      # @return [ActiveModel::Type::Value] The Mock embedding request type
-      def embed_request_type
-        Mock::EmbeddingRequestType.new
       end
 
       protected
