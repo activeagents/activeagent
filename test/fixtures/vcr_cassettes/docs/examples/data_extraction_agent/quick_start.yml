@@ -1,0 +1,242 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"Extract
+        resume data into JSON."},{"type":"input_file","file_data":"data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCgoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagoKMyAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDIgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDQgMCBSCj4+Cj4+Ci9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagoKNSAwIG9iago8PAovTGVuZ3RoIDMwMAo+PgpzdHJlYW0KQlQKL0YxIDE2IFRmCjUwIDc1MCBUZAooSm9obiBEb2UgLSBTb2Z0d2FyZSBFbmdpbmVlcikgVGoKMCAtMzAgVGQKL0YxIDEyIFRmCihFbWFpbDogam9obi5kb2VAZXhhbXBsZS5jb20pIFRqCjAgLTIwIFRkCihQaG9uZTogKDU1NSkgMTIzLTQ1NjcpIFRqCjAgLTIwIFRkCihMb2NhdGlvbjogU2FuIEZyYW5jaXNjbywgQ0EpIFRqCjAgLTQwIFRkCi9GMSAxNCBUZgooRXhwZXJpZW5jZTopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyIGF0IFRlY2hDb3JwICgyMDIwLTIwMjQpKSBUagowIC0yMCBUZAooLSBEZXZlbG9wZWQgd2ViIGFwcGxpY2F0aW9ucyB1c2luZyBSdWJ5IG9uIFJhaWxzKSBUagowIC0yMCBUZAooLSBMZWQgdGVhbSBvZiA1IGRldmVsb3BlcnMpIFRqCjAgLTIwIFRkCigtIEltcGxlbWVudGVkIENJL0NEIHBpcGVsaW5lcykgVGoKMCAtNDAgVGQKL0YxIDE0IFRmCihTa2lsbHM6KSBUagowIC0yNSBUZAovRjEgMTIgVGYKKFJ1YnksIFJhaWxzLCBKYXZhU2NyaXB0LCBQeXRob24sIEFXUywgRG9ja2VyKSBUagowIC00MCBUZAovRjEgMTQgVGYKKEVkdWNhdGlvbjopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooQlMgQ29tcHV0ZXIgU2NpZW5jZSwgU3RhbmZvcmQgVW5pdmVyc2l0eSAoMjAxNi0yMDIwKSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCjAwMDAwMDAzMzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo2ODcKJSVFT0YK","filename":"document.pdf"}]}],"model":"gpt-4o","text":{"format":{"type":"json_schema","name":"resume_schema","schema":{"type":"object","properties":{"name":{"type":"string"},"email":{"type":"string"},"phone":{"type":"string"},"education":{"type":"array","items":{"type":"object","properties":{"degree":{"type":"string"},"institution":{"type":"string"},"year":{"type":"integer"}},"required":["degree","institution","year"],"additionalProperties":false}},"experience":{"type":"array","items":{"type":"object","properties":{"job_title":{"type":"string"},"company":{"type":"string"},"duration":{"type":"string"}},"required":["job_title","company","duration"],"additionalProperties":false}}},"required":["name","email","phone","education","experience"],"additionalProperties":false},"strict":true}}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '2568'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 28 Oct 2025 00:46:04 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999753'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_9ce8acd48e14bfebf531da7da9bd3ede
+      Openai-Processing-Ms:
+      - '2026'
+      X-Envoy-Upstream-Service-Time:
+      - '2029'
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=U8iqmCEzHnvP2LDV3wFactx.r6QXTJ3dMbkQPZRHOzE-1761612364-1.0.1.1-9TUXAf4MvurrBTCPHimHZ9hTGVYGHmJL9i1jcx2lGwRjkcaf.rFGZMBC9dAhwrkESspMrtrMQIeoQC8U7GyZTW_xldO7QyeaWLs8h6KVk5Q;
+        path=/; expires=Tue, 28-Oct-25 01:16:04 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=Nc130JSbLqmVz4wQdToPWwm.t6SXoH4Zv4Rkvzoe7N4-1761612364206-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 995669ef0859fb44-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_01cf2d33085970e0006900124a2b9c8195a560c8bfc4584a6f",
+          "object": "response",
+          "created_at": 1761612362,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "msg_01cf2d33085970e0006900124b66f4819594fde6b511867ab5",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "{\"name\":\"John Doe\",\"email\":\"john.doe@example.com\",\"phone\":\"(555) 123-4567\",\"education\":[{\"degree\":\"BS Computer Science\",\"institution\":\"Stanford University\",\"year\":2020}],\"experience\":[{\"job_title\":\"Senior Software Engineer\",\"company\":\"TechCorp\",\"duration\":\"2020-2024\"}]}"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "json_schema",
+              "description": null,
+              "name": "resume_schema",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "education": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "degree": {
+                          "type": "string"
+                        },
+                        "institution": {
+                          "type": "string"
+                        },
+                        "year": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "degree",
+                        "institution",
+                        "year"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "experience": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "job_title": {
+                          "type": "string"
+                        },
+                        "company": {
+                          "type": "string"
+                        },
+                        "duration": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "job_title",
+                        "company",
+                        "duration"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "email",
+                  "phone",
+                  "education",
+                  "experience"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 228,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 71,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 299
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 28 Oct 2025 00:46:04 GMT
+recorded_with: VCR 6.3.1

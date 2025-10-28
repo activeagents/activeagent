@@ -114,7 +114,7 @@ export default defineConfig({
       { text: 'Examples',
         items: [
           // { text: 'Browser Use', link: '/examples/browser-use-agent' },
-          // { text: 'Data Extraction', link: '/examples/data-extraction-agent' },
+          { text: 'Data Extraction', link: '/examples/data-extraction-agent' },
           // { text: 'Translation', link: '/examples/translation-agent' },
         ]
       },

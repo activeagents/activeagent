@@ -1,0 +1,40 @@
+{
+  "name": "resume_schema",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string" },
+      "email": { "type": "string" },
+      "phone": { "type": "string" },
+      "education": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "degree": { "type": "string" },
+            "institution": { "type": "string" },
+            "year": { "type": "integer" }
+          },
+          "required": ["degree", "institution", "year"],
+          "additionalProperties": false
+        }
+      },
+      "experience": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "jobTitle": { "type": "string" },
+            "company": { "type": "string" },
+            "duration": { "type": "string" }
+          },
+          "required": ["jobTitle", "company", "duration"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["name", "email", "phone", "education", "experience"],
+    "additionalProperties": false
+  }
+}

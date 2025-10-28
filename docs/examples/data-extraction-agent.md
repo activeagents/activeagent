@@ -1,419 +1,139 @@
 ---
-title: Data Extraction Agent
+title: Data Extraction
 ---
 # {{ $frontmatter.title }}
 
-Active Agent provides data extraction capabilities to parse structured data from unstructured text, images, or PDFs.
+Extract structured data from PDF resumes using AI-powered parsing.
 
 ## Setup
 
-Generate a data extraction agent:
-
 ```bash
-rails generate active_agent:agent data_extraction parse_content
+rails generate active_agent:agent resume_extractor parse --json-schema
 ```
 
-## Agent Implementation
+This creates:
+- `app/agents/resume_extractor_agent.rb` - Agent class
+- `app/views/agents/resume_extractor/instructions.md` - Instructions
+- `app/views/agents/resume_extractor/parse.json` - JSON schema
+
+## Quick Start
+
+Download this sample resume to test the agent: [Sample Resume](https://docs.activeagents.ai/sample_resume.pdf)
+
+<<< @/../test/docs/examples/data_extraction_agent_examples_test.rb#quick_start_usage{ruby:line-numbers}
+
+::: details JSON Message
+<!-- @include: @/parts/examples/data-extraction-agent-examples-test.rb-test-quick-start-extraction.md -->
+:::
+
+## How It Works
+
+The agent uses structured output to guarantee JSON matching your schema:
+
+::: code-group
+<<< @/../test/docs/examples/data_extraction_agent_examples_test.rb#quick_start_agent{ruby:line-numbers} [resume_extractor_agent.rb]
+
+<<< @/../test/dummy/app/views/agents/docs/examples/data_extraction_agent_examples/quick_start/resume_extractor/parse.json {json:line-numbers} [parse.json]
+
+:::
+
+**Key features:**
+- `strict: true` - Enforces exact schema compliance
+- `additionalProperties: false` - Rejects unexpected fields
+- Automatic JSON parsing - `response.message.content` returns a hash
+- Type validation - Ensures correct data types (string, integer, array)
+
+## Schema Options
+
+### Static Schema Files
+
+Define schemas in JSON files under `app/views/agents/resume_extractor/`:
+
+```ruby
+  response_format: :json_schema  # Loads parse.json automatically
+```
+
+**When to use:**
+- Standard data structures
+- Stable requirements
+- Team collaboration (reviewable JSON files)
+
+### Model-Generated Schemas
+
+Generate schemas dynamically from your models:
 
 ::: code-group
 
-```ruby [data_extraction_agent.rb]
-class DataExtractionAgent < ApplicationAgent
-  before_action :set_multimodal_content, only: [:parse_content]
+<<< @/../test/docs/examples/data_extraction_agent_examples_test.rb#model_generated_schema_model {ruby:line-numbers} [resume.rb]
 
-  def parse_content
-    prompt_args = {
-      message: params[:message] || "Parse the content of the file or image",
-      image_data: @image_data,
-      file_data: @file_data
-    }
+<<< @/../test/docs/examples/data_extraction_agent_examples_test.rb#model_generated_schema_agent {ruby:line-numbers} [resume_extractor_agent.rb]
 
-    if params[:response_format]
-      prompt_args[:response_format] = params[:response_format]
-    elsif params[:output_schema]
-      # Support legacy output_schema parameter
-      prompt_args[:response_format] = {
-        type: "json_schema",
-        json_schema: params[:output_schema]
-      }
-    end
+:::
 
-    prompt(**prompt_args)
+**When to use:**
+- Existing ActiveRecord/ActiveModel classes
+- Schema mirrors database structure
+- Single source of truth for validations
+
+Learn more: [Structured Output](/actions/structured-output#schema-generation)
+
+## Common Patterns
+
+### Background Processing
+
+For high-volume processing:
+
+```ruby
+class ResumeProcessingJob < ApplicationJob
+  def perform(pdf_path)
+    pdf_data = File.read(pdf_path)
+    pdf_url = "data:application/pdf;base64,#{Base64.strict_encode64(pdf_data)}"
+
+    response = ResumeExtractorAgent.with(document: pdf_url).parse.generate_now
+
+    Resume.create!(response.message.content) if response.success?
   end
+end
 
-  def describe_cat_image
-    prompt(
-      message: "Describe the cat in the image",
-      image_data: CatImageService.fetch_base64_image
-    )
-  end
-
-  private
-
-  def set_multimodal_content
-    if params[:file_path].present?
-      @file_data ||= "data:application/pdf;base64,#{Base64.encode64(File.read(params[:file_path]))}"
-    elsif params[:image_path].present?
-      @image_data ||= "data:image/jpeg;base64,#{Base64.encode64(File.read(params[:image_path]))}"
-    end
-  end
+# Enqueue jobs
+Dir.glob("resumes/*.pdf").each do |path|
+  ResumeProcessingJob.perform_later(path)
 end
 ```
 
-```json [chart_schema.json.erb]
-{
-  "format": {
-    "type": "json_schema",
-    "name": "chart_schema",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string",
-          "description": "The title of the chart."
-        },
-        "data_points": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/data_point"
-          }
-        }
-      },
-      "required": ["title", "data_points"],
-      "additionalProperties": false,
-      "$defs": {
-        "data_point": {
-          "type": "object",
-          "properties": {
-            "label": {
-              "type": "string",
-              "description": "The label for the data point."
-            },
-            "value": {
-              "type": "number",
-              "description": "The value of the data point."
-            }
-          },
-          "required": ["label", "value"],
-          "additionalProperties": false
-        }
-      }
-    }
-  }
-}
-```
+### Consensus Validation
 
-```json [resume_schema.json.erb]
-{
-  "format": {
-    "type": "json_schema",
-    "name": "resume_schema",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "The full name of the individual."
-        },
-        "email": {
-          "type": "string",
-          "format": "email",
-          "description": "The email address of the individual."
-        },
-        "phone": {
-          "type": "string",
-          "description": "The phone number of the individual."
-        },
-        "education": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/education"
-          }
-        },
-        "experience": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/experience"
-          }
-        }
-      },
-      "required": ["name", "email", "phone", "education", "experience"],
-      "additionalProperties": false,
-      "$defs": {
-        "education": {
-          "type": "object",
-          "properties": {
-            "degree": {
-              "type": "string",
-              "description": "The degree obtained."
-            },
-            "institution": {
-              "type": "string",
-              "description": "The institution where the degree was obtained."
-            },
-            "year": {
-              "type": "integer",
-              "description": "The year of graduation."
-            }
-          },
-          "required": ["degree", "institution", "year"],
-          "additionalProperties": false
-        },
-        "experience": {
-          "type": "object",
-          "properties": {
-            "job_title": {
-              "type": "string",
-              "description": "The job title held."
-            },
-            "company": {
-              "type": "string",
-              "description": "The company where the individual worked."
-            },
-            "duration": {
-              "type": "string",
-              "description": "The duration of employment."
-            }
-          },
-          "required": ["job_title", "company", "duration"],
-          "additionalProperties": false
-        }
-      }
-    },
-    "strict": true
-  }
-}
-```
+Ensure extraction accuracy by requiring multiple attempts to agree:
 
+<<< @/../test/docs/examples/data_extraction_agent_examples_test.rb#consensus_validation_example {ruby:line-numbers} [resume_extractor_agent.rb]
+
+This validates extraction reliability by running the agent twice and comparing results. Useful for:
+- Critical data where accuracy is essential
+- Detecting inconsistent model outputs
+- Building confidence in extracted data
+
+## Provider Support
+
+Resume extraction works with providers that support:
+- **PDF processing** - Native or via plugins
+- **Structured output** - JSON schema validation
+
+### Recommended Providers
+
+| Provider | Model | Notes |
+|:---------|:------|:------|
+| **OpenAI** | gpt-4o | Native PDF support, structured output |
+| **OpenAI** | gpt-4o-mini | Faster, lower cost |
+| **Anthropic** | claude-3-5-sonnet | Strong reasoning, base64 PDF |
+| **OpenRouter** | openai/gpt-4o | Access via OpenRouter |
+
+::: tip
+OpenAI's GPT-4o models provide the best balance of accuracy and speed for resume extraction with native structured output support.
 :::
 
-## Basic Image Example
-
-### Image Description
-
-Active Agent can extract descriptions from images without structured output:
-
-```ruby
-prompt = DataExtractionAgent.describe_cat_image
-response = prompt.generate_now
-
-# The response contains a natural language description
-puts response.message.content
-# => "The cat in the image appears to have a primarily dark gray coat..."
-```
-
-::: details Basic Cat Image Response Example
-<!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-describe-cat-image-creates-a-multimodal-prompt-with-image-and-text-content.md -->
-:::
-
-### Image: Parse Chart Data
-
-Active Agent can extract data from chart images:
-
-```ruby
-sales_chart_path = Rails.root.join("test", "fixtures", "images", "sales_chart.png")
-
-prompt = DataExtractionAgent.with(
-  image_path: sales_chart_path
-).parse_content
-
-response = prompt.generate_now
-
-# The response contains chart analysis
-puts response.message.content
-# => "The image is a bar chart titled 'Quarterly Sales Report'..."
-```
-
-::: details Basic Chart Image Response Example
-<!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-chart-content-from-image-data.md -->
-:::
-
-## Structured Output
-Active Agent supports structured output using JSON schemas. Define schemas in your agent's views directory (e.g., `app/views/agents/data_extraction/`) and reference them using `response_format: { type: "json_schema", json_schema: :schema_name }`. [Learn more about structured output →](/actions/structured-output)
-
-### Structured Output Schemas
-
-When using structured output:
-- The response will have `content_type` of `application/json`
-- The response content will be valid JSON matching your schema
-- Parse the response with `JSON.parse(response.message.content)`
-
-#### Generating Schemas from Models
-
-ActiveAgent provides a `SchemaGenerator` module that can automatically create JSON schemas from your ActiveRecord and ActiveModel classes. This makes it easy to ensure extracted data matches your application's data models.
-
-##### Basic Usage
-
-::: code-group
-<<< @/../test/schema_generator_test.rb#basic_user_model {ruby:line-numbers}
-<<< @/../test/schema_generator_test.rb#basic_schema_generation {ruby:line-numbers}
-:::
-
-The `to_json_schema` method generates a JSON schema from your model's attributes and validations.
-
-##### Schema with Validations
-
-Model validations are automatically included in the generated schema:
-
-<<< @/../test/schema_generator_test.rb#schema_with_validations {ruby:line-numbers}
-
-##### Strict Schema for Structured Output
-
-For use with AI providers that support structured output, generate a strict schema:
-
-::: code-group
-<<< @/../test/schema_generator_test.rb#blog_post_model {ruby:line-numbers}
-<<< @/../test/schema_generator_test.rb#strict_schema_generation {ruby:line-numbers}
-:::
-
-##### Using Generated Schemas in Agents
-
-Agents can use the schema generator to create structured output schemas dynamically:
-
-<<< @/../test/schema_generator_test.rb#agent_using_schema {ruby:line-numbers}
-
-This allows you to maintain a single source of truth for your data models and automatically generate schemas for AI extraction.
-
-::: info Provider Support
-Structured output requires a provider that supports JSON schemas. Currently supported providers include:
-- **OpenAI** - GPT-4o, GPT-4o-mini, GPT-3.5-turbo variants
-- **OpenRouter** - When using compatible models like OpenAI models through OpenRouter
-
-See the [OpenRouter Provider documentation](/providers/open-router-provider#structured-output-support) for details on using structured output with multiple model providers.
-:::
-
-
-### Parse Chart Image with Structured Output
-![Chart Image](https://raw.githubusercontent.com/activeagents/activeagent/refs/heads/main/test/fixtures/images/sales_chart.png)
-
-Extract chart data with a predefined schema `chart_schema`:
-
-```ruby
-sales_chart_path = Rails.root.join("test", "fixtures", "images", "sales_chart.png")
-
-prompt = DataExtractionAgent.with(
-  response_format: {
-    type: "json_schema",
-    json_schema: :chart_schema
-  },
-  image_path: sales_chart_path
-).parse_content
-
-response = prompt.generate_now
-
-# When using json_schema response_format, content is already parsed
-json_response = response.message.content
-
-puts json_response["title"]
-# => "Quarterly Sales Report"
-puts json_response["data_points"].first
-# => {"label"=>"Q1", "value"=>25000}
-```
-
-#### Response
-
-:::: tabs
-
-== Response Object
-```ruby
-response = prompt.generate_now
-# Response has parsed JSON content
-```
-::: details Generation Response Example
-<!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-chart-content-from-image-data-with-structured-output-schema.md -->
-:::
-== JSON Output
-
-```ruby
-# When using json_schema response_format, content is already parsed
-json_response = response.message.content
-```
-::: details Parse Chart JSON Response Example
-<!-- @include: @/parts/examples/data-extraction-agent-test.rb-parse-chart-json-response.md -->
-:::
-::::
-
-### Parse Resume with output resume schema
-
-Extract information from PDF resumes:
-
-```ruby
-sample_resume_path = Rails.root.join("test", "fixtures", "files", "sample_resume.pdf")
-
-prompt = DataExtractionAgent.with(
-  file_path: sample_resume_path
-).parse_content
-
-response = prompt.generate_now
-
-# When using json_schema response_format, content is auto-parsed
-puts response.message.content["name"]
-# => "John Doe"
-puts response.message.content["experience"].first["job_title"]
-# => "Senior Software Engineer"
-```
-
-#### Parse Resume with Structured Output
-[![Sample Resume](/sample_resume.png)](https://docs.activeagents.ai/sample_resume.pdf)
-Extract resume data with a predefined `resume_schema`:
-
-:::: tabs
-
-== Prompt Generation
-
-```ruby
-prompt = DataExtractionAgent.with(
-  file_path: Rails.root.join("test", "fixtures", "files", "sample_resume.pdf")
-).parse_content
-
-response = prompt.generate_now
-```
-::: details Generation Response Example
-<!-- @include: @/parts/examples/data-extraction-agent-test.rb-test-parse-resume-creates-a-multimodal-prompt-with-file-data-with-structured-output-schema.md -->
-:::
-== JSON Output
-
-```ruby
-# When using json_schema response_format, content is already parsed
-json_response = response.message.content
-
-puts json_response["name"]
-# => "John Doe"
-puts json_response["email"]
-# => "john.doe@example.com"
-```
-::: details Parse Resume JSON Response Example
-<!-- @include: @/parts/examples/data-extraction-agent-test.rb-parse-resume-json-response.md -->
-:::
-::::
-
-## Advanced Examples
-
-### Receipt Data Extraction with OpenRouter
-
-For extracting data from receipts and invoices, you can use OpenRouter's multimodal capabilities combined with structured output. OpenRouter provides access to models that support both vision and structured output, making it ideal for document processing tasks.
-
-See the [OpenRouter Receipt Extraction example](/providers/open-router-provider#receipt-data-extraction-with-structured-output) for a complete implementation that extracts:
-- Merchant information (name, address)
-- Line items with prices
-- Tax and total amounts
-- Currency details
-
-### Using Different Providers
-
-The Data Extraction Agent can work with any provider that supports the required capabilities:
-
-- **For text extraction**: Any provider (OpenAI, Anthropic, Ollama, etc.)
-- **For image analysis**: Providers with vision models (OpenAI GPT-4o, Anthropic Claude 3, etc.)
-- **For structured output**: OpenAI models or OpenRouter with compatible models
-- **For PDF processing**: OpenRouter with PDF plugins or models with native PDF support
-
-::: tip Provider Selection
-Choose your provider based on your specific needs:
-- **OpenAI**: Best for structured output with GPT-4o/GPT-4o-mini
-- **OpenRouter**: Access to 200+ models with fallback support
-- **Anthropic**: Strong reasoning capabilities with Claude models
-- **Ollama**: Local model deployment for privacy-sensitive data
-
-Learn more about configuring providers in the [Providers Overview](/framework/providers).
-:::
+## See Also
+
+- [Structured Output](/actions/structured-output) - JSON schema validation
+- [Messages](/actions/messages) - Multimodal content (PDFs, images)
+- [OpenAI Provider](/providers/open-ai) - Configuration details
+- [OpenRouter Provider](/providers/open-router) - Alternative provider with 200+ models
