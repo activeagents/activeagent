@@ -42,7 +42,8 @@ module Integration
               },
               base64: {
                 type: "input_file",
-                file_url: FILE_BASE64
+                filename: "document.pdf",
+                file_data: FILE_BASE64
               }
             }
           }
@@ -238,13 +239,13 @@ module Integration
             # :image_attachment_message,
             # :image_attachment_messages,
 
-            # # File tests
+            # File tests
             :document_url_bare,
             :document_url_message,
-            :document_url_messages
-            # :document_base64_bare,
-            # :document_base64_message,
-            # :document_base64_messages
+            :document_url_messages,
+            :document_base64_bare,
+            :document_base64_message,
+            :document_base64_messages
             # :document_attachment_bare,
             # :document_attachment_message,
             # :document_attachment_messages

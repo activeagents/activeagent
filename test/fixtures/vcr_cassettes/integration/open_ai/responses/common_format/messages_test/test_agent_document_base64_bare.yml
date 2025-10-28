@@ -1,0 +1,171 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"What''s
+        in this document?"},{"type":"input_file","file_data":"data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCgoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagoKMyAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDIgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDQgMCBSCj4+Cj4+Ci9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagoKNSAwIG9iago8PAovTGVuZ3RoIDMwMAo+PgpzdHJlYW0KQlQKL0YxIDE2IFRmCjUwIDc1MCBUZAooSm9obiBEb2UgLSBTb2Z0d2FyZSBFbmdpbmVlcikgVGoKMCAtMzAgVGQKL0YxIDEyIFRmCihFbWFpbDogam9obi5kb2VAZXhhbXBsZS5jb20pIFRqCjAgLTIwIFRkCihQaG9uZTogKDU1NSkgMTIzLTQ1NjcpIFRqCjAgLTIwIFRkCihMb2NhdGlvbjogU2FuIEZyYW5jaXNjbywgQ0EpIFRqCjAgLTQwIFRkCi9GMSAxNCBUZgooRXhwZXJpZW5jZTopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyIGF0IFRlY2hDb3JwICgyMDIwLTIwMjQpKSBUagowIC0yMCBUZAooLSBEZXZlbG9wZWQgd2ViIGFwcGxpY2F0aW9ucyB1c2luZyBSdWJ5IG9uIFJhaWxzKSBUagowIC0yMCBUZAooLSBMZWQgdGVhbSBvZiA1IGRldmVsb3BlcnMpIFRqCjAgLTIwIFRkCigtIEltcGxlbWVudGVkIENJL0NEIHBpcGVsaW5lcykgVGoKMCAtNDAgVGQKL0YxIDE0IFRmCihTa2lsbHM6KSBUagowIC0yNSBUZAovRjEgMTIgVGYKKFJ1YnksIFJhaWxzLCBKYXZhU2NyaXB0LCBQeXRob24sIEFXUywgRG9ja2VyKSBUagowIC00MCBUZAovRjEgMTQgVGYKKEVkdWNhdGlvbjopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooQlMgQ29tcHV0ZXIgU2NpZW5jZSwgU3RhbmZvcmQgVW5pdmVyc2l0eSAoMjAxNi0yMDIwKSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCjAwMDAwMDAzMzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo2ODcKJSVFT0YK","filename":"document.pdf"}]}],"model":"gpt-4.1"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '1816'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 28 Oct 2025 00:41:49 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999864'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_7f7543827d2a252376ccec4f10781dcd
+      Openai-Processing-Ms:
+      - '3729'
+      X-Envoy-Upstream-Service-Time:
+      - '3738'
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=6FLusM7zNv3ziGEAonPLJvEJsMWrqCeYIVrSglprA0c-1761612109-1.0.1.1-vQ6Eqea2DmWTdQJ.RCSLI.hn_8EBL_xRDfs3ftk.RX062wtRDtNuluMVntB7A86SG322pPWLhi5GwXrIxuY8B2A_.S3K9jXzi2DLS4GZRtg;
+        path=/; expires=Tue, 28-Oct-25 01:11:49 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=WQRIPEckNzJBBJEJ.pC624Ic1vTdyrPCyhBzt3FgGYE-1761612109835-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 995663ab5c497ab5-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_079081768e8568f6006900114a20b08199be3f8f92b348edfe",
+          "object": "response",
+          "created_at": 1761612107,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_079081768e8568f6006900114c47288199898493fb4316563f",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "This document is a r\u00e9sum\u00e9 (curriculum vitae) for John Doe, a Software Engineer. Here\u2019s what it contains:\n\n**Contact Information:**\n- Name: John Doe\n- Email: john.doe@example.com\n- Phone: (555) 123-4567\n- Location: San Francisco, CA\n\n**Experience:**\n- Senior Software Engineer at TechCorp (2020-2024)\n  - Developed web applications using Ruby on Rails\n  - Led a team of 5 developers\n  - Implemented CI/CD pipelines\n\n**Skills:**\n- Ruby\n- Rails\n- JavaScript\n- Python\n- AWS\n- Docker\n\n**Education:**\n- BS in Computer Science, Stanford University (2016-2020)\n\nThis document outlines John Doe\u2019s qualifications, work experience, skills, and education, commonly used for job applications."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 117,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 175,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 292
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Tue, 28 Oct 2025 00:41:49 GMT
+recorded_with: VCR 6.3.1
