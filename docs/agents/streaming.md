@@ -155,7 +155,7 @@ on_stream { |chunk| expensive_processing(chunk.delta) }
 
 ## Limitations
 
-- **Background jobs**: Streaming doesn't work with `generate_later` since callbacks require an active agent instance
+- **Background jobs**: Streaming doesn't work with `prompt_later` since callbacks require an active agent instance
 - **Tool execution**: Providers may pause streaming to execute tools, then resume
 - **Provider differences**: Streaming behavior varies by provider—some send metadata chunks, others only send content
 - **Structured output**: Not all providers support streaming with structured output schemas

@@ -2,6 +2,7 @@ require "active_support/delegation"
 
 require_relative "common/response"
 require_relative "concerns/exception_handler"
+require_relative "concerns/previewable"
 
 # Maps provider types to their gem dependencies.
 # @private
@@ -40,8 +41,10 @@ module ActiveAgent
     #   {#process_stream_chunk}, {#process_prompt_finished_extract_messages},
     #   and {#process_prompt_finished_extract_function_calls}
     class BaseProvider
-      include ExceptionHandler
       extend ActiveSupport::Delegation
+
+      include ExceptionHandler
+      include Previewable
 
       class ProvidersError < StandardError; end
 
@@ -114,6 +117,16 @@ module ActiveAgent
           self.request = prompt_request_type.cast(context.except(:trace_id))
           resolve_prompt
         end
+      end
+
+      # Generates a preview of the prompt without executing the API call.
+      #
+      # Casts context into a request object and renders it as markdown for inspection.
+      #
+      # @return [String] markdown-formatted preview
+      def preview
+        self.request = prompt_request_type.cast(context.except(:trace_id))
+        preview_prompt
       end
 
       # Executes an embedding request with error handling and instrumentation.

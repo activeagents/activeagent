@@ -103,6 +103,17 @@ module ActiveAgent
     end
     alias generate_later prompt_later
 
+    # Generates a preview of the prompt without executing generation.
+    #
+    # Processes the agent action and renders the prompt configuration as
+    # markdown for debugging and inspection.
+    #
+    # @return [String] markdown-formatted preview
+    def prompt_preview
+      agent.preview_prompt
+    end
+    alias preview_prompt prompt_preview
+
     # Executes embedding generation synchronously.
     #
     # @return [ActiveAgent::Providers::Response] embedding response with vector data

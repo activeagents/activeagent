@@ -186,6 +186,26 @@ module Docs
           assert_equal :ai_tasks, MyAgent.generate_later_queue_name
         end
       end
+
+      class PromptPreviews < ActiveSupport::TestCase
+        test "preview prompt before execution" do
+          # region prompt_preview_basic
+          preview = ApplicationAgent.prompt(
+            instructions: "You are a helpful assistant",
+            message: "What is 2+2?",
+            temperature: 0.7
+          ).prompt_preview
+          # endregion prompt_preview_basic
+
+          doc_example_output(preview)
+
+          assert_kind_of String, preview
+          assert_match(/^---/, preview)
+          assert_includes preview, "You are a helpful assistant"
+          assert_includes preview, "What is 2+2?"
+          assert_includes preview, "temperature: 0.7"
+        end
+      end
     end
   end
 end

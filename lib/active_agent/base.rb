@@ -254,6 +254,21 @@ module ActiveAgent
 
     alias_method :process_prompt!, :process_prompt
 
+    # Generates a preview of the prompt without executing generation.
+    #
+    # Useful for debugging and inspecting the final prompt that would be
+    # sent to the provider, including rendered templates and merged parameters.
+    #
+    # @return [String, Hash] preview format depends on provider implementation
+    # @raise [RuntimeError] if no prompt provider is configured
+    def preview_prompt
+      fail "Prompt Provider not Configured" unless prompt_provider_klass
+
+      parameters = prepare_prompt_parameters
+
+      prompt_provider_klass.new(**parameters).preview
+    end
+
     # Executes embedding generation using configured provider and options.
     #
     # Templates are rendered as late as possible to allow local overrides.

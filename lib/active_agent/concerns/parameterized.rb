@@ -229,6 +229,19 @@ module ActiveAgent
         end
       end
 
+      # Generates a preview based on generation type.
+      #
+      # @return [String] markdown-formatted preview for prompt generations
+      # @raise [NotImplementedError] for embed generations (not yet supported)
+      def preview
+        case @generation_type
+        when :prompt
+          prompt_preview
+        when :embed
+          raise NotImplementedError, "Embed previewing is not supported"
+        end
+      end
+
       private
 
       # Creates and processes an agent instance for direct generation.

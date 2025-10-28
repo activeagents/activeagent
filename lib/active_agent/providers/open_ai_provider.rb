@@ -68,6 +68,20 @@ module ActiveAgent
         end
       end
 
+      # Generates a preview by routing to the appropriate OpenAI API version.
+      #
+      # Routes to Chat API or Responses API using the same logic as {#prompt}.
+      #
+      # @return [String] markdown-formatted preview
+      # @see #prompt
+      def preview
+        if api_version == :chat || context[:audio].present?
+          OpenAI::ChatProvider.new(raw_options).preview
+        else # api_version == :responses || true
+          OpenAI::ResponsesProvider.new(raw_options).preview
+        end
+      end
+
       protected
 
       # Executes an embedding request via OpenAI's API.

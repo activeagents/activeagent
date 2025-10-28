@@ -143,6 +143,12 @@ end
 - Multi-input embedding: `embed(inputs: ["Text 1", "Text 2"])`
 - Provider-specific options: `dimensions`, `encoding_format`
 
+**Prompt Previews:**
+- `prompt_preview` (alias: `preview_prompt`) for debugging prompts before execution
+- Markdown-formatted output with YAML frontmatter containing request parameters
+- Shows instructions, messages, and tool definitions
+- Useful for testing, debugging, and cache key generation
+
 **Error Handling:**
 - `rescue_from` integration with agent context
 - Exception handler concern for agent-level error handling

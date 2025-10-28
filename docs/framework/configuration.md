@@ -44,7 +44,7 @@ Settings are applied in the following order, from lowest to highest precedence:
 2. **Environment-Specific Settings** - Override root settings based on the current environment (development, test, production)
 3. **Agent-Level Settings** - Configuration provided to `generate_with` or `embed_with` in your agent class
 4. **Request-Level Settings** - Settings passed when calling `prompt`, `embed`, or `generate_with` on an instance
-5. **Generation Call** - Final settings applied at the moment `generate_now` or `embed_now` is triggered
+5. **Generation Call** - Final settings applied at the moment `prompt_now` or `embed_now` is triggered
 
 Each level overrides only the specific settings it defines, leaving others unchanged from previous levels.
 
@@ -79,7 +79,7 @@ agent = MyAgent.with(message: "Hello")
   .generate_with(:openai, model: "gpt-4o", max_tokens: 1000)  # Overrides model, adds max_tokens
 
 # 5. Generation triggered
-result = agent.generate_now  # Uses: openai service, gpt-4o model, 0.8 temperature, 1000 max_tokens
+result = agent.prompt_now  # Uses: openai service, gpt-4o model, 0.8 temperature, 1000 max_tokens
 ```
 
 ### Precedence in Action
@@ -140,7 +140,7 @@ end
 ### Key Principles
 
 - **Explicit overrides implicit** - Specifically set values always win over inherited ones
-- **Closer to execution wins** - Settings applied closer to `generate_now` take precedence
+- **Closer to execution wins** - Settings applied closer to `prompt_now` take precedence
 - **Partial overrides** - You only need to specify the settings you want to change
 - **Environment awareness** - Environment-specific settings automatically apply without code changes
 

@@ -1,6 +1,6 @@
 ---
 title: Generation
-description: Execute AI generations synchronously with generate_now or asynchronously with generate_later using ActiveAgent's generation methods.
+description: Execute AI generations synchronously with prompt_now or asynchronously with prompt_later using ActiveAgent's generation methods.
 ---
 # {{ $frontmatter.title }}
 
@@ -12,7 +12,7 @@ Execute immediately and return the response:
 
 <<< @/../test/docs/agents/generation_examples_test.rb#synchronous_generation_basic{ruby:line-numbers}
 
-Use `generate_now` (alias: `prompt_now`) for generations or `embed_now` for embeddings.
+Use `prompt_now` (alias: `generate_now`) for generations or `embed_now` for embeddings.
 
 ## Asynchronous
 
@@ -22,7 +22,7 @@ Queue for background execution using Active Job:
 
 <<< @/../test/docs/agents/generation_examples_test.rb#asynchronous_generation_options{ruby:line-numbers}
 
-Use `generate_later` (alias: `prompt_later`) for generations or `embed_later` for embeddings. Background jobs run through `ActiveAgent::GenerationJob` and respect your Active Job configuration.
+Use `prompt_later` (alias: `generate_later`) for generations or `embed_later` for embeddings. Background jobs run through `ActiveAgent::GenerationJob` and respect your Active Job configuration.
 
 Configure queue name and adapter:
 
@@ -61,6 +61,22 @@ Access prompt properties before generating:
 <<< @/../test/docs/agents/generation_examples_test.rb#inspecting_before_execution{ruby:line-numbers}
 
 This is useful for debugging, testing, or conditional execution.
+
+## Prompt Previews
+
+Preview the final prompt without executing generation, including rendered templates and merged parameters:
+
+<<< @/../test/docs/agents/generation_examples_test.rb#prompt_preview_basic{ruby:line-numbers}
+
+The preview returns markdown-formatted output with YAML frontmatter:
+
+::: details Markdown Preview
+<!-- @include: @/parts/examples/generation-examples-test.rb-test-preview-prompt-before-execution.md -->
+:::
+
+::: tip
+Since previews include all parameters, messages, instructions, and tool definitions, hashing the preview can be used to build cache keys.
+:::
 
 ## Response Objects
 
