@@ -1,4 +1,8 @@
-# Providers
+---
+title: Providers
+description: Connect your agents to AI services through a unified interface. Switch between OpenAI, Anthropic, local models, or testing mocks without changing agent code.
+---
+# {{ $frontmatter.title }}
 
 Providers connect your agents to AI services through a unified interface. Switch between OpenAI, Anthropic, local models, or testing mocks without changing agent code.
 

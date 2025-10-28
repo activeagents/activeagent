@@ -1,4 +1,8 @@
-# Retries
+---
+title: Retries
+description: Automatic retry mechanisms for handling rate limits, timeouts, and transient errors using provider-native SDK retry strategies with exponential backoff.
+---
+# {{ $frontmatter.title }}
 
 LLM service APIs are inherently unstable, with requests frequently failing due to rate limits, temporary outages, network issues, and other transient errors. ActiveAgent relies on the built-in retry mechanisms provided by each provider's underlying SDK (ruby-openai, anthropic-rb, etc.), which implement sophisticated retry strategies with exponential backoff and rate limit handling.
 
@@ -149,7 +153,7 @@ end
 
 ## Error Handling
 
-For comprehensive error handling patterns including exception handlers and recovery strategies, see **[Error Handling](/agents/error-handling)**.
+For comprehensive error handling patterns including exception handlers and recovery strategies, see **[Error Handling](/agents/error_handling)**.
 
 ## Provider Documentation
 
@@ -162,6 +166,8 @@ Each provider SDK has detailed documentation on their retry implementation:
 ## Related Documentation
 
 - **[Configuration](/framework/configuration)** - Framework and provider configuration
-- **[Error Handling](/agents/error-handling)** - Agent-level error handling
+- **[Rails Integration](/framework/rails)** - Rails-specific configuration and setup
+- **[Testing](/framework/testing)** - Test configuration and mock providers
+- **[Error Handling](/agents/error_handling)** - Agent-level error handling
 - **[Instrumentation](/framework/instrumentation)** - Monitoring and logging
 - **[Providers](/providers)** - Provider-specific documentation

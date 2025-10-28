@@ -1,5 +1,6 @@
 ---
 title: Research Agent
+description: Combine multiple tools and data sources for comprehensive research tasks. Integrates web search, MCP servers, and image generation for powerful research workflows.
 ---
 # {{ $frontmatter.title }}
 

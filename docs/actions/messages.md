@@ -1,4 +1,8 @@
-# Messages
+---
+title: Messages
+description: Build conversation context with messages containing roles (user, assistant, system, tool) and content (text, images, documents) in native or unified format.
+---
+# {{ $frontmatter.title }}
 
 Messages build the conversation context for agent interactions. Each message has a role (user, assistant, system, or tool) and content (text, images, or documents). ActiveAgent supports both native provider formats and a unified common format that works across all providers.
 
@@ -124,7 +128,12 @@ Both formats work with all providers, but common format is simpler and more port
 
 ## Related Documentation
 
+- [Agents →](/agents) - Understanding the agent lifecycle
+- [Actions →](/actions) - Overview of agent capabilities
 - [Tools →](/actions/tools) - Defining and using agent tools
-- [Agent Instructions →](/agents/instructions) - Setting system messages and guiding agent behavior
+- [Instructions →](/agents/instructions) - Setting system messages and guiding agent behavior
 - [Generation →](/agents/generation) - How messages flow through the generation process
-- [Structured Output →](/actions/structured-output) - Formatting agent responses
+- [Structured Output →](/actions/structured_output) - Formatting agent responses
+- [Callbacks →](/agents/callbacks) - Hook into message processing
+- [Streaming →](/agents/streaming) - Real-time message updates
+- [Testing →](/framework/testing) - Test message handling patterns

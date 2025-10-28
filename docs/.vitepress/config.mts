@@ -48,6 +48,7 @@ export default defineConfig({
   ],
   cleanUrls: true,
   themeConfig: {
+
     search: {
       provider: 'local',
     },
@@ -68,7 +69,7 @@ export default defineConfig({
       },
       {
         text: 'Getting Started',
-        link: '/getting-started',
+        link: '/getting_started',
       },
       {
         text: 'Framework',
@@ -79,7 +80,7 @@ export default defineConfig({
           { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Retries', link: '/framework/retries' },
           { text: 'Rails Integration', link: '/framework/rails' },
-          // { text: 'Testing', link: '/framework/testing' },
+          { text: 'Testing', link: '/framework/testing' },
         ]
       },
       { text: 'Agents',
@@ -89,7 +90,7 @@ export default defineConfig({
           { text: 'Instructions', link: '/agents/instructions' },
           { text: 'Streaming', link: '/agents/streaming' },
           { text: 'Callbacks', link: '/agents/callbacks' },
-          { text: 'Error Handling', link: '/agents/error-handling' },
+          { text: 'Error Handling', link: '/agents/error_handling' },
         ]
       },
       {
@@ -114,7 +115,7 @@ export default defineConfig({
       { text: 'Examples',
         items: [
           // { text: 'Browser Use', link: '/examples/browser-use-agent' },
-          { text: 'Data Extraction', link: '/examples/data-extraction-agent' },
+          { text: 'Data Extraction', link: '/examples/data_extraction_agent' },
           // { text: 'Translation', link: '/examples/translation-agent' },
         ]
       },
@@ -124,6 +125,9 @@ export default defineConfig({
         ]
       },
     ],
+    outline: {
+      level: 'deep'
+    },
 
     socialLinks: [
       { icon: 'bluesky', link: 'https://bsky.app/profile/activeagents.ai' },
@@ -133,5 +137,6 @@ export default defineConfig({
       { icon: 'twitch', link: 'https://www.twitch.tv/tonsoffun111' },
       { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
     ],
-  }
+  },
+  lastUpdated: true
 })

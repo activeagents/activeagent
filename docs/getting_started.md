@@ -1,5 +1,6 @@
 ---
 title: Getting Started
+description: Build AI agents with Rails in minutes. Learn how to install, configure, and create your first agent.
 ---
 # {{ $frontmatter.title }}
 
@@ -200,6 +201,7 @@ See **[Generation](/agents/generation)** for background jobs, callbacks, and res
 - **[Messages](/actions/messages)** - Images, documents, conversation history
 - **[Tools](/actions/tools)** - Function calling and MCP integration
 - **[Structured Output](/actions/structured_output)** - Parse JSON with schemas
+- **[Embeddings](/actions/embeddings)** - Vector generation for semantic search
 - **[Providers](/providers)** - OpenAI, Anthropic, Ollama, OpenRouter
 
 **Framework:**
@@ -207,3 +209,4 @@ See **[Generation](/agents/generation)** for background jobs, callbacks, and res
 - **[Rails Integration](/framework/rails)** - Generators, helpers, conventions
 - **[Retries](/framework/retries)** - Error handling and retry strategies
 - **[Instrumentation](/framework/instrumentation)** - Logging and monitoring
+- **[Testing](/framework/testing)** - Test your agents with fixtures and VCR

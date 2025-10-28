@@ -1,8 +1,12 @@
-# Structured Output
+---
+title: Structured Output
+description: Control JSON responses from AI models with json_object for simple output or json_schema for validated structured data.
+---
+# {{ $frontmatter.title }}
 
 Control JSON responses from AI models with `json_object` (simple) or `json_schema` (validated).
 
-Default: agents return plain text or markdown. Use `response_format` for JSON output. See [Actions](/actions/messages) for general prompt parameters.
+Default: agents return plain text or markdown. Use `response_format` for JSON output. See [Messages](/actions/messages) for general prompt parameters and [Agents](/agents) for the complete agent lifecycle.
 
 ## Response Format Types
 
@@ -140,8 +144,8 @@ Integrate generated schemas into agents:
 
 ## See Also
 
-- [Data Extraction Agent Example](/examples/data-extraction-agent)
+- [Data Extraction Agent Example](/examples/data_extraction_agent)
 - [Actions & Prompts](/actions/messages)
-- [OpenAI Provider](/providers/open-ai)
-- [OpenRouter Provider](/providers/open-router)
+- [OpenAI Provider](/providers/open_ai)
+- [OpenRouter Provider](/providers/open_router)
 - [Anthropic Provider](/providers/anthropic)

@@ -1,4 +1,8 @@
-# Error Handling
+---
+title: Error Handling
+description: Build resilient agents with automatic retries for network failures and application-level rescue handlers for custom error recovery.
+---
+# {{ $frontmatter.title }}
 
 ActiveAgent provides two complementary layers of error handling for building resilient agents:
 

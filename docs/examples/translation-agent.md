@@ -1,5 +1,6 @@
 ---
 title: Translation Agent
+description: Create specialized agents for language translation tasks. Demonstrates how to build focused, single-purpose agents with clear responsibilities.
 ---
 # {{ $frontmatter.title }}
 

@@ -1,4 +1,8 @@
-# Agent Instructions
+---
+title: Agent Instructions
+description: System-level messages that guide agent behavior, personality, capabilities, and tool usage. The agent's operating manual for every interaction.
+---
+# {{ $frontmatter.title }}
 
 Instructions are system-level messages that guide how agents behave and respond. They define the agent's personality, capabilities, constraints, and how it should use available tools. Think of instructions as the agent's "operating manual" that shapes every interaction.
 
@@ -352,8 +356,11 @@ delegate to the <%= params[:delegate_to] %> agent.
 
 ## Related Documentation
 
-- [Actions](/actions/actions) - How instructions integrate with agent actions
+- [Agents](/agents) - Understanding the agent lifecycle
+- [Actions](/actions) - How instructions integrate with agent actions
 - [Messages](/actions/messages) - Understanding message roles and context
-- [Prompts](/actions/prompts) - Building prompt contexts with instructions
-- [Views](/agents) - ERB template rendering for agents
+- [Generation](/agents/generation) - How instructions flow through execution
+- [Callbacks](/agents/callbacks) - Modify instructions in lifecycle hooks
+- [Configuration](/framework/configuration) - Configure instruction behavior
 - [Testing](/framework/testing) - Testing agents with different instructions
+- [Rails Integration](/framework/rails) - ERB template rendering for agents

@@ -1,5 +1,6 @@
 ---
 title: MCP Integration Agent
+description: Connect ActiveAgent with external services through Model Context Protocol. Demonstrates standardized integration with cloud storage, APIs, and custom services.
 ---
 # {{ $frontmatter.title }}
 

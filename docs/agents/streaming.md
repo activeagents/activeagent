@@ -1,4 +1,8 @@
-# Streaming
+---
+title: Streaming
+description: Stream responses from AI providers in real-time using callbacks that execute at different points in the streaming lifecycle.
+---
+# {{ $frontmatter.title }}
 
 Stream responses from AI providers in real-time using ActiveAgent's streaming callbacks. This guide covers handling streaming responses with callbacks that execute at different points in the streaming lifecycle.
 
@@ -158,7 +162,7 @@ on_stream { |chunk| expensive_processing(chunk.delta) }
 
 ## Next Steps
 
-- [Error Handling](/docs/agents/error-handling.md) - Handle failures in streaming and generation
-- [Callbacks](/docs/agents/callbacks.md) - Non-streaming lifecycle events
-- [Instrumentation](/docs/framework/instrumentation.md) - Monitor and measure streaming performance
-- [Providers](/docs/providers) - Provider-specific streaming documentation
+- [Error Handling](/agents/error_handling) - Handle failures in streaming and generation
+- [Callbacks](/agents/callbacks) - Non-streaming lifecycle events
+- [Instrumentation](/framework/instrumentation) - Monitor and measure streaming performance
+- [Providers](/providers) - Provider-specific streaming documentation

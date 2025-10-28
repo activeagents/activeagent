@@ -1,7 +1,8 @@
 ---
 title: Agents
+description: Controllers for AI interactions with actions, callbacks, views, and concerns that generate AI responses instead of rendering HTML.
 ---
-# Agents
+# {{ $frontmatter.title }}
 
 Controllers for AI interactions. Like Rails controllers, agents have actions, callbacks, views, and concerns—but they generate AI responses instead of rendering HTML.
 
@@ -91,11 +92,11 @@ See [Streaming](/agents/streaming) for complete documentation.
 - [Instructions](/agents/instructions) - System prompts that guide behavior
 - [Callbacks](/agents/callbacks) - Lifecycle hooks and event handling
 - [Streaming](/agents/streaming) - Real-time response updates
-- [Error Handling](/agents/error-handling) - Retries and graceful degradation
+- [Error Handling](/agents/error_handling) - Retries and graceful degradation
 
 **Related Topics:**
-- [Tool Calling](/actions/tool-calling) - Use agent actions as AI-callable tools
-- [Structured Output](/actions/structured-output) - Extract typed data with schemas
+- [Tools](/actions/tools) - Use agent actions as AI-callable tools
+- [Structured Output](/actions/structured_output) - Extract typed data with schemas
 - [Embeddings](/actions/embeddings) - Vector generation for semantic search
 - [Testing](/framework/testing) - Test agents and concerns
 - [Instrumentation](/framework/instrumentation) - Monitor with notifications

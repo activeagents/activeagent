@@ -1,4 +1,8 @@
-# OpenRouter Provider
+---
+title: OpenRouter Provider
+description: Access 200+ AI models from multiple providers through unified API. Intelligent routing, automatic fallbacks, multimodal support, PDF processing, and cost optimization.
+---
+# {{ $frontmatter.title }}
 
 The OpenRouter provider enables access to 200+ AI models from multiple providers (OpenAI, Anthropic, Google, Meta, and more) through a unified API. It offers intelligent model routing, automatic fallbacks, multimodal support, PDF processing, and cost optimization features.
 
@@ -91,7 +95,7 @@ Tool calling support varies by model. Most modern models (GPT-4o, Claude 3.5, Ge
 
 ### Response Format
 
-- **`response_format`** - Output format control (see [Structured Output](/actions/structured-output))
+- **`response_format`** - Output format control (see [Structured Output](/actions/structured_output))
 
 ### Predicted Outputs
 
@@ -288,8 +292,8 @@ For sensitive data, use privacy-first providers:
 
 ## Related Documentation
 
-- [Structured Output](/actions/structured-output) - Comprehensive structured output guide
-- [Data Extraction Agent](/examples/data-extraction-agent) - Data extraction examples
+- [Structured Output](/actions/structured_output) - Comprehensive structured output guide
+- [Data Extraction Agent](/examples/data_extraction_agent) - Data extraction examples
 - [Providers Overview](/providers) - Provider architecture
 - [Configuration Guide](/framework/configuration) - General configuration
 - [OpenRouter API Documentation](https://openrouter.ai/docs) - Official OpenRouter docs

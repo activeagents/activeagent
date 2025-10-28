@@ -1,4 +1,8 @@
-# Embeddings
+---
+title: Embeddings
+description: Generate vector embeddings from text to enable semantic search, clustering, and similarity comparison in your AI applications.
+---
+# {{ $frontmatter.title }}
 
 Generate vector embeddings from text to enable semantic search, clustering, and similarity comparison.
 
@@ -72,7 +76,11 @@ Different models produce different embedding dimensions:
 
 ## Related Documentation
 
+- [Agents](/agents) - Understanding the agent lifecycle
+- [Actions](/actions) - Overview of agent capabilities
 - [Generation](/agents/generation) - Understanding the generation workflow
 - [Callbacks](/agents/callbacks) - Before and after embedding hooks
+- [Configuration](/framework/configuration) - Configure embedding behavior
+- [Testing](/framework/testing) - Test embedding functionality
 - [OpenAI Provider](/providers/open_ai) - OpenAI embedding models
 - [Ollama Provider](/providers/ollama) - Local embedding generation

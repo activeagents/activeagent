@@ -1,4 +1,8 @@
-# Configuration
+---
+title: Configuration
+description: Flexible configuration for framework-level settings and provider-specific options. Configure retry strategies, logging, and multiple AI providers with environment-specific settings.
+---
+# {{ $frontmatter.title }}
 
 ActiveAgent provides flexible configuration options for both framework-level settings and provider-specific configurations. Configure global behavior like retry strategies and logging, or define multiple AI providers with environment-specific settings.
 
@@ -323,6 +327,7 @@ See [Instrumentation](/framework/instrumentation) for detailed logging and monit
 
 - **[Retries](/framework/retries)** - Retry strategies, custom retry logic, and error handling
 - **[Instrumentation](/framework/instrumentation)** - Logging, monitoring, and event tracking
-- **[Providers](/framework/providers)** - Provider-specific features and behavior
-- **[Rails Integration](/framework/rails-integration)** - Rails-specific configuration and setup
+- **[Rails Integration](/framework/rails)** - Rails-specific configuration and setup
 - **[Testing](/framework/testing)** - Test configuration and mock providers
+- **[Agents](/agents)** - How agents use configuration in generate_with
+- **[Providers](/providers)** - Provider-specific features and behavior

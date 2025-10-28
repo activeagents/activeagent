@@ -1,4 +1,8 @@
-# Instrumentation and Logging
+---
+title: Instrumentation and Logging
+description: Monitor provider operations using ActiveSupport::Notifications. Track performance metrics, debug generation flows, and integrate with external monitoring services.
+---
+# {{ $frontmatter.title }}
 
 ActiveAgent instruments all provider operations using `ActiveSupport::Notifications`, enabling detailed monitoring, logging, and custom event handling. Track performance metrics, debug generation flows, and integrate with external monitoring services.
 
@@ -263,4 +267,4 @@ CustomAgentLogger.attach_to :active_agent
 - **[Callbacks](/agents/callbacks)** - Understand callback hooks like `before_generation` and `after_generation`
 - **[Providers](/framework/providers)** - Explore provider-specific behavior and configuration
 - **[Testing](/framework/testing)** - Test agents and instrumentation in your test suite
-- **[Configuration](/framework/rails-integration)** - Configure instrumentation behavior across environments
+- **[Configuration](/framework/configuration)** - Configure instrumentation behavior across environments

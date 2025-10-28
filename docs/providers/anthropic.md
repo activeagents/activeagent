@@ -1,4 +1,8 @@
-# Anthropic Provider
+---
+title: Anthropic Provider
+description: Integration with Claude models including Sonnet 4.5, Haiku 4.5, and Opus 4.1. Advanced reasoning, extended context windows, thinking mode, and strong performance on complex tasks.
+---
+# {{ $frontmatter.title }}
 
 The Anthropic provider enables integration with Claude models including Claude Sonnet 4.5, Claude Haiku 4.5, Claude Opus 4.1, and the Claude 3.x family. It offers advanced reasoning capabilities, extended context windows, extended thinking mode, and strong performance on complex tasks.
 
@@ -151,7 +155,7 @@ Unlike OpenAI's native JSON mode:
 - **Prompt-dependent reliability**: Success depends on clear prompt instructions
 - **No strict mode**: Cannot guarantee specific field requirements
 
-For applications requiring guaranteed schema conformance, consider using the [Structured Output](/agents/structured-output) feature with providers that support native JSON schema validation.
+For applications requiring guaranteed schema conformance, consider using the [Structured Output](/actions/structured_output) feature with providers that support native JSON schema validation.
 
 ## Constitutional AI
 
@@ -186,6 +190,12 @@ end
 
 ## Related Documentation
 
-- [Providers Overview](/framework/providers)
-- [Configuration Guide](/getting-started#configuration)
-- [Anthropic API Documentation](https://docs.anthropic.com/claude/reference)
+- [Providers Overview](/providers) - Compare all available providers
+- [Getting Started](/getting_started) - Complete setup guide
+- [Configuration](/framework/configuration) - Environment-specific settings
+- [Tools](/actions/tools) - Function calling and MCP integration
+- [Messages](/actions/messages) - Work with multimodal content
+- [Structured Output](/actions/structured_output) - JSON response formatting
+- [Error Handling](/agents/error_handling) - Retry strategies and error handling
+- [Testing](/framework/testing) - Test Anthropic integrations
+- [Anthropic API Documentation](https://docs.anthropic.com/en/api) - Official Anthropic docs

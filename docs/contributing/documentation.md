@@ -1,4 +1,8 @@
-# Documentation
+---
+title: Documentation
+description: Deterministic, always-accurate documentation where every code example comes from tested files. Learn how to maintain documentation that can't drift from code.
+---
+# {{ $frontmatter.title }}
 
 ActiveAgent documentation is deterministic and always accurate because every code example comes from tested files. Documentation and code can't drift apart—if the code changes, the docs automatically reflect it.
 

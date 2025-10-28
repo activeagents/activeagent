@@ -1,5 +1,6 @@
 ---
 title: Browser Use Agent
+description: Browser automation with AI-driven control. Navigate web pages, interact with elements, extract content, and take screenshots using Cuprite/Chrome.
 ---
 # {{ $frontmatter.title }}
 

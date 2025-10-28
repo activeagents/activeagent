@@ -1,4 +1,8 @@
-# Ollama Provider
+---
+title: Ollama Provider
+description: Local LLM inference using Ollama platform. Run Llama 3, Mistral, and Gemma locally without external APIs. Perfect for privacy-sensitive applications and development.
+---
+# {{ $frontmatter.title }}
 
 The Ollama provider enables local LLM inference using the Ollama platform. Run models like Llama 3, Mistral, and Gemma locally without sending data to external APIs, perfect for privacy-sensitive applications and development.
 
@@ -166,7 +170,7 @@ ollama pull llama3:8b-q5_1  # 5-bit quantization
 
 ## Structured Output
 
-Ollama does not have native structured output support. However, many models can generate JSON through careful prompting. For comprehensive structured output patterns, see the [Structured Output Documentation](/actions/structured-output).
+Ollama does not have native structured output support. However, many models can generate JSON through careful prompting. For comprehensive structured output patterns, see the [Structured Output Documentation](/actions/structured_output).
 
 ### Limitations
 
@@ -176,7 +180,7 @@ Ollama does not have native structured output support. However, many models can 
 - **Requires validation** - Always parse and validate responses
 
 ::: tip
-For applications requiring guaranteed schema conformance, use [OpenAI](/providers/open-ai#structured-output) with strict mode or [Anthropic](/providers/anthropic#emulated-json-object-support). For local processing, implement robust validation and error handling.
+For applications requiring guaranteed schema conformance, use [OpenAI](/providers/open_ai#structured-output) with strict mode or [Anthropic](/providers/anthropic#emulated-json-object-support). For local processing, implement robust validation and error handling.
 :::
 
 ## Embeddings
@@ -193,7 +197,7 @@ Generate embeddings locally using Ollama's embedding models. For comprehensive e
 
 ## Error Handling
 
-Ollama-specific error handling for connection failures and missing models. For comprehensive error handling strategies, see the [Error Handling Documentation](/agents/error-handling).
+Ollama-specific error handling for connection failures and missing models. For comprehensive error handling strategies, see the [Error Handling Documentation](/agents/error_handling).
 
 ### Common Ollama Errors
 
@@ -221,10 +225,10 @@ Ollama-specific error handling for connection failures and missing models. For c
 - [Streaming](/agents/streaming) - Real-time response streaming patterns
 - [Embeddings Framework](/actions/embeddings) - Complete guide to embeddings
 - [Configuration](/framework/configuration) - Global provider setup
-- [Structured Output](/actions/structured-output) - Structured output patterns
+- [Structured Output](/actions/structured_output) - Structured output patterns
 - [Providers Overview](/framework/providers) - Provider comparison
-- [Configuration Guide](/getting-started#configuration) - Setup and configuration
-- [Error Handling](/agents/error-handling) - Error handling strategies
+- [Configuration Guide](/getting_started#configuration) - Setup and configuration
+- [Error Handling](/agents/error_handling) - Error handling strategies
 - [Ollama Documentation](https://ollama.ai/docs) - Official Ollama docs
 - [Ollama Model Library](https://ollama.ai/library) - Available models
 

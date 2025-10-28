@@ -1,5 +1,6 @@
 ---
 title: Support Agent
+description: Customer support chatbot demonstrating core ActiveAgent concepts including tool calling, message context, and multimodal responses.
 ---
 # {{ $frontmatter.title }}
 

@@ -1,4 +1,8 @@
-# Mock Provider
+---
+title: Mock Provider
+description: Testing provider for developing and testing agents without API calls or costs. Returns predictable pig latin responses and generates random embeddings.
+---
+# {{ $frontmatter.title }}
 
 The Mock provider is designed for testing purposes, allowing you to develop and test agents without making actual API calls or incurring costs. It returns predictable responses by converting input text to pig latin and generates random embeddings.
 
@@ -99,5 +103,6 @@ The Mock provider accepts structured output parameters but doesn't validate or e
 ## Related Documentation
 
 - [Providers Overview](/framework/providers)
-- [Configuration Guide](/getting-started#configuration)
+- [Anthropic Provider](/providers/anthropic) - Anthropic Claude configuration
+- [Configuration Guide](/getting_started#configuration)
 - [Testing Guide](/framework/testing)

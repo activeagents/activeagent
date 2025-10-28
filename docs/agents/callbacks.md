@@ -1,4 +1,8 @@
-# Callbacks
+---
+title: Callbacks
+description: Control generation lifecycle with before_generation, after_generation, and around_generation callbacks for setup, validation, and cleanup.
+---
+# {{ $frontmatter.title }}
 
 ActiveAgent provides `before_generation`, `after_generation`, and `around_generation` callbacks for the generation lifecycle. These callbacks are also available with the `*_prompting` alias (e.g., `before_prompt`, `after_prompt`, `around_prompt`).
 
@@ -57,3 +61,14 @@ ActiveAgent provides `on_stream_open`, `on_stream`, and `on_stream_close` callba
 <<< @/../test/docs/agents/callbacks_examples_test.rb#streaming_callbacks {ruby:line-numbers}
 
 See [Streaming](/agents/streaming) for complete documentation.
+
+## Related Documentation
+
+- [Agents](/agents) - Understanding the agent lifecycle
+- [Generation](/agents/generation) - Execution patterns and response objects
+- [Instructions](/agents/instructions) - System prompts that guide behavior
+- [Actions](/actions) - Define agent capabilities
+- [Messages](/actions/messages) - Work with conversation context
+- [Error Handling](/agents/error_handling) - Handle failures in callbacks
+- [Testing](/framework/testing) - Test callback functionality
+- [Instrumentation](/framework/instrumentation) - Monitor callback execution

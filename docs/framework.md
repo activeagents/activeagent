@@ -1,5 +1,6 @@
 ---
 title: Active Agent
+description: ActiveAgent extends Rails MVC to AI interactions. Build intelligent agents using familiar patterns—controllers, actions, callbacks, and views.
 ---
 # {{ $frontmatter.title }}
 
@@ -124,7 +125,7 @@ ActiveAgent integrates with Rails features and AI capabilities:
 ## Next Steps
 
 **Start Here:**
-- **[Getting Started](/getting-started)** - Build your first agent (step-by-step tutorial)
+- **[Getting Started](/getting_started)** - Build your first agent (step-by-step tutorial)
 - **[Agents](/agents)** - Deep dive into agent patterns and lifecycle
 - **[Actions](/actions)** - Define capabilities with messages, tools, and schemas
 
@@ -144,11 +145,8 @@ ActiveAgent integrates with Rails features and AI capabilities:
 **Rails Integration:**
 - [Configuration](/framework/configuration) - Environment-specific settings
 - [Instrumentation](/framework/instrumentation) - Logging and monitoring
-- [Rails Integration](/framework/rails-integration) - ActionCable, ActiveJob, and more
+- [Rails Integration](/framework/rails) - ActionCable, ActiveJob, and more
 
 **Examples:**
-- [Data Extraction](/examples/data-extraction-agent) - Parse structured data from documents
-- [Translation](/examples/translation-agent) - Multi-step translation workflows
-- [Travel Agent](/examples/travel-agent) - Tool use and multi-turn conversations
-- [Browser Use](/examples/browser-use-agent) - Web scraping with AI
+- [Data Extraction](/examples/data_extraction_agent) - Parse structured data from documents
 

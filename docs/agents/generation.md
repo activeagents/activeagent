@@ -1,4 +1,8 @@
-# Generation
+---
+title: Generation
+description: Execute AI generations synchronously with generate_now or asynchronously with generate_later using ActiveAgent's generation methods.
+---
+# {{ $frontmatter.title }}
 
 Execute AI generations synchronously or asynchronously using ActiveAgent's generation methods.
 
@@ -96,6 +100,12 @@ response.prompt_tokens
 
 ## Next Steps
 
+- [Agents](/agents) - Understanding the full agent lifecycle
+- [Actions](/actions) - Define what your agents can do
+- [Messages](/actions/messages) - Work with multimodal content
+- [Tools](/actions/tools) - Enable function calling capabilities
 - [Streaming](/agents/streaming) - Stream responses in real-time
 - [Callbacks](/agents/callbacks) - Hook into generation lifecycle
-- [Error Handling](/agents/error-handling) - Handle failures gracefully
+- [Error Handling](/agents/error_handling) - Handle failures gracefully
+- [Configuration](/framework/configuration) - Configure generation behavior
+- [Testing](/framework/testing) - Test generation patterns

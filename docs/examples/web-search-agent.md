@@ -1,5 +1,6 @@
 ---
 title: Web Search Agent
+description: Web search capabilities through OpenAI's search models and tools. Access real-time web information using Chat Completions API or Responses API.
 ---
 # {{ $frontmatter.title }}
 

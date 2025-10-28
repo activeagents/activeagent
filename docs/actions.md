@@ -1,4 +1,8 @@
-# Actions
+---
+title: Actions
+description: Public methods in your agent that define specific AI behaviors using prompt() for text generation or embed() for vector embeddings.
+---
+# {{ $frontmatter.title }}
 
 Actions are public methods in your agent that define specific AI behaviors. Each action calls `prompt()` to generate text or `embed()` to create vector embeddings.
 
@@ -74,3 +78,7 @@ Define multiple actions in a single agent for related behaviors.
 - [Agents](/agents) - Understanding the agent lifecycle and invocation
 - [Generation](/agents/generation) - Synchronous and asynchronous execution
 - [Callbacks](/agents/callbacks) - Hooks for before/after action execution
+- [Instructions](/agents/instructions) - System prompts that guide agent behavior
+- [Streaming](/agents/streaming) - Real-time response updates
+- [Configuration](/framework/configuration) - Configure action behavior across environments
+- [Testing](/framework/testing) - Test action patterns and behaviors

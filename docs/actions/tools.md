@@ -1,4 +1,8 @@
-# Tools
+---
+title: Tools
+description: Extend agents with callable functions that LLMs can trigger during generation. Unified interface across providers for function calling.
+---
+# {{ $frontmatter.title }}
 
 Tools extend agents with callable functions that LLMs can trigger during generation. ActiveAgent provides a unified interface across providers while highlighting provider-specific capabilities.
 
@@ -98,7 +102,10 @@ If the LLM passes unexpected parameters, add detailed parameter descriptions wit
 
 ## Related Documentation
 
+- [Agents](/agents) - Understand the agent lifecycle and callbacks
+- [Generation](/agents/generation) - Execute tool-enabled generations
 - [Messages](/actions/messages) - Learn about conversation structure
 - [Streaming](/agents/streaming) - Use tools with streaming responses
+- [Configuration](/framework/configuration) - Configure tool behavior across environments
 - [OpenAI Provider](/providers/open_ai) - OpenAI-specific tool features
 - [Anthropic Provider](/providers/anthropic) - Anthropic-specific capabilities

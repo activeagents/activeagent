@@ -1,5 +1,6 @@
 ---
 title: Rails Integration
+description: Install ActiveAgent in Rails applications with generators for agents, actions, and views. Configure providers and leverage familiar Rails conventions.
 ---
 # {{ $frontmatter.title }}
 

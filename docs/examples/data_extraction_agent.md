@@ -1,5 +1,6 @@
 ---
 title: Data Extraction
+description: Extract structured data from PDF resumes using AI-powered parsing. Demonstrates multimodal input and structured output with JSON schemas.
 ---
 # {{ $frontmatter.title }}
 

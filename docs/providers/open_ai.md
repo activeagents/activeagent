@@ -1,4 +1,8 @@
-# OpenAI Provider
+---
+title: OpenAI Provider
+description: Integration with GPT models including GPT-5, GPT-4.1, GPT-4o, and o3. Responses API with built-in tools or traditional Chat Completions API for standard interactions.
+---
+# {{ $frontmatter.title }}
 
 The OpenAI provider enables integration with GPT models including GPT-5, GPT-4.1, GPT-4o, o3, and the GPT-4 family. It offers two distinct APIs: the **Responses API** (default) with built-in tools for web search, image generation, and MCP integration, and the traditional **Chat Completions API** for standard chat interactions.
 
@@ -232,7 +236,7 @@ Vision capabilities are only available with Chat Completions API models (GPT-4o,
 
 ## Structured Output
 
-OpenAI provides native structured output support with strict schema validation. For comprehensive documentation, see the [Structured Output guide](/actions/structured-output).
+OpenAI provides native structured output support with strict schema validation. For comprehensive documentation, see the [Structured Output guide](/actions/structured_output).
 
 **OpenAI-Specific Features:**
 - **Strict Mode** - Guarantees output format conformance with `strict: true`
@@ -313,10 +317,16 @@ OpenAI-specific errors can be handled using standard ActiveAgent error handling 
 - `OpenAI::AuthenticationError` - Invalid API key
 - `OpenAI::InvalidRequestError` - Malformed request
 
-For comprehensive error handling strategies, retry logic, and best practices, see the [Error Handling Documentation](/agents/error-handling).
+For comprehensive error handling strategies, retry logic, and best practices, see the [Error Handling Documentation](/agents/error_handling).
 
 ## Related Documentation
 
-- [Providers Overview](/framework/providers)
-- [Configuration Guide](/getting-started#configuration)
-- [OpenAI API Documentation](https://platform.openai.com/docs)
+- [Providers Overview](/providers) - Compare all available providers
+- [Getting Started](/getting_started) - Complete setup guide
+- [Configuration](/framework/configuration) - Environment-specific settings
+- [Tools](/actions/tools) - Function calling and MCP integration
+- [Structured Output](/actions/structured_output) - JSON schema validation
+- [Messages](/actions/messages) - Work with multimodal content
+- [Error Handling](/agents/error_handling) - Retry strategies and error handling
+- [Testing](/framework/testing) - Test OpenAI integrations
+- [OpenAI API Documentation](https://platform.openai.com/docs) - Official OpenAI docs

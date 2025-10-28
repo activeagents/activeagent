@@ -7,10 +7,10 @@ hero:
   text: "Build AI in Rails"
   tagline: "Now Agents are Controllers \nMakes code tons of fun!"
   actions:
-    - theme: alt
-      text: Getting Started
-      link: /getting-started
     - theme: brand
+      text: Getting Started
+      link: /getting_started
+    - theme: alt
       text: Docs
       link: /framework
     - theme: alt
@@ -23,51 +23,39 @@ hero:
 
 features:
   - title: Agents
-    link: /framework/agents
+    link: /agents
     icon: <img src="/activeagent.png" />
-    details: Controllers for AI. Define actions, manage context, and generate responses using Rails conventions.
-  - title: Actions
-    icon: 🦾
-    link: /actions/actions
-    details: Public methods that render prompts or execute tools. Use ERB templates for complex formatting.
-  - title: Prompts
-    icon: 📝
-    link: /actions/prompts
-    details: Runtime context with messages, actions, and parameters passed to AI providers.
-  - title: Providers
-    icon: 🏭
-    link: /framework/providers
-    details: Unified interface for OpenAI, Anthropic, Ollama, and OpenRouter. Switch with one line.
+    details: Controllers for AI. Define actions, use callbacks, render views. Rails conventions for LLM interactions.
   - title: Tool Calling
     icon: 🔧
-    link: /actions/tool-calling
-    details: Let AI agents call Ruby methods to fetch data, perform actions, and make decisions.
+    link: /actions/tools
+    details: AI calls Ruby methods to fetch data and make decisions. Works like RPC for agents.
   - title: Structured Output
     icon: 📊
-    link: /agents/structured-output
-    details: Extract data into validated JSON schemas. Perfect for forms, APIs, and data processing.
+    link: /actions/structured_output
+    details: Extract typed data with JSON schemas. Validated responses for forms and APIs.
+  - title: Providers
+    icon: 🏭
+    link: /providers
+    details: OpenAI, Anthropic, Ollama, OpenRouter. Switch providers with one line of code.
   - title: Streaming
     icon: 📡
-    link: /agents/callbacks#on-stream-callbacks
-    details: Real-time response streaming with Server-Sent Events for dynamic UIs.
-  - title: Callbacks
-    icon: 🔄
-    link: /agents/callbacks
-    details: Lifecycle hooks for retrieval, context management, and response handling.
-  - title: Queued Generation
-    link: /agents/queued-generation
-    icon: ⏳
-    details: Background processing with Active Job for async AI operations at scale.
+    link: /agents/streaming
+    details: Real-time response streaming with callbacks for dynamic UIs and live updates.
+  - title: Embeddings
+    icon: 🎯
+    link: /actions/embeddings
+    details: Generate vectors for semantic search, RAG, and clustering applications.
   - title: Testing
     icon: 🧪
     link: /framework/testing
-    details: Test with fixtures and VCR cassettes. Mock providers for fast, reliable tests.
-  - title: Embeddings
-    icon: 🎯
-    link: /framework/embeddings
-    details: Generate vector embeddings for semantic search, clustering, and RAG applications.
-  - title: Rails-Native
-    icon: 🚀
-    link: /framework/agents
-    details: Built for Rails. Familiar patterns, zero learning curve, production-ready from day one.
+    details: Test with fixtures and VCR cassettes. Mock providers for fast tests.
+  - title: Background Jobs
+    link: /agents/generation
+    icon: ⏳
+    details: Process generations async with Active Job. Scale AI operations in the background.
+  - title: Error Handling
+    icon: 🛡️
+    link: /agents/error_handling
+    details: Automatic retries with exponential backoff. Graceful degradation for production.
 ---
