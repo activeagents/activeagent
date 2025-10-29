@@ -74,7 +74,7 @@ rails generate active_agent:agent support respond
 Creates:
 ```
 app/agents/support_agent.rb
-app/views/agents/support/instructions.md.erb
+app/views/agents/support/instructions.md
 app/views/agents/support/respond.md.erb
 test/docs/support_agent_test.rb
 ```

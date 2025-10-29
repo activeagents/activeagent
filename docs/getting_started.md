@@ -164,7 +164,7 @@ class ApplicationAgent < ActiveAgent::Base
 end
 ```
 
-**In an `instructions.text.erb` template:**
+**In an `instructions.text` template:**
 ```erb
 You are a support agent helping users with their questions.
 Be concise, friendly, and provide clear solutions.

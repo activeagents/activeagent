@@ -3,12 +3,11 @@
 require "active_support/callbacks"
 
 module ActiveAgent
-  # Provides callback hooks for prompting and embedding lifecycles.
+  # Provides callback hooks for generation, prompting, and embedding lifecycles.
   #
-  # Enables agents to execute custom logic before, after, or around prompt execution
-  # and embedding operations. Callbacks support conditional execution via `:if` and
-  # `:unless` options, and after callbacks are skipped when the chain is terminated
-  # with `throw :abort`.
+  # Enables agents to execute custom logic before, after, or around AI operations.
+  # Callbacks support conditional execution via `:if` and `:unless` options, and
+  # after callbacks are skipped when the chain is terminated with `throw :abort`.
   #
   # == Callback Types
   #
@@ -17,11 +16,34 @@ module ActiveAgent
   # * +after_*+ - executes after the operation (skipped if aborted)
   # * +around_*+ - wraps the operation (must call +yield+)
   #
+  # == Lifecycle Hierarchies
+  #
+  # * +generation+ - wraps both prompting and embedding operations
+  # * +prompting+ - specific to prompt execution
+  # * +embedding+ - specific to embedding operations
+  #
+  # Use +*_generation+ callbacks for cross-cutting concerns like rate limiting,
+  # authentication, and logging that apply to all AI operations.
+  #
   # == Callback Control
   #
   # * +prepend_*+ - inserts callback at the beginning of the chain
   # * +append_*+ - adds callback at the end (same as base methods)
   # * +skip_*+ - removes a previously defined callback
+  #
+  # @example Rate limiting with generation callbacks
+  #   class MyAgent < ActiveAgent::Base
+  #     before_generation :check_rate_limit
+  #     after_generation :record_usage
+  #
+  #     def check_rate_limit
+  #       raise RateLimitExceeded if RateLimiter.exceeded?(user_id)
+  #     end
+  #
+  #     def record_usage
+  #       RateLimiter.increment(user_id)
+  #     end
+  #   end
   #
   # @example Before prompting callback
   #   class MyAgent < ActiveAgent::Base
@@ -64,8 +86,9 @@ module ActiveAgent
 
     included do
       include ActiveSupport::Callbacks
-      define_callbacks :prompting, skip_after_callbacks_if_terminated: true
-      define_callbacks :embedding, skip_after_callbacks_if_terminated: true
+      define_callbacks :generation, skip_after_callbacks_if_terminated: true
+      define_callbacks :prompting,  skip_after_callbacks_if_terminated: true
+      define_callbacks :embedding,  skip_after_callbacks_if_terminated: true
     end
 
     module ClassMethods
@@ -126,29 +149,55 @@ module ActiveAgent
         # Alias for explicit append behavior (same as base method).
         alias_method :"append_#{callback}_prompt", :"#{callback}_prompt"
 
-        # Deprecated: Use #{callback}_prompt instead
-        # Sets callbacks on the prompting chain for backward compatibility
+        # Registers callbacks for the generation lifecycle.
+        #
+        # Generation callbacks wrap both prompting and embedding operations,
+        # making them ideal for cross-cutting concerns like rate limiting,
+        # authentication, logging, and resource management that apply to all
+        # AI operations.
+        #
+        # @param names [Symbol, Array<Symbol>] method name(s) to call
+        # @param blk [Proc] optional block to execute instead of named method
+        # @yield callback implementation when using block form
+        #
+        # @example Rate limiting for all operations
+        #   before_generation :check_rate_limit
+        #   after_generation :record_usage
+        #
+        # @example Authentication check
+        #   around_generation :with_api_key
         define_method "#{callback}_generation" do |*names, &blk|
           _insert_callbacks(names, blk) do |name, options|
-            set_callback(:prompting, callback, name, options)
+            set_callback(:generation, callback, name, options)
           end
         end
 
-        # Deprecated: Use prepend_#{callback}_prompt instead
+        # Prepends a callback to the beginning of the generation chain.
+        #
+        # @param names [Symbol, Array<Symbol>] method name(s) to call
+        # @param blk [Proc] optional block to execute
+        #
+        # @example Prepend rate limiting
+        #   prepend_before_generation :check_rate_limit
         define_method "prepend_#{callback}_generation" do |*names, &blk|
           _insert_callbacks(names, blk) do |name, options|
-            set_callback(:prompting, callback, name, options.merge(prepend: true))
+            set_callback(:generation, callback, name, options.merge(prepend: true))
           end
         end
 
-        # Deprecated: Use skip_#{callback}_prompt instead
+        # Skips a previously defined generation callback.
+        #
+        # @param names [Symbol, Array<Symbol>] method name(s) to skip
+        #
+        # @example Skip inherited callback
+        #   skip_before_generation :check_rate_limit
         define_method "skip_#{callback}_generation" do |*names|
           _insert_callbacks(names) do |name, options|
-            skip_callback(:prompting, callback, name, options)
+            skip_callback(:generation, callback, name, options)
           end
         end
 
-        # Deprecated: Use append_#{callback}_prompt instead
+        # Alias for explicit append behavior (same as base method).
         alias_method :"append_#{callback}_generation", :"#{callback}_generation"
 
         # Registers callbacks for the embedding lifecycle.

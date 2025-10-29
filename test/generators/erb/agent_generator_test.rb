@@ -39,7 +39,7 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
 
     # Directory is created with instructions only
     assert_directory "app/views/agents/user"
-    assert_file "app/views/agents/user/instructions.md.erb"
+    assert_file "app/views/agents/user/instructions.md"
     assert_no_file "app/views/agents/user/create.md.erb"
   end
 
@@ -69,14 +69,14 @@ class Erb::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     run_generator [ "user" ]
 
     assert_directory "app/views/agents/user"
-    assert_file "app/views/agents/user/instructions.md.erb"
+    assert_file "app/views/agents/user/instructions.md"
   end
 
   test "adds instruction view with text format when specified" do
     run_generator [ "user", "--format=text" ]
 
-    assert_file "app/views/agents/user/instructions.text.erb"
-    assert_no_file "app/views/agents/user/instructions.md.erb"
+    assert_file "app/views/agents/user/instructions.text"
+    assert_no_file "app/views/agents/user/instructions.md"
   end
 
   test "handles erb generator override with proactive detection" do

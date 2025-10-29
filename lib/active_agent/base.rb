@@ -245,10 +245,12 @@ module ActiveAgent
     def process_prompt
       fail "Prompt Provider not Configured" unless prompt_provider_klass
 
-      run_callbacks(:prompting) do
-        parameters = prepare_prompt_parameters
+      run_callbacks(:generation) do
+        run_callbacks(:prompting) do
+          parameters = prepare_prompt_parameters
 
-        prompt_provider_klass.new(**parameters).prompt
+          prompt_provider_klass.new(**parameters).prompt
+        end
       end
     end
 
@@ -278,10 +280,12 @@ module ActiveAgent
     def process_embed
       fail "Embed Provider not Configured" unless embed_provider_klass
 
-      run_callbacks(:embedding) do
-        parameters = prepare_embed_parameters
+      run_callbacks(:generation) do
+        run_callbacks(:embedding) do
+          parameters = prepare_embed_parameters
 
-        embed_provider_klass.new(**parameters).embed
+          embed_provider_klass.new(**parameters).embed
+        end
       end
     end
 

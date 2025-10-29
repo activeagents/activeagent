@@ -23,11 +23,11 @@ module Erb # :nodoc:
         view_base_path = File.join("app/views/agents", class_path, file_name)
         empty_directory view_base_path
 
-        # Create instructions file with the specified format
+        # Create instructions file with the specified format (no .erb extension)
         file_extension = format == "markdown" ? "md" : format
-        instructions_file = "instructions.#{file_extension}.erb"
+        instructions_file = "instructions.#{file_extension}"
         instructions_path = File.join(view_base_path, instructions_file)
-        template "instructions.#{file_extension}.erb.tt", instructions_path
+        template "instructions.#{file_extension}.tt", instructions_path
 
         # Create action view files
         actions.each do |action|
@@ -48,6 +48,7 @@ module Erb # :nodoc:
       end
 
       private
+
       def format
         options[:format]
       end

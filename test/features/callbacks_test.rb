@@ -17,13 +17,16 @@ class CallbacksTest < ActiveSupport::TestCase
     end
   end
 
-  test "defines prompting and embedding callbacks" do
+  test "defines prompting, embedding, and generation callbacks" do
     assert_respond_to TestAgent, :before_prompt
     assert_respond_to TestAgent, :after_prompt
     assert_respond_to TestAgent, :around_prompt
     assert_respond_to TestAgent, :before_embed
     assert_respond_to TestAgent, :after_embed
     assert_respond_to TestAgent, :around_embed
+    assert_respond_to TestAgent, :before_generation
+    assert_respond_to TestAgent, :after_generation
+    assert_respond_to TestAgent, :around_generation
   end
 
   test "before_prompt callback is executed" do
@@ -343,7 +346,7 @@ class CallbacksTest < ActiveSupport::TestCase
     assert_equal false, result
   end
 
-  test "generation backwards compatability" do
+  test "generation callbacks wrap both prompting and embedding" do
     agent_class = Class.new(TestAgent) do
       before_generation :track_before
       after_generation :track_after
@@ -364,12 +367,94 @@ class CallbacksTest < ActiveSupport::TestCase
       end
     end
 
+    # Test with prompting
     agent = agent_class.new
-    agent.run_callbacks(:prompting) do
-      agent.callback_order << :prompting_executed
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:prompting) do
+        agent.callback_order << :prompting_executed
+      end
     end
 
     assert_equal [ :before_generation, :before_around, :prompting_executed, :after_around, :after_generation ], agent.callback_order
+
+    # Test with embedding
+    agent = agent_class.new
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:embedding) do
+        agent.callback_order << :embedding_executed
+      end
+    end
+
+    assert_equal [ :before_generation, :before_around, :embedding_executed, :after_around, :after_generation ], agent.callback_order
+  end
+
+  test "generation callbacks for rate limiting work across prompting and embedding" do
+    rate_limiter = { count: 0 }
+
+    agent_class = Class.new(TestAgent) do
+      attr_accessor :rate_limiter
+
+      before_generation :check_rate_limit
+      after_generation :record_usage
+
+      def check_rate_limit
+        @callback_order << :check_rate_limit
+        throw :abort if @rate_limiter[:count] >= 3
+      end
+
+      def record_usage
+        @callback_order << :record_usage
+        @rate_limiter[:count] += 1
+      end
+    end
+
+    # First prompt - should succeed
+    agent = agent_class.new
+    agent.rate_limiter = rate_limiter
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:prompting) do
+        agent.callback_order << :prompting_executed
+      end
+    end
+
+    assert_equal [ :check_rate_limit, :prompting_executed, :record_usage ], agent.callback_order
+    assert_equal 1, rate_limiter[:count]
+
+    # First embed - should succeed
+    agent = agent_class.new
+    agent.rate_limiter = rate_limiter
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:embedding) do
+        agent.callback_order << :embedding_executed
+      end
+    end
+
+    assert_equal [ :check_rate_limit, :embedding_executed, :record_usage ], agent.callback_order
+    assert_equal 2, rate_limiter[:count]
+
+    # Second prompt - should succeed
+    agent = agent_class.new
+    agent.rate_limiter = rate_limiter
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:prompting) do
+        agent.callback_order << :prompting_executed
+      end
+    end
+
+    assert_equal [ :check_rate_limit, :prompting_executed, :record_usage ], agent.callback_order
+    assert_equal 3, rate_limiter[:count]
+
+    # Second embed - should be blocked by rate limit
+    agent = agent_class.new
+    agent.rate_limiter = rate_limiter
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:embedding) do
+        agent.callback_order << :embedding_executed
+      end
+    end
+
+    assert_equal [ :check_rate_limit ], agent.callback_order
+    assert_equal 3, rate_limiter[:count] # Count shouldn't increase
   end
 
   test "prepend_before_prompt adds callback at the beginning" do
@@ -607,7 +692,7 @@ class CallbacksTest < ActiveSupport::TestCase
     assert_equal [ :before_embed, :embedding_executed ], agent.callback_order
   end
 
-  test "prepend_before_generation works for backward compatibility" do
+  test "prepend_before_generation works" do
     agent_class = Class.new(TestAgent) do
       before_generation :second_callback
       prepend_before_generation :first_callback
@@ -622,14 +707,16 @@ class CallbacksTest < ActiveSupport::TestCase
     end
 
     agent = agent_class.new
-    agent.run_callbacks(:prompting) do
-      agent.callback_order << :prompting_executed
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:prompting) do
+        agent.callback_order << :prompting_executed
+      end
     end
 
     assert_equal [ :first, :second, :prompting_executed ], agent.callback_order
   end
 
-  test "skip_before_generation works for backward compatibility" do
+  test "skip_before_generation works" do
     parent_class = Class.new(TestAgent) do
       before_generation :parent_callback
 
@@ -643,8 +730,10 @@ class CallbacksTest < ActiveSupport::TestCase
     end
 
     agent = child_class.new
-    agent.run_callbacks(:prompting) do
-      agent.callback_order << :prompting_executed
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:prompting) do
+        agent.callback_order << :prompting_executed
+      end
     end
 
     assert_equal [ :prompting_executed ], agent.callback_order
@@ -660,8 +749,10 @@ class CallbacksTest < ActiveSupport::TestCase
     end
 
     agent = agent_class.new
-    agent.run_callbacks(:prompting) do
-      agent.callback_order << :prompting_executed
+    agent.run_callbacks(:generation) do
+      agent.run_callbacks(:prompting) do
+        agent.callback_order << :prompting_executed
+      end
     end
 
     assert_equal [ :before_generation, :prompting_executed ], agent.callback_order

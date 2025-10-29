@@ -21,18 +21,18 @@ ActiveAgent provides five flexible ways to define instructions, from simple stri
 
 ### 1. Default Instructions Template
 
-The simplest approach: create an `instructions.md.erb` (or `instructions.text.erb`) file in your agent's view directory. ActiveAgent automatically loads it when you call `prompt` without explicit instructions.
+The simplest approach: create an `instructions.md` (or `instructions.text`) file in your agent's view directory. ActiveAgent automatically loads it when you call `prompt` without explicit instructions.
 
 ::: code-group
 <<< @/../test/docs/agents/instructions_examples_test.rb#default_template {ruby:line-numbers} [agent.rb]
 
-<<< @/../test/dummy/app/views/docs/agents/instructions/default_template/agent/instructions.md.erb{erb:line-numbers} [instructions.md.erb]
+<<< @/../test/dummy/app/views/docs/agents/instructions/default_template/agent/instructions.md.erb{erb:line-numbers} [instructions.md]
 :::
 
 **Strict Loading:** Pass `instructions: true` to enforce strict template loading. This will raise an error if the template file cannot be found, useful for catching missing instruction files in production.
 
 ```ruby
-# Raises error if instructions.md.erb is missing
+# Raises error if instructions.md is missing
 generate_with instructions: true
 ```
 
@@ -121,7 +121,7 @@ When instructions are defined in multiple places, they override in this order (h
 
 1. **Per-action in `prompt()` call** - `prompt(instructions: "Override")`
 2. **In `generate_with` configuration** - `generate_with :openai, instructions: "Global"`
-3. **Default template** - `instructions.md.erb` in views directory
+3. **Default template** - `instructions.md` in views directory
 
 <<< @/../test/docs/agents/instructions_examples_test.rb#precedence {ruby:line-numbers} [agent.rb]
 
@@ -349,8 +349,8 @@ delegate to the <%= params[:delegate_to] %> agent.
 **Symptoms:** No system message in provider request
 
 **Solutions:**
-- Verify file location: `app/views/[agent_name]/instructions.[format].erb`
-- Check file naming: must be exactly `instructions.text.erb` or `instructions.md.erb`
+- Verify file location: `app/views/[agent_name]/instructions.[format]`
+- Check file naming: must be exactly `instructions.text` or `instructions.md`
 - Ensure `prompt` is called in action (instructions only load during generation)
 - Look for instruction precedence - explicit instructions override templates
 

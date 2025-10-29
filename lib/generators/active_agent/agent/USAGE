@@ -29,7 +29,7 @@ Examples:
 
     creates an inventory agent with markdown templates:
         Agent:        app/agents/inventory_agent.rb
-        Instructions: app/views/inventory_agent/instructions.md.erb
+        Instructions: app/views/inventory_agent/instructions.md
         View:         app/views/inventory_agent/search.md.erb
         Test:         test/docs/inventory_agent_test.rb
 
@@ -37,7 +37,7 @@ Examples:
 
     creates an inventory agent with text templates:
         Agent:        app/agents/inventory_agent.rb
-        Instructions: app/views/inventory_agent/instructions.text.erb
+        Instructions: app/views/inventory_agent/instructions.text
         View:         app/views/inventory_agent/search.text.erb
         Test:         test/docs/inventory_agent_test.rb
 
@@ -45,7 +45,7 @@ Examples:
 
     creates an inventory agent with markdown templates and JSON schema:
         Agent:        app/agents/inventory_agent.rb
-        Instructions: app/views/inventory_agent/instructions.md.erb
+        Instructions: app/views/inventory_agent/instructions.md
         View:         app/views/inventory_agent/search.md.erb
         Schema:       app/views/inventory_agent/search.json
         Test:         test/docs/inventory_agent_test.rb
@@ -54,7 +54,7 @@ Examples:
 
     creates an inventory agent with JSON object response format:
         Agent:        app/agents/inventory_agent.rb
-        Instructions: app/views/inventory_agent/instructions.md.erb
+        Instructions: app/views/inventory_agent/instructions.md
         View:         app/views/inventory_agent/search.md.erb
         Test:         test/docs/inventory_agent_test.rb
 
@@ -62,7 +62,7 @@ Examples:
 
     creates an inventory agent with multiple actions:
         Agent:        app/agents/inventory_agent.rb
-        Instructions: app/views/inventory_agent/instructions.md.erb
+        Instructions: app/views/inventory_agent/instructions.md
         Views:        app/views/inventory_agent/search.md.erb
                       app/views/inventory_agent/update.md.erb
                       app/views/inventory_agent/report.md.erb
@@ -72,7 +72,7 @@ Examples:
 
     creates a namespaced admin/user agent with schema:
         Agent:        app/agents/admin/user_agent.rb
-        Instructions: app/views/admin/user_agent/instructions.md.erb
+        Instructions: app/views/admin/user_agent/instructions.md
         View:         app/views/admin/user_agent/create.md.erb
         Schema:       app/views/admin/user_agent/create.json
         Test:         test/docs/admin/user_agent_test.rb
