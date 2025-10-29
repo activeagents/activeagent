@@ -48,9 +48,9 @@ module ActiveAgent
         end
 
         # Prepend YAML section with request details
-        sections = [ render_yaml_section(parameters) ] + sections
+        sections = [ render_yaml_section(parameters), "---" ] + sections
 
-        sections.compact.join("\n---\n")
+        sections.compact.join("\n")
       end
 
       # @param instructions [String]
