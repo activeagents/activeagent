@@ -23,9 +23,9 @@ bundle install
 - External API calls are recorded with VCR, so you shouldn’t need API keys to run the suite.
 
 ### Linting
-bin/lint          # check
-bin/lint --fix    # safe auto-correct
-bin/lint -A       # auto-correct including unsafe### Quick local verification
+- bin/lint          # check
+- bin/lint --fix    # safe auto-correct
+- bin/lint -A       # auto-correct including unsafe### Quick local verification
 
 ### Making changes
 1. Create a feature branch.
