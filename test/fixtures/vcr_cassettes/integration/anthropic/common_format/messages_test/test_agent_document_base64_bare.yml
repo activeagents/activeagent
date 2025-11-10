@@ -1,0 +1,112 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":[{"type":"text","text":"What''s
+        in this document?"},{"type":"document","source":{"type":"base64","media_type":"application/pdf","data":"JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCgoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagoKMyAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDIgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDQgMCBSCj4+Cj4+Ci9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagoKNSAwIG9iago8PAovTGVuZ3RoIDMwMAo+PgpzdHJlYW0KQlQKL0YxIDE2IFRmCjUwIDc1MCBUZAooSm9obiBEb2UgLSBTb2Z0d2FyZSBFbmdpbmVlcikgVGoKMCAtMzAgVGQKL0YxIDEyIFRmCihFbWFpbDogam9obi5kb2VAZXhhbXBsZS5jb20pIFRqCjAgLTIwIFRkCihQaG9uZTogKDU1NSkgMTIzLTQ1NjcpIFRqCjAgLTIwIFRkCihMb2NhdGlvbjogU2FuIEZyYW5jaXNjbywgQ0EpIFRqCjAgLTQwIFRkCi9GMSAxNCBUZgooRXhwZXJpZW5jZTopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyIGF0IFRlY2hDb3JwICgyMDIwLTIwMjQpKSBUagowIC0yMCBUZAooLSBEZXZlbG9wZWQgd2ViIGFwcGxpY2F0aW9ucyB1c2luZyBSdWJ5IG9uIFJhaWxzKSBUagowIC0yMCBUZAooLSBMZWQgdGVhbSBvZiA1IGRldmVsb3BlcnMpIFRqCjAgLTIwIFRkCigtIEltcGxlbWVudGVkIENJL0NEIHBpcGVsaW5lcykgVGoKMCAtNDAgVGQKL0YxIDE0IFRmCihTa2lsbHM6KSBUagowIC0yNSBUZAovRjEgMTIgVGYKKFJ1YnksIFJhaWxzLCBKYXZhU2NyaXB0LCBQeXRob24sIEFXUywgRG9ja2VyKSBUagowIC00MCBUZAovRjEgMTQgVGYKKEVkdWNhdGlvbjopIFRqCjAgLTI1IFRkCi9GMSAxMiBUZgooQlMgQ29tcHV0ZXIgU2NpZW5jZSwgU3RhbmZvcmQgVW5pdmVyc2l0eSAoMjAxNi0yMDIwKSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCjAwMDAwMDAzMzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo2ODcKJSVFT0YK"}}]}],"max_tokens":1024}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.12.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '1837'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Mon, 20 Oct 2025 20:12:11 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '50000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '49000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-10-20T20:12:11Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '10000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '10000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-10-20T20:12:13Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '50'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '49'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-10-20T20:12:10Z'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '60000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '59000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-10-20T20:12:11Z'
+      Request-Id:
+      - req_011CUK4SUNMSSa7Xaye3xFiz
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '2918'
+      Via:
+      - 1.1 google
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 991b2b1c2e54ce7c-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01AxyYFpTssJxMimfXMeFoUv","type":"message","role":"assistant","content":[{"type":"text","text":"#
+        Document Summary\n\nThis is a **resume** for **John Doe**, a Software Engineer.
+        Here are the key details:\n\n## Contact Information\n- **Email:** john.doe@example.com\n-
+        **Phone:** (555) 123-4567\n- **Location:** San Francisco, CA\n\n## Professional
+        Experience\n- **Senior Software Engineer at TechCorp** (2020-2024)\n  - Developed
+        web applications using Ruby on Rails\n  - Led a team of 5 developers\n  -
+        Implemented CI/CD pipelines\n\n## Technical Skills\nRuby, Rails, JavaScript,
+        Python, AWS, Docker\n\n## Education\n- **BS Computer Science** from Stanford
+        University (2016-2020)\n\nThe resume presents a software engineer with 4 years
+        of recent experience in web development, team leadership, and DevOps practices,
+        along with a solid educational background from Stanford."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":1700,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":195,"service_tier":"standard"}}'
+  recorded_at: Mon, 20 Oct 2025 20:12:11 GMT
+recorded_with: VCR 6.3.1

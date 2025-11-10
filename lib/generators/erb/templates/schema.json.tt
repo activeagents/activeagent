@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "example_property": {
+      "type": "string",
+      "description": "Add your property description here"
+    }
+  },
+  "required": ["example_property"]
+}

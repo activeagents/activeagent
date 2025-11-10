@@ -1,6 +1,10 @@
 #!/usr/bin/env ruby
+unless ENV["CI"]
+  require "dotenv"
+  Dotenv.load(".env.test")
+end
+
 $: << File.expand_path("../test", __dir__)
 
 require "bundler/setup"
 require "rails/plugin/test"
-

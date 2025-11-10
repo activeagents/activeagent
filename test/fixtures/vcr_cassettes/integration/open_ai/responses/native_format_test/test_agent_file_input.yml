@@ -1,0 +1,169 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"what
+        is in this file?"},{"type":"input_file","file_url":"https://www.berkshirehathaway.com/letters/2024ltr.pdf"}]}],"model":"gpt-4.1"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '199'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 18:35:10 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29991543'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 16ms
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_362c7bc7f6fa45fbaf2b5f65674de469
+      Openai-Processing-Ms:
+      - '20277'
+      X-Envoy-Upstream-Service-Time:
+      - '20284'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=wjVyh4oN6ydJW8C2g5.W_YQiZjbawkeSzm8.439HqdE-1761503710-1.0.1.1-Gr8.E69qq2Zs1fhiBHi4DgjNK.Db.tFgx7BnwKlknsj8Bc6rY6rtg2m0RX3l5LyuLex..Adjw3a8GcMsOMDZD6g_1HG0Nxcyk4ju7ZiFT1o;
+        path=/; expires=Sun, 26-Oct-25 19:05:10 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=6Dqp6x4xq.tW9G860lqvqInOlR5ET1wvwATlI.GzL5o-1761503710195-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c0ccd8a667e2d-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_048e7af9a24203c40068fe69c9f01c8198aa35f72dc5c9096d",
+          "object": "response",
+          "created_at": 1761503690,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_048e7af9a24203c40068fe69cb1968819890af759c22dc2a88",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "This file is a **shareholder letter from Berkshire Hathaway Inc.**, written by Warren E. Buffett, as part of the company's annual report for the year ended 2024. Here\u2019s a summary of what's included in this file:\n\n---\n\n### 1. **Purpose and Philosophy of the Letter**\n- Warren Buffett explains the company's ethos in shareholder communication, emphasizing transparency about both successes and failures.\n- He highlights the importance of discussing mistakes, following the advice of Tom Murphy: \u201cpraise by name, criticize by category.\u201d\n\n### 2. **Mistakes and Management**\n- Buffett candidly talks about his mistakes in business decisions, both in acquisitions and in hiring, stressing the importance of prompt action when errors are realized.\n\n### 3. **Transition of Leadership**\n- Buffett indicates that at age 94, he will soon be succeeded by Greg Abel as CEO, who will continue the tradition of candid annual reporting.\n\n### 4. **Story of Pete Liegl and Forest River**\n- Buffett tells the acquisition story of Forest River and its outstanding manager, Pete Liegl.\n- Highlights Liegl\u2019s humility, integrity, and the extraordinary impact he had on Berkshire\u2019s wealth.\n\n### 5. **Education and Management Selection**\n- Buffett repeats his often-stated view that he never considers school pedigree in management selection and supports innate talent over credentials.\n\n### 6. **Review of 2024 Performance**\n- Berkshire had a better-than-expected year. Over half its businesses saw earnings fall, but gains in investment income and insurance, especially through GEICO (led by Todd Combs), led to strong results.\n- Operating earnings for 2024 were $47.4 billion (excluding capital gains/losses).\n\n### 7. **Tax Contributions**\n- Berkshire paid a record $26.8 billion in U.S. corporate taxes in 2024\u2014a feat unmatched by any U.S. company and a testament to decades of retained earnings and reinvestment instead of dividends.\n\n### 8. **Asset Allocation Overview**\n- Berkshire\u2019s vast holdings are split between wholly-owned subsidiaries (189 businesses) and significant minority stakes in major companies (like Apple, American Express, Coca-Cola, Moody\u2019s).\n- As of year-end, marketable equities were valued at $272 billion, down from $354 billion, but controlled businesses increased in value.\n- Buffett reaffirms a preference for equities, especially American ones, over cash or fixed-coupon bonds.\n\n### 9. **Capitalism and America**\n- Reflects on how capitalism, despite faults, has enabled American progress, with Berkshire as a small participant in that larger story.\n\n### 10. **Property-Casualty Insurance (P/C)**\n- Details the unique economics and risks of P/C insurance.\n- Berkshire\u2019s float (funds held from premiums before they are paid out in claims) and underwriting profits have steadily grown.\n- Ajit Jain, leading this business, is praised for honesty, caution, and capability.\n\n### 11. **Japanese Investments**\n- Berkshire has significant, long-term investments in five Japanese trading companies: ITOCHU, Marubeni, Mitsubishi, Mitsui, and Sumitomo.\n- Position is yen-hedged, and dividends from these holdings are expected to outpace interest costs on Berkshire\u2019s yen-denominated debt.\n\n### 12. **Annual Meeting and Community**\n- Announcement of Berkshire\u2019s annual shareholder meeting in Omaha, details about products, a commemorative book, and charitable fundraising.\n- Lighthearted stories about Buffett\u2019s family.\n\n### 13. **Performance Tables**\n- Long-term track record table compares Berkshire\u2019s annual return to the S&P 500 (with dividends) from 1965 through 2024.\n- Shows compounded annual gain of 19.9% for Berkshire stock versus 10.4% for the S&P 500, and an overall gain since 1964 of 5,502,284% vs. 39,054%.\n\n---\n\n**In summary:**  \nThis is the 2024 Berkshire Hathaway annual shareholder letter, reviewing the company\u2019s philosophy, leadership, business performance, mistakes and successes, major investments, and long-term results. It provides insight into Buffett\u2019s thinking, Berkshire\u2019s operations, attitudes towards money management, and a recap of 60 years of remarkable growth."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 8438,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 871,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 9309
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 18:35:10 GMT
+recorded_with: VCR 6.3.1

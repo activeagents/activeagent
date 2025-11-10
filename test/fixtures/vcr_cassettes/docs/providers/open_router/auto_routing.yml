@@ -1,0 +1,106 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is a microservice?"}],"model":"openrouter/auto"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '92'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:17:14 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c4adaf9e860d0-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761506231-FP9jPwmltl0uwEYJpyh1\",\"provider\":\"InferenceNet\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761506233,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        microservice is a software development technique that structures an application
+        as a collection of small, loosely coupled services. Each microservice runs
+        in its own process and communicates with other services through lightweight
+        mechanisms, often an HTTP/RESTful API. Here are some key characteristics of
+        microservices:\\n\\n1. **Small and focused**: Each microservice is responsible
+        for a specific business capability and is small enough to be developed, deployed,
+        and scaled independently.\\n\\n2. **Loosely coupled**: Microservices are designed
+        to be independent of each other. They communicate using well-defined interfaces,
+        often APIs, and do not share data or state.\\n\\n3. **Organized around business
+        capabilities**: Microservices are aligned with the business domain and the
+        business capabilities of the organization. This makes them easier to understand,
+        develop, and maintain.\\n\\n4. **Technology-agnostic**: Microservices can
+        be developed using different programming languages, databases, and other technologies.
+        This allows teams to choose the best tool for the job for each service.\\n\\n5.
+        **Resilient and fault-tolerant**: Microservices are designed to fail and recover
+        independently. This ensures that a failure in one service does not necessarily
+        impact other services.\\n\\n6. **Deployed independently**: Each microservice
+        can be deployed independently, allowing for continuous integration and continuous
+        deployment (CI/CD) pipelines.\\n\\n7. **Managed by a separate team**: Each
+        microservice is typically managed by a separate, small, cross-functional team.
+        This allows for faster development and innovation.\\n\\nMicroservices architecture
+        is often used in large, complex systems where traditional monolithic architectures
+        can become difficult to manage and scale. It promotes agility, scalability,
+        and maintainability, but also introduces additional complexity in areas like
+        data consistency, distributed transactions, and service discovery.\\n\\nSome
+        popular tools and frameworks for building microservices include Spring Boot
+        (Java), gRPC (Java, C++, Python, Node.js, Go, Ruby, PHP, and more), Kubernetes,
+        Docker, and AWS Lambda (serverless).\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"\",\"usage\":{\"prompt_tokens\":13,\"completion_tokens\":406,\"total_tokens\":419}}"
+  recorded_at: Sun, 26 Oct 2025 19:17:20 GMT
+recorded_with: VCR 6.3.1

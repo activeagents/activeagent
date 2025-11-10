@@ -1,0 +1,124 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Explain dependency injection"}],"model":"openai/gpt-4o-mini","provider":{"order":["openai","azure"],"only":["openai","anthropic"],"ignore":["together","huggingface"]}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '206'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:18:34 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c4cdcb8ff7ace-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n{\"id\":\"gen-1761506313-9LwmAeA9qClmNHwyW6mw\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1761506313,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Dependency
+        Injection (DI) is a design pattern commonly used in software development to
+        achieve Inversion of Control (IoC) between classes and their dependencies.
+        The main goal of DI is to decouple the creation of an object's dependencies
+        from the object itself, facilitating more modular, testable, and maintainable
+        code.\\n\\n### Key Concepts\\n\\n1. **Dependencies**: These are the objects
+        or services that a class needs to function. For example, if a class `Car`
+        depends on an `Engine` object, the `Engine` class is a dependency of the `Car`
+        class.\\n\\n2. **Inversion of Control**: This is a principle where the control
+        of creating and managing dependencies is transferred from the class itself
+        to an external entity, typically the DI container.\\n\\n3. **DI Container**:
+        A DI container is a framework or service that manages the creation, lifetimes,
+        and dependencies of various objects. It automatically resolves and injects
+        the necessary dependencies when creating an instance of a class.\\n\\n###
+        Types of Dependency Injection\\n\\n1. **Constructor Injection**: Dependencies
+        are provided through the class constructor. This makes it clear at the time
+        of instantiation what dependencies are required.\\n   ```python\\n   class
+        Engine:\\n       def start(self):\\n           return \\\"Engine started\\\"\\n\\n
+        \  class Car:\\n       def __init__(self, engine: Engine):\\n           self.engine
+        = engine\\n\\n   engine = Engine()\\n   car = Car(engine)\\n   ```\\n\\n2.
+        **Setter Injection**: Dependencies are set through setter methods after the
+        object is created. This allows for optional dependencies.\\n   ```python\\n
+        \  class Car:\\n       def set_engine(self, engine: Engine):\\n           self.engine
+        = engine\\n   ```\\n\\n3. **Interface Injection**: The dependency provides
+        an injector method that will inject the dependency into any client that passes
+        itself to the injector.\\n\\n### Benefits of Dependency Injection\\n\\n1.
+        **Decoupling**: By externalizing the creation and management of dependencies,
+        classes become less tightly coupled, making them easier to modify and test.\\n\\n2.
+        **Testability**: DI makes unit testing simpler because dependencies can be
+        mocked or stubbed. You can pass in different implementations of a dependency
+        when testing.\\n\\n3. **Maintainability**: Changes to a dependency's implementation
+        require fewer changes in dependent classes, leading to a more maintainable
+        codebase.\\n\\n4. **Flexibility**: It allows for more flexible code because
+        you can change the implementation of a dependency without changing the client
+        code.\\n\\n### Drawbacks of Dependency Injection\\n\\n1. **Complexity**: DI
+        can add complexity to a project, especially if a DI container is used improperly.
+        It may lead to unclear dependencies if not managed well.\\n\\n2. **Learning
+        Curve**: Developers must understand the DI pattern and the specific DI framework
+        being utilized, which can have its own complexities.\\n\\n3. **Overhead**:
+        In some cases, especially in smaller applications, the overhead of using DI
+        might not justify the benefits.\\n\\n### Conclusion\\n\\nIn summary, Dependency
+        Injection is a powerful design pattern that promotes code flexibility, testability,
+        and maintainability by decoupling the creation of an object's dependencies
+        from the object itself. When used appropriately, it can lead to cleaner, more
+        modular architecture.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":648,\"total_tokens\":658,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:18:44 GMT
+recorded_with: VCR 6.3.1

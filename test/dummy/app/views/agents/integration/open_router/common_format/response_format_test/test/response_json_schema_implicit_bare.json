@@ -1,0 +1,17 @@
+{
+  "name": "primary_colors",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "colors": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": ["colors"],
+    "additionalProperties": false
+  },
+  "strict": true
+}

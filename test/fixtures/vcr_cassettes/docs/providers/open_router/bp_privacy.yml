@@ -1,0 +1,136 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Explain OAuth 2.0"}],"model":"anthropic/claude-3-5-sonnet","provider":{"data_collection":"deny","zdr":true}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '147'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:15:08 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c47ce7ce3cfe5-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n{\"id\":\"gen-1761506106-xFvJdJpgQVfcdEx6Pytx\",\"provider\":\"Amazon
+        Bedrock\",\"model\":\"anthropic/claude-3.5-sonnet\",\"object\":\"chat.completion\",\"created\":1761506107,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"OAuth
+        2.0 is an authorization framework that enables applications to obtain limited
+        access to user accounts on an HTTP service. Here's a comprehensive explanation:\\n\\nKey
+        Concepts:\\n\\n1. Roles:\\n- Resource Owner (the user)\\n- Client (the application)\\n-
+        Authorization Server (handles authentication/permissions)\\n- Resource Server
+        (hosts protected data)\\n\\n2. Access Tokens:\\n- Temporary credentials used
+        to access protected resources\\n- Usually short-lived\\n- Can be revoked\\n-
+        Contains scope of permissions\\n\\n3. Common Grant Types:\\n\\na) Authorization
+        Code Flow:\\n```\\n1. Client redirects user to Authorization Server\\n2. User
+        authenticates and approves permissions\\n3. Authorization Server returns code
+        to client\\n4. Client exchanges code for access token\\n```\\n\\nb) Implicit
+        Flow (less secure, for browser-based apps):\\n```\\n1. Client redirects to
+        Authorization Server\\n2. User authenticates\\n3. Access token returned directly
+        in URL fragment\\n```\\n\\nc) Client Credentials Flow (server-to-server):\\n```\\n1.
+        Client authenticates with Authorization Server\\n2. Receives access token
+        directly\\n```\\n\\nd) Resource Owner Password Flow:\\n```\\n1. User provides
+        credentials to client\\n2. Client exchanges credentials for access token\\n```\\n\\n4.
+        Example Flow (Authorization Code):\\n\\n```javascript\\n// 1. Initial Authorization
+        Request\\nhttps://authorization-server.com/auth?\\n  response_type=code&\\n
+        \ client_id=CLIENT_ID&\\n  redirect_uri=CALLBACK_URL&\\n  scope=read\\n\\n//
+        2. Authorization Code Response\\nhttps://callback-url?code=AUTHORIZATION_CODE\\n\\n//
+        3. Token Exchange\\nPOST https://authorization-server.com/token\\n{\\n  grant_type:
+        \\\"authorization_code\\\",\\n  code: AUTHORIZATION_CODE,\\n  client_id: CLIENT_ID,\\n
+        \ client_secret: CLIENT_SECRET\\n}\\n\\n// 4. Access Token Response\\n{\\n
+        \ \\\"access_token\\\": \\\"ACCESS_TOKEN\\\",\\n  \\\"token_type\\\": \\\"Bearer\\\",\\n
+        \ \\\"expires_in\\\": 3600,\\n  \\\"refresh_token\\\": \\\"REFRESH_TOKEN\\\"\\n}\\n```\\n\\n5.
+        Using Access Token:\\n\\n```javascript\\n// Making authorized requests\\nfetch('https://api.resource-server.com/data',
+        {\\n  headers: {\\n    'Authorization': 'Bearer ACCESS_TOKEN'\\n  }\\n});\\n```\\n\\n6.
+        Security Best Practices:\\n\\n```javascript\\n// Always use HTTPS\\n// Store
+        tokens securely\\n// Validate all tokens\\n// Use appropriate grant type for
+        your use case\\n// Implement token expiration\\n// Use state parameter to
+        prevent CSRF\\n```\\n\\n7. Common Implementation Example (Node.js):\\n\\n```javascript\\nconst
+        passport = require('passport');\\nconst OAuth2Strategy = require('passport-oauth2');\\n\\npassport.use(new
+        OAuth2Strategy({\\n    authorizationURL: 'https://provider.com/oauth2/authorize',\\n
+        \   tokenURL: 'https://provider.com/oauth2/token',\\n    clientID: CLIENT_ID,\\n
+        \   clientSecret: CLIENT_SECRET,\\n    callbackURL: \\\"http://localhost:3000/auth/callback\\\"\\n
+        \ },\\n  function(accessToken, refreshToken, profile, cb) {\\n    // Handle
+        user data\\n    return cb(null, profile);\\n  }\\n));\\n```\\n\\n8. Refresh
+        Token Flow:\\n\\n```javascript\\n// When access token expires\\nPOST https://authorization-server.com/token\\n{\\n
+        \ grant_type: \\\"refresh_token\\\",\\n  refresh_token: REFRESH_TOKEN,\\n
+        \ client_id: CLIENT_ID,\\n  client_secret: CLIENT_SECRET\\n}\\n```\\n\\nBenefits:\\n\\n1.
+        Delegated Authorization\\n- Apps don't need to store user credentials\\n-
+        Limited, scoped access\\n\\n2. Secure\\n- Tokens are temporary\\n- Can be
+        revoked\\n- Scope-limited\\n\\n3. Widely Adopted\\n- Industry standard\\n-
+        Many implementations available\\n- Well-documented\\n\\nCommon Use Cases:\\n\\n1.
+        Social Login\\n2. API Authorization\\n3. Microservices\\n4. Mobile Apps\\n5.
+        Single Sign-On (SSO)\\n\\nConsiderations:\\n\\n1. Choose appropriate grant
+        type\\n2. Implement proper security measures\\n3. Handle token storage securely\\n4.
+        Manage token lifecycle\\n5. Implement proper error handling\\n\\nOAuth 2.0
+        is crucial for modern web applications and APIs, providing a secure way to
+        handle authorization while protecting user credentials and controlling access
+        to resources.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":14,\"completion_tokens\":1017,\"total_tokens\":1031}}"
+  recorded_at: Sun, 26 Oct 2025 19:15:27 GMT
+recorded_with: VCR 6.3.1

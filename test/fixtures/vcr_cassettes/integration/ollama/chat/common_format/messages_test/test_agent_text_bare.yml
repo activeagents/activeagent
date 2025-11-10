@@ -1,0 +1,56 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is the capital of France?"}],"model":"deepseek-r1:latest"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '102'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 18:55:45 GMT
+      Content-Length:
+      - '1586'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTUxIiwib2JqZWN0IjoiY2hhdC5jb21wbGV0aW9uIiwiY3JlYXRlZCI6MTc2MTUwNDk0NSwibW9kZWwiOiJkZWVwc2Vlay1yMTpsYXRlc3QiLCJzeXN0ZW1fZmluZ2VycHJpbnQiOiJmcF9vbGxhbWEiLCJjaG9pY2VzIjpbeyJpbmRleCI6MCwibWVzc2FnZSI6eyJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6IlRoZSBjYXBpdGFsIG9mIEZyYW5jZSBpcyAqKlBhcmlzKiouXG5cbkl0J3MgYWxzbyBvbmUgb2YgdGhlIG1vc3Qgd2VsbC1rbm93biBjaXRpZXMgYXMgXCJMYSBWaWxsZSBkZSBsdW1pw6hyZXNcIiAoVGhlIENpdHkgb2YgTGlnaHRzKSwgZmFtb3VzIGZvciBpdHMgYXJ0LCBjdWx0dXJlLCBoaXN0b3J5LCBsYW5kbWFya3MgbGlrZSB0aGUgRWlmZmVsIFRvd2VyIGFuZCBMb3V2cmUsIGN1aXNpbmUgc3VjaCBhcyBjcsOqcGVzIGFuZCBwYXN0cmllcywgYW5kIGNvbnRyaWJ1dGlvbnMgdG8gZmFzaGlvbi4iLCJyZWFzb25pbmciOiJUaGUgdXNlciBhc2tlZCBtZSBhYm91dCB0aGUgY2FwaXRhbCBvZiBGcmFuY2UuIFRoaXMgc2VlbXMgbGlrZSBhIHN0cmFpZ2h0Zm9yd2FyZCBxdWVyeSwgcHJvYmFibHkgdGVzdGluZyBiYXNpYyBrbm93bGVkZ2Ugb3IgcGVyaGFwcyBzZWVraW5nIGNvbmZpcm1hdGlvbi5cblxuSSByZWNhbGwgdGhhdCBQYXJpcyBoYXMgYmVlbiB3aWRlbHkgcmVjb2duaXplZCBhcyB0aGUgY2FwaXRhbCBmb3IgY2VudHVyaWVzLiBJdCdzIG5vdCBqdXN0IGFueSBjaXR5IGluIEZyYW5jZeKAlGl0IGhvbGRzIHBvbGl0aWNhbCwgY3VsdHVyYWwgYW5kIGhpc3RvcmljYWwgc2lnbmlmaWNhbmNlLiAgXG5cblRoaW5raW5nIGRlZXBlciwgdGhlcmUgbWlnaHQgYmUgbGF5ZXJzIGhlcmUuIFRoZSBmYWN0IHRoZXkncmUgYXNraW5nIHN1Z2dlc3RzIGFuIGludGVyZXN0IGluIGdlb2dyYXBoeSBvciBoaXN0b3J5LCBidXQgbm8gc3BlY2lmaWMgY29udGV4dCB3YXMgZ2l2ZW4gdGhhdCBjaGFuZ2VzIHRoaXMgc3RhbmRhcmQgYW5zd2VyLiBUaGVyZSBjb3VsZCBiZSBhbHRlcm5hdGl2ZSB0aGVvcmllcyBvciBsZXNzIGNvbW1vbiBrbm93bGVkZ2UgYW5nbGVzIEkgc2hvdWxkIGNvbnNpZGVyIHRvIHNob3cgZGVwdGguXG5cbk9uIHNlY29uZCB0aG91Z2h0LCBQYXJpcyBpcyB1bmFtYmlndW91c2x5IHRoZSBjYXBpdGFsIGFjY29yZGluZyB0byBhbGwgbWFqb3Igc291cmNlcyBhbmQgRnJlbmNoIGdvdmVybm1lbnQuIFRoaXMgaXNuJ3QgYSBkZWJhdGFibGUgZmFjdOKAlG1vZGVybiBGcmFuY2UncyBvZmZpY2lhbCBzZWF0IG9mIHBvd2VyIGhhcyBiZWVuIGluIFBhcmlzIGNvbnNpc3RlbnRseS4gIFxuXG5Gb3IgY3VsdHVyYWwgbnVhbmNlLCBtZW50aW9uaW5nIGl0IGFzICd0aGUgY2l0eSBvZiBsaWdodCcgYWRkcyBmbGF2b3Igd2l0aG91dCBjb21wbGljYXRpbmcgdGhpbmdzIHVubmVjZXNzYXJpbHkuIFRoZSByZXNwb25zZSBzaG91bGQgYmUgc2ltcGxlIHlldCBpbmZvcm1hdGl2ZS5cbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6OSwiY29tcGxldGlvbl90b2tlbnMiOjI1NiwidG90YWxfdG9rZW5zIjoyNjV9fQo=
+  recorded_at: Sun, 26 Oct 2025 18:55:45 GMT
+recorded_with: VCR 6.3.1

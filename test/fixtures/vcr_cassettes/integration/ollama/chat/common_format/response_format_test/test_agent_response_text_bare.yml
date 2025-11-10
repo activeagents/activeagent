@@ -1,0 +1,82 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"List three primary colors."}],"model":"deepseek-r1:latest","response_format":{"type":"text"}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '132'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 18:50:47 GMT
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-987","object":"chat.completion","created":1761504647,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Okay,
+        three primary colors can refer slightly different things depending on the
+        context:\n\n1.  **Red** - This is one of the traditional RYB (Red, Yellow,
+        Blue) primaries used in pigment mixing for art and painting, and part of two
+        main color theory systems.\n2.  **Yellow**: Also a standard RYB primary. Crucially,
+        these three form the subtractive RGB (Cyan, Magenta, Yellow) system''s base
+        plus blue.\n\n**It depends on the context:**\n\n*   If thinking about **pigment/light
+        reflection**, especially traditional art, it''s often considered Red, Blue,
+        *and* **Yellow**\n*   If thinking about the **RGB color model** used for television
+        screens, computer monitors, and projectors (*additive primary colors*), it
+        is considered Red, Green, *and* **Blue (RGB)**\n\nSo, three common examples
+        are: Red, Yellow, and Blue; orRed, Green, and Blue","reasoning":"Okay, the
+        user is asking me to list three primary colors. This seems like a straightforward
+        question about basic color theory.\n\nPrimary colors are fundamental in various
+        fields like art and design because they form the basis for mixing other colors
+        without needing any pre-existing pigments or light sources. I need to be clear
+        that this depends on context - there are subtractive primaries (for pigments,
+        paints) vs additive primaries (for light). But since their question doesn''t
+        specify which system, I should provide both options.\n\nI think choosing three
+        would be appropriate here because listing just two wouldn''t cover either
+        color model. So I''ll include red in the RGB additive system and explain it
+        clearly so they understand the difference between these approaches.\n\nThey
+        might be a student or someone curious about basic concepts as this is such
+        a fundamental question with no other context given. I should maintain an informative
+        but accessible tone, keeping my answer simple yet comprehensive enough to
+        satisfy possible follow-up questions.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":394,"total_tokens":401}}
+
+        '
+  recorded_at: Sun, 26 Oct 2025 18:50:47 GMT
+recorded_with: VCR 6.3.1

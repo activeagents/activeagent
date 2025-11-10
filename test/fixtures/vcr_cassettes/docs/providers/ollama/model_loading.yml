@@ -1,0 +1,59 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Hello!"}],"model":"llama3","keep_alive":"5m"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '84'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 19:13:31 GMT
+      Content-Length:
+      - '431'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-811","object":"chat.completion","created":1761506011,"model":"llama3","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Hello
+        there! It''s nice to meet you. Is there something I can help you with, or
+        would you like to chat? I''m here to listen and assist in any way I can."},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":40,"total_tokens":52}}
+
+        '
+  recorded_at: Sun, 26 Oct 2025 19:13:31 GMT
+recorded_with: VCR 6.3.1

@@ -1,0 +1,112 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Explain the SOLID principles"}],"model":"openrouter/auto","provider":{"data_collection":"deny","zdr":true}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '146'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:17:43 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c4b954a9dfabe-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761506261-S3hjd7SBV4xOrip4u8ab\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761506263,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"SOLID
+        is an acronym that stands for five object-oriented design principles intended
+        to make software designs more understandable, flexible, and maintainable.
+        They are fundamental principles that help developers create more stable and
+        scalable code. Here's a breakdown of each principle:\\n\\n1. **Single Responsibility
+        Principle (SRP)**\\n   - A class should have only one reason to change.\\n
+        \  - This means that a class should only have one job or responsibility. If
+        a class has more than one responsibility, it becomes coupled, and changes
+        to one responsibility may impair the others, leading to unexpected side effects.\\n
+        \  - Benefits: Easier to test, understand, and maintain.\\n\\n2. **Open-Closed
+        Principle (OCP)**\\n   - Software entities (classes, modules, functions, etc.)
+        should be open for extension but closed for modification.\\n   - This means
+        that you should be able to extend a class's behavior, without modifying it.
+        This can be achieved through techniques like inheritance, composition, or
+        extension methods.\\n   - Benefits: Prevents breaking existing functionality
+        when adding new features.\\n\\n3. **Liskov Substitution Principle (LSP)**\\n
+        \  - If a program is using a base class, it should be able to use any of its
+        subclasses without the program knowing.\\n   - This means that subclasses
+        must be substitutable for their base classes. If a program is using a base
+        class, it should be able to use any of its subclasses without the program
+        knowing.\\n   - Benefits: Ensures that inheritance hierarchies are well-structured
+        and do not break the expectations of the program.\\n\\n4. **Interface Segregation
+        Principle (ISP)**\\n   - Make fine-grained interfaces that are client-specific.\\n
+        \  - This means that it's better to have many smaller, more specific interfaces
+        than one large, general-purpose interface. Clients should only see methods
+        they're interested in.\\n   - Benefits: Reduces dependencies, makes code easier
+        to understand and maintain.\\n\\n5. **Dependency Inversion Principle (DIP)**\\n
+        \  - Depend upon abstractions, [do not] depend upon concretions.\\n   - This
+        means that high-level modules should not depend on low-level modules. Both
+        should depend on abstractions. This can be achieved through techniques like
+        dependency injection.\\n   - Benefits: Reduces coupling, makes code more flexible
+        and easier to test.\\n\\nBy following these principles, developers can create
+        more modular, maintainable, and extensible code.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":485,\"total_tokens\":495,\"prompt_tokens_details\":null}}"
+  recorded_at: Sun, 26 Oct 2025 19:17:55 GMT
+recorded_with: VCR 6.3.1

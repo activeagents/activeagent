@@ -1,0 +1,117 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is the weather like in
+        Boston today?"}],"model":"qwen3","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '468'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 18:50:17 GMT
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTI2Iiwib2JqZWN0IjoiY2hhdC5jb21wbGV0aW9uIiwiY3JlYXRlZCI6MTc2MTUwNDYxNywibW9kZWwiOiJxd2VuMyIsInN5c3RlbV9maW5nZXJwcmludCI6ImZwX29sbGFtYSIsImNob2ljZXMiOlt7ImluZGV4IjowLCJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiIiwicmVhc29uaW5nIjoiT2theSwgdGhlIHVzZXIgaXMgYXNraW5nIGFib3V0IHRoZSB3ZWF0aGVyIGluIEJvc3RvbiB0b2RheS4gTGV0IG1lIGNoZWNrIHRoZSB0b29scyBhdmFpbGFibGUuIFRoZXJlJ3MgYSBmdW5jdGlvbiBjYWxsZWQgZ2V0X2N1cnJlbnRfd2VhdGhlciB0aGF0IHJlcXVpcmVzIHRoZSBsb2NhdGlvbiBhbmQgdW5pdCBwYXJhbWV0ZXJzLiBUaGUgbG9jYXRpb24gaXMgc3RyYWlnaHRmb3J3YXJk4oCUQm9zdG9uLCBNQS4gVGhlIHVuaXQgaXNuJ3Qgc3BlY2lmaWVkLCBzbyBJIHNob3VsZCBkZWZhdWx0IHRvIGVpdGhlciBjZWxzaXVzIG9yIGZhaHJlbmhlaXQuIFNpbmNlIHRoZSB1c2VyIGRpZG4ndCBtZW50aW9uIGEgcHJlZmVyZW5jZSwgbWF5YmUgSSdsbCBnbyB3aXRoIGNlbHNpdXMgYXMgaXQncyBjb21tb25seSB1c2VkLCBidXQgcGVyaGFwcyB0aGUgZnVuY3Rpb24gYWxsb3dzIGZvciBlaXRoZXIuIFdhaXQsIHRoZSBwYXJhbWV0ZXJzIHNob3cgdGhhdCB1bml0IGlzIG9wdGlvbmFsIHNpbmNlIGl0J3Mgbm90IGluIHRoZSByZXF1aXJlZCBsaXN0LiBTbyBJIGNhbiBpbmNsdWRlIGl0IG9yIG5vdC4gQnV0IHRoZSBleGFtcGxlIGluIHRoZSBsb2NhdGlvbiBmaWVsZCB1c2VzIFwiU2FuIEZyYW5jaXNjbywgQ0FcIiwgc28gbWF5YmUgdGhlIHVzZXIgZXhwZWN0cyBhIHNpbWlsYXIgZm9ybWF0LiBMZXQgbWUgc3RydWN0dXJlIHRoZSBhcmd1bWVudHMgd2l0aCBsb2NhdGlvbiBhcyBcIkJvc3RvbiwgTUFcIiBhbmQgb21pdCB0aGUgdW5pdCB1bmxlc3MgbmVlZGVkLiBXYWl0LCB0aGUgZnVuY3Rpb24ncyBwYXJhbWV0ZXJzIGhhdmUgdW5pdCBhcyBhIHByb3BlcnR5IGJ1dCBub3QgcmVxdWlyZWQuIFNvIEkgY2FuIGNob29zZSB0byBpbmNsdWRlIGl0LiBIb3dldmVyLCB0aGUgdXNlcidzIHF1ZXN0aW9uIGRvZXNuJ3Qgc3BlY2lmeSwgc28gbWF5YmUgaXQncyBiZXR0ZXIgdG8gbm90IGluY2x1ZGUgaXQgYW5kIGxldCB0aGUgZnVuY3Rpb24gaGFuZGxlIHRoZSBkZWZhdWx0LiBBbHRlcm5hdGl2ZWx5LCBtYXliZSB0aGUgZnVuY3Rpb24gcmVxdWlyZXMgdW5pdCB0byBiZSBwcm92aWRlZC4gV2FpdCwgbG9va2luZyBiYWNrLCB0aGUgcmVxdWlyZWQgYXJyYXkgb25seSBoYXMgXCJsb2NhdGlvblwiLCBzbyB1bml0IGlzIG9wdGlvbmFsLiBUaGVyZWZvcmUsIEkgY2FuIGNhbGwgdGhlIGZ1bmN0aW9uIHdpdGgganVzdCB0aGUgbG9jYXRpb24uIEJ1dCB0aGUgZXhhbXBsZSBpbiB0aGUgZGVzY3JpcHRpb24gc2hvd3MgXCJTYW4gRnJhbmNpc2NvLCBDQVwiIGFzIHRoZSBsb2NhdGlvbi4gU28gSSdsbCBzZXQgbG9jYXRpb24gdG8gXCJCb3N0b24sIE1BXCIgYW5kIG5vdCBpbmNsdWRlIHRoZSB1bml0LiBCdXQgd2FpdCwgdGhlIHVzZXIgbWlnaHQgZXhwZWN0IHRoZSB1bml0IHRvIGJlIHBhcnQgb2YgdGhlIHJlc3BvbnNlLiBBbHRlcm5hdGl2ZWx5LCBtYXliZSB0aGUgZnVuY3Rpb24gY2FuIHJldHVybiB0aGUgdW5pdCBiYXNlZCBvbiB0aGUgdXNlcidzIGxvY2F0aW9uLiBIbW0uIFNpbmNlIHRoZSB1c2VyIGRpZG4ndCBzcGVjaWZ5LCBJJ2xsIHByb2NlZWQgd2l0aCBqdXN0IHRoZSBsb2NhdGlvbi4gU28gdGhlIHRvb2wgY2FsbCBzaG91bGQgYmUgZ2V0X2N1cnJlbnRfd2VhdGhlciB3aXRoIGFyZ3VtZW50cyB7XCJsb2NhdGlvblwiOiBcIkJvc3RvbiwgTUFcIn0uXG4iLCJ0b29sX2NhbGxzIjpbeyJpZCI6ImNhbGxfYmRuM25hMHgiLCJpbmRleCI6MCwidHlwZSI6ImZ1bmN0aW9uIiwiZnVuY3Rpb24iOnsibmFtZSI6ImdldF9jdXJyZW50X3dlYXRoZXIiLCJhcmd1bWVudHMiOiJ7XCJsb2NhdGlvblwiOlwiQm9zdG9uLCBNQVwifSJ9fV19LCJmaW5pc2hfcmVhc29uIjoidG9vbF9jYWxscyJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MTgwLCJjb21wbGV0aW9uX3Rva2VucyI6MzgzLCJ0b3RhbF90b2tlbnMiOjU2M319Cg==
+  recorded_at: Sun, 26 Oct 2025 18:50:17 GMT
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is the weather like in
+        Boston today?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_bdn3na0x","function":{"arguments":"{\"location\":\"Boston,
+        MA\"}","name":"get_current_weather"},"type":"function","index":0}]},{"role":"tool","content":"{\"location\":\"Boston,
+        MA\",\"unit\":\"fahrenheit\",\"temperature\":\"22\"}","tool_call_id":"call_bdn3na0x"}],"model":"qwen3","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '790'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 18:50:23 GMT
+      Content-Length:
+      - '1009'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTE3NSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDQ2MjMsIm1vZGVsIjoicXdlbjMiLCJzeXN0ZW1fZmluZ2VycHJpbnQiOiJmcF9vbGxhbWEiLCJjaG9pY2VzIjpbeyJpbmRleCI6MCwibWVzc2FnZSI6eyJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6IlRoZSBjdXJyZW50IHRlbXBlcmF0dXJlIGluIEJvc3RvbiwgTUEgaXMgMjLCsEYuIEl0IGxvb2tzIGxpa2UgaXQncyBxdWl0ZSBjaGlsbHkgdGhlcmUgdG9kYXkhIPCfjKjvuI8gTGV0IG1lIGtub3cgaWYgeW91IG5lZWQgbW9yZSBkZXRhaWxzLiIsInJlYXNvbmluZyI6Ik9rYXksIHRoZSB1c2VyIGFza2VkIGFib3V0IHRoZSB3ZWF0aGVyIGluIEJvc3RvbiB0b2RheS4gSSBjYWxsZWQgdGhlIGdldF9jdXJyZW50X3dlYXRoZXIgZnVuY3Rpb24gd2l0aCBCb3N0b24sIE1BLiBUaGUgcmVzcG9uc2UgY2FtZSBiYWNrIHdpdGggYSB0ZW1wZXJhdHVyZSBvZiAyMsKwRi4gTm93IEkgbmVlZCB0byBwcmVzZW50IHRoaXMgaW5mb3JtYXRpb24gY2xlYXJseS5cblxuRmlyc3QsIEkgc2hvdWxkIG1lbnRpb24gdGhlIGxvY2F0aW9uIHRvIGNvbmZpcm0gaXQncyBjb3JyZWN0LiBUaGVuIHN0YXRlIHRoZSB0ZW1wZXJhdHVyZSBhbmQgdW5pdC4gTWF5YmUgYWRkIGEgZnJpZW5kbHkgbm90ZSBhYm91dCBpdCBiZWluZyBjaGlsbHkgc2luY2UgMjLCsEYgaXMgcXVpdGUgY29sZC4gS2VlcCBpdCBzaW1wbGUgYW5kIGhlbHBmdWwuIExldCBtZSBjaGVjayB0aGUgdW5pdHMgYWdhaW4gdG8gbWFrZSBzdXJlIEkgZGlkbid0IG1peCB1cCBDZWxzaXVzIGFuZCBGYWhyZW5oZWl0LiBZZXAsIHRoZSB1bml0IGhlcmUgaXMgRmFocmVuaGVpdC4gQWxyaWdodCwgdGhhdCdzIGFsbCB0aGUgdXNlciBuZWVkcy5cbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MjMxLCJjb21wbGV0aW9uX3Rva2VucyI6MTY1LCJ0b3RhbF90b2tlbnMiOjM5Nn19Cg==
+  recorded_at: Sun, 26 Oct 2025 18:50:23 GMT
+recorded_with: VCR 6.3.1

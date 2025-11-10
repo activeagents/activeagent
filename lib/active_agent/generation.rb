@@ -1,90 +1,184 @@
-# lib/active_agent/generation.rb
-require "delegate"
+# frozen_string_literal: true
+
+require "active_agent/providers/common/messages/_types"
 
 module ActiveAgent
-  class Generation < Delegator
-    def initialize(agent_class, action, *args)
-      @agent_class, @action, @args = agent_class, action, args
-      @processed_agent = nil
-      @context = nil
-    end
-    ruby2_keywords(:initialize)
+  # Deferred agent action ready for synchronous or asynchronous execution.
+  #
+  # Returned when calling agent actions. Provides methods to execute immediately
+  # or queue for background processing, plus access to prompt properties before execution.
+  #
+  # @example Synchronous generation
+  #   generation = MyAgent.with(message: "Hello").greet
+  #   response = generation.prompt_now
+  #
+  # @example Asynchronous generation
+  #   MyAgent.with(message: "Hello").greet.prompt_later(queue: :prompts)
+  #
+  # @example Accessing prompt properties before generation
+  #   generation = MyAgent.prompt(message: "Hello")
+  #   generation.message.content  # => "Hello"
+  #   generation.messages         # => [...]
+  class Generation
+    attr_internal :agent_class, :action_name, :args, :kwargs
 
-    def __getobj__
-      @context ||= processed_agent.context
+    # @param agent_class [Class]
+    # @param action_name [Symbol]
+    # @param args [Array]
+    # @param kwargs [Hash]
+    def initialize(agent_class, action_name, *args, **kwargs)
+      self.agent_class, self.action_name, self.args, self.kwargs = agent_class, action_name, args, kwargs
     end
 
-    def __setobj__(context)
-      @context = context
-    end
-
-    def context
-      __getobj__
-    end
-
+    # @return [Boolean]
     def processed?
-      @processed_agent || @context
+      !!@agent
     end
 
-    def generate_later!(options = {})
-      enqueue_generation :generate_now!, options
+    # Accesses prompt options by processing the agent if needed.
+    #
+    # Lazily processes the agent on first access, allowing inspection of
+    # prompt properties before executing generation.
+    #
+    # @return [Hash] with :messages, :actions, and configuration keys
+    def prompt_options
+      agent.prompt_options
     end
 
-    def generate_later(options = {})
-      enqueue_generation :generate_now, options
+    # @return [Hash] configuration options excluding messages and actions
+    def options
+      prompt_options.except(:messages, :actions)
     end
 
-    def generate_now!
-      processed_agent.handle_exceptions do
-        processed_agent.run_callbacks(:generation) do
-          processed_agent.perform_generation!
-        end
-      end
+    def instructions
+      agent.prompt_view_instructions(prompt_options[:instructions])
     end
 
-    def generate_now
-      processed_agent.handle_exceptions do
-        processed_agent.run_callbacks(:generation) do
-          processed_agent.perform_generation
-        end
-      end
+    # @return [Array]
+    def messages
+      prompt_options[:messages] || []
     end
 
+    # Returns the last message with consistent `.content` access.
+    #
+    # Wraps various message formats (String, Hash, objects) using the common
+    # MessageType for uniform access patterns.
+    #
+    # @return [ActiveAgent::Providers::Common::Messages::Base, nil]
+    def message
+      last_message = messages.last
+      return nil unless last_message
+
+      message_type.cast(last_message)
+    end
+
+    # @return [Array]
+    def actions
+      prompt_options[:actions] || []
+    end
+
+    # Executes prompt generation synchronously with immediate processing.
+    #
+    # @return [ActiveAgent::Providers::Response]
+    def prompt_now!
+      agent.process_prompt!
+    end
+    alias generate_now! prompt_now!
+
+    # Executes prompt generation synchronously.
+    #
+    # @return [ActiveAgent::Providers::Response]
+    def prompt_now
+      agent.process_prompt
+    end
+    alias generate_now prompt_now
+
+    # Queues for background execution.
+    #
+    # @param options [Hash] job options (queue, priority, wait, etc.)
+    # @return [Object] enqueued job instance
+    # @raise [RuntimeError] if agent was accessed before queueing
+    def prompt_later(options = {})
+      enqueue_generation :prompt_now, options
+    end
+    alias generate_later prompt_later
+
+    # Generates a preview of the prompt without executing generation.
+    #
+    # Processes the agent action and renders the prompt configuration as
+    # markdown for debugging and inspection.
+    #
+    # @return [String] markdown-formatted preview
+    def prompt_preview
+      agent.preview_prompt
+    end
+    alias preview_prompt prompt_preview
+
+    # Executes embedding generation synchronously.
+    #
+    # @return [ActiveAgent::Providers::Response] embedding response with vector data
     def embed_now
-      processed_agent.handle_exceptions do
-        processed_agent.run_callbacks(:embedding) do
-          processed_agent.embed
-        end
-      end
+      agent.process_embed
     end
 
+    # Queues embedding generation for background execution.
+    #
+    # @param options [Hash] job options (queue, priority, wait, etc.)
+    # @return [Object] enqueued job instance
+    # @raise [RuntimeError] if agent was accessed before queueing
     def embed_later(options = {})
       enqueue_generation :embed_now, options
     end
 
     private
 
-    def processed_agent
-      @processed_agent ||= @agent_class.new.tap do |agent|
-        agent.process(@action, *@args)
+    # Lazily instantiates and processes the agent instance.
+    #
+    # Cached after first call.
+    #
+    # @return [ActiveAgent::Base]
+    # @api private
+    def agent
+      @agent ||= agent_class.new.tap do |agent|
+        agent.params = @params
+        agent.process(action_name, *args, **kwargs)
       end
     end
 
+    # Enqueues for background processing.
+    #
+    # Prevents enqueuing if the agent has been accessed, as local changes
+    # would be lost. Only method arguments are passed to the job, not the
+    # agent instance state.
+    #
+    # @param generation_method [Symbol, String]
+    # @param options [Hash]
+    # @return [Object] enqueued job
+    # @raise [RuntimeError] when agent already processed to prevent data loss
+    # @api private
     def enqueue_generation(generation_method, options = {})
       if processed?
-        ::Kernel.raise "You've accessed the context before asking to " \
+        ::Kernel.raise "You've accessed the agent before asking to " \
           "generate it later, so you may have made local changes that would " \
           "be silently lost if we enqueued a job to generate it. Why? Only " \
           "the agent method *arguments* are passed with the generation job! " \
-          "Do not access the context in any way if you mean to generate it " \
-          "later. Workarounds: 1. don't touch the context before calling " \
-          "#generate_later, 2. only touch the context *within your agent " \
-          "method*, or 3. use a custom Active Job instead of #generate_later."
+          "Do not access the agent in any way if you mean to generate it " \
+          "later. Workarounds: 1. don't touch the agent before calling " \
+          "#prompt_later, 2. only touch the agent *within your agent " \
+          "method*, or 3. use a custom Active Job instead of #prompt_later."
       else
-        @agent_class.generation_job.set(options).perform_later(
-          @agent_class.name, @action.to_s, generation_method.to_s, args: @args
+        agent_class.generation_job.set(options).perform_later(
+          agent_class.name, action_name.to_s, generation_method.to_s, args: args, kwargs: kwargs
         )
       end
+    end
+
+    # Lazy-loaded message type instance for casting messages.
+    #
+    # @return [ActiveAgent::Providers::Common::Messages::Types::MessageType]
+    # @api private
+    def message_type
+      @message_type ||= ActiveAgent::Providers::Common::Messages::Types::MessageType.new
     end
   end
 end

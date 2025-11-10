@@ -1,0 +1,168 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What are the main differences between Ruby and Python?","model":"gpt-4.1"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '84'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 18:36:38 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999964'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_50f2d662adf34bbaacf44fd163ed9996
+      Openai-Processing-Ms:
+      - '17806'
+      X-Envoy-Upstream-Service-Time:
+      - '17809'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=vH91dozrLV.MmAIs0OUhJqNGu_BVCr1vb_nWXE.0o7w-1761503798-1.0.1.1-S4rFyvolfA7g50CNvhmPojFFR.rdij7rIQ4uERzzuWCg9JSHwNcqhnw0SmdZiD1UudZ1U2eKN1FzavlNLn5pgKEiLQClss93OM9TuYjWPBQ;
+        path=/; expires=Sun, 26-Oct-25 19:06:38 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=OBTsa6AKz.NE9x0vBLuocqoaIMbiBeJ9BgqVRuHKwaQ-1761503798884-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c0f072971eb22-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0c1c6578aacaec8d0068fe6a250ee481959d94c0c2f07a3740",
+          "object": "response",
+          "created_at": 1761503781,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_0c1c6578aacaec8d0068fe6a25b55881958163e2d258a3522a",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "**Ruby** and **Python** are both high-level, interpreted programming languages known for their ease of use, flexible syntax, and vibrant communities. However, they have key differences in philosophy, use cases, and features:\n\n---\n\n### 1. **Philosophy & Design Goals**\n- **Python:**  \n  - **Philosophy:** \"There should be one\u2014and preferably only one\u2014obvious way to do it.\"\n  - **Focus:** Readability, simplicity, and explicitness.\n  - **Result:** Python code tends to be very readable and consistent, enforced by conventions (like PEP 8).\n\n- **Ruby:**  \n  - **Philosophy:** \"There's more than one way to do it\" (often summarized as \"developer happiness\").\n  - **Focus:** Flexibility, expressiveness, and making programming enjoyable.\n  - **Result:** Ruby gives developers multiple ways to achieve the same thing; syntax can be more fluid and creative.\n\n---\n\n### 2. **Syntax**\n- **Python:**  \n  - Uses indentation (whitespace) for blocks.\n  - Enforces readable code and minimal syntax.\n  - Example:\n    ```python\n    def hello(name):\n        print(\"Hello, \" + name)\n    ```\n\n- **Ruby:**  \n  - Uses `end` keyword to close blocks.\n  - Offers optional parentheses, lots of syntactic sugar.\n  - Example:\n    ```ruby\n    def hello(name)\n      puts \"Hello, \" + name\n    end\n    ```\n\n---\n\n### 3. **Community & Ecosystem**\n- **Python:**  \n  - Widely used for data science, machine learning, web development, automation, scripting, education, etc.\n  - Popular frameworks: Django, Flask, Pandas, TensorFlow, PyTorch.\n\n- **Ruby:**  \n  - Best known for web development, especially with **Ruby on Rails**.\n  - Fewer libraries for data science, but strong focus on web, automation, and scripting.\n  - Major framework: Ruby on Rails.\n\n---\n\n### 4. **Typing System**\n- **Both:** Dynamically typed, but...\n  - **Python:** Recent versions introduce *optional* type hints (static type checking through tools like `mypy`).\n  - **Ruby:** Remains strictly dynamic (though Sorbet and RBS offer optional typing, less commonly used).\n\n---\n\n### 5. **Object-Oriented Programming**\n- **Both:** Support OOP fully.\n  - **Ruby:** \"Everything is an object\"\u2014even primitive types (like integers, nil, etc.).\n  - **Python:** Almost everything is an object, but some primitives (like functions) are not as unified as in Ruby.\n\n---\n\n### 6. **Performance**\n- Comparable for most general use cases, although Python tends to have more performance-oriented implementations due to its use in scientific computing.\n\n---\n\n### 7. **Popularity**\n- **Python:** Has become one of the most popular programming languages.\n- **Ruby:** More niche, with most usage centered on Rails.\n\n---\n\n### **Summary Table**\n\n| Feature/Aspect         | Python                                              | Ruby                                         |\n|-----------------------|-----------------------------------------------------|----------------------------------------------|\n| Philosophy            | Explicit, one way to do it (\"import this\" zen)      | Flexible, many ways to do it (developer joy) |\n| Syntax                | Indentation-based, enforced structure               | `end`-based blocks, flexible syntax          |\n| Main Use Cases        | Data Science, ML, Web, Scripting                    | Web dev (Rails), Scripting                   |\n| Typing                | Dynamic + Optional Static Typing                    | Dynamic (optional with gems)                 |\n| OOP Approach          | Mostly everything is an object                      | Absolutely everything is an object           |\n| Popularity            | Extremely popular                                   | Niche (mainly Rails)                         |\n| Notable Frameworks    | Django, Flask, TensorFlow, Pandas                   | Ruby on Rails                                |\n| Community/Ecosystem   | Very large and varied                               | Smaller, centered on web                     |\n\n---\n\n**In summary:**  \n- Use **Python** if you want readability, robust libraries (especially in data science/machine learning), or broad industry support.\n- Use **Ruby** if you're focusing on web apps (particularly if you prefer Rails), or if you want a language that emphasizes expressive code and flexibility."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 17,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 897,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 914
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 18:36:38 GMT
+recorded_with: VCR 6.3.1

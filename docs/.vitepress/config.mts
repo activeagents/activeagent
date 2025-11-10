@@ -48,6 +48,7 @@ export default defineConfig({
   ],
   cleanUrls: true,
   themeConfig: {
+
     search: {
       provider: 'local',
     },
@@ -58,66 +59,75 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Docs', link: '/docs' },
+      { text: 'Docs', link: '/framework' },
       { text: 'GitHub', link: 'https://github.com/activeagents/activeagent' }
     ],
     sidebar: [
       {
         text: 'Overview',
-        link: '/docs',
+        link: '/framework',
       },
       {
         text: 'Getting Started',
-        link: '/docs/getting-started',
+        link: '/getting_started',
       },
       {
         text: 'Framework',
         items: [
-          // { text: 'Rails Integration', link: '/docs/framework/rails-integration' },
-          { text: 'Active Agent', link: '/docs/framework/active-agent' },
-          { text: 'Action Prompt', link: '/docs/framework/action-prompt' },
-          { text: 'Generation Provider', link: '/docs/framework/generation-provider' },
-          { text: 'Using Concerns', link: '/docs/framework/concerns' },
-          { text: 'Testing', link: '/docs/framework/testing' },
-        ]
-      },
-      {
-        text: 'Generation Providers',
-        items: [
-          { text: 'OpenAI', link: '/docs/generation-providers/openai-provider' },
-          { text: 'Anthropic', link: '/docs/generation-providers/anthropic-provider' },
-          { text: 'Ollama', link: '/docs/generation-providers/ollama-provider' },
-          { text: 'OpenRouter', link: '/docs/generation-providers/open-router-provider' },
-        ]
-      },
-      {
-        text: 'Action Prompt',
-        items: [
-          { text: 'Messages', link: '/docs/action-prompt/messages' },
-          { text: 'Actions', link: '/docs/action-prompt/actions' },
-          { text: 'Prompts', link: '/docs/action-prompt/prompts' },
-          { text: 'Tools', link: '/docs/action-prompt/tools' },
-          { text: 'Tool Calling', link: '/docs/action-prompt/tool-calling' },
+          { text: 'Agents', link: '/agents' },
+          { text: 'Providers', link: '/providers' },
+          { text: 'Configuration', link: '/framework/configuration' },
+          { text: 'Instrumentation', link: '/framework/instrumentation' },
+          { text: 'Retries', link: '/framework/retries' },
+          { text: 'Rails Integration', link: '/framework/rails' },
+          { text: 'Testing', link: '/framework/testing' },
         ]
       },
       { text: 'Agents',
         items: [
-          { text: 'Browser Use', link: '/docs/agents/browser-use-agent' },
-          { text: 'Data Extraction', link: '/docs/agents/data-extraction-agent' },
-          { text: 'Translation', link: '/docs/agents/translation-agent' },
+          { text: 'Actions', link: '/actions' },
+          { text: 'Generation', link: '/agents/generation' },
+          { text: 'Instructions', link: '/agents/instructions' },
+          { text: 'Streaming', link: '/agents/streaming' },
+          { text: 'Callbacks', link: '/agents/callbacks' },
+          { text: 'Error Handling', link: '/agents/error_handling' },
         ]
       },
-      { text: 'Active Agent',
+      {
+        text: 'Actions',
         items: [
-          // { text: 'Generative UI', link: '/docs/active-agent/generative-ui' },
-          { text: 'Structured Output', link: '/docs/active-agent/structured-output' },
-          { text: 'Callbacks', link: '/docs/active-agent/callbacks' },
-          { text: 'Generation', link: '/docs/active-agent/generation' },
-          { text: 'Queued Generation', link: '/docs/active-agent/queued-generation' },
-          // { text: 'Error Handling', link: '/docs/active-agent/error-handling' },
+          { text: 'Messages', link: '/actions/messages' },
+          { text: 'Embeddings', link: '/actions/embeddings' },
+          { text: 'Tools', link: '/actions/tools' },
+          { text: 'Structured Output', link: '/actions/structured_output' },
         ]
-       },
+      },
+      {
+        text: 'Providers',
+        items: [
+          { text: 'Anthropic', link: '/providers/anthropic' },
+          { text: 'Ollama', link: '/providers/ollama' },
+          { text: 'OpenAI', link: '/providers/open_ai' },
+          { text: 'OpenRouter', link: '/providers/open_router' },
+          { text: 'Mock', link: '/providers/mock' },
+        ]
+      },
+      { text: 'Examples',
+        items: [
+          // { text: 'Browser Use', link: '/examples/browser-use-agent' },
+          { text: 'Data Extraction', link: '/examples/data_extraction_agent' },
+          // { text: 'Translation', link: '/examples/translation-agent' },
+        ]
+      },
+      { text: 'Contributing',
+        items: [
+          { text: 'Documentation', link: '/contributing/documentation' },
+        ]
+      },
     ],
+    outline: {
+      level: 'deep'
+    },
 
     socialLinks: [
       { icon: 'bluesky', link: 'https://bsky.app/profile/activeagents.ai' },
@@ -127,5 +137,6 @@ export default defineConfig({
       { icon: 'twitch', link: 'https://www.twitch.tv/tonsoffun111' },
       { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
     ],
-  }
+  },
+  lastUpdated: true
 })

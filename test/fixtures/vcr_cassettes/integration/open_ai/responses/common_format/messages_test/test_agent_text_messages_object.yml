@@ -1,0 +1,169 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"assistant","content":"I can help you with programming
+        questions."},{"role":"user","content":"What are the benefits of using ActiveRecord?"}],"model":"gpt-4.1"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '178'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 18:36:49 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999953'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_b716933e10359c4ca34eb45667cdea33
+      Openai-Processing-Ms:
+      - '8117'
+      X-Envoy-Upstream-Service-Time:
+      - '8120'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=hmJacbyNOAIwubzwVP6q..frbPA1JhkGQRUezIFUvBw-1761503809-1.0.1.1-leBz5ZP4YpJSVC3vZO3fpKIOCZECmsifsPa6dIOhoZkQnMSWcdJ3sHTkSD__._rc3c7O46VtB4Q0YixfQleqsmN2oPiowVPgPntYClkejP0;
+        path=/; expires=Sun, 26-Oct-25 19:06:49 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=3E625kzeJNKuP7XfIOj7EEgL3fVj8mb_NnJxxk5boSA-1761503809957-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c0f891e4817d8-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0fe37db78848cd260068fe6a39d3908196b93a274ee148e077",
+          "object": "response",
+          "created_at": 1761503801,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_0fe37db78848cd260068fe6a3a56e88196b2619a45eecd286b",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "**ActiveRecord** is the default Object Relational Mapping (ORM) layer in Ruby on Rails. It provides a bridge between relational databases and object-oriented programming. Here are the benefits of using ActiveRecord:\n\n### 1. **Abstraction of Database Operations**\n- **Simplifies queries**: You interact with database tables using Ruby classes and objects instead of writing SQL.\n- **CRUD with ease**: Creating, reading, updating, and deleting records are straightforward and intuitive.\n\n### 2. **Convention over Configuration**\n- **Less boilerplate**: Naming conventions for tables, fields, and foreign keys reduce the need for configuration files.\n- **Automatic mapping**: Classes map to tables, and attributes to columns, following standard Ruby/Rails naming conventions.\n\n### 3. **Associations and Relationships**\n- **Declarative associations**: Easily define relationships like `has_many`, `belongs_to`, `has_one`, and `has_and_belongs_to_many`.\n- **Intuitive navigation**: Traverse relationships with object-oriented code instead of complex SQL joins.\n\n### 4. **Validations and Callbacks**\n- **Data integrity**: Built-in validation methods ensure data correctness before saving.\n- **Lifecycle hooks**: Use callbacks to trigger logic before/after create, update, or destroy actions.\n\n### 5. **Migrations**\n- **Database schema management**: Create, change, and version your database schema using Ruby DSL rather than raw SQL.\n- **Portability**: Easily migrate your schema between different database systems.\n\n### 6. **Query Interface**\n- **Chained queries**: Use methods like `.where`, `.order`, and `.limit` for composing readable, maintainable queries.\n- **Idiomatic Ruby**: Write database logic in Ruby, leveraging the language\u2019s power and consistency.\n\n### 7. **Community and Ecosystem**\n- **Well-documented and maintained**: ActiveRecord is widely used, well-tested, and supported by a large community.\n- **Integrations**: Works seamlessly with other Rails components and gems.\n\n### 8. **Security**\n- **Prevents SQL injection**: Query methods use parameterization to help guard against SQL injection attacks.\n\n### 9. **Testing Support**\n- **Fixtures and Factories**: Testing with test data is straightforward with built-in facilities.\n- **Easy stubbing**: ActiveRecord models are easy to mock or stub in tests.\n\n---\n\n**In summary:**  \nActiveRecord streamlines database interactions, making Rails development quicker, safer, and more maintainable by handling the tedious parts of database management and letting developers focus on application logic."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 28,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 531,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 559
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 18:36:49 GMT
+recorded_with: VCR 6.3.1

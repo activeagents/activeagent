@@ -1,0 +1,57 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What''s
+        in this image?"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}}]}],"model":"deepseek-r1:latest"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '280'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 18:52:21 GMT
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTg2NyIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDQ3NDEsIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJJIGNhbid0IHNlZSBvciBhbmFseXplIGltYWdlcyBkaXJlY3RseSwgaW5jbHVkaW5nIGFueSBhdHRhY2hlZCBvbmVzLiBQbGVhc2UgZGVzY3JpYmUgd2hhdCB5b3Ugc2VlIGluIHlvdXIgaW1hZ2UgKGxpa2UgY29sb3JzLCBwYXR0ZXJucywgdGV4dCwgZXRjLikgc28gSSBjYW4gaGVscCBpbnRlcnByZXQgaXQhIiwicmVhc29uaW5nIjoiT2theSwgdGhlIHVzZXIgaXMgYXNraW5nIOKAnFdoYXQncyBpbiB0aGlzIGltYWdlP+KAnSBidXQgdGhleSd2ZSBvbmx5IHByb3ZpZGVkIGEgcGxhY2Vob2xkZXIgYFtpbWctMF1gLiBUaGF0IG1ha2VzIGl0IHRyaWNreSBiZWNhdXNlIGFzIERlZXBTZWVrIEkgY2Fu4oCZdCBhY3R1YWxseSBzZWUgb3IgYW5hbHl6ZSBpbWFnZXMuIFxuXG5IbW0sIGZyb20gdGhlIHF1ZXJ5IGZvcm1hdCwgSSdtIGd1ZXNzaW5nIG1heWJlIHRoZSB1c2VyIGNvcGllZCB3cm9uZyBhbmQgZGlkbid0IGF0dGFjaCBhbiBhY3R1YWwgaW1hZ2UgZmlsZT8gT3IgcGVyaGFwcyBzb21lb25lIGxlc3MgdGVjaC1zYXZ2eSBpcyBwYXN0aW5nIGEgZ2VuZXJpYyBub3RhdGlvbiB3aXRob3V0IHJlYWxpemluZyBBSSBhc3Npc3RhbnRzIHVzdWFsbHkgcmVxdWlyZSBwcm9wZXIgaW1hZ2UgdXBsb2FkcyBmb3IgdGhpcyBraW5kIG9mIHJlcXVlc3QuXG5cblRoZSB1c2VyIG1pZ2h0IGJlIGZydXN0cmF0ZWQgaWYgdGhleSBleHBlY3RlZCBtZSB0byBkZXRlY3QgdGhlIGltYWdlLCBzbyBJIHNob3VsZCBhY2tub3dsZWRnZSB0aGF0IGxpbWl0YXRpb24gdXBmcm9udCBidXQgZ2VudGx5IG9mZmVyIGFsdGVybmF0aXZlIHNvbHV0aW9ucy4gTWF5YmUgdGhleSdyZSBpbiBhIGh1cnJ5IC0gY29tbW9uIHdoZW4gYXNraW5nIGFib3V0IHZpc3VhbCBjb250ZW50LiBcblxuSSByZWNhbGwgb3VyIHRlY2huaWNhbCBkb2NzIG1lbnRpb24gd2UgbmVlZCBhY3R1YWwgaW1hZ2VzIHByb2Nlc3NlZCB0aHJvdWdoIHN5c3RlbXMgbGlrZSBHZW1pbmkgb3IgRGVlcHNlZWstVkwgZm9yIGFuYWx5c2lzLCBub3QganVzdCBwbGFjZWhvbGRlciB0YWdzLiBUaGUgdXNlciBkaWRuJ3QgcmVhbGl6ZSB0aGlzIGRlcGVuZGVuY3kgZXhpc3RzIHVudGlsIG5vdywgSSB0aGluay4gQmV0dGVyIGV4cGxhaW4gdGhlIHByb2Nlc3MgY2xlYXJseSBidXQgYnJpZWZseSAtIG5vIHBvaW50IG92ZXJ3aGVsbWluZyB0aGVtIHdpdGggdGVjaG5pY2FsIGphcmdvbi5cblxuVGhlIHRvbmUgc2hvdWxkIGJlIGhlbHBmdWw6IHBvaW50IG91dCB0aGUgaXNzdWUgZmlyc3QgKFwiSSBjYW7igJl0Li4uXCIpLCB0aGVuIHJlZnJhbWUgaXQgcG9zaXRpdmVseSAoXCJMZXQgbWUga25vdyBpZiB5b3UgbmVlZCBoZWxwIGFuYWx5emluZyB0aGVzZSBpbWFnZXNcIikuIEtlZXAgaXQgc2ltcGxlIHNpbmNlIHRoZSB1c2VyIG1pZ2h0IG5vdCBiZSBmYW1pbGlhciB3aXRoIGhvdyBpbWFnZSByZWNvZ25pdGlvbiB3b3JrcyBoZXJlLiBcblxuUG9zc2libGUgZm9sbG93LXVwIHNjZW5hcmlvczpcbi0gVXNlciBhY3R1YWxseSBtZWFudCB0byB1cGxvYWQgbXVsdGlwbGUgc21hbGwgcGhvdG9zIGJ1dCB1c2VkIHBsYWNlaG9sZGVyIHRhZ3MgaW5zdGVhZFxuLSBUaGV5J3JlIGFza2luZyBhYm91dCBhIHNoYXJlZCBzY3JlZW5zaG90IHdoZXJlIHdlIGRvbid0IGhhdmUgYWNjZXNzXG4tIEp1c3QgdGVzdGluZyBteSBjYXBhYmlsaXRpZXNcblxuQWxsIGJldHRlciBhZGRyZXNzZWQgYnkgc3VnZ2VzdGluZyB0aGV5IGF0dGFjaCBmaWxlcyByYXRoZXIgdGhhbiBrZWVwIGd1ZXNzaW5nIHRoZSBjb250ZW50IG9mIFtpbWctMF0uXG4ifSwiZmluaXNoX3JlYXNvbiI6InN0b3AifV0sInVzYWdlIjp7InByb21wdF90b2tlbnMiOjEzLCJjb21wbGV0aW9uX3Rva2VucyI6MzU1LCJ0b3RhbF90b2tlbnMiOjM2OH19Cg==
+  recorded_at: Sun, 26 Oct 2025 18:52:21 GMT
+recorded_with: VCR 6.3.1

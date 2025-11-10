@@ -1,0 +1,170 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":[{"role":"user","content":[{"type":"input_text","text":"Tell
+        me a fun fact about Ruby programming."},{"type":"input_text","text":"Now explain
+        why that''s interesting."}]}],"model":"gpt-4.1"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '198'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 18:36:54 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999960'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_7f9f7b23fad7405a9284c423e5eae225
+      Openai-Processing-Ms:
+      - '3197'
+      X-Envoy-Upstream-Service-Time:
+      - '3202'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=7RZozCSkNUdNsk6DeER_TcINbGpIKu1.YkD2728BuLo-1761503814-1.0.1.1-BnnurkaGxcr.v7QwFUXPvGUrUoMLkNuuPzBiiZu_ubFse0nzgKDBUKQHv0HOwe4BVjpVmG5d5MdJ5SnH3qMQBxCI1SG7LElT9LMAvLim7HE;
+        path=/; expires=Sun, 26-Oct-25 19:06:54 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=UYVckMX9J6lRUq6mDWO0EnKiUNjK.3cuYeoatIAOjX0-1761503814526-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c0fc479dded40-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0a61d987327699700068fe6a4350c4819ba16a5bf1f14694a8",
+          "object": "response",
+          "created_at": 1761503811,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_0a61d987327699700068fe6a43e7e4819b8bc17133ac658876",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "**Fun Fact:**  \nIn Ruby, you can reopen and modify existing classes at any point, even core ones like `String` or `Integer`. This is called \"monkey patching.\"\n\n```ruby\nclass String\n  def shout\n    self.upcase + \"!\"\n  end\nend\n\nputs \"hello\".shout  # Output: HELLO!\n```\n\n**Why is this interesting?**  \nMonkey patching makes Ruby extremely flexible and expressive\u2014so much so that you can *change* or *extend* the language\u2019s built-in behavior on the fly. This allows developers to tailor objects to meet their needs, simplify code, or adapt libraries. However, it requires discipline, because a careless monkey patch can break other code or introduce subtle bugs. This tension between power and responsibility makes Ruby both fascinating and distinctive among programming languages."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 21,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 172,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 193
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 18:36:54 GMT
+recorded_with: VCR 6.3.1

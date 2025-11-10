@@ -1,0 +1,86 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What was a positive news story
+        from today?"}],"model":"deepseek-r1:latest","web_search_options":{}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '138'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 18:49:30 GMT
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-293","object":"chat.completion","created":1761504570,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"I
+        can point you toward some good-news stories, but please note I don''t have
+        real-time access to current events. If you ask right now for current headlines,
+        please check a news source as there might be more recent uplifting articles.\n\nIn
+        general, positive news stories often include examples such as:\n\n1.  **Medical
+        Breakthroughs:** Discoveries leading to new treatments or cures (e.g., progress
+        in cancer research).\n2.  **Environmental Successes:** Initiatives that successfully
+        protect endangered species, areas of pristine nature, or innovative sustainable
+        solutions.\n3.  **Small Business/Community Victories:** Local businesses finding
+        creative ways forward despite challenges, or community groups achieving a
+        positive goal.\n4.  **Sports Achievements:** Underdog stories in sports, impressive
+        athletic feats (like record-breaking performances), triumphs over adversity
+        by teams or athletes.\n5.  **Humanitarian Aid and Recovery:** Successful rescue
+        operations, effective disaster relief efforts, community rebuilding success
+        after tragedy.\n\nWould you like me to create a hypothetical example of the
+        kind of positive story I might reference?","reasoning":"Okay, user is asking
+        for a positive news story from today. Hmm, they might be looking for something
+        uplifting to start their day or maybe just wants to share good vibes with
+        others through current events. \n\nI don''t have real-time access to today''s
+        headlines since it depends on where/when the query was made (assuming cutoff
+        date). But I can offer a hypothetical example that feels genuinely positive
+        while acknowledging the limitation transparently upfront. This maintains trust
+        without misleading them.\n\nThe user didn''t specify any preferred topic like
+        politics, entertainment or science, so keeping it neutral but with clear good
+        vibes would probably satisfy most cases. Maybe add a cheerful emoji to match
+        their likely mood request? \n\nWait - should confirm they really want today''s
+        news since different users might interpret that differently (some could need
+        old examples if my system isn''t updated). Adding that disclaimer politely
+        at the top seems necessary.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":398,"total_tokens":409}}
+
+        '
+  recorded_at: Sun, 26 Oct 2025 18:49:30 GMT
+recorded_with: VCR 6.3.1

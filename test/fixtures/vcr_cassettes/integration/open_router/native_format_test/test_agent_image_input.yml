@@ -1,0 +1,93 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":[{"type":"text","text":"What
+        is in this image?"},{"type":"image_url","image_url":{"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}}]}],"model":"openai/gpt-5"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '315'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:06:27 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c3b1dbf8c8ea2-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n{\"id\":\"gen-1761505586-NWN2E5TE1bd9RvWkhcwv\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-5\",\"object\":\"chat.completion\",\"created\":1761505586,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"completed\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"A
+        wooden boardwalk path running through a lush green field or marsh, with tall
+        grass and bushes under a blue sky with scattered clouds.\",\"refusal\":null,\"reasoning\":\"**Describing
+        the image**\\n\\nI need to provide a concise description without identifying
+        any people. This image shows a scenic landscape featuring a wooden boardwalk
+        path running through a lush green meadow or marsh. It's surrounded by tall
+        grass and bushes, all under a bright blue sky dotted with scattered clouds.
+        I'll keep the details minimal and straightforward, focusing on the overall
+        beauty of the landscape.\",\"reasoning_details\":[{\"type\":\"reasoning.summary\",\"summary\":\"**Describing
+        the image**\\n\\nI need to provide a concise description without identifying
+        any people. This image shows a scenic landscape featuring a wooden boardwalk
+        path running through a lush green meadow or marsh. It's surrounded by tall
+        grass and bushes, all under a bright blue sky dotted with scattered clouds.
+        I'll keep the details minimal and straightforward, focusing on the overall
+        beauty of the landscape.\",\"format\":\"openai-responses-v1\",\"index\":0},{\"type\":\"reasoning.encrypted\",\"data\":\"gAAAAABo_nE4od3eeTqO9erZfIkIqniAzQTLUr_LGacBNGQTTrIbocTDVV5M5V4-592RtN0qWaFCyskBKRaTGqQw3PD9Vmgnkts0eWA_ybKdWbF19ZUwLTSL2JGsZSJ2dkXky0BIKki6jdKhgj4GGh1Y6mGHF5tzrdfQKcS1Y-H-gbistb04ZsR7FifWIXsx4KZUoeyV6NENp24vLxHz5uzRqMH-heXwmQhseJekpjWhSgtBT-7CF8Rr4IH7Mwc4D3P-oL47V3EO8UDHfKgbkaYfaprDORcAEfyx28qNA1OB0GX5o2jQ5gPa_LvUOgH4YpFZUxshu8a0sLgJ2y3ouVrRAR9Ej-DV1LwKr6Meh_1lBzeyZ-yaRfBYIgqmEqkGCwFfx6GCNgYdqUaAFtJY7Xe2MG5OZFoYnGR9F-Bx97NReEOJNaHh8SfNCupIdi4lj_9pkaQ0uAZITOB6lIoDyUkrymyBIlXkLZZJ3pDJPcJsqRP57V_93dTz7jzFVYfcfmTqwB7MNhJDuNFe7Mzhyx2-mMwBzx9IBWb0loa0h2Ed4AueVd1nc6jqXISJB_DU7IQYEJgSon5SfgndDZ8Xo_V-TAZfEx9J94wOvRkxYqWiN70Ri5F4gY5SQRhgOpRc-HVvATgeIYzv_39Ak17kISYK3TLzOqMZ3zVuERmL4cAt0eERwYjWHjfe-W0wQ2bfYVsTN2gHah9dlMChDnDwONP6P6j3a3PbbpVhgP_E4zhdzEtGwZeNFTmzak6XUlNht5ACOz1dVnYJaKXBxcz0fOS4tDPri3zn6qsb3c_Kt_d-yRM2deDhocEkvOS7et8xT-vKXZHbf6KTF5nhS55bFiJ-PstCDGEEoZ6ORzDXI9Wzv0GhmDCSswwN0XA6VNRuabqEcWDLsNq4G9biob-co8Evhbx7fr8j7dedHwNU-HfSqRXqaFIpnG3L6WGOjlR9jEIz-dzoQngUIToV0SO5p0ERTL5x2x0IMqBHn6EBeSlmpMf3hmyN_HF5HkSlmzVMvWP3aVIyKSwLMpEHS6H-dMnIq1USMz1cmZwhkTn9jvfG8uzRzp921gro92o0VzuUCWoirwhLZubgPsTgLkCt-JBEygSVuj75AhffQj7WJeIBK4soUWY6pQOD9HukEvFgiXNoKgM-trq_GQOyP_QFEVCjmwRrH3M2GPYe-qFpeBYq3goKXFOCX8GgtDB9EganyKETxBIeyxEA7IXfoknS3dzm_BeRYhAEpAE4u7LxrS_Jvq3KQ_QrOO3I-k9og3n5SNtgFY9FRd1hvncWWQeAwE8ik32o4Vk-Lml7hkDeTNSSjyvEBVsfEceVVLjKk1zDcAp2CcTy8UftX7daAhAKtZ8yGsf-ZsrqoIjprXJfcpE73dr8y1FztnqyRWn4jWYq6HfJmvNaPy_d\",\"id\":\"rs_08df4d774212ba2b0168fe713547dc8190b9da44eba6f02df2\",\"format\":\"openai-responses-v1\",\"index\":0}]}}],\"usage\":{\"prompt_tokens\":922,\"completion_tokens\":97,\"total_tokens\":1019,\"completion_tokens_details\":{\"reasoning_tokens\":64}}}"
+  recorded_at: Sun, 26 Oct 2025 19:06:32 GMT
+recorded_with: VCR 6.3.1

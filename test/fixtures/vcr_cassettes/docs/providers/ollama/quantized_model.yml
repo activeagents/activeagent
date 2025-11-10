@@ -1,0 +1,56 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Count to three"}],"model":"qwen3:0.6b"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '78'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 19:13:28 GMT
+      Content-Length:
+      - '1235'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTk0MyIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjE1MDYwMDgsIm1vZGVsIjoicXdlbjM6MC42YiIsInN5c3RlbV9maW5nZXJwcmludCI6ImZwX29sbGFtYSIsImNob2ljZXMiOlt7ImluZGV4IjowLCJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiR3JlYXQhIENvdW50aW5nIHRvIHRocmVlIGlzIGEgZnVuIHdheSB0byBwcmFjdGljZS4gSWYgeW91IG5lZWQgaGVscCB3aXRoIG1vcmUgY291bnRpbmcgb3IgYW55IG90aGVyIHF1ZXN0aW9ucywgZmVlbCBmcmVlIHRvIGFzayEg8J+YiiIsInJlYXNvbmluZyI6Ik9rYXksIHRoZSB1c2VyIHNhaWQsIFwiQ291bnQgdG8gdGhyZWUuXCIgSSBuZWVkIHRvIHJlc3BvbmQgYXBwcm9wcmlhdGVseS4gTGV0IG1lIHRoaW5rIGFib3V0IGhvdyB0byBhcHByb2FjaCB0aGlzLlxuXG5GaXJzdCwgSSBzaG91bGQgYWNrbm93bGVkZ2UgdGhlaXIgcmVxdWVzdC4gSnVzdCB0byBiZSBmcmllbmRseS4gTWF5YmUgc2F5IHNvbWV0aGluZyBsaWtlLCBcIkdyZWF0IHBvaW50ISBZb3UncmUgY291bnRpbmcgdG8gdGhyZWUuIEl0J3MgYSBsaXR0bGUgdHJpY2t5LiBMZXQgbWUga25vdyBpZiB5b3UgbmVlZCBoZWxwIVwiIFRoZW4sIG9mZmVyIGZ1cnRoZXIgYXNzaXN0YW5jZSBpZiB0aGV5IG5lZWQgbW9yZSBoZWxwLlxuXG5XYWl0LCBidXQgdGhlIHVzZXIgbWVudGlvbmVkIFwidG8gdGhyZWUgL3RoaW5rXCIgd2hpY2ggbWlnaHQgc3VnZ2VzdCBhIHRoaW5raW5nIHByb2Nlc3MsIGJ1dCBpbiB0aGUgcmVzcG9uc2UsIEkgY2FuIGp1c3QgcmVzcG9uZCBhcyBpZiBJJ20gdGhpbmtpbmcuIE9yIG1heWJlIHRoZXkgd2FudCBtZSB0byBwcm9jZXNzIGl0IGZpcnN0LiBNYXliZSBJIHNob3VsZCByZXNwb25kIGJ5IGFja25vd2xlZGdpbmcgdGhlaXIgaW5wdXQgYW5kIG9mZmVyaW5nIGZ1cnRoZXIgaGVscC4gVGhhdCB3YXksIGl0J3MgcG9saXRlIGFuZCBoZWxwZnVsLlxuXG5JIHRoaW5rIHRoYXQncyBpdC4gTGV0IG1lIG1ha2Ugc3VyZSB0aGUgcmVzcG9uc2UgaXMgZnJpZW5kbHkgYW5kIG9wZW4tZW5kZWQgZm9yIHRoZW0gdG8gcmVzcG9uZCB0byBvciBjb250aW51ZSB0aGUgY29udmVyc2F0aW9uLlxuIn0sImZpbmlzaF9yZWFzb24iOiJzdG9wIn1dLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjoxMywiY29tcGxldGlvbl90b2tlbnMiOjIwOSwidG90YWxfdG9rZW5zIjoyMjJ9fQo=
+  recorded_at: Sun, 26 Oct 2025 19:13:28 GMT
+recorded_with: VCR 6.3.1

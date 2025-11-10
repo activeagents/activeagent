@@ -7,8 +7,10 @@ class <%= class_name %>AgentTest < ActiveAgent::TestCase
 
 <% end -%>
   test "<%= action %>" do
-    agent = <%= class_name %>Agent.<%= action %>
-    assert_equal <%= action.to_s.humanize.inspect %>, agent.prompt_context
+    generation = <%= class_name %>Agent.<%= action %>
+    assert_not_nil generation
+    # Test the generation by calling generate_now if needed
+    # response = generation.generate_now
   end
 <% end -%>
 <% if actions.blank? -%>

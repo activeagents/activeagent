@@ -1,0 +1,173 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"How much wood would a woodchuck chuck?","model":"o3-mini","reasoning":{"effort":"high"}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '98'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 18:35:27 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '30000'
+      X-Ratelimit-Limit-Tokens:
+      - '150000000'
+      X-Ratelimit-Remaining-Requests:
+      - '29999'
+      X-Ratelimit-Remaining-Tokens:
+      - '149998402'
+      X-Ratelimit-Reset-Requests:
+      - 2ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_b13ebe2b371543568471fa1d6658320f
+      Openai-Processing-Ms:
+      - '17288'
+      X-Envoy-Upstream-Service-Time:
+      - '17291'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=OSGI29eGlxb4U_V9USQ8jCKIiz6oyR5lKiGM8EXbr8M-1761503727-1.0.1.1-RYuY9mAKDfHOOjPJszgrg1wb7PHa5zaUWJNedawMu_b4Fm1TrtT_Rhy3bAkznehQeVUZ6g34PlTBIPzFT_52RF3H84AwO6Ci5.pon4y_Jm8;
+        path=/; expires=Sun, 26-Oct-25 19:05:27 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=3mReSPAPjfE3HXlLQEGgASh4ImasMC5UL4HFlHH9oRs-1761503727650-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c0d4d5abfa473-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_03df47eb81eaa2070068fe69de59388194b759847579f96789",
+          "object": "response",
+          "created_at": 1761503710,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "o3-mini-2025-01-31",
+          "output": [
+            {
+              "id": "rs_03df47eb81eaa2070068fe69ebca248194aaf8810b2323f2bf",
+              "type": "reasoning",
+              "summary": []
+            },
+            {
+              "id": "msg_03df47eb81eaa2070068fe69ee3f788194aeffaa602854561f",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "This tongue twister is meant for fun rather than as a literal question. The classic reply goes:\n\n\u2003\u2003\"A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood!\"\n\nIn other words, it plays on the sounds and words rather than providing a factual answer. However, in a humorous twist, wildlife biologist Richard Thomas once estimated that if a woodchuck (which is another name for a groundhog) could chuck wood, it might be capable of moving about 700 pounds of it\u2014thanks to the amount of soil it can dig while creating its burrow.\n\nSo, whether you enjoy the tongue twister for its wordplay or the fun fact about 700 pounds, the answer remains delightfully ambiguous and playful!"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": "high",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 16,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 1631,
+            "output_tokens_details": {
+              "reasoning_tokens": 1472
+            },
+            "total_tokens": 1647
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 18:35:27 GMT
+recorded_with: VCR 6.3.1

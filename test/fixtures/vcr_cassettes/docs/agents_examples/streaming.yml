@@ -1,0 +1,152 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"Tell me a short joke","model":"gpt-4o-mini","stream":true}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - text/event-stream
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '68'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:13:53 GMT
+      Content-Type:
+      - text/event-stream; charset=utf-8
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_c718aad2ba064f38abd5e0bd1b2a32d9
+      Openai-Processing-Ms:
+      - '392'
+      X-Envoy-Upstream-Service-Time:
+      - '401'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=HewYpgx1i1LEW7qbxrSHwV74YzlZEZguma3_z8ACZ1M-1761506033-1.0.1.1-3BXQeJzJehs8Or8FfiuYPffdIxIIubiIFluQzriEkPQgK92XstUGNxpL1h7TXU6dW7L_9WxT.HnGPW_aKnMAzjupDd7rB099JgywoKt5bS8;
+        path=/; expires=Sun, 26-Oct-25 19:43:53 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=1fNRLTpOsQ2dTiKUd5WQ3_CJbG9Zuu4EHCX8JpJRHqE-1761506033710-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c4603bce95c17-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: UTF-8
+      string: |+
+        event: response.created
+        data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_03b2b47de821061c0068fe72f14f6c81969818e79fb811ff42","object":"response","created_at":1761506033,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4o-mini-2024-07-18","output":[],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+        event: response.in_progress
+        data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_03b2b47de821061c0068fe72f14f6c81969818e79fb811ff42","object":"response","created_at":1761506033,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4o-mini-2024-07-18","output":[],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+        event: response.output_item.added
+        data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","type":"message","status":"in_progress","content":[],"role":"assistant"}}
+
+        event: response.content_part.added
+        data: {"type":"response.content_part.added","sequence_number":3,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":""}}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":"Why","logprobs":[],"obfuscation":"J0clnwvwEythe"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":5,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":" don't","logprobs":[],"obfuscation":"byuanCQvTK"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":6,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":" scientists","logprobs":[],"obfuscation":"YukEd"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":7,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":" trust","logprobs":[],"obfuscation":"I3ZGSbO16u"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":8,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":" atoms","logprobs":[],"obfuscation":"Gs1qvfiX3Q"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":9,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":"?\n\n","logprobs":[],"obfuscation":"xwwQhuGfGCpHy"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":10,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":"Because","logprobs":[],"obfuscation":"QxZQjokgQ"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":11,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":" they","logprobs":[],"obfuscation":"rku3ze1KXlI"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":12,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":" make","logprobs":[],"obfuscation":"ZmIk1M27Mtt"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":13,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":" up","logprobs":[],"obfuscation":"1h43toLgvqhE4"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":14,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":" everything","logprobs":[],"obfuscation":"ljHii"}
+
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","sequence_number":15,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"delta":"!","logprobs":[],"obfuscation":"C39ntdFEcr3Ml5j"}
+
+        event: response.output_text.done
+        data: {"type":"response.output_text.done","sequence_number":16,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"text":"Why don't scientists trust atoms?\n\nBecause they make up everything!","logprobs":[]}
+
+        event: response.content_part.done
+        data: {"type":"response.content_part.done","sequence_number":17,"item_id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"Why don't scientists trust atoms?\n\nBecause they make up everything!"}}
+
+        event: response.output_item.done
+        data: {"type":"response.output_item.done","sequence_number":18,"output_index":0,"item":{"id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"Why don't scientists trust atoms?\n\nBecause they make up everything!"}],"role":"assistant"}}
+
+        event: response.completed
+        data: {"type":"response.completed","sequence_number":19,"response":{"id":"resp_03b2b47de821061c0068fe72f14f6c81969818e79fb811ff42","object":"response","created_at":1761506033,"status":"completed","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4o-mini-2024-07-18","output":[{"id":"msg_03b2b47de821061c0068fe72f208ac8196bb776476e4468c26","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"Why don't scientists trust atoms?\n\nBecause they make up everything!"}],"role":"assistant"}],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":12,"input_tokens_details":{"cached_tokens":0},"output_tokens":13,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":25},"user":null,"metadata":{}}}
+
+  recorded_at: Sun, 26 Oct 2025 19:13:54 GMT
+recorded_with: VCR 6.3.1
+...

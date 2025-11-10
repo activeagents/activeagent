@@ -1,0 +1,128 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"Summarize this document:\n\nThe
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. The
+        history of programming languages. The history of programming languages. "}],"model":"openrouter/auto","transforms":["middle-out"]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '3925'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:18:33 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c4ccda809173a-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"id":"gen-1761506311-gHsaEAq0d94HBSkNykPd","provider":"DeepInfra","model":"mistralai/mistral-nemo","object":"chat.completion","created":1761506313,"choices":[{"logprobs":null,"finish_reason":"stop","native_finish_reason":"stop","index":0,"message":{"role":"assistant","content":"The
+        document consists solely of the phrase \"The history of programming languages\"
+        repeated 60 times.","refusal":null,"reasoning":null}}],"usage":{"prompt_tokens":611,"completion_tokens":20,"total_tokens":631,"prompt_tokens_details":null}}'
+  recorded_at: Sun, 26 Oct 2025 19:18:33 GMT
+recorded_with: VCR 6.3.1

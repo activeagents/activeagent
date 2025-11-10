@@ -5,9 +5,13 @@ class <%= class_name %>Agent < ApplicationAgent
 
 <% end -%>
   def <%= action %>
-    @message = "Cats go.."
-
-    prompt message: @message
+<% if json_schema? -%>
+    prompt(params[:message], response_format: :json_schema)
+<% elsif json_object? -%>
+    prompt(params[:message], response_format: :json_object)
+<% else -%>
+    prompt(params[:message])
+<% end -%>
   end
 <% end -%>
 end

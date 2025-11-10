@@ -1,0 +1,107 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is functional programming?"}],"model":"openrouter/auto"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '100'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:17:27 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c4b349eee17de-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n{\"id\":\"gen-1761506246-ZVluGVPfst1kEOnURS2l\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761506247,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Functional
+        programming is a programming paradigm that treats computation as the evaluation
+        of mathematical functions and avoids changing-state and mutable data. Here
+        are some key characteristics of functional programming:\\n\\n1. **First-class
+        and Higher-order Functions**: In functional programming, functions are treated
+        as first-class citizens, meaning they can be passed as arguments, returned
+        as values, and assigned to variables. Higher-order functions are functions
+        that take other functions as arguments or return functions as output.\\n\\n2.
+        **Pure Functions**: Pure functions are functions that always produce the same
+        output for the same input and have no side effects (they don't change any
+        external state). This makes them easier to reason about, test, and debug.\\n\\n3.
+        **Immutability**: Functional programming often emphasizes immutability, meaning
+        data cannot be changed after it's created. This helps avoid side effects and
+        makes code easier to understand and reason about.\\n\\n4. **Recursion**: Functional
+        programming often uses recursion instead of loops to repeat operations.\\n\\n5.
+        **Function Composition**: Functions can be composed together to create new
+        functions. This is often done using the pipe (|>) operator or similar constructs.\\n\\nHere's
+        a simple example in JavaScript, a language that supports functional programming:\\n\\n```javascript\\n//
+        A pure function that adds two numbers\\nconst add = (a, b) => a + b;\\n\\n//
+        Using function composition to create a new function that adds 2 to the result
+        of add\\nconst addTwo = compose(add, (x) => x + 2);\\n\\n// Using recursion
+        to count down from a number\\nconst countDown = (n) => (n === 0 ? [] : [n
+        - 1, ...countDown(n - 1)]);\\n\\n// Using recursion to calculate the factorial
+        of a number\\nconst factorial = (n) => (n === 0 ? 1 : n * factorial(n - 1));\\n```\\n\\nSome
+        popular functional programming languages include Haskell, Lisp, Clojure, and
+        Scala. Many modern languages also support functional programming to some extent,
+        like JavaScript, Python, and Swift.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":413,\"total_tokens\":423,\"prompt_tokens_details\":null}}"
+  recorded_at: Sun, 26 Oct 2025 19:17:41 GMT
+recorded_with: VCR 6.3.1

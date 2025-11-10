@@ -3,6 +3,9 @@ ENV["RAILS_ENV"] = "test"
 
 begin
   require "debug"
+  require "pry"
+  require "pry-doc"
+  require "pry-byebug"
 rescue LoadError
 end
 
@@ -11,6 +14,7 @@ require_relative "../test/dummy/config/environment"
 ActiveRecord::Migrator.migrations_paths = [ File.expand_path("../test/dummy/db/migrate", __dir__) ]
 require "rails/test_help"
 require "vcr"
+require "webmock/minitest"
 require "minitest/mock"
 
 # Extract full path and relative path from caller_info
@@ -86,7 +90,7 @@ def doc_example_output(example = nil, test_name = nil)
     content << "```"
   else
     content << "```ruby"
-    content << ActiveAgent.sanitize_credentials(example.to_s)
+    content << example.to_s
     content << "```"
   end
 
@@ -97,9 +101,11 @@ VCR.configure do |config|
   config.cassette_library_dir = "test/fixtures/vcr_cassettes"
   config.hook_into :webmock
 
-  ActiveAgent.sanitizers.each do |secret, placeholder|
-    config.filter_sensitive_data(placeholder) { secret }
-  end
+  config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["OPEN_AI_ACCESS_TOKEN"] }
+  config.filter_sensitive_data("ORGANIZATION_ID") { ENV["OPEN_AI_ORGANIZATION_ID"] }
+  config.filter_sensitive_data("PROJECT_ID")      { ENV["OPEN_AI_PROJECT_ID"] }
+  config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["OPEN_ROUTER_ACCESS_TOKEN"] }
+  config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["ANTHROPIC_ACCESS_TOKEN"] }
 end
 
 # Load fixtures from the engine
@@ -115,7 +121,7 @@ class ActiveAgentTestCase < ActiveSupport::TestCase
   def setup
     super
     # Store original configuration
-    @original_config = ActiveAgent.config.dup if ActiveAgent.config
+    @original_config = ActiveAgent.configuration.dup if ActiveAgent.configuration
     @original_rails_env = ENV["RAILS_ENV"]
     # Ensure we're in test environment
     ENV["RAILS_ENV"] = "test"
@@ -124,20 +130,20 @@ class ActiveAgentTestCase < ActiveSupport::TestCase
   def teardown
     super
     # Restore original configuration
-    ActiveAgent.instance_variable_set(:@config, @original_config) if @original_config
+    ActiveAgent.instance_variable_set(:@configuration, @original_config) if @original_config
     ENV["RAILS_ENV"] = @original_rails_env
     # Reload default configuration
     config_file = Rails.root.join("config/active_agent.yml")
-    ActiveAgent.load_configuration(config_file) if File.exist?(config_file)
+    ActiveAgent.configuration_load(config_file) if File.exist?(config_file)
   end
 
   # Helper method to temporarily set configuration
   def with_active_agent_config(config)
-    old_config = ActiveAgent.config
-    ActiveAgent.instance_variable_set(:@config, config)
+    old_config = ActiveAgent.configuration
+    ActiveAgent.instance_variable_set(:@configuration, config)
     yield
   ensure
-    ActiveAgent.instance_variable_set(:@config, old_config)
+    ActiveAgent.instance_variable_set(:@configuration, old_config)
   end
 end
 
@@ -179,7 +185,7 @@ class ActiveSupport::TestCase
 
   def has_ollama_credentials?
     # Ollama typically runs locally, so check if it's accessible
-    config = ActiveAgent.config.dig("ollama") || {}
+    config = ActiveAgent.configuration.dig("ollama") || {}
     host = config["host"] || "http://localhost:11434"
 
     # For test purposes, we assume Ollama is available if configured

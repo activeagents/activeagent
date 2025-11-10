@@ -7,7 +7,9 @@ module Erb # :nodoc:
     class AgentGenerator < Base # :nodoc:
       source_root File.expand_path("templates", __dir__)
       argument :actions, type: :array, default: [], banner: "method method"
-      class_option :formats, type: :array, default: [ "text" ], desc: "Specify formats to generate (text, html, json)"
+      class_option :format, type: :string, default: "markdown", desc: "Specify format for templates (text or markdown)"
+      class_option :json_schema, type: :boolean, default: false, desc: "Generate JSON schema files for actions"
+      class_option :json_object, type: :boolean, default: false, desc: "Generate actions with JSON object response format"
 
       def initialize(*args, **kwargs)
         super(*args, **kwargs)
@@ -18,32 +20,45 @@ module Erb # :nodoc:
       end
 
       def copy_view_files
-        view_base_path = File.join("app/views", class_path, file_name + "_agent")
+        view_base_path = File.join("app/views/agents", class_path, file_name)
         empty_directory view_base_path
 
-        if behavior == :invoke
-          formats.each do |format|
-            layout_path = File.join("app/views/layouts", class_path, filename_with_extensions("agent", format))
-            template filename_with_extensions(:layout, format), layout_path unless File.exist?(layout_path)
-          end
-        end
+        # Create instructions file with the specified format (no .erb extension)
+        file_extension = format == "markdown" ? "md" : format
+        instructions_file = "instructions.#{file_extension}"
+        instructions_path = File.join(view_base_path, instructions_file)
+        template "instructions.#{file_extension}.tt", instructions_path
 
-        instructions_path = File.join(view_base_path, "instructions.text.erb")
-        template "instructions.text.erb.tt", instructions_path
-
+        # Create action view files
         actions.each do |action|
           @action = action
 
-          formats.each do |format|
-            @path = File.join(view_base_path, filename_with_extensions(action, format))
-            template filename_with_extensions(:view, format), @path
+          # Create message file in specified format
+          action_file = "#{action}.#{file_extension}.erb"
+          action_path = File.join(view_base_path, action_file)
+          template "message.#{file_extension}.erb.tt", action_path
+
+          # Create schema file if requested
+          if json_schema?
+            schema_file = "#{action}.json"
+            schema_path = File.join(view_base_path, schema_file)
+            template "schema.json.tt", schema_path
           end
         end
       end
 
       private
-      def formats
-        options[:formats].map(&:to_sym)
+
+      def format
+        options[:format]
+      end
+
+      def json_schema?
+        options[:json_schema]
+      end
+
+      def json_object?
+        options[:json_object]
       end
 
       def file_name

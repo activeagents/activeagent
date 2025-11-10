@@ -1,0 +1,127 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-3-5-haiku-20241022","messages":[{"role":"user","content":"Explain
+        quantum computing"}],"max_tokens":4096}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.12.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '122'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sat, 25 Oct 2025 07:46:06 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '100000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '100000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-10-25T07:45:58Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '20000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '20000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-10-25T07:46:07Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '1000'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '999'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-10-25T07:45:58Z'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '120000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '120000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-10-25T07:45:58Z'
+      Request-Id:
+      - req_011CUTYap3JQTzdPRkZaiRsF
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '8114'
+      Via:
+      - 1.1 google
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994018f2fafb9429-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-3-5-haiku-20241022","id":"msg_019MKLZmWnWaeTXYSC3YFCCw","type":"message","role":"assistant","content":[{"type":"text","text":"Quantum
+        computing is an advanced computing paradigm that leverages the principles
+        of quantum mechanics to perform complex computations. Here''s a comprehensive
+        overview:\n\n1. Basic Principles\n- Uses quantum bits (qubits) instead of
+        classical binary bits\n- Operates on quantum mechanical phenomena like superposition
+        and entanglement\n- Can perform multiple calculations simultaneously\n\n2.
+        Key Quantum Mechanics Concepts\na) Superposition\n- Qubits can exist in multiple
+        states simultaneously\n- Unlike classical bits (0 or 1), qubits can be 0,
+        1, or both at once\n- Increases computational possibilities exponentially\n\nb)
+        Quantum Entanglement\n- Qubits can be interconnected, influencing each other
+        instantly\n- Allows complex, synchronized computations\n- Enables faster information
+        processing\n\n3. Potential Advantages\n- Exponentially faster processing for
+        specific problems\n- Solving complex mathematical and scientific challenges\n-
+        Breaking current encryption methods\n- Simulating molecular and chemical interactions\n-
+        Optimizing complex systems like financial models\n\n4. Technological Challenges\n-
+        Extremely sensitive to environmental interference\n- Requires sophisticated
+        cooling systems\n- Difficult to maintain quantum states\n- Limited number
+        of stable qubits currently available\n\n5. Current Applications\n- Cryptography\n-
+        Drug discovery\n- Climate modeling\n- Financial modeling\n- Machine learning
+        optimization\n\n6. Major Companies Developing Quantum Computers\n- IBM\n-
+        Google\n- Microsoft\n- Intel\n- Amazon\n\n7. Qubit Types\n- Superconducting
+        qubits\n- Trapped ion qubits\n- Photonic qubits\n- Topological qubits\n\n8.
+        Quantum Computing Stages\n- Emerging technology\n- Experimental and research
+        phase\n- Not yet commercially viable for most applications\n\nQuantum computing
+        represents a potentially revolutionary approach to computation, offering unprecedented
+        processing capabilities for specific complex problems."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":11,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":415,"service_tier":"standard"}}'
+  recorded_at: Sat, 25 Oct 2025 07:46:06 GMT
+recorded_with: VCR 6.3.1

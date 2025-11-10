@@ -5,6 +5,214 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - Unreleased
+
+Major refactor with breaking changes. Complete provider rewrite. New modular architecture.
+
+**Requirements:** Ruby 3.1+, Rails 7.0+/8.0+/8.1+
+
+### Breaking Changes
+
+#### 1. Update Provider Gems
+
+```ruby
+# Gemfile - Remove unofficial gems
+gem "ruby-openai"
+gem "ruby-anthropic"
+
+# Add official provider SDKs
+gem "openai"      # Official OpenAI SDK
+gem "anthropic"   # Official Anthropic SDK
+```
+
+Run `bundle install` after updating.
+
+#### 2. Update Base Class
+
+```ruby
+# Before
+class MyAgent < ActiveAgent::ActionPrompt::Base
+end
+
+# After
+class MyAgent < ActiveAgent::Base
+end
+```
+
+#### 3. Configure Providers
+
+```ruby
+# Before - options wrapped in options key
+class MyAgent < ActiveAgent::Base
+  def chat
+    prompt(message: "Hello", options: { temperature: 0.7 })
+  end
+end
+
+# After - options passed directly (at class or call level)
+class MyAgent < ActiveAgent::Base
+  generate_with :openai, model: "gpt-4o-mini", temperature: 0.7
+
+  def chat
+    prompt("Hello")  # Uses class-level config
+  end
+
+  def chat_creative
+    prompt("Hello", temperature: 1.0)  # Override per-call
+  end
+end
+```
+
+#### 4. Update Custom Providers (if any)
+
+```ruby
+# Before
+module ActiveAgent::GenerationProvider
+  class CustomProvider < Base
+  end
+end
+
+# After
+module ActiveAgent::Providers
+  class CustomProvider < BaseProvider
+  end
+end
+```
+
+#### 5. Update Generator Commands
+
+```bash
+# Before
+rails g active_agent MyAgent action
+
+# After
+rails g active_agent:agent MyAgent action
+```
+
+#### 6. Remove Framework Retry Config
+
+```ruby
+# Remove from config/initializers/activeagent.rb
+ActiveAgent.configure do |config|
+  config.retries = true
+  config.retries_count = 5
+end
+
+# Use provider-specific settings in config/active_agent.yml
+openai:
+  service: "OpenAI"
+  max_retries: 5
+  timeout: 600.0
+```
+
+Template paths:
+- `app/views/agents/{agent}/instructions.md` (no `.erb` extension by default for instructions)
+- `app/views/agents/{agent}/{action}.md.erb`
+
+### Added
+
+**Mock Provider for Testing**
+```ruby
+class MyAgent < ActiveAgent::Base
+  generate_with :mock
+end
+
+response = MyAgent.prompt("Test").generate_now
+# Returns predictable responses without API calls
+```
+
+**Mixed Provider Support**
+```ruby
+class MyAgent < ActiveAgent::Base
+  generate_with :openai, model: "gpt-4o-mini"
+  embed_with :anthropic, model: "claude-3-5-sonnet-20241022"
+end
+```
+
+**Prompt Previews**
+```ruby
+preview = MyAgent.prompt("Hello").prompt_preview
+# Shows instructions, messages, tools before execution
+```
+
+**Callback Lifecycle**
+- `before_generation`, `after_generation`, `around_generation`
+- `before_prompt`, `after_prompt`, `around_prompt`
+- `before_embed`, `after_embed`, `around_embed`
+- `on_stream_open`, `on_stream`, `on_stream_close`
+- Rails-style callback control: `prepend_*`, `skip_*`, `append_*`
+
+**Multi-Input Embeddings**
+```ruby
+response = MyAgent.embed(inputs: ["Text 1", "Text 2"]).embed_now
+vectors = response.data.map { |d| d[:embedding] }
+```
+
+**Provider Enhancements**
+- OpenAI Responses API: `api: :responses` or `api: :chat`
+- Anthropic JSON object mode with automatic extraction
+- OpenRouter: quantization, provider preferences, web search
+- Flexible naming: `:openai` or `:open_ai`, `:openrouter` or `:open_router`
+
+**Rails 8.1 Support**
+
+**Comprehensive Documentation**
+- VitePress site at docs.activeagents.ai
+- All examples tested and validated
+
+### Changed
+
+**Provider Architecture**
+- Unified `BaseProvider` interface across all providers
+- Retry logic moved to provider SDKs (automatic exponential backoff)
+- Migrated to official SDKs: `openai` gem and `anthropic` gem
+- Type-safe options with per-provider definitions
+
+**Configuration**
+- Options configurable at class level, instance level, or per-call
+- Simplified parameter handling pattern
+
+**Requirements**
+- Ruby 3.1+ (previously 3.0+)
+
+**Testing**
+- Reorganized by feature and provider integration
+- All documentation examples validated
+
+### Fixed
+
+**Providers**
+- OpenAI streaming with functions/tools
+- Ollama streaming support
+- Anthropic tool choice modes (`any` and `tool`)
+- OpenRouter model fallback and parameter naming
+- Provider gem loading errors
+
+**Framework**
+- Streaming lifecycle with function/tool calls
+- Multi-tool and multi-turn conversation handling
+- Options mutation during generation
+- Template rendering without blocks
+- Schema generator key symbolization
+- Rails 8.0 and 8.1 compatibility
+
+### Removed
+
+**Namespaces**
+- `ActiveAgent::ActionPrompt` → use `ActiveAgent::Base`
+- `ActiveAgent::GenerationProvider` → use `ActiveAgent::Providers`
+
+**Configuration**
+- `ActiveAgent.configuration.retries` → use provider `max_retries`
+- `ActiveAgent.configuration.retries_count` → use provider `max_retries`
+- `ActiveAgent.configuration.retries_on` → handled by provider SDKs
+
+**Modules**
+- `ActiveAgent::QueuedGeneration` → `Queueing` concern
+- `ActiveAgent::Rescuable` → `Rescue` concern
+- `ActiveAgent::Sanitizers` → moved to concerns
+- `ActiveAgent::PromptHelper` → moved to concerns
+
 ## [0.3.2] - 2025-04-15
 
 ### Added
@@ -13,5 +221,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhance streaming to support tool calls during stream. Previously, streaming mode blocked tool call execution.
 - Fix layout rendering bug when no block is passed and views now render correctly without requiring a block.
 
-### Removed 
+### Removed
 - Generation Provider module and Action Prompt READMEs have been removed, but will be updated along with the main README in the next release.

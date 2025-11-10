@@ -1,0 +1,74 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"List three primary colors."}],"model":"deepseek-r1:latest","response_format":{"type":"text"}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '132'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 26 Oct 2025 18:51:01 GMT
+      Content-Length:
+      - '1582'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-319","object":"chat.completion","created":1761504661,"model":"deepseek-r1:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Three
+        primary colors commonly used in art, design, and pigmentation are:\n\n1.  **Red**\n2.  **Yellow**\n3.  **Blue**\n\n*(Often
+        taught simply as \"red, yellow, blue\").*","reasoning":"Okay, the user is
+        asking me to list three primary colors. This seems like a simple question
+        on color theory basics.\n\nI need to consider what \"primary\" means here
+        - it could refer to different contexts with slightly varying definitions.
+        The most common reference would be the RGB model used in digital screens and
+        printing where red, green (or blue-green), and blue are typically considered
+        primary colors for light emission systems. For physical paint applications,
+        the RYB/impulse theory defines primary colors differently.\n\nSince \"red,
+        yellow, blue\" is often taught in schools as a more universally applicable
+        definition suitable for children learning art basics, I can provide this simpler
+        version too without making it overly technical unless specified by context.\n\nThe
+        user''s simple request suggests they''re probably looking for an educational
+        response covering both standard definitions. It might be someone teaching
+        basic color theory or just needing quick info for a project. The answer should
+        include explanations but stay concise to match the straightforward nature
+        of their query.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":247,"total_tokens":254}}
+
+        '
+  recorded_at: Sun, 26 Oct 2025 18:51:01 GMT
+recorded_with: VCR 6.3.1

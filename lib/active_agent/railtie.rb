@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
+require "rails"
 require "active_job/railtie"
 require "active_agent"
-# require "active_agent/engine"
-require "rails"
-require "abstract_controller/railties/routes_helpers"
 require "active_agent/railtie/schema_generator_extension"
+require "abstract_controller/railties/routes_helpers"
 
 module ActiveAgent
   class Railtie < Rails::Railtie # :nodoc:
@@ -22,7 +21,7 @@ module ActiveAgent
     end
 
     initializer "active_agent.set_configs" do |app|
-      paths = app.config.paths
+      paths   = app.config.paths
       options = app.config.active_agent
 
       options.assets_dir ||= paths["public"].first
@@ -33,10 +32,13 @@ module ActiveAgent
       options.preview_paths |= [ "#{Rails.root}/test/agents/previews" ]
 
       # make sure readers methods get compiled
-      options.asset_host ||= app.config.asset_host
+      options.asset_host        ||= app.config.asset_host
       options.relative_url_root ||= app.config.relative_url_root
 
-      ActiveAgent.load_configuration(Rails.root.join("config", "active_agent.yml"))
+      # region configuration_load
+      # Loaded automatically via Railtie
+      ActiveAgent.configuration_load(Rails.root.join("config", "active_agent.yml"))
+      # endregion configuration_load
 
       ActiveSupport.on_load(:active_agent) do
         include AbstractController::UrlFor

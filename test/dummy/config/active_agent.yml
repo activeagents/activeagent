@@ -22,11 +22,13 @@ open_router: &open_router
 # region ollama_anchor
 ollama: &ollama
   service: "Ollama"
-  access_token: ""
-  host: "http://localhost:11434"
   model: "gemma3:latest"
-  temperature: 0.7
 # endregion ollama_anchor
+# region mock_anchor
+mock: &mock
+  service: "Mock"
+  model: "mock-model"
+# endregion mock_anchor
 # endregion config_anchors
 
 # region config_development
@@ -35,13 +37,11 @@ development:
   openai:
     <<: *openai
     model: "gpt-4o-mini"
-    temperature: 0.7
   # endregion openai_dev_config
   # region open_router_dev_config
   open_router:
     <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
-    temperature: 0.7
   # endregion open_router_dev_config
   # region ollama_dev_config
   ollama:
@@ -51,6 +51,10 @@ development:
   anthropic:
     <<: *anthropic
   # endregion anthropic_dev_config
+  # region mock_dev_config
+  mock:
+    <<: *mock
+  # endregion mock_dev_config
 # endregion config_development
 
 # region config_test
@@ -58,13 +62,13 @@ test:
   openai:
     <<: *openai
     model: "gpt-4o-mini"
-    temperature: 0.7
   open_router:
     <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
-    temperature: 0.7
   ollama:
     <<: *ollama
   anthropic:
     <<: *anthropic
+  mock:
+    <<: *mock
 # endregion config_test

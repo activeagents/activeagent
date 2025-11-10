@@ -1,0 +1,232 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"input":"What was a positive news story from today?","model":"gpt-4.1","tools":[{"type":"web_search_preview"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '112'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 18:34:45 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999671'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_2633787cb7804e6b9a1ea515fbe234e1
+      Openai-Processing-Ms:
+      - '12668'
+      X-Envoy-Upstream-Service-Time:
+      - '12674'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=hA5XU5OEbLD1yHTPzCzQ4A_nbfshGoVJl0Xr3wu1OhA-1761503685-1.0.1.1-zYzS2pskNdOHg2asnLqcYpdK_dqSs89FJ2Ndu9C0WefvJNX7cY5BVMR2z8ErKp38wvt1Zc54uBaNkk_HH2sUB3vAcU1k5_FemPBnAokA5J0;
+        path=/; expires=Sun, 26-Oct-25 19:04:45 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=irBnJJAZOQmHdKCdHLDymID0XZeHPXF0hBsJqtOJEJM-1761503685647-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c0c63dcd8232c-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0a40b2fe7b73013e0068fe69b8fc34819a95a4ac372e1ff275",
+          "object": "response",
+          "created_at": 1761503673,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "ws_0a40b2fe7b73013e0068fe69b9acf4819a95f03a96138b0f2b",
+              "type": "web_search_call",
+              "status": "completed",
+              "action": {
+                "type": "search",
+                "query": "positive news stories today"
+              }
+            },
+            {
+              "id": "msg_0a40b2fe7b73013e0068fe69bd1b38819a8ece2d0312cc4811",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [
+                    {
+                      "type": "url_citation",
+                      "end_index": 530,
+                      "start_index": 419,
+                      "title": "Positively Montana (October 26, 2025)",
+                      "url": "https://www.krtv.com/news/positively-montana/positively-montana-october-26-2025?utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 957,
+                      "start_index": 836,
+                      "title": "22 Montclair Area News Stories This Week | October 26, 2025 - Montclair Girl",
+                      "url": "https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 1358,
+                      "start_index": 1237,
+                      "title": "22 Montclair Area News Stories This Week | October 26, 2025 - Montclair Girl",
+                      "url": "https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 1691,
+                      "start_index": 1570,
+                      "title": "22 Montclair Area News Stories This Week | October 26, 2025 - Montclair Girl",
+                      "url": "https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 2148,
+                      "start_index": 2027,
+                      "title": "22 Montclair Area News Stories This Week | October 26, 2025 - Montclair Girl",
+                      "url": "https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai"
+                    },
+                    {
+                      "type": "url_citation",
+                      "end_index": 2489,
+                      "start_index": 2368,
+                      "title": "22 Montclair Area News Stories This Week | October 26, 2025 - Montclair Girl",
+                      "url": "https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai"
+                    }
+                  ],
+                  "logprobs": [],
+                  "text": "On October 26, 2025, several uplifting events took place:\n\n- **Community Support in Montana**: In this week's edition of \"Positively Montana,\" stories highlighted the state's spirit of giving. Communities came together to fulfill youth rodeo dreams, inmates educated teens about the consequences of poor choices, and a veteran, gifted a special hunting experience, paid it forward by assisting others in his community. ([krtv.com](https://www.krtv.com/news/positively-montana/positively-montana-october-26-2025?utm_source=openai))\n\n- **ShopRite Renovation in Belleville**: The ShopRite of Belleville, owned by LoCurcio Family Markets, celebrated its renovation with a ribbon-cutting ceremony on October 19th. The remodel includes enhanced departments like Bakery and Prepared Foods, an exterior makeover, and new ceilings and flooring. ([themontclairgirl.com](https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai))\n\n- **Starlink Wi-Fi on United Airlines**: On October 15th, a United Airlines flight from Newark to Houston offered Starlink Wi-Fi for the first time ever on any major U.S. airline. The airline expects to install Starlink antennas on up to 15 mainline 737-800 planes every month. ([themontclairgirl.com](https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai))\n\n- **Stephen Colbert and Conan O\u2019Brien Event**: On December 7th, Conan O\u2019Brien will join Stephen Colbert on stage at the New Jersey Performing Arts Center (NJPAC) in downtown Newark to celebrate Conan\u2019s career. ([themontclairgirl.com](https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai))\n\n- **'Skip The Stuff' Law in Livingston**: The Township of Livingston passed the 'Skip The Stuff' law, requiring restaurants to stop automatically providing single-use items like plastic utensils, napkins, and condiments with take-out and delivery orders. Customers must request these items if they want them, helping to reduce waste. ([themontclairgirl.com](https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai))\n\n- **Waymo Testing at Newark Airport**: Waymo announced it will begin manual testing of its autonomous vehicles at Newark Liberty International Airport, collaborating with the Port Authority of New York and New Jersey. ([themontclairgirl.com](https://www.themontclairgirl.com/montclair-essex-county-news-october-26-2025/?utm_source=openai))\n\nThese stories reflect positive developments and community engagement across various regions. "
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "web_search_preview",
+              "search_context_size": "medium",
+              "user_location": {
+                "type": "approximate",
+                "city": null,
+                "country": "US",
+                "region": null,
+                "timezone": null
+              }
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 310,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 626,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 936
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Sun, 26 Oct 2025 18:34:45 GMT
+recorded_with: VCR 6.3.1

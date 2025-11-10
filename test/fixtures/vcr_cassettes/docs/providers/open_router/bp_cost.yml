@@ -1,0 +1,102 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"user","content":"What is GraphQL?"}],"model":"openrouter/auto","provider":{"sort":"price","max_price":{"prompt":0.3,"completion":0.5}}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '157'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:14:58 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c47814ffcf9d4-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n{\"id\":\"gen-1761506094-7q7KhW5l3qvN6z7kEPj3\",\"provider\":\"DeepInfra\",\"model\":\"mistralai/mistral-nemo\",\"object\":\"chat.completion\",\"created\":1761506098,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"GraphQL
+        is an open-source query language for APIs and a runtime for fulfilling those
+        queries with data. It was developed internally by Facebook in 2012 before
+        being open-sourced in 2015. Here are some key features and concepts of GraphQL:\\n\\n1.
+        **Strongly Typed**: GraphQL is self-documenting and strongly typed. It allows
+        clients to define the structure of the data they need, reducing over-fetching
+        and under-fetching of data.\\n\\n2. **Single Endpoint**: Unlike REST APIs
+        that have multiple endpoints, GraphQL has a single endpoint. The client specifies
+        exactly what data it needs, reducing the number of requests and improving
+        performance.\\n\\n3. **Real-time Updates**: GraphQL can be extended with real-time
+        updates using technologies like GraphQL Subscriptions, allowing clients to
+        react to changes in data.\\n\\n4. **Schema Stitching**: GraphQL allows you
+        to combine multiple GraphQL schemas into one, making it easy to build a single
+        GraphQL API from multiple services.\\n\\n5. **Introspection and Self-Documenting**:
+        GraphQL APIs are self-documenting. Clients can discover the available types
+        and fields in the schema, and even generate code based on that schema.\\n\\nHere's
+        a simple example of a GraphQL query:\\n\\n```graphql\\nquery {\\n  hero {\\n
+        \   name\\n    primaryFunction\\n  }\\n}\\n```\\n\\nAnd a GraphQL schema:\\n\\n```graphql\\ntype
+        Query {\\n  hero: Character\\n}\\n\\ntype Character {\\n  name: String\\n
+        \ primaryFunction: String\\n}\\n```\\n\\nIn this example, the client is asking
+        for the `name` and `primaryFunction` of the `hero` character.\\n\\nGraphQL
+        is used by many popular companies like Facebook, GitHub, and Airbnb, among
+        others. It's often used as an alternative or complement to REST APIs.\\n\\nFor
+        more information, you can visit the official GraphQL website: https://graphql.org/\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":396,\"total_tokens\":406,\"prompt_tokens_details\":null}}"
+  recorded_at: Sun, 26 Oct 2025 19:15:06 GMT
+recorded_with: VCR 6.3.1

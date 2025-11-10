@@ -28,16 +28,22 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "jbuilder", "~> 2.14"
   spec.add_development_dependency "rails"
 
-  spec.add_development_dependency "ruby-openai", ">= 8.1.0"
-  spec.add_development_dependency "ruby-anthropic", "~> 0.4.2"
+  spec.add_development_dependency "anthropic", "~> 1.12"
+  spec.add_development_dependency "openai", "~> 0.34"
 
   spec.add_development_dependency "standard"
   spec.add_development_dependency "rubocop-rails-omakase"
 
+  spec.add_development_dependency "capybara", "~> 3.40"
+  spec.add_development_dependency "cuprite", "~> 0.15"
+  spec.add_development_dependency "ostruct"
   spec.add_development_dependency "puma"
   spec.add_development_dependency "sqlite3"
   spec.add_development_dependency "vcr"
   spec.add_development_dependency "webmock"
-  spec.add_development_dependency "cuprite", "~> 0.15"
-  spec.add_development_dependency "capybara", "~> 3.40"
+
+  spec.add_development_dependency "dotenv"
+  spec.add_development_dependency "pry"
+  spec.add_development_dependency "pry-byebug"
+  spec.add_development_dependency "pry-doc"
 end

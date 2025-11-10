@@ -1,0 +1,118 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://openrouter.ai/api/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"messages":[{"role":"assistant","content":"I can help you with programming
+        questions."},{"role":"user","content":"What are the benefits of using ActiveRecord?"}],"model":"openai/gpt-4o"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - openrouter.ai
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.34.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      Http-Referer:
+      - https://example.com
+      X-Title:
+      - Dummy
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '187'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Sun, 26 Oct 2025 19:06:58 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      Vary:
+      - Accept-Encoding
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 994c3bdc891e15da-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: "\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n\n         \n\n
+        \        \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1761505617-ic1vaTGaFYFFLGmIQEBK\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o\",\"object\":\"chat.completion\",\"created\":1761505617,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"ActiveRecord
+        is a popular Object-Relational Mapping (ORM) library used primarily with Ruby
+        on Rails. It serves as the interface between your application's objects and
+        the database. Here are some of the key benefits of using ActiveRecord:\\n\\n1.
+        **Abstraction**: ActiveRecord abstracts the complexities of database interactions.
+        This means you don't have to write complex SQL queries to interact with your
+        database, allowing you to work with Ruby objects instead.\\n\\n2. **Convention
+        over Configuration**: ActiveRecord follows \\\"convention over configuration\\\"
+        principles, making it easier and faster to develop by minimizing the need
+        for boilerplate code and configurations.\\n\\n3. **Object-Oriented Approach**:
+        It allows developers to interact with database records as Ruby objects, making
+        code more intuitive and easier to work with from an object-oriented programming
+        perspective.\\n\\n4. **Associations and Relations**: ActiveRecord provides
+        a powerful way to define relationships between different models, such as one-to-one,
+        one-to-many, and many-to-many, simplifying the process of retrieving related
+        data.\\n\\n5. **Validations**: ActiveRecord has built-in validation helpers
+        that allow you to easily define rules for the data stored in your models,
+        helping ensure data integrity.\\n\\n6. **Callbacks**: These are hooks into
+        the lifecycle of an ActiveRecord object that enable you to execute code at
+        specific points, such as before saving a record or after deleting a record.
+        This is useful for maintaining data integrity and encapsulating logic related
+        to model operations.\\n\\n7. **Migrations**: ActiveRecord provides a mechanism
+        to define database schema changes as code through migrations. This allows
+        you to version your database schema changes along with the application code,
+        making it easier to apply changes consistently across different environments.\\n\\n8.
+        **Scalability**: While ActiveRecord is designed to work well for many typical
+        applications, it's flexible enough to accommodate more complex and scalable
+        architectures through careful design and sometimes raw SQL optimizations.\\n\\n9.
+        **Community and Ecosystem**: ActiveRecord benefits from a large community
+        and is part of the Ruby on Rails ecosystem, which means there are numerous
+        resources, plugins, and gems available to extend its functionality.\\n\\n10.
+        **Database Independence**: ActiveRecord can work with different database systems.
+        You can switch databases with minimal changes to your application code, although
+        some database-specific optimizations might be necessary for complex queries.\\n\\n11.
+        **Ease of Testing**: With built-in fixtures and support for creating test
+        data, ActiveRecord integrates well with the testing tools commonly used in
+        Rails projects, which encourages good testing practices.\\n\\nThese benefits
+        make ActiveRecord a powerful and convenient tool for Ruby on Rails developers,
+        allowing them to focus more on application logic and less on the intricacies
+        of database management.\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_cbf1785567\",\"usage\":{\"prompt_tokens\":28,\"completion_tokens\":541,\"total_tokens\":569,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+  recorded_at: Sun, 26 Oct 2025 19:07:04 GMT
+recorded_with: VCR 6.3.1
