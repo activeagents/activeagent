@@ -41,7 +41,7 @@ jobs:
         with:
           node-version: 22
           cache: npm # or pnpm / yarn
-      - name: Setup Ruby      
+      - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ruby-3.3.0
@@ -56,6 +56,9 @@ jobs:
         env:
           RAILS_ENV: test
           RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+          ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
+          OPEN_AI_API_KEY: OPEN_AI_API_KEY
+          OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
         run: bin/test
       - name: Build with VitePress
         run: npm run docs:build # or pnpm docs:build / yarn docs:build / bun run docs:build
