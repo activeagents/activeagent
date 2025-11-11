@@ -70,3 +70,49 @@ jobs:
         RAILS_ENV: test
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
       run: bin/test
+
+  test-api-gems:
+    name: Test API Gems
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_JOBS: 4
+      BUNDLE_RETRY: 3
+      BUNDLE_GEMFILE: ${{ matrix.gemfile }}
+      CI: true
+      ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
+      OPEN_AI_API_KEY: OPEN_AI_API_KEY
+      OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.4"]
+        gemfile:
+          - "gemfiles/anthropic_1.12.gemfile"
+          - "gemfiles/anthropic_1.14.gemfile"
+          - "gemfiles/openai_0.34.gemfile"
+          - "gemfiles/openai_0.35.gemfile"
+    steps:
+    - uses: actions/checkout@v5
+    - name: Install system deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby }}
+        bundler-cache: true
+    - name: Setup database
+      env:
+        RAILS_ENV: test
+        RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
+      run: |
+        cd test/dummy
+        bundle exec rails db:create
+        bundle exec rails db:migrate
+        cd ../..
+    - name: Run tests
+      env:
+        RAILS_ENV: test
+        RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+      run: bin/test

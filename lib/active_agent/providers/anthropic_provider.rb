@@ -127,7 +127,14 @@ module ActiveAgent
 
         # Message Completed [Full Message]
         when :message_stop
-          self.message_stack[-1] = api_response_chunk.fetch(:message)
+          api_message = api_response_chunk.fetch(:message)
+
+          # Handle _json_buf (gem >= 1.14.0)
+          api_message[:content]&.each do |content_block|
+            content_block.delete(:_json_buf) if content_block[:type] == "tool_use"
+          end
+
+          self.message_stack[-1] = api_message
 
           # Once we are finished, close out and run tooling callbacks (Recursive)
           process_prompt_finished if message_stack.last[:stop_reason]
@@ -203,6 +210,12 @@ module ActiveAgent
         message_stack.pluck(:content).flatten.select { _1 in { type: "tool_use" } }.map do |api_function_call|
           json_buf = api_function_call.delete(:json_buf)
           api_function_call[:input] = JSON.parse(json_buf, symbolize_names: true) if json_buf
+
+          # Handle case where :input is still a JSON string (gem >= 1.14.0)
+          if api_function_call[:input].is_a?(String)
+            api_function_call[:input] = JSON.parse(api_function_call[:input], symbolize_names: true)
+          end
+
           api_function_call
         end
       end
