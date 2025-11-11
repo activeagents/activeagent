@@ -226,7 +226,7 @@ Ollama-specific error handling for connection failures and missing models. For c
 - [Embeddings Framework](/actions/embeddings) - Complete guide to embeddings
 - [Configuration](/framework/configuration) - Global provider setup
 - [Structured Output](/actions/structured_output) - Structured output patterns
-- [Providers Overview](/framework/providers) - Provider comparison
+- [Providers Overview](/providers) - Provider comparison
 - [Configuration Guide](/getting_started#configuration) - Setup and configuration
 - [Error Handling](/agents/error_handling) - Error handling strategies
 - [Ollama Documentation](https://ollama.ai/docs) - Official Ollama docs

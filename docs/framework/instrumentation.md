@@ -263,8 +263,8 @@ CustomAgentLogger.attach_to :active_agent
 
 ## Related Documentation
 
-- **[Agents](/framework/agents)** - Learn about agent lifecycle, callbacks, and the generation cycle
+- **[Agents](/agents)** - Learn about agent lifecycle, callbacks, and the generation cycle
 - **[Callbacks](/agents/callbacks)** - Understand callback hooks like `before_generation` and `after_generation`
-- **[Providers](/framework/providers)** - Explore provider-specific behavior and configuration
+- **[Providers](/providers)** - Explore provider-specific behavior and configuration
 - **[Testing](/framework/testing)** - Test agents and instrumentation in your test suite
 - **[Configuration](/framework/configuration)** - Configure instrumentation behavior across environments

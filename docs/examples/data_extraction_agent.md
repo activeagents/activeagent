@@ -76,7 +76,7 @@ Generate schemas dynamically from your models:
 - Schema mirrors database structure
 - Single source of truth for validations
 
-Learn more: [Structured Output](/actions/structured-output#schema-generation)
+Learn more: [Structured Output](/actions/structured_output#schema-generation)
 
 ## Common Patterns
 
@@ -134,7 +134,7 @@ OpenAI's GPT-4o models provide the best balance of accuracy and speed for resume
 
 ## See Also
 
-- [Structured Output](/actions/structured-output) - JSON schema validation
+- [Structured Output](/actions/structured_output) - JSON schema validation
 - [Messages](/actions/messages) - Multimodal content (PDFs, images)
-- [OpenAI Provider](/providers/open-ai) - Configuration details
-- [OpenRouter Provider](/providers/open-router) - Alternative provider with 200+ models
+- [OpenAI Provider](/providers/open_ai) - Configuration details
+- [OpenRouter Provider](/providers/open_router) - Alternative provider with 200+ models

@@ -102,7 +102,7 @@ Streaming is supported by these providers:
 - **OpenRouter** - Most models with streaming capability
 - **Ollama** - Local models with streaming support
 
-See the [providers documentation](/docs/providers) for provider-specific configuration.
+See the [providers documentation](/providers) for provider-specific configuration.
 
 ## Best Practices
 

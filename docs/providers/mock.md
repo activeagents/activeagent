@@ -102,7 +102,7 @@ The Mock provider accepts structured output parameters but doesn't validate or e
 
 ## Related Documentation
 
-- [Providers Overview](/framework/providers)
+- [Providers Overview](/providers)
 - [Anthropic Provider](/providers/anthropic) - Anthropic Claude configuration
 - [Configuration Guide](/getting_started#configuration)
 - [Testing Guide](/framework/testing)
