@@ -1,0 +1,6 @@
+/*
+ *= require_self
+ */
+
+/* Add engine-specific styles here */
+.active-prompt--hidden { display: none; }

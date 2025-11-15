@@ -17,6 +17,41 @@ require "vcr"
 require "webmock/minitest"
 require "minitest/mock"
 
+# -------------------------------------------------------------------
+# 🔧 Test environment hygiene (prevents generator test collisions)
+# - Clean any leftover generated files under tmp/generators so they
+#   don't get picked up by test discovery in subsequent runs.
+# - Remove lingering constants that would cause class-collision checks
+#   to abort generator runs (e.g., UserAgentTest).
+# -------------------------------------------------------------------
+begin
+  generated_dir = Rails.root.join("tmp", "generators")
+  FileUtils.rm_rf(generated_dir)
+rescue => e
+  warn "Warning: failed to clean #{generated_dir}: #{e.message}"
+end
+
+
+# Helper to remove a constant by fully qualified name (supports namespaces)
+def remove_constant(name)
+  names = name.to_s.split("::")
+  parent = Object
+  names[0..-2].each do |n|
+    return unless parent.const_defined?(n, false)
+    parent = parent.const_get(n)
+  end
+  last = names.last
+  parent.send(:remove_const, last) if parent.const_defined?(last, false)
+end
+
+# Remove any lingering constants that the generator collision check might trip over
+%w[
+  UserAgentTest
+  Admin::UserAgentTest
+].each { |const| remove_constant(const) }
+
+# -------------------------------------------------------------------
+
 # Extract full path and relative path from caller_info
 def extract_path_info(caller_info)
   if caller_info =~ /(.+):(\d+):in/
