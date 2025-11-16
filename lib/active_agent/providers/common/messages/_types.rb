@@ -51,6 +51,12 @@ module ActiveAgent
                 when "assistant"
                   # Filter to only known attributes for Assistant
                   filtered_hash = hash.slice(:role, :content, :name)
+
+                  # Compress content array to string if needed (Anthropic format)
+                  if filtered_hash[:content].is_a?(Array)
+                    filtered_hash[:content] = compress_content_array(filtered_hash[:content])
+                  end
+
                   Common::Messages::Assistant.new(**filtered_hash)
                 when "tool"
                   # Filter to only known attributes for Tool
@@ -63,6 +69,13 @@ module ActiveAgent
                 # Check if the value responds to to_common (provider-specific message)
                 if value.respond_to?(:to_common)
                   cast_message(value.to_common)
+                # Check if it's a gem model object that can be converted to hash
+                # Use JSON round-trip to ensure proper nested serialization
+                elsif value.respond_to?(:to_json)
+                  hash = JSON.parse(value.to_json, symbolize_names: true)
+                  cast_message(hash)
+                elsif value.respond_to?(:to_h)
+                  cast_message(value.to_h)
                 else
                   raise ArgumentError, "Cannot cast #{value.class} to Message"
                 end
@@ -78,8 +91,31 @@ module ActiveAgent
               when Hash
                 value
               else
-                raise ArgumentError, "Cannot serialize #{value.class}"
+                  raise ArgumentError, "Cannot serialize #{value.class}"
               end
+            end
+
+            # Compresses Anthropic-style content array into a string.
+            #
+            # Anthropic messages can have content as an array of blocks like:
+            # [{type: "text", text: "..."}, {type: "tool_use", ...}]
+            # This extracts and joins text blocks into a single string.
+            #
+            # @param content_array [Array<Hash>]
+            # @return [String]
+            def compress_content_array(content_array)
+              content_array.map do |block|
+                case block[:type]&.to_s
+                when "text"
+                  block[:text]
+                when "tool_use"
+                  # Tool use blocks don't have readable text content
+                  nil
+                else
+                  # Unknown block type, try to extract text if present
+                  block[:text]
+                end
+              end.compact.join("\n")
             end
           end
 

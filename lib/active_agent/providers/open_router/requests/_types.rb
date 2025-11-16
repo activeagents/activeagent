@@ -4,7 +4,6 @@ require_relative "messages/_types"
 require_relative "provider_preferences/_types"
 require_relative "plugins/_types"
 
-require_relative "message"
 require_relative "prediction"
 require_relative "provider_preferences"
 require_relative "response_format"

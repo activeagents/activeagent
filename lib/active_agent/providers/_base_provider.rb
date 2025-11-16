@@ -177,7 +177,7 @@ module ActiveAgent
           with_exception_handling { api_prompt_execute(api_parameters) }
         end
 
-        process_prompt_finished(api_response.as_json&.deep_symbolize_keys)
+        process_prompt_finished(api_response)
       end
 
       # Orchestrates the complete embedding request lifecycle.

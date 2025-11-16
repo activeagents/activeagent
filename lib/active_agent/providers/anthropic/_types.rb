@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "requests/_types"
-
 require_relative "options"
 require_relative "request"
 
@@ -11,6 +9,8 @@ module ActiveAgent
       # ActiveModel type for casting and serializing Anthropic Request objects.
       #
       # Handles conversion between Hash, Request, and serialized formats for API calls.
+      # The Request class now delegates to the official Anthropic gem model, eliminating
+      # the need for maintaining nested type definitions.
       class RequestType < ActiveModel::Type::Value
         # Casts input to Request object.
         #

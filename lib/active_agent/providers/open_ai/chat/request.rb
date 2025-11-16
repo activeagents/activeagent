@@ -1,212 +1,158 @@
 # frozen_string_literal: true
 
-require "active_agent/providers/common/model"
-require_relative "requests/_types"
+require "delegate"
+require "json"
+require_relative "transforms"
 
 module ActiveAgent
   module Providers
     module OpenAI
       module Chat
-        class Request < Common::BaseModel
-          # Messages array (required)
-          attribute :messages, Requests::Messages::MessagesType.new
+        # Wraps OpenAI gem's CompletionCreateParams with normalization
+        #
+        # Delegates to OpenAI::Models::Chat::CompletionCreateParams while providing
+        # parameter normalization and shorthand format support via the Transforms module.
+        #
+        # All OpenAI Chat API fields are available via delegation:
+        # model, messages, temperature, max_tokens, max_completion_tokens, top_p,
+        # frequency_penalty, presence_penalty, tools, tool_choice, response_format,
+        # stream_options, audio, prediction, metadata, modalities, service_tier, store,
+        # parallel_tool_calls, reasoning_effort, verbosity, stop, seed, logit_bias,
+        # logprobs, top_logprobs, prompt_cache_key, safety_identifier, user,
+        # web_search_options, function_call, functions
+        #
+        # @example Basic usage
+        #   request = Request.new(
+        #     model: "gpt-4o",
+        #     messages: [{role: "user", content: "Hello"}]
+        #   )
+        #
+        # @example String message normalization
+        #   Request.new(model: "gpt-4o", messages: "Hello")
+        #   # Normalized to: [{role: "user", content: "Hello"}]
+        #
+        # @example Instructions support
+        #   Request.new(
+        #     model: "gpt-4o",
+        #     messages: [{role: "user", content: "Hi"}],
+        #     instructions: ["You are helpful", "Be concise"]
+        #   )
+        #   # instructions converted to developer messages and prepended
+        class Request < SimpleDelegator
+          # Default parameter values applied during initialization
+          DEFAULTS = {
+            frequency_penalty: 0,
+            logprobs: false,
+            modalities: [ "text" ],
+            n: 1,
+            parallel_tool_calls: true,
+            presence_penalty: 0,
+            service_tier: "auto",
+            store: false,
+            stream: false,
+            temperature: 1,
+            top_p: 1
+          }.freeze
 
-          # Model ID (required)
-          attribute :model, :string
+          # @return [Boolean, nil]
+          attr_reader :stream
 
-          # Audio output parameters
-          attribute :audio, Requests::AudioType.new
+          # Creates a new chat completion request
+          #
+          # @param params [Hash] request parameters
+          # @option params [String] :model required model identifier
+          # @option params [Array, String, Hash] :messages required conversation messages
+          # @option params [Array<String>, String] :instructions system/developer prompts
+          # @option params [Hash, String, Symbol] :response_format
+          # @option params [Float] :temperature (1) sampling temperature 0-2
+          # @option params [Integer] :max_tokens maximum tokens to generate
+          # @option params [Array] :tools available tool definitions
+          # @raise [ArgumentError] when parameters are invalid
+          def initialize(**params)
+            # Step 1: Extract stream flag
+            @stream = params[:stream]
 
-          # Frequency penalty
-          attribute :frequency_penalty, :float, default: 0
+            # Step 2: Apply defaults
+            params = apply_defaults(params)
 
-          # Deprecated: function_call (use tool_choice instead)
-          attribute :function_call # String or object
+            # Step 3: Normalize all parameters (instructions, messages, response_format)
+            params = Chat::Transforms.normalize_params(params)
 
-          # Deprecated: functions (use tools instead)
-          attribute :functions # Array of function objects
+            # Step 4: Create gem model - this validates all parameters!
+            gem_model = ::OpenAI::Models::Chat::CompletionCreateParams.new(**params)
 
-          # Logit bias
-          attribute :logit_bias # Hash of token_id => bias_value
+            # Step 5: Delegate all method calls to gem model
+            super(gem_model)
+          rescue ArgumentError => e
+            # Re-raise with more context
+            raise ArgumentError, "Invalid OpenAI Chat request parameters: #{e.message}"
+          end
 
-          # Log probabilities
-          attribute :logprobs, :boolean, default: false
-
-          # Max completion tokens
-          attribute :max_completion_tokens, :integer
-
-          # Deprecated: max_tokens (use max_completion_tokens)
-          attribute :max_tokens, :integer
-
-          # Metadata
-          attribute :metadata # Hash of key-value pairs
-
-          # Modalities
-          attribute :modalities, default: -> { [ "text" ] } # Array of strings
-
-          # Number of completions
-          attribute :n, :integer, default: 1
-
-          # Parallel tool calls
-          attribute :parallel_tool_calls, :boolean, default: true
-
-          # Prediction configuration
-          attribute :prediction, Requests::PredictionType.new
-
-          # Presence penalty
-          attribute :presence_penalty, :float, default: 0
-
-          # Prompt cache key
-          attribute :prompt_cache_key, :string
-
-          # Reasoning effort (for reasoning models)
-          attribute :reasoning_effort, :string
-
-          # Response format
-          attribute :response_format, Requests::ResponseFormatType.new
-
-          # Safety identifier
-          attribute :safety_identifier, :string
-
-          # Deprecated: seed
-          attribute :seed, :integer
-
-          # Service tier
-          attribute :service_tier, :string, default: "auto"
-
-          # Stop sequences
-          attribute :stop # String, array, or null
-
-          # Storage
-          attribute :store, :boolean, default: false
-
-          # Streaming
-          attribute :stream, :boolean, default: false
-          attribute :stream_options, Requests::StreamOptionsType.new
-
-          # Temperature sampling
-          attribute :temperature, :float, default: 1
-
-          # Tool choice
-          attribute :tool_choice, Requests::ToolChoiceType.new
-
-          # Tools array
-          attribute :tools # Array of tool objects
-
-          # Top logprobs
-          attribute :top_logprobs, :integer
-
-          # Top P sampling
-          attribute :top_p, :float, default: 1
-
-          # Deprecated: user (use safety_identifier or prompt_cache_key)
-          attribute :user, :string
-
-          # Verbosity (for reasoning models)
-          attribute :verbosity, :string
-
-          # Web search options
-          attribute :web_search_options, Requests::WebSearchOptionsType.new
-
-          # Validations
-          validates :model, :messages, presence: true
-
-          validates :frequency_penalty,     numericality: { greater_than_or_equal_to: -2.0, less_than_or_equal_to: 2.0 }, allow_nil: true
-          validates :presence_penalty,      numericality: { greater_than_or_equal_to: -2.0, less_than_or_equal_to: 2.0 }, allow_nil: true
-          validates :temperature,           numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 2 },      allow_nil: true
-          validates :top_p,                 numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 },      allow_nil: true
-          validates :top_logprobs,          numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 20 },     allow_nil: true
-          validates :n,                     numericality: { greater_than: 0 },                                            allow_nil: true
-          validates :max_completion_tokens, numericality: { greater_than: 0 },                                            allow_nil: true
-          validates :max_tokens,            numericality: { greater_than: 0 },                                            allow_nil: true
-
-          validates :service_tier,     inclusion: { in: %w[auto default flex priority] }, allow_nil: true
-          validates :reasoning_effort, inclusion: { in: %w[minimal low medium high] },    allow_nil: true
-          validates :verbosity,        inclusion: { in: %w[low medium high] },            allow_nil: true
-          validates :modalities,       inclusion: { in: %w[text audio] },                 allow_nil: true
-
-          # Custom validations
-          validate :validate_metadata_format
-          validate :validate_logit_bias_format
-          validate :validate_stop_sequences
-
+          # Serializes request for API call
+          #
+          # Uses gem's JSON serialization, removes default values for minimal
+          # request body, and simplifies messages where possible.
+          #
+          # @return [Hash] cleaned request hash
           def serialize
-            super.tap do |hash|
-              # Can be an empty hash, to enable the feature
-              hash[:web_search_options] ||= {} if web_search_options
-            end
+            # Use gem's JSON serialization (handles all nested objects)
+            hash = Chat::Transforms.gem_to_hash(__getobj__)
+
+            # Cleanup and simplify for API request
+            Chat::Transforms.cleanup_serialized_request(hash, DEFAULTS, __getobj__)
           end
 
-          # Common Format Compatability
-          def instructions=(*values)
-            self.messages ||= []
-
-            values.flatten.reverse.each do |value|
-              self.messages.unshift({ role: "developer", content: value })
-            end
+          # @return [Array<Hash>, nil]
+          def messages
+            __getobj__.instance_variable_get(:@data)[:messages]
           end
 
-          # Common Format Compatability
-          alias_attribute :message, :messages
-
-          # Common Format Compatability
+          # Sets messages with normalization
+          #
+          # @param value [Array, String, Hash]
+          # @return [void]
           def messages=(value)
-            case value
-            when Array
-              super((messages || []) | value)
-            else
-              super((messages || []) | [ value ])
-            end
+            normalized_value = Chat::Transforms.normalize_messages(value)
+            __getobj__.instance_variable_get(:@data)[:messages] = normalized_value
+          end
+
+          # Alias for messages (common format compatibility)
+          #
+          # @return [Array<Hash>, nil]
+          def message
+            messages
+          end
+
+          # @param value [Array, String, Hash]
+          # @return [void]
+          def message=(value)
+            self.messages = value
+          end
+
+          # Sets instructions as developer messages
+          #
+          # Prepends developer messages to the messages array for common format compatibility.
+          #
+          # @param values [Array<String>, String]
+          # @return [void]
+          def instructions=(*values)
+            instructions_messages = Chat::Transforms.normalize_instructions(values.flatten)
+            current_messages = messages || []
+            self.messages = instructions_messages + current_messages
           end
 
           private
 
-          def validate_metadata_format
-            return if metadata.nil?
-
-            unless metadata.is_a?(Hash)
-              errors.add(:metadata, "must be a hash")
-              return
+          # @api private
+          # @param params [Hash]
+          # @return [Hash]
+          def apply_defaults(params)
+            # Only apply defaults for keys that aren't present
+            DEFAULTS.each do |key, value|
+              params[key] = value unless params.key?(key)
             end
 
-            metadata.each do |key, value|
-              if key.to_s.length > 64
-                errors.add(:metadata, "keys must be 64 characters or less")
-              end
-              if value.to_s.length > 512
-                errors.add(:metadata, "values must be 512 characters or less")
-              end
-            end
-
-            if metadata.size > 16
-              errors.add(:metadata, "must have 16 key-value pairs or less")
-            end
-          end
-
-          def validate_logit_bias_format
-            return if logit_bias.nil?
-
-            unless logit_bias.is_a?(Hash)
-              errors.add(:logit_bias, "must be a hash")
-              return
-            end
-
-            logit_bias.each do |token_id, bias|
-              unless bias.is_a?(Numeric) && bias >= -100 && bias <= 100
-                errors.add(:logit_bias, "bias values must be between -100 and 100")
-              end
-            end
-          end
-
-          def validate_stop_sequences
-            return if stop.nil?
-            return if stop.is_a?(String)
-
-            if stop.is_a?(Array)
-              errors.add(:stop, "can have at most 4 sequences") if stop.length > 4
-            else
-              errors.add(:stop, "must be a string, array, or null")
-            end
+            params
           end
         end
       end

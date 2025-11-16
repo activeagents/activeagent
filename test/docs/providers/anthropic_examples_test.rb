@@ -42,7 +42,7 @@ module Providers
           # => { colors: ["red", "blue", "yellow"] }
           # endregion response_format_json_object_example
 
-          assert_equal colors, { colors: [ "red", "blue", "yellow" ] }
+          assert_equal({ colors: [ "red", "blue", "yellow" ] }, colors)
         end
       end
     end

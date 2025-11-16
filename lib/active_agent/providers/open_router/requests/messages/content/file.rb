@@ -9,12 +9,28 @@ module ActiveAgent
       module Requests
         module Messages
           module Content
-            # File content part for OpenRouter.
+            # File content part for OpenRouter messages
             #
-            # Uses OpenRouter's Files::DetailsType which preserves the data URI prefix
-            # instead of stripping it like OpenAI does.
+            # Represents a file attachment in a message. Unlike OpenAI which strips
+            # the data URI prefix, OpenRouter preserves it in the file_data field.
+            #
+            # @example PDF file attachment
+            #   file = File.new(
+            #     file: {
+            #       file_data: 'data:application/pdf;base64,JVBERi0...',
+            #       filename: 'document.pdf'
+            #     }
+            #   )
+            #
+            # @see Files::Details
+            # @see https://openrouter.ai/docs/file-uploads OpenRouter File Uploads
             class File < OpenAI::Chat::Requests::Messages::Content::Base
+              # @!attribute type
+              #   @return [String] always "file"
               attribute :type, :string, as: "file"
+
+              # @!attribute file
+              #   @return [Files::Details] file details with data URI
               attribute :file, Files::DetailsType.new
 
               validates :file, presence: true

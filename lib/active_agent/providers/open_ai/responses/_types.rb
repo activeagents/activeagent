@@ -24,13 +24,7 @@ module ActiveAgent
           def serialize(value)
             case value
             when Request
-              hash = value.serialize
-
-              if hash[:input] in [ { role: "user", content: String } ]
-                hash[:input] = hash[:input][0][:content]
-              end
-
-              hash
+              value.serialize
             when Hash
               value
             when nil

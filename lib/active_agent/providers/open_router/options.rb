@@ -8,11 +8,48 @@ require_relative "requests/provider_preferences"
 module ActiveAgent
   module Providers
     module OpenRouter
+      # Configuration options for OpenRouter provider
+      #
+      # Extends OpenAI::Options with OpenRouter-specific settings including
+      # HTTP-Referer and X-Title headers for app identification and ranking.
+      #
+      # @example Basic configuration
+      #   options = Options.new(
+      #     api_key: 'sk-or-v1-...',
+      #     app_name: 'MyApp',
+      #     site_url: 'https://myapp.com'
+      #   )
+      #
+      # @example Rails auto-configuration
+      #   # Automatically resolves app_name from Rails.application
+      #   # and site_url from routes.default_url_options
+      #   options = Options.new(api_key: ENV['OPENROUTER_API_KEY'])
+      #
+      # @see https://openrouter.ai/docs/api-keys OpenRouter API Keys
+      # @see https://openrouter.ai/docs/rankings OpenRouter App Rankings
       class Options < ActiveAgent::Providers::OpenAI::Options
+        # @!attribute base_url
+        #   @return [String] API endpoint (default: "https://openrouter.ai/api/v1")
         attribute :base_url, :string, as: "https://openrouter.ai/api/v1"
+
+        # @!attribute app_name
+        #   @return [String] application name for X-Title header (default: "ActiveAgent" or Rails app name)
         attribute :app_name, :string, fallback: "ActiveAgent"
+
+        # @!attribute site_url
+        #   @return [String] site URL for HTTP-Referer header (default: "https://activeagents.ai/" or Rails URL)
         attribute :site_url, :string, fallback: "https://activeagents.ai/"
 
+        # Creates new OpenRouter options with auto-resolution
+        #
+        # Automatically resolves app_name from Rails application name and
+        # site_url from Rails routes/ActionMailer default_url_options.
+        #
+        # @param kwargs [Hash] configuration options
+        # @option kwargs [String] :api_key OpenRouter API key
+        # @option kwargs [String] :app_name application name for rankings
+        # @option kwargs [String] :site_url site URL for rankings
+        # @return [Options]
         def initialize(kwargs = {})
           kwargs = kwargs.deep_symbolize_keys if kwargs.respond_to?(:deep_symbolize_keys)
 
@@ -22,11 +59,22 @@ module ActiveAgent
           )))
         end
 
+        # Serializes options for API requests
+        #
+        # Excludes app_name and site_url as they're sent via headers.
+        #
+        # @return [Hash] serialized options
         def serialize
           super.except(:app_name, :site_url)
         end
 
-        # We fallback to ActiveAgent but allow empty strings to unset
+        # Returns extra headers for OpenRouter API
+        #
+        # Maps app_name and site_url to OpenRouter's required headers:
+        # - HTTP-Referer: site_url
+        # - X-Title: app_name
+        #
+        # @return [Hash] headers hash
         def extra_headers
           deep_compact(
             "http-referer" => site_url.presence,

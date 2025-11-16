@@ -8,8 +8,25 @@ require_relative "options"
 module ActiveAgent
   module Providers
     module OpenRouter
-      # Type for Request model
+      # ActiveModel type for casting and serializing OpenRouter requests
+      #
+      # Handles conversion between hashes, Request objects, and serialized
+      # request hashes for the OpenRouter API.
+      #
+      # @example Type casting
+      #   type = RequestType.new
+      #   request = type.cast({ model: "openai/gpt-4", messages: "Hello" })
+      #   # => #<Request ...>
+      #
+      # @example Serialization
+      #   serialized = type.serialize(request)
+      #   # => { model: "openai/gpt-4", messages: [...] }
       class RequestType < ActiveModel::Type::Value
+        # Casts value to Request object
+        #
+        # @param value [Request, Hash, nil]
+        # @return [Request, nil]
+        # @raise [ArgumentError] if value cannot be cast
         def cast(value)
           case value
           when Request
@@ -23,6 +40,11 @@ module ActiveAgent
           end
         end
 
+        # Serializes Request to hash for API submission
+        #
+        # @param value [Request, Hash, nil]
+        # @return [Hash, nil]
+        # @raise [ArgumentError] if value cannot be serialized
         def serialize(value)
           case value
           when Request
@@ -36,6 +58,10 @@ module ActiveAgent
           end
         end
 
+        # Deserializes value from storage
+        #
+        # @param value [Object]
+        # @return [Request, nil]
         def deserialize(value)
           cast(value)
         end

@@ -13,6 +13,7 @@
 /test/dummy/storage/
 /test/dummy/tmp/
 /tmp/
+/wip/
 docs/.vitepress/cache
 docs/.vitepress/dist
 docs/parts/examples/*.md
