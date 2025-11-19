@@ -25,7 +25,7 @@ Add your provider gem:
 ::: code-group
 
 ```bash [OpenAI]
-bundle add openai
+bundle add ruby-openai
 ```
 
 ```bash [Anthropic]
@@ -70,7 +70,7 @@ See **[Configuration](/framework/configuration)** for environment-specific setti
 Test your setup with direct generation:
 
 ```ruby
-response = ApplicationAgent.prompt(message: "Hello, world!").generate_now
+response = ApplicationAgent.prompt_with(message: "Hello, world!").generate_now
 puts response.message
 # => "Hello! How can I help you today?"
 ```
