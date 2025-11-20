@@ -60,7 +60,7 @@ When you define an agent, you create a specialized participant that interacts wi
 
 - **Agent** (Controller) - Manages lifecycle, defines actions, configures providers
 - **Generation** (Request Proxy) - Coordinates execution, holds configuration, provides synchronous/async methods. Created by invocation, it's lazy—execution doesn't start until you call `.prompt_now`, `.embed_now`, or `.prompt_later`.
-- **Response** (Result) - Contains messages, metadata, token usage, and parsed output. Returned after Generation executes.
+- **Response** (Result) - Contains messages, metadata, and normalized usage statistics (see **[Usage Statistics](/actions/usage)**). Returned after Generation executes.
 
 **Request-Response Lifecycle:**
 

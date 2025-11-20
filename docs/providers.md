@@ -92,7 +92,7 @@ All providers return standardized response objects:
 
 **Common attributes:**
 - `message` / `messages` - Response content and conversation history
-- `prompt_tokens` / `completion_tokens` - Token usage for cost tracking
+- `usage` - Normalized token usage statistics (see **[Usage Statistics](/actions/usage)**)
 - `raw_request` / `raw_response` - Provider-specific data for debugging
 - `context` - Original request sent to provider
 

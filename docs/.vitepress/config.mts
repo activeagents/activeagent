@@ -100,6 +100,7 @@ export default defineConfig({
           { text: 'Embeddings', link: '/actions/embeddings' },
           { text: 'Tools', link: '/actions/tools' },
           { text: 'Structured Output', link: '/actions/structured_output' },
+          { text: 'Usage', link: '/actions/usage' },
         ]
       },
       {

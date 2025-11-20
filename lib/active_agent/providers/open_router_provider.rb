@@ -48,6 +48,15 @@ module ActiveAgent
 
         hash_merge_delta(message, delta)
       end
+
+      # @see BaseProvider#api_response_normalize
+      # @param api_response [OpenAI::Models::ChatCompletion]
+      # @return [Hash] normalized response hash
+      def api_response_normalize(api_response)
+        return api_response unless api_response
+
+        OpenAI::Chat::Transforms.gem_to_hash(api_response)
+      end
     end
   end
 end

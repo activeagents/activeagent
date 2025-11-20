@@ -18,140 +18,145 @@ class LogSubscriberTest < ActiveSupport::TestCase
     assert ActiveSupport::LogSubscriber.log_subscribers.any? { _1.is_a?(ActiveAgent::Providers::LogSubscriber) }
   end
 
-  test "prompt_start event is logged" do
-    ActiveSupport::Notifications.instrument("prompt_start.provider.active_agent",
-                                           provider: "OpenAI",
+  test "prompt event is logged with model and message count" do
+    ActiveSupport::Notifications.instrument("prompt.active_agent",
+                                           trace_id: "test-123",
                                            provider_module: "OpenAI",
-                                           trace_id: "test-123")
-
-    assert_match(/Starting prompt request/, @log_output.string)
-    assert_match(/OpenAI/, @log_output.string)
-    assert_match(/test-123/, @log_output.string)
-  end
-
-  test "embed_start event is logged" do
-    ActiveSupport::Notifications.instrument("embed_start.provider.active_agent",
-                                           provider: "OpenAI",
-                                           provider_module: "OpenAI",
-                                           trace_id: "test-456")
-
-    assert_match(/Starting embed request/, @log_output.string)
-    assert_match(/OpenAI/, @log_output.string)
-  end
-
-  test "request_prepared event is logged" do
-    ActiveSupport::Notifications.instrument("request_prepared.provider.active_agent",
-                                           provider: "Anthropic",
-                                           provider_module: "Anthropic",
-                                           trace_id: "test-789",
-                                           message_count: 5)
-
-    assert_match(/Prepared request with 5 message/, @log_output.string)
-    assert_match(/Anthropic/, @log_output.string)
-  end
-
-  test "api_call event is logged with duration" do
-    ActiveSupport::Notifications.instrument("api_call.provider.active_agent",
-                                           provider: "OpenAI",
-                                           provider_module: "OpenAI",
-                                           trace_id: "test-api",
-                                           streaming: true) do
-      sleep 0.01 # Simulate some work
+                                           model: "gpt-4",
+                                           message_count: 3,
+                                           stream: false,
+                                           finish_reason: "stop") do
+      sleep 0.01 # Simulate work for duration
     end
 
-    assert_match(/API call completed in \d+\.\d+ms/, @log_output.string)
-    assert_match(/streaming: true/, @log_output.string)
+    assert_match(/\[test-123\]/, @log_output.string)
+    assert_match(/\[ActiveAgent\]/, @log_output.string)
+    assert_match(/\[OpenAI\]/, @log_output.string)
+    assert_match(/Prompt completed:/, @log_output.string)
+    assert_match(/model=gpt-4/, @log_output.string)
+    assert_match(/messages=3/, @log_output.string)
+    assert_match(/stream=false/, @log_output.string)
+    assert_match(/finish=stop/, @log_output.string)
+    assert_match(/\d+\.\d+ms/, @log_output.string)
+  end
+
+  test "prompt event includes usage information" do
+    ActiveSupport::Notifications.instrument("prompt.active_agent",
+                                           trace_id: "test-usage",
+                                           provider_module: "Anthropic",
+                                           model: "claude-3-5-sonnet-20241022",
+                                           message_count: 2,
+                                           stream: false,
+                                           usage: {
+                                             input_tokens: 100,
+                                             output_tokens: 50,
+                                             cached_tokens: 25,
+                                             reasoning_tokens: 10
+                                           })
+
+    assert_match(/tokens=100\/50/, @log_output.string)
+    assert_match(/cached: 25/, @log_output.string)
+    assert_match(/reasoning: 10/, @log_output.string)
+  end
+
+  test "embed event is logged with model and input size" do
+    ActiveSupport::Notifications.instrument("embed.active_agent",
+                                           trace_id: "test-456",
+                                           provider_module: "OpenAI",
+                                           model: "text-embedding-ada-002",
+                                           input_size: 5,
+                                           embedding_count: 5,
+                                           usage: { input_tokens: 150 }) do
+      sleep 0.01 # Simulate work
+    end
+
+    assert_match(/\[test-456\]/, @log_output.string)
+    assert_match(/\[OpenAI\]/, @log_output.string)
+    assert_match(/Embed completed:/, @log_output.string)
+    assert_match(/model=text-embedding-ada-002/, @log_output.string)
+    assert_match(/inputs=5/, @log_output.string)
+    assert_match(/embeddings=5/, @log_output.string)
+    assert_match(/tokens=150/, @log_output.string)
   end
 
   test "stream_open event is logged" do
-    ActiveSupport::Notifications.instrument("stream_open.provider.active_agent",
-                                           provider: "Anthropic",
-                                           provider_module: "Anthropic",
-                                           trace_id: "test-stream")
+    ActiveSupport::Notifications.instrument("stream_open.active_agent",
+                                           trace_id: "test-stream",
+                                           provider_module: "Anthropic")
 
+    assert_match(/\[test-stream\]/, @log_output.string)
+    assert_match(/\[Anthropic\]/, @log_output.string)
     assert_match(/Opening stream/, @log_output.string)
   end
 
   test "stream_close event is logged" do
-    ActiveSupport::Notifications.instrument("stream_close.provider.active_agent",
-                                           provider: "Anthropic",
-                                           provider_module: "Anthropic",
-                                           trace_id: "test-stream")
+    ActiveSupport::Notifications.instrument("stream_close.active_agent",
+                                           trace_id: "test-stream",
+                                           provider_module: "Anthropic")
 
+    assert_match(/\[test-stream\]/, @log_output.string)
+    assert_match(/\[Anthropic\]/, @log_output.string)
     assert_match(/Closing stream/, @log_output.string)
   end
 
-  test "messages_extracted event is logged" do
-    ActiveSupport::Notifications.instrument("messages_extracted.provider.active_agent",
-                                           provider: "OpenAI",
-                                           provider_module: "OpenAI",
-                                           trace_id: "test-msg",
-                                           message_count: 3)
-
-    assert_match(/Extracted 3 message/, @log_output.string)
-  end
-
-  test "tool_calls_processing event is logged" do
-    ActiveSupport::Notifications.instrument("tool_calls_processing.provider.active_agent",
-                                           provider: "OpenAI",
-                                           provider_module: "OpenAI",
+  test "tool_call event is logged" do
+    ActiveSupport::Notifications.instrument("tool_call.active_agent",
                                            trace_id: "test-tool",
-                                           tool_count: 2)
-
-    assert_match(/Processing 2 tool call/, @log_output.string)
-  end
-
-  test "multi_turn_continue event is logged" do
-    ActiveSupport::Notifications.instrument("multi_turn_continue.provider.active_agent",
-                                           provider: "Anthropic",
                                            provider_module: "Anthropic",
-                                           trace_id: "test-turn")
-
-    assert_match(/Continuing multi-turn conversation/, @log_output.string)
-  end
-
-  test "prompt_complete event is logged with duration" do
-    ActiveSupport::Notifications.instrument("prompt_complete.provider.active_agent",
-                                           provider: "OpenAI",
-                                           provider_module: "OpenAI",
-                                           trace_id: "test-complete",
-                                           message_count: 4) do
-      sleep 0.01 # Simulate some work
+                                           tool_name: "weather_lookup") do
+      sleep 0.01 # Simulate work
     end
 
-    assert_match(/Prompt completed with 4 message/, @log_output.string)
-    assert_match(/total: \d+\.\d+ms/, @log_output.string)
+    assert_match(/\[test-tool\]/, @log_output.string)
+    assert_match(/\[Anthropic\]/, @log_output.string)
+    assert_match(/Tool call: weather_lookup/, @log_output.string)
+    assert_match(/\d+\.\d+ms/, @log_output.string)
   end
 
-  test "retry_attempt event is logged" do
-    ActiveSupport::Notifications.instrument("retry_attempt.provider.active_agent",
-                                           provider_module: "OpenAI",
-                                           attempt: 2,
-                                           max_retries: 3,
-                                           exception: "TimeoutError",
-                                           backoff_time: 2.5)
+  test "stream_chunk event is logged" do
+    ActiveSupport::Notifications.instrument("stream_chunk.active_agent",
+                                           trace_id: "test-chunk",
+                                           provider_module: "Anthropic",
+                                           chunk_type: "content_block_delta")
 
-    assert_match(/Attempt 2\/3 failed with TimeoutError/, @log_output.string)
-    assert_match(/retrying in 2.5s/, @log_output.string)
+    assert_match(/\[test-chunk\]/, @log_output.string)
+    assert_match(/\[Anthropic\]/, @log_output.string)
+    assert_match(/Stream chunk: content_block_delta/, @log_output.string)
   end
 
-  test "retry_exhausted event is logged" do
-    ActiveSupport::Notifications.instrument("retry_exhausted.provider.active_agent",
-                                           provider_module: "OpenAI",
-                                           max_retries: 3,
-                                           exception: "SocketError")
+  test "stream_chunk event without chunk_type" do
+    ActiveSupport::Notifications.instrument("stream_chunk.active_agent",
+                                           trace_id: "test-chunk2",
+                                           provider_module: "OpenAI")
 
-    assert_match(/Max retries \(3\) exceeded/, @log_output.string)
-    assert_match(/SocketError/, @log_output.string)
+    assert_match(/Stream chunk/, @log_output.string)
+    refute_match(/Stream chunk:/, @log_output.string)
+  end
+
+  test "connection_error event is logged" do
+    ActiveSupport::Notifications.instrument("connection_error.active_agent",
+                                           trace_id: "test-error",
+                                           provider_module: "Ollama",
+                                           uri_base: "http://localhost:11434",
+                                           exception: "Errno::ECONNREFUSED",
+                                           message: "Connection refused")
+
+    assert_match(/\[test-error\]/, @log_output.string)
+    assert_match(/\[Ollama\]/, @log_output.string)
+    assert_match(/Unable to connect to http:\/\/localhost:11434/, @log_output.string)
+    assert_match(/Errno::ECONNREFUSED/, @log_output.string)
+    assert_match(/Connection refused/, @log_output.string)
   end
 
   test "logs nothing when logger level is above debug" do
     ActiveAgent::Base.logger.level = Logger::INFO
 
-    ActiveSupport::Notifications.instrument("prompt_start.provider.active_agent",
-                                           provider: "OpenAI",
+    ActiveSupport::Notifications.instrument("prompt.active_agent",
+                                           trace_id: "test-level",
                                            provider_module: "OpenAI",
-                                           trace_id: "test-level")
+                                           model: "gpt-4",
+                                           message_count: 1,
+                                           stream: false)
 
     assert_empty @log_output.string
   end
@@ -160,13 +165,17 @@ class LogSubscriberTest < ActiveSupport::TestCase
     events = []
     custom_subscriber = ->(event) { events << event }
 
-    subscription = ActiveSupport::Notifications.subscribe("prompt_start.provider.active_agent", custom_subscriber)
+    subscription = ActiveSupport::Notifications.subscribe("prompt.active_agent", custom_subscriber)
 
-    ActiveSupport::Notifications.instrument("prompt_start.provider.active_agent", provider: "Test")
+    ActiveSupport::Notifications.instrument("prompt.active_agent",
+                                           trace_id: "test-custom",
+                                           provider_module: "Test",
+                                           message_count: 1,
+                                           stream: false)
 
     assert_equal 1, events.size
-    assert_equal "prompt_start.provider.active_agent", events.first.name
-    assert_equal "Test", events.first.payload[:provider]
+    assert_equal "prompt.active_agent", events.first.name
+    assert_equal "Test", events.first.payload[:provider_module]
   ensure
     ActiveSupport::Notifications.unsubscribe(subscription) if subscription
   end

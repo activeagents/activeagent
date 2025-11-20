@@ -93,10 +93,11 @@ response.raw_request       # The most recent request in provider format
 response.raw_response      # The most recent response in provider format
 response.context           # The original context that was sent
 
-# Usage statistics (when available from provider)
-response.prompt_tokens     # Input tokens used
-response.completion_tokens # Output tokens used
-response.total_tokens      # Total tokens used
+# Usage statistics (see /actions/usage for details)
+response.usage             # Normalized usage object across all providers
+response.usage.input_tokens
+response.usage.output_tokens
+response.usage.total_tokens
 ```
 
 For embeddings:
@@ -110,14 +111,16 @@ response.raw_request  # The most recent request in provider format
 response.raw_response # The most recent response in provider format
 response.context      # The original context that was sent
 
-# Usage statistics (when available from provider)
-response.prompt_tokens
+# Usage statistics
+response.usage             # Normalized usage object
+response.usage.input_tokens
 ```
 
 ## Next Steps
 
 - [Agents](/agents) - Understanding the full agent lifecycle
 - [Actions](/actions) - Define what your agents can do
+- [Usage Statistics](/actions/usage) - Track token consumption and costs
 - [Messages](/actions/messages) - Work with multimodal content
 - [Tools](/actions/tools) - Enable function calling capabilities
 - [Streaming](/agents/streaming) - Stream responses in real-time

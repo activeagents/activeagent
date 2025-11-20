@@ -49,8 +49,9 @@ module ActiveAgent
           name   = api_function_call[:name]
           kwargs = JSON.parse(api_function_call[:arguments], symbolize_names: true) if api_function_call[:arguments]
 
-          instrument("tool_execution.provider.active_agent", tool_name: name)
-          tools_function.call(name, **kwargs)
+          instrument("tool_call.active_agent", tool_name: name) do
+            tools_function.call(name, **kwargs)
+          end
         end
       end
     end

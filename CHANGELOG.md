@@ -148,6 +148,35 @@ response = MyAgent.embed(inputs: ["Text 1", "Text 2"]).embed_now
 vectors = response.data.map { |d| d[:embedding] }
 ```
 
+**Normalized Usage Statistics**
+```ruby
+response = MyAgent.prompt("Hello").generate_now
+
+# Works across all providers
+response.usage.input_tokens
+response.usage.output_tokens
+response.usage.total_tokens
+
+# Provider-specific fields when available
+response.usage.cached_tokens      # OpenAI, Anthropic
+response.usage.reasoning_tokens   # OpenAI o1 models
+response.usage.service_tier       # Anthropic
+```
+
+**Enhanced Instrumentation for APM Integration**
+- Unified event structure: `prompt.active_agent` and `embed.active_agent` (top-level) plus `prompt.provider.active_agent` and `embed.provider.active_agent` (per-API-call)
+- Event payloads include comprehensive data for monitoring tools (New Relic, DataDog, etc.):
+  - Request parameters: `model`, `temperature`, `max_tokens`, `top_p`, `stream`, `message_count`, `has_tools`
+  - Usage data: `input_tokens`, `output_tokens`, `total_tokens`, `cached_tokens`, `reasoning_tokens`, `audio_tokens`, `cache_creation_tokens` (critical for cost tracking)
+  - Response metadata: `finish_reason`, `response_model`, `response_id`, `embedding_count`
+- Top-level events report cumulative usage across all API calls in multi-turn conversations
+- Provider-level events report per-call usage for granular tracking
+
+**Multi-Turn Usage Tracking**
+- `response.usage` now returns cumulative token counts across all API calls during tool calling
+- New `response.usages` array contains individual usage objects from each API call
+- `Usage` objects support addition: `usage1 + usage2` for combining statistics
+
 **Provider Enhancements**
 - OpenAI Responses API: `api: :responses` or `api: :chat`
 - Anthropic JSON object mode with automatic extraction
@@ -195,6 +224,7 @@ vectors = response.data.map { |d| d[:embedding] }
 - Template rendering without blocks
 - Schema generator key symbolization
 - Rails 8.0 and 8.1 compatibility
+- Usage extraction across OpenAI/Anthropic response formats
 
 ### Removed
 

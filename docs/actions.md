@@ -43,6 +43,15 @@ Generate vectors for semantic search:
 
 <<< @/../test/docs/actions_examples_test.rb#embeddings_vectorize{ruby:line-numbers}
 
+### [Usage Statistics](/actions/usage)
+
+Track token consumption and costs:
+
+```ruby
+response = agent.summarize.generate_now
+response.usage.total_tokens  #=> 125
+```
+
 ## Common Patterns
 
 ### Multi-Capability Actions

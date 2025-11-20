@@ -56,20 +56,20 @@ module ActiveAgent
         else
           # Return a complete response
           {
-            id: "mock-#{SecureRandom.hex(8)}",
-            type: "message",
-            role: "assistant",
-            content: [
+            "id" => "mock-#{SecureRandom.hex(8)}",
+            "type" => "message",
+            "role" => "assistant",
+            "content" => [
               {
-                type: "text",
-                text: pig_latin_content
+                "type" => "text",
+                "text" => pig_latin_content
               }
             ],
-            model: parameters[:model] || "mock-model",
-            stop_reason: "end_turn",
-            usage: {
-              input_tokens: content.length,
-              output_tokens: pig_latin_content.length
+            "model" => parameters[:model] || "mock-model",
+            "stop_reason" => "end_turn",
+            "usage" => {
+              "input_tokens" => content.length,
+              "output_tokens" => pig_latin_content.length
             }
           }
         end
@@ -80,27 +80,27 @@ module ActiveAgent
       # Returns random embedding vectors for testing purposes.
       #
       # @param parameters [Hash] The embedding request parameters
-      # @return [Hash] A mock embedding response structure
+      # @return [Hash] A mock embedding response structure with symbol keys
       def api_embed_execute(parameters)
         input = parameters[:input]
         inputs = input.is_a?(Array) ? input : [ input ]
         dimensions = parameters[:dimensions] || 1536
 
         {
-          object: "list",
-          data: inputs.map.with_index do |text, index|
+          "object" => "list",
+          "data" => inputs.map.with_index do |text, index|
             {
-              object: "embedding",
-              index: index,
-              embedding: generate_random_embedding(dimensions)
+              "object" => "embedding",
+              "index" => index,
+              "embedding" => generate_random_embedding(dimensions)
             }
           end,
-          model: parameters[:model] || "mock-embedding-model",
-          usage: {
-            prompt_tokens: inputs.sum { |text| text.to_s.length },
-            total_tokens: inputs.sum { |text| text.to_s.length }
+          "model" => parameters[:model] || "mock-embedding-model",
+          "usage" => {
+            "prompt_tokens" => inputs.sum { |text| text.to_s.length },
+            "total_tokens" => inputs.sum { |text| text.to_s.length }
           }
-        }
+        }.deep_symbolize_keys
       end
 
       # Processes streaming response chunks.
@@ -112,7 +112,7 @@ module ActiveAgent
       def process_stream_chunk(api_response_chunk)
         chunk_type = api_response_chunk[:type]&.to_sym
 
-        instrument("stream_chunk_processing.provider.active_agent", chunk_type: chunk_type)
+        instrument("stream_chunk.active_agent", chunk_type: chunk_type)
 
         broadcast_stream_open
 

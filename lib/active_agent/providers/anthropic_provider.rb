@@ -53,7 +53,6 @@ module ActiveAgent
         if (tool_choice_type == :any && functions_used.any?) ||
           (tool_choice_type == :tool && tool_choice_name && functions_used.include?(tool_choice_name))
 
-          instrument("tool_choice_removed.provider.active_agent")
           request.tool_choice = nil
         end
       end
@@ -74,6 +73,15 @@ module ActiveAgent
         client.messages
       end
 
+      # @see BaseProvider#api_response_normalize
+      # @param api_response [Anthropic::Models::Message]
+      # @return [Hash] normalized response hash
+      def api_response_normalize(api_response)
+        return api_response unless api_response
+
+        Anthropic::Transforms.gem_to_hash(api_response)
+      end
+
       # Processes streaming chunks and builds message incrementally in message_stack.
       #
       # Handles chunk types: message_start, content_block_start, content_block_delta,
@@ -84,9 +92,9 @@ module ActiveAgent
       # @param api_response_chunk [Anthropic::StreamEvent]
       # @return [void]
       def process_stream_chunk(api_response_chunk)
-        chunk_type = api_response_chunk.type.to_sym
+        chunk_type = api_response_chunk[:type]&.to_sym
 
-        instrument("stream_chunk_processing.provider.active_agent", chunk_type:)
+        instrument("stream_chunk.active_agent", chunk_type:)
 
         broadcast_stream_open
 
@@ -178,26 +186,37 @@ module ActiveAgent
       # @param api_function_call [Hash] with :name, :input, and :id keys
       # @return [Anthropic::Models::ToolResultBlockParam]
       def process_tool_call_function(api_function_call)
-        instrument("tool_execution.provider.active_agent", tool_name: api_function_call[:name])
+        instrument("tool_call.active_agent", tool_name: api_function_call[:name]) do
+          results = tools_function.call(
+            api_function_call[:name], **api_function_call[:input]
+          )
 
-        results = tools_function.call(
-          api_function_call[:name], **api_function_call[:input]
-        )
-
-        ::Anthropic::Models::ToolResultBlockParam.new(
-          type:        "tool_result",
-          tool_use_id: api_function_call[:id],
-          content:     results.to_json,
-        )
+          ::Anthropic::Models::ToolResultBlockParam.new(
+            type:        "tool_result",
+            tool_use_id: api_function_call[:id],
+            content:     results.to_json,
+            is_error:    false
+          )
+        end
       end
 
       # Converts API response message to hash for message_stack.
+      # Converts Anthropic gem response object to hash for storage.
+      #
+      # @param api_response [Anthropic::Models::Message]
+      # @return [Common::PromptResponse, nil]
+      def process_prompt_finished(api_response = nil)
+        # Convert gem object to hash so that raw_response[:usage] works
+        api_response_hash = api_response ? Anthropic::Transforms.gem_to_hash(api_response) : nil
+        super(api_response_hash)
+      end
+
       #
       # Handles JSON response format simulation by prepending `{` to the response
       # content after removing the assistant lead-in message.
       #
       # @see BaseProvider#process_prompt_finished_extract_messages
-      # @param api_response [Anthropic::Models::Message]
+      # @param api_response [Hash] converted response hash
       # @return [Array<Hash>, nil]
       def process_prompt_finished_extract_messages(api_response)
         return unless api_response
@@ -205,12 +224,10 @@ module ActiveAgent
         # Handle JSON response format simulation
         if request.response_format&.dig(:type) == "json_object"
           request.pop_message!
-          api_response.content[0].text = "{#{api_response.content[0].text}"
+          api_response[:content][0][:text] = "{#{api_response[:content][0][:text]}"
         end
 
-        message = Anthropic::Transforms.gem_to_hash(api_response)
-
-        [ message ]
+        [ api_response ]
       end
 
       # Extracts tool_use blocks from message_stack and parses JSON inputs.

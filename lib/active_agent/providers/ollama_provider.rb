@@ -56,7 +56,6 @@ module ActiveAgent
       # @return [Hash] symbolized API response
       # @raise [OpenAI::Errors::APIConnectionError] when Ollama server unreachable
       def api_embed_execute(parameters)
-        instrument("embeddings_request.provider.active_agent")
         client.embeddings.create(**parameters).as_json.deep_symbolize_keys
 
       rescue ::OpenAI::Errors::APIConnectionError => exception

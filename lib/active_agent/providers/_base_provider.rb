@@ -2,21 +2,21 @@ require "active_support/delegation"
 
 require_relative "common/response"
 require_relative "concerns/exception_handler"
+require_relative "concerns/instrumentation"
 require_relative "concerns/previewable"
 
-# Maps provider types to their gem dependencies.
 # @private
 GEM_LOADERS = {
   anthropic: [ "anthropic", "~> 1.12", "anthropic" ],
   openai:    [ "openai",    "~> 0.34", "openai" ]
 }
 
-# Loads and requires a provider's gem dependency.
+# Requires a provider's gem dependency.
 #
 # @param type [Symbol] provider type (:anthropic, :openai)
-# @param file_name [String] provider file path for error context
+# @param file_name [String] for error context
 # @return [void]
-# @raise [LoadError] when the required gem is not available
+# @raise [LoadError] when required gem is not installed
 def require_gem!(type, file_name)
   gem_name, requirement, package_name = GEM_LOADERS.fetch(type)
   provider_name = file_name.split("/").last.delete_suffix(".rb").camelize
@@ -31,9 +31,8 @@ end
 
 module ActiveAgent
   module Providers
-    # Base class for LLM provider integrations.
+    # Orchestrates LLM provider API requests, streaming, and multi-turn tool calling.
     #
-    # Orchestrates API requests, streaming responses, and multi-turn tool calling.
     # Each provider (OpenAI, Anthropic, etc.) subclasses this to implement
     # provider-specific API interactions.
     #
@@ -44,6 +43,7 @@ module ActiveAgent
       extend ActiveSupport::Delegation
 
       include ExceptionHandler
+      include Instrumentation
       include Previewable
 
       class ProvidersError < StandardError; end
@@ -51,34 +51,35 @@ module ActiveAgent
       attr_internal :options, :context, :trace_id,   # Setup
                     :request, :message_stack,        # Runtime
                     :stream_broadcaster, :streaming, # Callback (Streams)
-                    :tools_function                  # Callback (Tools)
+                    :tools_function,                 # Callback (Tools)
+                    :usage_stack                     # Usage Tracking
 
-      # @return [String] provider name extracted from class name (e.g., "Anthropic", "OpenAI")
+      # @return [String] e.g., "Anthropic", "OpenAI"
       def self.service_name
         name.split("::").last.delete_suffix("Provider")
       end
 
-      # @return [String] module-qualified provider name (e.g., "Anthropic", "OpenAI::Chat")
+      # @return [String] e.g., "Anthropic", "OpenAI::Chat"
       def self.tag_name
         name.delete_prefix("ActiveAgent::Providers::").delete_suffix("Provider")
       end
 
-      # @return [Module] provider's namespace module (e.g., ActiveAgent::Providers::OpenAI)
+      # @return [Module] e.g., ActiveAgent::Providers::OpenAI
       def self.namespace
         "#{name.deconstantize}::#{service_name}".safe_constantize
       end
 
-      # @return [Class] provider's options class
+      # @return [Class]
       def self.options_klass
         namespace::Options
       end
 
-      # @return [ActiveModel::Type::Value] provider-specific request type for prompt casting/serialization
+      # @return [ActiveModel::Type::Value] for prompt casting/serialization
       def self.prompt_request_type
         namespace::RequestType.new
       end
 
-      # @return [ActiveModel::Type::Value] provider-specific request type for embedding casting/serialization
+      # @return [ActiveModel::Type::Value] for embedding casting/serialization
       # @raise [NotImplementedError] when provider doesn't support embeddings
       def self.embed_request_type
         fail(NotImplementedError)
@@ -86,12 +87,10 @@ module ActiveAgent
 
       delegate :service_name, :tag_name, :namespace, :options_klass, :prompt_request_type, :embed_request_type, to: :class
 
-      # Initializes a provider instance.
-      #
       # @param kwargs [Hash] configuration and callbacks
       # @option kwargs [Symbol] :service validates against provider's service name
-      # @option kwargs [Proc] :stream_broadcaster callback for streaming events (:open, :update, :close)
-      # @option kwargs [Proc] :tools_function callback to execute tool/function calls
+      # @option kwargs [Proc] :stream_broadcaster for streaming events (:open, :update, :close)
+      # @option kwargs [Proc] :tools_function to execute tool/function calls
       # @raise [RuntimeError] when service name doesn't match provider
       def initialize(kwargs = {})
         assert_service!(kwargs.delete(:service))
@@ -107,21 +106,10 @@ module ActiveAgent
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context            = kwargs
         self.message_stack      = []
+        self.usage_stack        = []
       end
 
-      # Executes a prompt request with error handling and instrumentation.
-      #
-      # @return [ActiveAgent::Providers::Common::PromptResponse]
-      def prompt
-        instrument("prompt_start.provider.active_agent") do
-          self.request = prompt_request_type.cast(context.except(:trace_id))
-          resolve_prompt
-        end
-      end
-
-      # Generates a preview of the prompt without executing the API call.
-      #
-      # Casts context into a request object and renders it as markdown for inspection.
+      # Generates prompt preview without executing the API call.
       #
       # @return [String] markdown-formatted preview
       def preview
@@ -129,15 +117,31 @@ module ActiveAgent
         preview_prompt
       end
 
-      # Executes an embedding request with error handling and instrumentation.
+      # Executes prompt request with error handling and instrumentation.
       #
-      # Converts text into vector representations for semantic search and similarity operations.
+      # @return [ActiveAgent::Providers::Common::PromptResponse]
+      def prompt
+        self.request = prompt_request_type.cast(context.except(:trace_id))
+
+        instrument("prompt.active_agent") do |payload|
+          response = resolve_prompt
+          instrumentation_prompt_payload(payload, request, response)
+
+          response
+        end
+      end
+
+      # Executes embedding request with error handling and instrumentation.
       #
       # @return [ActiveAgent::Providers::Common::EmbedResponse]
       def embed
-        instrument("embed_start.provider.active_agent") do
-          self.request = embed_request_type.cast(context.except(:trace_id))
-          resolve_embed
+        self.request = embed_request_type.cast(context.except(:trace_id))
+
+        instrument("embed.active_agent") do |payload|
+          response = resolve_embed
+          instrumentation_embed_payload(payload, request, response)
+
+          response
         end
       end
 
@@ -149,8 +153,6 @@ module ActiveAgent
         fail "Unexpected Service Name: #{name} != #{service_name}" if name && name != service_name
       end
 
-      # Instruments an event for logging and metrics.
-      #
       # @param name [String]
       # @param payload [Hash]
       # @yield block to instrument
@@ -160,34 +162,42 @@ module ActiveAgent
         ActiveSupport::Notifications.instrument(name, full_payload, &block)
       end
 
-      # Orchestrates the complete prompt request lifecycle.
+      # Orchestrates complete prompt request lifecycle.
       #
-      # Prepares request, executes API call, processes response, and handles
-      # recursive tool/function calling until completion.
+      # Handles recursive tool/function calling until completion.
       #
       # @return [ActiveAgent::Providers::Common::PromptResponse]
       def resolve_prompt
-        request = prepare_prompt_request
+        api_parameters = api_request_build(prepare_prompt_request, prompt_request_type)
+        api_response = instrument("prompt.provider.active_agent") do |payload|
+          raw_response = with_exception_handling { api_prompt_execute(api_parameters) }
 
-        instrument("request_prepared.provider.active_agent", message_count: request.messages.size)
+          # Instrumentation Context Building
+          # Normalize response for instrumentation (providers may return gem objects)
+          normalized_response = api_response_normalize(raw_response)
+          common_response = Common::PromptResponse.new(raw_response: normalized_response)
+          instrumentation_prompt_payload(payload, self.request, common_response)
+          usage_stack.push(common_response.usage) if common_response&.usage
 
-        # @todo Validate Request
-        api_parameters = api_request_build(request, prompt_request_type)
-        api_response   = instrument("api_call.provider.active_agent", streaming: api_parameters[:stream].present?) do
-          with_exception_handling { api_prompt_execute(api_parameters) }
+          raw_response
         end
 
         process_prompt_finished(api_response)
       end
 
-      # Orchestrates the complete embedding request lifecycle.
+      # Orchestrates complete embedding request lifecycle.
       #
       # @return [ActiveAgent::Providers::Common::EmbedResponse]
       def resolve_embed
-        # @todo Validate Request
-        api_parameters = api_request_build(request, embed_request_type)
-        api_response   = instrument("embed_call.provider.active_agent") do
-          with_exception_handling { api_embed_execute(api_parameters) }
+        api_parameters = api_request_build(self.request, embed_request_type)
+        api_response = instrument("embed.provider.active_agent") do |payload|
+          raw_response = with_exception_handling { api_embed_execute(api_parameters) }
+
+          # Instrumentation Context Building
+          common_response = Common::EmbedResponse.new(raw_response:)
+          instrumentation_embed_payload(payload, self.request, common_response)
+
+          raw_response
         end
 
         process_embed_finished(api_response)
@@ -195,7 +205,7 @@ module ActiveAgent
 
       # Prepares request for next iteration in multi-turn conversation.
       #
-      # Appends accumulated messages from message stack and resets buffer for next cycle.
+      # Appends accumulated messages and resets buffer for next cycle.
       #
       # @return [Request]
       def prepare_prompt_request
@@ -205,11 +215,9 @@ module ActiveAgent
         self.request
       end
 
-      # Builds API request parameters from request object.
-      #
       # @param request [Request]
-      # @param request_type [ActiveModel::Type::Value] type for serialization
-      # @return [Hash]
+      # @param request_type [ActiveModel::Type::Value] for serialization
+      # @return [Hash] API request parameters
       def api_request_build(request, request_type)
         parameters          = request_type.serialize(request)
         parameters[:stream] = process_stream if request.try(:stream)
@@ -221,7 +229,7 @@ module ActiveAgent
         parameters
       end
 
-      # @return [Proc] invoked for each response chunk
+      # @return [Proc] for each response chunk
       def process_stream
         proc do |api_response_chunk|
           process_stream_chunk(api_response_chunk)
@@ -231,12 +239,10 @@ module ActiveAgent
       # Executes prompt request against provider's API.
       #
       # @abstract
-      # @param request_parameters [Hash]
+      # @param parameters [Hash]
       # @return [Object] provider-specific API response
       # @raise [NotImplementedError]
       def api_prompt_execute(parameters)
-        instrument("api_request.provider.active_agent", model: parameters[:model], streaming: !!parameters[:stream])
-
         unless parameters[:stream]
           api_prompt_executer.create(**parameters)
         else
@@ -255,6 +261,18 @@ module ActiveAgent
       # @raise [NotImplementedError]
       def api_prompt_executer
         fail NotImplementedError, "Subclass expected to implement"
+      end
+
+      # Normalizes API response for instrumentation.
+      #
+      # Providers that return gem objects (like Anthropic::Models::Message) should
+      # override this to convert to a hash so usage data can be extracted.
+      # By default, returns the response as-is (for providers returning hashes).
+      #
+      # @param api_response [Object] provider-specific API response
+      # @return [Hash, Object] normalized response (preferably hash)
+      def api_response_normalize(api_response)
+        api_response
       end
 
       # Executes embedding request against provider's API.
@@ -278,21 +296,21 @@ module ActiveAgent
 
       # Broadcasts stream open event.
       #
-      # Fires once per request cycle even during multi-turn tool calling.
+      # Fires once per request cycle, even during multi-turn tool calling.
       #
       # @return [void]
       def broadcast_stream_open
         return if streaming
         self.streaming = true
 
-        instrument("stream_open.provider.active_agent")
+        instrument("stream_open.active_agent")
         stream_broadcaster.call(nil, nil, :open)
       end
 
       # Broadcasts stream update with message content delta.
       #
       # @param message [Hash, Object]
-      # @param delta [String, nil] incremental content chunk
+      # @param delta [String, nil]
       # @return [void]
       def broadcast_stream_update(message, delta = nil)
         stream_broadcaster.call(message, delta, :update)
@@ -300,35 +318,31 @@ module ActiveAgent
 
       # Broadcasts stream close event.
       #
-      # Fires once per request cycle even during multi-turn tool calling.
+      # Fires once per request cycle, even during multi-turn tool calling.
       #
       # @return [void]
       def broadcast_stream_close
         return unless streaming
         self.streaming = false
 
-        instrument("stream_close.provider.active_agent")
+        instrument("stream_close.active_agent")
         stream_broadcaster.call(message_stack.last, nil, :close)
       end
 
       # Processes completed API response and handles tool calling recursion.
       #
-      # Extracts messages and function calls from the response. If tools were invoked,
-      # executes them and recursively continues the prompt until completion.
+      # Extracts messages and function calls. If tools were invoked,
+      # executes them and recursively continues until completion.
       #
       # @param api_response [Object, nil] provider-specific response
       # @return [Common::PromptResponse, nil]
       def process_prompt_finished(api_response = nil)
         if (api_messages = process_prompt_finished_extract_messages(api_response))
-          instrument("messages_extracted.provider.active_agent", message_count: api_messages.size)
           message_stack.push(*api_messages)
         end
 
         if (tool_calls = process_prompt_finished_extract_function_calls)&.any?
-          instrument("tool_calls_processing.provider.active_agent", tool_count: tool_calls.size)
           process_function_calls(tool_calls)
-
-          instrument("multi_turn_continue.provider.active_agent")
           resolve_prompt
         else
 
@@ -337,27 +351,25 @@ module ActiveAgent
           # as they continue to work.
           broadcast_stream_close
 
-          instrument("prompt_complete.provider.active_agent", message_count: message_stack.size)
-
           # To convert the messages into common format we first need to merge the current
           # stack and then cast them to the provider type, so we can cast them out to common.
           messages = prompt_request_type.cast(
             messages: [ *request.messages, *message_stack ]
           ).messages
 
+          # Create response object with usage_stack array for multi-turn cumulative tracking.
           # This will returned as it closes up the recursive stack
           Common::PromptResponse.new(
             context:,
+            format: request.response_format,
+            messages:,
             raw_request:  prompt_request_type.serialize(request),
             raw_response: api_response,
-            messages:,
-            format: request.response_format
+            usages: usage_stack
           )
         end
       end
 
-      # Extracts messages from API response.
-      #
       # @abstract
       # @param api_response [Object]
       # @return [Array<Message>, nil]
@@ -366,8 +378,6 @@ module ActiveAgent
         fail NotImplementedError, "Subclass expected to implement"
       end
 
-      # Extracts tool/function calls from API response.
-      #
       # @abstract
       # @return [Array<Hash>, nil]
       # @raise [NotImplementedError]

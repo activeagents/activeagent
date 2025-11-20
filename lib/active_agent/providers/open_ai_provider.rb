@@ -60,10 +60,8 @@ module ActiveAgent
       # @see https://platform.openai.com/docs/guides/migrate-to-responses
       def prompt
         if api_version == :chat || context[:audio].present?
-          instrument("api_routing.provider.active_agent", api_type: :chat, api_version: api_version, has_audio: context[:audio].present?)
           OpenAI::ChatProvider.new(raw_options).prompt
         else # api_version == :responses || true
-          instrument("api_routing.provider.active_agent", api_type: :responses, api_version: api_version)
           OpenAI::ResponsesProvider.new(raw_options).prompt
         end
       end
@@ -89,7 +87,6 @@ module ActiveAgent
       # @param parameters [Hash] The embedding request parameters
       # @return [Object] The embedding response from OpenAI
       def api_embed_execute(parameters)
-        instrument("embeddings_request.provider.active_agent")
         client.embeddings.create(**parameters).as_json.deep_symbolize_keys
       end
     end

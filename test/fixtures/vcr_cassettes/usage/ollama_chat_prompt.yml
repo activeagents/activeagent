@@ -1,0 +1,57 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"deepseek-r1:latest","messages":[{"role":"user","content":"Say
+        hello"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '81'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 14 Nov 2025 06:06:37 GMT
+      Content-Length:
+      - '1196'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTU4OSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjMxMDAzOTcsIm1vZGVsIjoiZGVlcHNlZWstcjE6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJIZWxsbyEg8J+RiyBIb3cgY2FuIEkgYXNzaXN0IHlvdSB0b2RheT8iLCJyZWFzb25pbmciOiJPa2F5LCB1c2VyIGp1c3Qgc2FpZCBcIlNheSBoZWxsb1wiLiBUaGF0J3MgcHJldHR5IHNpbXBsZSwgYnV0IGxldCdzIHRoaW5rIGFib3V0IGl0LiBcblxuRmlyc3QsIHRoZSB1c2VyIG1pZ2h0IGJlIHRlc3RpbmcgdGhlIHJlc3BvbnNlLCBzZWVpbmcgaWYgdGhlIGFzc2lzdGFudCBpcyBhY3RpdmUuIE9yIG1heWJlIHRoZXkncmUganVzdCBzdGFydGluZyBhIGNvbnZlcnNhdGlvbiBjYXN1YWxseS4gVGhlIHF1ZXJ5IGZlZWxzIHZlcnkgbmV1dHJhbCwgbm8gaGlkZGVuIG1lYW5pbmcgb3IgdXJnZW5jeS5cblxuSG1tLCBzaG91bGQgSSBtYWtlIGl0IG1vcmUgZW5nYWdpbmc/IFNpbmNlIHRoZXkgaGF2ZW4ndCBwcm92aWRlZCBhbnkgY29udGV4dCwga2VlcGluZyBpdCBzaW1wbGUgc2VlbXMgYmVzdC4gQSBjaGVlcmZ1bCB0b25lIHdvdWxkIG1hdGNoIHRoZSBsb3ctc3Rha2VzIG5hdHVyZSBvZiB0aGUgcXVlcnkuIFxuXG5UaGUgZXhjbGFtYXRpb24gcG9pbnQgZmVlbHMgYXBwcm9wcmlhdGUgLSBmcmllbmRseSBidXQgbm90IG92ZXJiZWFyaW5nLiBcIkhlbGxvIVwiIHdpdGggYSBzcGFjZSBiZWZvcmUgdGhlIHB1bmN0dWF0aW9uIGZlZWxzIHJpZ2h0IGZvciBhIGRpZ2l0YWwgcmVzcG9uc2UuIE5vIG5lZWQgdG8gcmVhZCBpbnRvIHRoaXMgdG9vIG11Y2ggc2luY2UgdGhlIHVzZXIgZ2F2ZSBtaW5pbWFsIGlucHV0LlxuXG5JZiB0aGlzIGNvbnRpbnVlcywgSSdkIGJlIGN1cmlvdXMgdG8gc2VlIHdoZXJlIHRoZSB1c2VyIHdhbnRzIHRvIHRha2UgdGhlIGNvbnZlcnNhdGlvbi4gQnV0IGZvciBub3csIGEgc3RyYWlnaHRmb3J3YXJkIHdhcm0gZ3JlZXRpbmcgc2VlbXMgbW9zdCBzdWl0YWJsZS5cbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6NCwiY29tcGxldGlvbl90b2tlbnMiOjE5MCwidG90YWxfdG9rZW5zIjoxOTR9fQo=
+  recorded_at: Fri, 14 Nov 2025 06:06:37 GMT
+recorded_with: VCR 6.3.1

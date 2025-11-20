@@ -74,8 +74,8 @@ module Framework
 
         # Access usage statistics (if available)
         usage = response.usage
-        prompt_tokens = response.prompt_tokens
-        completion_tokens = response.completion_tokens
+        input_tokens = response.usage.input_tokens
+        output_tokens = response.usage.output_tokens
         # endregion generation_response_usage
 
         doc_example_output(response)
@@ -83,10 +83,12 @@ module Framework
         assert_not_nil content
         assert_equal "assistant", role
         assert messages.is_a?(Array)
+        assert_kind_of Integer, input_tokens
+        assert_kind_of Integer, output_tokens
         assert context.is_a?(Hash)
-        assert usage.is_a?(Hash) if usage
-        assert prompt_tokens.is_a?(Integer) if prompt_tokens
-        assert completion_tokens.is_a?(Integer) if completion_tokens
+        assert_kind_of ActiveAgent::Providers::Common::Usage, usage if usage
+        assert_kind_of Integer, input_tokens if input_tokens
+        assert_kind_of Integer, output_tokens if output_tokens
       end
     end
   end

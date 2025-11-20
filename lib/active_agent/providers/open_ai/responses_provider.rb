@@ -30,6 +30,15 @@ module ActiveAgent
           client.responses
         end
 
+        # @see BaseProvider#api_response_normalize
+        # @param api_response [OpenAI::Models::Responses::Response]
+        # @return [Hash] normalized response hash
+        def api_response_normalize(api_response)
+          return api_response unless api_response
+
+          Responses::Transforms.gem_to_hash(api_response)
+        end
+
         # Processes streaming response chunks from the Responses API
         #
         # Event types handled:
@@ -48,7 +57,7 @@ module ActiveAgent
         # @return [void]
         # @see Base#process_stream_chunk
         def process_stream_chunk(api_response_event)
-          instrument("stream_chunk_processing.provider.active_agent", chunk_type: api_response_event.type)
+          instrument("stream_chunk.active_agent", chunk_type: api_response_event.type)
 
           case api_response_event.type
           # Response Created
@@ -143,12 +152,14 @@ module ActiveAgent
         # @see Base#process_function_calls
         def process_function_calls(api_function_calls)
           api_function_calls.each do |api_function_call|
-            instrument("tool_execution.provider.active_agent", tool_name: api_function_call[:name])
+            output = instrument("tool_call.active_agent", tool_name: api_function_call[:name]) do
+              process_tool_call_function(api_function_call).to_json
+            end
 
             # Create native gem input item for function call output
             message = ::OpenAI::Models::Responses::ResponseInputItem::FunctionCallOutput.new(
               call_id: api_function_call[:call_id],
-              output:  process_tool_call_function(api_function_call).to_json
+              output:
             )
 
             # Convert to hash for message_stack
@@ -156,15 +167,25 @@ module ActiveAgent
           end
         end
 
-        # Extracts messages from completed API response.
+        # Converts OpenAI gem response object to hash for storage.
         #
         # @param api_response [OpenAI::Models::Responses::Response]
+        # @return [Common::PromptResponse, nil]
+        def process_prompt_finished(api_response = nil)
+          # Convert gem object to hash so that raw_response["usage"] works
+          api_response_hash = api_response ? Responses::Transforms.gem_to_hash(api_response) : nil
+          super(api_response_hash)
+        end
+
+        # Extracts messages from completed API response.
+        #
+        # @param api_response [Hash] converted response hash
         # @return [Array, nil] output array from response.output or nil
         def process_prompt_finished_extract_messages(api_response)
           return unless api_response
 
-          # Convert native gem output array to hash array for message_stack
-          api_response.output.map { |output| Responses::Transforms.gem_to_hash(output) }
+          # Response is already a hash from process_prompt_finished
+          api_response[:output]
         end
 
         # Extracts function calls from message stack.

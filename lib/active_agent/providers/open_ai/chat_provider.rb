@@ -30,6 +30,15 @@ module ActiveAgent
           client.chat.completions
         end
 
+        # @see BaseProvider#api_response_normalize
+        # @param api_response [OpenAI::Models::ChatCompletion]
+        # @return [Hash] normalized response hash
+        def api_response_normalize(api_response)
+          return api_response unless api_response
+
+          Chat::Transforms.gem_to_hash(api_response)
+        end
+
         # Processes streaming response chunks from OpenAI's chat API
         #
         # Handles message deltas, content updates, and completion detection.
@@ -46,7 +55,7 @@ module ActiveAgent
         # @return [void]
         # @see Base#process_stream_chunk
         def process_stream_chunk(api_response_event)
-          instrument("stream_chunk_processing.provider.active_agent")
+          instrument("stream_chunk.active_agent")
 
           # Called Multiple Times: [Chunk<T>, T]<Content, ToolsCall>
           case api_response_event.type
@@ -61,11 +70,6 @@ module ActiveAgent
             if api_message.delta.content
               broadcast_stream_update(message_stack.last, api_message.delta.content)
             end
-
-            # If this is the last api_chunk to be processed
-            return unless api_message.finish_reason
-
-            instrument("stream_finished.provider.active_agent", finish_reason: api_message.finish_reason)
           when :"content.delta"
             # Returns the deltas, without context
             # => {type: :"content.delta", delta: "", snapshot: "", parsed: nil}
@@ -95,12 +99,13 @@ module ActiveAgent
         # @see Base#process_function_calls
         def process_function_calls(api_function_calls)
           api_function_calls.each do |api_function_call|
-            content = case api_function_call[:type]
-            when "function"
-              instrument("tool_execution.provider.active_agent", tool_name: api_function_call.dig(:function, :name))
-              process_tool_call_function(api_function_call[:function])
-            else
-              fail "Unexpected Tool Call Type: #{api_function_call[:type]}"
+            content = instrument("tool_call.active_agent", tool_name: api_function_call.dig(:function, :name)) do
+              case api_function_call[:type]
+              when "function"
+                process_tool_call_function(api_function_call[:function])
+              else
+                fail "Unexpected Tool Call Type: #{api_function_call[:type]}"
+              end
             end
 
             # Create tool message using gem's message param class
@@ -117,17 +122,27 @@ module ActiveAgent
         end
 
         # Extracts messages from the completed API response.
+        # Converts OpenAI gem response object to hash for storage.
         #
         # @param api_response [OpenAI::Models::Chat::ChatCompletion]
+        # @return [Common::PromptResponse, nil]
+        def process_prompt_finished(api_response = nil)
+          # Convert gem object to hash so that raw_response["usage"] works
+          api_response_hash = api_response ? Chat::Transforms.gem_to_hash(api_response) : nil
+          super(api_response_hash)
+        end
+
+        # Extracts messages from completed API response.
+        #
+        # @param api_response [Hash] converted response hash
         # @return [Array<Hash>, nil] single-element array with message or nil if no message
         # @see Base#process_prompt_finished_extract_messages
         def process_prompt_finished_extract_messages(api_response)
           return unless api_response
 
-          api_message = api_response.choices[0].message
-          message = JSON.parse(api_message.to_json, symbolize_names: true)
+          api_message = api_response[:choices][0][:message]
 
-          [ message ]
+          [ api_message ]
         end
 
         # Extracts function calls from the last message in the stack.
