@@ -7,6 +7,14 @@ import {
   localIconLoader,
 } from "vitepress-plugin-group-icons"
 
+import versions from './versions.json'
+
+// Build version dropdown items
+const versionItems = versions.versions.map(v => ({
+  text: v.label,
+  link: v.path
+}))
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   markdown: {
@@ -60,6 +68,10 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Docs', link: '/framework' },
+      {
+        text: `v${versions.current}`,
+        items: versionItems
+      },
       { text: 'GitHub', link: 'https://github.com/activeagents/activeagent' }
     ],
     sidebar: [

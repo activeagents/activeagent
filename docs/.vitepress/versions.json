@@ -1,0 +1,17 @@
+{
+  "current": "1.0.0",
+  "versions": [
+    {
+      "version": "1.0.0",
+      "label": "1.0.0 (Latest)",
+      "path": "/",
+      "branch": "main"
+    },
+    {
+      "version": "0.6.3",
+      "label": "0.6.3 (Stable)",
+      "path": "/v0.6.3/",
+      "tag": "v0.6.3"
+    }
+  ]
+}
