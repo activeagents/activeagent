@@ -13,8 +13,8 @@ VERSIONS_FILE="$DOCS_DIR/.vitepress/versions.json"
 echo "=== Building Active Agent Versioned Documentation ==="
 echo "Project root: $PROJECT_ROOT"
 
-# Get current version from lib/active_agent/version.rb
-CURRENT_VERSION=$(grep -oP 'VERSION = "\K[^"]+' "$PROJECT_ROOT/lib/active_agent/version.rb" || echo "dev")
+# Get current version from lib/active_agent/version.rb (macOS compatible)
+CURRENT_VERSION=$(grep 'VERSION = "' "$PROJECT_ROOT/lib/active_agent/version.rb" | sed 's/.*VERSION = "\([^"]*\)".*/\1/' || echo "dev")
 echo "Current version: $CURRENT_VERSION"
 
 # Discover all release tags (excluding RC/pre-release for stable versions list)
@@ -163,8 +163,31 @@ for TAG in $STABLE_TAGS; do
   # Build docs with versioned base path
   echo "Building VitePress docs for $TAG..."
 
-  # Use environment variable or inline config for base path
-  VITEPRESS_BASE="/v$VERSION/" npx vitepress build docs --outDir ".vitepress/dist-temp"
+  # Create a wrapper config that sets base path (works with older configs)
+  VERSIONED_CONFIG="$DOCS_DIR/.vitepress/config.versioned.mts"
+  CONFIG_FILE=""
+  if [ -f "$DOCS_DIR/.vitepress/config.mts" ]; then
+    CONFIG_FILE="config.mts"
+  elif [ -f "$DOCS_DIR/.vitepress/config.mjs" ]; then
+    CONFIG_FILE="config.mjs"
+  fi
+
+  if [ -n "$CONFIG_FILE" ]; then
+    cat > "$VERSIONED_CONFIG" << CONFIGEOF
+import baseConfig from './$CONFIG_FILE'
+
+export default {
+  ...baseConfig,
+  base: '/v$VERSION/'
+}
+CONFIGEOF
+
+    # Build with the versioned config
+    npx vitepress build docs --config docs/.vitepress/config.versioned.mts --outDir docs/.vitepress/dist-temp
+
+    # Cleanup temp config
+    rm -f "$VERSIONED_CONFIG"
+  fi
 
   # Move to final location
   mkdir -p "$VERSION_OUTPUT_DIR"
