@@ -1,10 +1,8 @@
-# Sample workflow for building and deploying a VitePress site to GitHub Pages
-#
+# Workflow for building and deploying versioned VitePress site to GitHub Pages
 name: Deploy VitePress site to Pages
 
 on:
-  # Runs on pushes targeting the `main` branch. Change this to `master` if you're
-  # using the `master` branch as the default branch.
+  # Runs on pushes targeting the `main` branch
   push:
     branches: [main]
 
@@ -31,27 +29,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0 # Not needed if lastUpdated is not enabled
-      # - uses: pnpm/action-setup@v3 # Uncomment this block if you're using pnpm
-      #   with:
-      #     version: 9 # Not needed if you've set "packageManager" in package.json
-      # - uses: oven-sh/setup-bun@v1 # Uncomment this if you're using Bun
+          fetch-depth: 0  # Required for versioned docs (need all tags and history)
+
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm # or pnpm / yarn
+          cache: npm
+
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ruby-3.3.0
           bundler-cache: true
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Install dependencies
-        run: npm ci # or pnpm install / yarn install / bun install
+        run: npm ci
+
       - name: Install Ruby dependencies
         run: bundle install
+
       - name: Generate doc example output from tests
         env:
           RAILS_ENV: test
@@ -60,8 +60,16 @@ jobs:
           OPEN_AI_API_KEY: OPEN_AI_API_KEY
           OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
         run: bin/test
-      - name: Build with VitePress
-        run: npm run docs:build # or pnpm docs:build / yarn docs:build / bun run docs:build
+
+      - name: Build versioned documentation
+        env:
+          RAILS_ENV: test
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+          ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
+          OPEN_AI_API_KEY: OPEN_AI_API_KEY
+          OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
+        run: ./scripts/build-versioned-docs.sh
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:

@@ -15,8 +15,13 @@ const versionItems = versions.versions.map(v => ({
   link: v.path
 }))
 
+// Support versioned builds via VITEPRESS_BASE env var
+// @ts-ignore - process.env is available at build time
+const base: string = process.env.VITEPRESS_BASE || '/'
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  base,
   markdown: {
     config(md) {
       md.use(groupIconMdPlugin),
