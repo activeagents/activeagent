@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0  # Required for versioned docs (need all tags and history)
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
