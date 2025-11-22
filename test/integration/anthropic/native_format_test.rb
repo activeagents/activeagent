@@ -620,6 +620,42 @@ module Integration
             stop_sequences: [ "}" ]
           )
         end
+
+        ###############################################################
+        # Native Format MCP Server
+        ###############################################################
+        MCP_SERVER = {
+          model: "claude-sonnet-4-5-20250929",
+          messages: [
+            {
+              role: "user",
+              content: "What tools do you have available?"
+            }
+          ],
+          max_tokens: 1024,
+          mcp_servers: [
+            {
+              type: "url",
+              url: "https://demo-day.mcp.cloudflare.com/sse",
+              name: "cloudflare-demo"
+            }
+          ]
+        }
+        def mcp_server
+          prompt(
+            messages: [
+              { role: "user", content: "What tools do you have available?" }
+            ],
+            max_tokens: 1024,
+            mcp_servers: [
+              {
+                type: "url",
+                url: "https://demo-day.mcp.cloudflare.com/sse",
+                name: "cloudflare-demo"
+              }
+            ]
+          )
+        end
       end
 
       ################################################################################
@@ -642,7 +678,8 @@ module Integration
         :streaming,
         :tools_with_streaming,
         :sampling_parameters,
-        :stop_sequences
+        :stop_sequences,
+        :mcp_server
       ].each do |action_name|
         test_request_builder(TestAgent, action_name, :generate_now, TestAgent.const_get(action_name.to_s.upcase, true))
       end

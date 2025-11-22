@@ -1,0 +1,69 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}}],"tool_choice":{"type":"function","function":{"name":"get_weather"}}}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '344'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:20:55 GMT
+      Content-Length:
+      - '1012'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-675","object":"chat.completion","created":1763572855,"model":"qwen3:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"I
+        need to know the location to check the weather. Could you please specify the
+        city or region you''re interested in?","reasoning":"Okay, the user asked,
+        \"What''s the weather?\" I need to figure out which function to use. The available
+        tool is get_weather, which requires a location parameter. But the user didn''t
+        specify a location. Hmm, maybe I should ask them for the location. Wait, the
+        function''s parameters are required to have \"location\", so I can''t call
+        it without that info. Since the user didn''t provide it, I should prompt them
+        to specify the location so I can retrieve the weather. Let me check the function
+        again to confirm. Yep, location is required. Alright, time to ask the user
+        for the location details.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":137,"completion_tokens":157,"total_tokens":294}}
+
+        '
+  recorded_at: Wed, 19 Nov 2025 17:20:55 GMT
+recorded_with: VCR 6.3.1

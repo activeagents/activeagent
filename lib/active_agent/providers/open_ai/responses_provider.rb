@@ -13,6 +13,8 @@ module ActiveAgent
       # @see Base
       # @see https://platform.openai.com/docs/api-reference/responses
       class ResponsesProvider < Base
+        include ToolChoiceClearing
+
         # @return [Class]
         def self.options_klass
           Options
@@ -24,6 +26,42 @@ module ActiveAgent
         end
 
         protected
+
+        # @see BaseProvider#prepare_prompt_request
+        # @return [Request]
+        def prepare_prompt_request
+          prepare_prompt_request_tools
+
+          super
+        end
+
+        # Extracts function names from Responses API function_call items.
+        #
+        # @return [Array<String>]
+        def extract_used_function_names
+          message_stack
+            .select { |item| item[:type] == "function_call" }
+            .map { |item| item[:name] }
+            .compact
+        end
+
+        # Returns true if tool_choice == :required.
+        #
+        # @return [Boolean]
+        def tool_choice_forces_required?
+          request.tool_choice == :required
+        end
+
+        # Returns [true, name] if tool_choice is a ToolChoiceFunction model object.
+        #
+        # @return [Array<Boolean, String|nil>]
+        def tool_choice_forces_specific?
+          if request.tool_choice.is_a?(::OpenAI::Models::Responses::ToolChoiceFunction)
+            [ true, request.tool_choice.name ]
+          else
+            [ false, nil ]
+          end
+        end
 
         # @return [Object] OpenAI client's responses endpoint
         def api_prompt_executer

@@ -1,0 +1,68 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}}],"tool_choice":"required"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '301'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:20:31 GMT
+      Content-Length:
+      - '988'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-615","object":"chat.completion","created":1763572831,"model":"qwen3:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"I
+        need to know the location to check the weather. Could you please specify the
+        city or region you''re interested in?","reasoning":"Okay, the user asked,
+        \"What''s the weather?\" I need to figure out which function to use. The available
+        tool is get_weather, which requires a location parameter. But the user didn''t
+        specify a location. Hmm, maybe I should ask them for the location. Wait, the
+        function requires it, so I can''t proceed without that info. Let me check
+        the function details again. Yes, location is a required parameter. Since the
+        user didn''t mention where, I should prompt them to provide the location so
+        I can fetch the weather data. Alright, time to respond by asking for the location.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":137,"completion_tokens":151,"total_tokens":288}}
+
+        '
+  recorded_at: Wed, 19 Nov 2025 17:20:31 GMT
+recorded_with: VCR 6.3.1

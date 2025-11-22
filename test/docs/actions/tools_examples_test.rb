@@ -12,7 +12,6 @@ module Docs
             prompt(
               input: "What's the weather in Boston?",
               tools: [ {
-                type: "function",
                 name: "get_weather",
                 description: "Get current weather for a location",
                 parameters: {
@@ -55,7 +54,6 @@ module Docs
             prompt(
               input: "What's the weather in Boston?",
               tools: [ {
-                type: "function",
                 name: "get_current_weather",
                 description: "Get the current weather in a given location",
                 parameters: {
@@ -105,7 +103,7 @@ module Docs
               tools: [ {
                 name: "get_weather",
                 description: "Get the current weather in a given location",
-                input_schema: {
+                parameters: {
                   type: "object",
                   properties: {
                     location: {
@@ -145,24 +143,21 @@ module Docs
             prompt(
               message: "What's the weather in Boston?",
               tools: [ {
-                type: "function",
-                function: {
-                  name: "get_current_weather",
-                  description: "Get the current weather in a given location",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      location: {
-                        type: "string",
-                        description: "The city and state, e.g. San Francisco, CA"
-                      },
-                      unit: {
-                        type: "string",
-                        enum: [ "celsius", "fahrenheit" ]
-                      }
+                name: "get_current_weather",
+                description: "Get the current weather in a given location",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    location: {
+                      type: "string",
+                      description: "The city and state, e.g. San Francisco, CA"
                     },
-                    required: [ "location" ]
-                  }
+                    unit: {
+                      type: "string",
+                      enum: [ "celsius", "fahrenheit" ]
+                    }
+                  },
+                  required: [ "location" ]
                 }
               } ]
             )
@@ -194,24 +189,21 @@ module Docs
             prompt(
               message: "What's the weather in Boston?",
               tools: [ {
-                type: "function",
-                function: {
-                  name: "get_current_weather",
-                  description: "Get the current weather in a given location",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      location: {
-                        type: "string",
-                        description: "The city and state, e.g. San Francisco, CA"
-                      },
-                      unit: {
-                        type: "string",
-                        enum: [ "celsius", "fahrenheit" ]
-                      }
+                name: "get_current_weather",
+                description: "Get the current weather in a given location",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    location: {
+                      type: "string",
+                      description: "The city and state, e.g. San Francisco, CA"
                     },
-                    required: [ "location" ]
-                  }
+                    unit: {
+                      type: "string",
+                      enum: [ "celsius", "fahrenheit" ]
+                    }
+                  },
+                  required: [ "location" ]
                 }
               } ]
             )
@@ -230,6 +222,92 @@ module Docs
             assert response.message.content.present?
 
             doc_example_output(response)
+          end
+        end
+      end
+
+      class CrossProviderExample < ActiveSupport::TestCase
+        test "cross provider usage" do
+          VCR.use_cassette("docs/actions/tools/cross_provider_usage") do
+            # region cross_provider_module
+            # Define once, use with any provider
+            module WeatherTool
+              extend ActiveSupport::Concern
+
+              WEATHER_TOOL = {
+                name: "get_weather",
+                description: "Get current weather for a location",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    location: { type: "string", description: "City and state" },
+                    unit: { type: "string", enum: [ "celsius", "fahrenheit" ] }
+                  },
+                  required: [ "location" ]
+                }
+              }
+
+              def get_current_weather(location:, unit: "fahrenheit")
+                { location: location, unit: unit, temperature: "22" }
+              end
+            end
+            # endregion cross_provider_module
+
+            # region cross_provider_openai
+            class OpenAIAgent < ApplicationAgent
+              include WeatherTool
+              generate_with :openai, model: "gpt-4o"
+
+              def check_weather
+                prompt(input: "What's the weather?", tools: [ WEATHER_TOOL ])
+              end
+            end
+            # endregion cross_provider_openai
+
+            # region cross_provider_anthropic
+            class AnthropicAgent < ApplicationAgent
+              include WeatherTool
+              generate_with :anthropic, model: "claude-sonnet-4-20250514"
+
+              def check_weather
+                prompt(message: "What's the weather?", tools: [ WEATHER_TOOL ])
+              end
+            end
+            # endregion cross_provider_anthropic
+
+            # region cross_provider_ollama
+            class OllamaAgent < ApplicationAgent
+              include WeatherTool
+              generate_with :ollama, model: "qwen3:latest"
+
+              def check_weather
+                prompt(message: "What's the weather?", tools: [ WEATHER_TOOL ])
+              end
+            end
+            # endregion cross_provider_ollama
+
+            # region cross_provider_openrouter
+            class OpenRouterAgent < ApplicationAgent
+              include WeatherTool
+              generate_with :openrouter, model: "google/gemini-2.0-flash-001"
+
+              def check_weather
+                prompt(message: "What's the weather?", tools: [ WEATHER_TOOL ])
+              end
+            end
+            # endregion cross_provider_openrouter
+
+            response = OpenAIAgent.check_weather.generate_now
+            assert response.message.content.present?
+
+            response = AnthropicAgent.check_weather.generate_now
+            assert response.message.content.present?
+
+            response = OllamaAgent.check_weather.generate_now
+            assert response.message.content.present?
+
+            response = OpenRouterAgent.check_weather.generate_now
+            assert response.message.content.present?
           end
         end
       end

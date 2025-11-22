@@ -1,0 +1,141 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages?beta=true
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What
+        tools do you have available?","role":"user"}],"mcp_servers":[{"name":"github-copilot","type":"url","url":"https://api.githubcopilot.com/mcp/","authorization_token":"GITHUB_MCP_TOKEN"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Anthropic::Client/Ruby 1.14.0
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.14.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      Anthropic-Beta:
+      - mcp-client-2025-04-04
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '337'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 20:59:12 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '4000000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '3996000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-11-19T20:59:06Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '800000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '799000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-11-19T20:59:12Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '4000'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '3999'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-11-19T20:59:05Z'
+      Retry-After:
+      - '54'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '4800000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '4795000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-11-19T20:59:06Z'
+      Request-Id:
+      - req_011CVHvHXJkDbCcfzBei8kHK
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '7073'
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a12a11c3cea3ad4-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01D2wEkim3w3rBRjFVvgxTBV","type":"message","role":"assistant","content":[{"type":"text","text":"I
+        have a comprehensive set of tools for interacting with GitHub. Here''s an
+        overview of what I can do:\n\n## Repository Management\n- **Create repositories**
+        - Create new repositories in your account or organization\n- **Fork repositories**
+        - Fork existing repositories\n- **List branches** - View branches in a repository\n-
+        **List commits** - Get commit history with filtering options\n- **List tags**
+        - View git tags in a repository\n- **List releases** - View releases in a
+        repository\n\n## File Operations\n- **Get file contents** - Read files or
+        directory contents from repositories\n- **Create or update files** - Create
+        new files or update existing ones\n- **Delete files** - Remove files from
+        repositories\n- **Push multiple files** - Commit multiple files in a single
+        operation\n- **Get commits** - Get detailed information about specific commits\n\n##
+        Issues Management\n- **Create/update issues** - Create new issues or update
+        existing ones\n- **Read issues** - Get issue details, comments, labels, and
+        sub-issues\n- **List issues** - List issues with filtering and sorting\n-
+        **Search issues** - Search across issues using GitHub''s search syntax\n-
+        **Add issue comments** - Comment on issues\n- **Assign Copilot to issues**
+        - Have GitHub Copilot work on tasks\n\n## Pull Requests\n- **Create pull requests**
+        - Create new PRs\n- **Read pull requests** - Get PR details, diffs, files
+        changed, comments, and reviews\n- **List pull requests** - List PRs with filtering\n-
+        **Search pull requests** - Search for PRs across repositories\n- **Update
+        pull requests** - Modify PR title, description, base branch, reviewers, and
+        state\n- **Update PR branch** - Sync PR branch with base branch\n- **Merge
+        pull requests** - Merge PRs with different merge strategies\n- **PR reviews**
+        - Create, submit, or delete pull request reviews\n- **Review comments** -
+        Add comments to pending pull request reviews\n\n## Search & Discovery\n- **Search
+        code** - Search across all GitHub repositories for code patterns\n- **Search
+        repositories** - Find repositories by name, description, topics, etc.\n- **Search
+        users** - Find GitHub users\n- **Search issues** - Search for issues across
+        repositories\n- **Search pull requests** - Search for pull requests across
+        repositories\n\n## Teams & Users\n- **Get user profile** - Get details about
+        the authenticated user\n- **Get teams** - View teams you''re a member of\n-
+        **Get team members** - List members of a specific team\n\n## Releases & Tags\n-
+        **Get latest release** - Get the most recent release\n- **Get release by tag**
+        - Get a specific release by tag name\n- **Get tag details** - Get information
+        about a specific git tag\n\n## Labels\n- **Get label** - Get details about
+        a specific label in a repository\n\nIs there something specific you''d like
+        to do with GitHub?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":9567,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":634,"service_tier":"standard"}}'
+  recorded_at: Wed, 19 Nov 2025 20:59:12 GMT
+recorded_with: VCR 6.3.1

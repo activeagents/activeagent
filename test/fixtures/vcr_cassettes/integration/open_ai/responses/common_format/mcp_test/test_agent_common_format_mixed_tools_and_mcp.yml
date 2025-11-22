@@ -1,0 +1,433 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-5","input":"Get the weather and calculate 5 + 3","tools":[{"type":"function","name":"calculate","description":"Perform
+        arithmetic","parameters":{"type":"object","properties":{"operation":{"type":"string"},"a":{"type":"number"},"b":{"type":"number"}}}},{"type":"mcp","server_label":"weather","server_url":"https://demo-day.mcp.cloudflare.com/sse"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '362'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 20:59:59 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '15000'
+      X-Ratelimit-Limit-Tokens:
+      - '40000000'
+      X-Ratelimit-Remaining-Requests:
+      - '14999'
+      X-Ratelimit-Remaining-Tokens:
+      - '40000000'
+      X-Ratelimit-Reset-Requests:
+      - 4ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_eb1e4d96cbd64d449bc6fa84556825cd
+      Openai-Processing-Ms:
+      - '11700'
+      X-Envoy-Upstream-Service-Time:
+      - '11704'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=YYp8YTJelATwr4ni4JfnrXkFeTOd522JLbKyLJ3Yh0Q-1763585999-1.0.1.1-ANOkUA4gKTFlccbzADzgrZTDDwLhRdtYk9pxnipdLyBQqfqlNjUlnS0h6nRKok7_t0Zh0J8PPYEhNM0ZZkUha98_d8yinCH6dAJXDIHxJ.g;
+        path=/; expires=Wed, 19-Nov-25 21:29:59 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=w0V1r1ZnLMv6Tm4UcPlFB41dutZcinpw0czfZ0BOf1M-1763585999291-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a12a225eefbda5a-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0604981435bbceda00691e2fc394e481958a0705055f5d791c",
+          "object": "response",
+          "created_at": 1763585987,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-5-2025-08-07",
+          "output": [
+            {
+              "id": "mcpl_0604981435bbceda00691e2fc3e0d081958a0293b8a503119c",
+              "type": "mcp_list_tools",
+              "server_label": "weather",
+              "tools": [
+                {
+                  "annotations": {
+                    "read_only": false
+                  },
+                  "description": "Get information about Cloudflare's MCP Demo Day. Use this tool if the user asks about Cloudflare's MCP demo day",
+                  "input_schema": {
+                    "type": "object",
+                    "properties": {}
+                  },
+                  "name": "mcp_demo_day_info"
+                }
+              ]
+            },
+            {
+              "id": "rs_0604981435bbceda00691e2fc599a88195a7076484322a186d",
+              "type": "reasoning",
+              "summary": []
+            },
+            {
+              "id": "fc_0604981435bbceda00691e2fcecc308195a7afacbe3071f3d4",
+              "type": "function_call",
+              "status": "completed",
+              "arguments": "{\"operation\":\"add\",\"a\":5,\"b\":3}",
+              "call_id": "call_CHadeTlACjhyVOw85LeUfisT",
+              "name": "calculate"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": null,
+          "reasoning": {
+            "effort": "medium",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "function",
+              "description": "Perform arithmetic",
+              "name": "calculate",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "type": "string"
+                  },
+                  "a": {
+                    "type": "number"
+                  },
+                  "b": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "a",
+                  "b"
+                ]
+              },
+              "strict": true
+            },
+            {
+              "type": "mcp",
+              "allowed_tools": null,
+              "headers": null,
+              "require_approval": "always",
+              "server_description": null,
+              "server_label": "weather",
+              "server_url": "https://demo-day.mcp.cloudflare.com/sse"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 110,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 411,
+            "output_tokens_details": {
+              "reasoning_tokens": 384
+            },
+            "total_tokens": 521
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 19 Nov 2025 20:59:59 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-5","input":[{"role":"user","content":"Get the weather
+        and calculate 5 + 3"},{"id":"mcpl_0604981435bbceda00691e2fc3e0d081958a0293b8a503119c","server_label":"weather","tools":[{"input_schema":{"type":"object","properties":{}},"name":"mcp_demo_day_info","annotations":{"read_only":false},"description":"Get
+        information about Cloudflare''s MCP Demo Day. Use this tool if the user asks
+        about Cloudflare''s MCP demo day"}],"type":"mcp_list_tools"},{"id":"rs_0604981435bbceda00691e2fc599a88195a7076484322a186d","summary":[],"type":"reasoning"},{"arguments":"{\"operation\":\"add\",\"a\":5,\"b\":3}","call_id":"call_CHadeTlACjhyVOw85LeUfisT","name":"calculate","type":"function_call","id":"fc_0604981435bbceda00691e2fcecc308195a7afacbe3071f3d4","status":"completed"},{"call_id":"call_CHadeTlACjhyVOw85LeUfisT","output":"{\"operation\":\"add\",\"a\":5,\"b\":3,\"result\":8}","type":"function_call_output"}],"tools":[{"type":"function","name":"calculate","description":"Perform
+        arithmetic","parameters":{"type":"object","properties":{"operation":{"type":"string"},"a":{"type":"number"},"b":{"type":"number"}}}},{"type":"mcp","server_label":"weather","server_url":"https://demo-day.mcp.cloudflare.com/sse"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '1209'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 21:00:11 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '15000'
+      X-Ratelimit-Limit-Tokens:
+      - '40000000'
+      X-Ratelimit-Remaining-Requests:
+      - '14999'
+      X-Ratelimit-Remaining-Tokens:
+      - '40000000'
+      X-Ratelimit-Reset-Requests:
+      - 4ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_3fddcc5049344a5199c6f6cc74bda8a2
+      Openai-Processing-Ms:
+      - '11817'
+      X-Envoy-Upstream-Service-Time:
+      - '11821'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=UoNNgwKtiy5wdaM_NjbL3NdbBbR2ZZQ46c8IT1qdXZ0-1763586011-1.0.1.1-bwx3wUvCp8HemWZtdAYnDAUB4cDm0GRLInSJ0XL.FlCj4xHgr8VRLRIhfl36VUnSuIJBolK2SLH4Gqj.IeJbgkARuvdg6cdOB23Yk_DR6bU;
+        path=/; expires=Wed, 19-Nov-25 21:30:11 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=jGhpHXXGG8jR1DoP4tdZCFcdh_M44sQK_LON4KX54hk-1763586011216-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a12a26fef314973-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0604981435bbceda00691e2fcf686c81958723ab0883c9eb44",
+          "object": "response",
+          "created_at": 1763585999,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-5-2025-08-07",
+          "output": [
+            {
+              "id": "msg_0604981435bbceda00691e2fda1d408195b0efaf7fda0a9468",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "5 + 3 = 8.\n\nFor the weather, tell me the location (city and country or ZIP/postcode) and whether you want current conditions or a forecast (and for which date/time)."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": null,
+          "reasoning": {
+            "effort": "medium",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "function",
+              "description": "Perform arithmetic",
+              "name": "calculate",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "type": "string"
+                  },
+                  "a": {
+                    "type": "number"
+                  },
+                  "b": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "a",
+                  "b"
+                ]
+              },
+              "strict": true
+            },
+            {
+              "type": "mcp",
+              "allowed_tools": null,
+              "headers": null,
+              "require_approval": "always",
+              "server_description": null,
+              "server_label": "weather",
+              "server_url": "https://demo-day.mcp.cloudflare.com/sse"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 599,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 45,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 644
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 19 Nov 2025 21:00:11 GMT
+recorded_with: VCR 6.3.1

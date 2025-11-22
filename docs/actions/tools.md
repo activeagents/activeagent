@@ -17,21 +17,23 @@ The LLM calls `get_weather` automatically when it needs weather data, and uses t
 
 ## Provider Support Matrix
 
-| Provider       | Functions | Server-side Tools | MCP Support | Notes |
-|:---------------|:---------:|:-----------------:|:-----------:|:------|
-| **OpenAI**     | 🟩        | 🟩                | 🟩          | Server-side tools and MCP require Responses API |
-| **Anthropic**  | 🟩        | 🟩                | 🟨          | MCP in beta |
-| **OpenRouter** | 🟩        | ❌                | 🟦          | MCP via converted tool definitions; model-dependent capabilities |
-| **Ollama**     | 🟩        | ❌                | ❌          | Model-dependent capabilities |
-| **Mock**       | 🟦        | ❌                | ❌          | Accepted but not enforced |
+| Provider       | Functions | Server-side Tools | Notes |
+|:---------------|:---------:|:-----------------:|:------|
+| **OpenAI**     | 🟩        | 🟩                | Server-side tools require Responses API |
+| **Anthropic**  | 🟩        | 🟩                | Full support for built-in tools |
+| **OpenRouter** | 🟩        | ❌                | Model-dependent capabilities |
+| **Ollama**     | 🟩        | ❌                | Model-dependent capabilities |
+| **Mock**       | 🟦        | ❌                | Accepted but not enforced |
 
-## Functions (Universal Support)
+For **MCP (Model Context Protocol)** support, see the [MCP documentation](/actions/mcps).
 
-Functions are the core tool capability supported by all providers. Define methods in your agent that the LLM can call with appropriate parameters.
+## Functions
+
+Functions are callable methods in your agent that LLMs can trigger with appropriate parameters. All providers support the **common format** described above.
 
 ### Basic Function Registration
 
-Register functions by passing tool definitions to the `tools` parameter:
+Using the common format, register functions by passing tool definitions to the `tools` parameter:
 
 ::: code-group
 <<< @/../test/docs/actions/tools_examples_test.rb#anthropic_basic_function {ruby:line-numbers} [Anthropic]
@@ -42,23 +44,82 @@ Register functions by passing tool definitions to the `tools` parameter:
 
 When the LLM decides to call a tool, ActiveAgent routes the call to your agent method and returns the result automatically.
 
-### Tool Choice Control
+## Common Tools Format (Recommended)
 
-Control which tools the LLM can use:
+ActiveAgent supports a **universal common format** for tool definitions that works seamlessly across all providers. This format eliminates the need to learn provider-specific syntax and makes your code portable.
+
+### Format Specification
 
 ```ruby
-# Let the model decide (default)
+{
+  name: "function_name",              # Required: function name to call
+  description: "What it does",        # Required: clear description for LLM
+  parameters: {                       # Required: JSON Schema for parameters
+    type: "object",
+    properties: {
+      param_name: {
+        type: "string",
+        description: "Parameter description"
+      }
+    },
+    required: ["param_name"]
+  }
+}
+```
+
+### Cross-Provider Example
+
+The same tool definition works everywhere:
+
+<<< @/../test/docs/actions/tools_examples_test.rb#cross_provider_module {ruby:line-numbers}
+
+::: code-group
+<<< @/../test/docs/actions/tools_examples_test.rb#cross_provider_anthropic {ruby:line-numbers} [Anthropic]
+<<< @/../test/docs/actions/tools_examples_test.rb#cross_provider_ollama{ruby:line-numbers} [Ollama]
+<<< @/../test/docs/actions/tools_examples_test.rb#cross_provider_openai{ruby:line-numbers} [OpenAI]
+<<< @/../test/docs/actions/tools_examples_test.rb#cross_provider_openrouter {ruby:line-numbers} [OpenRouter]
+:::
+
+### Alternative: `input_schema` Key
+
+You can also use `input_schema` instead of `parameters` - both work identically:
+
+```ruby
+{
+  name: "get_weather",
+  description: "Get current weather",
+  input_schema: {  # Alternative to 'parameters'
+    type: "object",
+    properties: { ... }
+  }
+}
+```
+
+ActiveAgent automatically converts between common format and each provider's native format behind the scenes.
+
+### Tool Choice Control
+
+Control when and which tools the LLM uses with the `tool_choice` parameter:
+
+```ruby
+# Auto (default) - Let the model decide whether to use tools
 prompt(message: "...", tools: tools, tool_choice: "auto")
 
-# Force the model to use a tool
+# Required - Force the model to use at least one tool
 prompt(message: "...", tools: tools, tool_choice: "required")
 
-# Prevent tool usage
+# None - Prevent tool usage entirely
 prompt(message: "...", tools: tools, tool_choice: "none")
 
-# Force a specific tool (provider-dependent)
-prompt(message: "...", tools: tools, tool_choice: { type: "function", name: "get_weather" })
+# Specific tool - Force a particular tool (common format)
+prompt(message: "...", tools: tools, tool_choice: { name: "get_weather" })
 ```
+
+ActiveAgent automatically maps these common values to provider-specific formats:
+- **OpenAI**: `"auto"`, `"required"`, `"none"`, or `{type: "function", function: {name: "..."}}`
+- **Anthropic**: `{type: :auto}`, `{type: :any}`, `{type: :tool, name: "..."}`
+- **OpenRouter**: `"auto"`, `"any"` (equivalent to "required")
+- **Ollama**: Model-dependent tool choice support
 
 ## Server-Side Tools (Provider-Specific)
 
@@ -72,24 +133,6 @@ OpenAI's **Responses API** provides several built-in tools (requires GPT-5, GPT-
 
 Anthropic provides web access and specialized capabilities including Web Search for real-time information, Web Fetch (Beta) for specific URLs, Extended Thinking to show reasoning processes, and Computer Use (Beta) for interface interaction. For complete details and examples, see [Anthropic's tool use documentation](https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview).
 
-## Model Context Protocol (MCP)
-
-MCP (Model Context Protocol) enables agents to connect to external services and APIs. Think of it as a universal adapter for integrating tools and data sources.
-
-### OpenAI MCP Integration
-
-OpenAI supports MCP through their Responses API in two ways: pre-built connectors for popular services (Dropbox, Google Drive, GitHub, Slack, and more) and custom MCP servers. For complete details on OpenAI's MCP support, connector IDs, and configuration options, see [OpenAI's MCP documentation](https://platform.openai.com/docs/guides/mcp).
-
-### Anthropic MCP Integration
-
-Anthropic supports MCP servers via the `mcp_servers` parameter (beta feature). You can connect up to 20 MCP servers per request. For the latest on Anthropic's MCP implementation and configuration, see [Anthropic's MCP documentation](https://docs.anthropic.com/en/docs/build-with-claude/mcp).
-
-### OpenRouter MCP Integration
-
-::: info Coming Soon
-MCP support for OpenRouter is currently under development and will be available in a future release.
-:::
-
 ## Troubleshooting
 
 ### Tool Not Being Called
@@ -102,6 +145,7 @@ If the LLM passes unexpected parameters, add detailed parameter descriptions wit
 
 ## Related Documentation
 
+- [MCP (Model Context Protocol)](/actions/mcps) - Connect to external services via MCP
 - [Agents](/agents) - Understand the agent lifecycle and callbacks
 - [Generation](/agents/generation) - Execute tool-enabled generations
 - [Messages](/actions/messages) - Learn about conversation structure

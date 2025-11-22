@@ -384,6 +384,82 @@ module Providers
           assert_equal "response", hash[:format][:name]
           assert hash[:format][:strict]
         end
+
+        # normalize_mcp_servers tests
+        test "normalize_mcp_servers converts common format to OpenAI format" do
+          servers = [
+            { name: "stripe", url: "https://mcp.stripe.com", authorization: "sk_test_123" }
+          ]
+
+          result = transforms.normalize_mcp_servers(servers)
+
+          assert_equal 1, result.size
+          assert_equal "mcp", result[0][:type]
+          assert_equal "stripe", result[0][:server_label]
+          assert_equal "https://mcp.stripe.com", result[0][:server_url]
+          assert_equal "sk_test_123", result[0][:authorization]
+        end
+
+        test "normalize_mcp_servers handles multiple servers" do
+          servers = [
+            { name: "stripe", url: "https://mcp.stripe.com", authorization: "token1" },
+            { name: "github", url: "https://api.githubcopilot.com/mcp/", authorization: "token2" }
+          ]
+
+          result = transforms.normalize_mcp_servers(servers)
+
+          assert_equal 2, result.size
+          assert_equal "stripe", result[0][:server_label]
+          assert_equal "github", result[1][:server_label]
+        end
+
+        test "normalize_mcp_servers handles server without authorization" do
+          servers = [
+            { name: "public", url: "https://demo.mcp.example.com" }
+          ]
+
+          result = transforms.normalize_mcp_servers(servers)
+
+          assert_equal 1, result.size
+          assert_equal "mcp", result[0][:type]
+          assert_equal "public", result[0][:server_label]
+          assert_equal "https://demo.mcp.example.com", result[0][:server_url]
+          assert_nil result[0][:authorization]
+        end
+
+        test "normalize_mcp_servers returns already normalized servers as-is" do
+          servers = [
+            { type: "mcp", server_label: "stripe", server_url: "https://mcp.stripe.com", authorization: "token" }
+          ]
+
+          result = transforms.normalize_mcp_servers(servers)
+
+          assert_equal servers, result
+        end
+
+        test "normalize_mcp_servers handles alternative field names" do
+          servers = [
+            { server_label: "stripe", server_url: "https://mcp.stripe.com", authorization: "token" }
+          ]
+
+          result = transforms.normalize_mcp_servers(servers)
+
+          assert_equal 1, result.size
+          assert_equal "mcp", result[0][:type]
+          assert_equal "stripe", result[0][:server_label]
+        end
+
+        test "normalize_mcp_servers returns nil for nil input" do
+          result = transforms.normalize_mcp_servers(nil)
+
+          assert_nil result
+        end
+
+        test "normalize_mcp_servers returns empty array for empty array" do
+          result = transforms.normalize_mcp_servers([])
+
+          assert_equal [], result
+        end
       end
     end
   end

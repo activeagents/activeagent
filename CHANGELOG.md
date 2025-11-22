@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+**Universal Tools Format**
+```ruby
+# Single format works across all providers (Anthropic, OpenAI, OpenRouter, Ollama, Mock)
+tools: [{
+  name: "get_weather",
+  description: "Get current weather",
+  parameters: {
+    type: "object",
+    properties: {
+      location: { type: "string", description: "City and state" }
+    },
+    required: ["location"]
+  }
+}]
+
+# Tool choice normalization
+tool_choice: "auto"                   # Let model decide
+tool_choice: "required"               # Force tool use
+tool_choice: { name: "get_weather" }  # Force specific tool
+```
+
+Automatic conversion to provider-specific formats. Old formats still work (backward compatible).
+
+**Model Context Protocol (MCP) Support**
+```ruby
+# Universal MCP format works across providers (Anthropic, OpenAI)
+class MyAgent < ActiveAgent::Base
+  generate_with :anthropic, model: "claude-haiku-4-5"
+
+  def research
+    prompt(
+      message: "Research AI developments",
+      mcps: [{
+        name: "github",
+        url: "https://api.githubcopilot.com/mcp/",
+        authorization: ENV["GITHUB_MCP_TOKEN"]
+      }]
+    )
+  end
+end
+```
+
+- Common format: `{name: "server", url: "https://...", authorization: "token"}`
+- Auto-converts to provider native formats
+- Anthropic: Beta API support, up to 20 servers per request
+- OpenAI: Responses API with pre-built connectors (Dropbox, Google Drive, etc.)
+- Backwards compatible: accepts both `mcps` and `mcp_servers` parameters
+- Comprehensive documentation with tested examples
+- Full VCR test coverage with real MCP endpoints
+
+### Changed
+
+- Shared `ToolChoiceClearing` concern eliminates duplication across providers
+
 ## [1.0.0] - 2025-11-21
 
 Major refactor with breaking changes. Complete provider rewrite. New modular architecture.

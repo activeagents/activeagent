@@ -12,6 +12,8 @@ module ActiveAgent
       # @see Base
       # @see https://platform.openai.com/docs/api-reference/chat
       class ChatProvider < Base
+        include ToolChoiceClearing
+
         # @return [Class] the options class for this provider
         def self.options_klass
           Options
@@ -28,6 +30,42 @@ module ActiveAgent
         # @see Base#api_prompt_executer
         def api_prompt_executer
           client.chat.completions
+        end
+
+        # @see BaseProvider#prepare_prompt_request
+        # @return [Request]
+        def prepare_prompt_request
+          prepare_prompt_request_tools
+          super
+        end
+
+        # Extracts function names from Chat API tool_calls in assistant messages.
+        #
+        # @return [Array<String>]
+        def extract_used_function_names
+          message_stack
+            .select { |msg| msg[:role] == "assistant" && msg[:tool_calls] }
+            .flat_map { |msg| msg[:tool_calls] }
+            .map { |tc| tc.dig(:function, :name) }
+            .compact
+        end
+
+        # Returns true if tool_choice == "required".
+        #
+        # @return [Boolean]
+        def tool_choice_forces_required?
+          request.tool_choice == "required"
+        end
+
+        # Returns [true, name] if tool_choice is a hash with nested function name.
+        #
+        # @return [Array<Boolean, String|nil>]
+        def tool_choice_forces_specific?
+          if request.tool_choice.is_a?(Hash)
+            [ true, request.tool_choice.dig(:function, :name) ]
+          else
+            [ false, nil ]
+          end
         end
 
         # @see BaseProvider#api_response_normalize

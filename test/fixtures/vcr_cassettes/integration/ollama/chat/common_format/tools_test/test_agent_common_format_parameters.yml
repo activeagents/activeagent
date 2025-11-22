@@ -1,0 +1,133 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather in San Francisco?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"}},"required":["location"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '384'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:20:44 GMT
+      Content-Length:
+      - '993'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-837","object":"chat.completion","created":1763572844,"model":"qwen3:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"","reasoning":"Okay,
+        the user is asking for the weather in San Francisco. Let me check the tools
+        provided. There''s a function called get_weather that takes a location parameter.
+        The required parameter is location, which should be a string like \"San Francisco,
+        CA\". The user just said \"San Francisco\", so I should format that into the
+        required format. Let me make sure to include the state abbreviation. The function
+        doesn''t have any other parameters, so I just need to pass \"San Francisco,
+        CA\" as the location. Alright, that should do it.\n","tool_calls":[{"id":"call_1mebjeab","index":0,"type":"function","function":{"name":"get_weather","arguments":"{\"location\":\"San
+        Francisco, CA\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":161,"completion_tokens":138,"total_tokens":299}}
+
+        '
+  recorded_at: Wed, 19 Nov 2025 17:20:44 GMT
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather in San Francisco?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_1mebjeab","function":{"arguments":"{\"location\":\"San
+        Francisco, CA\"}","name":"get_weather"},"type":"function","index":0}],"reasoning":"Okay,
+        the user is asking for the weather in San Francisco. Let me check the tools
+        provided. There''s a function called get_weather that takes a location parameter.
+        The required parameter is location, which should be a string like \"San Francisco,
+        CA\". The user just said \"San Francisco\", so I should format that into the
+        required format. Let me make sure to include the state abbreviation. The function
+        doesn''t have any other parameters, so I just need to pass \"San Francisco,
+        CA\" as the location. Alright, that should do it.\n"},{"role":"tool","content":"{\"location\":\"San
+        Francisco, CA\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","tool_call_id":"call_1mebjeab"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"}},"required":["location"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '1262'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:20:49 GMT
+      Content-Length:
+      - '988'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTY0MSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjM1NzI4NDksIm1vZGVsIjoicXdlbjM6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJUaGUgY3VycmVudCB3ZWF0aGVyIGluIFNhbiBGcmFuY2lzY28sIENBIGlzICoqNzLCsEYqKiBhbmQgKipzdW5ueSoqLiBJdCBsb29rcyBsaWtlIGEgcGxlYXNhbnQgZGF5IHdpdGggY2xlYXIgc2tpZXMhIExldCBtZSBrbm93IGlmIHlvdSdkIGxpa2UgYWRkaXRpb25hbCBkZXRhaWxzLiDwn4yeIiwicmVhc29uaW5nIjoiT2theSwgdGhlIHVzZXIgYXNrZWQgZm9yIHRoZSB3ZWF0aGVyIGluIFNhbiBGcmFuY2lzY28uIEkgY2FsbGVkIHRoZSBnZXRfd2VhdGhlciBmdW5jdGlvbiB3aXRoIFwiU2FuIEZyYW5jaXNjbywgQ0FcIiBhcyB0aGUgbG9jYXRpb24uIFRoZSByZXNwb25zZSBjYW1lIGJhY2sgd2l0aCBhIHRlbXBlcmF0dXJlIG9mIDcywrBGIGFuZCBzdW5ueSBjb25kaXRpb25zLiBOb3cgSSBuZWVkIHRvIHByZXNlbnQgdGhpcyBpbmZvcm1hdGlvbiBjbGVhcmx5LiBMZXQgbWUgc3RhcnQgYnkgc3RhdGluZyB0aGUgY3VycmVudCB3ZWF0aGVyLCBtZW50aW9uIHRoZSB0ZW1wZXJhdHVyZSBhbmQgY29uZGl0aW9ucy4gS2VlcCBpdCBzaW1wbGUgYW5kIGZyaWVuZGx5LiBNYXliZSBhZGQgYSBub3RlIGFib3V0IHRoZSB3ZWF0aGVyIGJlaW5nIHBsZWFzYW50LiBNYWtlIHN1cmUgdGhlIHVzZXIga25vd3MgdGhleSBjYW4gYXNrIGZvciBtb3JlIGRldGFpbHMgaWYgbmVlZGVkLiBBbHJpZ2h0LCB0aGF0IHNob3VsZCBjb3ZlciBpdC5cbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6MzI4LCJjb21wbGV0aW9uX3Rva2VucyI6MTU0LCJ0b3RhbF90b2tlbnMiOjQ4Mn19Cg==
+  recorded_at: Wed, 19 Nov 2025 17:20:49 GMT
+recorded_with: VCR 6.3.1

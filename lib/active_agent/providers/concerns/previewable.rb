@@ -86,7 +86,13 @@ module ActiveAgent
         "### Message #{index} (#{role.capitalize})\n#{content}"
       end
 
-      # Renders available tools with descriptions and parameter schemas.
+      # Renders tools section for preview.
+      #
+      # Handles multiple tool formats:
+      # - Common format: {name: "...", description: "...", parameters: {...}}
+      # - Anthropic format: {name: "...", description: "...", input_schema: {...}}
+      # - Chat API format: {type: "function", function: {name: "...", description: "...", parameters: {...}}}
+      # - Responses API format: {type: "function", name: "...", description: "...", parameters: {...}}
       #
       # @param tools [Array<Hash>]
       # @return [String]
@@ -96,15 +102,43 @@ module ActiveAgent
         content = +"## Tools\n\n"
 
         tools.each_with_index do |tool, index|
-          content << "### #{tool[:name] || "Tool #{index + 1}"}\n"
-          content << "**Description:** #{tool[:description] || 'No description'}\n\n"
+          # Extract name and description from different formats
+          tool_name, tool_description, tool_params = extract_tool_details(tool)
 
-          if tool[:parameters]
-            content << "**Parameters:**\n```json\n#{JSON.pretty_generate(tool[:parameters])}\n```\n\n"
+          content << "### #{tool_name || "Tool #{index + 1}"}\n"
+          content << "**Description:** #{tool_description || 'No description'}\n\n"
+
+          if tool_params
+            content << "**Parameters:**\n```json\n#{JSON.pretty_generate(tool_params)}\n```\n\n"
           end
         end
 
         content.chomp
+      end
+
+      # Extracts tool details from different formats.
+      #
+      # @param tool [Hash]
+      # @return [Array<String, String, Hash>] [name, description, parameters]
+      def extract_tool_details(tool)
+        tool_hash = tool.is_a?(Hash) ? tool : {}
+
+        # Chat API nested format: {type: "function", function: {...}}
+        if tool_hash[:type] == "function" && tool_hash[:function]
+          func = tool_hash[:function]
+          return [
+            func[:name],
+            func[:description],
+            func[:parameters] || func[:input_schema]
+          ]
+        end
+
+        # Flat formats (common, Anthropic, Responses)
+        [
+          tool_hash[:name],
+          tool_hash[:description],
+          tool_hash[:parameters] || tool_hash[:input_schema]
+        ]
       end
 
       # Extracts text content from various message formats.

@@ -148,6 +148,26 @@ module ActiveAgent
           self.messages = instructions_messages + current_messages
         end
 
+        # Gets tool_choice bypassing gem validation
+        #
+        # OpenRouter supports "any" which isn't valid in OpenAI gem types.
+        #
+        # @return [String, Hash, nil]
+        def tool_choice
+          __getobj__.instance_variable_get(:@data)[:tool_choice]
+        end
+
+        # Sets tool_choice bypassing gem validation
+        #
+        # OpenRouter supports "any" which isn't valid in OpenAI gem types,
+        # so we bypass the gem's type validation by setting @data directly.
+        #
+        # @param value [String, Hash, nil]
+        # @return [void]
+        def tool_choice=(value)
+          __getobj__.instance_variable_get(:@data)[:tool_choice] = value
+        end
+
         # Accessor for OpenRouter-specific provider preferences
         #
         # @return [Hash, nil]

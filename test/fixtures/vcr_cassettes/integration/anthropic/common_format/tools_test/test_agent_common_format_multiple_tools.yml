@@ -1,0 +1,206 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What''s
+        the weather in NYC and what''s 5 plus 3?","role":"user"}],"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
+        the current weather"},{"input_schema":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]},"name":"calculate","description":"Perform
+        basic arithmetic"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Anthropic::Client/Ruby 1.14.0
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.14.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '571'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 05:13:56 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '4000000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '4000000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-11-19T05:13:55Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '800000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '800000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-11-19T05:13:56Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '4000'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '3999'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-11-19T05:13:55Z'
+      Retry-After:
+      - '5'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '4800000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '4800000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-11-19T05:13:55Z'
+      Request-Id:
+      - req_011CVGgDBV93Cuj7Hpw2cchR
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '1310'
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a0d38967c3cf957-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01DjAW69igMMdeAKZ5mzzbyY","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_016rFuCULXZGHkktxmEjaPpJ","name":"get_weather","input":{"location":"NYC"}},{"type":"tool_use","id":"toolu_01RnqNzPw77hCENNf1w5XtMg","name":"calculate","input":{"operation":"add","a":5,"b":3}}],"stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":662,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":122,"service_tier":"standard"}}'
+  recorded_at: Wed, 19 Nov 2025 05:13:56 GMT
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What''s
+        the weather in NYC and what''s 5 plus 3?","role":"user"},{"content":[{"id":"toolu_016rFuCULXZGHkktxmEjaPpJ","input":{"location":"NYC"},"name":"get_weather","type":"tool_use"},{"id":"toolu_01RnqNzPw77hCENNf1w5XtMg","input":{"operation":"add","a":5,"b":3},"name":"calculate","type":"tool_use"}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_016rFuCULXZGHkktxmEjaPpJ","type":"tool_result","content":"{\"location\":\"NYC\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false},{"tool_use_id":"toolu_01RnqNzPw77hCENNf1w5XtMg","type":"tool_result","content":"{\"operation\":\"add\",\"a\":5,\"b\":3,\"result\":8}","is_error":false}],"role":"user"}],"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
+        the current weather"},{"input_schema":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]},"name":"calculate","description":"Perform
+        basic arithmetic"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Anthropic::Client/Ruby 1.14.0
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.14.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '1180'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 05:13:57 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '4000000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '4000000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-11-19T05:13:57Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '800000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '800000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-11-19T05:13:57Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '4000'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '3999'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-11-19T05:13:56Z'
+      Retry-After:
+      - '3'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '4800000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '4800000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-11-19T05:13:57Z'
+      Request-Id:
+      - req_011CVGgDHgwtCewKNMwnASAR
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '1304'
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a0d389f8cc9f95f-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMU1KNmRvdHlmTW9iSmZwV01XcEp2MVEiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJHcmVhdCEgSGVyZSdzIHRoZSBpbmZvcm1hdGlvbiB5b3UgcmVxdWVzdGVkOlxuXG4qKldlYXRoZXIgaW4gTllDOioqIEl0J3MgY3VycmVudGx5IDcywrBGIGFuZCBzdW5ueSEg4piA77iPXG5cbioqNSBwbHVzIDM6KiogVGhlIGFuc3dlciBpcyAqKjgqKiJ9XSwic3RvcF9yZWFzb24iOiJlbmRfdHVybiIsInN0b3Bfc2VxdWVuY2UiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6ODc2LCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6NDYsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIn19
+  recorded_at: Wed, 19 Nov 2025 05:13:57 GMT
+recorded_with: VCR 6.3.1

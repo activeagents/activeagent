@@ -1,0 +1,226 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4o","input":"Calculate and fetch data","tools":[{"type":"function","name":"calculate","description":"Perform
+        calculations","parameters":{"type":"object","properties":{"operation":{"type":"string"},"a":{"type":"number"},"b":{"type":"number"}}}},{"type":"mcp","server_label":"data-service","server_url":"https://demo-day.mcp.cloudflare.com/sse"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '359'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 21:18:40 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999877'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_97e30c6e2dd8442fac1d39d983b83032
+      Openai-Processing-Ms:
+      - '3735'
+      X-Envoy-Upstream-Service-Time:
+      - '3738'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=K4Fs.WFgYwgYVtywHwlxG7Ql5TmXfOl.hoVGueJW7rA-1763587120-1.0.1.1-C01.FBW5GdpmCkngSeInqzWaB3a6xl_py8UR0dLo1NBtGJgS7gh7wqp_0C6tc8MbdVEUj5C_XQF7qhBCKV4cNAg.96KyKVChgbTpKn_GHTI;
+        path=/; expires=Wed, 19-Nov-25 21:48:40 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=MUGXWvk6.0P3MgHKcKKOXHrb1h3yy4gpxxY0SH_TLjs-1763587120453-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a12bdb68d96ebe7-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0c71d0fe20fc9d9000691e342cb7148199b97b067fb2fe96f9",
+          "object": "response",
+          "created_at": 1763587117,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4o-2024-08-06",
+          "output": [
+            {
+              "id": "mcpl_0c71d0fe20fc9d9000691e342d15f881999a7e283f8ab13502",
+              "type": "mcp_list_tools",
+              "server_label": "data-service",
+              "tools": [
+                {
+                  "annotations": {
+                    "read_only": false
+                  },
+                  "description": "Get information about Cloudflare's MCP Demo Day. Use this tool if the user asks about Cloudflare's MCP demo day",
+                  "input_schema": {
+                    "type": "object",
+                    "properties": {}
+                  },
+                  "name": "mcp_demo_day_info"
+                }
+              ]
+            },
+            {
+              "id": "msg_0c71d0fe20fc9d9000691e342fc7b48199bcf2a22f78a3de03",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Sure, I can help with that. What calculation would you like to perform, and what specific data are you seeking?"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "function",
+              "description": "Perform calculations",
+              "name": "calculate",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "type": "string"
+                  },
+                  "a": {
+                    "type": "number"
+                  },
+                  "b": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "a",
+                  "b"
+                ]
+              },
+              "strict": true
+            },
+            {
+              "type": "mcp",
+              "allowed_tools": null,
+              "headers": null,
+              "require_approval": "always",
+              "server_description": null,
+              "server_label": "data-service",
+              "server_url": "https://demo-day.mcp.cloudflare.com/sse"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 104,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 26,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 130
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 19 Nov 2025 21:18:40 GMT
+recorded_with: VCR 6.3.1

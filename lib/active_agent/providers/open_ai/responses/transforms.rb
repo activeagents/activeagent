@@ -21,6 +21,141 @@ module ActiveAgent
               JSON.parse(gem_object.to_json, symbolize_names: true)
             end
 
+            # Normalizes tools from common format to OpenAI Responses API format.
+            #
+            # Accepts tools in multiple formats:
+            # - Common format: `{name: "...", description: "...", parameters: {...}}`
+            # - Nested format: `{type: "function", function: {name: "...", ...}}`
+            # - Responses format: `{type: "function", name: "...", parameters: {...}}`
+            #
+            # Always outputs flat Responses API format.
+            #
+            # @param tools [Array<Hash>]
+            # @return [Array<Hash>]
+            def normalize_tools(tools)
+              return tools unless tools.is_a?(Array)
+
+              tools.map do |tool|
+                tool_hash = tool.is_a?(Hash) ? tool.deep_symbolize_keys : tool
+
+                # If already in Responses format (flat with type, name, parameters), return as-is
+                if tool_hash[:type] == "function" && tool_hash[:name]
+                  next tool_hash
+                end
+
+                # If in nested Chat API format, flatten it
+                if tool_hash[:type] == "function" && tool_hash[:function]
+                  func = tool_hash[:function]
+                  next {
+                    type: "function",
+                    name: func[:name],
+                    description: func[:description],
+                    parameters: func[:parameters] || func[:input_schema]
+                  }.compact
+                end
+
+                # If in common format (no type field), convert to Responses format
+                if tool_hash[:name] && !tool_hash[:type]
+                  next {
+                    type: "function",
+                    name: tool_hash[:name],
+                    description: tool_hash[:description],
+                    parameters: tool_hash[:parameters] || tool_hash[:input_schema]
+                  }.compact
+                end
+
+                # Pass through other formats
+                tool_hash
+              end
+            end
+
+            # Normalizes MCP servers from common format to OpenAI Responses API format.
+            #
+            # Common format:
+            #   {name: "stripe", url: "https://...", authorization: "token"}
+            # OpenAI format:
+            #   {type: "mcp", server_label: "stripe", server_url: "https://...", authorization: "token"}
+            #
+            # @param mcp_servers [Array<Hash>]
+            # @return [Array<Hash>]
+            def normalize_mcp_servers(mcp_servers)
+              return mcp_servers unless mcp_servers.is_a?(Array)
+
+              mcp_servers.map do |server|
+                server_hash = server.is_a?(Hash) ? server.deep_symbolize_keys : server
+
+                # If already in OpenAI format (has type: "mcp" and server_label), return as-is
+                if server_hash[:type] == "mcp" && server_hash[:server_label]
+                  next server_hash
+                end
+
+                # Convert common format to OpenAI format
+                result = {
+                  type: "mcp",
+                  server_label: server_hash[:name] || server_hash[:server_label],
+                  server_url: server_hash[:url] || server_hash[:server_url]
+                }
+
+                # Keep authorization field (OpenAI uses 'authorization', not 'authorization_token')
+                if server_hash[:authorization]
+                  result[:authorization] = server_hash[:authorization]
+                end
+
+                result.compact
+              end
+            end
+
+            # Normalizes tool_choice from common format to OpenAI Responses API format.
+            #
+            # Responses API uses flat format for specific tool choice, unlike Chat API's nested format.
+            # Must return gem model objects for proper serialization.
+            #
+            # Maps:
+            # - "required" → :required symbol (force tool use)
+            # - "auto" → :auto symbol (let model decide)
+            # - { name: "..." } → ToolChoiceFunction model object
+            #
+            # @param tool_choice [String, Hash, Object]
+            # @return [Symbol, Object] Symbol or gem model object
+            def normalize_tool_choice(tool_choice)
+              # If already a gem model object, return as-is
+              return tool_choice if tool_choice.is_a?(::OpenAI::Models::Responses::ToolChoiceFunction) ||
+                                     tool_choice.is_a?(::OpenAI::Models::Responses::ToolChoiceAllowed) ||
+                                     tool_choice.is_a?(::OpenAI::Models::Responses::ToolChoiceTypes) ||
+                                     tool_choice.is_a?(::OpenAI::Models::Responses::ToolChoiceMcp) ||
+                                     tool_choice.is_a?(::OpenAI::Models::Responses::ToolChoiceCustom)
+
+              case tool_choice
+              when "required"
+                :required  # Return as symbol
+              when "auto"
+                :auto  # Return as symbol
+              when "none"
+                :none  # Return as symbol
+              when Hash
+                choice_hash = tool_choice.deep_symbolize_keys
+
+                # If already in proper format with type, try to create gem model
+                if choice_hash[:type] == "function" && choice_hash[:name]
+                  # Create ToolChoiceFunction gem model object
+                  ::OpenAI::Models::Responses::ToolChoiceFunction.new(
+                    type: :function,
+                    name: choice_hash[:name]
+                  )
+                # Convert { name: "..." } to ToolChoiceFunction model
+                elsif choice_hash[:name] && !choice_hash[:type]
+                  ::OpenAI::Models::Responses::ToolChoiceFunction.new(
+                    type: :function,
+                    name: choice_hash[:name]
+                  )
+                else
+                  choice_hash
+                end
+              else
+                tool_choice
+              end
+            end
+
             # Simplifies input for cleaner API requests
             #
             # Unwraps single-element arrays:

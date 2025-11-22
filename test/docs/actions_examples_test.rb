@@ -55,7 +55,6 @@ class ActionsExamplesTest < ActiveSupport::TestCase
         prompt(
           input: "What's the weather in Boston?",
           tools: [ {
-            type: "function",
             name: "get_current_weather",
             description: "Get the current weather in a given location",
             parameters: {
@@ -85,6 +84,31 @@ class ActionsExamplesTest < ActiveSupport::TestCase
     test "OpenAI basic function registration" do
       VCR.use_cassette("docs/actions_examples/tools") do
         response = WeatherAgent.weather_update.generate_now
+
+        assert response.message.content.present?
+
+        doc_example_output(response)
+      end
+    end
+  end
+
+  class McpsExample < ActiveSupport::TestCase
+    # region mcps_research_agent
+    class ResearchAgent < ApplicationAgent
+      generate_with :anthropic, model: "claude-haiku-4-5"
+
+      def research
+        prompt(
+          message: "Research AI developments",
+          mcps: [ { name: "github", url: "https://api.githubcopilot.com/mcp/", authorization: ENV["GITHUB_MCP_TOKEN"] } ]
+        )
+      end
+    end
+    # endregion mcps_research_agent
+
+    test "MCP connection" do
+      VCR.use_cassette("docs/actions_examples/mcps") do
+        response = ResearchAgent.research.generate_now
 
         assert response.message.content.present?
 

@@ -1,0 +1,144 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather in NYC and what''s 5 plus 3?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}},{"type":"function","function":{"name":"calculate","description":"Perform
+        basic arithmetic","parameters":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '607'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:21:09 GMT
+      Content-Length:
+      - '1602'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-547","object":"chat.completion","created":1763572869,"model":"qwen3:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"","reasoning":"Okay,
+        let''s tackle this user query. The user is asking two things: the weather
+        in NYC and the result of 5 plus 3. \n\nFirst, I need to check which functions
+        are available. There''s get_weather for the weather info and calculate for
+        arithmetic operations. \n\nFor the first part, \"What''s the weather in NYC?\",
+        I should call get_weather with the location parameter set to \"NYC\". That
+        should retrieve the current weather data.\n\nNext, the second part is \"what''s
+        5 plus 3?\" Here, the operation is addition. The calculate function requires
+        operation, a, and b. So operation is \"add\", a is 5, and b is 3. I''ll need
+        to make sure the parameters are correctly formatted as numbers.\n\nI need
+        to make two separate tool calls. First for get_weather with location NYC,
+        then for calculate with add, 5, and 3. Let me structure each tool call properly
+        in JSON within the XML tags. Double-checking the parameters to ensure they
+        match the required types and enums. No mistakes there. Alright, ready to output
+        the tool calls.\n","tool_calls":[{"id":"call_nwftoaxi","index":0,"type":"function","function":{"name":"get_weather","arguments":"{\"location\":\"NYC\"}"}},{"id":"call_vialglfv","index":1,"type":"function","function":{"name":"calculate","arguments":"{\"a\":5,\"b\":3,\"operation\":\"add\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":215,"completion_tokens":285,"total_tokens":500}}
+
+        '
+  recorded_at: Wed, 19 Nov 2025 17:21:09 GMT
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather in NYC and what''s 5 plus 3?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_nwftoaxi","function":{"arguments":"{\"location\":\"NYC\"}","name":"get_weather"},"type":"function","index":0},{"id":"call_vialglfv","function":{"arguments":"{\"a\":5,\"b\":3,\"operation\":\"add\"}","name":"calculate"},"type":"function","index":1}],"reasoning":"Okay,
+        let''s tackle this user query. The user is asking two things: the weather
+        in NYC and the result of 5 plus 3. \n\nFirst, I need to check which functions
+        are available. There''s get_weather for the weather info and calculate for
+        arithmetic operations. \n\nFor the first part, \"What''s the weather in NYC?\",
+        I should call get_weather with the location parameter set to \"NYC\". That
+        should retrieve the current weather data.\n\nNext, the second part is \"what''s
+        5 plus 3?\" Here, the operation is addition. The calculate function requires
+        operation, a, and b. So operation is \"add\", a is 5, and b is 3. I''ll need
+        to make sure the parameters are correctly formatted as numbers.\n\nI need
+        to make two separate tool calls. First for get_weather with location NYC,
+        then for calculate with add, 5, and 3. Let me structure each tool call properly
+        in JSON within the XML tags. Double-checking the parameters to ensure they
+        match the required types and enums. No mistakes there. Alright, ready to output
+        the tool calls.\n"},{"role":"tool","content":"{\"location\":\"NYC\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}{\"operation\":\"add\",\"a\":5,\"b\":3,\"result\":8}","tool_call_id":"call_nwftoaxi"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}},{"type":"function","function":{"name":"calculate","description":"Perform
+        basic arithmetic","parameters":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '2132'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:21:16 GMT
+      Content-Length:
+      - '895'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTg0NyIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjM1NzI4NzYsIm1vZGVsIjoicXdlbjM6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJUaGUgY3VycmVudCB3ZWF0aGVyIGluIE5ZQyBpcyA3MsKwRiBhbmQgc3VubnkuIFxuXG41IHBsdXMgMyBlcXVhbHMgOC4iLCJyZWFzb25pbmciOiJPa2F5LCBsZXQncyBzZWUuIFRoZSB1c2VyIGFza2VkIGZvciB0d28gdGhpbmdzOiB0aGUgd2VhdGhlciBpbiBOWUMgYW5kIHRoZSBzdW0gb2YgNSBhbmQgMy4gRmlyc3QsIEkgbmVlZCB0byBwcm9jZXNzIHRoZSB3ZWF0aGVyIGRhdGEuIFRoZSB0b29sIHJlc3BvbnNlIHNheXMgaXQncyA3MsKwRiBhbmQgc3VubnkgaW4gTllDLiBHb3QgdGhhdC4gVGhlbiwgdGhlIGNhbGN1bGF0aW9uIHBhcnQ6IDUgcGx1cyAzIGVxdWFscyA4LiBUaGUgdG9vbCByZXNwb25zZSBjb25maXJtcyB0aGUgcmVzdWx0IGlzIDguIE5vdywgSSBzaG91bGQgcHJlc2VudCBib3RoIGFuc3dlcnMgY2xlYXJseS4gTGV0IG1lIHN0YXJ0IHdpdGggdGhlIHdlYXRoZXIsIG1lbnRpb24gdGhlIHRlbXBlcmF0dXJlIGFuZCBjb25kaXRpb25zLCB0aGVuIHN0YXRlIHRoZSBtYXRoIHJlc3VsdC4gTWFrZSBzdXJlIHRoZSByZXNwb25zZSBpcyBmcmllbmRseSBhbmQgc3RyYWlnaHRmb3J3YXJkLiBBbHJpZ2h0LCBwdXR0aW5nIGl0IGFsbCB0b2dldGhlci5cbiJ9LCJmaW5pc2hfcmVhc29uIjoic3RvcCJ9XSwidXNhZ2UiOnsicHJvbXB0X3Rva2VucyI6NTM1LCJjb21wbGV0aW9uX3Rva2VucyI6MTUxLCJ0b3RhbF90b2tlbnMiOjY4Nn19Cg==
+  recorded_at: Wed, 19 Nov 2025 17:21:16 GMT
+recorded_with: VCR 6.3.1

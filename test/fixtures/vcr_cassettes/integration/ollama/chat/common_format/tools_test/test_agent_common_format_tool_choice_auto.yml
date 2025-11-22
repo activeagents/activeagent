@@ -1,0 +1,67 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}}],"tool_choice":"auto"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '297'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:20:59 GMT
+      Content-Length:
+      - '858'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-691","object":"chat.completion","created":1763572859,"model":"qwen3:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Could
+        you please specify the location you''d like the weather information for?","reasoning":"Okay,
+        the user asked, \"What''s the weather?\" but didn''t specify the location.
+        I need to call the get_weather function, which requires a location parameter.
+        Since the user didn''t provide one, I should ask them to clarify where they
+        want the weather information for. Let me check the function details again
+        to confirm the parameters. The function requires ''location'' as a string.
+        Alright, so I can''t proceed without that info. Time to prompt the user for
+        the missing details.\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":137,"completion_tokens":118,"total_tokens":255}}
+
+        '
+  recorded_at: Wed, 19 Nov 2025 17:20:59 GMT
+recorded_with: VCR 6.3.1

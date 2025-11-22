@@ -120,7 +120,7 @@ Search-preview models in Chat API provide web search but with different configur
   - `mcp` - Enable MCP integration
 - **`tool_choice`** - Control tool usage ("auto", "required", "none", or specific tool)
 - **`parallel_tool_calls`** - Allow parallel tool execution (boolean)
-- **`mcp_servers`** - Array of MCP server configurations (max 20)
+- **`mcps`** - Array of MCP server configurations (max 20)
 
 ### Embeddings
 
