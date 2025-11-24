@@ -71,7 +71,7 @@ jobs:
         run: npm run docs:build
 
       - name: Upload current docs artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: docs-current
           path: docs/.vitepress/dist
@@ -132,7 +132,7 @@ jobs:
         run: npx vitepress build docs --config docs/.vitepress/config.versioned.mts
 
       - name: Upload versioned docs artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: docs-v${{ matrix.version }}
           path: docs/.vitepress/dist
