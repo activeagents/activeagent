@@ -62,7 +62,37 @@ module ActiveAgent
             # Use OpenAI transforms for the base parameters
             openai_params = OpenAI::Chat::Transforms.normalize_params(params)
 
+            # Override tool_choice normalization for OpenRouter's "any" vs "required" difference
+            if openai_params[:tool_choice]
+              openai_params[:tool_choice] = normalize_tool_choice(openai_params[:tool_choice])
+            end
+
             [ openai_params, openrouter_params ]
+          end
+
+          # Normalizes tools using OpenAI transforms
+          #
+          # @param tools [Array<Hash>]
+          # @return [Array<Hash>]
+          def normalize_tools(tools)
+            OpenAI::Chat::Transforms.normalize_tools(tools)
+          end
+
+          # Normalizes tool_choice for OpenRouter API differences
+          #
+          # OpenRouter uses "any" instead of OpenAI's "required" for forcing tool use.
+          # Converts common format to OpenRouter-specific format:
+          # - "required" (common) → "any" (OpenRouter)
+          # - Everything else delegates to OpenAI transforms
+          #
+          # @param tool_choice [String, Hash, Symbol]
+          # @return [String, Hash, Symbol]
+          def normalize_tool_choice(tool_choice)
+            # Convert "required" to OpenRouter's "any"
+            return "any" if tool_choice.to_s == "required"
+
+            # For everything else, use OpenAI transforms
+            OpenAI::Chat::Transforms.normalize_tool_choice(tool_choice)
           end
 
           # Normalizes messages using OpenAI transforms

@@ -1,0 +1,127 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather in Boston?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"}},"required":["location"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '377'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:20:35 GMT
+      Content-Length:
+      - '775'
+    body:
+      encoding: UTF-8
+      string: '{"id":"chatcmpl-883","object":"chat.completion","created":1763572835,"model":"qwen3:latest","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"","reasoning":"Okay,
+        the user is asking for the weather in Boston. Let me check the tools available.
+        There''s a get_weather function that requires a location parameter. The user
+        mentioned \"Boston,\" so I need to specify the location as Boston, MA to match
+        the format like San Francisco, CA. I''ll call the function with that parameter.\n","tool_calls":[{"id":"call_u167uvno","index":0,"type":"function","function":{"name":"get_weather","arguments":"{\"location\":\"Boston,
+        MA\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":160,"completion_tokens":93,"total_tokens":253}}
+
+        '
+  recorded_at: Wed, 19 Nov 2025 17:20:35 GMT
+- request:
+    method: post
+    uri: http://127.0.0.1:11434/v1/chat/completions
+    body:
+      encoding: UTF-8
+      string: '{"model":"qwen3:latest","messages":[{"role":"user","content":"What''s
+        the weather in Boston?"},{"role":"assistant","content":"","tool_calls":[{"id":"call_u167uvno","function":{"arguments":"{\"location\":\"Boston,
+        MA\"}","name":"get_weather"},"type":"function","index":0}],"reasoning":"Okay,
+        the user is asking for the weather in Boston. Let me check the tools available.
+        There''s a get_weather function that requires a location parameter. The user
+        mentioned \"Boston,\" so I need to specify the location as Boston, MA to match
+        the format like San Francisco, CA. I''ll call the function with that parameter.\n"},{"role":"tool","content":"{\"location\":\"Boston,
+        MA\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","tool_call_id":"call_u167uvno"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"}},"required":["location"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - 127.0.0.1:11434
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Authorization:
+      - Bearer ollama
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '1031'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 19 Nov 2025 17:20:39 GMT
+      Content-Length:
+      - '783'
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6ImNoYXRjbXBsLTU4NSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsImNyZWF0ZWQiOjE3NjM1NzI4MzksIm1vZGVsIjoicXdlbjM6bGF0ZXN0Iiwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfb2xsYW1hIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsIm1lc3NhZ2UiOnsicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOiJUaGUgY3VycmVudCB3ZWF0aGVyIGluIEJvc3RvbiwgTUEgaXMgNzLCsEYgYW5kIHN1bm55LiBJdCBsb29rcyBsaWtlIGEgcGxlYXNhbnQgZGF5ISIsInJlYXNvbmluZyI6Ik9rYXksIHRoZSB1c2VyIGFza2VkIGZvciB0aGUgd2VhdGhlciBpbiBCb3N0b24uIEkgY2FsbGVkIHRoZSBnZXRfd2VhdGhlciBmdW5jdGlvbiB3aXRoIEJvc3RvbiwgTUEgYXMgdGhlIGxvY2F0aW9uLiBUaGUgcmVzcG9uc2UgY2FtZSBiYWNrIHdpdGggYSB0ZW1wZXJhdHVyZSBvZiA3MsKwRiBhbmQgc3VubnkgY29uZGl0aW9ucy4gTm93IEkgbmVlZCB0byBwcmVzZW50IHRoaXMgaW5mb3JtYXRpb24gY2xlYXJseS4gTGV0IG1lIG1ha2Ugc3VyZSB0byBtZW50aW9uIHRoZSB0ZW1wZXJhdHVyZSwgY29uZGl0aW9ucywgYW5kIG1heWJlIGFkZCBhIGZyaWVuZGx5IG5vdGUgYWJvdXQgdGhlIHdlYXRoZXIgYmVpbmcgcGxlYXNhbnQuIEtlZXAgaXQgY29uY2lzZSBhbmQgc3RyYWlnaHRmb3J3YXJkLlxuIn0sImZpbmlzaF9yZWFzb24iOiJzdG9wIn1dLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjoyODEsImNvbXBsZXRpb25fdG9rZW5zIjoxMDUsInRvdGFsX3Rva2VucyI6Mzg2fX0K
+  recorded_at: Wed, 19 Nov 2025 17:20:39 GMT
+recorded_with: VCR 6.3.1

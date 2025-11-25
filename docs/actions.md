@@ -31,6 +31,12 @@ Let AI call Ruby methods during generation:
 
 <<< @/../test/docs/actions_examples_test.rb#tools_weather_agent{ruby:line-numbers}
 
+### [MCPs](/actions/mcps)
+
+Connect to external services via Model Context Protocol:
+
+<<< @/../test/docs/actions_examples_test.rb#mcps_research_agent{ruby:line-numbers}
+
 ### [Structured Output](/actions/structured_output)
 
 Enforce JSON responses with schemas:

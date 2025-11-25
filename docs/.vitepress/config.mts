@@ -116,6 +116,7 @@ export default defineConfig({
           { text: 'Messages', link: '/actions/messages' },
           { text: 'Embeddings', link: '/actions/embeddings' },
           { text: 'Tools', link: '/actions/tools' },
+          { text: 'MCPs', link: '/actions/mcps' },
           { text: 'Structured Output', link: '/actions/structured_output' },
           { text: 'Usage', link: '/actions/usage' },
         ]

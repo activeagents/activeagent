@@ -17,6 +17,17 @@ module ActiveAgent
     #
     # @see BaseProvider
     class AnthropicProvider < BaseProvider
+      # Lead-in message for JSON response format emulation
+      JSON_RESPONSE_FORMAT_LEAD_IN = "Here is the JSON requested:\n{"
+
+      attr_internal :json_format_retry_count
+
+      def initialize(kwargs = {})
+        super
+
+        self.json_format_retry_count = kwargs[:max_retries] || ::Anthropic::Client::DEFAULT_MAX_RETRIES
+      end
+
       # @todo Add support for Anthropic::BedrockClient and Anthropic::VertexClient
       # @return [Anthropic::Client]
       def client
@@ -39,22 +50,31 @@ module ActiveAgent
         super
       end
 
-      # @api private
-      def prepare_prompt_request_tools
-        return unless request.tool_choice
-        return unless request.tool_choice.respond_to?(:type)
+      # Extracts function names from Anthropic's tool_use content blocks.
+      #
+      # @return [Array<String>]
+      def extract_used_function_names
+        message_stack.pluck(:content).flatten.select { _1[:type] == "tool_use" }.pluck(:name)
+      end
 
-        functions_used = message_stack.pluck(:content).flatten.select { _1[:type] == "tool_use" }.pluck(:name)
+      # Checks if tool_choice requires the model to call any tool.
+      #
+      # @return [Boolean] true if tool_choice type is :any
+      def tool_choice_forces_required?
+        return false unless request.tool_choice.respond_to?(:type)
 
-        # tool_choice is always a gem model object (ToolChoiceAny, ToolChoiceTool, ToolChoiceAuto)
-        tool_choice_type = request.tool_choice.type
-        tool_choice_name = request.tool_choice.respond_to?(:name) ? request.tool_choice.name : nil
+        request.tool_choice.type == :any
+      end
 
-        if (tool_choice_type == :any && functions_used.any?) ||
-          (tool_choice_type == :tool && tool_choice_name && functions_used.include?(tool_choice_name))
+      # Checks if tool_choice requires a specific tool to be called.
+      #
+      # @return [Array<Boolean, String|nil>] [true, tool_name] if forcing a specific tool, [false, nil] otherwise
+      def tool_choice_forces_specific?
+        return [ false, nil ] unless request.tool_choice.respond_to?(:type)
+        return [ false, nil ] unless request.tool_choice.type == :tool
 
-          request.tool_choice = nil
-        end
+        tool_name = request.tool_choice.respond_to?(:name) ? request.tool_choice.name : nil
+        [ true, tool_name ]
       end
 
       # @api private
@@ -63,19 +83,30 @@ module ActiveAgent
 
         self.message_stack.push({
           role:    "assistant",
-          content: "Here is the JSON requested:\n{"
+          content: JSON_RESPONSE_FORMAT_LEAD_IN
         })
       end
 
+      # Selects between Anthropic's stable and beta message APIs.
+      #
+      # Uses beta API when explicitly requested via anthropic_beta option or when
+      # using MCP servers, which require beta features. Falls back to stable API
+      # for standard message creation.
+      #
       # @see BaseProvider#api_prompt_executer
-      # @return [Anthropic::Messages]
+      # @return [Anthropic::Messages, Anthropic::Resources::Beta::Messages]
       def api_prompt_executer
-        client.messages
+        # Use beta API when anthropic_beta option is set or when using MCP servers
+        if options.anthropic_beta.present? || request.mcp_servers&.any?
+          client.beta.messages
+        else
+          client.messages
+        end
       end
 
       # @see BaseProvider#api_response_normalize
       # @param api_response [Anthropic::Models::Message]
-      # @return [Hash] normalized response hash
+      # @return [Hash]
       def api_response_normalize(api_response)
         return api_response unless api_response
 
@@ -200,31 +231,57 @@ module ActiveAgent
         end
       end
 
-      # Converts API response message to hash for message_stack.
-      # Converts Anthropic gem response object to hash for storage.
+      # Processes completed API response and handles JSON format retries.
       #
+      # When response_format is json_object and the response fails JSON validation,
+      # recursively retries the request to obtain well-formed JSON.
+      #
+      # @see BaseProvider#process_prompt_finished
       # @param api_response [Anthropic::Models::Message]
       # @return [Common::PromptResponse, nil]
       def process_prompt_finished(api_response = nil)
         # Convert gem object to hash so that raw_response[:usage] works
         api_response_hash = api_response ? Anthropic::Transforms.gem_to_hash(api_response) : nil
-        super(api_response_hash)
+
+        common_response = super(api_response_hash)
+
+        # If we failed to get the expected well formed JSON Object Response, recursively try again
+        if request.response_format&.dig(:type) == "json_object" && common_response.message.parsed_json.nil? && json_format_retry_count > 0
+          self.json_format_retry_count -= 1
+
+          resolve_prompt
+        else
+          common_response
+        end
       end
 
+      # Reconstructs JSON responses that were split due to Anthropic format constraints.
       #
-      # Handles JSON response format simulation by prepending `{` to the response
-      # content after removing the assistant lead-in message.
+      # Anthropic's API doesn't natively support json_object response format, so we
+      # simulate it by having the assistant echo a JSON lead-in ("Here is the JSON requested:\n{"),
+      # then send the response back for completion. This method detects and reverses
+      # that workaround by stripping the lead-in message and prepending "{" to the response.
       #
       # @see BaseProvider#process_prompt_finished_extract_messages
-      # @param api_response [Hash] converted response hash
+      # @param api_response [Hash] API response with content blocks
       # @return [Array<Hash>, nil]
       def process_prompt_finished_extract_messages(api_response)
         return unless api_response
 
-        # Handle JSON response format simulation
-        if request.response_format&.dig(:type) == "json_object"
-          request.pop_message!
-          api_response[:content][0][:text] = "{#{api_response[:content][0][:text]}"
+        # Get the last message (may be either Hash or gem object)
+        last_message = request.messages.last
+        last_role    = last_message.is_a?(Hash) ? last_message[:role]    : last_message&.role
+        last_content = last_message.is_a?(Hash) ? last_message[:content] : last_message&.content
+
+        # Check if the last message in request is the JSON lead-in prompt
+        if last_role.to_sym == :assistant && last_content == JSON_RESPONSE_FORMAT_LEAD_IN
+          # Remove the lead-in message from the request
+          request.messages.pop
+
+          # Prepend "{" to the response's first content text
+          if api_response[:content]&.first&.dig(:text)
+            api_response[:content][0][:text] = "{#{api_response[:content][0][:text]}"
+          end
         end
 
         [ api_response ]

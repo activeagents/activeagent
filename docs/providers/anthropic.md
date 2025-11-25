@@ -107,7 +107,7 @@ Anthropic provides access to the Claude model family. For the complete list of a
 - **`thinking`** - Enable Claude's thinking mode for complex reasoning
 - **`context_management`** - Configure context window management
 - **`service_tier`** - Select service tier ("auto", "standard_only")
-- **`mcp_servers`** - Array of MCP server definitions (max 20)
+- **`mcps`** - Array of MCP server definitions (max 20)
 
 ### Client Configuration
 
