@@ -1,0 +1,199 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4.1","input":"What tools do you have available?","tools":[{"type":"mcp","server_label":"cloudflare-demo","server_url":"https://demo-day.mcp.cloudflare.com/sse"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '176'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 21:01:31 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999906'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_9295f14d4dd84dc099101d59970868b8
+      Openai-Processing-Ms:
+      - '4649'
+      X-Envoy-Upstream-Service-Time:
+      - '4652'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=t6Md2Z8ktst2TLkho7mrzHR.qTEsSKKfrt9BW1zmbyo-1763586091-1.0.1.1-vxuhqec9qHLE6XEsGrnq1uWrMmmrlkW7D_oK9rL8dm9hHrlehfKYXHaiLKu9lK2WcXN1hbUsQNmNeyJT9mNBjCU289KxVecnenZX5YwdTL4;
+        path=/; expires=Wed, 19-Nov-25 21:31:31 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=23UO7O0FsnZCexgZIpX9RBhJbaDwQqPEq9WBoSNKWD8-1763586091570-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a12a492d923cf2e-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0a7f52788c12648f00691e3026e910819aa4466498f7e2f09a",
+          "object": "response",
+          "created_at": 1763586087,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "mcpl_0a7f52788c12648f00691e3027380c819a8fa6e670b6533e37",
+              "type": "mcp_list_tools",
+              "server_label": "cloudflare-demo",
+              "tools": [
+                {
+                  "annotations": {
+                    "read_only": false
+                  },
+                  "description": "Get information about Cloudflare's MCP Demo Day. Use this tool if the user asks about Cloudflare's MCP demo day",
+                  "input_schema": {
+                    "type": "object",
+                    "properties": {}
+                  },
+                  "name": "mcp_demo_day_info"
+                }
+              ]
+            },
+            {
+              "id": "msg_0a7f52788c12648f00691e30289804819ab5994045994e21da",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Here are the tools I have available right now:\n\n1. **Image Input Capabilities:** I can analyze and interpret images you upload.\n2. **Cloudflare MCP Demo Day Information:** I have access to a tool (`mcp_cloudflare-demo`) that allows me to fetch information specifically related to Cloudflare\u2019s MCP (Magic Cloud Platform) Demo Day.\n\nIf you have a specific question or need information using one of these tools, just let me know!"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "mcp",
+              "allowed_tools": null,
+              "headers": null,
+              "require_approval": "always",
+              "server_description": null,
+              "server_label": "cloudflare-demo",
+              "server_url": "https://demo-day.mcp.cloudflare.com/sse"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 75,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 93,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 168
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 19 Nov 2025 21:01:31 GMT
+recorded_with: VCR 6.3.1

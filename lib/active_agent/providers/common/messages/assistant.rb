@@ -9,7 +9,7 @@ module ActiveAgent
         # Represents messages sent by the AI assistant in a conversation.
         class Assistant < Base
           attribute :role, :string, as: "assistant"
-          attribute :content, :string
+          attribute :content # Accept both string and array (provider-native formats)
           attribute :name, :string
 
           validates :content, presence: true
@@ -24,9 +24,16 @@ module ActiveAgent
           # @param normalize_names [Symbol, nil] key normalization method (e.g., :underscore)
           # @return [Hash, Array, nil] parsed JSON structure or nil if parsing fails
           def parsed_json(symbolize_names: true, normalize_names: :underscore)
-            start_char       = [ content.index("{"),  content.index("[") ].compact.min
-            end_char         = [ content.rindex("}"), content.rindex("]") ].compact.max
-            content_stripped = content[start_char..end_char] if start_char && end_char
+            # Handle array content (from content blocks) by searching through each block
+            content_str = if content.is_a?(Array)
+              content.map { |block| block.is_a?(Hash) ? block[:text] : block.to_s }.join("\n")
+            else
+              content.to_s
+            end
+
+            start_char       = [ content_str.index("{"),  content_str.index("[") ].compact.min
+            end_char         = [ content_str.rindex("}"), content_str.rindex("]") ].compact.max
+            content_stripped = content_str[start_char..end_char] if start_char && end_char
             return unless content_stripped
 
             content_parsed = JSON.parse(content_stripped)
@@ -46,6 +53,15 @@ module ActiveAgent
             end
           rescue JSON::ParserError
             nil
+          end
+
+          # Returns content as a string, handling both string and array formats
+          def text
+            if content.is_a?(Array)
+              content.map { |block| block.is_a?(Hash) ? block[:text] : block.to_s }.join("\n")
+            else
+              content.to_s
+            end
           end
 
           alias_method :json_object, :parsed_json

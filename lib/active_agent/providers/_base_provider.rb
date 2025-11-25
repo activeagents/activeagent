@@ -4,6 +4,7 @@ require_relative "common/response"
 require_relative "concerns/exception_handler"
 require_relative "concerns/instrumentation"
 require_relative "concerns/previewable"
+require_relative "concerns/tool_choice_clearing"
 
 # @private
 GEM_LOADERS = {
@@ -45,6 +46,7 @@ module ActiveAgent
       include ExceptionHandler
       include Instrumentation
       include Previewable
+      include ToolChoiceClearing
 
       class ProvidersError < StandardError; end
 

@@ -1,0 +1,204 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-5","input":"Get the current weather","tools":[{"type":"mcp","server_label":"weather","server_url":"https://demo-day.mcp.cloudflare.com/sse"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '156'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 21:00:53 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '15000'
+      X-Ratelimit-Limit-Tokens:
+      - '40000000'
+      X-Ratelimit-Remaining-Requests:
+      - '14999'
+      X-Ratelimit-Remaining-Tokens:
+      - '39999672'
+      X-Ratelimit-Reset-Requests:
+      - 4ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_3c03d571859d476382d6b37b08df6a27
+      Openai-Processing-Ms:
+      - '13185'
+      X-Envoy-Upstream-Service-Time:
+      - '13695'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=kflfqHdJ1B8HHdvMcnWGiSw67yQk4AODpq80TmZIXSU-1763586053-1.0.1.1-H1uVqWqBvl.z9DDg33zvzS3PKtETnWw.A8KN0H.pNadRshogV23OcX1YKLmoInBoCtXzxDWy8EHDVBZq1kg6AeqGojBr08itByDBaFvPwUM;
+        path=/; expires=Wed, 19-Nov-25 21:30:53 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=AMJuJxcHyxnJNR5ESnrTVjjFtWH5jwUltQDgI2m9PzM-1763586053133-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a12a36a0f2dfb4c-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_0c6ed4b8ea47a17200691e2ff805e08194a3b62232cbe32246",
+          "object": "response",
+          "created_at": 1763586040,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-5-2025-08-07",
+          "output": [
+            {
+              "id": "mcpl_0c6ed4b8ea47a17200691e2ff8518081949e17ad461a2dc4f7",
+              "type": "mcp_list_tools",
+              "server_label": "weather",
+              "tools": [
+                {
+                  "annotations": {
+                    "read_only": false
+                  },
+                  "description": "Get information about Cloudflare's MCP Demo Day. Use this tool if the user asks about Cloudflare's MCP demo day",
+                  "input_schema": {
+                    "type": "object",
+                    "properties": {}
+                  },
+                  "name": "mcp_demo_day_info"
+                }
+              ]
+            },
+            {
+              "id": "rs_0c6ed4b8ea47a17200691e2ff9ec648194b438f387e293eaa3",
+              "type": "reasoning",
+              "summary": []
+            },
+            {
+              "id": "msg_0c6ed4b8ea47a17200691e30044d208194ba722ed82bf17365",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Sure\u2014what location do you want the current weather for? Please share a city and country (or ZIP/postcode), and your preferred units (Celsius or Fahrenheit)."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": null,
+          "reasoning": {
+            "effort": "medium",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "mcp",
+              "allowed_tools": null,
+              "headers": null,
+              "require_approval": "always",
+              "server_description": null,
+              "server_label": "weather",
+              "server_url": "https://demo-day.mcp.cloudflare.com/sse"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 142,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 552,
+            "output_tokens_details": {
+              "reasoning_tokens": 512
+            },
+            "total_tokens": 694
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 19 Nov 2025 21:00:53 GMT
+recorded_with: VCR 6.3.1

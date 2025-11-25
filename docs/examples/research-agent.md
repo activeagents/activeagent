@@ -43,7 +43,7 @@ class ResearchAgent < ApplicationAgent
   # Configure research tools at the class level
   configure_research_tools(
     enable_web_search: true,
-    mcp_servers: ["arxiv", "github"],
+    mcps: ["arxiv", "github"],
     default_search_context: "high"
   )
 
@@ -253,7 +253,7 @@ Configure default research settings:
 class ResearchAgent < ApplicationAgent
   configure_research_tools(
     enable_web_search: true,
-    mcp_servers: ["arxiv", "github", "pubmed"],
+    mcps: ["arxiv", "github", "pubmed"],
     default_search_context: "high",
     enable_visualizations: true
   )
@@ -399,7 +399,7 @@ class ResearchAgent < ApplicationAgent
 
   configure_research_tools(
     enable_web_search: true,
-    mcp_servers: ["arxiv"]
+    mcps: ["arxiv"]
   )
 end
 
@@ -408,7 +408,7 @@ class AcademicAgent < ApplicationAgent
 
   configure_research_tools(
     enable_web_search: false,
-    mcp_servers: ["arxiv", "pubmed"]
+    mcps: ["arxiv", "pubmed"]
   )
 end
 ```

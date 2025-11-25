@@ -24,8 +24,8 @@ module ActiveAgent
             # Normalizes all request parameters for OpenAI Chat API
             #
             # Handles instructions mapping to developer messages, message normalization,
-            # and response_format conversion. This is the main entry point for parameter
-            # transformation.
+            # tools normalization, and response_format conversion. This is the main entry point
+            # for parameter transformation.
             #
             # @param params [Hash]
             # @return [Hash] normalized parameters
@@ -40,6 +40,12 @@ module ActiveAgent
 
               # Normalize messages for gem compatibility
               params[:messages] = normalize_messages(params[:messages]) if params[:messages]
+
+              # Normalize tools from common format to Chat API format
+              params[:tools] = normalize_tools(params[:tools]) if params[:tools]
+
+              # Normalize tool_choice from common format
+              params[:tool_choice] = normalize_tool_choice(params[:tool_choice]) if params[:tool_choice]
 
               # Normalize response_format if present
               params[:response_format] = normalize_response_format(params[:response_format]) if params[:response_format]
@@ -68,7 +74,8 @@ module ActiveAgent
                 messages.each do |msg|
                   normalized = normalize_message(msg)
 
-                  if grouped.empty? || grouped.last.role != normalized.role
+                  # Don't merge tool messages - each needs its own tool_call_id
+                  if grouped.empty? || grouped.last.role != normalized.role || normalized.role.to_s == "tool"
                     grouped << normalized
                   else
                     # Merge consecutive same-role messages
@@ -304,6 +311,79 @@ module ActiveAgent
                 { type: format.to_s }
               else
                 format
+              end
+            end
+
+            # Normalizes tools from common format to OpenAI Chat API format.
+            #
+            # Accepts tools in multiple formats:
+            # - Common format: `{name: "...", description: "...", parameters: {...}}`
+            # - Common format alt: `{name: "...", description: "...", input_schema: {...}}`
+            # - Nested format: `{type: "function", function: {name: "...", parameters: {...}}}`
+            #
+            # Always outputs nested Chat API format: `{type: "function", function: {...}}`
+            #
+            # @param tools [Array<Hash>]
+            # @return [Array<Hash>]
+            def normalize_tools(tools)
+              return tools unless tools.is_a?(Array)
+
+              tools.map do |tool|
+                tool_hash = tool.is_a?(Hash) ? tool.deep_symbolize_keys : tool
+
+                # Already in nested format - return as is
+                if tool_hash[:type] == "function" && tool_hash[:function]
+                  tool_hash
+                # Common format - convert to nested format
+                elsif tool_hash[:name]
+                  {
+                    type: "function",
+                    function: {
+                      name: tool_hash[:name],
+                      description: tool_hash[:description],
+                      parameters: tool_hash[:parameters] || tool_hash[:input_schema]
+                    }.compact
+                  }
+                else
+                  tool_hash
+                end
+              end
+            end
+
+            # Normalizes tool_choice from common format to OpenAI Chat API format.
+            #
+            # Accepts:
+            # - "auto" (common) → "auto" (passthrough)
+            # - "required" (common) → "required" (passthrough)
+            # - `{name: "..."}` (common) → `{type: "function", function: {name: "..."}}`
+            # - Already nested format → passthrough
+            #
+            # @param tool_choice [String, Hash, Symbol]
+            # @return [String, Hash, Symbol]
+            def normalize_tool_choice(tool_choice)
+              case tool_choice
+              when "auto", :auto, "required", :required
+                # Passthrough - Chat API accepts these directly
+                tool_choice.to_s
+              when Hash
+                tool_choice_hash = tool_choice.deep_symbolize_keys
+
+                # Already in nested format with type and function keys
+                if tool_choice_hash[:type] == "function" && tool_choice_hash[:function]
+                  tool_choice_hash
+                # Common format with just name - convert to nested format
+                elsif tool_choice_hash[:name]
+                  {
+                    type: "function",
+                    function: {
+                      name: tool_choice_hash[:name]
+                    }
+                  }
+                else
+                  tool_choice_hash
+                end
+              else
+                tool_choice
               end
             end
 

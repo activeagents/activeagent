@@ -67,11 +67,13 @@ module ActiveAgent
         # @option params [Array<Hash>] :messages required
         # @option params [Integer] :max_tokens (4096)
         # @option params [Hash] :response_format custom field for JSON mode simulation
+        # @option params [String] :anthropic_beta beta version for features like MCP
         # @raise [ArgumentError] when gem model validation fails
         def initialize(**params)
           # Step 1: Extract custom fields that gem doesn't support
           @response_format = params.delete(:response_format)
           @stream = params.delete(:stream)
+          anthropic_beta = params.delete(:anthropic_beta)
 
           # Step 2: Map common format 'instructions' to Anthropic's 'system'
           if params.key?(:instructions)
@@ -84,10 +86,24 @@ module ActiveAgent
           # Step 4: Transform params for gem compatibility
           transformed = Transforms.normalize_params(params)
 
-          # Step 5: Create gem model - this validates all parameters!
-          gem_model = ::Anthropic::Models::MessageCreateParams.new(**transformed)
+          # Step 5: Determine if we need beta params (for MCP or other beta features)
+          use_beta = anthropic_beta.present? || transformed[:mcp_servers]&.any?
 
-          # Step 6: Delegate all method calls to gem model
+          # Step 6: Add betas parameter if using beta API
+          if use_beta
+            # Default to MCP beta version if not specified
+            beta_version = anthropic_beta || "mcp-client-2025-04-04"
+            transformed[:betas] = [ beta_version ]
+          end
+
+          # Step 7: Create gem model - use Beta version if needed
+          gem_model = if use_beta
+            ::Anthropic::Models::Beta::MessageCreateParams.new(**transformed)
+          else
+            ::Anthropic::Models::MessageCreateParams.new(**transformed)
+          end
+
+          # Step 8: Delegate all method calls to gem model
           super(gem_model)
         rescue ArgumentError => e
           # Re-raise with more context
@@ -132,6 +148,15 @@ module ActiveAgent
         # @param value [String, Array]
         def instructions=(value)
           self.system = value
+        end
+
+        # Accessor for MCP servers.
+        #
+        # Safely returns MCP servers array, defaulting to empty array if not set.
+        #
+        # @return [Array]
+        def mcp_servers
+          __getobj__.instance_variable_get(:@data)[:mcp_servers] || []
         end
 
         # Removes the last message from the messages array.

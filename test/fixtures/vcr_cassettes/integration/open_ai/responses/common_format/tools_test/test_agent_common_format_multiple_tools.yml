@@ -1,0 +1,449 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4.1","input":"What''s the weather in NYC and what''s
+        5 plus 3?","tools":[{"type":"function","name":"get_weather","description":"Get
+        the current weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}},{"type":"function","name":"calculate","description":"Perform
+        basic arithmetic","parameters":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]}}],"tool_choice":"auto"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '566'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 06:11:10 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999696'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_6918799381d74405b9a62accc69378c0
+      Openai-Processing-Ms:
+      - '1228'
+      X-Envoy-Upstream-Service-Time:
+      - '1232'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=Mnm6UBy1Ew.ZHVCsaJiQLrAQE3OEq5uL42PupnzidB4-1763532670-1.0.1.1-yIcJJBC9OH746vItV.a1guk5oC31jlVRwVuogkaoMUauvg_KWaOk9AxEcxfXxfedwxbrIIFZdNS3cLUSTMu7hIFP6wQRMfpaGr6.gggw15g;
+        path=/; expires=Wed, 19-Nov-25 06:41:10 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=hG.QaWB4Jd06L3DQqmxyF4YG11P88FguXAu94vxWxIw-1763532670210-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a0d8c6cf97eeb22-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_04e95d07f1de59b200691d5f7cff84819a869de18fad9a448a",
+          "object": "response",
+          "created_at": 1763532669,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "fc_04e95d07f1de59b200691d5f7dd024819a8d138035f4846a34",
+              "type": "function_call",
+              "status": "completed",
+              "arguments": "{\"location\":\"NYC\"}",
+              "call_id": "call_Zi12SRBwXTIyjZaBdmxfZvLt",
+              "name": "get_weather"
+            },
+            {
+              "id": "fc_04e95d07f1de59b200691d5f7dfba4819a996acd9bbf98e8b5",
+              "type": "function_call",
+              "status": "completed",
+              "arguments": "{\"operation\":\"add\",\"a\":5,\"b\":3}",
+              "call_id": "call_0vSIbaSaYkamroz4tIupYYe0",
+              "name": "calculate"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "function",
+              "description": "Get the current weather",
+              "name": "get_weather",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "location"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            },
+            {
+              "type": "function",
+              "description": "Perform basic arithmetic",
+              "name": "calculate",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "add",
+                      "subtract",
+                      "multiply",
+                      "divide"
+                    ]
+                  },
+                  "a": {
+                    "type": "number"
+                  },
+                  "b": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "a",
+                  "b"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 43,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 52,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 95
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 19 Nov 2025 06:11:10 GMT
+- request:
+    method: post
+    uri: https://api.openai.com/v1/responses
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4.1","input":[{"role":"user","content":"What''s the weather
+        in NYC and what''s 5 plus 3?"},{"arguments":"{\"location\":\"NYC\"}","call_id":"call_Zi12SRBwXTIyjZaBdmxfZvLt","name":"get_weather","type":"function_call","id":"fc_04e95d07f1de59b200691d5f7dd024819a8d138035f4846a34","status":"completed"},{"arguments":"{\"operation\":\"add\",\"a\":5,\"b\":3}","call_id":"call_0vSIbaSaYkamroz4tIupYYe0","name":"calculate","type":"function_call","id":"fc_04e95d07f1de59b200691d5f7dfba4819a996acd9bbf98e8b5","status":"completed"},{"call_id":"call_Zi12SRBwXTIyjZaBdmxfZvLt","output":"{\"location\":\"NYC\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","type":"function_call_output"},{"call_id":"call_0vSIbaSaYkamroz4tIupYYe0","output":"{\"operation\":\"add\",\"a\":5,\"b\":3,\"result\":8}","type":"function_call_output"}],"tools":[{"type":"function","name":"get_weather","description":"Get
+        the current weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}},{"type":"function","name":"calculate","description":"Perform
+        basic arithmetic","parameters":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]}}],"tool_choice":"auto"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - OpenAI::Client/Ruby 0.35.1
+      Host:
+      - api.openai.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.35.1
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      Authorization:
+      - Bearer ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '1320'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 06:11:11 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Ratelimit-Limit-Requests:
+      - '10000'
+      X-Ratelimit-Limit-Tokens:
+      - '30000000'
+      X-Ratelimit-Remaining-Requests:
+      - '9999'
+      X-Ratelimit-Remaining-Tokens:
+      - '29999616'
+      X-Ratelimit-Reset-Requests:
+      - 6ms
+      X-Ratelimit-Reset-Tokens:
+      - 0s
+      Openai-Version:
+      - '2020-10-01'
+      Openai-Organization:
+      - ORGANIZATION_ID
+      Openai-Project:
+      - PROJECT_ID
+      X-Request-Id:
+      - req_4bbd5f42683a46dbbb9fa068156c45e6
+      Openai-Processing-Ms:
+      - '955'
+      X-Envoy-Upstream-Service-Time:
+      - '957'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Set-Cookie:
+      - __cf_bm=NGa0hm5RXfB_5LMKYtTFpI9_GfXn60SBMH6Kki9ol3o-1763532671-1.0.1.1-NkjOxHaqZceIE.bG_7kVJ2xvCS7x7c3voCWY1gwUWLgdkwFjwAsJLQ1lmaeLoN7lAR22JXCQR6SuekF.KWVh4vITD5_jXWrvrqFHMZj7H.8;
+        path=/; expires=Wed, 19-Nov-25 06:41:11 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=djqhwD6mZ7kgb9Ey7SMGATG74aowOLANeEIKcX.Luu0-1763532671334-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a0d8c751e066896-SJC
+      Alt-Svc:
+      - h3=":443"; ma=86400
+    body:
+      encoding: ASCII-8BIT
+      string: |-
+        {
+          "id": "resp_04e95d07f1de59b200691d5f7e5bc4819abd93a0c80931ff2b",
+          "object": "response",
+          "created_at": 1763532670,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "error": null,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-4.1-2025-04-14",
+          "output": [
+            {
+              "id": "msg_04e95d07f1de59b200691d5f7eb608819aa23cefc267f6fb32",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "The weather in NYC is currently 72\u00b0F and sunny. Also, 5 plus 3 equals 8."
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": null,
+          "reasoning": {
+            "effort": null,
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": true,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "type": "function",
+              "description": "Get the current weather",
+              "name": "get_weather",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "location"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            },
+            {
+              "type": "function",
+              "description": "Perform basic arithmetic",
+              "name": "calculate",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "add",
+                      "subtract",
+                      "multiply",
+                      "divide"
+                    ]
+                  },
+                  "a": {
+                    "type": "number"
+                  },
+                  "b": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "a",
+                  "b"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 1.0,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 167,
+            "input_tokens_details": {
+              "cached_tokens": 0
+            },
+            "output_tokens": 25,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 192
+          },
+          "user": null,
+          "metadata": {}
+        }
+  recorded_at: Wed, 19 Nov 2025 06:11:11 GMT
+recorded_with: VCR 6.3.1

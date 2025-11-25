@@ -51,12 +51,6 @@ module ActiveAgent
                 when "assistant"
                   # Filter to only known attributes for Assistant
                   filtered_hash = hash.slice(:role, :content, :name)
-
-                  # Compress content array to string if needed (Anthropic format)
-                  if filtered_hash[:content].is_a?(Array)
-                    filtered_hash[:content] = compress_content_array(filtered_hash[:content])
-                  end
-
                   Common::Messages::Assistant.new(**filtered_hash)
                 when "tool"
                   # Filter to only known attributes for Tool
@@ -94,29 +88,6 @@ module ActiveAgent
                   raise ArgumentError, "Cannot serialize #{value.class}"
               end
             end
-
-            # Compresses Anthropic-style content array into a string.
-            #
-            # Anthropic messages can have content as an array of blocks like:
-            # [{type: "text", text: "..."}, {type: "tool_use", ...}]
-            # This extracts and joins text blocks into a single string.
-            #
-            # @param content_array [Array<Hash>]
-            # @return [String]
-            def compress_content_array(content_array)
-              content_array.map do |block|
-                case block[:type]&.to_s
-                when "text"
-                  block[:text]
-                when "tool_use"
-                  # Tool use blocks don't have readable text content
-                  nil
-                else
-                  # Unknown block type, try to extract text if present
-                  block[:text]
-                end
-              end.compact.join("\n")
-            end
           end
 
           # Type for Messages array
@@ -124,7 +95,9 @@ module ActiveAgent
             def cast(value)
               case value
               when Array
-                value.map { |v| message_type.cast(v) }.compact
+                messages = value.map { |v| message_type.cast(v) }.compact
+                # Split messages with array content into separate messages
+                messages.flat_map { |msg| split_content_blocks(msg) }
               when nil
                 []
               else
@@ -151,6 +124,40 @@ module ActiveAgent
 
             def message_type
               @message_type ||= MessageType.new
+            end
+
+            # Splits an assistant message with array content into separate messages
+            # for each content block.
+            #
+            # @param message [Common::Messages::Base]
+            # @return [Array<Common::Messages::Base>]
+            def split_content_blocks(message)
+              # Only split assistant messages with array content
+              return [ message ] unless message.is_a?(Common::Messages::Assistant) && message.content.is_a?(Array)
+
+              message.content.map do |block|
+                case block[:type]&.to_s
+                when "text"
+                  # Create a message for text blocks
+                  Common::Messages::Assistant.new(role: "assistant", content: block[:text], name: message.name)
+                when "tool_use"
+                  # Create a message with tool use info as string representation
+                  tool_info = "[Tool Use: #{block[:name]}]\nID: #{block[:id]}\nInput: #{JSON.pretty_generate(block[:input])}"
+                  Common::Messages::Assistant.new(role: "assistant", content: tool_info, name: message.name)
+                when "mcp_tool_use"
+                  # Create a message with MCP tool use info
+                  tool_info = "[MCP Tool Use: #{block[:name]}]\nID: #{block[:id]}\nServer: #{block[:server_name]}\nInput: #{JSON.pretty_generate(block[:input] || {})}"
+                  Common::Messages::Assistant.new(role: "assistant", content: tool_info, name: message.name)
+                when "mcp_tool_result"
+                  # Create a message with MCP tool result
+                  result_info = "[MCP Tool Result]\n#{block[:content]}"
+                  Common::Messages::Assistant.new(role: "assistant", content: result_info, name: message.name)
+                else
+                  # For unknown block types, try to extract text
+                  content = block[:text] || block.to_s
+                  Common::Messages::Assistant.new(role: "assistant", content:, name: message.name)
+                end
+              end.compact
             end
           end
         end

@@ -101,11 +101,12 @@ VCR.configure do |config|
   config.cassette_library_dir = "test/fixtures/vcr_cassettes"
   config.hook_into :webmock
 
-  config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["OPEN_AI_ACCESS_TOKEN"] }
-  config.filter_sensitive_data("ORGANIZATION_ID") { ENV["OPEN_AI_ORGANIZATION_ID"] }
-  config.filter_sensitive_data("PROJECT_ID")      { ENV["OPEN_AI_PROJECT_ID"] }
-  config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["OPEN_ROUTER_ACCESS_TOKEN"] }
-  config.filter_sensitive_data("ACCESS_TOKEN")    { ENV["ANTHROPIC_ACCESS_TOKEN"] }
+  config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["OPEN_AI_ACCESS_TOKEN"] }
+  config.filter_sensitive_data("ORGANIZATION_ID")  { ENV["OPEN_AI_ORGANIZATION_ID"] }
+  config.filter_sensitive_data("PROJECT_ID")       { ENV["OPEN_AI_PROJECT_ID"] }
+  config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["OPEN_ROUTER_ACCESS_TOKEN"] }
+  config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["ANTHROPIC_ACCESS_TOKEN"] }
+  config.filter_sensitive_data("GITHUB_MCP_TOKEN") { ENV["GITHUB_MCP_TOKEN"] }
 end
 
 # Load fixtures from the engine

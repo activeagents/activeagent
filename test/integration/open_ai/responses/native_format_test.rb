@@ -183,6 +183,30 @@ module Integration
             { location:, unit:, temperature: "22" }
           end
 
+          MCP_SERVER = {
+            model: "gpt-4.1",
+            input: "What tools do you have available?",
+            tools: [
+              {
+                type: "mcp",
+                server_label: "cloudflare-demo",
+                server_url: "https://demo-day.mcp.cloudflare.com/sse"
+              }
+            ]
+          }
+          def mcp_server
+            prompt(
+              input: "What tools do you have available?",
+              tools: [
+                {
+                  type: "mcp",
+                  server_label: "cloudflare-demo",
+                  server_url: "https://demo-day.mcp.cloudflare.com/sse"
+                }
+              ]
+            )
+          end
+
           REASONING = {
             model: "o3-mini",
             input: "How much wood would a woodchuck chuck?",
@@ -243,6 +267,7 @@ module Integration
           # :file_search,
           :streaming,
           :functions,
+          :mcp_server,
           :reasoning,
           :functions_with_streaming
         ].each do |action_name|

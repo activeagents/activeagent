@@ -28,15 +28,13 @@ module ActiveAgent
         end
 
         def serialize
-          super.except(:anthropic_beta).tap do |hash|
-            hash[:extra_headers] = extra_headers unless extra_headers.blank?
-          end
+          super.except(:anthropic_beta)
         end
 
+        # Anthropic gem handles beta headers differently via client.beta
+        # rather than via extra_headers in request_options
         def extra_headers
-          deep_compact(
-            "anthropic-beta" => anthropic_beta.presence,
-          )
+          {}
         end
 
         private

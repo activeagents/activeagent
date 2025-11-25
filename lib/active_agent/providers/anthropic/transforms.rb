@@ -28,7 +28,135 @@ module ActiveAgent
             params = params.dup
             params[:messages] = normalize_messages(params[:messages]) if params[:messages]
             params[:system] = normalize_system(params[:system]) if params[:system]
+            params[:tools] = normalize_tools(params[:tools]) if params[:tools]
+            params[:tool_choice] = normalize_tool_choice(params[:tool_choice]) if params[:tool_choice]
+
+            # Handle mcps parameter (common format) -> transforms to mcp_servers (provider format)
+            if params[:mcps]
+              params[:mcp_servers] = normalize_mcp_servers(params.delete(:mcps))
+            elsif params[:mcp_servers]
+              params[:mcp_servers] = normalize_mcp_servers(params[:mcp_servers])
+            end
+
             params
+          end
+
+          # Normalizes tools from common format to Anthropic format.
+          #
+          # Accepts both `parameters` and `input_schema` keys, converting to Anthropic's `input_schema`.
+          #
+          # @param tools [Array<Hash>]
+          # @return [Array<Hash>]
+          def normalize_tools(tools)
+            return tools unless tools.is_a?(Array)
+
+            tools.map do |tool|
+              tool_hash = tool.is_a?(Hash) ? tool.deep_symbolize_keys : tool
+
+              # If already in Anthropic format (has input_schema), return as-is
+              next tool_hash if tool_hash[:input_schema]
+
+              # Convert common format with 'parameters' to Anthropic format with 'input_schema'
+              if tool_hash[:parameters]
+                tool_hash = tool_hash.dup
+                tool_hash[:input_schema] = tool_hash.delete(:parameters)
+              end
+
+              tool_hash
+            end
+          end
+
+          # Normalizes MCP servers from common format to Anthropic format.
+          #
+          # Common format:
+          #   {name: "stripe", url: "https://...", authorization: "token"}
+          # Anthropic format:
+          #   {type: "url", name: "stripe", url: "https://...", authorization_token: "token"}
+          #
+          # @param mcp_servers [Array<Hash>]
+          # @return [Array<Hash>]
+          def normalize_mcp_servers(mcp_servers)
+            return mcp_servers unless mcp_servers.is_a?(Array)
+
+            mcp_servers.map do |server|
+              server_hash = server.is_a?(Hash) ? server.deep_symbolize_keys : server
+
+              # If already in Anthropic native format (has type: "url"), return as-is
+              # Check for absence of common format 'authorization' field OR presence of native 'authorization_token'
+              if server_hash[:type] == "url" && (server_hash[:authorization_token] || !server_hash[:authorization])
+                next server_hash
+              end
+
+              # Convert common format to Anthropic format
+              result = {
+                type: "url",
+                name: server_hash[:name],
+                url: server_hash[:url]
+              }
+
+              # Map 'authorization' to 'authorization_token'
+              if server_hash[:authorization]
+                result[:authorization_token] = server_hash[:authorization]
+              elsif server_hash[:authorization_token]
+                result[:authorization_token] = server_hash[:authorization_token]
+              end
+
+              result.compact
+            end
+          end
+
+          # Normalizes tool_choice from common format to Anthropic gem model objects.
+          #
+          # The Anthropic gem expects tool_choice to be a model object (ToolChoiceAuto,
+          # ToolChoiceAny, ToolChoiceTool, etc.), not a plain hash.
+          #
+          # Maps:
+          # - "required" → ToolChoiceAny (force tool use)
+          # - "auto" → ToolChoiceAuto (let model decide)
+          # - { name: "..." } → ToolChoiceTool with name
+          #
+          # @param tool_choice [String, Hash, Object]
+          # @return [Object] Anthropic gem model object
+          def normalize_tool_choice(tool_choice)
+            # If already a gem model object, return as-is
+            return tool_choice if tool_choice.is_a?(::Anthropic::Models::ToolChoiceAuto) ||
+                                   tool_choice.is_a?(::Anthropic::Models::ToolChoiceAny) ||
+                                   tool_choice.is_a?(::Anthropic::Models::ToolChoiceTool) ||
+                                   tool_choice.is_a?(::Anthropic::Models::ToolChoiceNone)
+
+            case tool_choice
+            when "required"
+              # Create ToolChoiceAny model for forcing tool use
+              ::Anthropic::Models::ToolChoiceAny.new(type: :any)
+            when "auto"
+              # Create ToolChoiceAuto model for letting model decide
+              ::Anthropic::Models::ToolChoiceAuto.new(type: :auto)
+            when Hash
+              choice_hash = tool_choice.deep_symbolize_keys
+
+              # If has type field, create appropriate model
+              if choice_hash[:type]
+                case choice_hash[:type].to_sym
+                when :any
+                  ::Anthropic::Models::ToolChoiceAny.new(**choice_hash)
+                when :auto
+                  ::Anthropic::Models::ToolChoiceAuto.new(**choice_hash)
+                when :tool
+                  ::Anthropic::Models::ToolChoiceTool.new(**choice_hash)
+                when :none
+                  ::Anthropic::Models::ToolChoiceNone.new(**choice_hash)
+                else
+                  choice_hash
+                end
+              # Convert { name: "..." } to ToolChoiceTool
+              elsif choice_hash[:name]
+                ::Anthropic::Models::ToolChoiceTool.new(type: :tool, name: choice_hash[:name])
+              else
+                choice_hash
+              end
+            else
+              tool_choice
+            end
           end
 
           # Merges consecutive same-role messages into single messages with multiple content blocks.
@@ -317,9 +445,10 @@ module ActiveAgent
             # Apply content compression for API efficiency
             compress_content(hash)
 
-            # Remove provider-internal fields that should not be in API request
-            hash.delete(:mcp_servers)   # Provider-level config, not API param
+            # Remove provider-internal fields and empty arrays
             hash.delete(:stop_sequences) if hash[:stop_sequences] == []
+            hash.delete(:mcp_servers) if hash[:mcp_servers] == []
+            hash.delete(:tool_choice) if hash[:tool_choice].nil?  # Don't send null tool_choice
 
             # Remove default values (except max_tokens which is required by API)
             defaults.each do |key, value|

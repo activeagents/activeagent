@@ -1,0 +1,131 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages?beta=true
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What
+        tools do you have available?","role":"user"}],"mcp_servers":[{"name":"cloudflare-demo","type":"url","url":"https://demo-day.mcp.cloudflare.com/sse"},{"name":"github-copilot","type":"url","url":"https://api.githubcopilot.com/mcp/","authorization_token":"GITHUB_MCP_TOKEN"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Anthropic::Client/Ruby 1.14.0
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.14.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      Anthropic-Beta:
+      - mcp-client-2025-04-04
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '425'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 19 Nov 2025 20:59:30 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '4000000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '3996000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2025-11-19T20:59:25Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '800000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '800000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2025-11-19T20:59:30Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '4000'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '3999'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2025-11-19T20:59:24Z'
+      Retry-After:
+      - '38'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '4800000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '4796000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2025-11-19T20:59:25Z'
+      Request-Id:
+      - req_011CVHvJqg53XwN85wMmrdJK
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      X-Envoy-Upstream-Service-Time:
+      - '7193'
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Server:
+      - cloudflare
+      Cf-Ray:
+      - 9a12a18bed4aeb34-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01HTby5BZ3WW8X6gZ2nsacx8","type":"message","role":"assistant","content":[{"type":"text","text":"I
+        have access to a comprehensive set of tools for working with GitHub and getting
+        information about Cloudflare events. Here''s what I can do:\n\n## GitHub Repository
+        Management\n- **Create & Fork Repositories** - Create new repos or fork existing
+        ones\n- **Manage Branches** - Create and list branches\n- **File Operations**
+        - Create, update, delete, and view files in repositories\n- **Commit Operations**
+        - View commit details and push multiple files\n\n## GitHub Issues\n- **Create
+        & Update Issues** - Create new issues or update existing ones\n- **Read Issues**
+        - Get issue details, comments, labels, and sub-issues\n- **Search Issues**
+        - Find issues across repositories\n- **Add Comments** - Comment on issues\n\n##
+        GitHub Pull Requests\n- **Create & Manage PRs** - Create pull requests, update
+        titles/descriptions, change state\n- **PR Reviews** - Create, submit, and
+        delete reviews; add review comments\n- **PR Details** - Get PR info, diffs,
+        status, file changes, comments, and reviews\n- **Search PRs** - Find pull
+        requests across repositories\n- **Merge PRs** - Merge pull requests with different
+        merge methods\n- **Update Branches** - Sync PR branches with base branch\n\n##
+        GitHub Releases & Tags\n- **List & Get Releases** - View release information
+        and get specific releases by tag\n- **List & Get Tags** - View git tags in
+        repositories\n\n## GitHub Search & Discovery\n- **Search Code** - Fast code
+        search across all repositories\n- **Search Users** - Find GitHub users by
+        username or profile info\n- **Search Repositories** - Discover repositories
+        by name, description, topics, etc.\n\n## GitHub User & Team Information\n-
+        **Get User Info** - Retrieve authenticated user details\n- **Get Teams** -
+        View teams and team members\n\n## Other Tools\n- **Cloudflare MCP Demo Day
+        Info** - Get information about Cloudflare''s MCP demo day event\n\nAll of
+        these tools work with the GitHub API and allow me to help you manage repositories,
+        collaborate on code, search for information, and handle various development
+        workflows."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":9642,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":465,"service_tier":"standard"}}'
+  recorded_at: Wed, 19 Nov 2025 20:59:30 GMT
+recorded_with: VCR 6.3.1

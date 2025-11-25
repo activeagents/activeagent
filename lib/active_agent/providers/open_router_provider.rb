@@ -33,6 +33,20 @@ module ActiveAgent
 
       protected
 
+      # @see BaseProvider#prepare_prompt_request
+      # @return [Request]
+      def prepare_prompt_request
+        prepare_prompt_request_tools
+        super
+      end
+
+      # Returns true if tool_choice == "any" (OpenRouter's equivalent of "required").
+      #
+      # @return [Boolean]
+      def tool_choice_forces_required?
+        request.tool_choice == "any"
+      end
+
       # Merges streaming delta into the message with role cleanup.
       #
       # Overrides parent to handle OpenRouter's role copying behavior which duplicates
