@@ -11,7 +11,38 @@ end
 
 require "jbuilder"
 require_relative "../test/dummy/config/environment"
-ActiveRecord::Migrator.migrations_paths = [ File.expand_path("../test/dummy/db/migrate", __dir__) ]
+
+# Make sure BOTH dummy and engine migrations are available to the test DB
+ActiveRecord::Migrator.migrations_paths = [
+  File.expand_path("../test/dummy/db/migrate", __dir__),
+  File.expand_path("../db/migrate", __dir__)
+]
+
+# Proactively migrate both dummy and engine paths (works across AR versions)
+begin
+  require "active_record"
+  ActiveRecord::Schema.verbose = false
+  ActiveRecord::Base.establish_connection unless ActiveRecord::Base.connected?
+
+  paths = ActiveRecord::Migrator.migrations_paths
+
+  migration_context =
+    begin
+      # AR >= ~6 supports single-arg constructor
+      ActiveRecord::MigrationContext.new(paths)
+    rescue ArgumentError
+      # Older AR expects (paths, schema_migration)
+      ActiveRecord::MigrationContext.new(paths, ActiveRecord::SchemaMigration)
+    end
+
+  migration_context.migrate
+rescue ActiveRecord::NoDatabaseError
+  # If DB isn't created yet, ignore; the dummy app tasks will handle creation.
+end
+
+# Rails still checks consistency after we migrate
+ActiveRecord::Migration.maintain_test_schema!
+
 require "rails/test_help"
 require "vcr"
 require "webmock/minitest"
@@ -50,6 +81,20 @@ end
   Admin::UserAgentTest
 ].each { |const| remove_constant(const) }
 
+# -------------------------------------------------------------------
+# A tiny AR model just for tests, to avoid clashing with any non-AR ApplicationAgent
+# Uses the dummy's application_agents table.
+class PromptTestAgent < ActiveRecord::Base
+  self.table_name = "application_agents"
+
+  begin
+    require "active_agent/has_context"
+    include ActiveAgent::HasContext
+    has_context prompts: :prompts, messages: :messages, tools: :actions
+  rescue LoadError, NameError
+    # If HasContext isn't present in this branch, tests that rely on it should be skipped or guarded.
+  end
+end
 # -------------------------------------------------------------------
 
 # Extract full path and relative path from caller_info
