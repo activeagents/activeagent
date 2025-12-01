@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -46,7 +46,7 @@ jobs:
         - ruby: "3.2"
           gemfile: "gemfiles/rails7.gemfile"
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Install system deps
       run: |
         sudo apt-get update
@@ -92,7 +92,7 @@ jobs:
           - "gemfiles/openai_0.34.gemfile"
           - "gemfiles/openai_0.35.gemfile"
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Install system deps
       run: |
         sudo apt-get update

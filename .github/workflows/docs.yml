@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -85,7 +85,7 @@ jobs:
         version: ["0.6.3", "0.6.2", "0.6.1"]
     steps:
       - name: Checkout version ${{ matrix.version }}
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: v${{ matrix.version }}
           fetch-depth: 0
