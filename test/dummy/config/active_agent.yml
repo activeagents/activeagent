@@ -22,7 +22,7 @@ open_router: &open_router
 # region ollama_anchor
 ollama: &ollama
   service: "Ollama"
-  model: "gemma3:latest"
+  model: "gpt-oss:20b"
 # endregion ollama_anchor
 # region mock_anchor
 mock: &mock

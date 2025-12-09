@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2025-11-21
+
+Major refactor with breaking changes. Complete provider rewrite. New modular architecture.
+
+**Requirements:** Ruby 3.1+, Rails 7.0+/8.0+/8.1+
+## What's Changed
+* Major Framework Refactor: ActiveAgent v1.0.0 by @sirwolfgang in https://github.com/activeagents/activeagent/pull/259
+* Add API gem version testing and fix Anthropic 1.14.0 compatibility by @sirwolfgang in https://github.com/activeagents/activeagent/pull/265
+* Fix version compatiblity issue for vitepress by @sirwolfgang in https://github.com/activeagents/activeagent/pull/266
+* Add missing API Keys by @sirwolfgang in https://github.com/activeagents/activeagent/pull/267
+* Fix website links by @sirwolfgang in https://github.com/activeagents/activeagent/pull/268
+* chore: remove `standard` from dev dependencies by @okuramasafumi in https://github.com/activeagents/activeagent/pull/272
+* Add thread safety tests by @sirwolfgang in https://github.com/activeagents/activeagent/pull/275
+* Refactor: Leverage Native Gem Types Across All Providers by @sirwolfgang in https://github.com/activeagents/activeagent/pull/271
+* Improved Usage Tracking by @sirwolfgang in https://github.com/activeagents/activeagent/pull/274
+
+## New Contributors
+* @okuramasafumi made their first contribution in https://github.com/activeagents/activeagent/pull/272
+
+**Full Changelog**: https://github.com/activeagents/activeagent/compare/v0.6.3...v1.0.0
 
 ### Added
 
@@ -62,12 +81,6 @@ end
 ### Changed
 
 - Shared `ToolChoiceClearing` concern eliminates duplication across providers
-
-## [1.0.0] - 2025-11-21
-
-Major refactor with breaking changes. Complete provider rewrite. New modular architecture.
-
-**Requirements:** Ruby 3.1+, Rails 7.0+/8.0+/8.1+
 
 ### Breaking Changes
 
