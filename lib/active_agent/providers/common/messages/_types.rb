@@ -37,7 +37,7 @@ module ActiveAgent
                 role = hash[:role]&.to_s
 
                 case role
-                when "system"
+                when "system", "developer"
                   nil # System messages are dropped in common format, replaced by Instructions
                 when "user", nil
                   # Handle both standard format and format with `text` key

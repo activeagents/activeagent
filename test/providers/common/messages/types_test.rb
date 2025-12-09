@@ -31,6 +31,12 @@ module ActiveAgent
             assert_nil result
           end
 
+          test "MessageType drops developer messages" do
+            message_type = create_message_type
+            result = message_type.cast({ role: "developer", content: "Developer prompt" })
+            assert_nil result
+          end
+
           test "MessagesType casts array of Hash messages to Message objects" do
             messages_type = create_messages_type
             messages = [
