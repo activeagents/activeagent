@@ -34,7 +34,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ruby-3.3.0
+          ruby-version: "3.4"
           bundler-cache: true
 
       - name: Install dependencies
@@ -51,12 +51,21 @@ jobs:
             "current": "$CURRENT_VERSION",
             "versions": [
               { "version": "$CURRENT_VERSION", "label": "$CURRENT_VERSION (Latest)", "path": "/" },
-              { "version": "0.6.3", "label": "0.6.3", "path": "/v0.6.3/" },
-              { "version": "0.6.2", "label": "0.6.2", "path": "/v0.6.2/" },
-              { "version": "0.6.1", "label": "0.6.1", "path": "/v0.6.1/" }
+              { "version": "1.0.0", "label": "1.0.0", "path": "/v1.0.0/" },
+              { "version": "0.6.3", "label": "0.6.3", "path": "/v0.6.3/" }
             ]
           }
           EOF
+
+      - name: Setup database
+        env:
+          RAILS_ENV: test
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        run: |
+          cd test/dummy
+          bundle exec rails db:create
+          bundle exec rails db:migrate
+          cd ../..
 
       - name: Generate doc examples from tests
         env:
@@ -82,7 +91,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ["0.6.3", "0.6.2", "0.6.1"]
+        include:
+          - version: "1.0.0"
+            ruby: "3.4"
+          - version: "0.6.3"
+            ruby: "3.3"
     steps:
       - name: Checkout version ${{ matrix.version }}
         uses: actions/checkout@v6
@@ -99,7 +112,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ruby-3.3.0
+          ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
 
       - name: Install dependencies
@@ -107,6 +120,16 @@ jobs:
 
       - name: Install Ruby dependencies
         run: bundle install
+
+      - name: Setup database
+        env:
+          RAILS_ENV: test
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        run: |
+          cd test/dummy
+          bundle exec rails db:create || true
+          bundle exec rails db:migrate || true
+          cd ../..
 
       - name: Generate doc examples from tests
         env:
