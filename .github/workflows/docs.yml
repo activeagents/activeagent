@@ -31,6 +31,11 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config
+
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -39,9 +44,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Ruby dependencies
-        run: bundle install
 
       - name: Generate versions.json
         run: |
