@@ -86,16 +86,13 @@ jobs:
           path: docs/.vitepress/dist
 
   # Build versioned docs using matrix strategy
+  # Note: Versioned docs are built from static content in tags (no test generation needed)
   build-versioned:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - version: "1.0.0"
-            ruby: "3.4"
-          - version: "0.6.3"
-            ruby: "3.3"
+        version: ["1.0.0", "0.6.3"]
     steps:
       - name: Checkout version ${{ matrix.version }}
         uses: actions/checkout@v6
@@ -109,36 +106,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: ${{ matrix.ruby }}
-          bundler-cache: true
-
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Ruby dependencies
-        run: bundle install
-
-      - name: Setup database
-        env:
-          RAILS_ENV: test
-          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-        run: |
-          cd test/dummy
-          bundle exec rails db:create || true
-          bundle exec rails db:migrate || true
-          cd ../..
-
-      - name: Generate doc examples from tests
-        env:
-          RAILS_ENV: test
-          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-          ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
-          OPEN_AI_API_KEY: OPEN_AI_API_KEY
-          OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
-        run: bin/test || echo "Tests completed"
 
       - name: Create versioned config
         run: |
