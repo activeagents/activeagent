@@ -9,10 +9,13 @@ import {
 
 import versions from './versions.json'
 
-// Build version dropdown items
+// Build version dropdown items with absolute URLs for cross-version navigation
+// This forces full page reload instead of client-side routing
 const versionItems = versions.versions.map(v => ({
   text: v.label,
-  link: v.path
+  link: v.path.startsWith('/v')
+    ? `https://docs.activeagents.ai${v.path}`
+    : v.path
 }))
 
 // Support versioned builds via VITEPRESS_BASE env var
