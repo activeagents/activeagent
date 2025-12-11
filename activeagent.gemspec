@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
 
   spec.metadata = {
     "bug_tracker_uri" => "https://github.com/activeagents/activeagent/issues",
-    "documentation_uri" => "https://github.com/activeagents/activeagent",
+    "documentation_uri" => "https://docs.activeagents.ai",
     "source_code_uri" => "https://github.com/activeagents/activeagent",
     "rubygems_mfa_required" => "true"
   }
