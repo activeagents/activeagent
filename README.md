@@ -166,7 +166,7 @@ response = prompt.generate_now
 ## Learn More
 
 - [Documentation](https://docs.activeagents.ai)
-- [Getting Started Guide](https://docs.activeagents.ai/docs/getting-started)
+- [Getting Started Guide](https://docs.activeagents.ai/getting_started)
 - [API Reference](https://docs.activeagents.ai/docs/framework)
 - [Examples](https://docs.activeagents.ai/docs/agents)
 
