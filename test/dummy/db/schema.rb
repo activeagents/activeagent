@@ -19,35 +19,35 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_27_001000) do
   end
 
   create_table "posts", force: :cascade do |t|
-    t.text "content"
-    t.datetime "created_at", null: false
-    t.boolean "published"
-    t.datetime "published_at"
     t.string "title", null: false
-    t.datetime "updated_at", null: false
+    t.text "content"
     t.integer "user_id"
+    t.boolean "published", default: false
+    t.datetime "published_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["published"], name: "index_posts_on_published"
     t.index ["user_id"], name: "index_posts_on_user_id"
   end
 
   create_table "profiles", force: :cascade do |t|
-    t.text "bio"
-    t.datetime "created_at", null: false
-    t.string "location"
-    t.json "social_links"
-    t.datetime "updated_at", null: false
     t.integer "user_id"
+    t.text "bio"
+    t.string "location"
     t.string "website"
+    t.json "social_links"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["user_id"], name: "index_profiles_on_user_id", unique: true
   end
 
   create_table "users", force: :cascade do |t|
-    t.boolean "active"
-    t.integer "age"
-    t.datetime "created_at", null: false
-    t.string "email", null: false
     t.string "name", null: false
+    t.string "email", null: false
+    t.integer "age"
     t.string "role", default: "user"
+    t.boolean "active", default: true
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
   end

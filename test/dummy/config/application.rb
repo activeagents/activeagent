@@ -3,8 +3,7 @@ require_relative "boot"
 require "rails"
 # Pick the frameworks you want:
 require "active_model/railtie"
-$LOAD_PATH.unshift File.expand_path("../../../lib", __dir__)
-require "active_prompt"
+require_relative "../../../lib/active_prompt"
 require "active_job/railtie"
 require "active_record/railtie"
 require "active_storage/engine"

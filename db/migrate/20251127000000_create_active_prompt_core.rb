@@ -18,7 +18,7 @@ class CreateActivePromptCore < ActiveRecord::Migration[7.0]
       t.json   :metadata,   null: false, default: {}
       t.timestamps
     end
-    add_index :active_prompt_messages, [:prompt_id, :position]
+    add_index :active_prompt_messages, [:prompt_id, :position], name: "idx_ap_messages_prompt_position"
 
     create_table :active_prompt_actions do |t|
       t.references :prompt,   null: false, foreign_key: { to_table: :active_prompt_prompts }
@@ -29,7 +29,7 @@ class CreateActivePromptCore < ActiveRecord::Migration[7.0]
       t.string  :status
       t.timestamps
     end
-    add_index :active_prompt_actions, [:prompt_id, :name]
+    add_index :active_prompt_actions, [:prompt_id, :name], name: "idx_ap_actions_prompt_name"
 
     create_table :active_prompt_contexts do |t|
       t.string     :agent_type, null: false
