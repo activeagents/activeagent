@@ -20,3 +20,4 @@ docs/parts/examples/*.md
 Gemfile.lock
 gemfiles/*.lock
 test/dummy/config/master.key
+endor/bundle

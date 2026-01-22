@@ -1,6 +1,15 @@
 # Configure Rails Environment
 ENV["RAILS_ENV"] = "test"
 
+# Provide placeholder API keys so provider clients initialize without
+# real credentials during cassette-driven tests.
+ENV["OPENAI_API_KEY"]          ||= "test-openai-key"
+ENV["OPENAI_ACCESS_TOKEN"]     ||= ENV["OPENAI_API_KEY"]
+ENV["OPEN_AI_ACCESS_TOKEN"]    ||= ENV["OPENAI_API_KEY"]
+ENV["OPEN_ROUTER_ACCESS_TOKEN"] ||= "test-openrouter-key"
+ENV["ANTHROPIC_API_KEY"]       ||= "test-anthropic-key"
+ENV["ANTHROPIC_ACCESS_TOKEN"]  ||= ENV["ANTHROPIC_API_KEY"]
+
 begin
   require "debug"
   require "pry"

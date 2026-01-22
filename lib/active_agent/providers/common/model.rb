@@ -352,10 +352,15 @@ module ActiveAgent
         #   model1 = Message.new(content: "Hello")
         #   model2 = Message.new(content: "Hello")
         #   model1 == model2  #=> true
-        def ==(other)
-          serialize == other&.serialize
-        end
+      def ==(other)
+        serialize == other&.serialize
       end
     end
+
+    # Zeitwerk expects this file to define ActiveAgent::Providers::Common::Model
+    # based on its path. Provide an alias so autoloading succeeds while keeping
+    # the BaseModel name used throughout the codebase.
+    Model = BaseModel
   end
+end
 end
