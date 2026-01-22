@@ -10,7 +10,14 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 3) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_27_001000) do
+  create_table "application_agents", force: :cascade do |t|
+    t.string "name", null: false
+    t.json "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
   create_table "posts", force: :cascade do |t|
     t.string "title", null: false
     t.text "content"
@@ -19,8 +26,8 @@ ActiveRecord::Schema[8.0].define(version: 3) do
     t.datetime "published_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index [ "published" ], name: "index_posts_on_published"
-    t.index [ "user_id" ], name: "index_posts_on_user_id"
+    t.index ["published"], name: "index_posts_on_published"
+    t.index ["user_id"], name: "index_posts_on_user_id"
   end
 
   create_table "profiles", force: :cascade do |t|
@@ -31,7 +38,7 @@ ActiveRecord::Schema[8.0].define(version: 3) do
     t.json "social_links"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index [ "user_id" ], name: "index_profiles_on_user_id", unique: true
+    t.index ["user_id"], name: "index_profiles_on_user_id", unique: true
   end
 
   create_table "users", force: :cascade do |t|
@@ -42,7 +49,7 @@ ActiveRecord::Schema[8.0].define(version: 3) do
     t.boolean "active", default: true
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index [ "email" ], name: "index_users_on_email", unique: true
+    t.index ["email"], name: "index_users_on_email", unique: true
   end
 
   add_foreign_key "posts", "users"

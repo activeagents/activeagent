@@ -11,4 +11,5 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+  mount ActivePrompt::Engine => "/active_prompt", as: :active_prompt
 end
