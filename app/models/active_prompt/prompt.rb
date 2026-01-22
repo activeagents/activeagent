@@ -11,13 +11,15 @@ module ActivePrompt
 
     validates :name, presence: true
 
+    scope :with_runtime_associations, -> { includes(:messages, :actions) }
+
     def to_runtime
       {
         name: name,
         description: description,
         template: template,
-        messages: messages.order(:position).map(&:attributes),
-        actions: actions.map(&:attributes),
+        messages: messages.order(:position).as_json,
+        actions: actions.as_json,
         metadata: metadata || {}
       }
     end

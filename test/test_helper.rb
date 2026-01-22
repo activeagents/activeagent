@@ -67,7 +67,7 @@ require "minitest/mock"
 begin
   generated_dir = Rails.root.join("tmp", "generators")
   FileUtils.rm_rf(generated_dir)
-rescue => e
+rescue StandardError => e
   warn "Warning: failed to clean #{generated_dir}: #{e.message}"
 end
 

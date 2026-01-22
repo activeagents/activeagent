@@ -24,4 +24,27 @@ class ActivePromptModelsTest < ActiveSupport::TestCase
     assert_equal [prompt.id], agent.prompts.pluck(:id)
     assert_equal 1, agent.prompt_contexts.count
   end
+
+  test "engine models inherit from ActivePrompt::ApplicationRecord" do
+    assert ActivePrompt::ApplicationRecord.abstract_class?, "ApplicationRecord should be abstract"
+    assert_equal ActivePrompt::ApplicationRecord, ActivePrompt::Prompt.superclass
+    assert_equal ActivePrompt::ApplicationRecord, ActivePrompt::Message.superclass
+    assert_equal ActivePrompt::ApplicationRecord, ActivePrompt::Action.superclass
+    assert_equal ActivePrompt::ApplicationRecord, ActivePrompt::Context.superclass
+  end
+
+  test "prompt to_runtime returns eager-loadable hashes" do
+    prompt = ActivePrompt::Prompt.create!(name: "runtime")
+    prompt.messages.create!(role: :system, content: "You are helpful", position: 0)
+    prompt.actions.create!(name: "search", tool_name: "search", parameters: { q: "hello" })
+
+    runtime = ActivePrompt::Prompt.with_runtime_associations.find(prompt.id).to_runtime
+
+    assert_equal "runtime", runtime[:name]
+    assert_equal 1, runtime[:messages].size
+    assert_equal "You are helpful", runtime[:messages].first["content"]
+    assert_equal 1, runtime[:actions].size
+    assert_equal "search", runtime[:actions].first["name"]
+    assert_equal({}, runtime[:metadata])
+  end
 end

@@ -3,7 +3,7 @@ require "rails/generators"
 module ActivePrompt
   module Generators
     class InstallGenerator < Rails::Generators::Base
-      source_root File.expand_path("../../../../..", __dir__) # engine root
+      source_root File.expand_path("../../../..", __dir__) # engine root
 
       desc "Copy ActivePrompt migrations into the host app"
 
