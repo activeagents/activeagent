@@ -102,7 +102,7 @@ module ActiveAgent
 
             # If we have a delta, we need to update a message in the stack
             message = find_or_create_message(api_message.index)
-            message = message_merge_delta(message, api_message.delta.as_json.deep_symbolize_keys)
+            message_merge_delta(message, api_message.delta.deep_to_h)
 
             # Stream back content changes as they come in
             if api_message.delta.content
@@ -138,7 +138,7 @@ module ActiveAgent
         def process_function_calls(api_function_calls)
           api_function_calls.each do |api_function_call|
             content = instrument("tool_call.active_agent", tool_name: api_function_call.dig(:function, :name)) do
-              case api_function_call[:type]
+              case api_function_call[:type].to_s
               when "function"
                 process_tool_call_function(api_function_call[:function])
               else
@@ -243,7 +243,7 @@ module ActiveAgent
                 end
               end
             when String
-              hash[key] += value
+              hash[key] += value.to_s
             else
               hash[key] = value
             end
