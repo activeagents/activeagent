@@ -3,6 +3,7 @@ require_relative "boot"
 require "rails"
 # Pick the frameworks you want:
 require "active_model/railtie"
+require_relative "../../../lib/active_prompt"
 require "active_job/railtie"
 require "active_record/railtie"
 require "active_storage/engine"
@@ -34,5 +35,7 @@ module Dummy
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+    config.eager_load = false
+    config.secret_key_base = "test-secret-key-base-activeprompt"
   end
 end
