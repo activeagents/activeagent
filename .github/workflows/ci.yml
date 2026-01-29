@@ -26,7 +26,7 @@ jobs:
     env:
       BUNDLE_JOBS: 4
       BUNDLE_RETRY: 3
-      BUNDLE_GEMFILE: ${{ matrix.gemfile }}
+      BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
       CI: true
       ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
       OPEN_AI_API_KEY: OPEN_AI_API_KEY
@@ -59,12 +59,10 @@ jobs:
       env:
         RAILS_ENV: test
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-        BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
+      working-directory: test/dummy
       run: |
-        cd test/dummy
         bundle exec rails db:create
         bundle exec rails db:migrate
-        cd ../..
     - name: Run tests
       env:
         RAILS_ENV: test
@@ -77,7 +75,7 @@ jobs:
     env:
       BUNDLE_JOBS: 4
       BUNDLE_RETRY: 3
-      BUNDLE_GEMFILE: ${{ matrix.gemfile }}
+      BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
       CI: true
       ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
       OPEN_AI_API_KEY: OPEN_AI_API_KEY
@@ -105,12 +103,10 @@ jobs:
       env:
         RAILS_ENV: test
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-        BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
+      working-directory: test/dummy
       run: |
-        cd test/dummy
         bundle exec rails db:create
         bundle exec rails db:migrate
-        cd ../..
     - name: Run tests
       env:
         RAILS_ENV: test
