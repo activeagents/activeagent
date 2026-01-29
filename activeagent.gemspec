@@ -26,7 +26,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "activejob", ">= 7.2", "<= 9.0"
 
   spec.add_development_dependency "jbuilder", "~> 2.14"
-  spec.add_development_dependency "rails", "~> 8.1.1"
 
   spec.add_development_dependency "anthropic", "~> 1.12"
   spec.add_development_dependency "openai", "~> 0.34"
@@ -38,6 +37,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "ostruct"
   spec.add_development_dependency "puma"
   spec.add_development_dependency "sqlite3"
+  spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "vcr"
   spec.add_development_dependency "webmock"
 
