@@ -189,9 +189,14 @@ module ActiveAgent
         when :ping
           # No-Op Keep Awake
         when :overloaded_error
-          # TODO: https://docs.claude.com/en/docs/build-with-claude/streaming#error-events
+        # TODO: https://docs.claude.com/en/docs/build-with-claude/streaming#error-events
+
+        # Higher-level convenience events from anthropic gem's MessageStream
+        when :text, :input_json, :citation, :thinking, :signature
+          # No-Op; Already handled via :content_block_delta
+
         else
-          # No-Op: Looks like internal tracking from gem wrapper
+          # No-Op; Internal tracking from gem wrapper
           return if api_response_chunk.respond_to?(:snapshot)
           raise "Unexpected chunk type: #{api_response_chunk.type}"
         end
