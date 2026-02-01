@@ -1,0 +1,83 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://AZURE_RESOURCE.openai.azure.com/openai/deployments/AZURE_DEPLOYMENT/chat/completions?api-version=2025-01-01-preview
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4","messages":[{"role":"user","content":"Explain quantum
+        computing in simple terms."}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - ActiveAgent::Providers::AzureProvider::AzureClient/Ruby 0.43.0
+      Host:
+      - AZURE_RESOURCE.openai.azure.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.43.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.3.8
+      Content-Type:
+      - application/json
+      Api-Key:
+      - AZURE_API_KEY
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '101'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Length:
+      - '2312'
+      Content-Type:
+      - application/json
+      Apim-Request-Id:
+      - 885cc1dd-d44e-44d7-822e-fd2d78127e8d
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      X-Ms-Region:
+      - West Europe
+      X-Ratelimit-Remaining-Requests:
+      - '46'
+      X-Ratelimit-Limit-Requests:
+      - '50'
+      X-Ratelimit-Remaining-Tokens:
+      - '49944'
+      X-Ratelimit-Limit-Tokens:
+      - '50000'
+      Azureml-Model-Session:
+      - d20260129130029-90b0c3ab1d00
+      X-Accel-Buffering:
+      - 'no'
+      X-Ms-Rai-Invoked:
+      - 'true'
+      X-Request-Id:
+      - d956f59c-d9a1-4f88-a77a-bcdb90a8fdad
+      X-Ms-Deployment-Name:
+      - AZURE_DEPLOYMENT
+      Date:
+      - Sun, 01 Feb 2026 02:49:43 GMT
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJjaG9pY2VzIjpbeyJjb250ZW50X2ZpbHRlcl9yZXN1bHRzIjp7ImhhdGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwicHJvdGVjdGVkX21hdGVyaWFsX2NvZGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJkZXRlY3RlZCI6ZmFsc2V9LCJwcm90ZWN0ZWRfbWF0ZXJpYWxfdGV4dCI6eyJmaWx0ZXJlZCI6ZmFsc2UsImRldGVjdGVkIjpmYWxzZX0sInNlbGZfaGFybSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJzZXh1YWwiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwidmlvbGVuY2UiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifX0sImZpbmlzaF9yZWFzb24iOiJzdG9wIiwiaW5kZXgiOjAsImxvZ3Byb2JzIjpudWxsLCJtZXNzYWdlIjp7ImFubm90YXRpb25zIjpbXSwiY29udGVudCI6IlN1cmUhIEhlcmXigJlzIGEgc2ltcGxlIGV4cGxhbmF0aW9uIG9mICoqcXVhbnR1bSBjb21wdXRpbmcqKjpcblxuLSAqKkNsYXNzaWNhbCBjb21wdXRlcnMqKiAod2hhdCB3ZSBoYXZlIG5vdykgdXNlICoqYml0cyoqLCB3aGljaCBjYW4gYmUgZWl0aGVyIGEgMCBvciBhIDEuIFRoZXkgc3RvcmUgYW5kIHByb2Nlc3MgaW5mb3JtYXRpb24gYXMgYSBzZXJpZXMgb2YgdGhlc2UgYml0cy5cbi0gKipRdWFudHVtIGNvbXB1dGVycyoqIHVzZSAqKnF1YW50dW0gYml0cyoqLCBvciAqKnF1Yml0cyoqLiBUaGFua3MgdG8gdGhlIHN0cmFuZ2UgcnVsZXMgb2YgcXVhbnR1bSBwaHlzaWNzLCBhIHF1Yml0IGNhbiBiZSBhIDAsIGEgMSwgKm9yKiBib3RoIGF0IHRoZSBzYW1lIHRpbWUgKHRoaXMgaXMgY2FsbGVkICoqc3VwZXJwb3NpdGlvbioqKS5cbi0gUXViaXRzIGNhbiBhbHNvIGJlICoqZW50YW5nbGVkKiosIHdoaWNoIG1lYW5zIGNoYW5naW5nIG9uZSBxdWJpdCBjYW4gaW5zdGFudGx5IGFmZmVjdCBhbm90aGVyLCBubyBtYXR0ZXIgaG93IGZhciBhcGFydCB0aGV5IGFyZS5cblxuQmVjYXVzZSBxdWJpdHMgY2FuIGhhbmRsZSBtdWNoIG1vcmUgaW5mb3JtYXRpb24gYXQgb25jZSBkdWUgdG8gc3VwZXJwb3NpdGlvbiBhbmQgZW50YW5nbGVtZW50LCAqKnF1YW50dW0gY29tcHV0ZXJzKiogY2FuIHBvdGVudGlhbGx5IHNvbHZlIGNlcnRhaW4gcHJvYmxlbXMgbXVjaCBmYXN0ZXIgdGhhbiBjbGFzc2ljYWwgY29tcHV0ZXJzLlxuXG4qKlNpbXBsZSBhbmFsb2d5OioqICBcbkltYWdpbmUgYSBjbGFzc2ljYWwgY29tcHV0ZXIgaXMgbGlrZSB0cnlpbmcgZXZlcnkgcG9zc2libGUgY29tYmluYXRpb24gb2YgYSBsb2NrLCBvbmUgYnkgb25lLiBBIHF1YW50dW0gY29tcHV0ZXIgY2FuIHRyeSAqKm1hbnkgY29tYmluYXRpb25zIGF0IHRoZSBzYW1lIHRpbWUqKiwgbWFraW5nIGl0IG11Y2ggZmFzdGVyIGZvciBzb21lIHRhc2tzLlxuXG5RdWFudHVtIGNvbXB1dGluZyBpcyBzdGlsbCBpbiBpdHMgZWFybHkgZGF5cywgYnV0IGl0IG1heSBvbmUgZGF5IHJldm9sdXRpb25pemUgZmllbGRzIGxpa2UgY3J5cHRvZ3JhcGh5LCBkcnVnIGRpc2NvdmVyeSwgYW5kIG1vcmUhIiwicmVmdXNhbCI6bnVsbCwicm9sZSI6ImFzc2lzdGFudCJ9fV0sImNyZWF0ZWQiOjE3Njk5MTQxODAsImlkIjoiY2hhdGNtcGwtRDRIb3FNSG0wTXpNWFI0OFNYWmZIVjRnRjMxU1kiLCJtb2RlbCI6IkFaVVJFX0RFUExPWU1FTlQtMjAyNS0wNC0xNCIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbiIsInByb21wdF9maWx0ZXJfcmVzdWx0cyI6W3sicHJvbXB0X2luZGV4IjowLCJjb250ZW50X2ZpbHRlcl9yZXN1bHRzIjp7ImhhdGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwiamFpbGJyZWFrIjp7ImZpbHRlcmVkIjpmYWxzZSwiZGV0ZWN0ZWQiOmZhbHNlfSwic2VsZl9oYXJtIjp7ImZpbHRlcmVkIjpmYWxzZSwic2V2ZXJpdHkiOiJzYWZlIn0sInNleHVhbCI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJ2aW9sZW5jZSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9fX1dLCJzeXN0ZW1fZmluZ2VycHJpbnQiOiJmcF9mOTk2MzhhOGQ3IiwidXNhZ2UiOnsiY29tcGxldGlvbl90b2tlbnMiOjI0NywiY29tcGxldGlvbl90b2tlbnNfZGV0YWlscyI6eyJhY2NlcHRlZF9wcmVkaWN0aW9uX3Rva2VucyI6MCwiYXVkaW9fdG9rZW5zIjowLCJyZWFzb25pbmdfdG9rZW5zIjowLCJyZWplY3RlZF9wcmVkaWN0aW9uX3Rva2VucyI6MH0sInByb21wdF90b2tlbnMiOjE0LCJwcm9tcHRfdG9rZW5zX2RldGFpbHMiOnsiYXVkaW9fdG9rZW5zIjowLCJjYWNoZWRfdG9rZW5zIjowfSwidG90YWxfdG9rZW5zIjoyNjF9fQo=
+  recorded_at: Sun, 01 Feb 2026 02:49:43 GMT
+recorded_with: VCR 6.4.0

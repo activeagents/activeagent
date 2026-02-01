@@ -1,0 +1,172 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://AZURE_RESOURCE.openai.azure.com/openai/deployments/AZURE_DEPLOYMENT/chat/completions?api-version=2025-01-01-preview
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4","messages":[{"role":"user","content":"What''s the
+        weather in NYC and what''s 5 plus 3?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}},{"type":"function","function":{"name":"calculate","description":"Perform
+        basic arithmetic","parameters":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - ActiveAgent::Providers::AzureProvider::AzureClient/Ruby 0.43.0
+      Host:
+      - AZURE_RESOURCE.openai.azure.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.43.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.3.8
+      Content-Type:
+      - application/json
+      Api-Key:
+      - AZURE_API_KEY
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '600'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Length:
+      - '1198'
+      Content-Type:
+      - application/json
+      Apim-Request-Id:
+      - a10fed9c-0fad-4d8d-ad0c-4e4b08924fd3
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      X-Ms-Region:
+      - West Europe
+      X-Ratelimit-Remaining-Requests:
+      - '34'
+      X-Ratelimit-Limit-Requests:
+      - '50'
+      X-Ratelimit-Remaining-Tokens:
+      - '49428'
+      X-Ratelimit-Limit-Tokens:
+      - '50000'
+      Azureml-Model-Session:
+      - d20251214200739-08ebc6b0d423474c
+      X-Accel-Buffering:
+      - 'no'
+      X-Ms-Rai-Invoked:
+      - 'true'
+      X-Request-Id:
+      - 2ad0146d-eeba-4196-b5c0-a765053e3d4c
+      X-Ms-Deployment-Name:
+      - AZURE_DEPLOYMENT
+      Date:
+      - Sun, 01 Feb 2026 02:50:05 GMT
+    body:
+      encoding: UTF-8
+      string: '{"choices":[{"content_filter_results":{},"finish_reason":"tool_calls","index":0,"logprobs":null,"message":{"annotations":[],"content":null,"refusal":null,"role":"assistant","tool_calls":[{"function":{"arguments":"{\"location\":
+        \"NYC\"}","name":"get_weather"},"id":"call_rrvKMElYhSFBqmbV6ro5xVnN","type":"function"},{"function":{"arguments":"{\"operation\":
+        \"add\", \"a\": 5, \"b\": 3}","name":"calculate"},"id":"call_CXz31MJ2GeKT7cLZqisPjYZy","type":"function"}]}}],"created":1769914205,"id":"chatcmpl-D4HpFjOJjQyV4hkHdQEBvO9bkbvj3","model":"AZURE_DEPLOYMENT-2025-04-14","object":"chat.completion","prompt_filter_results":[{"prompt_index":0,"content_filter_results":{"hate":{"filtered":false,"severity":"safe"},"jailbreak":{"filtered":false,"detected":false},"self_harm":{"filtered":false,"severity":"safe"},"sexual":{"filtered":false,"severity":"safe"},"violence":{"filtered":false,"severity":"safe"}}}],"system_fingerprint":"fp_f99638a8d7","usage":{"completion_tokens":53,"completion_tokens_details":{"accepted_prediction_tokens":0,"audio_tokens":0,"reasoning_tokens":0,"rejected_prediction_tokens":0},"prompt_tokens":93,"prompt_tokens_details":{"audio_tokens":0,"cached_tokens":0},"total_tokens":146}}
+
+        '
+  recorded_at: Sun, 01 Feb 2026 02:50:05 GMT
+- request:
+    method: post
+    uri: https://AZURE_RESOURCE.openai.azure.com/openai/deployments/AZURE_DEPLOYMENT/chat/completions?api-version=2025-01-01-preview
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4","messages":[{"role":"user","content":"What''s the
+        weather in NYC and what''s 5 plus 3?"},{"role":"assistant","refusal":null,"annotations":[],"tool_calls":[{"id":"call_rrvKMElYhSFBqmbV6ro5xVnN","function":{"arguments":"{\"location\":
+        \"NYC\"}","name":"get_weather"},"type":"function"},{"id":"call_CXz31MJ2GeKT7cLZqisPjYZy","function":{"arguments":"{\"operation\":
+        \"add\", \"a\": 5, \"b\": 3}","name":"calculate"},"type":"function"}]},{"role":"tool","content":"{\"location\":\"NYC\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","tool_call_id":"call_rrvKMElYhSFBqmbV6ro5xVnN"},{"role":"tool","content":"{\"operation\":\"add\",\"a\":5,\"b\":3,\"result\":8}","tool_call_id":"call_CXz31MJ2GeKT7cLZqisPjYZy"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather","parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}},{"type":"function","function":{"name":"calculate","description":"Perform
+        basic arithmetic","parameters":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - ActiveAgent::Providers::AzureProvider::AzureClient/Ruby 0.43.0
+      Host:
+      - AZURE_RESOURCE.openai.azure.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.43.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.3.8
+      Content-Type:
+      - application/json
+      Api-Key:
+      - AZURE_API_KEY
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '1222'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Length:
+      - '1272'
+      Content-Type:
+      - application/json
+      Apim-Request-Id:
+      - 435ad41b-8166-432a-a734-2d5c89912eee
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      X-Ms-Region:
+      - West Europe
+      X-Ratelimit-Remaining-Requests:
+      - '33'
+      X-Ratelimit-Limit-Requests:
+      - '50'
+      X-Ratelimit-Remaining-Tokens:
+      - '49267'
+      X-Ratelimit-Limit-Tokens:
+      - '50000'
+      Azureml-Model-Session:
+      - d20251214200739-08ebc6b0d423474c
+      X-Accel-Buffering:
+      - 'no'
+      X-Ms-Rai-Invoked:
+      - 'true'
+      X-Request-Id:
+      - c6e7f0a8-8aec-4fb6-a33b-1153ba496744
+      X-Ms-Deployment-Name:
+      - AZURE_DEPLOYMENT
+      Date:
+      - Sun, 01 Feb 2026 02:50:06 GMT
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJjaG9pY2VzIjpbeyJjb250ZW50X2ZpbHRlcl9yZXN1bHRzIjp7ImhhdGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwicHJvdGVjdGVkX21hdGVyaWFsX2NvZGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJkZXRlY3RlZCI6ZmFsc2V9LCJwcm90ZWN0ZWRfbWF0ZXJpYWxfdGV4dCI6eyJmaWx0ZXJlZCI6ZmFsc2UsImRldGVjdGVkIjpmYWxzZX0sInNlbGZfaGFybSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJzZXh1YWwiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwidmlvbGVuY2UiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifX0sImZpbmlzaF9yZWFzb24iOiJzdG9wIiwiaW5kZXgiOjAsImxvZ3Byb2JzIjpudWxsLCJtZXNzYWdlIjp7ImFubm90YXRpb25zIjpbXSwiY29udGVudCI6IlRoZSB3ZWF0aGVyIGluIE5ZQyBpcyA3MsKwRiBhbmQgc3VubnkuIEFsc28sIDUgcGx1cyAzIGVxdWFscyA4LiIsInJlZnVzYWwiOm51bGwsInJvbGUiOiJhc3Npc3RhbnQifX1dLCJjcmVhdGVkIjoxNzY5OTE0MjA2LCJpZCI6ImNoYXRjbXBsLUQ0SHBHUExxWjRGTTduNE9KbFZ6NnY4d1dFcEJwIiwibW9kZWwiOiJBWlVSRV9ERVBMT1lNRU5ULTIwMjUtMDQtMTQiLCJvYmplY3QiOiJjaGF0LmNvbXBsZXRpb24iLCJwcm9tcHRfZmlsdGVyX3Jlc3VsdHMiOlt7InByb21wdF9pbmRleCI6MCwiY29udGVudF9maWx0ZXJfcmVzdWx0cyI6eyJoYXRlIjp7ImZpbHRlcmVkIjpmYWxzZSwic2V2ZXJpdHkiOiJzYWZlIn0sImphaWxicmVhayI6eyJmaWx0ZXJlZCI6ZmFsc2UsImRldGVjdGVkIjpmYWxzZX0sInNlbGZfaGFybSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJzZXh1YWwiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwidmlvbGVuY2UiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifX19XSwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfZjk5NjM4YThkNyIsInVzYWdlIjp7ImNvbXBsZXRpb25fdG9rZW5zIjoyNCwiY29tcGxldGlvbl90b2tlbnNfZGV0YWlscyI6eyJhY2NlcHRlZF9wcmVkaWN0aW9uX3Rva2VucyI6MCwiYXVkaW9fdG9rZW5zIjowLCJyZWFzb25pbmdfdG9rZW5zIjowLCJyZWplY3RlZF9wcmVkaWN0aW9uX3Rva2VucyI6MH0sInByb21wdF90b2tlbnMiOjIwNSwicHJvbXB0X3Rva2Vuc19kZXRhaWxzIjp7ImF1ZGlvX3Rva2VucyI6MCwiY2FjaGVkX3Rva2VucyI6MH0sInRvdGFsX3Rva2VucyI6MjI5fX0K
+  recorded_at: Sun, 01 Feb 2026 02:50:06 GMT
+recorded_with: VCR 6.4.0

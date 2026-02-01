@@ -9,8 +9,10 @@ module ActiveAgent
 
     # "Your tacky and I hate you" - Billy, https://youtu.be/dsheboxJNgQ?si=tzDlJ7sdSxM4RjSD
     PROVIDER_SERVICE_NAMES_REMAPS = {
-      "Openrouter" => "OpenRouter",
-      "Openai"     => "OpenAI"
+      "Openrouter"  => "OpenRouter",
+      "Openai"      => "OpenAI",
+      "AzureOpenai" => "AzureOpenAI",
+      "Azureopenai" => "AzureOpenAI"
     }
 
     included do
