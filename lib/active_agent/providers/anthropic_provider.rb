@@ -189,9 +189,14 @@ module ActiveAgent
         when :ping
           # No-Op Keep Awake
         when :overloaded_error
-          # TODO: https://docs.claude.com/en/docs/build-with-claude/streaming#error-events
+        # TODO: https://docs.claude.com/en/docs/build-with-claude/streaming#error-events
+
+        # Higher-level convenience events from anthropic gem's MessageStream
+        when :text, :input_json, :citation, :thinking, :signature
+          # No-Op; Already handled via :content_block_delta
+
         else
-          # No-Op: Looks like internal tracking from gem wrapper
+          # No-Op; Internal tracking from gem wrapper
           return if api_response_chunk.respond_to?(:snapshot)
           raise "Unexpected chunk type: #{api_response_chunk.type}"
         end
@@ -296,11 +301,16 @@ module ActiveAgent
       def process_prompt_finished_extract_function_calls
         message_stack.pluck(:content).flatten.select { _1 in { type: "tool_use" } }.map do |api_function_call|
           json_buf = api_function_call.delete(:json_buf)
-          api_function_call[:input] = JSON.parse(json_buf, symbolize_names: true) if json_buf
+          api_function_call[:input] = JSON.parse(json_buf, symbolize_names: true) if json_buf.present?
 
           # Handle case where :input is still a JSON string (gem >= 1.14.0)
+          # For tools with no parameters, input may be an empty string
           if api_function_call[:input].is_a?(String)
-            api_function_call[:input] = JSON.parse(api_function_call[:input], symbolize_names: true)
+            if api_function_call[:input].present?
+              api_function_call[:input] = JSON.parse(api_function_call[:input], symbolize_names: true)
+            else
+              api_function_call[:input] = {}
+            end
           end
 
           api_function_call
