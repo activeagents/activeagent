@@ -11,7 +11,7 @@ class AzureProviderTest < ActiveSupport::TestCase
       azure_resource: "mycompany",
       deployment_id: "gpt-4-deployment",
       api_version: "2024-10-21",
-      messages: [{ role: "user", content: "Hello" }]
+      messages: [ { role: "user", content: "Hello" } ]
     }
   end
 

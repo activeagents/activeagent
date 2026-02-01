@@ -45,7 +45,7 @@ module Integration
                         description: "The city and state, e.g. San Francisco, CA"
                       }
                     },
-                    required: ["location"]
+                    required: [ "location" ]
                   }
                 }
               ]
@@ -65,7 +65,7 @@ module Integration
                     properties: {
                       location: { type: "string" }
                     },
-                    required: ["location"]
+                    required: [ "location" ]
                   }
                 },
                 {
@@ -74,11 +74,11 @@ module Integration
                   parameters: {
                     type: "object",
                     properties: {
-                      operation: { type: "string", enum: ["add", "subtract", "multiply", "divide"] },
+                      operation: { type: "string", enum: [ "add", "subtract", "multiply", "divide" ] },
                       a: { type: "number" },
                       b: { type: "number" }
                     },
-                    required: ["operation", "a", "b"]
+                    required: [ "operation", "a", "b" ]
                   }
                 }
               ]
@@ -98,7 +98,7 @@ module Integration
                     properties: {
                       location: { type: "string" }
                     },
-                    required: ["location"]
+                    required: [ "location" ]
                   }
                 }
               ],
@@ -119,7 +119,7 @@ module Integration
                     properties: {
                       location: { type: "string" }
                     },
-                    required: ["location"]
+                    required: [ "location" ]
                   }
                 }
               ],

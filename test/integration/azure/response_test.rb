@@ -21,7 +21,7 @@ module Integration
 
         def simple_prompt
           prompt(
-            messages: [{ role: "user", content: "Say 'test' once." }],
+            messages: [ { role: "user", content: "Say 'test' once." } ],
             max_completion_tokens: 10
           )
         end
