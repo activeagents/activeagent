@@ -1,8 +1,11 @@
 require "bundler/setup"
 require "bundler/gem_tasks"
+require "rake/testtask"
 
-desc "Run tests"
-task :test do
-  $: << File.expand_path("test", __dir__)
-  require "rails/plugin/test"
+Rake::TestTask.new(:test) do |t|
+  t.libs << "test"
+  t.pattern = "test/**/*_test.rb"
+  t.verbose = true
 end
+
+task default: :test
