@@ -6,5 +6,9 @@ end
 
 $: << File.expand_path("../test", __dir__)
 
+# Default to rails8.gemfile for local development.
+# CI overrides this via BUNDLE_GEMFILE env var to test against multiple Rails versions.
+# See gemfiles/ directory and .github/workflows/ci.yml for available configurations.
+ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../gemfiles/rails8.gemfile", __dir__)
 require "bundler/setup"
 require "rails/plugin/test"
