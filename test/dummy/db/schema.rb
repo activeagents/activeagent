@@ -19,8 +19,8 @@ ActiveRecord::Schema[8.0].define(version: 3) do
     t.datetime "published_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index [ "published" ], name: "index_posts_on_published"
-    t.index [ "user_id" ], name: "index_posts_on_user_id"
+    t.index ["published"], name: "index_posts_on_published"
+    t.index ["user_id"], name: "index_posts_on_user_id"
   end
 
   create_table "profiles", force: :cascade do |t|
@@ -31,7 +31,7 @@ ActiveRecord::Schema[8.0].define(version: 3) do
     t.json "social_links"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index [ "user_id" ], name: "index_profiles_on_user_id", unique: true
+    t.index ["user_id"], name: "index_profiles_on_user_id", unique: true
   end
 
   create_table "users", force: :cascade do |t|
@@ -42,7 +42,7 @@ ActiveRecord::Schema[8.0].define(version: 3) do
     t.boolean "active", default: true
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index [ "email" ], name: "index_users_on_email", unique: true
+    t.index ["email"], name: "index_users_on_email", unique: true
   end
 
   add_foreign_key "posts", "users"
