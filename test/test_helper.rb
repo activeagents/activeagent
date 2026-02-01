@@ -107,6 +107,16 @@ VCR.configure do |config|
   config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["OPEN_ROUTER_ACCESS_TOKEN"] }
   config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["ANTHROPIC_ACCESS_TOKEN"] }
   config.filter_sensitive_data("GITHUB_MCP_TOKEN") { ENV["GITHUB_MCP_TOKEN"] }
+
+  # Azure OpenAI credentials
+  config.filter_sensitive_data("AZURE_API_KEY")      { ENV["AZURE_OPENAI_API_KEY"] }
+  config.filter_sensitive_data("AZURE_RESOURCE")     { ENV["AZURE_OPENAI_RESOURCE"] }
+  config.filter_sensitive_data("AZURE_DEPLOYMENT")   { ENV["AZURE_OPENAI_DEPLOYMENT_ID"] }
+
+  # Filter Azure resource name from URLs
+  if ENV["AZURE_OPENAI_RESOURCE"]
+    config.filter_sensitive_data("azure-resource") { ENV["AZURE_OPENAI_RESOURCE"] }
+  end
 end
 
 # Load fixtures from the engine
@@ -161,6 +171,8 @@ class ActiveSupport::TestCase
       has_openrouter_credentials?
     when :ollama
       has_ollama_credentials?
+    when :azure, :azure_openai
+      has_azure_openai_credentials?
     else
       false
     end
@@ -192,5 +204,11 @@ class ActiveSupport::TestCase
     # For test purposes, we assume Ollama is available if configured
     # In real tests, you might want to actually ping the server
     host.present?
+  end
+
+  def has_azure_openai_credentials?
+    ENV["AZURE_OPENAI_API_KEY"].present? &&
+      ENV["AZURE_OPENAI_RESOURCE"].present? &&
+      ENV["AZURE_OPENAI_DEPLOYMENT_ID"].present?
   end
 end
