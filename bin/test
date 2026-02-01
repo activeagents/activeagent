@@ -1,10 +1,32 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
+
 unless ENV["CI"]
   require "dotenv"
   Dotenv.load(".env.test")
 end
 
-$: << File.expand_path("../test", __dir__)
+ENV["RAILS_ENV"] = "test"
 
 require "bundler/setup"
-require "rails/plugin/test"
+
+$LOAD_PATH.unshift File.expand_path("../test", __dir__)
+require "test_helper"
+
+# Collect test files
+test_files = if ARGV.empty?
+  Dir[File.expand_path("../test/**/*_test.rb", __dir__)]
+else
+  ARGV.map do |arg|
+    if File.exist?(arg)
+      File.expand_path(arg)
+    elsif File.exist?(File.expand_path("../#{arg}", __dir__))
+      File.expand_path("../#{arg}", __dir__)
+    else
+      arg
+    end
+  end
+end
+
+# Load test files
+test_files.each { |file| require file if File.exist?(file) }
