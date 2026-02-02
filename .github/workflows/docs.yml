@@ -58,14 +58,15 @@ jobs:
           }
           EOF
 
-      - name: Install dummy app dependencies
-        working-directory: test/dummy
+      - name: Install test dependencies
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails8.gemfile
         run: bundle install
 
       - name: Setup database
         env:
           RAILS_ENV: test
-          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+          BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails8.gemfile
         working-directory: test/dummy
         run: |
           bundle exec rails db:create
@@ -74,7 +75,7 @@ jobs:
       - name: Generate doc examples from tests
         env:
           RAILS_ENV: test
-          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+          BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails8.gemfile
           ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
           OPEN_AI_API_KEY: OPEN_AI_API_KEY
           OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
