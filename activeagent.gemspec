@@ -30,8 +30,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "anthropic", "~> 1.12"
   spec.add_development_dependency "openai", "~> 0.34"
 
-  spec.add_development_dependency "rubocop-rails-omakase"
-
   spec.add_development_dependency "capybara", "~> 3.40"
   spec.add_development_dependency "cuprite", "~> 0.15"
   spec.add_development_dependency "ostruct"
