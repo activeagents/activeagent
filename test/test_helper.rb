@@ -1,6 +1,15 @@
 # Configure Rails Environment
 ENV["RAILS_ENV"] = "test"
 
+# Provide placeholder API keys so provider clients initialize without
+# real credentials during cassette-driven tests.
+ENV["OPENAI_API_KEY"]          ||= "test-openai-key"
+ENV["OPENAI_ACCESS_TOKEN"]     ||= ENV["OPENAI_API_KEY"]
+ENV["OPEN_AI_ACCESS_TOKEN"]    ||= ENV["OPENAI_API_KEY"]
+ENV["OPEN_ROUTER_ACCESS_TOKEN"] ||= "test-openrouter-key"
+ENV["ANTHROPIC_API_KEY"]       ||= "test-anthropic-key"
+ENV["ANTHROPIC_ACCESS_TOKEN"]  ||= ENV["ANTHROPIC_API_KEY"]
+
 begin
   require "debug"
   require "pry"
@@ -11,11 +20,91 @@ end
 
 require "jbuilder"
 require_relative "../test/dummy/config/environment"
-ActiveRecord::Migrator.migrations_paths = [ File.expand_path("../test/dummy/db/migrate", __dir__) ]
+
+# Make sure BOTH dummy and engine migrations are available to the test DB
+ActiveRecord::Migrator.migrations_paths = [
+  File.expand_path("../test/dummy/db/migrate", __dir__),
+  File.expand_path("../db/migrate", __dir__)
+]
+
+# Proactively migrate both dummy and engine paths (works across AR versions)
+begin
+  require "active_record"
+  ActiveRecord::Schema.verbose = false
+  ActiveRecord::Base.establish_connection unless ActiveRecord::Base.connected?
+
+  paths = ActiveRecord::Migrator.migrations_paths
+
+  migration_context =
+    begin
+      # AR >= ~6 supports single-arg constructor
+      ActiveRecord::MigrationContext.new(paths)
+    rescue ArgumentError
+      # Older AR expects (paths, schema_migration)
+      ActiveRecord::MigrationContext.new(paths, ActiveRecord::SchemaMigration)
+    end
+
+  migration_context.migrate
+rescue ActiveRecord::NoDatabaseError
+  # If DB isn't created yet, ignore; the dummy app tasks will handle creation.
+end
+
+# Rails still checks consistency after we migrate
+ActiveRecord::Migration.maintain_test_schema!
+
 require "rails/test_help"
 require "vcr"
 require "webmock/minitest"
 require "minitest/mock"
+
+# -------------------------------------------------------------------
+# 🔧 Test environment hygiene (prevents generator test collisions)
+# - Clean any leftover generated files under tmp/generators so they
+#   don't get picked up by test discovery in subsequent runs.
+# - Remove lingering constants that would cause class-collision checks
+#   to abort generator runs (e.g., UserAgentTest).
+# -------------------------------------------------------------------
+begin
+  generated_dir = Rails.root.join("tmp", "generators")
+  FileUtils.rm_rf(generated_dir)
+rescue StandardError => e
+  warn "Warning: failed to clean #{generated_dir}: #{e.message}"
+end
+
+
+# Helper to remove a constant by fully qualified name (supports namespaces)
+def remove_constant(name)
+  names = name.to_s.split("::")
+  parent = Object
+  names[0..-2].each do |n|
+    return unless parent.const_defined?(n, false)
+    parent = parent.const_get(n)
+  end
+  last = names.last
+  parent.send(:remove_const, last) if parent.const_defined?(last, false)
+end
+
+# Remove any lingering constants that the generator collision check might trip over
+%w[
+  UserAgentTest
+  Admin::UserAgentTest
+].each { |const| remove_constant(const) }
+
+# -------------------------------------------------------------------
+# A tiny AR model just for tests, to avoid clashing with any non-AR ApplicationAgent
+# Uses the dummy's application_agents table.
+class PromptTestAgent < ActiveRecord::Base
+  self.table_name = "application_agents"
+
+  begin
+    require "active_agent/has_context"
+    include ActiveAgent::HasContext
+    has_context prompts: :prompts, messages: :messages, tools: :actions
+  rescue LoadError, NameError
+    # If HasContext isn't present in this branch, tests that rely on it should be skipped or guarded.
+  end
+end
+# -------------------------------------------------------------------
 
 # Extract full path and relative path from caller_info
 def extract_path_info(caller_info)
