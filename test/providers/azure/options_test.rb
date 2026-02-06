@@ -140,4 +140,128 @@ class AzureOptionsTest < ActiveSupport::TestCase
   ensure
     ENV["AZURE_OPENAI_API_VERSION"] = original_version
   end
+
+  # Tests for direct host support (Azure AI Foundry, Cognitive Services, custom domains)
+  test "allows direct host configuration without azure_resource and deployment_id" do
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      host: "https://mycompany.cognitiveservices.azure.com/openai/deployments/gpt-4",
+      api_version: "2024-10-21"
+    )
+
+    assert options.valid?, "Expected options to be valid, got errors: #{options.errors.full_messages}"
+    assert_equal "https://mycompany.cognitiveservices.azure.com/openai/deployments/gpt-4", options.base_url
+  end
+
+  test "uses direct host for base_url when provided" do
+    custom_host = "https://custom.azure.com/openai/deployments/my-model"
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      host: custom_host
+    )
+
+    assert_equal custom_host, options.base_url
+  end
+
+  test "uses base_url alias for direct host configuration" do
+    custom_url = "https://mycompany.cognitiveservices.azure.com/openai/deployments/gpt-4.1"
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      base_url: custom_url
+    )
+
+    assert_equal custom_url, options.base_url
+  end
+
+  test "prefers host over azure_resource and deployment_id" do
+    custom_host = "https://custom.azure.com/path"
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      host: custom_host,
+      azure_resource: "ignored",
+      deployment_id: "also-ignored"
+    )
+
+    assert_equal custom_host, options.base_url
+  end
+
+  test "validates presence of azure_resource only when host not provided" do
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      deployment_id: "gpt-4"
+      # Missing both host and azure_resource
+    )
+
+    assert_not options.valid?
+    assert_includes options.errors[:azure_resource], "can't be blank"
+  end
+
+  test "validates presence of deployment_id only when host not provided" do
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      azure_resource: "mycompany"
+      # Missing both host and deployment_id
+    )
+
+    assert_not options.valid?
+    assert_includes options.errors[:deployment_id], "can't be blank"
+  end
+
+  test "skips azure_resource validation when host provided" do
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      host: "https://custom.azure.com/path"
+      # No azure_resource - should be valid
+    )
+
+    assert options.valid?, "Expected valid with host, got: #{options.errors.full_messages}"
+  end
+
+  test "skips deployment_id validation when host provided" do
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      host: "https://custom.azure.com/path"
+      # No deployment_id - should be valid
+    )
+
+    assert options.valid?, "Expected valid with host, got: #{options.errors.full_messages}"
+  end
+
+  test "is valid with only host and api_key" do
+    original_version = ENV["AZURE_OPENAI_API_VERSION"]
+    ENV.delete("AZURE_OPENAI_API_VERSION")
+
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-api-key",
+      host: "https://myhost.azure.com/path"
+    )
+
+    assert options.valid?, "Expected options to be valid with just host and api_key, got: #{options.errors.full_messages}"
+  ensure
+    ENV["AZURE_OPENAI_API_VERSION"] = original_version
+  end
+
+  test "still returns correct extra_headers when using direct host" do
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "my-secret-key",
+      host: "https://custom.azure.com/path"
+    )
+
+    assert_equal({ "api-key" => "my-secret-key" }, options.extra_headers)
+  end
+
+  test "still returns correct extra_query when using direct host" do
+    original_version = ENV["AZURE_OPENAI_API_VERSION"]
+    ENV.delete("AZURE_OPENAI_API_VERSION")
+
+    options = ActiveAgent::Providers::Azure::Options.new(
+      api_key: "test-key",
+      host: "https://custom.azure.com/path",
+      api_version: "2025-01-01-preview"
+    )
+
+    assert_equal({ "api-version" => "2025-01-01-preview" }, options.extra_query)
+  ensure
+    ENV["AZURE_OPENAI_API_VERSION"] = original_version
+  end
 end
