@@ -70,7 +70,6 @@ const sections = [
     title: 'Contributing',
     pages: [
       { path: 'contributing/documentation' },
-      { path: 'llms_txt' },
     ],
   },
 ]
