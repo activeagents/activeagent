@@ -61,7 +61,8 @@ export default defineConfig({
     ['meta', { property: 'og:description', content: 'The AI framework for Rails with less code & more fun.' }],
     ['meta', { property: 'og:url', content: 'https://activeagents.ai' }],
     ['meta', { property: 'og:type', content: 'website' }],
-    ['script', { async: '', defer: '', src: 'https://buttons.github.io/buttons.js' }]
+    ['script', { async: '', defer: '', src: 'https://buttons.github.io/buttons.js' }],
+    ['link', { rel: 'help', type: 'text/markdown', href: '/llms.txt', title: 'LLM Documentation' }]
   ],
   cleanUrls: true,
   themeConfig: {
@@ -145,6 +146,7 @@ export default defineConfig({
       { text: 'Contributing',
         items: [
           { text: 'Documentation', link: '/contributing/documentation' },
+          { text: 'LLMs.txt', link: '/llms_txt' },
         ]
       },
     ],

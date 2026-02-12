@@ -1,0 +1,59 @@
+# Active Agent
+
+> ActiveAgent extends Rails MVC to AI interactions. Build intelligent agents using familiar patterns — controllers, actions, callbacks, and views. The AI framework for Rails with less code & more fun.
+
+## Getting Started
+
+- [Getting Started](https://docs.activeagents.ai/getting_started): Build AI agents with Rails in minutes. Learn how to install, configure, and create your first agent.
+
+## Framework
+
+- [Active Agent](https://docs.activeagents.ai/framework): ActiveAgent extends Rails MVC to AI interactions. Build intelligent agents using familiar patterns—controllers, actions, callbacks, and views.
+- [Agents](https://docs.activeagents.ai/agents): Controllers for AI interactions with actions, callbacks, views, and concerns that generate AI responses instead of rendering HTML.
+- [Providers](https://docs.activeagents.ai/providers): Connect your agents to AI services through a unified interface. Switch between OpenAI, Anthropic, local models, or testing mocks without changing agent code.
+- [Configuration](https://docs.activeagents.ai/framework/configuration): Flexible configuration for framework-level settings and provider-specific options. Configure retry strategies, logging, and multiple AI providers with environment-specific settings.
+- [Instrumentation and Logging](https://docs.activeagents.ai/framework/instrumentation): Monitor provider operations using ActiveSupport::Notifications. Track performance metrics, debug generation flows, and integrate with external monitoring services.
+- [Retries](https://docs.activeagents.ai/framework/retries): Automatic retry mechanisms for handling rate limits, timeouts, and transient errors using provider-native SDK retry strategies with exponential backoff.
+- [Rails Integration](https://docs.activeagents.ai/framework/rails): Install ActiveAgent in Rails applications with generators for agents, actions, and views. Configure providers and leverage familiar Rails conventions.
+- [Testing ActiveAgent Applications](https://docs.activeagents.ai/framework/testing): Testing strategies for ActiveAgent applications with credential management, VCR integration, and test patterns.
+
+## Agents
+
+- [Actions](https://docs.activeagents.ai/actions): Public methods in your agent that define specific AI behaviors using prompt() for text generation or embed() for vector embeddings.
+- [Generation](https://docs.activeagents.ai/agents/generation): Execute AI generations synchronously with prompt_now or asynchronously with prompt_later using ActiveAgent's generation methods.
+- [Agent Instructions](https://docs.activeagents.ai/agents/instructions): System-level messages that guide agent behavior, personality, capabilities, and tool usage. The agent's operating manual for every interaction.
+- [Streaming](https://docs.activeagents.ai/agents/streaming): Stream responses from AI providers in real-time using callbacks that execute at different points in the streaming lifecycle.
+- [Callbacks](https://docs.activeagents.ai/agents/callbacks): Control agent lifecycle with generation, prompting, embedding, and streaming callbacks for setup, validation, cleanup, and real-time response handling.
+- [Error Handling](https://docs.activeagents.ai/agents/error_handling): Build resilient agents with automatic retries for network failures and application-level rescue handlers for custom error recovery.
+
+## Actions
+
+- [Messages](https://docs.activeagents.ai/actions/messages): Build conversation context with messages containing roles (user, assistant, system, tool) and content (text, images, documents) in native or unified format.
+- [Embeddings](https://docs.activeagents.ai/actions/embeddings): Generate vector embeddings from text to enable semantic search, clustering, and similarity comparison in your AI applications.
+- [Tools](https://docs.activeagents.ai/actions/tools): Extend agents with callable functions that LLMs can trigger during generation. Unified interface across providers for function calling.
+- [Model Context Protocols (MCP)](https://docs.activeagents.ai/actions/mcps): Connect agents to external services and APIs using the Model Context Protocol. Universal integration for tools and data sources.
+- [Structured Output](https://docs.activeagents.ai/actions/structured_output): Control JSON responses from AI models with json_object for simple output or json_schema for validated structured data.
+- [Usage Statistics](https://docs.activeagents.ai/actions/usage): Track token usage and performance metrics across all AI providers with normalized usage objects.
+
+## Providers
+
+- [Anthropic Provider](https://docs.activeagents.ai/providers/anthropic): Integration with Claude models including Sonnet 4.5, Haiku 4.5, and Opus 4.1. Advanced reasoning, extended context windows, thinking mode, and strong performance on complex tasks.
+- [Ollama Provider](https://docs.activeagents.ai/providers/ollama): Local LLM inference using Ollama platform. Run Llama 3, Mistral, and Gemma locally without external APIs. Perfect for privacy-sensitive applications and development.
+- [OpenAI Provider](https://docs.activeagents.ai/providers/open_ai): Integration with GPT models including GPT-5, GPT-4.1, GPT-4o, and o3. Responses API with built-in tools or traditional Chat Completions API for standard interactions.
+- [OpenRouter Provider](https://docs.activeagents.ai/providers/open_router): Access 200+ AI models from multiple providers through unified API. Intelligent routing, automatic fallbacks, multimodal support, PDF processing, and cost optimization.
+- [Mock Provider](https://docs.activeagents.ai/providers/mock): Testing provider for developing and testing agents without API calls or costs. Returns predictable pig latin responses and generates random embeddings.
+
+## Examples
+
+- [Browser Use Agent](https://docs.activeagents.ai/examples/browser-use-agent): Browser automation with AI-driven control. Navigate web pages, interact with elements, extract content, and take screenshots using Cuprite/Chrome.
+- [Data Extraction](https://docs.activeagents.ai/examples/data_extraction_agent): Extract structured data from PDF resumes using AI-powered parsing. Demonstrates multimodal input and structured output with JSON schemas.
+- [MCP Integration Agent](https://docs.activeagents.ai/examples/mcp-integration-agent): Connect ActiveAgent with external services through Model Context Protocol. Demonstrates standardized integration with cloud storage, APIs, and custom services.
+- [Research Agent](https://docs.activeagents.ai/examples/research-agent): Combine multiple tools and data sources for comprehensive research tasks. Integrates web search, MCP servers, and image generation for powerful research workflows.
+- [Support Agent](https://docs.activeagents.ai/examples/support-agent): Customer support chatbot demonstrating core ActiveAgent concepts including tool calling, message context, and multimodal responses.
+- [Translation Agent](https://docs.activeagents.ai/examples/translation-agent): Create specialized agents for language translation tasks. Demonstrates how to build focused, single-purpose agents with clear responsibilities.
+- [Web Search Agent](https://docs.activeagents.ai/examples/web-search-agent): Web search capabilities through OpenAI's search models and tools. Access real-time web information using Chat Completions API or Responses API.
+
+## Contributing
+
+- [Documentation](https://docs.activeagents.ai/contributing/documentation): Deterministic, always-accurate documentation where every code example comes from tested files. Learn how to maintain documentation that can't drift from code.
+- [LLMs.txt](https://docs.activeagents.ai/llms_txt): Machine-readable documentation index for AI tools and large language models following the llms.txt specification.
