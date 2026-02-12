@@ -11,7 +11,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUTPUT = join(__dirname, '..', 'docs', 'public', 'llms.txt');
+const OUTPUT = join(__dirname, '..', 'docs', '.vitepress', 'dist', 'llms.txt');
 
 let failures = 0;
 
@@ -24,9 +24,9 @@ function assert(condition, msg) {
   }
 }
 
-// Step 1: Run the generator
-console.log('Running generator...');
-execSync('node scripts/generate-llms-txt.mjs', {
+// Step 1: Build docs (which generates llms.txt via buildEnd hook)
+console.log('Building docs...');
+execSync('npm run docs:build', {
   cwd: join(__dirname, '..'),
   stdio: 'inherit',
 });

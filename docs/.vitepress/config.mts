@@ -8,6 +8,7 @@ import {
 } from "vitepress-plugin-group-icons"
 
 import versions from './versions.json'
+import { generateLlmsTxt } from './llms-txt'
 
 // Build version dropdown items with absolute URLs for cross-version navigation
 // This forces full page reload instead of client-side routing
@@ -163,5 +164,7 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/activeagents/activeagent' }
     ],
   },
-  lastUpdated: true
+  lastUpdated: true,
+
+  buildEnd: generateLlmsTxt
 })

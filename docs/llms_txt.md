@@ -22,10 +22,10 @@ Most AI-powered coding assistants and chat interfaces can ingest this URL direct
 
 ## Regenerating
 
-The file is regenerated on every docs deploy. To regenerate locally:
+The file is regenerated on every docs deploy as part of the VitePress build. To regenerate locally:
 
 ```bash
-npm run generate:llms-txt
+npm run docs:build
 ```
 
-This parses frontmatter from all documentation markdown files and writes `docs/public/llms.txt`.
+This parses frontmatter from all documentation markdown files and writes `llms.txt` to the build output directory.

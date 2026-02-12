@@ -81,9 +81,6 @@ jobs:
           OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
         run: bin/test
 
-      - name: Generate llms.txt
-        run: node scripts/generate-llms-txt.mjs
-
       - name: Build with VitePress
         run: npm run docs:build
 
