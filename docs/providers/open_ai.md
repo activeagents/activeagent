@@ -287,22 +287,9 @@ For similarity search, batch processing, and advanced embedding patterns, see th
 
 ## Azure OpenAI
 
-ActiveAgent supports Azure OpenAI Service with custom endpoint configuration.
+ActiveAgent provides a dedicated Azure OpenAI provider with first-class support for Azure-specific authentication, deployment-based endpoints, and API versioning.
 
-### Configuration
-
-<<< @/../test/docs/providers/open_ai_examples_test.rb#azure_configuration{ruby:line-numbers}
-
-### Key Differences
-
-- **Deployment Names**: Use your Azure deployment name instead of OpenAI model names
-- **API Versions**: Azure uses date-based API versions (e.g., "2024-02-01")
-- **Authentication**: Use Azure-specific API keys from your Azure portal
-- **Endpoints**: Custom host URL based on your Azure resource name
-
-::: tip
-Azure OpenAI may lag behind OpenAI's latest models and features. Check Azure's model availability before planning deployments.
-:::
+See the **[Azure OpenAI Provider](/providers/azure)** documentation for full configuration and usage details.
 
 ## Error Handling
 
