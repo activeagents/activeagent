@@ -242,6 +242,54 @@ module ActiveAgent
           assert_equal 1000, usage.provider_details[:cache_creation][:ephemeral_5m_input_tokens]
           assert_equal 2, usage.provider_details[:server_tool_use][:web_fetch_requests]
         end
+
+        # --- Usage addition (multi-turn accumulation) ---
+
+        test "addition combines two usage objects" do
+          usage1 = Usage.new(input_tokens: 100, output_tokens: 50, cached_tokens: 20)
+          usage2 = Usage.new(input_tokens: 75, output_tokens: 25, cached_tokens: 10)
+
+          combined = usage1 + usage2
+
+          assert_equal 175, combined.input_tokens
+          assert_equal 75, combined.output_tokens
+          assert_equal 250, combined.total_tokens
+          assert_equal 30, combined.cached_tokens
+        end
+
+        test "addition handles nil optional fields" do
+          usage1 = Usage.new(input_tokens: 100, output_tokens: 50)
+          usage2 = Usage.new(input_tokens: 75, output_tokens: 25, reasoning_tokens: 10)
+
+          combined = usage1 + usage2
+
+          assert_equal 175, combined.input_tokens
+          assert_equal 75, combined.output_tokens
+          assert_equal 10, combined.reasoning_tokens
+          assert_nil combined.cached_tokens
+        end
+
+        test "addition with nil returns self" do
+          usage = Usage.new(input_tokens: 100, output_tokens: 50)
+
+          combined = usage + nil
+
+          assert_equal 100, combined.input_tokens
+          assert_equal 50, combined.output_tokens
+        end
+
+        test "chained addition accumulates across multiple turns" do
+          turn1 = Usage.new(input_tokens: 50, output_tokens: 20)
+          turn2 = Usage.new(input_tokens: 80, output_tokens: 30, cached_tokens: 10)
+          turn3 = Usage.new(input_tokens: 60, output_tokens: 25, cached_tokens: 5)
+
+          cumulative = turn1 + turn2 + turn3
+
+          assert_equal 190, cumulative.input_tokens
+          assert_equal 75, cumulative.output_tokens
+          assert_equal 265, cumulative.total_tokens
+          assert_equal 15, cumulative.cached_tokens
+        end
       end
     end
   end
