@@ -13,6 +13,7 @@ Understanding roles helps you structure conversations correctly:
 - **User** - Input from the user to the agent (text, images, documents)
 - **Assistant** - Responses from the agent, including tool call requests
 - **System** - Instructions that guide agent behavior (set via `instructions` option)
+- **Developer** - OpenAI's alternative to system role; treated identically to system messages in common format (dropped and replaced by instructions)
 - **Tool** - Results from tool executions (handled automatically)
 
 Most of the time you'll send user messages and inspect assistant/tool responses.
@@ -44,7 +45,7 @@ Set explicit roles using hashes. The default role is `:user`:
 
 <<< @/../test/docs/actions/messages_examples_test.rb#messages_with_roles_agent {ruby:line-numbers}
 
-**Note:** Use the `instructions` option for system messages. System role messages are dropped in common format and replaced by instructions. [Learn about instructions →](/agents/instructions)
+**Note:** Use the `instructions` option for system messages. Both `system` and `developer` role messages are dropped in common format and replaced by instructions. [Learn about instructions →](/agents/instructions)
 
 ## Images and Documents
 
