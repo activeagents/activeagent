@@ -38,12 +38,19 @@ Run Llama 3, Mistral, Gemma, CodeLlama, and other open models locally. No API ke
 
 **Choose when:** Data cannot leave your infrastructure, you're developing offline, or you want to avoid API costs. Requires local setup.
 
+### [Azure OpenAI](/providers/azure)
+**Best for:** Enterprise deployments, data residency requirements, existing Azure infrastructure
+
+Azure-hosted OpenAI models with dedicated endpoints, Azure-specific authentication (api-key header), and deployment-based model selection. Uses Chat Completions API.
+
+**Choose when:** Your organization requires Azure compliance, data residency, or you already use Azure infrastructure. Same models as OpenAI but hosted on Azure.
+
 ### [OpenAI](/providers/open_ai)
 **Best for:** Production applications, advanced reasoning, vision tasks
 
 GPT-4o, GPT-4.1, GPT-5, and o3 models. Two APIs available: Responses API (default) with built-in web search, image generation, and MCP integration, or Chat Completions API for standard interactions. 128K-200K context windows.
 
-**Choose when:** You need reliable, high-quality responses with strong reasoning. Vision support and structured output work well. Azure OpenAI compatible.
+**Choose when:** You need reliable, high-quality responses with strong reasoning. Vision support and structured output work well.
 
 ### [OpenRouter](/providers/open_router)
 **Best for:** Multi-model flexibility, cost optimization, experimentation
