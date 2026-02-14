@@ -105,9 +105,8 @@ export async function generateLlmsTxt(siteConfig: SiteConfig) {
       let fm: Record<string, string>
       try {
         fm = parseFrontmatter(filePath)
-      } catch {
-        console.warn(`  skip: ${page.path}.md (not found)`)
-        continue
+      } catch (error) {
+        throw new Error(`Failed to read ${page.path}.md at ${filePath}: ${(error as Error).message}`)
       }
 
       const title = fm.title || page.path
@@ -122,6 +121,6 @@ export async function generateLlmsTxt(siteConfig: SiteConfig) {
   }
 
   const outPath = join(siteConfig.outDir, 'llms.txt')
-  writeFileSync(outPath, lines.join('\n'))
+  writeFileSync(outPath, lines.join('\n') + '\n')
   console.log(`Generated ${outPath} with ${count} entries`)
 }
