@@ -12,13 +12,24 @@ module ActiveAgent
       # - Authentication: api-key header instead of Authorization: Bearer
       # - API Version: Required query parameter
       #
-      # @example Configuration
-      #   options = Azure::Options.new(
-      #     api_key: ENV["AZURE_OPENAI_API_KEY"],
-      #     azure_resource: "mycompany",
-      #     deployment_id: "gpt-4-deployment",
-      #     api_version: "2024-10-21"
-      #   )
+      # You can configure Azure OpenAI in two ways:
+      #
+      # 1. Using azure_resource and deployment_id (standard Azure OpenAI):
+      #    @example
+      #      options = Azure::Options.new(
+      #        api_key: ENV["AZURE_OPENAI_API_KEY"],
+      #        azure_resource: "mycompany",
+      #        deployment_id: "gpt-4-deployment",
+      #        api_version: "2024-10-21"
+      #      )
+      #
+      # 2. Using a direct host/base_url (for custom domains or Azure AI Foundry):
+      #    @example
+      #      options = Azure::Options.new(
+      #        api_key: ENV["AZURE_OPENAI_API_KEY"],
+      #        host: "https://mycompany.cognitiveservices.azure.com/openai/deployments/gpt-4",
+      #        api_version: "2024-10-21"
+      #      )
       class Options < ActiveAgent::Providers::OpenAI::Options
         DEFAULT_API_VERSION = "2024-10-21"
 
@@ -26,12 +37,15 @@ module ActiveAgent
         attribute :deployment_id,  :string
         attribute :api_version,    :string, fallback: DEFAULT_API_VERSION
 
-        validates :azure_resource, presence: true
-        validates :deployment_id, presence: true
+        validates :azure_resource, presence: true, unless: :explicit_host_provided?
+        validates :deployment_id, presence: true, unless: :explicit_host_provided?
 
         def initialize(kwargs = {})
           kwargs = kwargs.deep_symbolize_keys if kwargs.respond_to?(:deep_symbolize_keys)
           kwargs[:api_version] ||= resolve_api_version(kwargs)
+          # Store explicit host before super processes kwargs
+          # host is aliased to base_url in parent, so check both
+          @explicit_host = kwargs[:host] || kwargs[:base_url]
           super(kwargs)
         end
 
@@ -55,12 +69,25 @@ module ActiveAgent
 
         # Builds the base URL for Azure OpenAI API requests.
         #
+        # If a direct host/base_url is provided, uses that directly.
+        # Otherwise, constructs the URL from azure_resource and deployment_id.
+        #
         # @return [String] the Azure OpenAI endpoint URL
         def base_url
-          "https://#{azure_resource}.openai.azure.com/openai/deployments/#{deployment_id}"
+          if @explicit_host.present?
+            @explicit_host
+          elsif azure_resource.present? && deployment_id.present?
+            "https://#{azure_resource}.openai.azure.com/openai/deployments/#{deployment_id}"
+          else
+            raise ArgumentError, "Either host or azure_resource + deployment_id must be provided"
+          end
         end
 
         private
+
+        def explicit_host_provided?
+          @explicit_host.present?
+        end
 
         def resolve_api_key(kwargs)
           kwargs[:api_key] ||
