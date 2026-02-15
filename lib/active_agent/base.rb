@@ -106,9 +106,10 @@ module ActiveAgent
       global_options    = provider_config_load(provider_reference)
       inherited_options = (self.prompt_options || {}).except(:instructions) # Don't inherit instructions from parent
 
-      # Different Service, different APIs
+      # Different Service, different APIs — discard all inherited options
+      # to prevent parent provider config (host, api_key, etc.) leaking through
       if global_options[:service] != inherited_options[:service]
-        inherited_options.extract!(:service, :api_version)
+        inherited_options = {}
       end
 
       self.prompt_options = global_options.merge(inherited_options).merge(agent_options)
