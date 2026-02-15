@@ -268,7 +268,8 @@ module ActiveAgent
     # @return [Proc] callback proc that accepts (message, delta, type)
     def stream_broadcaster
       proc do |message, delta, type|
-        self.stream_chunk = StreamChunk.new(message, delta)
+        cast_message = message.is_a?(Hash) ? Providers::Common::Messages::Types::MessageType.new.cast(message) : message
+        self.stream_chunk = StreamChunk.new(cast_message, delta)
 
         run_callbacks(:stream_open) if type == :open
         run_callbacks(:stream)
