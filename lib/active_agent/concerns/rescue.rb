@@ -13,6 +13,18 @@ module ActiveAgent
     include ActiveSupport::Rescuable
 
     class_methods do
+      # Handles exceptions raised during GenerationJob execution.
+      #
+      # Called by GenerationJob#handle_exception_with_agent_class as a
+      # class-level fallback when no instance is available to handle the error.
+      #
+      # @param exception [Exception] the exception to handle
+      # @return [void]
+      def handle_exception(exception)
+        Rails.logger.error "[#{name}] #{exception.class}: #{exception.message}"
+        Rails.logger.error exception.backtrace&.first(10)&.join("\n") if exception.backtrace
+      end
+
       # Finds and instruments the rescue handler for an exception.
       #
       # @param exception [Exception] the exception to handle
