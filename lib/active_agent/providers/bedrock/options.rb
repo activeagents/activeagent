@@ -36,7 +36,9 @@ module ActiveAgent
         attribute :aws_secret_key,    :string
         attribute :aws_session_token, :string
         attribute :aws_profile,       :string
+        attribute :aws_bearer_token,  :string
         attribute :base_url,          :string
+        attribute :anthropic_beta,    :string
 
         attribute :max_retries,         :integer, default: ::Anthropic::Client::DEFAULT_MAX_RETRIES
         attribute :timeout,             :float,   default: ::Anthropic::Client::DEFAULT_TIMEOUT_IN_SECONDS
@@ -51,15 +53,22 @@ module ActiveAgent
             aws_access_key:    kwargs[:aws_access_key]    || ENV["AWS_ACCESS_KEY_ID"],
             aws_secret_key:    kwargs[:aws_secret_key]    || ENV["AWS_SECRET_ACCESS_KEY"],
             aws_session_token: kwargs[:aws_session_token] || ENV["AWS_SESSION_TOKEN"],
-            aws_profile:       kwargs[:aws_profile]       || ENV["AWS_PROFILE"]
+            aws_profile:       kwargs[:aws_profile]       || ENV["AWS_PROFILE"],
+            aws_bearer_token:  kwargs[:aws_bearer_token]  || ENV["AWS_BEARER_TOKEN_BEDROCK"]
           )))
+        end
+
+        # Bedrock handles authentication at the client level (SigV4 or bearer token),
+        # so no extra headers are needed in request options.
+        def extra_headers
+          {}
         end
 
         # Excludes sensitive AWS credentials from serialized output.
         # The provider's client() method reads credentials directly from options attributes.
         def serialize
           attributes.symbolize_keys.except(
-            :aws_access_key, :aws_secret_key, :aws_session_token, :aws_profile
+            :aws_access_key, :aws_secret_key, :aws_session_token, :aws_profile, :aws_bearer_token
           )
         end
       end

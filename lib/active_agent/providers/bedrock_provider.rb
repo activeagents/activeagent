@@ -43,23 +43,37 @@ module ActiveAgent
         Anthropic::RequestType.new
       end
 
-      # Returns a configured Bedrock client using AWS credentials.
+      # Returns a configured Bedrock client.
       #
-      # Uses Anthropic::BedrockClient which handles SigV4 signing,
-      # credential resolution, and Bedrock URL path rewriting internally.
+      # When a bearer token is available (via +aws_bearer_token+ option or
+      # +AWS_BEARER_TOKEN_BEDROCK+ env var), uses {Bedrock::BearerClient}
+      # which sends an +Authorization: Bearer+ header.
       #
-      # @return [Anthropic::Helpers::Bedrock::Client]
+      # Otherwise, falls back to {Anthropic::BedrockClient} which handles
+      # SigV4 signing, credential resolution, and Bedrock URL path rewriting.
+      #
+      # @return [Bedrock::BearerClient, Anthropic::Helpers::Bedrock::Client]
       def client
-        @client ||= ::Anthropic::BedrockClient.new(
-          aws_region:        options.aws_region,
-          aws_access_key:    options.aws_access_key,
-          aws_secret_key:    options.aws_secret_key,
-          aws_session_token: options.aws_session_token,
-          aws_profile:       options.aws_profile,
-          base_url:          options.base_url.presence,
-          max_retries:       options.max_retries,
-          timeout:           options.timeout
-        )
+        @client ||= if options.aws_bearer_token.present?
+          Bedrock::BearerClient.new(
+            aws_region:    options.aws_region,
+            bearer_token:  options.aws_bearer_token,
+            base_url:      options.base_url.presence,
+            max_retries:   options.max_retries,
+            timeout:       options.timeout
+          )
+        else
+          ::Anthropic::BedrockClient.new(
+            aws_region:        options.aws_region,
+            aws_access_key:    options.aws_access_key,
+            aws_secret_key:    options.aws_secret_key,
+            aws_session_token: options.aws_session_token,
+            aws_profile:       options.aws_profile,
+            base_url:          options.base_url.presence,
+            max_retries:       options.max_retries,
+            timeout:           options.timeout
+          )
+        end
       end
     end
   end
