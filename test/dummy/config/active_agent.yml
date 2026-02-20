@@ -24,6 +24,11 @@ ollama: &ollama
   service: "Ollama"
   model: "gpt-oss:20b"
 # endregion ollama_anchor
+# region bedrock_anchor
+bedrock: &bedrock
+  service: "Bedrock"
+  aws_region: <%= ENV.fetch("AWS_REGION", "us-east-1") %>
+# endregion bedrock_anchor
 # region mock_anchor
 mock: &mock
   service: "Mock"
@@ -51,6 +56,10 @@ development:
   anthropic:
     <<: *anthropic
   # endregion anthropic_dev_config
+  # region bedrock_dev_config
+  bedrock:
+    <<: *bedrock
+  # endregion bedrock_dev_config
   # region mock_dev_config
   mock:
     <<: *mock
@@ -69,6 +78,8 @@ test:
     <<: *ollama
   anthropic:
     <<: *anthropic
+  bedrock:
+    <<: *bedrock
   mock:
     <<: *mock
 # endregion config_test
