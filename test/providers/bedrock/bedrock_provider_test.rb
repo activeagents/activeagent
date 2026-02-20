@@ -61,4 +61,39 @@ class BedrockProviderTest < ActiveSupport::TestCase
 
     assert_equal "eu-west-2", client.aws_region
   end
+
+  test "client returns BearerClient when bearer token is configured" do
+    bearer_config = {
+      service: "Bedrock",
+      aws_region: "eu-west-2",
+      aws_bearer_token: "test-bearer-token",
+      model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      messages: [ { role: "user", content: "Hello" } ]
+    }
+
+    provider = ActiveAgent::Providers::BedrockProvider.new(bearer_config)
+    client = provider.client
+
+    assert_instance_of ActiveAgent::Providers::Bedrock::BearerClient, client
+  end
+
+  test "client returns Anthropic::BedrockClient when no bearer token" do
+    provider = ActiveAgent::Providers::BedrockProvider.new(@valid_config)
+    client = provider.client
+
+    assert_instance_of ::Anthropic::Helpers::Bedrock::Client, client
+  end
+
+  test "bearer client is memoized" do
+    bearer_config = {
+      service: "Bedrock",
+      aws_region: "eu-west-2",
+      aws_bearer_token: "test-bearer-token",
+      model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    }
+
+    provider = ActiveAgent::Providers::BedrockProvider.new(bearer_config)
+
+    assert_same provider.client, provider.client
+  end
 end

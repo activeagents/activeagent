@@ -179,11 +179,48 @@ class BedrockOptionsTest < ActiveSupport::TestCase
     ENV["AWS_PROFILE"] = original_profile
   end
 
+  test "initializes with bearer token" do
+    options = ActiveAgent::Providers::Bedrock::Options.new(
+      aws_region: "eu-west-2",
+      aws_bearer_token: "test-bearer-token"
+    )
+
+    assert_equal "test-bearer-token", options.aws_bearer_token
+  end
+
+  test "resolves aws_bearer_token from environment variable" do
+    original_token = ENV["AWS_BEARER_TOKEN_BEDROCK"]
+    ENV["AWS_BEARER_TOKEN_BEDROCK"] = "env-bearer-token"
+
+    options = ActiveAgent::Providers::Bedrock::Options.new(
+      aws_region: "eu-west-2"
+    )
+
+    assert_equal "env-bearer-token", options.aws_bearer_token
+  ensure
+    ENV["AWS_BEARER_TOKEN_BEDROCK"] = original_token
+  end
+
+  test "prefers explicit aws_bearer_token over environment variable" do
+    original_token = ENV["AWS_BEARER_TOKEN_BEDROCK"]
+    ENV["AWS_BEARER_TOKEN_BEDROCK"] = "env-bearer-token"
+
+    options = ActiveAgent::Providers::Bedrock::Options.new(
+      aws_region: "eu-west-2",
+      aws_bearer_token: "explicit-bearer-token"
+    )
+
+    assert_equal "explicit-bearer-token", options.aws_bearer_token
+  ensure
+    ENV["AWS_BEARER_TOKEN_BEDROCK"] = original_token
+  end
+
   test "serialize excludes sensitive credential fields" do
     options = ActiveAgent::Providers::Bedrock::Options.new(
       @valid_options.merge(
         aws_session_token: "test-token",
-        aws_profile: "test-profile"
+        aws_profile: "test-profile",
+        aws_bearer_token: "test-bearer-token"
       )
     )
 
@@ -194,6 +231,7 @@ class BedrockOptionsTest < ActiveSupport::TestCase
     assert_nil serialized[:aws_secret_key]
     assert_nil serialized[:aws_session_token]
     assert_nil serialized[:aws_profile]
+    assert_nil serialized[:aws_bearer_token]
   end
 
   test "serialize includes non-credential fields" do
