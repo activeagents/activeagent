@@ -113,7 +113,7 @@ Actions call `prompt()` or `embed()` to configure requests. Callbacks manage con
 
 ActiveAgent integrates with Rails features and AI capabilities:
 
-- **[Providers](/providers)** - Swap AI services (OpenAI, Anthropic, Ollama, OpenRouter)
+- **[Providers](/providers)** - Swap AI services (OpenAI, Anthropic, Ollama, OpenRouter, RubyLLM)
 - **[Instructions](/agents/instructions)** - System prompts from templates or strings
 - **[Callbacks](/agents/callbacks)** - Lifecycle hooks for context and logging
 - **[Tools](/actions/tools)** - Agent methods as AI-callable functions
@@ -133,7 +133,7 @@ ActiveAgent integrates with Rails features and AI capabilities:
 - [Generation](/agents/generation) - Synchronous and asynchronous execution
 - [Instructions](/agents/instructions) - System prompts and behavior guidance
 - [Messages](/actions/messages) - Conversation context with multimodal support
-- [Providers](/providers) - OpenAI, Anthropic, Ollama, OpenRouter configuration
+- [Providers](/providers) - OpenAI, Anthropic, Ollama, OpenRouter, RubyLLM configuration
 
 **Advanced:**
 - [Tools](/actions/tools) - AI-callable Ruby methods and MCP integration

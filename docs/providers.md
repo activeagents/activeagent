@@ -20,6 +20,15 @@ Providers connect your agents to AI services through a unified interface. Switch
 
 <<< @/../test/dummy/app/agents/providers/mock_agent.rb#agent{ruby} [Mock]
 
+```ruby [RubyLLM]
+class RubyLLMAgent < ApplicationAgent
+  generate_with :ruby_llm, model: "gpt-4o-mini"
+  # Works with any model RubyLLM supports:
+  # generate_with :ruby_llm, model: "claude-sonnet-4-5-20250929"
+  # generate_with :ruby_llm, model: "gemini-2.0-flash"
+end
+```
+
 :::
 
 ## Choosing a Provider
@@ -51,6 +60,13 @@ GPT-4o, GPT-4.1, GPT-5, and o3 models. Two APIs available: Responses API (defaul
 Access 200+ models from OpenAI, Anthropic, Google, Meta, and more through one API. Intelligent routing, automatic fallbacks, multimodal support, PDF processing.
 
 **Choose when:** You want to compare models, need fallback options, or want flexible provider switching. Good for reducing vendor lock-in.
+
+### [RubyLLM](/providers/ruby_llm)
+**Best for:** Multi-provider flexibility through a single unified gem
+
+Access 15+ LLM providers (OpenAI, Anthropic, Gemini, Bedrock, Azure, Ollama, and more) through RubyLLM's unified API. Switch models by changing a single parameter.
+
+**Choose when:** You want a single gem to access multiple providers, prefer RubyLLM's configuration model, or want to switch between providers without changing provider configuration.
 
 ### [Mock](/providers/mock)
 **Best for:** Testing, development, offline work
