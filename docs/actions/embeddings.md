@@ -84,3 +84,4 @@ Different models produce different embedding dimensions:
 - [Testing](/framework/testing) - Test embedding functionality
 - [OpenAI Provider](/providers/open_ai) - OpenAI embedding models
 - [Ollama Provider](/providers/ollama) - Local embedding generation
+- [RubyLLM Provider](/providers/ruby_llm) - Embeddings via RubyLLM's unified API

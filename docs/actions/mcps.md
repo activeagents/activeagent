@@ -18,6 +18,7 @@ Connect agents to external services via [Model Context Protocol](https://modelco
 | **Anthropic**  | ⚠️      | Beta |
 | **OpenRouter** | 🚧      | In development |
 | **Ollama**     | ❌      | Not supported |
+| **RubyLLM**    | ❌      | Not supported (use provider-specific integration) |
 | **Mock**       | ❌      | Not supported |
 
 ## MCP Format
