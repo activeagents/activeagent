@@ -206,7 +206,7 @@ Common settings available across all providers:
 
 | Setting | Type | Required | Description |
 |---------|------|----------|-------------|
-| `service` | String | Yes | Provider class name (OpenAI, Anthropic, OpenRouter, Ollama, Mock) |
+| `service` | String | Yes | Provider class name (OpenAI, Anthropic, OpenRouter, Ollama, RubyLLM, Mock) |
 | `access_token` / `api_key` | String | Yes* | API authentication key |
 | `model` | String | Yes* | Model identifier for the LLM to use |
 | `temperature` | Float | No | Randomness control (0.0-2.0, default varies by provider) |
@@ -220,6 +220,7 @@ Common settings available across all providers:
 - **[Ollama Provider](/providers/ollama)** - Host configuration for local instances
 - **[OpenAI Provider](/providers/open_ai)** - Organization ID, request timeout, admin token, etc.
 - **[OpenRouter Provider](/providers/open_router)** - App name, site URL, provider preferences, etc.
+- **[RubyLLM Provider](/providers/ruby_llm)** - Unified API for 15+ providers via RubyLLM
 - **[Mock Provider](/providers/mock)** - Testing-specific options
 
 ### Using Configured Providers

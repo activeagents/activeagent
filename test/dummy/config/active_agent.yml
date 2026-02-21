@@ -29,6 +29,10 @@ mock: &mock
   service: "Mock"
   model: "mock-model"
 # endregion mock_anchor
+# region ruby_llm_anchor
+ruby_llm: &ruby_llm
+  service: "RubyLLM"
+# endregion ruby_llm_anchor
 # endregion config_anchors
 
 # region config_development
@@ -55,6 +59,10 @@ development:
   mock:
     <<: *mock
   # endregion mock_dev_config
+  # region ruby_llm_dev_config
+  ruby_llm:
+    <<: *ruby_llm
+  # endregion ruby_llm_dev_config
 # endregion config_development
 
 # region config_test
@@ -71,4 +79,6 @@ test:
     <<: *anthropic
   mock:
     <<: *mock
+  ruby_llm:
+    <<: *ruby_llm
 # endregion config_test
