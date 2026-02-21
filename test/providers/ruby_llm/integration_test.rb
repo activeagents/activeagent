@@ -46,7 +46,7 @@ class RubyLLMIntegrationTest < ActiveSupport::TestCase
     provider = ActiveAgent::Providers::RubyLLMProvider.new(
       service: "RubyLLM",
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: "Reply with exactly two words: hello world" }]
+      messages: [ { role: "user", content: "Reply with exactly two words: hello world" } ]
     )
 
     response = provider.prompt
@@ -69,7 +69,7 @@ class RubyLLMIntegrationTest < ActiveSupport::TestCase
     provider = ActiveAgent::Providers::RubyLLMProvider.new(
       service: "RubyLLM",
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: "Reply with exactly two words: streaming works" }],
+      messages: [ { role: "user", content: "Reply with exactly two words: streaming works" } ],
       stream: true,
       stream_broadcaster: ->(message, delta, event_type) {
         events << { type: event_type, delta: delta }
@@ -93,7 +93,7 @@ class RubyLLMIntegrationTest < ActiveSupport::TestCase
     provider = ActiveAgent::Providers::RubyLLMProvider.new(
       service: "RubyLLM",
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: "What is the weather in Boston? Use the get_weather tool." }],
+      messages: [ { role: "user", content: "What is the weather in Boston? Use the get_weather tool." } ],
       tools: [
         {
           type: "function",
@@ -105,7 +105,7 @@ class RubyLLMIntegrationTest < ActiveSupport::TestCase
               properties: {
                 location: { type: "string", description: "City name" }
               },
-              required: ["location"]
+              required: [ "location" ]
             }
           }
         }
@@ -147,7 +147,7 @@ class RubyLLMIntegrationTest < ActiveSupport::TestCase
       service: "RubyLLM",
       model: "gpt-4o-mini",
       instructions: "You must always respond with exactly the word 'PINEAPPLE' and nothing else.",
-      messages: [{ role: "user", content: "Say something" }]
+      messages: [ { role: "user", content: "Say something" } ]
     )
 
     response = provider.prompt
