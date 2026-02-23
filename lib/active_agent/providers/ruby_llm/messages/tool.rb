@@ -11,6 +11,12 @@ module ActiveAgent
           attribute :role, :string, as: "tool"
           attribute :content
           attribute :tool_call_id, :string
+
+          def to_common
+            common = super
+            common[:tool_call_id] = tool_call_id if tool_call_id
+            common
+          end
         end
       end
     end
