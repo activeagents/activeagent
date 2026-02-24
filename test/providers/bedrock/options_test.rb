@@ -73,6 +73,34 @@ class BedrockOptionsTest < ActiveSupport::TestCase
     assert_equal 120.0, options.timeout
   end
 
+  test "has default initial_retry_delay" do
+    options = ActiveAgent::Providers::Bedrock::Options.new(@valid_options)
+
+    assert_equal ::Anthropic::Client::DEFAULT_INITIAL_RETRY_DELAY, options.initial_retry_delay
+  end
+
+  test "has default max_retry_delay" do
+    options = ActiveAgent::Providers::Bedrock::Options.new(@valid_options)
+
+    assert_equal ::Anthropic::Client::DEFAULT_MAX_RETRY_DELAY, options.max_retry_delay
+  end
+
+  test "allows custom initial_retry_delay" do
+    options = ActiveAgent::Providers::Bedrock::Options.new(
+      @valid_options.merge(initial_retry_delay: 2.0)
+    )
+
+    assert_equal 2.0, options.initial_retry_delay
+  end
+
+  test "allows custom max_retry_delay" do
+    options = ActiveAgent::Providers::Bedrock::Options.new(
+      @valid_options.merge(max_retry_delay: 30.0)
+    )
+
+    assert_equal 30.0, options.max_retry_delay
+  end
+
   test "resolves aws_region from AWS_REGION environment variable" do
     original_region = ENV["AWS_REGION"]
     original_default_region = ENV["AWS_DEFAULT_REGION"]

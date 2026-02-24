@@ -56,22 +56,26 @@ module ActiveAgent
       def client
         @client ||= if options.aws_bearer_token.present?
           Bedrock::BearerClient.new(
-            aws_region:    options.aws_region,
-            bearer_token:  options.aws_bearer_token,
-            base_url:      options.base_url.presence,
-            max_retries:   options.max_retries,
-            timeout:       options.timeout
+            aws_region:          options.aws_region,
+            bearer_token:        options.aws_bearer_token,
+            base_url:            options.base_url.presence,
+            max_retries:         options.max_retries,
+            timeout:             options.timeout,
+            initial_retry_delay: options.initial_retry_delay,
+            max_retry_delay:     options.max_retry_delay
           )
         else
           ::Anthropic::BedrockClient.new(
-            aws_region:        options.aws_region,
-            aws_access_key:    options.aws_access_key,
-            aws_secret_key:    options.aws_secret_key,
-            aws_session_token: options.aws_session_token,
-            aws_profile:       options.aws_profile,
-            base_url:          options.base_url.presence,
-            max_retries:       options.max_retries,
-            timeout:           options.timeout
+            aws_region:          options.aws_region,
+            aws_access_key:      options.aws_access_key,
+            aws_secret_key:      options.aws_secret_key,
+            aws_session_token:   options.aws_session_token,
+            aws_profile:         options.aws_profile,
+            base_url:            options.base_url.presence,
+            max_retries:         options.max_retries,
+            timeout:             options.timeout,
+            initial_retry_delay: options.initial_retry_delay,
+            max_retry_delay:     options.max_retry_delay
           )
         end
       end

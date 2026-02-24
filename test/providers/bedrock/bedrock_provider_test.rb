@@ -5,6 +5,9 @@ require_relative "../../../lib/active_agent/providers/bedrock_provider"
 
 class BedrockProviderTest < ActiveSupport::TestCase
   setup do
+    @original_bearer_token = ENV["AWS_BEARER_TOKEN_BEDROCK"]
+    ENV.delete("AWS_BEARER_TOKEN_BEDROCK")
+
     @valid_config = {
       service: "Bedrock",
       aws_region: "eu-west-2",
@@ -13,6 +16,10 @@ class BedrockProviderTest < ActiveSupport::TestCase
       model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
       messages: [ { role: "user", content: "Hello" } ]
     }
+  end
+
+  teardown do
+    ENV["AWS_BEARER_TOKEN_BEDROCK"] = @original_bearer_token
   end
 
   test "service_name returns Bedrock" do
@@ -95,5 +102,35 @@ class BedrockProviderTest < ActiveSupport::TestCase
     provider = ActiveAgent::Providers::BedrockProvider.new(bearer_config)
 
     assert_same provider.client, provider.client
+  end
+
+  test "client passes retry delay options to BedrockClient" do
+    config = @valid_config.merge(
+      initial_retry_delay: 2.0,
+      max_retry_delay: 30.0
+    )
+
+    provider = ActiveAgent::Providers::BedrockProvider.new(config)
+    client = provider.client
+
+    assert_equal 2.0, client.initial_retry_delay
+    assert_equal 30.0, client.max_retry_delay
+  end
+
+  test "bearer client passes retry delay options" do
+    bearer_config = {
+      service: "Bedrock",
+      aws_region: "eu-west-2",
+      aws_bearer_token: "test-bearer-token",
+      model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      initial_retry_delay: 2.0,
+      max_retry_delay: 30.0
+    }
+
+    provider = ActiveAgent::Providers::BedrockProvider.new(bearer_config)
+    client = provider.client
+
+    assert_equal 2.0, client.initial_retry_delay
+    assert_equal 30.0, client.max_retry_delay
   end
 end
