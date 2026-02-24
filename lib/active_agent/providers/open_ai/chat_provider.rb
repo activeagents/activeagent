@@ -95,6 +95,8 @@ module ActiveAgent
         def process_stream_chunk(api_response_event)
           instrument("stream_chunk.active_agent")
 
+          broadcast_stream_open
+
           # Called Multiple Times: [Chunk<T>, T]<Content, ToolsCall>
           case api_response_event.type
           when :chunk
