@@ -53,7 +53,7 @@ module ActiveAgent
         assert_equal 1, provider.call_count
       end
 
-      test "calls exception handler when configured" do
+      test "calls exception handler when configured and returns nil" do
         handled_exception = nil
         handler = ->(exception) { handled_exception = exception; "handled" }
 
@@ -62,7 +62,8 @@ module ActiveAgent
 
         result = provider.perform_operation
 
-        assert_equal "handled", result
+        # Returns nil to prevent handler return value from polluting raw_response
+        assert_nil result
         assert_instance_of TestError, handled_exception
         assert_equal "test error", handled_exception.message
       end
@@ -90,24 +91,28 @@ module ActiveAgent
         # Test with TestError
         provider.error_to_raise = TestError.new("test")
         result = provider.perform_operation
-        assert_equal "handled ActiveAgent::Providers::ExceptionHandlerTest::TestError", result
+        assert_nil result # Returns nil, not handler return value
 
         # Test with CustomError
         provider.error_to_raise = CustomError.new("custom")
         result = provider.perform_operation
-        assert_equal "handled ActiveAgent::Providers::ExceptionHandlerTest::CustomError", result
+        assert_nil result # Returns nil, not handler return value
 
         assert_equal 2, handled_exceptions.size
+        assert_instance_of TestError, handled_exceptions[0]
+        assert_instance_of CustomError, handled_exceptions[1]
       end
 
       test "exception handler receives actual exception object" do
-        provider = MockProvider.new(exception_handler: ->(e) { e })
+        received_exception = nil
+        provider = MockProvider.new(exception_handler: ->(e) { received_exception = e })
         original_error = TestError.new("original message")
         provider.error_to_raise = original_error
 
         result = provider.perform_operation
 
-        assert_same original_error, result
+        assert_nil result # Returns nil after handling
+        assert_same original_error, received_exception
       end
 
       test "rescue_with_handler returns handler result" do
@@ -126,6 +131,21 @@ module ActiveAgent
         result = provider.rescue_with_handler(exception)
 
         assert_nil result
+      end
+
+      test "with_exception_handling returns nil to prevent raw_response pollution" do
+        # This test verifies the fix for issue #305
+        # When an exception is handled, with_exception_handling should return nil
+        # to prevent the handler's return value from becoming raw_response
+        handler_return_value = "some truthy value that would cause issues"
+        provider = MockProvider.new(exception_handler: ->(_) { handler_return_value })
+        provider.error_to_raise = TestError.new("api error")
+
+        result = provider.perform_operation
+
+        # Even though the handler returns a truthy value, with_exception_handling
+        # should discard it and return nil to avoid polluting raw_response
+        assert_nil result, "with_exception_handling should return nil after handling an exception"
       end
     end
   end

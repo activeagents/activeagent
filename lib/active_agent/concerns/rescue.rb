@@ -13,6 +13,45 @@ module ActiveAgent
     include ActiveSupport::Rescuable
 
     class_methods do
+      # Handles exceptions raised during GenerationJob execution.
+      #
+      # Called by GenerationJob#handle_exception_with_agent_class as a
+      # class-level fallback when no instance is available to handle the error.
+      # Logs the exception and re-raises to preserve job failure semantics.
+      #
+      # @param exception [Exception] the exception to handle
+      # @raise [Exception] re-raises the exception after logging
+      # @return [void]
+      def handle_exception(exception)
+        rescue_logger.error "[#{name}] #{exception.class}: #{exception.message}"
+        rescue_logger.error exception.backtrace&.first(10)&.join("\n") if exception.backtrace
+        raise exception
+      end
+
+      private
+
+      # Returns the logger to use for class-level exception handling.
+      #
+      # Prefers the including class's logger, then ActiveAgent::Base.logger,
+      # then Rails.logger if available, and finally falls back to a standard
+      # Ruby Logger to $stderr.
+      #
+      # @return [#error] a logger-like object responding to `#error`
+      def rescue_logger
+        if respond_to?(:logger) && (current_logger = logger)
+          current_logger
+        elsif defined?(ActiveAgent::Base) &&
+              ActiveAgent::Base.respond_to?(:logger) &&
+              (base_logger = ActiveAgent::Base.logger)
+          base_logger
+        elsif defined?(Rails) && Rails.respond_to?(:logger) && Rails.logger
+          Rails.logger
+        else
+          require "logger"
+          @_rescue_logger ||= Logger.new($stderr)
+        end
+      end
+
       # Finds and instruments the rescue handler for an exception.
       #
       # @param exception [Exception] the exception to handle

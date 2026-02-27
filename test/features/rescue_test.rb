@@ -211,4 +211,50 @@ class RescueTest < ActiveSupport::TestCase
 
     assert_equal "Handler error", error.message
   end
+
+  # Class-level handle_exception tests for GenerationJob integration
+  test "handle_exception class method logs and re-raises exception" do
+    exception = CustomError.new("Test job error")
+    exception.set_backtrace([ "line1", "line2", "line3" ])
+
+    # Should re-raise the exception after logging
+    error = assert_raises(CustomError) do
+      TestAgent.handle_exception(exception)
+    end
+
+    assert_same exception, error
+  end
+
+  test "handle_exception uses rescue_logger for logging" do
+    # Create a mock logger to capture log messages
+    log_messages = []
+    mock_logger = Object.new
+    mock_logger.define_singleton_method(:error) { |msg| log_messages << msg }
+
+    # Temporarily replace the logger
+    TestAgent.stub(:rescue_logger, mock_logger) do
+      exception = CustomError.new("Logged error")
+      exception.set_backtrace([ "backtrace_line_1", "backtrace_line_2" ])
+
+      assert_raises(CustomError) do
+        TestAgent.handle_exception(exception)
+      end
+    end
+
+    assert_equal 2, log_messages.size
+    assert_includes log_messages[0], "CustomError"
+    assert_includes log_messages[0], "Logged error"
+    assert_includes log_messages[1], "backtrace_line_1"
+  end
+
+  test "handle_exception handles exceptions without backtrace" do
+    exception = CustomError.new("No backtrace")
+    # Don't set backtrace
+
+    error = assert_raises(CustomError) do
+      TestAgent.handle_exception(exception)
+    end
+
+    assert_same exception, error
+  end
 end
