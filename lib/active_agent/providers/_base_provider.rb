@@ -9,7 +9,8 @@ require_relative "concerns/tool_choice_clearing"
 # @private
 GEM_LOADERS = {
   anthropic: [ "anthropic", "~> 1.12", "anthropic" ],
-  openai:    [ "openai",    "~> 0.34", "openai" ]
+  openai:    [ "openai",    "~> 0.34", "openai" ],
+  ruby_llm:  [ "ruby_llm",  ">= 1.0",  "ruby_llm" ]
 }
 
 # Requires a provider's gem dependency.

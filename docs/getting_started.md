@@ -10,7 +10,7 @@ Build AI agents with Rails in minutes. This guide covers installation, configura
 
 - Ruby 3.0+
 - Rails 7.0+
-- API key for your chosen provider (OpenAI, Anthropic, or Ollama)
+- API key for your chosen provider (OpenAI, Anthropic, Ollama, or RubyLLM)
 
 ## Installation
 
@@ -38,6 +38,10 @@ bundle add openai  # Ollama uses OpenAI-compatible API
 
 ```bash [OpenRouter]
 bundle add openai  # OpenRouter uses OpenAI-compatible API
+```
+
+```bash [RubyLLM]
+bundle add ruby_llm  # Unified API for 15+ providers
 ```
 
 :::
@@ -202,7 +206,7 @@ See **[Generation](/agents/generation)** for background jobs, callbacks, and res
 - **[Tools](/actions/tools)** - Function calling and MCP integration
 - **[Structured Output](/actions/structured_output)** - Parse JSON with schemas
 - **[Embeddings](/actions/embeddings)** - Vector generation for semantic search
-- **[Providers](/providers)** - OpenAI, Anthropic, Ollama, OpenRouter
+- **[Providers](/providers)** - OpenAI, Anthropic, Ollama, OpenRouter, RubyLLM
 
 **Framework:**
 - **[Configuration](/framework/configuration)** - Environment settings, precedence

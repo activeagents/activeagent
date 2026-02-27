@@ -23,6 +23,7 @@ Two JSON response formats:
 | **Anthropic**  | 🟦            | ❌             | Emulated via prompt engineering technique |
 | **OpenRouter** | 🟩            | 🟩             | Native support, depends on underlying model |
 | **Ollama**     | 🟨            | 🟨             | Model-dependent, support varies by model |
+| **RubyLLM**    | 🟨            | 🟨             | Depends on underlying provider/model |
 | **Mock**       | 🟩            | 🟩             | Accepted but not validated or enforced |
 
 ## JSON Object Mode
