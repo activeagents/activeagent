@@ -55,6 +55,7 @@ module ActiveAgent
         yield
       rescue => exception
         rescue_with_handler(exception) || raise
+        nil # Discard handler return value to prevent polluting raw_response
       end
 
       # Bubbles up exceptions to the Agent's rescue_from if a handler is defined.
