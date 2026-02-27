@@ -85,7 +85,7 @@ jobs:
         run: npm run docs:build
 
       - name: Upload current docs artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: docs-current
           path: docs/.vitepress/dist
@@ -138,7 +138,7 @@ jobs:
           echo "Fixed internal links for v${{ matrix.version }}"
 
       - name: Upload versioned docs artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: docs-v${{ matrix.version }}
           path: docs/.vitepress/dist
