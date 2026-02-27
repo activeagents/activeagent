@@ -15,7 +15,6 @@ module Providers
   module OpenAI
     module Chat
       class ChatProviderTest < ActiveSupport::TestCase
-
         include WebMock::API
 
         setup do
@@ -31,7 +30,7 @@ module Providers
           stub_streaming_response(tool_calls_sse_response)
 
           stream = @client.chat.completions.stream(
-            messages: [{ content: "What's the weather in Boston?", role: :user }],
+            messages: [ { content: "What's the weather in Boston?", role: :user } ],
             model: "qwen-plus",
             tools: weather_tool
           )
@@ -59,7 +58,7 @@ module Providers
           }
 
           assert_equal(
-            [expected_message],
+            [ expected_message ],
             chat_provider.send(:message_stack),
             "message_stack should contain one assistant message with merged tool_calls"
           )
@@ -69,7 +68,7 @@ module Providers
 
         def stub_streaming_response(response_body, request_options = {})
           default_request = {
-            messages: [{ content: "What's the weather in Boston?",role: "user" }],
+            messages: [ { content: "What's the weather in Boston?", role: "user" } ],
             model: "qwen-plus",
             stream: true
           }
@@ -112,7 +111,7 @@ module Providers
                     city: { type: "string" },
                     units: { type: "string" }
                   },
-                  required: ["city", "units"],
+                  required: [ "city", "units" ],
                   additionalProperties: false
                 },
                 strict: true
