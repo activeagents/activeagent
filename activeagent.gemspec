@@ -28,6 +28,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "jbuilder", "~> 2.14"
 
   spec.add_development_dependency "anthropic", "~> 1.12"
+  spec.add_development_dependency "aws-sdk-bedrockruntime"
   spec.add_development_dependency "openai", "~> 0.34"
   spec.add_development_dependency "ruby_llm", ">= 1.0"
 
