@@ -39,6 +39,9 @@ bundle add openai
 
 # OpenRouter (uses OpenAI-compatible API)
 bundle add openai
+
+# RubyLLM (unified API for 15+ providers)
+bundle add ruby_llm
 ```
 
 ### Setup
@@ -119,12 +122,15 @@ development:
   ollama:
     service: "Ollama"
     model: "llama3.2"
+
+  ruby_llm:
+    service: "RubyLLM"
 ```
 
 ## Features
 
 - **Agent-Oriented Programming**: Build AI applications using familiar Rails patterns
-- **Multiple Provider Support**: Works with OpenAI, Anthropic, Ollama, and more
+- **Multiple Provider Support**: Works with OpenAI, Anthropic, Ollama, RubyLLM, and more
 - **Action-Based Design**: Define agent capabilities through actions
 - **View Templates**: Use ERB templates for prompts (text, JSON, HTML)
 - **Streaming Support**: Real-time response streaming with ActionCable
