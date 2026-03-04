@@ -30,6 +30,11 @@ module ActiveAgent
         namespace::RequestType.new
       end
 
+      # @return [ActiveModel::Type::Value]
+      def self.embed_request_type
+        namespace::Embedding::RequestType.new
+      end
+
       protected
 
       # Executes chat completion request with Gemini-specific error handling.
@@ -41,6 +46,18 @@ module ActiveAgent
       def api_prompt_execute(parameters)
         super
 
+      rescue ::OpenAI::Errors::APIConnectionError => exception
+        log_connection_error(exception)
+        raise exception
+      end
+
+      # Executes embedding request with Gemini-specific error handling.
+      #
+      # @param parameters [Hash]
+      # @return [Hash] symbolized API response
+      # @raise [OpenAI::Errors::APIConnectionError] when Gemini API unreachable
+      def api_embed_execute(parameters)
+        client.embeddings.create(**parameters).as_json.deep_symbolize_keys
       rescue ::OpenAI::Errors::APIConnectionError => exception
         log_connection_error(exception)
         raise exception

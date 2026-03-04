@@ -38,6 +38,13 @@ class GeminiProviderTest < ActiveSupport::TestCase
     assert_instance_of ActiveAgent::Providers::OpenAI::Chat::RequestType, request_type
   end
 
+  test "embed_request_type returns OpenAI::Embedding::RequestType" do
+    request_type = ActiveAgent::Providers::GeminiProvider.embed_request_type
+
+    # Gemini::Embedding::RequestType is aliased to OpenAI::Embedding::RequestType
+    assert_instance_of ActiveAgent::Providers::OpenAI::Embedding::RequestType, request_type
+  end
+
   test "initializes provider with valid configuration" do
     provider = ActiveAgent::Providers::GeminiProvider.new(@valid_config)
 
