@@ -2,19 +2,21 @@
 
 require "test_helper"
 
-begin
+GEMINI_STREAMING_OPENAI_AVAILABLE = begin
   require "openai"
+  true
 rescue LoadError
-  puts "OpenAI gem not available, skipping Gemini streaming lifecycle tests"
-  return
+  warn "OpenAI gem not available, skipping Gemini streaming lifecycle tests"
+  false
 end
 
-require_relative "../../../lib/active_agent/providers/gemini_provider"
+require_relative "../../../lib/active_agent/providers/gemini_provider" if GEMINI_STREAMING_OPENAI_AVAILABLE
 
 module Providers
   module Gemini
     class StreamingLifecycleTest < ActiveSupport::TestCase
       setup do
+        skip "OpenAI gem not available" unless GEMINI_STREAMING_OPENAI_AVAILABLE
         @stream_events = []
 
         @provider = ActiveAgent::Providers::GeminiProvider.new(

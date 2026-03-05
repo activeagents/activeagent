@@ -2,17 +2,19 @@
 
 require "test_helper"
 
-begin
+GEMINI_OPTIONS_OPENAI_AVAILABLE = begin
   require "openai"
+  true
 rescue LoadError
-  puts "OpenAI gem not available, skipping Gemini options tests"
-  return
+  warn "OpenAI gem not available, skipping Gemini options tests"
+  false
 end
 
-require_relative "../../../lib/active_agent/providers/gemini_provider"
+require_relative "../../../lib/active_agent/providers/gemini_provider" if GEMINI_OPTIONS_OPENAI_AVAILABLE
 
 class GeminiOptionsTest < ActiveSupport::TestCase
   setup do
+    skip "OpenAI gem not available" unless GEMINI_OPTIONS_OPENAI_AVAILABLE
     @valid_options = {
       api_key: "test-api-key"
     }
