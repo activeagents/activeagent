@@ -57,7 +57,7 @@ class GeminiProviderTest < ActiveSupport::TestCase
     assert ActiveAgent::Providers::GeminiProvider < ActiveAgent::Providers::OpenAI::ChatProvider
   end
 
-  test "client is configured with Gemini base_url" do
+  test "client returns OpenAI::Client instance" do
     provider = ActiveAgent::Providers::GeminiProvider.new(@valid_config)
     client = provider.client
 
