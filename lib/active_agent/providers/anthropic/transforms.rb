@@ -32,10 +32,18 @@ module ActiveAgent
             params[:tool_choice] = normalize_tool_choice(params[:tool_choice]) if params[:tool_choice]
 
             # Handle mcps parameter (common format) -> transforms to mcp_servers (provider format)
-            if params[:mcps]
-              params[:mcp_servers] = normalize_mcp_servers(params.delete(:mcps))
-            elsif params[:mcp_servers]
-              params[:mcp_servers] = normalize_mcp_servers(params[:mcp_servers])
+            if params[:mcps] || params[:mcp_servers]
+              mcps = if params[:mcps]
+                params.delete(:mcps)
+              else
+                params[:mcp_servers]
+              end
+
+              params[:mcp_servers] = normalize_mcp_servers(mcps)
+
+              if params[:tools].nil?  # If tools not already provided, extract from mcps
+                params[:tools] = normalize_mcp_tools(mcps)
+              end
             end
 
             params
@@ -103,6 +111,29 @@ module ActiveAgent
 
               result.compact
             end
+          end
+
+          def normalize_mcp_tools(mcp_servers)
+            return [] unless mcp_servers.is_a?(Array)
+
+            result = mcp_servers.map do |server|
+              server_hash = server.is_a?(Hash) ? server.deep_symbolize_keys : server
+
+              if server_hash[:allowed_tools].present?
+                {
+                  type: "mcp_toolset",
+                  mcp_server_name: server_hash[:name],
+                  default_config: {
+                    enabled: false
+                  },
+                  configs: server_hash[:allowed_tools].to_h { |tool|
+                    [ tool[:name], { enabled: true } ]
+                  }
+                }
+              end
+            end
+
+            result.compact.presence
           end
 
           # Normalizes tool_choice from common format to Anthropic gem model objects.
