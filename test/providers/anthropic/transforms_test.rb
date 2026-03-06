@@ -691,6 +691,196 @@ module Providers
 
         assert_equal "not an array", result
       end
+
+      # normalize_mcp_tools tests
+      test "normalize_mcp_tools converts allowed_tools to mcp_toolset format" do
+        mcp_servers = [
+          {
+            name: "stripe",
+            url: "https://mcp.stripe.com",
+            allowed_tools: [
+              { name: "create_payment" },
+              { name: "get_payment" }
+            ]
+          }
+        ]
+
+        result = transforms.normalize_mcp_tools(mcp_servers)
+
+        assert_equal 1, result.size
+        assert_equal "mcp_toolset", result[0][:type]
+        assert_equal "stripe", result[0][:mcp_server_name]
+        assert_equal false, result[0][:default_config][:enabled]
+        assert_equal 2, result[0][:configs].size
+        assert_equal true, result[0][:configs]["create_payment"][:enabled]
+        assert_equal true, result[0][:configs]["get_payment"][:enabled]
+      end
+
+      test "normalize_mcp_tools handles multiple servers with allowed_tools" do
+        mcp_servers = [
+          {
+            name: "stripe",
+            url: "https://mcp.stripe.com",
+            allowed_tools: [
+              { name: "create_payment" }
+            ]
+          },
+          {
+            name: "github",
+            url: "https://api.github.com",
+            allowed_tools: [
+              { name: "search_repos" },
+              { name: "create_issue" }
+            ]
+          }
+        ]
+
+        result = transforms.normalize_mcp_tools(mcp_servers)
+
+        assert_equal 2, result.size
+        assert_equal "stripe", result[0][:mcp_server_name]
+        assert_equal 1, result[0][:configs].size
+        assert_equal "github", result[1][:mcp_server_name]
+        assert_equal 2, result[1][:configs].size
+      end
+
+      test "normalize_mcp_tools skips servers without allowed_tools" do
+        mcp_servers = [
+          {
+            name: "stripe",
+            url: "https://mcp.stripe.com",
+            allowed_tools: [
+              { name: "create_payment" }
+            ]
+          },
+          {
+            name: "public",
+            url: "https://public.api.com"
+            # No allowed_tools
+          }
+        ]
+
+        result = transforms.normalize_mcp_tools(mcp_servers)
+
+        assert_equal 1, result.size
+        assert_equal "stripe", result[0][:mcp_server_name]
+      end
+
+      test "normalize_mcp_tools handles empty allowed_tools array" do
+        mcp_servers = [
+          {
+            name: "stripe",
+            url: "https://mcp.stripe.com",
+            allowed_tools: []
+          }
+        ]
+
+        result = transforms.normalize_mcp_tools(mcp_servers)
+
+        assert_nil result
+      end
+
+      test "normalize_mcp_tools returns nil for servers all without allowed_tools" do
+        mcp_servers = [
+          {
+            name: "public",
+            url: "https://public.api.com"
+          }
+        ]
+
+        result = transforms.normalize_mcp_tools(mcp_servers)
+
+        assert_nil result
+      end
+
+      test "normalize_mcp_tools returns empty array for nil input" do
+        result = transforms.normalize_mcp_tools(nil)
+
+        assert_equal [], result
+      end
+
+      test "normalize_mcp_tools returns empty array for empty array" do
+        result = transforms.normalize_mcp_tools([])
+
+        assert_nil result
+      end
+
+      test "normalize_mcp_tools returns empty array for non-array input" do
+        result = transforms.normalize_mcp_tools("not an array")
+
+        assert_equal [], result
+      end
+
+      test "normalize_mcp_tools handles single tool" do
+        mcp_servers = [
+          {
+            name: "stripe",
+            url: "https://mcp.stripe.com",
+            allowed_tools: [
+              { name: "create_payment" }
+            ]
+          }
+        ]
+
+        result = transforms.normalize_mcp_tools(mcp_servers)
+
+        assert_equal 1, result.size
+        assert_equal 1, result[0][:configs].size
+        assert_equal true, result[0][:configs]["create_payment"][:enabled]
+      end
+
+      # Integration test for normalize_params with allowed_tools
+      test "normalize_params extracts mcp_tools from mcps with allowed_tools" do
+        params = {
+          mcps: [
+            {
+              name: "stripe",
+              url: "https://mcp.stripe.com",
+              authorization: "sk_test_123",
+              allowed_tools: [
+                { name: "create_payment" },
+                { name: "get_payment" }
+              ]
+            }
+          ]
+        }
+
+        result = transforms.normalize_params(params)
+
+        # Should have mcp_servers
+        assert_equal 1, result[:mcp_servers].size
+        assert_equal "stripe", result[:mcp_servers][0][:name]
+
+        # Should have extracted tools from allowed_tools
+        assert result[:tools].present?
+        assert_equal 1, result[:tools].size
+        assert_equal "mcp_toolset", result[:tools][0][:type]
+        assert_equal "stripe", result[:tools][0][:mcp_server_name]
+        assert_equal 2, result[:tools][0][:configs].size
+      end
+
+      test "normalize_params does not override existing tools when extracting from mcps" do
+        params = {
+          tools: [
+            { name: "existing_tool", input_schema: { type: "object" } }
+          ],
+          mcps: [
+            {
+              name: "stripe",
+              url: "https://mcp.stripe.com",
+              allowed_tools: [
+                { name: "create_payment" }
+              ]
+            }
+          ]
+        }
+
+        result = transforms.normalize_params(params)
+
+        # Should keep existing tools, not override with mcp tools
+        assert_equal 1, result[:tools].size
+        assert_equal "existing_tool", result[:tools][0][:name]
+      end
     end
   end
 end
