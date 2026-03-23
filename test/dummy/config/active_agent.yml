@@ -38,6 +38,12 @@ mock: &mock
 ruby_llm: &ruby_llm
   service: "RubyLLM"
 # endregion ruby_llm_anchor
+# region gemini_anchor
+gemini: &gemini
+  service: "Gemini"
+  model: "gemini-2.0-flash"
+  api_key: <%= Rails.application.credentials.dig(:gemini, :api_key) %>
+# endregion gemini_anchor
 # endregion config_anchors
 
 # region config_development
@@ -72,6 +78,10 @@ development:
   ruby_llm:
     <<: *ruby_llm
   # endregion ruby_llm_dev_config
+  # region gemini_dev_config
+  gemini:
+    <<: *gemini
+  # endregion gemini_dev_config
 # endregion config_development
 
 # region config_test
@@ -92,4 +102,6 @@ test:
     <<: *mock
   ruby_llm:
     <<: *ruby_llm
+  gemini:
+    <<: *gemini
 # endregion config_test
