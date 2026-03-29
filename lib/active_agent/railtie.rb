@@ -85,7 +85,8 @@ module ActiveAgent
           self.generation_job = generation_job.constantize
         end
 
-        options.each { |k, v| send(:"#{k}=", v) }
+        # Skip telemetry config - it's handled separately above
+        options.except(:telemetry).each { |k, v| send(:"#{k}=", v) }
       end
 
       ActiveSupport.on_load(:action_dispatch_integration_test) do

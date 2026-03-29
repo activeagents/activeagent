@@ -66,17 +66,22 @@ module ActiveAgent
               result = super
 
               # Record token usage from response
-              if result.respond_to?(:usage)
+              if result.respond_to?(:usage) && result.usage.present?
                 usage = result.usage
+                # Usage model uses methods, not hash access
+                input_tokens = (usage.input_tokens rescue 0) || 0
+                output_tokens = (usage.output_tokens rescue 0) || 0
+                reasoning_tokens = (usage.reasoning_tokens rescue 0) || 0
+
                 llm_span.set_tokens(
-                  input: usage[:input_tokens] || usage["input_tokens"] || 0,
-                  output: usage[:output_tokens] || usage["output_tokens"] || 0,
-                  thinking: usage[:thinking_tokens] || usage["thinking_tokens"] || 0
+                  input: input_tokens.to_i,
+                  output: output_tokens.to_i,
+                  thinking: reasoning_tokens.to_i
                 )
                 span.set_tokens(
-                  input: usage[:input_tokens] || usage["input_tokens"] || 0,
-                  output: usage[:output_tokens] || usage["output_tokens"] || 0,
-                  thinking: usage[:thinking_tokens] || usage["thinking_tokens"] || 0
+                  input: input_tokens.to_i,
+                  output: output_tokens.to_i,
+                  thinking: reasoning_tokens.to_i
                 )
               end
 
@@ -116,9 +121,10 @@ module ActiveAgent
             begin
               result = super
 
-              if result.respond_to?(:usage)
+              if result.respond_to?(:usage) && result.usage.present?
                 usage = result.usage
-                span.set_tokens(input: usage[:input_tokens] || usage["input_tokens"] || 0)
+                input_tokens = (usage.input_tokens rescue 0) || 0
+                span.set_tokens(input: input_tokens.to_i)
               end
 
               span.set_status(:ok)

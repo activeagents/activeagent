@@ -101,6 +101,12 @@ module ActiveAgent
       #
       # @param traces [Array<Hash>] Traces to send
       def send_traces(traces)
+        # Use direct database storage for local mode
+        if configuration.local_storage?
+          store_traces_locally(traces)
+          return
+        end
+
         uri = URI.parse(configuration.endpoint)
 
         http = Net::HTTP.new(uri.host, uri.port)
@@ -134,6 +140,29 @@ module ActiveAgent
         end
       rescue StandardError => e
         log_error("Error sending traces: #{e.class} - #{e.message}")
+      end
+
+      # Stores traces directly in the local database.
+      #
+      # @param traces [Array<Hash>] Traces to store
+      def store_traces_locally(traces)
+        sdk_info = {
+          name: "activeagent",
+          version: ActiveAgent::VERSION,
+          language: "ruby",
+          runtime_version: RUBY_VERSION
+        }
+
+        traces.each do |trace|
+          # Skip if trace already exists (idempotency)
+          next if ActiveAgent::TelemetryTrace.exists?(trace_id: trace["trace_id"])
+
+          ActiveAgent::TelemetryTrace.create_from_payload(trace, sdk_info)
+        rescue StandardError => e
+          log_error("Failed to store trace locally: #{e.class} - #{e.message}")
+        end
+      rescue StandardError => e
+        log_error("Error storing traces locally: #{e.class} - #{e.message}")
       end
 
       # Logs an error message.

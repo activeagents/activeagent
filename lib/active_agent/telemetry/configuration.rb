@@ -64,8 +64,14 @@ module ActiveAgent
       # @return [Logger] Logger for telemetry operations
       attr_accessor :logger
 
+      # @return [Boolean] Whether to store traces locally in the app's database
+      attr_accessor :local_storage
+
       # Default ActiveAgents.ai endpoint for hosted observability.
       DEFAULT_ENDPOINT = "https://api.activeagents.ai/v1/traces"
+
+      # Local dashboard endpoint path (relative to app root)
+      LOCAL_ENDPOINT_PATH = "/active_agent/api/traces"
 
       def initialize
         @enabled = false
@@ -81,6 +87,7 @@ module ActiveAgent
         @environment = Rails.env if defined?(Rails)
         @resource_attributes = {}
         @logger = nil
+        @local_storage = false
       end
 
       # Returns whether telemetry collection is enabled.
@@ -92,11 +99,31 @@ module ActiveAgent
 
       # Returns whether telemetry is properly configured.
       #
-      # Checks that endpoint and api_key are present.
+      # Checks that endpoint and api_key are present, or local_storage is enabled.
       #
       # @return [Boolean]
       def configured?
-        endpoint.present? && api_key.present?
+        local_storage? || (endpoint.present? && api_key.present?)
+      end
+
+      # Returns whether local storage mode is enabled.
+      #
+      # @return [Boolean]
+      def local_storage?
+        @local_storage == true
+      end
+
+      # Returns the resolved endpoint for trace reporting.
+      #
+      # Uses local endpoint when local_storage is enabled.
+      #
+      # @return [String]
+      def resolved_endpoint
+        if local_storage?
+          LOCAL_ENDPOINT_PATH
+        else
+          endpoint
+        end
       end
 
       # Returns whether a trace should be sampled.
@@ -148,6 +175,7 @@ module ActiveAgent
         @service_name = hash[:service_name] if hash.key?(:service_name)
         @environment = hash[:environment] if hash.key?(:environment)
         @resource_attributes = hash[:resource_attributes] if hash.key?(:resource_attributes)
+        @local_storage = hash[:local_storage] if hash.key?(:local_storage)
 
         self
       end
@@ -166,7 +194,8 @@ module ActiveAgent
           timeout: timeout,
           capture_bodies: capture_bodies,
           service_name: resolved_service_name,
-          environment: environment
+          environment: environment,
+          local_storage: local_storage
         }
       end
 
