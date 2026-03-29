@@ -1,0 +1,36 @@
+<div class="mb-4">
+  <%= link_to "← Back to traces", traces_path, class: "text-indigo-600 hover:text-indigo-800 text-sm" %>
+</div>
+
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+  <div class="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">
+          <%= @trace.display_name %>
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">
+          <%= @trace.trace_id %>
+        </p>
+      </div>
+      <div class="flex items-center gap-4">
+        <% if @trace.error? %>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+            Error
+          </span>
+        <% else %>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            Success
+          </span>
+        <% end %>
+        <span class="text-sm text-gray-500">
+          <%= @trace.timestamp&.strftime("%Y-%m-%d %H:%M:%S") %>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="p-4">
+    <%= render partial: "trace_detail", locals: { trace: @trace } %>
+  </div>
+</div>

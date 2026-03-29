@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ActiveAgent Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@hotwired/turbo@7.3.0/dist/turbo.es2017-esm.js" type="module"></script>
+  <script src="https://unpkg.com/@hotwired/stimulus@3.2.2/dist/stimulus.umd.js"></script>
+  <style>
+    [data-turbo-preview] { opacity: 0.5; }
+    .span-bar { transition: all 0.2s ease; }
+    .span-bar:hover { transform: scaleY(1.1); }
+  </style>
+  <script>
+    // Initialize Stimulus
+    const application = Stimulus.Application.start();
+
+    // Traces controller for expandable rows
+    application.register("traces", class extends Stimulus.Controller {
+      static targets = ["row", "detail"]
+
+      toggle(event) {
+        const traceId = event.currentTarget.dataset.traceId;
+        const detail = document.getElementById(`detail-${traceId}`);
+        if (detail) {
+          detail.classList.toggle("hidden");
+        }
+      }
+    });
+
+    // Auto-refresh controller
+    application.register("refresh", class extends Stimulus.Controller {
+      static values = { interval: Number }
+
+      connect() {
+        if (this.intervalValue > 0) {
+          this.startRefresh();
+        }
+      }
+
+      disconnect() {
+        this.stopRefresh();
+      }
+
+      startRefresh() {
+        this.timer = setInterval(() => {
+          Turbo.visit(window.location.href, { action: "replace" });
+        }, this.intervalValue);
+      }
+
+      stopRefresh() {
+        if (this.timer) clearInterval(this.timer);
+      }
+    });
+  </script>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900">
+  <div class="min-h-full">
+    <!-- Header -->
+    <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="flex h-16 items-center justify-between">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <span class="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                ActiveAgent
+              </span>
+            </div>
+            <div class="ml-10 flex items-baseline space-x-4">
+              <%= link_to "Traces",
+                  active_agent_dashboard.traces_path,
+                  class: "px-3 py-2 rounded-md text-sm font-medium #{request.path == active_agent_dashboard.traces_path ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}" %>
+              <%= link_to "Metrics",
+                  active_agent_dashboard.metrics_traces_path,
+                  class: "px-3 py-2 rounded-md text-sm font-medium #{request.path == active_agent_dashboard.metrics_traces_path ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}" %>
+            </div>
+          </div>
+          <div class="text-sm text-gray-500 dark:text-gray-400">
+            Local Telemetry
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main>
+      <div class="mx-auto max-w-7xl py-6 px-4 sm:px-6 lg:px-8">
+        <%= yield %>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
