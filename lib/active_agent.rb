@@ -106,6 +106,7 @@ module ActiveAgent
   autoload :Rescue, "active_agent/concerns/rescue"
   autoload :Tooling, "active_agent/concerns/tooling"
   autoload :View, "active_agent/concerns/view"
+  autoload :Telemetry
 
   class << self
     # Eagerly loads all ActiveAgent components and descendant agent classes.
