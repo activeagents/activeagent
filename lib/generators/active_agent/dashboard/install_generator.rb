@@ -22,7 +22,7 @@ module ActiveAgent
 
       desc "Installs the ActiveAgent Dashboard with telemetry storage"
 
-      def create_migration
+      def copy_migrations
         migration_template(
           "create_active_agent_telemetry_traces.rb.erb",
           "db/migrate/create_active_agent_telemetry_traces.rb"
