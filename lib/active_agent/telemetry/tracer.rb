@@ -147,7 +147,7 @@ module ActiveAgent
       # @param span [Span] Root span
       # @return [Array<Hash>] Flattened span data
       def flatten_spans(span)
-        result = [span.to_h.except(:children)]
+        result = [ span.to_h.except(:children) ]
         span.children.each do |child|
           result.concat(flatten_spans(child))
         end
