@@ -1,0 +1,30 @@
+# frozen_string_literal: true
+
+class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_version %>
+  def change
+    create_table :active_agent_telemetry_traces do |t|
+      t.string :trace_id, null: false, index: true
+      t.string :service_name
+      t.string :environment
+      t.datetime :timestamp, index: true
+      t.jsonb :spans, default: []
+      t.jsonb :resource_attributes, default: {}
+      t.jsonb :sdk_info, default: {}
+      t.decimal :total_duration_ms, precision: 12, scale: 3
+      t.integer :total_input_tokens, default: 0
+      t.integer :total_output_tokens, default: 0
+      t.integer :total_thinking_tokens, default: 0
+      t.string :status
+      t.string :agent_class, index: true
+      t.string :agent_action
+      t.text :error_message
+
+      t.timestamps
+    end
+
+    add_index :active_agent_telemetry_traces, :status
+    add_index :active_agent_telemetry_traces, [:agent_class, :agent_action]
+    add_index :active_agent_telemetry_traces, [:service_name, :environment]
+    add_index :active_agent_telemetry_traces, :created_at
+  end
+end

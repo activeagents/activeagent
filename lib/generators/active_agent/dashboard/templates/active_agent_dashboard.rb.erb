@@ -1,0 +1,30 @@
+# frozen_string_literal: true
+
+# ActiveAgent Dashboard Configuration
+#
+# This file configures the ActiveAgent telemetry dashboard.
+# The dashboard is mounted at /active_agent by default.
+
+ActiveAgent::Dashboard.configure do |config|
+  # Authentication method - provide a lambda that receives the controller
+  # and performs authentication. Return false or raise to deny access.
+  #
+  # Examples:
+  #
+  # Basic auth:
+  #   config.authentication_method = ->(controller) {
+  #     controller.authenticate_or_request_with_http_basic do |username, password|
+  #       username == "admin" && password == Rails.application.credentials.dashboard_password
+  #     end
+  #   }
+  #
+  # Devise:
+  #   config.authentication_method = ->(controller) {
+  #     controller.authenticate_admin!
+  #   }
+  #
+  # No authentication (development only!):
+  #   config.authentication_method = nil
+  #
+  config.authentication_method = nil
+end

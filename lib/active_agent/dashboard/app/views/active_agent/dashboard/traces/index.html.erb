@@ -1,0 +1,135 @@
+<div data-controller="refresh" data-refresh-interval-value="30000">
+  <!-- Metrics Summary -->
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Traces</div>
+      <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+        <%= number_with_delimiter(@metrics[:total_traces]) %>
+      </div>
+      <div class="text-xs text-gray-400">Last 24h</div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tokens</div>
+      <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+        <%= number_to_human(@metrics[:total_tokens], precision: 2) %>
+      </div>
+      <div class="text-xs text-gray-400">Last 24h</div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Duration</div>
+      <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+        <%= @metrics[:avg_duration_ms] >= 1000 ? "#{(@metrics[:avg_duration_ms] / 1000.0).round(2)}s" : "#{@metrics[:avg_duration_ms].round(0)}ms" %>
+      </div>
+      <div class="text-xs text-gray-400">Last 24h</div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Error Rate</div>
+      <div class="mt-1 text-2xl font-semibold <%= @metrics[:error_rate] > 5 ? 'text-red-600' : 'text-gray-900 dark:text-white' %>">
+        <%= @metrics[:error_rate] %>%
+      </div>
+      <div class="text-xs text-gray-400">Last 24h</div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Active Agents</div>
+      <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+        <%= @metrics[:unique_agents] %>
+      </div>
+      <div class="text-xs text-gray-400">Last 24h</div>
+    </div>
+  </div>
+
+  <!-- Traces Table -->
+  <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden" data-controller="traces">
+    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+      <h2 class="text-lg font-medium text-gray-900 dark:text-white">Recent Traces</h2>
+      <div class="flex gap-2">
+        <%= link_to "All", traces_path, class: "px-3 py-1 text-sm rounded #{params[:status].blank? ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}" %>
+        <%= link_to "Errors", traces_path(status: "error"), class: "px-3 py-1 text-sm rounded #{params[:status] == 'error' ? 'bg-red-100 text-red-700' : 'text-gray-600 hover:bg-gray-100'}" %>
+      </div>
+    </div>
+
+    <% if @traces.any? %>
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-900">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tokens</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <% @traces.each do |trace| %>
+            <!-- Main Row -->
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                data-trace-id="<%= trace.id %>"
+                data-action="click->traces#toggle">
+              <td class="px-4 py-3">
+                <div class="flex items-center">
+                  <span class="text-sm font-medium text-gray-900 dark:text-white">
+                    <%= trace.agent_class || "Unknown" %>
+                  </span>
+                  <% if trace.agent_action %>
+                    <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                      .<%= trace.agent_action %>
+                    </span>
+                  <% end %>
+                </div>
+                <div class="text-xs text-gray-400 font-mono"><%= trace.trace_id&.first(8) %></div>
+              </td>
+              <td class="px-4 py-3">
+                <% if trace.error? %>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                    Error
+                  </span>
+                <% else %>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    OK
+                  </span>
+                <% end %>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                <%= trace.formatted_duration %>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="text-gray-900 dark:text-white"><%= trace.formatted_tokens %></span>
+                  <% if trace.total_thinking_tokens.to_i > 0 %>
+                    <span class="text-xs text-purple-600 dark:text-purple-400" title="Thinking tokens">
+                      +<%= number_to_human(trace.total_thinking_tokens, precision: 1) %> thinking
+                    </span>
+                  <% end %>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                <%= time_ago_in_words(trace.timestamp || trace.created_at) %> ago
+              </td>
+            </tr>
+
+            <!-- Expanded Detail Row -->
+            <tr id="detail-<%= trace.id %>" class="hidden bg-gray-50 dark:bg-gray-900">
+              <td colspan="5" class="px-4 py-4">
+                <%= render partial: "trace_detail", locals: { trace: trace } %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <div class="px-4 py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No traces yet</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Traces will appear here when your agents generate responses.
+        </p>
+      </div>
+    <% end %>
+  </div>
+</div>

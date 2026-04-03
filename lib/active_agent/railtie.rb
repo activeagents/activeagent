@@ -10,6 +10,7 @@ module ActiveAgent
   class Railtie < Rails::Railtie # :nodoc:
     config.active_agent = ActiveSupport::OrderedOptions.new
     config.active_agent.preview_paths = []
+    config.active_agent.telemetry = ActiveSupport::OrderedOptions.new
     config.eager_load_namespaces << ActiveAgent
 
     initializer "active_agent.deprecator", before: :load_environment_config do |app|
@@ -40,6 +41,35 @@ module ActiveAgent
       ActiveAgent.configuration_load(Rails.root.join("config", "active_agent.yml"))
       # endregion configuration_load
 
+      # region telemetry_configuration
+      # Load telemetry configuration from activeagent.yml or Rails config
+      telemetry_config = ActiveAgent.configuration[:telemetry]
+      if telemetry_config.is_a?(Hash)
+        ActiveAgent::Telemetry.configure do |config|
+          config.load_from_hash(telemetry_config)
+        end
+      end
+
+      # Also support Rails config.active_agent.telemetry
+      if options.telemetry.present?
+        ActiveAgent::Telemetry.configure do |config|
+          config.enabled = options.telemetry[:enabled] if options.telemetry.key?(:enabled)
+          config.endpoint = options.telemetry[:endpoint] if options.telemetry.key?(:endpoint)
+          config.api_key = options.telemetry[:api_key] if options.telemetry.key?(:api_key)
+          config.sample_rate = options.telemetry[:sample_rate] if options.telemetry.key?(:sample_rate)
+          config.service_name = options.telemetry[:service_name] if options.telemetry.key?(:service_name)
+        end
+      end
+
+      # Apply instrumentation to ActiveAgent::Base when telemetry is enabled
+      if ActiveAgent::Telemetry.enabled?
+        ActiveSupport.on_load(:active_agent) do
+          include ActiveAgent::Telemetry::Instrumentation
+          instrument_telemetry!
+        end
+      end
+      # endregion telemetry_configuration
+
       ActiveSupport.on_load(:active_agent) do
         include AbstractController::UrlFor
         extend ::AbstractController::Railties::RoutesHelpers.with(app.routes, false)
@@ -55,7 +85,8 @@ module ActiveAgent
           self.generation_job = generation_job.constantize
         end
 
-        options.each { |k, v| send(:"#{k}=", v) }
+        # Skip telemetry config - it's handled separately above
+        options.except(:telemetry).each { |k, v| send(:"#{k}=", v) }
       end
 
       ActiveSupport.on_load(:action_dispatch_integration_test) do

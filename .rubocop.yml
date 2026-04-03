@@ -15,6 +15,7 @@ AllCops:
     - "test/dummy/tmp/**/*"
     - "node_modules/**/*"
     - "vendor/**/*"
+    - "lib/generators/**/templates/**/*"
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes

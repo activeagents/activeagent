@@ -1,0 +1,105 @@
+<div class="space-y-4">
+  <!-- Trace Info -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+    <div>
+      <span class="text-gray-500 dark:text-gray-400">Trace ID</span>
+      <div class="font-mono text-gray-900 dark:text-white"><%= trace.trace_id %></div>
+    </div>
+    <div>
+      <span class="text-gray-500 dark:text-gray-400">Service</span>
+      <div class="text-gray-900 dark:text-white"><%= trace.service_name || "—" %></div>
+    </div>
+    <div>
+      <span class="text-gray-500 dark:text-gray-400">Provider</span>
+      <div class="text-gray-900 dark:text-white"><%= trace.provider || "—" %></div>
+    </div>
+    <div>
+      <span class="text-gray-500 dark:text-gray-400">Model</span>
+      <div class="text-gray-900 dark:text-white"><%= trace.model || "—" %></div>
+    </div>
+  </div>
+
+  <% if trace.error? && trace.error_message.present? %>
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3">
+      <div class="flex">
+        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+        </svg>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
+          <p class="mt-1 text-sm text-red-700 dark:text-red-300"><%= trace.error_message %></p>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Token Breakdown -->
+  <div class="flex gap-6 text-sm">
+    <div class="flex items-center gap-2">
+      <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+      <span class="text-gray-500">Input:</span>
+      <span class="font-medium text-gray-900 dark:text-white"><%= number_with_delimiter(trace.total_input_tokens || 0) %></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="w-3 h-3 rounded-full bg-green-500"></div>
+      <span class="text-gray-500">Output:</span>
+      <span class="font-medium text-gray-900 dark:text-white"><%= number_with_delimiter(trace.total_output_tokens || 0) %></span>
+    </div>
+    <% if trace.total_thinking_tokens.to_i > 0 %>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+        <span class="text-gray-500">Thinking:</span>
+        <span class="font-medium text-purple-600 dark:text-purple-400"><%= number_with_delimiter(trace.total_thinking_tokens) %></span>
+      </div>
+    <% end %>
+  </div>
+
+  <!-- Spans Timeline -->
+  <% if trace.spans.present? %>
+    <div class="mt-4">
+      <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Span Timeline</h4>
+      <div class="relative bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+        <% total_duration = trace.total_duration_ms || 1 %>
+        <% trace.spans.each_with_index do |span, index| %>
+          <%
+            start_pct = ((span["start_time_relative_ms"] || 0) / total_duration * 100).clamp(0, 100)
+            width_pct = ((span["duration_ms"] || 0) / total_duration * 100).clamp(0.5, 100 - start_pct)
+            span_type = span["type"] || "unknown"
+            colors = {
+              "root" => "bg-gray-400",
+              "prompt" => "bg-blue-400",
+              "llm" => "bg-indigo-500",
+              "generate" => "bg-indigo-400",
+              "tool" => "bg-amber-500",
+              "thinking" => "bg-purple-500",
+              "response" => "bg-green-400"
+            }
+            bg_color = colors[span_type] || "bg-gray-400"
+          %>
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-24 text-xs text-gray-500 dark:text-gray-400 truncate" title="<%= span["name"] %>">
+              <%= span["name"]&.split(".")&.last || span_type %>
+            </div>
+            <div class="flex-1 h-6 bg-gray-200 dark:bg-gray-700 rounded relative overflow-hidden">
+              <div class="span-bar absolute h-full <%= bg_color %> rounded <%= span["status"] == "ERROR" ? 'opacity-50 bg-red-500' : '' %>"
+                   style="left: <%= start_pct %>%; width: <%= width_pct %>%;"
+                   title="<%= span["name"] %>: <%= span["duration_ms"]&.round(1) %>ms">
+              </div>
+            </div>
+            <div class="w-16 text-xs text-gray-500 dark:text-gray-400 text-right">
+              <%= span["duration_ms"] ? "#{span["duration_ms"].round(1)}ms" : "—" %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Raw Data (collapsed) -->
+  <details class="mt-4">
+    <summary class="text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700">
+      View raw trace data
+    </summary>
+    <pre class="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-x-auto"><%= JSON.pretty_generate(trace.as_json(except: [:id, :created_at, :updated_at])) %></pre>
+  </details>
+</div>
