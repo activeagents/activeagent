@@ -99,6 +99,7 @@ export default defineConfig({
           { text: 'Providers', link: '/providers' },
           { text: 'Configuration', link: '/framework/configuration' },
           { text: 'Instrumentation', link: '/framework/instrumentation' },
+          { text: 'Telemetry', link: '/framework/telemetry' },
           { text: 'Retries', link: '/framework/retries' },
           { text: 'Rails Integration', link: '/framework/rails' },
           { text: 'Testing', link: '/framework/testing' },
