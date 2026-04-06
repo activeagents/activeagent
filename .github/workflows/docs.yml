@@ -171,7 +171,7 @@ jobs:
           ls -la dist/
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload combined artifact
         uses: actions/upload-pages-artifact@v4
