@@ -51,7 +51,8 @@ export default defineConfig({
   title: "Active Agent",
   description: "The AI framework for Rails with less code & more fun.",
   head: [
-    ['link', { rel: 'icon', href: '/activeagent.png' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/activeagent-logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/png', href: '/activeagent.png' }],
     ['link', { rel: 'icon', href: '/favicon-16x16.png', sizes: '16x16' }],
     ['link', { rel: 'icon', href: '/favicon-32x32.png', sizes: '32x32' }],
     ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }],
@@ -98,6 +99,7 @@ export default defineConfig({
           { text: 'Providers', link: '/providers' },
           { text: 'Configuration', link: '/framework/configuration' },
           { text: 'Instrumentation', link: '/framework/instrumentation' },
+          { text: 'Telemetry', link: '/framework/telemetry' },
           { text: 'Retries', link: '/framework/retries' },
           { text: 'Rails Integration', link: '/framework/rails' },
           { text: 'Testing', link: '/framework/testing' },

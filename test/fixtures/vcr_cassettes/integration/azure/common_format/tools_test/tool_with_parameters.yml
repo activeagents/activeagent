@@ -1,0 +1,171 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://AZURE_RESOURCE.openai.azure.com/openai/deployments/AZURE_DEPLOYMENT/chat/completions?api-version=2025-01-01-preview
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4","messages":[{"role":"user","content":"What''s the
+        weather in San Francisco?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"}},"required":["location"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - ActiveAgent::Providers::AzureProvider::AzureClient/Ruby 0.43.0
+      Host:
+      - AZURE_RESOURCE.openai.azure.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.43.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.3.8
+      Content-Type:
+      - application/json
+      Api-Key:
+      - AZURE_API_KEY
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '377'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Length:
+      - '1062'
+      Content-Type:
+      - application/json
+      Apim-Request-Id:
+      - f9153a12-bf9d-466f-9983-ca60e0f96b11
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      X-Ms-Region:
+      - West Europe
+      X-Ratelimit-Remaining-Requests:
+      - '38'
+      X-Ratelimit-Limit-Requests:
+      - '50'
+      X-Ratelimit-Remaining-Tokens:
+      - '49781'
+      X-Ratelimit-Limit-Tokens:
+      - '50000'
+      Azureml-Model-Session:
+      - d20251214141937-53ba87ed3e94459f
+      X-Accel-Buffering:
+      - 'no'
+      X-Ms-Rai-Invoked:
+      - 'true'
+      X-Request-Id:
+      - 7dc32455-df3c-4394-981a-fb578dbd95ae
+      X-Ms-Deployment-Name:
+      - AZURE_DEPLOYMENT
+      Date:
+      - Sun, 01 Feb 2026 02:49:59 GMT
+    body:
+      encoding: UTF-8
+      string: '{"choices":[{"content_filter_results":{},"finish_reason":"tool_calls","index":0,"logprobs":null,"message":{"annotations":[],"content":null,"refusal":null,"role":"assistant","tool_calls":[{"function":{"arguments":"{\"location\":\"San
+        Francisco, CA\"}","name":"get_weather"},"id":"call_03H1cFeRDjA8pwesA1qZ9yBS","type":"function"}]}}],"created":1769914198,"id":"chatcmpl-D4Hp8cpvPpD9gG1DvZHEkk770QARV","model":"AZURE_DEPLOYMENT-2025-04-14","object":"chat.completion","prompt_filter_results":[{"prompt_index":0,"content_filter_results":{"hate":{"filtered":false,"severity":"safe"},"jailbreak":{"filtered":false,"detected":false},"self_harm":{"filtered":false,"severity":"safe"},"sexual":{"filtered":false,"severity":"safe"},"violence":{"filtered":false,"severity":"safe"}}}],"system_fingerprint":"fp_f99638a8d7","usage":{"completion_tokens":18,"completion_tokens_details":{"accepted_prediction_tokens":0,"audio_tokens":0,"reasoning_tokens":0,"rejected_prediction_tokens":0},"prompt_tokens":67,"prompt_tokens_details":{"audio_tokens":0,"cached_tokens":0},"total_tokens":85}}
+
+        '
+  recorded_at: Sun, 01 Feb 2026 02:49:59 GMT
+- request:
+    method: post
+    uri: https://AZURE_RESOURCE.openai.azure.com/openai/deployments/AZURE_DEPLOYMENT/chat/completions?api-version=2025-01-01-preview
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4","messages":[{"role":"user","content":"What''s the
+        weather in San Francisco?"},{"role":"assistant","refusal":null,"annotations":[],"tool_calls":[{"id":"call_03H1cFeRDjA8pwesA1qZ9yBS","function":{"arguments":"{\"location\":\"San
+        Francisco, CA\"}","name":"get_weather"},"type":"function"}]},{"role":"tool","content":"{\"location\":\"San
+        Francisco, CA\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","tool_call_id":"call_03H1cFeRDjA8pwesA1qZ9yBS"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+        the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"}},"required":["location"]}}}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - ActiveAgent::Providers::AzureProvider::AzureClient/Ruby 0.43.0
+      Host:
+      - AZURE_RESOURCE.openai.azure.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.43.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.3.8
+      Content-Type:
+      - application/json
+      Api-Key:
+      - AZURE_API_KEY
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '750'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Length:
+      - '1285'
+      Content-Type:
+      - application/json
+      Apim-Request-Id:
+      - 698cb5f4-b0ec-4304-ad90-d10b30c1fcfb
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      X-Ms-Region:
+      - West Europe
+      X-Ratelimit-Remaining-Requests:
+      - '37'
+      X-Ratelimit-Limit-Requests:
+      - '50'
+      X-Ratelimit-Remaining-Tokens:
+      - '49683'
+      X-Ratelimit-Limit-Tokens:
+      - '50000'
+      Azureml-Model-Session:
+      - d20251214141937-53ba87ed3e94459f
+      X-Accel-Buffering:
+      - 'no'
+      X-Ms-Rai-Invoked:
+      - 'true'
+      X-Request-Id:
+      - dab11c59-7138-4480-980a-afdb354c5f7b
+      X-Ms-Deployment-Name:
+      - AZURE_DEPLOYMENT
+      Date:
+      - Sun, 01 Feb 2026 02:50:00 GMT
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJjaG9pY2VzIjpbeyJjb250ZW50X2ZpbHRlcl9yZXN1bHRzIjp7ImhhdGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwicHJvdGVjdGVkX21hdGVyaWFsX2NvZGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJkZXRlY3RlZCI6ZmFsc2V9LCJwcm90ZWN0ZWRfbWF0ZXJpYWxfdGV4dCI6eyJmaWx0ZXJlZCI6ZmFsc2UsImRldGVjdGVkIjpmYWxzZX0sInNlbGZfaGFybSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJzZXh1YWwiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwidmlvbGVuY2UiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifX0sImZpbmlzaF9yZWFzb24iOiJzdG9wIiwiaW5kZXgiOjAsImxvZ3Byb2JzIjpudWxsLCJtZXNzYWdlIjp7ImFubm90YXRpb25zIjpbXSwiY29udGVudCI6IlRoZSB3ZWF0aGVyIGluIFNhbiBGcmFuY2lzY28gaXMgY3VycmVudGx5IHN1bm55IHdpdGggYSB0ZW1wZXJhdHVyZSBvZiA3MsKwRi4iLCJyZWZ1c2FsIjpudWxsLCJyb2xlIjoiYXNzaXN0YW50In19XSwiY3JlYXRlZCI6MTc2OTkxNDE5OSwiaWQiOiJjaGF0Y21wbC1ENEhwOVpYaFlOY2E2S01KS25IM1dmQUZoTlBWMSIsIm1vZGVsIjoiQVpVUkVfREVQTE9ZTUVOVC0yMDI1LTA0LTE0Iiwib2JqZWN0IjoiY2hhdC5jb21wbGV0aW9uIiwicHJvbXB0X2ZpbHRlcl9yZXN1bHRzIjpbeyJwcm9tcHRfaW5kZXgiOjAsImNvbnRlbnRfZmlsdGVyX3Jlc3VsdHMiOnsiaGF0ZSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJqYWlsYnJlYWsiOnsiZmlsdGVyZWQiOmZhbHNlLCJkZXRlY3RlZCI6ZmFsc2V9LCJzZWxmX2hhcm0iOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwic2V4dWFsIjp7ImZpbHRlcmVkIjpmYWxzZSwic2V2ZXJpdHkiOiJzYWZlIn0sInZpb2xlbmNlIjp7ImZpbHRlcmVkIjpmYWxzZSwic2V2ZXJpdHkiOiJzYWZlIn19fV0sInN5c3RlbV9maW5nZXJwcmludCI6ImZwX2Y5OTYzOGE4ZDciLCJ1c2FnZSI6eyJjb21wbGV0aW9uX3Rva2VucyI6MTgsImNvbXBsZXRpb25fdG9rZW5zX2RldGFpbHMiOnsiYWNjZXB0ZWRfcHJlZGljdGlvbl90b2tlbnMiOjAsImF1ZGlvX3Rva2VucyI6MCwicmVhc29uaW5nX3Rva2VucyI6MCwicmVqZWN0ZWRfcHJlZGljdGlvbl90b2tlbnMiOjB9LCJwcm9tcHRfdG9rZW5zIjoxMTAsInByb21wdF90b2tlbnNfZGV0YWlscyI6eyJhdWRpb190b2tlbnMiOjAsImNhY2hlZF90b2tlbnMiOjB9LCJ0b3RhbF90b2tlbnMiOjEyOH19Cg==
+  recorded_at: Sun, 01 Feb 2026 02:50:00 GMT
+recorded_with: VCR 6.4.0

@@ -1,0 +1,84 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://AZURE_RESOURCE.openai.azure.com/openai/deployments/AZURE_DEPLOYMENT/chat/completions?api-version=2025-01-01-preview
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4","messages":[{"role":"assistant","content":"I can help
+        you with programming questions."},{"role":"user","content":"What are the benefits
+        of using ActiveRecord?"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - ActiveAgent::Providers::AzureProvider::AzureClient/Ruby 0.43.0
+      Host:
+      - AZURE_RESOURCE.openai.azure.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.43.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.3.8
+      Content-Type:
+      - application/json
+      Api-Key:
+      - AZURE_API_KEY
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '179'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Length:
+      - '4149'
+      Content-Type:
+      - application/json
+      Apim-Request-Id:
+      - 23ff5eee-d1c2-4cdb-8ab1-58ec90588488
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      X-Ms-Region:
+      - West Europe
+      X-Ratelimit-Remaining-Requests:
+      - '49'
+      X-Ratelimit-Limit-Requests:
+      - '50'
+      X-Ratelimit-Remaining-Tokens:
+      - '49977'
+      X-Ratelimit-Limit-Tokens:
+      - '50000'
+      Azureml-Model-Session:
+      - d20260129130029-90b0c3ab1d00
+      X-Accel-Buffering:
+      - 'no'
+      X-Ms-Rai-Invoked:
+      - 'true'
+      X-Request-Id:
+      - fcd387c1-505b-41d6-ad99-7396ed0cca90
+      X-Ms-Deployment-Name:
+      - AZURE_DEPLOYMENT
+      Date:
+      - Sun, 01 Feb 2026 02:49:30 GMT
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJjaG9pY2VzIjpbeyJjb250ZW50X2ZpbHRlcl9yZXN1bHRzIjp7ImhhdGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwicHJvdGVjdGVkX21hdGVyaWFsX2NvZGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJkZXRlY3RlZCI6ZmFsc2V9LCJwcm90ZWN0ZWRfbWF0ZXJpYWxfdGV4dCI6eyJmaWx0ZXJlZCI6ZmFsc2UsImRldGVjdGVkIjpmYWxzZX0sInNlbGZfaGFybSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJzZXh1YWwiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwidmlvbGVuY2UiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifX0sImZpbmlzaF9yZWFzb24iOiJzdG9wIiwiaW5kZXgiOjAsImxvZ3Byb2JzIjpudWxsLCJtZXNzYWdlIjp7ImFubm90YXRpb25zIjpbXSwiY29udGVudCI6IioqQWN0aXZlUmVjb3JkKiogaXMgYW4gT2JqZWN0IFJlbGF0aW9uYWwgTWFwcGluZyAoT1JNKSBzeXN0ZW0gdXNlZCBpbiBSdWJ5IG9uIFJhaWxzLCBidXQgc2ltaWxhciBjb25jZXB0cyBleGlzdCBpbiBvdGhlciBsYW5ndWFnZXMuIFVzaW5nIEFjdGl2ZVJlY29yZCBvZmZlcnMgc2V2ZXJhbCBiZW5lZml0czpcblxuIyMjIDEuICoqQWJzdHJhY3Rpb24gb2YgRGF0YWJhc2UgT3BlcmF0aW9ucyoqXG4gICAtIFlvdSBpbnRlcmFjdCB3aXRoIGRhdGFiYXNlIHRhYmxlcyBhcyBSdWJ5IGNsYXNzZXMgYW5kIHJvd3MgYXMgb2JqZWN0cy5cbiAgIC0gQWJzdHJhY3RzIGF3YXkgU1FMIGZvciBtb3N0IHF1ZXJpZXPigJR1c2UgUnVieSBjb2RlIHRvIHJlYWQsIHdyaXRlLCB1cGRhdGUsIGFuZCBkZWxldGUgcmVjb3Jkcy5cblxuIyMjIDIuICoqUHJvZHVjdGl2aXR5IGFuZCBMZXNzIEJvaWxlcnBsYXRlKipcbiAgIC0gQXV0by1nZW5lcmF0ZXMgY29kZSBmb3IgQ1JVRCBvcGVyYXRpb25zLlxuICAgLSBIYW5kbGVzIHNjaGVtYSBpbnRyb3NwZWN0aW9uOiBrbm93cyBjb2x1bW5zLCB0eXBlcywgdmFsaWRhdGlvbnMsIGFuZCBhc3NvY2lhdGlvbnMuXG4gICAtIFJlZHVjZXMgcmVwZXRpdGl2ZSBjb2RlIGFuZCBpbXByb3ZlcyBkZXZlbG9wZXIgc3BlZWQuXG5cbiMjIyAzLiAqKkFzc29jaWF0aW9ucyBhbmQgUmVsYXRpb25zaGlwcyoqXG4gICAtIFByb3ZpZGVzIGVhc3kgZGVjbGFyYXRpb24gb2YgcmVsYXRpb25zaGlwcyAoYmVsb25nc190bywgaGFzX21hbnksIGV0YykuXG4gICAtIEF1dG9tYXRpY2FsbHkgaGFuZGxlcyBmb3JlaWduIGtleXMsIGpvaW4gdGFibGVzLCBhbmQgbmVzdGVkIHF1ZXJpZXMuXG5cbiMjIyA0LiAqKlZhbGlkYXRpb25zIGFuZCBDYWxsYmFja3MqKlxuICAgLSBFYXNpbHkgZGVmaW5lIGlucHV0IHZhbGlkYXRpb25zIGFuZCBsaWZlY3ljbGUgY2FsbGJhY2tzIChiZWZvcmVfc2F2ZSwgYWZ0ZXJfY3JlYXRlLCBldGMpLlxuICAgLSBDZW50cmFsaXplcyBhbmQgc2ltcGxpZmllcyBkYXRhIGludGVncml0eSBlbmZvcmNlbWVudC5cblxuIyMjIDUuICoqQ29udmVudGlvbiBvdmVyIENvbmZpZ3VyYXRpb24qKlxuICAgLSBVc2VzIHNlbnNpYmxlIGRlZmF1bHRz4oCUbmFtaW5nIGNvbnZlbnRpb25zIGZvciB0YWJsZXMsIGtleXMsIGV0Yy5cbiAgIC0gUmVkdWNlcyB0aGUgYW1vdW50IG9mIG1hbnVhbCBjb25maWd1cmF0aW9uIG5lZWRlZC5cblxuIyMjIDYuICoqQ2hhaW5hYmxlIFF1ZXJ5IEludGVyZmFjZSoqXG4gICAtIFdyaXRlIGNvbXBsZXggcXVlcmllcyB1c2luZyBhIFJ1YnkgRFNMIChzY29wZSwgd2hlcmUsIG9yZGVyLCBldGMpLlxuICAgLSBTdXBwb3J0cyBsYXp5IGxvYWRpbmcgYW5kIGNvbXBvc2FibGUgcXVlcmllcy5cbiAgIFxuIyMjIDcuICoqRGF0YWJhc2UtQWdub3N0aWMgQ29kZSoqXG4gICAtIFdyaXRlIGNvZGUgdGhhdCB3b3JrcyBvbiBtdWx0aXBsZSBkYXRhYmFzZSBzeXN0ZW1zIChNeVNRTCwgUG9zdGdyZVNRTCwgU1FMaXRlLCBldGMpLlxuXG4jIyMgOC4gKipNaWdyYXRpb24gU3VwcG9ydCoqXG4gICAtIEJ1aWx0LWluIG1pZ3JhdGlvbnMgaGVscCBldm9sdmUgeW91ciBkYXRhYmFzZSBzY2hlbWEgb3ZlciB0aW1lIGluIGEgc3RydWN0dXJlZCwgdmVyc2lvbi1jb250cm9sbGVkIHdheS5cblxuIyMjIDkuICoqQ29tbXVuaXR5IGFuZCBFY29zeXN0ZW0qKlxuICAgLSBXaWRlbHkgdXNlZCwgd2VsbC1kb2N1bWVudGVkLCBhbmQgc3VwcG9ydGVkIGJ5IGEgbGFyZ2UgY29tbXVuaXR5LlxuXG4tLS1cblxuKipTdW1tYXJ5IFRhYmxlOioqXG5cbnwgQmVuZWZpdCAgICAgICAgICAgICAgICAgICB8IERlc2NyaXB0aW9uICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8XG58LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfFxufCBBYnN0cmFjdGlvbiAgICAgICAgICAgICAgIHwgV29yayB3aXRoIG9iamVjdHMsIG5vdCByYXcgU1FMICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHxcbnwgUHJvZHVjdGl2aXR5ICAgICAgICAgICAgICB8IExlc3MgYm9pbGVycGxhdGU7IGZhc3RlciBkZXZlbG9wbWVudCAgICAgICAgICAgICAgICAgICAgICAgICAgICB8XG58IEFzc29jaWF0aW9ucyAgICAgICAgICAgICAgfCBTaW1wbGUgcmVsYXRpb25zaGlwIG1hbmFnZW1lbnQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfFxufCBWYWxpZGF0aW9ucyBcdTAwMjYgQ2FsbGJhY2tzICAgfCBCdWlsdC1pbiBkYXRhIGNoZWNrcyBhbmQgaG9va3MgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfFxufCBDb252ZW50aW9uICAgICAgICAgICAgICAgIHwgXCJDb252ZW50aW9uIG92ZXIgY29uZmlndXJhdGlvblwiIHBoaWxvc29waHkgICAgICAgICAgICAgICAgICAgICAgfFxufCBDaGFpbmFibGUgUXVlcmllcyAgICAgICAgIHwgQ29tcG9zYWJsZSwgcmVhZGFibGUgcXVlcnkgc3ludGF4ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHxcbnwgRGF0YWJhc2UgQWdub3N0aWNpc20gICAgICB8IFdvcmtzIHdpdGggbXVsdGlwbGUgREIgYmFja2VuZHMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8XG58IE1pZ3JhdGlvbnMgICAgICAgICAgICAgICAgfCBTY2hlbWEgY2hhbmdlcyBtYW5hZ2VkIGluIGNvZGUgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfFxufCBDb21tdW5pdHkgICAgICAgICAgICAgICAgIHwgU3Ryb25nIGRvY3VtZW50YXRpb24gYW5kIHN1cHBvcnQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHxcblxuSWYgeW91IGhhdmUgYSBzcGVjaWZpYyB1c2UtY2FzZSBvciB3YW50IGNvZGUgZXhhbXBsZXMsIGxldCBtZSBrbm93ISIsInJlZnVzYWwiOm51bGwsInJvbGUiOiJhc3Npc3RhbnQifX1dLCJjcmVhdGVkIjoxNzY5OTE0MTY0LCJpZCI6ImNoYXRjbXBsLUQ0SG9hVG5EOG9IbmNuY3dDc3FIYnlaSmo0M3p5IiwibW9kZWwiOiJBWlVSRV9ERVBMT1lNRU5ULTIwMjUtMDQtMTQiLCJvYmplY3QiOiJjaGF0LmNvbXBsZXRpb24iLCJwcm9tcHRfZmlsdGVyX3Jlc3VsdHMiOlt7InByb21wdF9pbmRleCI6MCwiY29udGVudF9maWx0ZXJfcmVzdWx0cyI6eyJoYXRlIjp7ImZpbHRlcmVkIjpmYWxzZSwic2V2ZXJpdHkiOiJzYWZlIn0sImphaWxicmVhayI6eyJmaWx0ZXJlZCI6ZmFsc2UsImRldGVjdGVkIjpmYWxzZX0sInNlbGZfaGFybSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJzZXh1YWwiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwidmlvbGVuY2UiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifX19XSwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfZjk5NjM4YThkNyIsInVzYWdlIjp7ImNvbXBsZXRpb25fdG9rZW5zIjo1MjcsImNvbXBsZXRpb25fdG9rZW5zX2RldGFpbHMiOnsiYWNjZXB0ZWRfcHJlZGljdGlvbl90b2tlbnMiOjAsImF1ZGlvX3Rva2VucyI6MCwicmVhc29uaW5nX3Rva2VucyI6MCwicmVqZWN0ZWRfcHJlZGljdGlvbl90b2tlbnMiOjB9LCJwcm9tcHRfdG9rZW5zIjoyOCwicHJvbXB0X3Rva2Vuc19kZXRhaWxzIjp7ImF1ZGlvX3Rva2VucyI6MCwiY2FjaGVkX3Rva2VucyI6MH0sInRvdGFsX3Rva2VucyI6NTU1fX0K
+  recorded_at: Sun, 01 Feb 2026 02:49:30 GMT
+recorded_with: VCR 6.4.0

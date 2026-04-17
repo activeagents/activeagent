@@ -30,6 +30,49 @@ To document a new feature:
 3. Import test regions into documentation
 4. Preview locally with `bin/docs`
 
+## Running Tests
+
+### Prerequisites
+
+Install dependencies:
+
+```bash
+bundle install
+```
+
+### Running the Test Suite
+
+```bash
+bin/test
+```
+
+This uses `gemfiles/rails8.gemfile` by default. To test against other Rails versions:
+
+```bash
+BUNDLE_GEMFILE=gemfiles/rails7.gemfile bundle install
+BUNDLE_GEMFILE=gemfiles/rails7.gemfile bin/test
+```
+
+See `gemfiles/` for available configurations.
+
+### API Keys
+
+Most tests use VCR cassettes (recorded HTTP responses), so they run without API credentials. You only need API keys when:
+
+- Re-recording VCR cassettes
+- Running tests against live APIs
+- Adding tests for new API interactions
+
+To set API keys, create `.env.test` in the project root:
+
+```bash
+OPENAI_API_KEY=your_key_here
+ANTHROPIC_API_KEY=your_key_here
+OPEN_ROUTER_API_KEY=your_key_here
+```
+
+Or export them in your shell before running tests.
+
 ## How It Works
 
 ### VitePress Code Imports

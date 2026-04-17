@@ -142,11 +142,15 @@ module ActiveAgent
                   Common::Messages::Assistant.new(role: "assistant", content: block[:text], name: message.name)
                 when "tool_use"
                   # Create a message with tool use info as string representation
-                  tool_info = "[Tool Use: #{block[:name]}]\nID: #{block[:id]}\nInput: #{JSON.pretty_generate(block[:input])}"
+                  input = block[:input]
+                  input_str = input.nil? || input.empty? ? "{}" : JSON.pretty_generate(input)
+                  tool_info = "[Tool Use: #{block[:name]}]\nID: #{block[:id]}\nInput: #{input_str}"
                   Common::Messages::Assistant.new(role: "assistant", content: tool_info, name: message.name)
                 when "mcp_tool_use"
                   # Create a message with MCP tool use info
-                  tool_info = "[MCP Tool Use: #{block[:name]}]\nID: #{block[:id]}\nServer: #{block[:server_name]}\nInput: #{JSON.pretty_generate(block[:input] || {})}"
+                  input = block[:input]
+                  input_str = input.nil? || input.empty? ? "{}" : JSON.pretty_generate(input)
+                  tool_info = "[MCP Tool Use: #{block[:name]}]\nID: #{block[:id]}\nServer: #{block[:server_name]}\nInput: #{input_str}"
                   Common::Messages::Assistant.new(role: "assistant", content: tool_info, name: message.name)
                 when "mcp_tool_result"
                   # Create a message with MCP tool result

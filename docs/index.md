@@ -17,14 +17,14 @@ hero:
       text: GitHub
       link: https://github.com/activeagents/activeagent
   image:
-    light: /activeagent.png
-    dark: /activeagent-dark.png
+    light: /activeagent-logo.svg
+    dark: /activeagent-logo-dark.svg
     alt: ActiveAgent
 
 features:
   - title: Agents
     link: /agents
-    icon: <img src="/activeagent.png" />
+    icon: <img src="/activeagent-logo.svg" />
     details: Controllers for AI. Define actions, use callbacks, render views. Rails conventions for LLM interactions.
   - title: Tool Calling
     icon: 🔧

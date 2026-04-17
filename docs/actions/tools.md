@@ -23,6 +23,7 @@ The LLM calls `get_weather` automatically when it needs weather data, and uses t
 | **Anthropic**  | 🟩        | 🟩                | Full support for built-in tools |
 | **OpenRouter** | 🟩        | ❌                | Model-dependent capabilities |
 | **Ollama**     | 🟩        | ❌                | Model-dependent capabilities |
+| **RubyLLM**    | 🟩        | ❌                | Depends on underlying provider/model |
 | **Mock**       | 🟦        | ❌                | Accepted but not enforced |
 
 For **MCP (Model Context Protocol)** support, see the [MCP documentation](/actions/mcps).

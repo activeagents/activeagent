@@ -1,0 +1,83 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://AZURE_RESOURCE.openai.azure.com/openai/deployments/AZURE_DEPLOYMENT/chat/completions?api-version=2025-01-01-preview
+    body:
+      encoding: UTF-8
+      string: '{"model":"gpt-4","messages":[{"role":"user","content":"What are the
+        main differences between Ruby and Python?"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - ActiveAgent::Providers::AzureProvider::AzureClient/Ruby 0.43.0
+      Host:
+      - AZURE_RESOURCE.openai.azure.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 0.43.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.3.8
+      Content-Type:
+      - application/json
+      Api-Key:
+      - AZURE_API_KEY
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '113'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Length:
+      - '4722'
+      Content-Type:
+      - application/json
+      Apim-Request-Id:
+      - 3c374989-2ce2-41bf-84f9-e0aff796304e
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      X-Ms-Region:
+      - West Europe
+      X-Ratelimit-Remaining-Requests:
+      - '48'
+      X-Ratelimit-Limit-Requests:
+      - '50'
+      X-Ratelimit-Remaining-Tokens:
+      - '49963'
+      X-Ratelimit-Limit-Tokens:
+      - '50000'
+      Azureml-Model-Session:
+      - d20260129130029-90b0c3ab1d00
+      X-Accel-Buffering:
+      - 'no'
+      X-Ms-Rai-Invoked:
+      - 'true'
+      X-Request-Id:
+      - d269fae6-7c5f-423a-bf63-b6776adc7afc
+      X-Ms-Deployment-Name:
+      - AZURE_DEPLOYMENT
+      Date:
+      - Sun, 01 Feb 2026 02:49:37 GMT
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJjaG9pY2VzIjpbeyJjb250ZW50X2ZpbHRlcl9yZXN1bHRzIjp7ImhhdGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwicHJvdGVjdGVkX21hdGVyaWFsX2NvZGUiOnsiZmlsdGVyZWQiOmZhbHNlLCJkZXRlY3RlZCI6ZmFsc2V9LCJwcm90ZWN0ZWRfbWF0ZXJpYWxfdGV4dCI6eyJmaWx0ZXJlZCI6ZmFsc2UsImRldGVjdGVkIjpmYWxzZX0sInNlbGZfaGFybSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJzZXh1YWwiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwidmlvbGVuY2UiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifX0sImZpbmlzaF9yZWFzb24iOiJzdG9wIiwiaW5kZXgiOjAsImxvZ3Byb2JzIjpudWxsLCJtZXNzYWdlIjp7ImFubm90YXRpb25zIjpbXSwiY29udGVudCI6IioqUnVieSoqIGFuZCAqKlB5dGhvbioqIGFyZSBib3RoIGhpZ2gtbGV2ZWwsIGludGVycHJldGVkLCBkeW5hbWljYWxseS10eXBlZCwgZ2VuZXJhbC1wdXJwb3NlIGxhbmd1YWdlcywgYnV0IHRoZXkgZGlmZmVyIGNvbnNpZGVyYWJseSBpbiBwaGlsb3NvcGh5LCBkZXNpZ24sIGFuZCB0eXBpY2FsIHVzZSBjYXNlcy4gSGVyZSBhcmUgdGhlIG1haW4gZGlmZmVyZW5jZXM6XG5cbi0tLVxuXG4jIyMgMS4gKipQaGlsb3NvcGh5IGFuZCBEZXNpZ24qKlxuXG4tICoqUHl0aG9uOioqXG4gIC0gRW1waGFzaXplcyAqKnNpbXBsaWNpdHkqKiBhbmQgKipyZWFkYWJpbGl0eSoqLlxuICAtIOKAnFRoZXJlIHNob3VsZCBiZSBvbmXigJRhbmQgcHJlZmVyYWJseSBvbmx5IG9uZeKAlG9idmlvdXMgd2F5IHRvIGRvIGl0LuKAnSAoVGhlIFplbiBvZiBQeXRob24pXG4gIC0gVXNlcyBpbmRlbnRhdGlvbiBzdHJpY3RseSBmb3IgY29kZSBibG9ja3MgKHNpZ25pZmljYW50IHdoaXRlc3BhY2UpLlxuICAtIENvZGUgc3R5bGUgYW5kIGlkaW9tcyBhcmUgY29uc2lzdGVudCBhbmQgZW5mb3JjZWQgKFBFUCA4KS5cblxuLSAqKlJ1Ynk6KipcbiAgLSBGb2N1c2VzIG9uICoqZmxleGliaWxpdHkqKiBhbmQgKipkZXZlbG9wZXIgaGFwcGluZXNzKiouXG4gIC0g4oCcVGhlcmXigJlzIG1vcmUgdGhhbiBvbmUgd2F5IHRvIGRvIGl0LuKAnVxuICAtIFVzZXMgYGVuZGAgdG8gY2xvc2UgY29kZSBibG9ja3MuXG4gIC0gQWxsb3dzIG1vcmUgZnJlZWRvbSBpbiBjb2RlIHN0eWxlIGFuZCBtdWx0aXBsZSB3YXlzIHRvIGFjaGlldmUgdGhlIHNhbWUgcmVzdWx0LlxuXG4tLS1cblxuIyMjIDIuICoqU3ludGF4KipcblxuLSAqKlB5dGhvbjoqKiBTeW50YXggaXMgc3RyYWlnaHRmb3J3YXJkLCBvZnRlbiBkZXNjcmliZWQgYXMgXCJleGVjdXRhYmxlIHBzZXVkb2NvZGVcIi4gSGVhdnkgcmVsaWFuY2Ugb24gaW5kZW50YXRpb24uXG4gICAgYGBgcHl0aG9uXG4gICAgZGVmIGhlbGxvKG5hbWUpOlxuICAgICAgICBwcmludChcIkhlbGxvLCBcIiArIG5hbWUpXG4gICAgYGBgXG5cbi0gKipSdWJ5OioqIFN5bnRheCBpcyBleHByZXNzaXZlIGFuZCBjb25jaXNlLCBzb21ldGltZXMgbW9yZSBzaW1pbGFyIHRvIG5hdHVyYWwgbGFuZ3VhZ2Ugb3IgUGVybC5cbiAgICBgYGBydWJ5XG4gICAgZGVmIGhlbGxvKG5hbWUpXG4gICAgICBwdXRzIFwiSGVsbG8sIFwiICsgbmFtZVxuICAgIGVuZFxuICAgIGBgYFxuXG4tLS1cblxuIyMjIDMuICoqQ29tbXVuaXR5IGFuZCBFY29zeXN0ZW0qKlxuXG4tICoqUHl0aG9uOioqIFdpZGVseSB1c2VkIGluIHNjaWVudGlmaWMgY29tcHV0aW5nLCBkYXRhIGFuYWx5c2lzLCBtYWNoaW5lIGxlYXJuaW5nLCBhdXRvbWF0aW9uLCBzY3JpcHRpbmcsIHdlYiBkZXZlbG9wbWVudCwgYW5kIG1vcmUuXG4gICAgLSBQb3B1bGFyIGZyYW1ld29ya3M6IERqYW5nbywgRmxhc2sgKHdlYik7IE51bVB5LCBwYW5kYXMsIFRlbnNvckZsb3cgKGRhdGEgc2NpZW5jZSkuXG5cbi0gKipSdWJ5OioqIEJlc3Qga25vd24gZm9yIHdlYiBkZXZlbG9wbWVudCwgZXNwZWNpYWxseSAqKlJ1Ynkgb24gUmFpbHMqKiBmcmFtZXdvcmsuXG4gICAgLSBMZXNzIGNvbW1vbiBpbiBkYXRhIHNjaWVuY2Ugb3Igc3lzdGVtIHNjcmlwdGluZyB0aGFuIFB5dGhvbi5cblxuLS0tXG5cbiMjIyA0LiAqKk9iamVjdC1PcmllbnRhdGlvbioqXG5cbi0gKipSdWJ5OioqIFB1cmUgb2JqZWN0LW9yaWVudGVkLiBFdmVyeXRoaW5nIChpbmNsdWRpbmcgbnVtYmVycyBhbmQgbmlsKSBpcyBhbiBvYmplY3QuXG4tICoqUHl0aG9uOioqIE9iamVjdC1vcmllbnRlZCwgYnV0IG5vdCBzdHJpY3RseTsgdXNlcyBib3RoIG9iamVjdHMgYW5kIHByaW1pdGl2ZSB0eXBlcy5cblxuLS0tXG5cbiMjIyA1LiAqKkVycm9yIEhhbmRsaW5nKipcblxuLSAqKlB5dGhvbjoqKiBVc2VzIGB0cnlgL2BleGNlcHRgLlxuLSAqKlJ1Ynk6KiogVXNlcyBgYmVnaW5gL2ByZXNjdWVgLlxuXG4tLS1cblxuIyMjIDYuICoqUG9wdWxhcml0eSBcdTAwMjYgTGVhcm5pbmcgQ3VydmUqKlxuXG4tICoqUHl0aG9uOioqIE1vcmUgcG9wdWxhciBnbG9iYWxseS4gQ29uc2lkZXJlZCBzbGlnaHRseSBlYXNpZXIgZm9yIGJlZ2lubmVycyBkdWUgdG8gc3RyaWN0bmVzcyBhbmQgcmVhZGFiaWxpdHkuXG4tICoqUnVieToqKiBLbm93biBmb3IgZGV2ZWxvcGVyIGhhcHBpbmVzcyBhbmQgcmFwaWQgd2ViIGRldmVsb3BtZW50LCBidXQgaXRzIHBvcHVsYXJpdHkgaGFzIHBsYXRlYXVlZCBpbiByZWNlbnQgeWVhcnMuXG5cbi0tLVxuXG4jIyMgNy4gKipQZXJmb3JtYW5jZSoqXG5cbi0gQm90aCBhcmUgaW50ZXJwcmV0ZWQgbGFuZ3VhZ2VzLCBzaW1pbGFyIGluIHBlcmZvcm1hbmNlLCBidXQgdGhlcmUgY2FuIGJlIGRpZmZlcmVuY2VzIGluIHNvbWUgd29ya2xvYWRzLlxuXG4tLS1cblxuIyMjICoqU3VtbWFyeSBUYWJsZSoqXG5cbnwgRmVhdHVyZSAgICAgICAgICAgfCBQeXRob24gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8IFJ1YnkgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfFxufC0tLS0tLS0tLS0tLS0tLS0tLS18LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLXwtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS18XG58IFBoaWxvc29waHkgICAgICAgIHwgU2ltcGxpY2l0eSwgb25lIHdheSB0byBkbyBpdCAgICAgICAgICAgfCBGbGV4aWJpbGl0eSwgbWFueSB3YXlzIHRvIGRvIGl0ICAgICAgIHxcbnwgU3R5bGUgICAgICAgICAgICAgfCBJbmRlbnRhdGlvbi1iYXNlZCAgICAgICAgICAgICAgICAgICAgICB8IGVuZCBzdGF0ZW1lbnRzIGZvciBibG9ja3MgICAgICAgICAgICAgfFxufCBNYWluIHVzZSBjYXNlcyAgICB8IERhdGEgc2NpZW5jZSwgc2NyaXB0aW5nLCB3ZWIsIE1MICAgICAgIHwgV2ViIGRldmVsb3BtZW50IChSdWJ5IG9uIFJhaWxzKSAgICAgICB8XG58IENvbW11bml0eSAgICAgICAgIHwgTGFyZ2UsIGRpdmVyc2UgICAgICAgICAgICAgICAgICAgICAgICAgfCBTbWFsbGVyLCBSYWlscy1mb2N1c2VkICAgICAgICAgICAgICAgIHxcbnwgT09QICAgICAgICAgICAgICAgfCBOb3QgZXZlcnl0aGluZyBpcyBhbiBvYmplY3QgICAgICAgICAgICB8IEV2ZXJ5dGhpbmcgaXMgYW4gb2JqZWN0ICAgICAgICAgICAgICAgfFxufCBFcnJvciBoYW5kbGluZyAgICB8IHRyeS9leGNlcHQgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgYmVnaW4vcmVzY3VlICAgICAgICAgICAgICAgICAgICAgICAgICB8XG5cbi0tLVxuXG4qKkluIHN1bW1hcnk6KiogIFxuLSBQeXRob24gaXMgYmVzdCBmb3IgZ2VuZXJhbC1wdXJwb3NlIHByb2dyYW1taW5nLCBkYXRhIHNjaWVuY2UsIGFuZCB3aGVyZSByZWFkYWJpbGl0eSBtYXR0ZXJzIG1vc3QuICBcbi0gUnVieSBleGNlbHMgaW4gcmFwaWQgd2ViIGRldmVsb3BtZW50LCBlc3BlY2lhbGx5IHdpdGggUmFpbHMsIG9mZmVyaW5nIG1vcmUgZmxleGliaWxpdHkgaW4gY29kaW5nIHN0eWxlLiIsInJlZnVzYWwiOm51bGwsInJvbGUiOiJhc3Npc3RhbnQifX1dLCJjcmVhdGVkIjoxNzY5OTE0MTcxLCJpZCI6ImNoYXRjbXBsLUQ0SG9oNnlvRnQ3UnJ5eFN3dmZRR3JzUldJOUx4IiwibW9kZWwiOiJBWlVSRV9ERVBMT1lNRU5ULTIwMjUtMDQtMTQiLCJvYmplY3QiOiJjaGF0LmNvbXBsZXRpb24iLCJwcm9tcHRfZmlsdGVyX3Jlc3VsdHMiOlt7InByb21wdF9pbmRleCI6MCwiY29udGVudF9maWx0ZXJfcmVzdWx0cyI6eyJoYXRlIjp7ImZpbHRlcmVkIjpmYWxzZSwic2V2ZXJpdHkiOiJzYWZlIn0sImphaWxicmVhayI6eyJmaWx0ZXJlZCI6ZmFsc2UsImRldGVjdGVkIjpmYWxzZX0sInNlbGZfaGFybSI6eyJmaWx0ZXJlZCI6ZmFsc2UsInNldmVyaXR5Ijoic2FmZSJ9LCJzZXh1YWwiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifSwidmlvbGVuY2UiOnsiZmlsdGVyZWQiOmZhbHNlLCJzZXZlcml0eSI6InNhZmUifX19XSwic3lzdGVtX2ZpbmdlcnByaW50IjoiZnBfZjk5NjM4YThkNyIsInVzYWdlIjp7ImNvbXBsZXRpb25fdG9rZW5zIjo3MjIsImNvbXBsZXRpb25fdG9rZW5zX2RldGFpbHMiOnsiYWNjZXB0ZWRfcHJlZGljdGlvbl90b2tlbnMiOjAsImF1ZGlvX3Rva2VucyI6MCwicmVhc29uaW5nX3Rva2VucyI6MCwicmVqZWN0ZWRfcHJlZGljdGlvbl90b2tlbnMiOjB9LCJwcm9tcHRfdG9rZW5zIjoxNywicHJvbXB0X3Rva2Vuc19kZXRhaWxzIjp7ImF1ZGlvX3Rva2VucyI6MCwiY2FjaGVkX3Rva2VucyI6MH0sInRvdGFsX3Rva2VucyI6NzM5fX0K
+  recorded_at: Sun, 01 Feb 2026 02:49:38 GMT
+recorded_with: VCR 6.4.0

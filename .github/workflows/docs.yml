@@ -58,14 +58,15 @@ jobs:
           }
           EOF
 
-      - name: Install dummy app dependencies
-        working-directory: test/dummy
+      - name: Install test dependencies
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails8.gemfile
         run: bundle install
 
       - name: Setup database
         env:
           RAILS_ENV: test
-          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+          BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails8.gemfile
         working-directory: test/dummy
         run: |
           bundle exec rails db:create
@@ -74,7 +75,7 @@ jobs:
       - name: Generate doc examples from tests
         env:
           RAILS_ENV: test
-          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+          BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails8.gemfile
           ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
           OPEN_AI_API_KEY: OPEN_AI_API_KEY
           OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
@@ -84,7 +85,7 @@ jobs:
         run: npm run docs:build
 
       - name: Upload current docs artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: docs-current
           path: docs/.vitepress/dist
@@ -137,7 +138,7 @@ jobs:
           echo "Fixed internal links for v${{ matrix.version }}"
 
       - name: Upload versioned docs artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: docs-v${{ matrix.version }}
           path: docs/.vitepress/dist
@@ -151,7 +152,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download all docs artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -179,4 +180,4 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

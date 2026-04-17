@@ -224,6 +224,12 @@ bin/test test/integration/open_ai/
 - Access 200+ models through single API
 - Provider preferences via `provider: { order: [...] }`
 
+### RubyLLM
+- Uses `ruby_llm` gem for unified access to 15+ providers
+- RubyLLM manages its own API keys via `RubyLLM.configure`
+- Model ID determines which provider is used automatically
+- Supports prompts, embeddings, tool calling, and streaming
+
 ## Common Gotchas
 
 1. **Generation is lazy** - Nothing happens until `generate_now` or `prompt_later`
@@ -253,7 +259,7 @@ bin/rubocop
 
 - Ruby 3.1+
 - Rails 7.2+ / 8.0+ / 8.1+
-- Provider gems (optional): `openai`, `anthropic`
+- Provider gems (optional): `openai`, `anthropic`, `ruby_llm`
 
 ## Links
 

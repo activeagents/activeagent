@@ -1,9 +1,9 @@
 {
-  "current": "1.0.0",
+  "current": "1.0.1",
   "versions": [
     {
-      "version": "1.0.0",
-      "label": "1.0.0 (Latest)",
+      "version": "1.0.1",
+      "label": "1.0.1 (Latest)",
       "path": "/",
       "branch": "main"
     },

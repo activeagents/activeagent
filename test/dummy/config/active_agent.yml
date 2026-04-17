@@ -24,11 +24,26 @@ ollama: &ollama
   service: "Ollama"
   model: "gpt-oss:20b"
 # endregion ollama_anchor
+# region bedrock_anchor
+bedrock: &bedrock
+  service: "Bedrock"
+  aws_region: <%= ENV.fetch("AWS_REGION", "us-east-1") %>
+# endregion bedrock_anchor
 # region mock_anchor
 mock: &mock
   service: "Mock"
   model: "mock-model"
 # endregion mock_anchor
+# region ruby_llm_anchor
+ruby_llm: &ruby_llm
+  service: "RubyLLM"
+# endregion ruby_llm_anchor
+# region gemini_anchor
+gemini: &gemini
+  service: "Gemini"
+  model: "gemini-2.0-flash"
+  api_key: <%= Rails.application.credentials.dig(:gemini, :api_key) %>
+# endregion gemini_anchor
 # endregion config_anchors
 
 # region config_development
@@ -51,10 +66,22 @@ development:
   anthropic:
     <<: *anthropic
   # endregion anthropic_dev_config
+  # region bedrock_dev_config
+  bedrock:
+    <<: *bedrock
+  # endregion bedrock_dev_config
   # region mock_dev_config
   mock:
     <<: *mock
   # endregion mock_dev_config
+  # region ruby_llm_dev_config
+  ruby_llm:
+    <<: *ruby_llm
+  # endregion ruby_llm_dev_config
+  # region gemini_dev_config
+  gemini:
+    <<: *gemini
+  # endregion gemini_dev_config
 # endregion config_development
 
 # region config_test
@@ -69,6 +96,12 @@ test:
     <<: *ollama
   anthropic:
     <<: *anthropic
+  bedrock:
+    <<: *bedrock
   mock:
     <<: *mock
+  ruby_llm:
+    <<: *ruby_llm
+  gemini:
+    <<: *gemini
 # endregion config_test

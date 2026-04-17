@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/2bad263a-c09f-40b6-94ba-fff8e346d65d">
-  <img alt="activeagents_banner" src="https://github.com/user-attachments/assets/0ebbaa2f-c6bf-4d40-bb77-931015a14be3">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/public/banner-dark.svg">
+  <img alt="Active Agent - Build AI in Rails" src="docs/public/banner-light.svg">
 </picture>
 
 
@@ -39,6 +39,9 @@ bundle add openai
 
 # OpenRouter (uses OpenAI-compatible API)
 bundle add openai
+
+# RubyLLM (unified API for 15+ providers)
+bundle add ruby_llm
 ```
 
 ### Setup
@@ -119,12 +122,15 @@ development:
   ollama:
     service: "Ollama"
     model: "llama3.2"
+
+  ruby_llm:
+    service: "RubyLLM"
 ```
 
 ## Features
 
 - **Agent-Oriented Programming**: Build AI applications using familiar Rails patterns
-- **Multiple Provider Support**: Works with OpenAI, Anthropic, Ollama, and more
+- **Multiple Provider Support**: Works with OpenAI, Anthropic, Ollama, RubyLLM, and more
 - **Action-Based Design**: Define agent capabilities through actions
 - **View Templates**: Use ERB templates for prompts (text, JSON, HTML)
 - **Streaming Support**: Real-time response streaming with ActionCable
