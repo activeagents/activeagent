@@ -436,6 +436,7 @@ module ActiveAgent
                 msg.delete(:id)
                 msg.delete(:model)
                 msg.delete(:stop_reason)
+                msg.delete(:stop_details)
                 msg.delete(:stop_sequence)
                 msg.delete(:type)
                 msg.delete(:usage)
