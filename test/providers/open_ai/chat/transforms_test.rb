@@ -203,6 +203,53 @@ module Providers
           assert_equal "image_url", result.content[1][:type]
         end
 
+        test "normalize_message handles shorthand document format with URL" do
+          message = { document: "http://example.com/document.pdf" }
+
+          result =  transforms.normalize_message(message)
+
+          assert_equal :user, result.role
+          assert_equal 1, result.content.size
+          assert_equal "file", result.content[0][:type]
+          assert_equal "http://example.com/document.pdf", result.content[0][:file][:url]
+          assert_equal "document.pdf", result.content[0][:file][:filename]
+        end
+
+        test "normalize_message handles shorthand document format with data URI" do
+          message = { document: "data:application/pdf;base64,JVBERi0xL..." }
+
+          result =  transforms.normalize_message(message)
+
+          assert_equal :user, result.role
+          assert_equal 1, result.content.size
+          assert_equal "file", result.content[0][:type]
+          assert_equal "data:application/pdf;base64,JVBERi0xL...", result.content[0][:file][:file_data]
+          assert_equal "document.pdf", result.content[0][:file][:filename]
+        end
+
+        test "normalize_message handles text and document shorthand" do
+          message = { text: "Analyze this", document: "http://example.com/document.pdf" }
+
+          result =  transforms.normalize_message(message)
+
+          assert_equal :user, result.role
+          assert_equal 2, result.content.size
+          assert_equal "text", result.content[0][:type]
+          assert_equal "Analyze this", result.content[0][:text]
+          assert_equal "file", result.content[1][:type]
+          assert_equal "http://example.com/document.pdf", result.content[1][:file][:url]
+        end
+
+        test "normalize_message does not leak document as extra param" do
+          message = { role: "user", document: "http://example.com/document.pdf" }
+
+          result =  transforms.normalize_message(message)
+
+          # Document should be in content, not as an extra param on the message object
+          serialized = transforms.gem_to_hash(result)
+          assert_nil serialized[:document], "document key should not leak as extra param"
+        end
+
         test "normalize_message handles hash without role as user" do
           message = { content: "hello" }
 

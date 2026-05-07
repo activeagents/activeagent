@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "active_support/core_ext/hash/keys"
+require "uri"
 
 module ActiveAgent
   module Providers
@@ -124,10 +125,19 @@ module ActiveAgent
                     { type: "text", text: msg_hash[:text] },
                     { type: "image_url", image_url: { url: msg_hash[:image] } }
                   ]
+                elsif msg_hash.key?(:text) && msg_hash.key?(:document)
+                  # Shorthand with both text and document: { text: "...", document: "url" }
+                  [
+                    { type: "text", text: msg_hash[:text] },
+                    build_file_content(msg_hash[:document])
+                  ]
                 elsif msg_hash.key?(:image)
                   # Shorthand with only image: { image: "url" }
                   # Text comes from adjacent prompt arguments
                   [ { type: "image_url", image_url: { url: msg_hash[:image] } } ]
+                elsif msg_hash.key?(:document)
+                  # Shorthand with only document: { document: "url" }
+                  [ build_file_content(msg_hash[:document]) ]
                 elsif msg_hash.key?(:text)
                   # Shorthand: { text: "..." } or { role: "...", text: "..." }
                   msg_hash[:text]
@@ -137,11 +147,37 @@ module ActiveAgent
                 end
 
                 # Create appropriate message param based on role and content
-                extra_params = msg_hash.except(:role, :content, :text, :image)
+                extra_params = msg_hash.except(:role, :content, :text, :image, :document)
                 create_message_param(role, content, extra_params)
               else
                 raise ArgumentError, "Cannot normalize #{message.class} to message"
               end
+            end
+
+            # Builds a file content block for the Chat API file type
+            #
+            # Handles both URL and data URI formats:
+            # - URL: "http://example.com/document.pdf" → { type: "file", file: { filename: "...", url: "..." } }
+            # - Data URI: "data:application/pdf;base64,..." → { type: "file", file: { filename: "...", file_data: "..." } }
+            #
+            # @param document [String] URL or data URI
+            # @return [Hash] file content block
+            def build_file_content(document)
+              if document.start_with?("data:")
+                # Data URI - extract or infer filename from media type
+                media_type = document.match(%r{\Adata:([^;,]+)})&.[](1) || "application/octet-stream"
+                extension = media_type.split("/").last&.gsub(/[^a-zA-Z0-9]/, "_") || "bin"
+                filename = "document.#{extension}"
+                { type: "file", file: { filename: filename, file_data: document } }
+              else
+                # Regular URL
+                filename = File.basename(URI.parse(document).path.to_s)
+                filename = "document.pdf" if filename.empty?
+                { type: "file", file: { filename: filename, url: document } }
+              end
+            rescue URI::Error
+              # Fallback for invalid URLs
+              { type: "file", file: { filename: "document.pdf", url: document } }
             end
 
             # Creates the appropriate gem message param class for the given role
