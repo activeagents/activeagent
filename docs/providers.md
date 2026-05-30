@@ -54,6 +54,27 @@ GPT-4o, GPT-4.1, GPT-5, and o3 models. Two APIs available: Responses API (defaul
 
 **Choose when:** You need reliable, high-quality responses with strong reasoning. Vision support and structured output work well. Azure OpenAI compatible.
 
+#### OpenAI-compatible gateways
+
+The OpenAI provider also accepts a custom `base_url`, so Rails apps can route ActiveAgent generations through a governed OpenAI-compatible endpoint. For example, [Tuning Engines](https://www.tuningengines.com/) can sit underneath ActiveAgent to centralize model routing, policy controls, audit logs, traces, approvals, and cost visibility:
+
+```yaml
+production:
+  tuning_engines:
+    service: "OpenAI"
+    access_token: <%= Rails.application.credentials.dig(:tuning_engines, :api_key) %>
+    base_url: "https://api.tuningengines.com/v1"
+    model: "gpt-4o-mini"
+```
+
+Then use it like any other generation provider:
+
+```ruby
+class SupportAgent < ApplicationAgent
+  generate_with :tuning_engines, model: "gpt-4o-mini"
+end
+```
+
 ### [OpenRouter](/providers/open_router)
 **Best for:** Multi-model flexibility, cost optimization, experimentation
 
