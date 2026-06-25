@@ -31,6 +31,12 @@ module ActiveAgent
             params[:tools] = normalize_tools(params[:tools]) if params[:tools]
             params[:tool_choice] = normalize_tool_choice(params[:tool_choice]) if params[:tool_choice]
 
+            # Normalize json_schema response_format → output_config (Anthropic's native structured output field)
+            if params[:response_format]
+              output_config = normalize_response_format(params.delete(:response_format))
+              params[:output_config] = output_config if output_config
+            end
+
             # Handle mcps parameter (common format) -> transforms to mcp_servers (provider format)
             if params[:mcps]
               params[:mcp_servers] = normalize_mcp_servers(params.delete(:mcps))
@@ -156,6 +162,52 @@ module ActiveAgent
               end
             else
               tool_choice
+            end
+          end
+
+          # Normalizes response_format to Anthropic output_config structure.
+          #
+          # Supported (ActiveAgent common format):
+          #   { type: "json_schema", json_schema: { name: "...", schema: {...}, strict: true } }
+          # → { format: { type: "json_schema", schema: {...} } }
+          #
+          # Notes:
+          # - Anthropic does not use OpenAI's `name` or `strict` fields in output_config.format.
+          # - json_object is not handled here; it remains prompt-emulated.
+          # - text is not handled here; Anthropic returns plain text by default.
+          #
+          # @param format [Hash, Symbol, String] ActiveAgent common response_format
+          # @return [Hash] Anthropic output_config hash, or nil if not applicable
+          def normalize_response_format(format)
+            case format
+            when Hash
+              format_hash = format.deep_symbolize_keys
+
+              if format_hash[:type].to_s == "json_schema"
+                {
+                  format: {
+                    type: "json_schema",
+                    schema: format_hash[:json_schema]&.dig(:schema)
+                  }
+                }
+              elsif format_hash[:type].to_s == "json_object"
+                # json_object is not handled here; it remains prompt-emulated.
+                nil
+              elsif format_hash[:type].to_s == "text"
+                # text is not handled here; it remains prompt-emulated.
+                nil
+              else
+                # Pass through (already properly structured or Anthropic native format)
+                format_hash
+              end
+            when Symbol, String
+              if format.to_s == "json_schema"
+                { format: { type: "json_schema" } }
+              else
+                nil
+              end
+            else
+              format
             end
           end
 
