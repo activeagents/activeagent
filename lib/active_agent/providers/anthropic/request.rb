@@ -71,7 +71,9 @@ module ActiveAgent
         # @raise [ArgumentError] when gem model validation fails
         def initialize(**params)
           # Step 1: Extract custom fields that gem doesn't support
-          @response_format = params.delete(:response_format)
+          # Read response_format without deleting - normalize_params will delete and convert it
+          # to output_config for json_schema, or drop it for other types.
+          @response_format = params[:response_format]
           @stream = params.delete(:stream)
           anthropic_beta = params.delete(:anthropic_beta)
 
