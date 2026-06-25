@@ -20,7 +20,7 @@ Two JSON response formats:
 | Provider       | `json_object` | `json_schema` | Notes |
 |:---------------|:-------------:|:-------------:|:------|
 | **OpenAI**     | 🟩            | 🟩             | Native support with strict mode (Responses API only for json_schema) |
-| **Anthropic**  | 🟦            | ❌             | Emulated via prompt engineering technique |
+| **Anthropic**  | 🟦            | 🟩             | json_object emulated; json_schema native via output_config.format on supported Claude models |
 | **OpenRouter** | 🟩            | 🟩             | Native support, depends on underlying model |
 | **Ollama**     | 🟨            | 🟨             | Model-dependent, support varies by model |
 | **RubyLLM**    | 🟨            | 🟨             | Depends on underlying provider/model |

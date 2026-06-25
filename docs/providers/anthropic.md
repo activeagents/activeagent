@@ -119,11 +119,64 @@ Anthropic provides access to the Claude model family. For the complete list of a
 
 ### Response Format
 
-- **`response_format`** - Control output format (see [Emulated JSON Object Support](#emulated-json-object-support))
+- **`response_format`** - Control output format (see [JSON Object Support](#emulated-json-object-support) and [JSON Schema Support](#json-schema-support))
 
 ### Streaming
 
 - **`stream`** - Enable streaming responses (boolean, default: false)
+
+## JSON Schema Support
+
+ActiveAgent maps `response_format: :json_schema` (or the hash form) to Anthropic's native `output_config.format` API. JSON Schema Hashes are passed through as-is; ActiveAgent does not convert them to `Anthropic::BaseModel`.
+
+### Usage
+
+```ruby
+class ColorsAgent < ApplicationAgent
+  generate_with :anthropic, model: "claude-haiku-4-5"
+
+  def primary_colors
+    prompt(
+      "Return the three primary colors.",
+      response_format: :json_schema
+    )
+  end
+end
+```
+
+Place a schema file at `app/views/agents/colors_agent/primary_colors.json`:
+
+```json
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "colors": { "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["colors"],
+    "additionalProperties": false
+  }
+}
+```
+
+ActiveAgent serializes the request as:
+
+```ruby
+{
+  output_config: {
+    format: {
+      type: "json_schema",
+      schema: { ... }
+    }
+  }
+}
+```
+
+### Notes
+
+- `name` and `strict` from the common format are not forwarded; Anthropic's `output_config.format` does not use them.
+- JSON Schema support availability depends on model version. Check [Anthropic's documentation](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) for supported models.
+- `json_object` emulation via prompt engineering is separate and unchanged.
 
 ## Emulated JSON Object Support
 
@@ -155,7 +208,7 @@ Unlike OpenAI's native JSON mode:
 - **Prompt-dependent reliability**: Success depends on clear prompt instructions
 - **No strict mode**: Cannot guarantee specific field requirements
 
-For applications requiring guaranteed schema conformance, consider using the [Structured Output](/actions/structured_output) feature with providers that support native JSON schema validation.
+For applications requiring guaranteed schema conformance, use the [Structured Output](/actions/structured_output) feature with `response_format: :json_schema`. Anthropic natively supports JSON schema validation via `output_config.format` on supported Claude models.
 
 ## Constitutional AI
 
