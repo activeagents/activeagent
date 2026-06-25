@@ -73,7 +73,23 @@ module Integration
                 content: "Return the three primary colors."
               }
             ],
-            max_tokens: 1024
+            max_tokens: 1024,
+            output_config: {
+              format: {
+                type: "json_schema",
+                schema: {
+                  type: "object",
+                  properties: {
+                    colors: {
+                      type: "array",
+                      items: { type: "string" }
+                    }
+                  },
+                  required: [ "colors" ],
+                  additionalProperties: false
+                }
+              }
+            }
           }
 
           def response_json_schema_inline
@@ -141,10 +157,10 @@ module Integration
         end
 
         [
-          # :response_json_schema_inline,
-          # :response_json_schema_implicit,
-          # :response_json_schema_named,
-          # :response_json_schema_implicit_bare
+          :response_json_schema_inline,
+          :response_json_schema_implicit,
+          :response_json_schema_named,
+          :response_json_schema_implicit_bare
         ].each do |action_name|
           test_request_builder(TestAgent, action_name, :generate_now, TestAgent::REQUEST_JSON_SCHEMA)
         end
@@ -175,19 +191,19 @@ module Integration
           end
         end
 
-        # test "response format: json_schema (implicit bare)" do
-        #   agent_name    = TestAgent.name.demodulize.underscore
-        #   action_name   = "response_json_schema_implicit_bare"
-        #   cassette_name = [ self.class.name.underscore, "#{agent_name}_#{action_name}" ].join("/")
+        test "response format: json_schema (implicit bare)" do
+          agent_name    = TestAgent.name.demodulize.underscore
+          action_name   = "response_json_schema_implicit_bare"
+          cassette_name = [ self.class.name.underscore, "#{agent_name}_#{action_name}" ].join("/")
 
-        #   VCR.use_cassette(cassette_name) do
-        #     response = TestAgent.response_json_schema_implicit_bare.generate_now
+          VCR.use_cassette(cassette_name) do
+            response = TestAgent.response_json_schema_implicit_bare.generate_now
 
-        #     assert_equal "json_schema", response.format.type
-        #     assert_not_nil response.message.parsed_json
-        #     assert_kind_of Array, response.message.parsed_json[:colors]
-        #   end
-        # end
+            assert_equal "json_schema", response.format.type
+            assert_not_nil response.message.parsed_json
+            assert_kind_of Array, response.message.parsed_json[:colors]
+          end
+        end
       end
     end
   end
