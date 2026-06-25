@@ -142,7 +142,7 @@ module ActiveAgent
 
       return if !strict && !lookup_context.exists?(template_name, _prefixes, false, [], **options)
 
-      template = lookup_context.find_template(template_name, _prefixes, false, [], **options)
+      template = lookup_context.find(template_name, _prefixes, false, [], **options)
 
       render_to_string(template: template.virtual_path, locals:, layout: false).chomp.presence
     end
