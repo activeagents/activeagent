@@ -71,7 +71,7 @@ module ActiveAgent
       ].freeze
 
       # Available providers
-      PROVIDERS = %w[openai anthropic ollama openrouter].freeze
+      PROVIDERS = %w[openai anthropic ollama openrouter requesty].freeze
 
       # Returns the configuration as a hash for versioning
       def configuration_snapshot
