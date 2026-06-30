@@ -22,15 +22,12 @@ module ActiveAgent
         attribute :stream, :boolean, default: false
         attribute :tools # Array of tool definitions
         attribute :tool_choice # Tool choice configuration
+        attribute :response_format
 
         # Common Format Compatibility
         def message=(value)
           self.messages ||= []
           self.messages << value
-        end
-
-        def response_format
-          { type: "text" }
         end
       end
     end
