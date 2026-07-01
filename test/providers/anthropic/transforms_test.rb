@@ -434,7 +434,7 @@ module Providers
       test "cleanup_serialized_request removes response-only fields from messages" do
         hash = {
           messages: [
-            { role: "assistant", content: "hello", id: "msg_123", model: "claude-3", stop_reason: "end_turn", type: "message", usage: { input_tokens: 10 } }
+            { role: "assistant", content: "hello", id: "msg_123", model: "claude-3", stop_reason: "end_turn", stop_details: nil, type: "message", usage: { input_tokens: 10 } }
           ]
         }
 
@@ -443,6 +443,7 @@ module Providers
         assert_nil result[:messages][0][:id]
         assert_nil result[:messages][0][:model]
         assert_nil result[:messages][0][:stop_reason]
+        assert_nil result[:messages][0][:stop_details]
         assert_nil result[:messages][0][:type]
         assert_nil result[:messages][0][:usage]
         assert_equal "hello", result[:messages][0][:content]
