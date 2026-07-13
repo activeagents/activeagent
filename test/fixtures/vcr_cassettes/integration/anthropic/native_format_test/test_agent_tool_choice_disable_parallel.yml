@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:07:45 GMT
+      - Tue, 14 Jul 2026 01:07:55 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,33 +58,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:07:45Z'
+      - '2026-07-14T01:07:54Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:07:45Z'
+      - '2026-07-14T01:07:55Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:07:44Z'
+      - '2026-07-14T01:07:54Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:07:45Z'
+      - '2026-07-14T01:07:54Z'
       Request-Id:
-      - req_011CcztzeoJWAawqBTTSZcMW
+      - req_011Cd14A8K4rWWzLnx44PLAc
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-a1e41ef1cec607086f9d43d58e846255-f797c8fe3133b5fb-01
+      - 00-32e8a8ba09c49532a195feebe5f3aba5-ce9da17fc33e5eb7-01
       Server:
       - cloudflare
       Vary:
@@ -96,11 +96,11 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf2128d74042c-SJC
+      - a1aca2189ef68dfa-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-5","id":"msg_011CcztzfHKXUVG572Hq55Tj","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"","signature":"EqEDCokBCA8YAipAHbpV1w9j/LMNb57/o9SYV2UEb0LowIWeLEBH6d64sY7BpxmXe/CHXTH6N4CXdw4Vp3vsYZbiZU0Hu9Np9amrHTIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQyNTU3YzJmMi1iY2ZhLTQwNTQtOWZhOC1hZTEzYjNiNDdkNmISDBThgIMC6YATVnnrvxoMp1w2VJJDGUubD+u9IjCmJrNqb+81pUz2JFhYjrR2I917M/WKIwvqqmBZK9GVzF1dNCSlUC/uEeJ7qvBhongqxAHaU28AHyu5DncUPyEMt+zLQpzSSvqn+qnzOuuHb1JRq2SdRgyAt4xpmVLXtcMpb907VCP03JBhDXM+JFrrKHEYB0ha0GgkC4aLKiHRdMqos4Mu+JoSdeQ5NOQadcOXLxCPAQ8fApA8nYUyrMz9rW85oXgTG5jXUTm+rW91ghGmHEVWCMe/7JmBfs8EP5d4jFKEPRAG6Yq+aW42Tu2vjB1+U8H9OZtMKzFyRNf7AruMw8+VbeCQGkExIRHLVC2KukR+v0T8GAE="},{"type":"text","text":"I''d
-        be happy to check the weather for you! Could you please tell me which location
-        you''d like the weather for?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":432,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":84,"output_tokens_details":{"thinking_tokens":49},"service_tier":"standard","inference_geo":"global"}}'
-  recorded_at: Mon, 13 Jul 2026 23:07:45 GMT
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd14A8eAEMrjXV3GCT4vU","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"","signature":"EqkDCokBCA8YAipAcfwUOvv6ho9Lzx5gZQT6SyQBC9NzyEf9HXG3Y6pFc7OZPBEv+KPB9qfSPj3P/KMP7+yBJHy8Cdpydx/LlcGtdTIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQyNTU3YzJmMi1iY2ZhLTQwNTQtOWZhOC1hZTEzYjNiNDdkNmISDGvL34xYqDSKWAoPJxoMiU6TPg0jRbJ9ZajjIjDdnrTLYkHRhF8oTjXmW1H1awKFACzvLXJIm4QG+ByAp9DbPtHgUJYha0qWMxFQ4dkqzAE/Q7hRmR7O7qcKKxnXiRVLfn1q98wZn7s89uqr8gk2b0sxDHtux/slUM7Ss/ijFW7/FVT06Pbr/6rZP2bg+xdM2tfN/0KQliOa62vDGNY5s2DhgcmbgEAluvElhdkUk9mOnQA0/cw0JTFdJWHpnUYuQbiErCOwhyKc/9Msfjv9nLMPs2BbD+NnJ5/RRLWOD3Zs6D9vfpsbsckzobCZRW7MkjLh+poYHo2NkGkD7AR/igfj2RjNrOgh0xiVLD1dDe8N4MX57F+I5OCPlHgYAQ=="},{"type":"text","text":"I''d
+        be happy to check the weather for you! Could you please let me know which
+        location (city/region) you''d like the weather for?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":432,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":89,"output_tokens_details":{"thinking_tokens":49},"service_tier":"standard","inference_geo":"global"}}'
+  recorded_at: Tue, 14 Jul 2026 01:07:55 GMT
 recorded_with: VCR 6.4.0

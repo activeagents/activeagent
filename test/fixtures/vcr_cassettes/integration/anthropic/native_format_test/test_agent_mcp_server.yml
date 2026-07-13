@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -48,7 +48,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:07:28 GMT
+      - Tue, 14 Jul 2026 01:08:07 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -60,48 +60,52 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:07:26Z'
+      - '2026-07-14T01:08:06Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:07:28Z'
+      - '2026-07-14T01:08:07Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:07:26Z'
+      - '2026-07-14T01:08:06Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:07:26Z'
+      - '2026-07-14T01:08:06Z'
       Request-Id:
-      - req_011Cczty8ze6LYBgbphH6ym7
+      - req_011Cd14ApEAWreh93fnLTUnk
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-044e2cef755d5eda83e8497fa3332af7-53679045fa9174a4-01
+      - 00-abc139b2a339862bf3f1ed8d0b91be16-9c078c776a653b3e-01
       Server:
       - cloudflare
       Vary:
       - Accept-Encoding
+      Cf-Cache-Status:
+      - DYNAMIC
       X-Robots-Tag:
       - none
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
-      Cf-Cache-Status:
-      - DYNAMIC
       Cf-Ray:
-      - a1abf1922bd6efbd-SJC
+      - a1aca252e94dcf09-SJC
     body:
       encoding: ASCII-8BIT
-      string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNSIsImlkIjoibXNnXzAxMUNjenR5TEtYRW5DZW5zVEE2Tk5YRCIsInR5cGUiOiJtZXNzYWdlIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0aGlua2luZyIsInRoaW5raW5nIjoiIiwic2lnbmF0dXJlIjoiRXNjQ0Nva0JDQThZQWlwQXNha3hnV1VscUpNMEwvb2xJRGNoZmZ4SWJWQjFuQytBNnZML2NUOWUrUFQ3Ri8vQUtRZjZxMDNaMXU1a1VZbndXZTRrbnpPUFpZQTZtOHJSZy91Q0lUSVBZMnhoZFdSbExYTnZibTVsZEMwMU9BQkNDSFJvYVc1cmFXNW5XaVF5TlRVM1l6Sm1NaTFpWTJaaExUUXdOVFF0T1daaE9DMWhaVEV6WWpOaU5EZGtObUlTRE92QktCOURzWHZEUG51azdCb01Ka21Cbll3d1VBQTVZa2Y0SWpCNDJIZVNrN3ZVV1NBbkpWMlNUcXEwVHphR1M4M3JQdzZrYWhGNmZMaUNiQ2h0RGxPYkxjQnJDQi9xOTFHcHdjSXFhLytaT1VPZUw1YnREckV5OUluczhwZmdIS1d0UDNWRDRTT1BxRnJyVWdwaElvQVFkM2Q1QmZQZXpEc3M0UTZLeXZxd0lxU1RiN3ZlWENmQmZiTUpwMWNYQkdUZ3lZUnkvY1RiNEZKRzlwd2FvNmpRQnk1cy8wZnQ4K2E1T1NhOHUyMWZCejN4Um9CelFJc0RHQUU9In0seyJ0eXBlIjoidGV4dCIsInRleHQiOiJJIGN1cnJlbnRseSBoYXZlIGFjY2VzcyB0byBvbmUgdG9vbDpcblxuKipjbG91ZGZsYXJlLWRlbW9fbWNwX2RlbW9fZGF5X2luZm8qKiDigJQgVGhpcyB0b29sIHByb3ZpZGVzIGluZm9ybWF0aW9uIGFib3V0IENsb3VkZmxhcmUncyBNQ1AgKE1vZGVsIENvbnRleHQgUHJvdG9jb2wpIERlbW8gRGF5LiBJIGNhbiB1c2UgaXQgaWYgeW91J2QgbGlrZSB0byBrbm93IGRldGFpbHMgYWJvdXQgdGhhdCBldmVudC5cblxuV291bGQgeW91IGxpa2UgbWUgdG8gbG9vayB1cCBpbmZvcm1hdGlvbiBhYm91dCBDbG91ZGZsYXJlJ3MgTUNQIERlbW8gRGF5PyJ9XSwic3RvcF9yZWFzb24iOiJlbmRfdHVybiIsInN0b3Bfc2VxdWVuY2UiOm51bGwsInN0b3BfZGV0YWlscyI6bnVsbCwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjo0NzAsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjoxMzcsIm91dHB1dF90b2tlbnNfZGV0YWlscyI6eyJ0aGlua2luZ190b2tlbnMiOjI1fSwic2VydmljZV90aWVyIjoic3RhbmRhcmQiLCJpbmZlcmVuY2VfZ2VvIjoiZ2xvYmFsIn19
-  recorded_at: Mon, 13 Jul 2026 23:07:28 GMT
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd14B1CTxox46a55wZyWy","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"","signature":"EsYCCokBCA8YAipAmFsJ9brngZ25lWbhBxW5hXokLU0oX2zsTmxqUPlZBDTtZtcSnssnEby4Bg9mF/Qf+x86UE4xzk5fUBZSEXTyJjIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQyNTU3YzJmMi1iY2ZhLTQwNTQtOWZhOC1hZTEzYjNiNDdkNmISDM4xK+bowaurQ//v8BoMYvwUdu5n7126l1qeIjD634pPLof+wPUEbnd4ouP56f1ffcdCePbp5InoxRvlTzbNBY8S2TAm5oX4QreMwqsqar5Gwm2TndTvk2oJRdK59loCde/XFtUjaMLcbrPkUjHxAWtn8xhv1Q7yLV7hgpfw8O+Z5flbFE14ZVFZRcDIY4VdTJNqGC2b6ApaDk7PDk+HAmp2MOWM2w0Y6VZUVm+JbgvQwMXsKcvAsB0YAQ=="},{"type":"text","text":"I
+        have access to one specialized tool:\n\n**cloudflare-demo_mcp_demo_day_info**
+        - This tool provides information about Cloudflare''s MCP Demo Day. I can use
+        it if you have questions about that event.\n\nWould you like me to look up
+        information about Cloudflare''s MCP Demo Day, or is there something else I
+        can help you with?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":470,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":135,"output_tokens_details":{"thinking_tokens":24},"service_tier":"standard","inference_geo":"global"}}'
+  recorded_at: Tue, 14 Jul 2026 01:08:07 GMT
 recorded_with: VCR 6.4.0

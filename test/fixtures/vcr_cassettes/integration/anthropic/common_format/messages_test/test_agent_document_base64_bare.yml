@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:24 GMT
+      - Tue, 14 Jul 2026 01:05:05 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,33 +58,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '9999000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:22Z'
+      - '2026-07-14T01:05:03Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:24Z'
+      - '2026-07-14T01:05:05Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:22Z'
+      - '2026-07-14T01:05:02Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '11999000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:22Z'
+      - '2026-07-14T01:05:03Z'
       Request-Id:
-      - req_011Cczu7r7tC4r1cXe2kFdqa
+      - req_011Cd13wSSNJz4DJzpcHwLLi
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-84e5820bfd2f87127d30833a2733f44f-64469791c9123045-01
+      - 00-7669f154316ce5bb79568afae8527ef3-d18dc37331cf4cbd-01
       Server:
       - cloudflare
       Vary:
@@ -96,19 +96,18 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf474af726cb7-SJC
+      - a1ac9de0ef59b917-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu7sQ2ha3J39SViYsEv","type":"message","role":"assistant","content":[{"type":"text","text":"#
-        Document Summary\n\nThis is a **resume** for **John Doe**, a Software Engineer.
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13wUtTgTaGtLoT8iHtL","type":"message","role":"assistant","content":[{"type":"text","text":"#
+        Document Summary\n\nThis is a **resume for John Doe**, a Software Engineer.
         Here are the key details:\n\n## Contact Information\n- **Email:** john.doe@example.com\n-
-        **Phone:** (555) 123-4567\n- **Location:** San Francisco, CA\n\n## Professional
-        Experience\n- **Senior Software Engineer at TechCorp** (2020-2024)\n  - Developed
-        web applications using Ruby on Rails\n  - Led a team of 5 developers\n  -
-        Implemented CI/CD pipelines\n\n## Technical Skills\nRuby, Rails, JavaScript,
-        Python, AWS, Docker\n\n## Education\n- **BS in Computer Science** from Stanford
-        University (2016-2020)\n\nThe resume shows a recent graduate with 4 years
-        of professional experience in software engineering, with expertise in web
-        development and cloud technologies."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":1700,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":187,"service_tier":"standard","inference_geo":"not_available"}}'
-  recorded_at: Mon, 13 Jul 2026 23:09:24 GMT
+        **Phone:** (555) 123-4567\n- **Location:** San Francisco, CA\n\n## Experience\n-
+        **Senior Software Engineer at TechCorp** (2020-2024)\n  - Developed web applications
+        using Ruby on Rails\n  - Led a team of 5 developers\n  - Implemented CI/CD
+        pipelines\n\n## Skills\nRuby, Rails, JavaScript, Python, AWS, Docker\n\n##
+        Education\n- **BS in Computer Science** from Stanford University (2016-2020)\n\nThis
+        is a professional resume highlighting software engineering expertise with
+        a focus on web development and cloud technologies."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":1700,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":175,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:05:05 GMT
 recorded_with: VCR 6.4.0

@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:12 GMT
+      - Tue, 14 Jul 2026 01:04:40 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,33 +58,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:11Z'
+      - '2026-07-14T01:04:39Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:12Z'
+      - '2026-07-14T01:04:40Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:10Z'
+      - '2026-07-14T01:04:38Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:11Z'
+      - '2026-07-14T01:04:39Z'
       Request-Id:
-      - req_011Cczu6zgJTPUzQsYkScbpj
+      - req_011Cd13uhShxWg2w87CNyqBa
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-e8a9b49b8fc1110f274ee7486815ef4e-5ace8b5249d6e834-01
+      - 00-f82c13c11930e9ee9e6d795adf62d113-91f331da1e7fe359-01
       Server:
       - cloudflare
       Vary:
@@ -96,13 +96,13 @@ http_interactions:
       Cf-Cache-Status:
       - DYNAMIC
       Cf-Ray:
-      - a1abf42c49c9faae-SJC
+      - a1ac9d511a76eb21-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu71e6m168QUdaKJjts","type":"message","role":"assistant","content":[{"type":"text","text":"This
-        image shows the logo for \"Active Agents.\" It features the text \"ACTIVE
-        AGENTS\" in black letters, with a red circular icon or emblem to the left
-        of the text that appears to contain a stylized design element. The logo has
-        a clean, professional appearance suitable for a business or organization."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":19,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":67,"service_tier":"standard","inference_geo":"not_available"}}'
-  recorded_at: Mon, 13 Jul 2026 23:09:12 GMT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13uiBcCgmzWUk5rgZHc","type":"message","role":"assistant","content":[{"type":"text","text":"This
+        image shows the logo for **Active Agents**. It features the text \"ACTIVE
+        AGENTS\" in a bold, modern font, with a red square icon containing a stylized
+        \"A\" symbol to the left of the text. The design uses a minimalist style with
+        a red and black color scheme."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":19,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":67,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:40 GMT
 recorded_with: VCR 6.4.0

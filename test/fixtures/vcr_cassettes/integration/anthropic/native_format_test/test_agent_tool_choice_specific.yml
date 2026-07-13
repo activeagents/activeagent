@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:08:06 GMT
+      - Tue, 14 Jul 2026 01:07:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,33 +58,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:08:05Z'
+      - '2026-07-14T01:07:16Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:08:06Z'
+      - '2026-07-14T01:07:16Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:08:05Z'
+      - '2026-07-14T01:07:15Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:08:05Z'
+      - '2026-07-14T01:07:16Z'
       Request-Id:
-      - req_011Cczu2AKqshsJd648fwA5V
+      - req_011Cd147Eb1a84HH5e7k8jz1
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-dabb14a37b70a2a71d179c09fb3e8b11-9e4128776e3548f5-01
+      - 00-42eefa1c0b3361dd96d381ba2dc1367a-c811c5ab5fed671a-01
       Server:
       - cloudflare
       Vary:
@@ -96,17 +96,17 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf2928ee82af7-SJC
+      - a1aca1236d4717c4-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-5","id":"msg_011Cczu2AsqMLbLJEDBBeKZt","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_016hwbff4FaMSxDWHc8vgJTR","name":"get_weather","input":{"location":"&lt;UNKNOWN&gt;"},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":558,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":46,"output_tokens_details":{"thinking_tokens":0},"service_tier":"standard","inference_geo":"global"}}'
-  recorded_at: Mon, 13 Jul 2026 23:08:06 GMT
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd147F3Yhe6wyE7iPkT7i","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01Pv6Vg9u2q3jmjiQp9Nuijg","name":"get_weather","input":{"location":"&lt;UNKNOWN&gt;"},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":558,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":46,"output_tokens_details":{"thinking_tokens":0},"service_tier":"standard","inference_geo":"global"}}'
+  recorded_at: Tue, 14 Jul 2026 01:07:16 GMT
 - request:
     method: post
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-5","messages":[{"content":"What''s the weather?","role":"user"},{"content":[{"id":"toolu_016hwbff4FaMSxDWHc8vgJTR","input":{"location":"&lt;UNKNOWN&gt;"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_016hwbff4FaMSxDWHc8vgJTR","type":"tool_result","content":"{\"location\":\"\\u0026lt;UNKNOWN\\u0026gt;\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false}],"role":"user"}],"max_tokens":1024,"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"What''s the weather?","role":"user"},{"content":[{"id":"toolu_01Pv6Vg9u2q3jmjiQp9Nuijg","input":{"location":"&lt;UNKNOWN&gt;"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_01Pv6Vg9u2q3jmjiQp9Nuijg","type":"tool_result","content":"{\"location\":\"\\u0026lt;UNKNOWN\\u0026gt;\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false}],"role":"user"}],"max_tokens":1024,"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
         weather"}]}'
     headers:
       Accept-Encoding:
@@ -128,7 +128,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -147,7 +147,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:08:07 GMT
+      - Tue, 14 Jul 2026 01:07:18 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -159,33 +159,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:08:06Z'
+      - '2026-07-14T01:07:17Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:08:07Z'
+      - '2026-07-14T01:07:18Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:08:06Z'
+      - '2026-07-14T01:07:16Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:08:06Z'
+      - '2026-07-14T01:07:17Z'
       Request-Id:
-      - req_011Cczu2GSwYH4KoEuy3nEQ5
+      - req_011Cd147MJaUhJtUaTNwt894
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-a63d6ca388e5987f64df063d5cc63672-203ee6263e6ce7c3-01
+      - 00-9a81d6dabad88acde7a090ca049a6068-4190d8115ba87cc9-01
       Server:
       - cloudflare
       Vary:
@@ -197,11 +197,11 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf29b7cf5fdda-SJC
+      - a1aca12d3a8567ef-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-5","id":"msg_011Cczu2GrFctWuRrBuptyhJ","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"","signature":"Eo8DCokBCA8YAipAJWUp09XZovY/q+8UCj/uqW+KY1V7+phCSH9UtFW6EPUauWopUOp5Tk/rLi3+SETF+5e3gnoCrU/W8j72n7ASfzIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQyNTU3YzJmMi1iY2ZhLTQwNTQtOWZhOC1hZTEzYjNiNDdkNmISDFifBAYScBcVsdd0ORoM/kWvm7abnyH4qsSYIjCNcHMSRgndN8VKpHkwTSWfL8iuvrDtSD+6BBhFMc+0zWQqlHAZEJPKCvChyS9JVycqsgEfIDjzSssjqu5cKnyn3w/CIA0cq9kN0OEUuRCOTR+LYfLJkHJIhPJstCRAg6hNYtDoCrZo9nIIwz4ADqRUtRB8U75mLUrr8JDLJKwbP1ZOG0snHwqHUFk9PdON3oweObnvFM2bdsmQZ1kBrpEsDrA4Mj2X4IQD/UH4IIrlPX/wM19hzZ+zA52V3yzM2f2ue6Wwi55euJlrfgVGcG0tb1tcTh9YhfgJpuTBbxDroQ9HIj3pGAE="},{"type":"text","text":"I''d
-        be happy to help with the weather! However, I don''t have your specific location.
-        Could you let me know which city or area you''d like the weather for?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":545,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":92,"output_tokens_details":{"thinking_tokens":46},"service_tier":"standard","inference_geo":"global"}}'
-  recorded_at: Mon, 13 Jul 2026 23:08:07 GMT
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd147MjdQL1xqu3b7CBNi","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"","signature":"EvkCCokBCA8YAipAtc91OftwVaeMNXhVWOBftcdxhXK+JUsSh9MbhU8E92THh2lkrSRbPLJdRNiY6DdNuwXbXZQXOHYL9U1IbN9dOTIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQyNTU3YzJmMi1iY2ZhLTQwNTQtOWZhOC1hZTEzYjNiNDdkNmISDJ0KyPNtx+MIH27XZhoM7+nH8xB3AkorF5FjIjBdW4sxu6UobJxUzk0Hgjj4f5QuxwgfYn5khX+JoNdDtwznMEaUdL3RNW1nDe2wWpsqnAG1sNZnEDfKAvVxB5pw8dWsATJZvjcEdSV7WaW2eEb6UXALmrR1IeTPHL/S7RGm7gI5NdVlV/jAoWBBZlC0QDbRYcaeYNRpKb27hWkAV44AkSgjQacs/tPYnyalebRgCEwhtimY+md0V8XYTG/XeUgTUHXNQkL8kCeKYQyD+fQ+8bVlc2ITBPulT342nZiT/KGGiOLK9rKlOV6Hek8YAQ=="},{"type":"text","text":"I''d
+        be happy to help! Could you let me know which location you''d like the weather
+        for (e.g., a city and state/country)?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":545,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":79,"output_tokens_details":{"thinking_tokens":38},"service_tier":"standard","inference_geo":"global"}}'
+  recorded_at: Tue, 14 Jul 2026 01:07:18 GMT
 recorded_with: VCR 6.4.0

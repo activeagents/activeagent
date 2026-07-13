@@ -5,14 +5,15 @@ http_interactions:
     uri: https://openrouter.ai/api/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"messages":[{"role":"user","content":"Extract as JSON: Bob, 40, bob@test.com"}],"model":"openai/gpt-4o-mini","response_format":{"type":"json_object"},"provider":{"require_parameters":true}}'
+      string: '{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"Extract
+        as JSON: Bob, 40, bob@test.com"}],"response_format":{"type":"json_object"},"provider":{"require_parameters":true}}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - OpenAI::Client/Ruby 0.69.0
       Host:
       - openrouter.ai
       X-Stainless-Arch:
@@ -22,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 0.34.1
+      - 0.69.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Authorization:
@@ -47,7 +48,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 19:13:35 GMT
+      - Tue, 14 Jul 2026 01:06:52 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -56,8 +57,10 @@ http_interactions:
       - keep-alive
       Access-Control-Allow-Origin:
       - "*"
-      Vary:
-      - Accept-Encoding
+      X-Generation-Id:
+      - gen-1783991212-y4W9JXXxacAayj5klUV9
+      Access-Control-Expose-Headers:
+      - X-Generation-Id,X-Provider-Name,cf-ray
       Permissions-Policy:
       - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
         "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
@@ -68,10 +71,10 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 994c458e7dcf17ea-SJC
+      - a1aca0942c2cba62-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n\n         \n{\"id\":\"gen-1761506014-5pWhX85lxM1eI6ZG1S84\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1761506014,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n
-        \ \\\"name\\\": \\\"Bob\\\",\\n  \\\"age\\\": 40,\\n  \\\"email\\\": \\\"bob@test.com\\\"\\n}\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":19,\"completion_tokens\":25,\"total_tokens\":44,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Sun, 26 Oct 2025 19:13:35 GMT
-recorded_with: VCR 6.3.1
+      string: "\n         \n{\"id\":\"gen-1783991212-y4W9JXXxacAayj5klUV9\",\"object\":\"chat.completion\",\"created\":1783991212,\"model\":\"openai/gpt-4o-mini\",\"provider\":\"OpenAI\",\"system_fingerprint\":\"fp_30570f0196\",\"service_tier\":null,\"choices\":[{\"index\":0,\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"{\\n
+        \ \\\"name\\\": \\\"Bob\\\",\\n  \\\"age\\\": 40,\\n  \\\"email\\\": \\\"bob@test.com\\\"\\n}\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":19,\"completion_tokens\":25,\"total_tokens\":44,\"cost\":0.00001785,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.00001785,\"upstream_inference_prompt_cost\":0.00000285,\"upstream_inference_completions_cost\":0.000015},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0,\"audio_tokens\":0}}}"
+  recorded_at: Tue, 14 Jul 2026 01:06:52 GMT
+recorded_with: VCR 6.4.0

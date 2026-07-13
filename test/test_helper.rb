@@ -97,18 +97,50 @@ def doc_example_output(example = nil, test_name = nil)
   File.write(file_path, content.join("\n"))
 end
 
-# When ANTHROPIC_GEM_VERSION is set (e.g. "1.12" in version-pinned gemfiles),
-# scope VCR cassettes to a version-specific subdirectory so recordings from
-# different gem versions don't collide.
-VCR_CASSETTE_DIR = if (version = ENV["ANTHROPIC_GEM_VERSION"])
-  "test/fixtures/vcr_cassettes/v#{version}"
+# Version-pinned gemfiles (see gemfiles/) set a "<GEM>_GEM_VERSION" env var so
+# that cassettes recorded against a specific provider gem version live in their
+# own subdirectory. The subdirectory is scoped by BOTH gem name and version
+# (e.g. "anthropic-1.12") rather than by version alone: a bare "v1.12" could
+# mean anthropic 1.12 or openai 1.12 and collide across gems.
+VCR_GEM_SCOPE = {
+  "anthropic" => ENV["ANTHROPIC_GEM_VERSION"],
+  "openai"    => ENV["OPENAI_GEM_VERSION"]
+}.compact.map { |gem_name, version| "#{gem_name}-#{version}" }.first
+
+VCR_CASSETTE_DIR = if VCR_GEM_SCOPE
+  "test/fixtures/vcr_cassettes/#{VCR_GEM_SCOPE}"
 else
   "test/fixtures/vcr_cassettes"
 end
 
+# VCR record mode.
+#
+# - Locally (default): ":once" — replay existing cassettes, record any that
+#   are missing.
+# - In CI, or when VCR_RECORD_MODE=none: ":none" — never record and never make
+#   real HTTP calls. Any request without a matching cassette raises
+#   VCR::Errors::UnhandledHTTPRequestError, which prints the exact request
+#   (method, URI, body) so you can see what changed and why the cassette no
+#   longer matches — instead of silently hitting the real API and failing with
+#   an authentication error.
+#
+# To reproduce the strict CI behavior locally on specific files:
+#   VCR_RECORD_MODE=none BUNDLE_GEMFILE=gemfiles/rails8.gemfile bin/test <files>
+VCR_RECORD_MODE = (ENV["VCR_RECORD_MODE"] || (ENV["CI"] ? "none" : "once")).to_sym
+
 VCR.configure do |config|
   config.cassette_library_dir = VCR_CASSETTE_DIR
   config.hook_into :webmock
+
+  config.default_cassette_options = { record: VCR_RECORD_MODE }
+
+  # When recording is disabled, also refuse any real HTTP connection that
+  # happens outside a cassette so nothing leaks out to the real APIs. Tests
+  # then fail loudly with the mismatched request details instead of an
+  # authentication error from a real call.
+  if VCR_RECORD_MODE == :none
+    config.allow_http_connections_when_no_cassette = false
+  end
 
   config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["OPEN_AI_ACCESS_TOKEN"] }
   config.filter_sensitive_data("ORGANIZATION_ID")  { ENV["OPEN_AI_ORGANIZATION_ID"] }

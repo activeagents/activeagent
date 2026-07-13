@@ -28,7 +28,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -47,7 +47,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:32 GMT
+      - Tue, 14 Jul 2026 01:04:43 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -59,68 +59,68 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:29Z'
+      - '2026-07-14T01:04:40Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:32Z'
+      - '2026-07-14T01:04:43Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:28Z'
+      - '2026-07-14T01:04:40Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:29Z'
+      - '2026-07-14T01:04:40Z'
       Request-Id:
-      - req_011Cczu8LSDxPRGsNdMEPYXA
+      - req_011Cd13upLh6aGn4Gr8HbquA
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-ec3bd10343a6698af99ecceecfbbd836-f93f690f604595b4-01
+      - 00-8237772ceda856b6fd7176de9de5b492-05961ecfcffdc193-01
       Server:
       - cloudflare
       Vary:
       - Accept-Encoding
+      Cf-Cache-Status:
+      - DYNAMIC
       X-Robots-Tag:
       - none
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
-      Cf-Cache-Status:
-      - DYNAMIC
       Cf-Ray:
-      - a1abf49d4c57ca3e-SJC
+      - a1ac9d5b3eee5527-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu8LxyPw1RPrfb7i5FY","type":"message","role":"assistant","content":[{"type":"text","text":"#
-        Benefits of ActiveRecord\n\nActiveRecord is an Object-Relational Mapping (ORM)
-        library that provides several key advantages:\n\n## 1. **Simplified Database
-        Interactions**\n- Write database queries using Ruby code instead of raw SQL\n-
-        Reduces boilerplate and makes code more readable\n- Less repetitive database
-        access code\n\n## 2. **Automatic Database Mapping**\n- Automatically maps
-        database tables to Ruby classes\n- Database columns become object attributes\n-
-        No manual schema configuration needed\n\n## 3. **Built-in Validations**\n-
-        Validate data before saving to the database\n- Prevents invalid data from
-        entering your database\n- Reduces need for custom validation logic\n\n## 4.
-        **Associations Made Easy**\n- Define relationships between models intuitively
-        (has_many, belongs_to, etc.)\n- Handle joins automatically\n- Simplifies querying
-        related data\n\n## 5. **Query Chainability**\n- Chain query methods for elegant,
-        readable queries\n- `User.where(active: true).order(:name).limit(10)`\n- Build
-        complex queries incrementally\n\n## 6. **Migrations**\n- Version control for
-        your database schema\n- Easy rollbacks and schema evolution\n- No manual SQL
-        schema scripts\n\n## 7. **Database Agnostic**\n- Write code that works across
-        different databases (PostgreSQL, MySQL, SQLite, etc.)\n- Easier to switch
-        databases if needed\n\n## 8. **Callbacks & Hooks**\n- Execute code at specific
-        points in an object''s lifecycle\n- `before_save`, `after_create`, etc.\n\n##
-        9. **Security**\n- Built-in protection against SQL injection\n- Parameter
-        binding by default\n\nWould you like details on any specific feature?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":39,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":389,"service_tier":"standard","inference_geo":"not_available"}}'
-  recorded_at: Mon, 13 Jul 2026 23:09:32 GMT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13upbpPCvwTiCPWe1JF","type":"message","role":"assistant","content":[{"type":"text","text":"#
+        Benefits of ActiveRecord\n\nActiveRecord is Rails'' Object-Relational Mapping
+        (ORM) layer. Here are its key benefits:\n\n## 1. **Simplified Database Interactions**\n-
+        Write database queries in Ruby instead of SQL\n- Reduces context switching
+        between languages\n- More intuitive for Ruby developers\n\n## 2. **Less Boilerplate
+        Code**\n```ruby\n# ActiveRecord - Clean and simple\nUser.where(active: true)\n\n#
+        vs Raw SQL - More verbose\nconnection.execute(\"SELECT * FROM users WHERE
+        active = true\")\n```\n\n## 3. **Automatic Schema Mapping**\n- Models automatically
+        map to database tables\n- Column types are inferred from the database\n- No
+        manual configuration needed\n\n## 4. **Built-in Validations**\n```ruby\nclass
+        User < ApplicationRecord\n  validates :email, presence: true, uniqueness:
+        true\nend\n```\n\n## 5. **Associations Made Easy**\n```ruby\nclass Post <
+        ApplicationRecord\n  belongs_to :user\n  has_many :comments\nend\n```\n\n##
+        6. **Database Agnostic**\n- Switch between PostgreSQL, MySQL, SQLite, etc.
+        with minimal code changes\n\n## 7. **Safety Features**\n- SQL injection protection
+        through parameterized queries\n- Built-in escaping and sanitization\n\n##
+        8. **Migrations**\n- Version control for database schema\n- Easy rollbacks
+        and team collaboration\n\n## 9. **Lazy Loading & Query Optimization**\n- Queries
+        only execute when needed\n- Supports eager loading to prevent N+1 problems\n\n##
+        10. **Rich Ecosystem**\n- Gems that extend functionality (Devise, Pundit,
+        etc.)\n- Community best practices well-documented\n\nWould you like me to
+        elaborate on any of these benefits?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":39,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":408,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:43 GMT
 recorded_with: VCR 6.4.0

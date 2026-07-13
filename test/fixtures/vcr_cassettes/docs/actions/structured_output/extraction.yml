@@ -5,14 +5,15 @@ http_interactions:
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"input":"Extract user info as a JSON object: John Doe, 30, john@example.com","model":"gpt-4o","text":{"format":{"type":"json_object"}}}'
+      string: '{"model":"gpt-4o","input":"Extract user info as a JSON object: John
+        Doe, 30, john@example.com","text":{"format":{"type":"json_object"}}}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - OpenAI::Client/Ruby 0.69.0
       Host:
       - api.openai.com
       X-Stainless-Arch:
@@ -22,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 0.34.1
+      - 0.69.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Openai-Organization:
@@ -47,13 +48,35 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 19:14:53 GMT
+      - Tue, 14 Jul 2026 01:04:19 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
       - chunked
       Connection:
       - keep-alive
+      Cf-Ray:
+      - a1ac9cd17f343ecb-SJC
+      Cf-Cache-Status:
+      - DYNAMIC
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Access-Control-Expose-Headers:
+      - CF-Ray
+      - CF-Ray
+      - X-Request-ID
+      Openai-Organization:
+      - quiltt-cmriu5
+      Openai-Processing-Ms:
+      - '1422'
+      Openai-Project:
+      - PROJECT_ID
+      Openai-Version:
+      - '2020-10-01'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -66,57 +89,38 @@ http_interactions:
       - 6ms
       X-Ratelimit-Reset-Tokens:
       - 0s
-      Openai-Version:
-      - '2020-10-01'
-      Openai-Organization:
-      - ORGANIZATION_ID
-      Openai-Project:
-      - PROJECT_ID
       X-Request-Id:
-      - req_8166ce1f17434b35b2a420478bb3b8ec
-      Openai-Processing-Ms:
-      - '1055'
-      X-Envoy-Upstream-Service-Time:
-      - '1061'
-      Cf-Cache-Status:
-      - DYNAMIC
+      - req_f16b4582e14446ebaf87f02a31f44a80
       Set-Cookie:
-      - __cf_bm=tuK44JqqTIp2c.9AAYMPd6M94rcY9KtOfYpMqsoXTsw-1761506093-1.0.1.1-Jvo0cUZBK7fyZbux67ZY9T13fwFQJAojZba62_H026WSFnHZKWR.tfXoT57GGLKCE0_D_1fBCYfEMbn38Q7UTuAh2vPR6t165ej8ZWYrtek;
-        path=/; expires=Sun, 26-Oct-25 19:44:53 GMT; domain=.api.openai.com; HttpOnly;
-        Secure; SameSite=None
-      - _cfuvid=I5.acLDm7xPO3ZPY8r2FXip37cVcgYCHvCW72eF9dbY-1761506093120-0.0.1.1-604800000;
-        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      X-Content-Type-Options:
-      - nosniff
-      Server:
-      - cloudflare
-      Cf-Ray:
-      - 994c4772eeb9ed3b-SJC
+      - __cf_bm=BpYgnjw40n1sXHFhMDqMSLTSTBIn1ZRvITZxsTLSqYs-1783991058.1522398-1.0.1.1-d9JYs.IPyfWya3GygxwWjYLth8j26_yd4Hc2waJziYtF6wkyZxn6Yeahw92uo4uWhspyDZ2uYsch937fZ0mQwXgDSTKO6r.IR0C7GRSj0Y_BuCmk6hnwMrpWrhiAABM5;
+        HttpOnly; SameSite=None; Secure; Path=/; Domain=api.openai.com; Expires=Tue,
+        14 Jul 2026 01:34:19 GMT
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0dc60010beb724f00068fe732c0eb881978b3a348b6486188c",
+          "id": "resp_00824fb44cb7fbd4006a558b12b35881988c84efa04d0e0324",
           "object": "response",
-          "created_at": 1761506092,
+          "created_at": 1783991058,
           "status": "completed",
           "background": false,
           "billing": {
             "payer": "developer"
           },
+          "completed_at": 1783991059,
           "error": null,
+          "frequency_penalty": 0.0,
           "incomplete_details": null,
           "instructions": null,
           "max_output_tokens": null,
           "max_tool_calls": null,
           "model": "gpt-4o-2024-08-06",
+          "moderation": null,
           "output": [
             {
-              "id": "msg_0dc60010beb724f00068fe732caba08197a0ce37f08d7546d1",
+              "id": "msg_00824fb44cb7fbd4006a558b130b3c819886ea6d3de8a61b2b",
               "type": "message",
               "status": "completed",
               "content": [
@@ -131,9 +135,12 @@ http_interactions:
             }
           ],
           "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
           "previous_response_id": null,
           "prompt_cache_key": null,
+          "prompt_cache_retention": "in_memory",
           "reasoning": {
+            "context": null,
             "effort": null,
             "summary": null
           },
@@ -148,6 +155,24 @@ http_interactions:
             "verbosity": "medium"
           },
           "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
           "tools": [],
           "top_logprobs": 0,
           "top_p": 1.0,
@@ -155,6 +180,7 @@ http_interactions:
           "usage": {
             "input_tokens": 24,
             "input_tokens_details": {
+              "cache_write_tokens": 0,
               "cached_tokens": 0
             },
             "output_tokens": 27,
@@ -166,5 +192,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sun, 26 Oct 2025 19:14:53 GMT
-recorded_with: VCR 6.3.1
+  recorded_at: Tue, 14 Jul 2026 01:04:19 GMT
+recorded_with: VCR 6.4.0

@@ -5,15 +5,15 @@ http_interactions:
     uri: https://openrouter.ai/api/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"messages":[{"role":"user","content":"List animals: dog, cat, bird.
-        Return as JSON."}],"model":"openai/gpt-4o-mini","response_format":{"type":"json_schema","json_schema":{"name":"animals","schema":{"type":"object","properties":{"list":{"type":"array","items":{"type":"string"}}},"required":["list"],"additionalProperties":false},"strict":true}},"provider":{"require_parameters":true}}'
+      string: '{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"List
+        animals: dog, cat, bird. Return as JSON."}],"response_format":{"type":"json_schema","json_schema":{"name":"animals","schema":{"type":"object","properties":{"list":{"type":"array","items":{"type":"string"}}},"required":["list"],"additionalProperties":false},"strict":true}},"provider":{"require_parameters":true}}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - OpenAI::Client/Ruby 0.69.0
       Host:
       - openrouter.ai
       X-Stainless-Arch:
@@ -23,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 0.34.1
+      - 0.69.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Authorization:
@@ -48,7 +48,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 19:13:36 GMT
+      - Tue, 14 Jul 2026 01:06:50 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -57,8 +57,10 @@ http_interactions:
       - keep-alive
       Access-Control-Allow-Origin:
       - "*"
-      Vary:
-      - Accept-Encoding
+      X-Generation-Id:
+      - gen-1783991210-6zlIfB2SPC7v7XdAo5sq
+      Access-Control-Expose-Headers:
+      - X-Generation-Id,X-Provider-Name,cf-ray
       Permissions-Policy:
       - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
         "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
@@ -69,9 +71,9 @@ http_interactions:
       Server:
       - cloudflare
       Cf-Ray:
-      - 994c45966a6df9f9-SJC
+      - a1aca086cce6ed36-SJC
     body:
       encoding: ASCII-8BIT
-      string: "\n         \n{\"id\":\"gen-1761506015-UaeWce9ziWDbKSbkIFfa\",\"provider\":\"OpenAI\",\"model\":\"openai/gpt-4o-mini\",\"object\":\"chat.completion\",\"created\":1761506015,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"list\\\":[\\\"dog\\\",\\\"cat\\\",\\\"bird\\\"]}\",\"refusal\":null,\"reasoning\":null}}],\"system_fingerprint\":\"fp_560af6e559\",\"usage\":{\"prompt_tokens\":54,\"completion_tokens\":10,\"total_tokens\":64,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
-  recorded_at: Sun, 26 Oct 2025 19:13:36 GMT
-recorded_with: VCR 6.3.1
+      string: "\n         \n\n         \n{\"id\":\"gen-1783991210-6zlIfB2SPC7v7XdAo5sq\",\"object\":\"chat.completion\",\"created\":1783991210,\"model\":\"openai/gpt-4o-mini\",\"provider\":\"Azure\",\"system_fingerprint\":\"fp_965c8b9ecf\",\"service_tier\":null,\"choices\":[{\"index\":0,\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"list\\\":[\\\"dog\\\",\\\"cat\\\",\\\"bird\\\"]}\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":54,\"completion_tokens\":11,\"total_tokens\":65,\"cost\":0.0000147,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.0000147,\"upstream_inference_prompt_cost\":0.0000081,\"upstream_inference_completions_cost\":0.0000066},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0,\"audio_tokens\":0}}}"
+  recorded_at: Tue, 14 Jul 2026 01:06:51 GMT
+recorded_with: VCR 6.4.0

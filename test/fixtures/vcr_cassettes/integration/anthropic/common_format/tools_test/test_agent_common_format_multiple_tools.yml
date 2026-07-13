@@ -29,7 +29,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -48,7 +48,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:44 GMT
+      - Tue, 14 Jul 2026 01:04:34 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,58 +58,58 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Limit:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '10000000'
+      - '9999000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:44Z'
+      - '2026-07-14T01:04:33Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:44Z'
+      - '2026-07-14T01:04:33Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:43Z'
+      - '2026-07-14T01:04:33Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '12000000'
+      - '11999000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:44Z'
+      - '2026-07-14T01:04:33Z'
       Request-Id:
-      - req_011Cczu9TCJ5CkZpyuRbUNBn
+      - req_011Cd13uHGQrPMaVa7fCqo1y
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-6aec28052cd0bd10e4eaa70cc5116a67-36312b52c9951336-01
+      - 00-71b0cdf504b2b9be222eff073f61097f-739fa8aa435618bf-01
       Server:
       - cloudflare
       Vary:
       - Accept-Encoding
-      Cf-Cache-Status:
-      - DYNAMIC
       X-Robots-Tag:
       - none
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - a1abf4fcb8895cfb-SJC
+      - a1ac9d2dcbdeebe9-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu9TUuqsKHkyAcLrH5s","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01MKV2zMn7952e17QeH1givt","name":"get_weather","input":{"location":"NYC"},"caller":{"type":"direct"}},{"type":"tool_use","id":"toolu_01V8AmkTwsmkQePZ1KK96J3L","name":"calculate","input":{"operation":"add","a":5,"b":3},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":662,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":122,"service_tier":"standard","inference_geo":"not_available"}}'
-  recorded_at: Mon, 13 Jul 2026 23:09:44 GMT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13uHgi5eia3FxfStxGy","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01VPLuGuHUq4mHKs6NRBaq7a","name":"get_weather","input":{"location":"NYC"},"caller":{"type":"direct"}},{"type":"tool_use","id":"toolu_01Gsx54zSP3KffMyVMr22MmB","name":"calculate","input":{"operation":"add","a":5,"b":3},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":662,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":122,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:34 GMT
 - request:
     method: post
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
       string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What''s
-        the weather in NYC and what''s 5 plus 3?","role":"user"},{"content":[{"id":"toolu_01MKV2zMn7952e17QeH1givt","input":{"location":"NYC"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}},{"id":"toolu_01V8AmkTwsmkQePZ1KK96J3L","input":{"operation":"add","a":5,"b":3},"name":"calculate","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_01MKV2zMn7952e17QeH1givt","type":"tool_result","content":"{\"location\":\"NYC\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false},{"tool_use_id":"toolu_01V8AmkTwsmkQePZ1KK96J3L","type":"tool_result","content":"{\"operation\":\"add\",\"a\":5,\"b\":3,\"result\":8}","is_error":false}],"role":"user"}],"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
+        the weather in NYC and what''s 5 plus 3?","role":"user"},{"content":[{"id":"toolu_01VPLuGuHUq4mHKs6NRBaq7a","input":{"location":"NYC"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}},{"id":"toolu_01Gsx54zSP3KffMyVMr22MmB","input":{"operation":"add","a":5,"b":3},"name":"calculate","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_01VPLuGuHUq4mHKs6NRBaq7a","type":"tool_result","content":"{\"location\":\"NYC\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false},{"tool_use_id":"toolu_01Gsx54zSP3KffMyVMr22MmB","type":"tool_result","content":"{\"operation\":\"add\",\"a\":5,\"b\":3,\"result\":8}","is_error":false}],"role":"user"}],"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
         the current weather"},{"input_schema":{"type":"object","properties":{"operation":{"type":"string","enum":["add","subtract","multiply","divide"]},"a":{"type":"number"},"b":{"type":"number"}},"required":["operation","a","b"]},"name":"calculate","description":"Perform
         basic arithmetic"}]}'
     headers:
@@ -132,7 +132,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -151,7 +151,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:45 GMT
+      - Tue, 14 Jul 2026 01:04:36 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -163,33 +163,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:45Z'
+      - '2026-07-14T01:04:35Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:45Z'
+      - '2026-07-14T01:04:36Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:44Z'
+      - '2026-07-14T01:04:34Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:45Z'
+      - '2026-07-14T01:04:35Z'
       Request-Id:
-      - req_011Cczu9XdSnF1faRQtUSGHQ
+      - req_011Cd13uNPV7wDPfyX7VBbEc
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-f36673e29cc51ce2a9a6b6608b7c6798-cb34924659a8b20c-01
+      - 00-bae1b10ec17d8564f8887ae3c48e8d5c-7bb29222b54b4cac-01
       Server:
       - cloudflare
       Vary:
@@ -201,10 +201,10 @@ http_interactions:
       Cf-Cache-Status:
       - DYNAMIC
       Cf-Ray:
-      - a1abf5032955cf1b-SJC
+      - a1ac9d3549184b96-SJC
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDY3p1OVhzTFFUYUx3Q2JjR0U1NXUiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJHcmVhdCEgSGVyZSBhcmUgdGhlIGFuc3dlcnM6XG5cbioqV2VhdGhlciBpbiBOWUM6KiogXG4tIFRlbXBlcmF0dXJlOiA3MsKwRlxuLSBDb25kaXRpb25zOiBTdW5ueSDimIDvuI9cblxuKipNYXRoOioqIDUgKyAzID0gOCJ9XSwic3RvcF9yZWFzb24iOiJlbmRfdHVybiIsInN0b3Bfc2VxdWVuY2UiOm51bGwsInN0b3BfZGV0YWlscyI6bnVsbCwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjo4NzYsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjo1MCwic2VydmljZV90aWVyIjoic3RhbmRhcmQiLCJpbmZlcmVuY2VfZ2VvIjoibm90X2F2YWlsYWJsZSJ9fQ==
-  recorded_at: Mon, 13 Jul 2026 23:09:45 GMT
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDZDEzdVJDUUNwWHlEOVR5WW1mZVgiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJHcmVhdCEgSGVyZSBhcmUgdGhlIGFuc3dlcnM6XG5cbioqV2VhdGhlciBpbiBOWUM6KiogSXQncyBjdXJyZW50bHkgNzLCsEYgYW5kIHN1bm55ISDimIDvuI9cblxuKio1IHBsdXMgMzoqKiBUaGUgYW5zd2VyIGlzICoqOCoqLiJ9XSwic3RvcF9yZWFzb24iOiJlbmRfdHVybiIsInN0b3Bfc2VxdWVuY2UiOm51bGwsInN0b3BfZGV0YWlscyI6bnVsbCwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjo4NzYsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjo0NCwic2VydmljZV90aWVyIjoic3RhbmRhcmQiLCJpbmZlcmVuY2VfZ2VvIjoibm90X2F2YWlsYWJsZSJ9fQ==
+  recorded_at: Tue, 14 Jul 2026 01:04:36 GMT
 recorded_with: VCR 6.4.0

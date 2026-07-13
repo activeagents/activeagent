@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:20 GMT
+      - Tue, 14 Jul 2026 01:04:57 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,33 +58,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:17Z'
+      - '2026-07-14T01:04:54Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:20Z'
+      - '2026-07-14T01:04:57Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:17Z'
+      - '2026-07-14T01:04:54Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:17Z'
+      - '2026-07-14T01:04:54Z'
       Request-Id:
-      - req_011Cczu7UNS5seeT2rgT3zDn
+      - req_011Cd13vseuELx7wcWj1R5h2
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-4dff4ebf14d22cfd22537175108cae62-84a14e1e423d4b42-01
+      - 00-d7b363faec19733cc57e2db3fc2d8b8b-75484aa7f847f90c-01
       Server:
       - cloudflare
       Vary:
@@ -96,28 +96,10 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf454da781a0f-SJC
+      - a1ac9db4ef3a7b82-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu7UbppWYqZBAQPnb42","type":"message","role":"assistant","content":[{"type":"text","text":"#
-        Main Differences Between Ruby and Python\n\n## Syntax & Philosophy\n- **Python**:
-        Emphasizes readability with \"one right way\" (PEP 20)\n- **Ruby**: More flexible
-        syntax; embraces \"multiple ways to do things\"\n- **Python**: Whitespace-significant
-        (indentation matters)\n- **Ruby**: Uses explicit block delimiters (end, braces)\n\n##
-        Readability\n```python\n# Python - explicit and readable\nfor item in items:\n    print(item)\n```\n\n```ruby\n#
-        Ruby - more expressive\nitems.each { |item| puts item }\n```\n\n## Learning
-        Curve\n- **Python**: Generally easier for beginners\n- **Ruby**: More expressive
-        but steeper initial learning curve\n\n## Performance\n- **Python**: Faster
-        execution in many cases\n- **Ruby**: Slightly slower, but adequate for most
-        web applications\n\n## Primary Use Cases\n- **Python**: Data science, AI/ML,
-        automation, web development\n- **Ruby**: Web development (Rails), scripting\n\n##
-        Web Frameworks\n- **Python**: Django, FastAPI, Flask\n- **Ruby**: Rails (opinionated,
-        batteries-included)\n\n## Community & Libraries\n- **Python**: Larger ecosystem,
-        especially for data science\n- **Ruby**: Smaller but passionate community;
-        excellent for web dev\n\n## Flexibility\n- **Ruby**: More metaprogramming
-        and dynamic features\n- **Python**: More structured and predictable\n\n##
-        Bottom Line\n**Choose Python** for data science, ML, or if you value simplicity.
-        **Choose Ruby** if web development is your focus and you enjoy elegant, expressive
-        code."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":365,"service_tier":"standard","inference_geo":"not_available"}}'
-  recorded_at: Mon, 13 Jul 2026 23:09:20 GMT
+      string: !binary |-
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDZDEzdnN0WUdlbUhva2pjYnI1VmkiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiIjIE1haW4gRGlmZmVyZW5jZXMgQmV0d2VlbiBSdWJ5IGFuZCBQeXRob25cblxuIyMgUGhpbG9zb3BoeSAmIERlc2lnblxuLSAqKlB5dGhvbioqOiBcIlRoZXJlIHNob3VsZCBiZSBvbmUgb2J2aW91cyB3YXkgdG8gZG8gaXRcIiAoZXhwbGljaXQsIHJlYWRhYmxlKVxuLSAqKlJ1YnkqKjogXCJNb3JlIHRoYW4gb25lIHdheSB0byBkbyBpdFwiIChmbGV4aWJsZSwgZXhwcmVzc2l2ZSlcblxuIyMgU3ludGF4XG4tICoqUHl0aG9uKio6IE1pbmltYWwsIGNsZWFuIHN5bnRheDsgcmVhZGFiaWxpdHkgcHJpb3JpdGl6ZWRcbi0gKipSdWJ5Kio6IE1vcmUgc3ludGFjdGljIHN1Z2FyOyBhbGxvd3MgbXVsdGlwbGUgc3ludGF4IHN0eWxlc1xuXG5gYGBweXRob25cbiMgUHl0aG9uIC0gZXhwbGljaXRcbnJlc3VsdCA9IFt4ICogMiBmb3IgeCBpbiByYW5nZSg1KV1cbmBgYFxuXG5gYGBydWJ5XG4jIFJ1YnkgLSBmbGV4aWJsZVxucmVzdWx0ID0gKDAuLi41KS5tYXAgeyB8eHwgeCAqIDIgfVxuYGBgXG5cbiMjIFBlcmZvcm1hbmNlXG4tICoqUHl0aG9uKio6IEdlbmVyYWxseSBmYXN0ZXIgZm9yIENQVS1pbnRlbnNpdmUgdGFza3Ncbi0gKipSdWJ5Kio6IFNsb3dlciBleGVjdXRpb24sIGJ1dCBnb29kIGVub3VnaCBmb3IgbW9zdCB3ZWIgYXBwc1xuXG4jIyBQcmltYXJ5IFVzZSBDYXNlc1xuLSAqKlB5dGhvbioqOiBEYXRhIHNjaWVuY2UsIEFJL01MLCBzY3JpcHRpbmcsIHdlYiBhcHBzLCBhdXRvbWF0aW9uXG4tICoqUnVieSoqOiBXZWIgZGV2ZWxvcG1lbnQgKGVzcGVjaWFsbHkgUmFpbHMpLCByYXBpZCBwcm90b3R5cGluZ1xuXG4jIyBGcmFtZXdvcmtzXG4tICoqUHl0aG9uKio6IERqYW5nbywgRmxhc2ssIEZhc3RBUElcbi0gKipSdWJ5Kio6IFJ1Ynkgb24gUmFpbHMsIFNpbmF0cmFcblxuIyMgTGVhcm5pbmcgQ3VydmVcbi0gKipQeXRob24qKjogRWFzaWVyIGZvciBiZWdpbm5lcnM7IGNsb3NlciB0byBuYXR1cmFsIGxhbmd1YWdlXG4tICoqUnVieSoqOiBTdGVlcGVyIGxlYXJuaW5nIGN1cnZlOyBtb3JlIGltcGxpY2l0IGJlaGF2aW9yXG5cbiMjIEZsZXhpYmlsaXR5XG4tICoqUHl0aG9uKio6IExlc3MgZmxleGlibGUsIGVuZm9yY2VzIGNvbnZlbnRpb25zIChlLmcuLCBpbmRlbnRhdGlvbiByZXF1aXJlZClcbi0gKipSdWJ5Kio6IEhpZ2hseSBmbGV4aWJsZSwgZmV3ZXIgcmlnaWQgcnVsZXNcblxuIyMgQ29tbXVuaXR5ICYgRWNvc3lzdGVtXG4tICoqUHl0aG9uKio6IExhcmdlciBvdmVyYWxsIGNvbW11bml0eTsgZG9taW5hbnQgaW4gZGF0YSBzY2llbmNlXG4tICoqUnVieSoqOiBTbWFsbGVyIGJ1dCB0aWdodCBjb21tdW5pdHk7IHZlcnkgYWN0aXZlIGluIHdlYiBkZXZcblxuQm90aCBhcmUgZXhjZWxsZW50IGNob2ljZXPigJRwaWNrIFB5dGhvbiBmb3IgZGF0YS9NTCwgUnVieSBmb3Igd2ViIGRldmVsb3BtZW50IHNwZWVkLiJ9XSwic3RvcF9yZWFzb24iOiJlbmRfdHVybiIsInN0b3Bfc2VxdWVuY2UiOm51bGwsInN0b3BfZGV0YWlscyI6bnVsbCwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjoxNywiY2FjaGVfY3JlYXRpb25faW5wdXRfdG9rZW5zIjowLCJjYWNoZV9yZWFkX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfY3JlYXRpb24iOnsiZXBoZW1lcmFsXzVtX2lucHV0X3Rva2VucyI6MCwiZXBoZW1lcmFsXzFoX2lucHV0X3Rva2VucyI6MH0sIm91dHB1dF90b2tlbnMiOjM2Nywic2VydmljZV90aWVyIjoic3RhbmRhcmQiLCJpbmZlcmVuY2VfZ2VvIjoibm90X2F2YWlsYWJsZSJ9fQ==
+  recorded_at: Tue, 14 Jul 2026 01:04:57 GMT
 recorded_with: VCR 6.4.0

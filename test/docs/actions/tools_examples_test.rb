@@ -94,7 +94,7 @@ module Docs
       class AnthropicBasicExample < ActiveSupport::TestCase
         # region anthropic_basic_function
         class WeatherAgent < ApplicationAgent
-          generate_with :anthropic, model: "claude-sonnet-4-20250514"
+          generate_with :anthropic, model: "claude-haiku-4-5"
 
           def weather_update
             prompt(
@@ -267,7 +267,7 @@ module Docs
             # region cross_provider_anthropic
             class AnthropicAgent < ApplicationAgent
               include WeatherTool
-              generate_with :anthropic, model: "claude-sonnet-4-20250514"
+              generate_with :anthropic, model: "claude-haiku-4-5"
 
               def check_weather
                 prompt(message: "What's the weather?", tools: [ WEATHER_TOOL ])

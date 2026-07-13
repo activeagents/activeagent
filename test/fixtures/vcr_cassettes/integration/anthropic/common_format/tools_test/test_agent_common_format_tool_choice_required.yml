@@ -28,7 +28,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -47,7 +47,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:36 GMT
+      - Tue, 14 Jul 2026 01:04:26 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -59,33 +59,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:36Z'
+      - '2026-07-14T01:04:26Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:36Z'
+      - '2026-07-14T01:04:26Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:36Z'
+      - '2026-07-14T01:04:26Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:36Z'
+      - '2026-07-14T01:04:26Z'
       Request-Id:
-      - req_011Cczu8schnaWcGx5Di2bHr
+      - req_011Cd13tmXVbaFsQLXf2Mve1
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-ad2d98ce966d3f4c0470ec1b2cbc190c-02b42e61ef8c77ea-01
+      - 00-a845ed304db88d8b9294294485349d5d-6ae9abfeed0b6d6f-01
       Server:
       - cloudflare
       Vary:
@@ -97,18 +97,21 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf4cb8b1e0dac-SJC
+      - a1ac9d026d78306f-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu8t9TGNYCiAjki2BDZ","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01USnU5qfHExbwW8fL92fzyY","name":"get_weather","input":{"location":"<UNKNOWN>"},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":650,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":39,"service_tier":"standard","inference_geo":"not_available"}}'
-  recorded_at: Mon, 13 Jul 2026 23:09:36 GMT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13tmn8DYXHB4ss4AUgm","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01NZuothcKGJ5dsiBrJnPPAJ","name":"get_weather","input":{"location":"current
+        location"},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":650,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":39,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:26 GMT
 - request:
     method: post
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
       string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What''s
-        the weather?","role":"user"},{"content":[{"id":"toolu_01USnU5qfHExbwW8fL92fzyY","input":{"location":"<UNKNOWN>"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_01USnU5qfHExbwW8fL92fzyY","type":"tool_result","content":"{\"location\":\"\\u003cUNKNOWN\\u003e\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false}],"role":"user"}],"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
+        the weather?","role":"user"},{"content":[{"id":"toolu_01NZuothcKGJ5dsiBrJnPPAJ","input":{"location":"current
+        location"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_01NZuothcKGJ5dsiBrJnPPAJ","type":"tool_result","content":"{\"location\":\"current
+        location\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false}],"role":"user"}],"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
         weather"}]}'
     headers:
       Accept-Encoding:
@@ -130,7 +133,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -142,14 +145,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '660'
+      - '662'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:37 GMT
+      - Tue, 14 Jul 2026 01:04:28 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -161,48 +164,48 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:37Z'
+      - '2026-07-14T01:04:27Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:37Z'
+      - '2026-07-14T01:04:28Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:36Z'
+      - '2026-07-14T01:04:26Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:37Z'
+      - '2026-07-14T01:04:27Z'
       Request-Id:
-      - req_011Cczu8vqBVRZA383xjPCUq
+      - req_011Cd13tq3pjPuW3Fg3DJpw4
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-74e398e764b123cc1127f61b17db4d8c-604c65aa283f21be-01
+      - 00-bbff99213680ef9fbd5bb1d425477138-d436b29b5c44c7ad-01
       Server:
       - cloudflare
       Vary:
       - Accept-Encoding
-      Cf-Cache-Status:
-      - DYNAMIC
       X-Robots-Tag:
       - none
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - a1abf4d03c26810a-SJC
+      - a1ac9d076914cf16-SJC
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDY3p1OHc5bXdCaTZHZnhYOXZKVFYiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJUaGUgd2VhdGhlciBhdCB5b3VyIGxvY2F0aW9uIGlzIGN1cnJlbnRseSAqKnN1bm55Kiogd2l0aCBhIHRlbXBlcmF0dXJlIG9mICoqNzLCsEYqKi5cblxuSG93ZXZlciwgSSBzaG91bGQgbm90ZSB0aGF0IEkgd2Fzbid0IGFibGUgdG8gZGV0ZXJtaW5lIHlvdXIgc3BlY2lmaWMgbG9jYXRpb24uIElmIHlvdSdkIGxpa2Ugd2VhdGhlciBpbmZvcm1hdGlvbiBmb3IgYSBzcGVjaWZpYyBjaXR5IG9yIGFyZWEsIHBsZWFzZSBsZXQgbWUga25vdyBhbmQgSSBjYW4gZ2V0IHlvdSBtb3JlIGFjY3VyYXRlIGxvY2FsIHdlYXRoZXIgZGF0YSEifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6NjU0LCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6NjcsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Im5vdF9hdmFpbGFibGUifX0=
-  recorded_at: Mon, 13 Jul 2026 23:09:37 GMT
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDZDEzdHFXY0g1Qm92MzFUUzNiZmgiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJCYXNlZCBvbiB0aGUgY3VycmVudCB3ZWF0aGVyIGRhdGEsIGhlcmUncyB3aGF0IGl0IGxvb2tzIGxpa2U6XG5cbi0gKipUZW1wZXJhdHVyZToqKiA3MsKwRlxuLSAqKkNvbmRpdGlvbnM6KiogU3VubnlcblxuSXQncyBhIHBsZWFzYW50LCBzdW5ueSBkYXkgd2l0aCBtaWxkIHRlbXBlcmF0dXJlcyEgSG93ZXZlciwgSSBzaG91bGQgbm90ZSB0aGF0IHRvIGdpdmUgeW91IG1vcmUgYWNjdXJhdGUgd2VhdGhlciBpbmZvcm1hdGlvbiwgSSB3b3VsZCBuZWVkIHRvIGtub3cgeW91ciBzcGVjaWZpYyBsb2NhdGlvbi4gSWYgeW91J2QgbGlrZSB3ZWF0aGVyIGZvciBhIHBhcnRpY3VsYXIgY2l0eSBvciByZWdpb24sIHBsZWFzZSBsZXQgbWUga25vdyBhbmQgSSBjYW4gZ2V0IG1vcmUgZGV0YWlsZWQgaW5mb3JtYXRpb24gZm9yIHlvdS4ifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6NjQxLCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6OTUsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Im5vdF9hdmFpbGFibGUifX0=
+  recorded_at: Tue, 14 Jul 2026 01:04:28 GMT
 recorded_with: VCR 6.4.0

@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:10 GMT
+      - Tue, 14 Jul 2026 01:04:54 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,33 +58,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:07Z'
+      - '2026-07-14T01:04:51Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:10Z'
+      - '2026-07-14T01:04:54Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:07Z'
+      - '2026-07-14T01:04:51Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:07Z'
+      - '2026-07-14T01:04:51Z'
       Request-Id:
-      - req_011Cczu6kk9iP2VQs8h3fCKz
+      - req_011Cd13vd5JhdpMHkMuzPqSx
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-fcdb6b63024f90fabdef38a6104172cd-743323e492f8a9e8-01
+      - 00-795ef861836c3d37c42688f9faf2c306-09ebb18587f20460-01
       Server:
       - cloudflare
       Vary:
@@ -96,10 +96,28 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf4180fbf2855-SJC
+      - a1ac9d9f9ae1fa1e-SJC
     body:
       encoding: ASCII-8BIT
-      string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDY3p1Nmt5bzE5UDlvcmE3eW1WM1QiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiIjIEphcGFuIGFuZCBUb2t5b1xuXG4jIyBKYXBhbiBPdmVydmlld1xuXG5KYXBhbiBpcyBhbiBpc2xhbmQgbmF0aW9uIGluIEVhc3QgQXNpYSBjb21wcmlzaW5nIGZvdXIgbWFpbiBpc2xhbmRzOiBIb25zaHUsIEhva2thaWRvLCBLeXVzaHUsIGFuZCBTaGlrb2t1LiBJdCBoYXMgYSBwb3B1bGF0aW9uIG9mIGFib3V0IDEyNSBtaWxsaW9uIHBlb3BsZSBhbmQgaXMga25vd24gZm9yOlxuXG4tICoqVGVjaG5vbG9neSAmIElubm92YXRpb24qKjogTGVhZGluZyBpbiByb2JvdGljcywgZWxlY3Ryb25pY3MsIGFuZCBhdXRvbW90aXZlIG1hbnVmYWN0dXJpbmdcbi0gKipDdWx0dXJlKio6IFJpY2ggdHJhZGl0aW9ucyBpbmNsdWRpbmcgdGVhIGNlcmVtb25pZXMsIG1hcnRpYWwgYXJ0cywgYW5kIGthYnVraSB0aGVhdGVyXG4tICoqQ3Vpc2luZSoqOiBSZW5vd25lZCBmb3Igc3VzaGksIHJhbWVuLCB0ZW1wdXJhLCBhbmQga2Fpc2VraSBkaW5pbmdcbi0gKipOYXR1cmFsIEJlYXV0eSoqOiBNb3VudCBGdWppLCBjaGVycnkgYmxvc3NvbXMsIGFuZCBkaXZlcnNlIGxhbmRzY2FwZXNcblxuIyMgVG9reW9cblxuVG9reW8gaXMgSmFwYW4ncyBjYXBpdGFsIGFuZCB0aGUgd29ybGQncyBsYXJnZXN0IG1ldHJvcG9saXRhbiBhcmVhIGJ5IHBvcHVsYXRpb24gKDM3KyBtaWxsaW9uIGluIHRoZSBncmVhdGVyIGFyZWEpLiBLZXkgZmVhdHVyZXMgaW5jbHVkZTpcblxuKipOb3RhYmxlIERpc3RyaWN0czoqKlxuLSAqU2hpYnV5YSog4oCTIGZhbW91cyBjcm9zc2luZyBhbmQgeW91dGggY3VsdHVyZVxuLSAqU2hpbmp1a3UqIOKAkyBidXNpbmVzcyBodWIgd2l0aCBuZW9uIHNpZ25zXG4tICpBc2FrdXNhKiDigJMgdHJhZGl0aW9uYWwgdGVtcGxlcyBhbmQgaGlzdG9yaWMgYXRtb3NwaGVyZVxuLSAqR2luemEqIOKAkyB1cHNjYWxlIHNob3BwaW5nIGFuZCBkaW5pbmdcblxuKipMYW5kbWFya3M6Kipcbi0gVG9reW8gU2t5dHJlZSBhbmQgVG9reW8gVG93ZXJcbi0gSW1wZXJpYWwgUGFsYWNlXG4tIFNlbnNvLWppIFRlbXBsZVxuLSBNZWlqaSBTaHJpbmVcblxuKipDaGFyYWN0ZXI6KiogQSBibGVuZCBvZiB1bHRyYS1tb2Rlcm4gYW5kIHRyYWRpdGlvbmFs4oCUZ2xlYW1pbmcgc2t5c2NyYXBlcnMgc3RhbmQgbmVhciBhbmNpZW50IHRlbXBsZXMsIGFuZCBjdXR0aW5nLWVkZ2UgdGVjaG5vbG9neSBjb2V4aXN0cyB3aXRoIGNlbnR1cmllcy1vbGQgY3VzdG9tcy5cblxuVG9reW8gaXMgdGhlIGNvdW50cnkncyBwb2xpdGljYWwsIGVjb25vbWljLCBhbmQgY3VsdHVyYWwgY2VudGVyLCBhbmQgc2VydmVzIGFzIGEgZ2F0ZXdheSBmb3IgbW9zdCB2aXNpdG9ycyB0byBKYXBhbi4ifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6MTcsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjozMjgsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Im5vdF9hdmFpbGFibGUifX0=
-  recorded_at: Mon, 13 Jul 2026 23:09:10 GMT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13vdHCo1ZnA9re3fMy6","type":"message","role":"assistant","content":[{"type":"text","text":"#
+        Japan and Tokyo\n\n## Japan Overview\n\nJapan is an island nation in East
+        Asia, consisting of four main islands: Honshu, Hokkaido, Kyushu, and Shikoku.
+        With a population of about 125 million, it''s one of the world''s most developed
+        economies.\n\n**Key characteristics:**\n- Known for blending tradition with
+        cutting-edge technology\n- Rich cultural heritage including tea ceremonies,
+        martial arts, and traditional arts\n- Mountainous terrain with Mount Fuji
+        as the iconic peak\n- Prone to earthquakes due to its location on the Pacific
+        Ring of Fire\n\n## Tokyo\n\nTokyo is Japan''s capital and largest city, home
+        to around 14 million people (37 million in the metro area).\n\n**Notable features:**\n-
+        **Economy**: A global financial hub with major corporations and stock exchange\n-
+        **Districts**: Shibuya (youth culture), Shinjuku (entertainment), Ginza (luxury
+        shopping)\n- **Landmarks**: Tokyo Tower, Senso-ji Temple, Imperial Palace,
+        Meiji Shrine\n- **Technology**: Known for innovation, robotics, and cutting-edge
+        architecture\n- **Transportation**: Extensive, efficient public transit system\n-
+        **Culture**: World-class museums, restaurants, and entertainment\n\n**Characteristics:**\n-
+        Extremely organized and clean\n- Excellent public safety\n- Blend of ultra-modern
+        skyscrapers and historic temples\n- Known for its vibrant nightlife and unique
+        neighborhoods\n\nTokyo represents the modern face of Japan while preserving
+        deep cultural traditions."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":337,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:54 GMT
 recorded_with: VCR 6.4.0

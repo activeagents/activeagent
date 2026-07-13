@@ -95,6 +95,8 @@ jobs:
             test-glob: "test/integration/open_ai/**/*_test.rb"
           - gemfile: "gemfiles/openai_0.35.gemfile"
             test-glob: "test/integration/open_ai/**/*_test.rb"
+          - gemfile: "gemfiles/openai_latest.gemfile"
+            test-glob: "test/integration/open_ai/**/*_test.rb test/providers/usage_test.rb test/docs/providers/open_ai_examples_test.rb"
     steps:
     - uses: actions/checkout@v6
     - name: Install system deps

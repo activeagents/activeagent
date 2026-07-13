@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:16 GMT
+      - Tue, 14 Jul 2026 01:04:45 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,33 +58,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:15Z'
+      - '2026-07-14T01:04:44Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:16Z'
+      - '2026-07-14T01:04:45Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:15Z'
+      - '2026-07-14T01:04:44Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:15Z'
+      - '2026-07-14T01:04:44Z'
       Request-Id:
-      - req_011Cczu7KvSSbBYF1Tr2L4rx
+      - req_011Cd13v5ieyUG5McxMFwRfD
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-54c145e205bf280915a265c0d89c7790-7ad2367a0f95d2ab-01
+      - 00-147722ce8067e73662af52a0b0d66144-841d0287bc5eccd1-01
       Server:
       - cloudflare
       Vary:
@@ -96,16 +96,13 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf4487b0a1a1f-SJC
+      - a1ac9d71bd6e2546-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu7LuxuW84ux3dpt1PZ","type":"message","role":"assistant","content":[{"type":"text","text":"This
-        image appears to be a very small, faint icon or symbol. It looks like it could
-        be a simple geometric shape, possibly a plus sign (+), a cross, or a small
-        dot/circle, rendered in a light gray or pale color against a white or light
-        background. \n\nThe image quality and size make it difficult to determine
-        the exact details with certainty. If you could provide more context about
-        where this image is from or what it''s meant to represent, I could give you
-        a more accurate description."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":108,"service_tier":"standard","inference_geo":"not_available"}}'
-  recorded_at: Mon, 13 Jul 2026 23:09:16 GMT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13v7DCerhqtvL5NSkza","type":"message","role":"assistant","content":[{"type":"text","text":"This
+        image appears to be mostly blank or white with just a very small pink or light-colored
+        dot or mark visible in the upper left portion. There isn''t much substantial
+        content to describe. It could be a nearly empty document, a loading image,
+        or possibly an image that failed to load properly."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":63,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:45 GMT
 recorded_with: VCR 6.4.0

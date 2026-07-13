@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:07:49 GMT
+      - Tue, 14 Jul 2026 01:07:31 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,55 +58,55 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:07:47Z'
+      - '2026-07-14T01:07:29Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:07:49Z'
+      - '2026-07-14T01:07:31Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:07:46Z'
+      - '2026-07-14T01:07:27Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:07:47Z'
+      - '2026-07-14T01:07:29Z'
       Request-Id:
-      - req_011Ccztzmc5Bkv3Z2NxpeB5f
+      - req_011Cd1489vzVcayLAurnLU2u
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-a9c74f1e7cd6d58953f411e6db886a42-fd71e77f5133fd90-01
+      - 00-018231510ec05cd2f6156300ba467018-2077d09df6557bc6-01
       Server:
       - cloudflare
       Vary:
       - Accept-Encoding
-      Cf-Cache-Status:
-      - DYNAMIC
       X-Robots-Tag:
       - none
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - a1abf21c7a2078ff-SJC
+      - a1aca1713bfa15e3-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-5","id":"msg_011CcztzmxAMu9AWhsEgg8Ko","type":"message","role":"assistant","content":[{"type":"text","text":"I''d
-        be happy to help you solve a complex math problem! However, I don''t see a
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd148AXiRgeDhtiF8bi9s","type":"message","role":"assistant","content":[{"type":"text","text":"I''d
+        be happy to help you solve a complex math problem! However, I don''t see the
         problem included in your message.\n\nCould you please share the specific problem
         you''d like me to solve? For example, it could involve:\n\n- **Algebra** (equations,
-        inequalities, systems)\n- **Calculus** (derivatives, integrals, limits, series)\n-
-        **Complex numbers** (arithmetic, equations, polar form)\n- **Linear algebra**
-        (matrices, vectors, eigenvalues)\n- **Differential equations**\n- **Combinatorics/Probability**\n-
-        **Geometry/Trigonometry**\n- **Number theory**\n\nPlease paste the problem,
-        and I''ll work through it step-by-step with clear explanations."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":16,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":229,"output_tokens_details":{"thinking_tokens":0},"service_tier":"standard","inference_geo":"global"}}'
-  recorded_at: Mon, 13 Jul 2026 23:07:49 GMT
+        inequalities, systems of equations)\n- **Calculus** (derivatives, integrals,
+        limits, series)\n- **Geometry/Trigonometry**\n- **Linear Algebra** (matrices,
+        vectors, eigenvalues)\n- **Differential Equations**\n- **Complex Numbers**\n-
+        **Statistics/Probability**\n- **Number Theory**\n\nPlease paste the problem,
+        and I''ll work through it step-by-step with a clear explanation of the solution."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":16,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":225,"output_tokens_details":{"thinking_tokens":0},"service_tier":"standard","inference_geo":"global"}}'
+  recorded_at: Tue, 14 Jul 2026 01:07:31 GMT
 recorded_with: VCR 6.4.0

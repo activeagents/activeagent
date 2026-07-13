@@ -27,7 +27,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:08:13 GMT
+      - Tue, 14 Jul 2026 01:08:09 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -58,33 +58,33 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:08:13Z'
+      - '2026-07-14T01:08:08Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:08:13Z'
+      - '2026-07-14T01:08:09Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:08:12Z'
+      - '2026-07-14T01:08:08Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:08:13Z'
+      - '2026-07-14T01:08:08Z'
       Request-Id:
-      - req_011Cczu2jXNX8U1avo1UpYp6
+      - req_011Cd14B92kjABJ8gdMcG8to
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-fb6615ff4edc138cd16152f29373661f-9f785f41dd329aa5-01
+      - 00-98d8729a8c113373fecaada0acaebe84-4c12fc753b5c00a7-01
       Server:
       - cloudflare
       Vary:
@@ -96,10 +96,10 @@ http_interactions:
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - a1abf2c2e83bdc9b-SJC
+      - a1aca26e6b859ac2-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-5","id":"msg_011Cczu2k9KrqNomvFmGynbL","type":"message","role":"assistant","content":[{"type":"text","text":"2
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd14B9z41DK7izb98c19b","type":"message","role":"assistant","content":[{"type":"text","text":"2
         + 2 = 4"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":24,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":11,"output_tokens_details":{"thinking_tokens":0},"service_tier":"standard","inference_geo":"global"}}'
-  recorded_at: Mon, 13 Jul 2026 23:08:13 GMT
+  recorded_at: Tue, 14 Jul 2026 01:08:09 GMT
 recorded_with: VCR 6.4.0

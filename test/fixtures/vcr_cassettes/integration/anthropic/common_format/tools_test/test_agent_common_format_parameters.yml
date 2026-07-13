@@ -29,7 +29,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -48,7 +48,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:38 GMT
+      - Tue, 14 Jul 2026 01:04:23 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -60,58 +60,58 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:38Z'
+      - '2026-07-14T01:04:23Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:38Z'
+      - '2026-07-14T01:04:23Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:37Z'
+      - '2026-07-14T01:04:22Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:38Z'
+      - '2026-07-14T01:04:23Z'
       Request-Id:
-      - req_011Cczu91dQbMZGRkymXrkbM
+      - req_011Cd13tVvsxPuWvAyL9ZFNT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-d140dbd4cd8d31b459a750eb59ab1be6-5c2083fe9615a3e1-01
+      - 00-9cf67a144532cd8cd4ede018e7ce2218-f8bddb836778e13b-01
       Server:
       - cloudflare
       Vary:
       - Accept-Encoding
-      Cf-Cache-Status:
-      - DYNAMIC
       X-Robots-Tag:
       - none
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - a1abf4d74f670dfd-SJC
+      - a1ac9ceb98f3ebeb-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu91snnPWn4kj6SoFha","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_012TsEVYwA1gsvsoyqZ6SbGu","name":"get_weather","input":{"location":"San
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13tX8KBUgv8DtnrvNeV","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_018hnf7uCpGB7eThU4rBAC3j","name":"get_weather","input":{"location":"San
         Francisco, CA"},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":585,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":57,"service_tier":"standard","inference_geo":"not_available"}}'
-  recorded_at: Mon, 13 Jul 2026 23:09:38 GMT
+  recorded_at: Tue, 14 Jul 2026 01:04:23 GMT
 - request:
     method: post
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
       string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What''s
-        the weather in San Francisco?","role":"user"},{"content":[{"id":"toolu_012TsEVYwA1gsvsoyqZ6SbGu","input":{"location":"San
-        Francisco, CA"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_012TsEVYwA1gsvsoyqZ6SbGu","type":"tool_result","content":"{\"location\":\"San
+        the weather in San Francisco?","role":"user"},{"content":[{"id":"toolu_018hnf7uCpGB7eThU4rBAC3j","input":{"location":"San
+        Francisco, CA"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_018hnf7uCpGB7eThU4rBAC3j","type":"tool_result","content":"{\"location\":\"San
         Francisco, CA\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false}],"role":"user"}],"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string","description":"The
         city and state, e.g. San Francisco, CA"}},"required":["location"]},"name":"get_weather","description":"Get
         the current weather in a given location"}]}'
@@ -135,7 +135,7 @@ http_interactions:
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -154,7 +154,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 13 Jul 2026 23:09:39 GMT
+      - Tue, 14 Jul 2026 01:04:24 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -166,48 +166,48 @@ http_interactions:
       Anthropic-Ratelimit-Input-Tokens-Remaining:
       - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2026-07-13T23:09:39Z'
+      - '2026-07-14T01:04:24Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
       - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2026-07-13T23:09:39Z'
+      - '2026-07-14T01:04:24Z'
       Anthropic-Ratelimit-Requests-Limit:
       - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
       - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2026-07-13T23:09:38Z'
+      - '2026-07-14T01:04:23Z'
       Anthropic-Ratelimit-Tokens-Limit:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
       - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2026-07-13T23:09:39Z'
+      - '2026-07-14T01:04:24Z'
       Request-Id:
-      - req_011Cczu95xrT3wE7fB1mXHXj
+      - req_011Cd13tbJqFeM7D799T8ZYU
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
       Traceresponse:
-      - 00-4fadb2be7b74ef015343d72a88345deb-5dba905fff0e731f-01
+      - 00-c135b00869c55abec0a880384b5ad130-d698adf0f4207db4-01
       Server:
       - cloudflare
       Vary:
       - Accept-Encoding
-      Cf-Cache-Status:
-      - DYNAMIC
       X-Robots-Tag:
       - none
       Content-Security-Policy:
       - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - a1abf4ddabbd4c7c-SJC
+      - a1ac9cf37df9cf2f-SJC
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDY3p1OTZERWlobm44Y0JFaWI1eGkiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJUaGUgd2VhdGhlciBpbiBTYW4gRnJhbmNpc2NvLCBDQSBpcyBjdXJyZW50bHkgKipzdW5ueSoqIHdpdGggYSB0ZW1wZXJhdHVyZSBvZiAqKjcywrBGKiouIEl0J3MgYSBuaWNlIGRheSEifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6NjcyLCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6MzEsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Im5vdF9hdmFpbGFibGUifX0=
-  recorded_at: Mon, 13 Jul 2026 23:09:39 GMT
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDZDEzdGJhaTR4Y2JXclF6MTgzemsiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJUaGUgd2VhdGhlciBpbiBTYW4gRnJhbmNpc2NvLCBDQSBpcyBjdXJyZW50bHkgKipzdW5ueSoqIHdpdGggYSB0ZW1wZXJhdHVyZSBvZiAqKjcywrBGKiouIn1dLCJzdG9wX3JlYXNvbiI6ImVuZF90dXJuIiwic3RvcF9zZXF1ZW5jZSI6bnVsbCwic3RvcF9kZXRhaWxzIjpudWxsLCJ1c2FnZSI6eyJpbnB1dF90b2tlbnMiOjY3MiwiY2FjaGVfY3JlYXRpb25faW5wdXRfdG9rZW5zIjowLCJjYWNoZV9yZWFkX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfY3JlYXRpb24iOnsiZXBoZW1lcmFsXzVtX2lucHV0X3Rva2VucyI6MCwiZXBoZW1lcmFsXzFoX2lucHV0X3Rva2VucyI6MH0sIm91dHB1dF90b2tlbnMiOjI0LCJzZXJ2aWNlX3RpZXIiOiJzdGFuZGFyZCIsImluZmVyZW5jZV9nZW8iOiJub3RfYXZhaWxhYmxlIn19
+  recorded_at: Tue, 14 Jul 2026 01:04:24 GMT
 recorded_with: VCR 6.4.0
