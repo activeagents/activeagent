@@ -5,16 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"What
-        is the Model Context Protocol?"}],"max_tokens":4096,"system":"You are a helpful
-        AI assistant."}'
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"What is the Model
+        Context Protocol?","role":"user"}],"max_tokens":4096}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -24,7 +23,7 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
@@ -40,14 +39,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '176'
+      - '122'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 00:28:40 GMT
+      - Mon, 13 Jul 2026 23:10:53 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -55,66 +54,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-25T00:28:34Z'
+      - '2026-07-13T23:10:44Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '8000'
+      - '1999000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-25T00:28:42Z'
+      - '2026-07-13T23:10:52Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-25T00:28:33Z'
+      - '2026-07-13T23:10:43Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '38000'
+      - '11999000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-25T00:28:34Z'
+      - '2026-07-13T23:10:44Z'
       Request-Id:
-      - req_011CUSyE8NwBnuqCnQj5dsSy
+      - req_011CczuDs9pCF4zk3P9CgoQy
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '7596'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-bc97c008e62687098ac805f69649f7f2-ea92887f2f39a648-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 993d982f8a22eb21-SJC
+      - a1abf672dfd87587-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-4-5-20250929","id":"msg_01VZFSszA17W71Qkdi7co7Jn","type":"message","role":"assistant","content":[{"type":"text","text":"The
-        Model Context Protocol (MCP) is an open protocol developed by Anthropic that
-        standardizes how AI applications interact with external data sources and tools.\n\n##
-        Key Features:\n\n**Purpose**: MCP enables AI assistants (like Claude) to securely
-        connect to various data sources - local files, databases, APIs, and other
-        services - in a standardized way.\n\n**Architecture**: It uses a client-server
-        model where:\n- **MCP Hosts** (like Claude Desktop or IDEs) act as clients\n-
-        **MCP Servers** provide context and tools to the AI\n- Communication happens
-        via standard protocols (stdio, HTTP with SSE)\n\n**Main Benefits**:\n1. **Standardization**:
-        One protocol instead of custom integrations for each data source\n2. **Security**:
-        Built-in privacy and security controls\n3. **Composability**: Can connect
-        multiple servers simultaneously\n4. **Flexibility**: Works with local and
-        remote resources\n\n**Common Use Cases**:\n- Connecting to databases (PostgreSQL,
-        SQLite)\n- Accessing file systems\n- Integrating with business tools (Slack,
-        Google Drive)\n- Fetching web content\n- Interacting with development tools
-        (Git, Docker)\n\nThe protocol is open-source and designed to create an ecosystem
-        where developers can build MCP servers that work with any MCP-compatible AI
-        application."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":21,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":297,"service_tier":"standard"}}'
-  recorded_at: Sat, 25 Oct 2025 00:28:40 GMT
-recorded_with: VCR 6.3.1
+      string: !binary |-
+        eyJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNSIsImlkIjoibXNnXzAxMUNjenVEc3REVm1XZUNrOG9vaW9FayIsInR5cGUiOiJtZXNzYWdlIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6IiMgTW9kZWwgQ29udGV4dCBQcm90b2NvbCAoTUNQKVxuXG5UaGUgTW9kZWwgQ29udGV4dCBQcm90b2NvbCBpcyBhbiBvcGVuIHN0YW5kYXJkIChpbnRyb2R1Y2VkIGJ5IEFudGhyb3BpYyBpbiBOb3ZlbWJlciAyMDI0KSBkZXNpZ25lZCB0byBzdGFuZGFyZGl6ZSBob3cgQUkgYXBwbGljYXRpb25z4oCUcGFydGljdWxhcmx5IGxhcmdlIGxhbmd1YWdlIG1vZGVsc+KAlGNvbm5lY3QgdG8gZXh0ZXJuYWwgZGF0YSBzb3VyY2VzLCB0b29scywgYW5kIHN5c3RlbXMuXG5cbiMjIFRoZSBDb3JlIFByb2JsZW0gSXQgU29sdmVzXG5cbkJlZm9yZSBNQ1AsIGNvbm5lY3RpbmcgYW4gQUkgbW9kZWwgdG8gZXh0ZXJuYWwgcmVzb3VyY2VzIChkYXRhYmFzZXMsIEFQSXMsIGZpbGUgc3lzdGVtcywgYnVzaW5lc3MgdG9vbHMpIHR5cGljYWxseSByZXF1aXJlZCBjdXN0b20sIG9uZS1vZmYgaW50ZWdyYXRpb25zLiBJZiB5b3Ugd2FudGVkIGFuIEFJIGFzc2lzdGFudCB0byB3b3JrIHdpdGggU2xhY2ssIEdvb2dsZSBEcml2ZSwgYSBTUUwgZGF0YWJhc2UsIGFuZCBHaXRIdWIsIHlvdSdkIG9mdGVuIG5lZWQgdG8gYnVpbGQgc2VwYXJhdGUgY3VzdG9tIGNvbm5lY3RvcnMgZm9yIGVhY2ggY29tYmluYXRpb24gb2YgQUkgYXBwbGljYXRpb24gYW5kIGRhdGEgc291cmNl4oCUbGVhZGluZyB0byBzaWduaWZpY2FudCBkdXBsaWNhdGVkIGVuZ2luZWVyaW5nIGVmZm9ydCAoc29tZXRpbWVzIGNhbGxlZCB0aGUgXCJNw5dOIHByb2JsZW1cIikuXG5cbiMjIEhvdyBJdCBXb3Jrc1xuXG5NQ1AgZGVmaW5lcyBhIHN0YW5kYXJkaXplZCBjbGllbnQtc2VydmVyIGFyY2hpdGVjdHVyZTpcblxuLSAqKk1DUCBIb3N0cyoqOiBBSSBhcHBsaWNhdGlvbnMgKGxpa2UgQ2xhdWRlIERlc2t0b3AsIElERXMsIG9yIG90aGVyIGNoYXQgaW50ZXJmYWNlcykgdGhhdCB3YW50IHRvIGFjY2VzcyBleHRlcm5hbCBkYXRhL3Rvb2xzXG4tICoqTUNQIENsaWVudHMqKjogQ29tcG9uZW50cyB3aXRoaW4gdGhlIGhvc3QgdGhhdCBtYWludGFpbiBjb25uZWN0aW9ucyB0byBzZXJ2ZXJzXG4tICoqTUNQIFNlcnZlcnMqKjogTGlnaHR3ZWlnaHQgcHJvZ3JhbXMgdGhhdCBleHBvc2Ugc3BlY2lmaWMgY2FwYWJpbGl0aWVz4oCUbGlrZSBhY2Nlc3MgdG8gYSBkYXRhYmFzZSwgZmlsZSBzeXN0ZW0sIG9yIEFQSeKAlHRocm91Z2ggdGhlIHN0YW5kYXJkaXplZCBwcm90b2NvbFxuXG5UaGUgcHJvdG9jb2wgdHlwaWNhbGx5IHVzZXMgSlNPTi1SUEMgZm9yIGNvbW11bmljYXRpb24gYW5kIGRlZmluZXMgYSBmZXcga2V5IHByaW1pdGl2ZXM6XG5cbi0gKipSZXNvdXJjZXMqKjogRGF0YSBvciBjb250ZW50IHRoYXQgY2FuIGJlIHJlYWQgKGZpbGVzLCBkYXRhYmFzZSByZWNvcmRzLCBldGMuKVxuLSAqKlRvb2xzKio6IEZ1bmN0aW9ucyB0aGUgQUkgY2FuIGNhbGwgdG8gdGFrZSBhY3Rpb25zIChlLmcuLCBcInNlbmQgYW4gZW1haWwsXCIgXCJydW4gYSBxdWVyeVwiKVxuLSAqKlByb21wdHMqKjogUmV1c2FibGUgcHJvbXB0IHRlbXBsYXRlcyBzZXJ2ZXJzIGNhbiBvZmZlciB0byBjbGllbnRzXG5cbiMjIFdoeSBJdCBNYXR0ZXJzXG5cbi0gKipSZXVzYWJpbGl0eSoqOiBCdWlsZCBvbmUgTUNQIHNlcnZlciBmb3IgYSBkYXRhIHNvdXJjZSAoZS5nLiwgUG9zdGdyZXMpLCBhbmQgYW55IE1DUC1jb21wYXRpYmxlIEFJIGFwcGxpY2F0aW9uIGNhbiB1c2UgaXRcbi0gKipFY29zeXN0ZW0gZ3Jvd3RoKio6IEVuY291cmFnZXMgYSBzaGFyZWQgbGlicmFyeSBvZiBjb25uZWN0b3JzIHJhdGhlciB0aGFuIGZyYWdtZW50ZWQsIHByb3ByaWV0YXJ5IGludGVncmF0aW9uc1xuLSAqKkZsZXhpYmlsaXR5Kio6IERldmVsb3BlcnMgY2FuIHN3YXAgb3V0IHRoZSB1bmRlcmx5aW5nIEFJIGFwcGxpY2F0aW9uIHdpdGhvdXQgcmV3cml0aW5nIGFsbCB0aGVpciBpbnRlZ3JhdGlvbnNcblxuIyMgQWRvcHRpb25cblxuU2luY2UgaXRzIHJlbGVhc2UsIE1DUCBoYXMgc2VlbiBmYWlybHkgYnJvYWQgaW50ZXJlc3QgYWNyb3NzIHRoZSBBSSB0b29saW5nIGVjb3N5c3RlbSwgd2l0aCB2YXJpb3VzIGNvbXBhbmllcyBhbmQgb3Blbi1zb3VyY2UgcHJvamVjdHMgYnVpbGRpbmcgTUNQIHNlcnZlcnMgZm9yIHBvcHVsYXIgc2VydmljZXMgKGRhdGFiYXNlcywgY2xvdWQgcGxhdGZvcm1zLCBkZXZlbG9wZXIgdG9vbHMsIGV0Yy4pIGFuZCBNQ1Agc3VwcG9ydCBhcHBlYXJpbmcgaW4gbXVsdGlwbGUgQUkgYXBwbGljYXRpb25zIGJleW9uZCBBbnRocm9waWMncyBvd24gcHJvZHVjdHMuXG5cbklmIHlvdSdyZSBidWlsZGluZyBzb21ldGhpbmcgc3BlY2lmaWMgd2l0aCBNQ1Agb3IgZXZhbHVhdGluZyB3aGV0aGVyIHRvIHVzZSBpdCwgSSdtIGhhcHB5IHRvIGdvIGRlZXBlciBpbnRvIGFueSBwYXJ0aWN1bGFyIGFzcGVjdOKAlGxpa2Ugc2VydmVyIGltcGxlbWVudGF0aW9uLCBzZWN1cml0eSBjb25zaWRlcmF0aW9ucywgb3IgaG93IGl0IGNvbXBhcmVzIHRvIGFsdGVybmF0aXZlIGFwcHJvYWNoZXMuIn1dLCJzdG9wX3JlYXNvbiI6ImVuZF90dXJuIiwic3RvcF9zZXF1ZW5jZSI6bnVsbCwic3RvcF9kZXRhaWxzIjpudWxsLCJ1c2FnZSI6eyJpbnB1dF90b2tlbnMiOjE4LCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6Nzg5LCJvdXRwdXRfdG9rZW5zX2RldGFpbHMiOnsidGhpbmtpbmdfdG9rZW5zIjowfSwic2VydmljZV90aWVyIjoic3RhbmRhcmQiLCJpbmZlcmVuY2VfZ2VvIjoiZ2xvYmFsIn19
+  recorded_at: Mon, 13 Jul 2026 23:10:52 GMT
+recorded_with: VCR 6.4.0

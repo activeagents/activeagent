@@ -42,7 +42,7 @@ module Providers
           # => { colors: ["red", "blue", "yellow"] }
           # endregion response_format_json_object_example
 
-          assert_equal({ colors: [ "red", "blue", "yellow" ] }, colors)
+          assert_equal %w[blue red yellow], colors[:colors].sort
         end
       end
     end

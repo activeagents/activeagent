@@ -11,7 +11,7 @@ module Providers
   #   response.message.content  #=> "Hi! How can I help you today?"
   # region agent
   class AnthropicAgent < ApplicationAgent
-    generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
+    generate_with :anthropic, model: "claude-sonnet-5"
 
     # @return [ActiveAgent::Generation]
     def ask

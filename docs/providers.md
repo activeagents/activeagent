@@ -24,7 +24,7 @@ Providers connect your agents to AI services through a unified interface. Switch
 class RubyLLMAgent < ApplicationAgent
   generate_with :ruby_llm, model: "gpt-4o-mini"
   # Works with any model RubyLLM supports:
-  # generate_with :ruby_llm, model: "claude-sonnet-4-5-20250929"
+  # generate_with :ruby_llm, model: "claude-sonnet-5"
   # generate_with :ruby_llm, model: "gemini-2.0-flash"
 end
 ```

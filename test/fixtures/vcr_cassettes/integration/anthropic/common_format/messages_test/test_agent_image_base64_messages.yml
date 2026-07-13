@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":[{"type":"text","text":"What''s
-        in this image?"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="}}]}],"max_tokens":1024}'
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":[{"text":"What''s
+        in this image?","type":"text"},{"source":{"data":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==","media_type":"image/png","type":"base64"},"type":"image"}],"role":"user"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,7 +23,7 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 20 Oct 2025 19:06:11 GMT
+      - Mon, 13 Jul 2026 23:09:16 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,54 +54,58 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-20T19:06:10Z'
+      - '2026-07-13T23:09:15Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-20T19:06:11Z'
+      - '2026-07-13T23:09:16Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-20T19:06:10Z'
+      - '2026-07-13T23:09:15Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-20T19:06:10Z'
+      - '2026-07-13T23:09:15Z'
       Request-Id:
-      - req_011CUJyQcXr6K8NotVk2DhUg
+      - req_011Cczu7KvSSbBYF1Tr2L4rx
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '1765'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-54c145e205bf280915a265c0d89c7790-7ad2367a0f95d2ab-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 991aca7218409e58-SJC
+      - a1abf4487b0a1a1f-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01X9NWHYHSX77faTWe48ZjwM","type":"message","role":"assistant","content":[{"type":"text","text":"This
-        image appears to be a very small, low-resolution icon or symbol. It looks
-        like it could be a simple geometric shape, possibly a star or asterisk-like
-        mark in light gray or white color against a white or light background. Due
-        to the small size and low resolution, it''s difficult to determine the exact
-        details or purpose of this icon with certainty."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":78,"service_tier":"standard"}}'
-  recorded_at: Mon, 20 Oct 2025 19:06:11 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cczu7LuxuW84ux3dpt1PZ","type":"message","role":"assistant","content":[{"type":"text","text":"This
+        image appears to be a very small, faint icon or symbol. It looks like it could
+        be a simple geometric shape, possibly a plus sign (+), a cross, or a small
+        dot/circle, rendered in a light gray or pale color against a white or light
+        background. \n\nThe image quality and size make it difficult to determine
+        the exact details with certainty. If you could provide more context about
+        where this image is from or what it''s meant to represent, I could give you
+        a more accurate description."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":108,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Mon, 13 Jul 2026 23:09:16 GMT
+recorded_with: VCR 6.4.0

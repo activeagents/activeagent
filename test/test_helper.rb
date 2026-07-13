@@ -97,8 +97,17 @@ def doc_example_output(example = nil, test_name = nil)
   File.write(file_path, content.join("\n"))
 end
 
+# When ANTHROPIC_GEM_VERSION is set (e.g. "1.12" in version-pinned gemfiles),
+# scope VCR cassettes to a version-specific subdirectory so recordings from
+# different gem versions don't collide.
+VCR_CASSETTE_DIR = if (version = ENV["ANTHROPIC_GEM_VERSION"])
+  "test/fixtures/vcr_cassettes/v#{version}"
+else
+  "test/fixtures/vcr_cassettes"
+end
+
 VCR.configure do |config|
-  config.cassette_library_dir = "test/fixtures/vcr_cassettes"
+  config.cassette_library_dir = VCR_CASSETTE_DIR
   config.hook_into :webmock
 
   config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["OPEN_AI_ACCESS_TOKEN"] }

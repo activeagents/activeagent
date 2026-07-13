@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"Explain
-        quantum computing in bare terms."}],"max_tokens":1024}'
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"Explain
+        quantum computing in bare terms.","role":"user"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,7 +23,7 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 20 Oct 2025 19:06:53 GMT
+      - Mon, 13 Jul 2026 23:09:28 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,50 +54,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-20T19:06:50Z'
+      - '2026-07-13T23:09:24Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-20T19:06:55Z'
+      - '2026-07-13T23:09:28Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-20T19:06:50Z'
+      - '2026-07-13T23:09:24Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-20T19:06:50Z'
+      - '2026-07-13T23:09:24Z'
       Request-Id:
-      - req_011CUJyTZ2qYQPeuhVTqYNz2
+      - req_011Cczu82mbJTNw5A6iAB8m6
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '4215'
-      Via:
-      - 1.1 google
-      Cf-Cache-Status:
-      - DYNAMIC
-      X-Robots-Tag:
-      - none
+      Traceresponse:
+      - 00-b6a90acf7dabbfbb2b45fb38977f0145-5721a22b020ca097-01
       Server:
       - cloudflare
+      Vary:
+      - Accept-Encoding
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - 991acb6b780722ba-SJC
+      - a1abf4843c8a2a56-SJC
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMVJKM1ZxQkgzRzZvUjhud2doQjlrMnYiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiIjIFF1YW50dW0gQ29tcHV0aW5nIEJhc2ljc1xuXG4jIyBOb3JtYWwgY29tcHV0ZXJzXG5Vc2UgKipiaXRzKio6IGVpdGhlciAwIG9yIDEuIEFsbCBjYWxjdWxhdGlvbnMgYnVpbGQgZnJvbSB0aGVzZSBvbi9vZmYgc3dpdGNoZXMuXG5cbiMjIFF1YW50dW0gY29tcHV0ZXJzXG5Vc2UgKipxdWJpdHMqKjogY2FuIGJlIDAsIDEsIG9yICpib3RoIGF0IHRoZSBzYW1lIHRpbWUqIChjYWxsZWQgKipzdXBlcnBvc2l0aW9uKiopLlxuXG5UaGlzIGlzIHRoZSBrZXkgZGlmZmVyZW5jZeKAlGEgcXViaXQgY2FuIGV4cGxvcmUgbXVsdGlwbGUgcG9zc2liaWxpdGllcyBzaW11bHRhbmVvdXNseS5cblxuIyMgV2h5IGl0IG1hdHRlcnNcblxuKipSZWd1bGFyIGNvbXB1dGVyIHNvbHZpbmcgYSBtYXplOioqXG4tIFRyaWVzIG9uZSBwYXRoLCBiYWNrdHJhY2tzLCB0cmllcyBhbm90aGVyIHBhdGgsIGJhY2t0cmFja3MuLi5cbi0gVGFrZXMgbWFueSBzdGVwc1xuXG4qKlF1YW50dW0gY29tcHV0ZXIgc29sdmluZyBhIG1hemU6Kipcbi0gRXhwbG9yZXMgYWxsIHBhdGhzIGF0IG9uY2Vcbi0gTXVjaCBmYXN0ZXIgZm9yIGNlcnRhaW4gcHJvYmxlbXNcblxuIyMgVGhlIGNhdGNoXG5cbi0gKipGcmFnaWxlKio6IHF1Yml0cyBicmVhayBlYXNpbHkgaWYgZGlzdHVyYmVkICh0aGV5J3JlIHVzdWFsbHkgYXRvbXMgb3IgcGhvdG9ucyBhdCBuZWFyIGFic29sdXRlLXplcm8gdGVtcGVyYXR1cmVzKVxuLSAqKk5vdCB1bml2ZXJzYWxseSBiZXR0ZXIqKjogb25seSBmYXN0ZXIgZm9yIHNwZWNpZmljIHR5cGVzIG9mIHByb2JsZW1zIChmYWN0b3JpbmcgbGFyZ2UgbnVtYmVycywgc2ltdWxhdGluZyBtb2xlY3VsZXMsIG9wdGltaXphdGlvbilcbi0gKipTdGlsbCBlYXJseSoqOiBjdXJyZW50IHF1YW50dW0gY29tcHV0ZXJzIGFyZSBleHBlcmltZW50YWwgYW5kIGVycm9yLXByb25lXG5cbiMjIFRoZSBzaW1wbGVzdCB3YXkgdG8gdGhpbmsgb2YgaXRcblxuQSByZWd1bGFyIGNvbXB1dGVyIGlzIGxpa2UgY2hlY2tpbmcgYm94ZXMgb24gYSBmb3JtIG9uZSBhdCBhIHRpbWUuIEEgcXVhbnR1bSBjb21wdXRlciBpcyBsaWtlIGNoZWNraW5nIG11bHRpcGxlIGJveGVzIHNpbXVsdGFuZW91c2x54oCUdGhlbiB3aGVuIHlvdSBsb29rLCBpdCBcImNvbGxhcHNlc1wiIGludG8gdGhlIHJpZ2h0IGFuc3dlci4ifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJ1c2FnZSI6eyJpbnB1dF90b2tlbnMiOjE1LCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6Mjc2LCJzZXJ2aWNlX3RpZXIiOiJzdGFuZGFyZCJ9fQ==
-  recorded_at: Mon, 20 Oct 2025 19:06:53 GMT
-recorded_with: VCR 6.3.1
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDY3p1ODM2dzRBUHFlR0FpY1U0QXMiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiIjIFF1YW50dW0gQ29tcHV0aW5nOiBUaGUgQmFzaWNzXG5cbiMjIFJlZ3VsYXIgY29tcHV0ZXJzIHZzLiBxdWFudHVtIGNvbXB1dGVyc1xuXG4qKlJlZ3VsYXIgY29tcHV0ZXJzKiogdXNlIGJpdHPigJR0aGluayBvZiB0aGVtIGFzIHN3aXRjaGVzIHRoYXQgYXJlIGVpdGhlciBPTiAoMSkgb3IgT0ZGICgwKS4gRXZlcnl0aGluZyB0aGV5IGRvIGJvaWxzIGRvd24gdG8gbWFuaXB1bGF0aW5nIG1pbGxpb25zIG9mIHRoZXNlLlxuXG4qKlF1YW50dW0gY29tcHV0ZXJzKiogdXNlIHF1Yml0cywgd2hpY2ggY2FuIGJlIDEsIDAsIG9yICpib3RoIGF0IHRoZSBzYW1lIHRpbWUqLiBUaGF0J3MgdGhlIGtleSBkaWZmZXJlbmNlLlxuXG4jIyBXaHkgdGhpcyBtYXR0ZXJzXG5cblRoYXQgXCJib3RoIGF0IG9uY2VcIiBwcm9wZXJ0eeKAlGNhbGxlZCAqKnN1cGVycG9zaXRpb24qKuKAlG1lYW5zIGEgcXVhbnR1bSBjb21wdXRlciBjYW4gZXhwbG9yZSBtYW55IHBvc3NpYmlsaXRpZXMgc2ltdWx0YW5lb3VzbHkuIFxuXG5BIHJlZ3VsYXIgY29tcHV0ZXIgY2hlY2tpbmcgYSBtYXplIG1pZ2h0IHRyeSBvbmUgcGF0aCwgdGhlbiBhbm90aGVyLCB0aGVuIGFub3RoZXIuIEEgcXVhbnR1bSBjb21wdXRlciBjYW4gZXhwbG9yZSBtYW55IHBhdGhzIGluIHBhcmFsbGVsLlxuXG4jIyBUaGUgY2F0Y2hcblxuLSAqKkZyYWdpbGUqKjogUXViaXRzIGJyZWFrIGVhc2lseSBpZiBkaXN0dXJiZWRcbi0gKipIYXJkIHRvIHJlYWQqKjogV2hlbiB5b3UgbWVhc3VyZSBhIHF1Yml0LCBpdCBcInBpY2tzXCIgZWl0aGVyIDEgb3IgMOKAlHlvdSBsb3NlIHRoYXQgc3VwZXJwb3NpdGlvblxuLSAqKkxpbWl0ZWQgdXNlKio6IFRoZXkncmUgbm90IGZhc3RlciBhdCAqZXZlcnl0aGluZyosIGp1c3Qgc3BlY2lmaWMgcHJvYmxlbXMgbGlrZSBicmVha2luZyBlbmNyeXB0aW9uLCBzaW11bGF0aW5nIG1vbGVjdWxlcywgb3Igb3B0aW1pemF0aW9uIHB1enpsZXNcblxuIyMgVGhlIGFuYWxvZ3lcblxuSW1hZ2luZSBhIGNvaW4gc3Bpbm5pbmcgaW4gdGhlIGFpci4gV2hpbGUgaXQncyBzcGlubmluZywgaXQncyBoZWFkcyAqYW5kKiB0YWlscy4gQSByZWd1bGFyIGNvbXB1dGVyIGlzIGxpa2UgbG9va2luZyBhdCBpdCBhZnRlciBpdCBsYW5kcyAoZGVmaW5pdGVseSBoZWFkcyBvciB0YWlscykuIEEgcXVhbnR1bSBjb21wdXRlciB1c2VzIGl0IHdoaWxlIGl0J3Mgc3Bpbm5pbmcuXG5cbioqQm90dG9tIGxpbmUqKjogUXVhbnR1bSBjb21wdXRlcnMgYXJlIHNwZWNpYWxpemVkIG1hY2hpbmVzIHRoYXQgY291bGQgc29sdmUgY2VydGFpbiBcImhhcmRcIiBwcm9ibGVtcyB3YXkgZmFzdGVyIHRoYW4gcmVndWxhciBjb21wdXRlcnMgZXZlciBjb3VsZC4ifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6MTUsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjozMTUsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Im5vdF9hdmFpbGFibGUifX0=
+  recorded_at: Mon, 13 Jul 2026 23:09:28 GMT
+recorded_with: VCR 6.4.0

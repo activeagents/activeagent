@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"Tell
-        me about Japan and its capital city Tokyo."}],"max_tokens":1024}'
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"Tell
+        me about Japan and its capital city Tokyo.","role":"user"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,7 +23,7 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 22:52:53 GMT
+      - Mon, 13 Jul 2026 23:09:10 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,68 +54,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-21T22:52:50Z'
+      - '2026-07-13T23:09:07Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-21T22:52:55Z'
+      - '2026-07-13T23:09:10Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-21T22:52:51Z'
+      - '2026-07-13T23:09:07Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-21T22:52:50Z'
+      - '2026-07-13T23:09:07Z'
       Request-Id:
-      - req_011CUMAW3oobqZ1LqFdzYFN9
+      - req_011Cczu6kk9iP2VQs8h3fCKz
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '4007'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-fcdb6b63024f90fabdef38a6104172cd-743323e492f8a9e8-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 992453daed566802-SJC
+      - a1abf4180fbf2855-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01C8i9CozKc31eYJHcNepreW","type":"message","role":"assistant","content":[{"type":"text","text":"#
-        Japan and Tokyo\n\n## Japan Overview\nJapan is an island nation in East Asia
-        consisting of four main islands: Honshu, Hokkaido, Kyushu, and Shikoku. With
-        about 125 million people, it''s one of the world''s most densely populated
-        countries. Japan is known for blending ancient traditions with cutting-edge
-        technology.\n\n**Key characteristics:**\n- Rich cultural heritage (temples,
-        tea ceremonies, martial arts)\n- Economic powerhouse with major tech and automotive
-        industries\n- Famous for cuisine, anime, and manga\n- Mountainous terrain
-        with frequent earthquakes\n\n## Tokyo\n\nTokyo is Japan''s capital and largest
-        city, located on the eastern coast on Honshu island.\n\n**Population & Size:**\n-
-        About 14 million people in the city proper\n- Over 37 million in the greater
-        metropolitan area (one of the world''s largest)\n\n**Notable Features:**\n-
-        **Shinjuku & Shibuya**: Famous bustling districts known for shopping and nightlife\n-
-        **Traditional areas**: Asakusa with its historic temples\n- **Modern landmarks**:
-        Tokyo Tower, Tokyo Skytree\n- **Efficient transit**: Extensive subway and
-        train network\n- **Food scene**: Michelin-starred restaurants alongside street
-        food\n\n**Role:**\nTokyo is the political, economic, and cultural center of
-        Japan, hosting the government, major corporations, and countless cultural
-        institutions.\n\nWould you like to know more about any specific aspect of
-        Japan or Tokyo?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":325,"service_tier":"standard"}}'
-  recorded_at: Tue, 21 Oct 2025 22:52:53 GMT
-recorded_with: VCR 6.3.1
+      string: !binary |-
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDY3p1Nmt5bzE5UDlvcmE3eW1WM1QiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiIjIEphcGFuIGFuZCBUb2t5b1xuXG4jIyBKYXBhbiBPdmVydmlld1xuXG5KYXBhbiBpcyBhbiBpc2xhbmQgbmF0aW9uIGluIEVhc3QgQXNpYSBjb21wcmlzaW5nIGZvdXIgbWFpbiBpc2xhbmRzOiBIb25zaHUsIEhva2thaWRvLCBLeXVzaHUsIGFuZCBTaGlrb2t1LiBJdCBoYXMgYSBwb3B1bGF0aW9uIG9mIGFib3V0IDEyNSBtaWxsaW9uIHBlb3BsZSBhbmQgaXMga25vd24gZm9yOlxuXG4tICoqVGVjaG5vbG9neSAmIElubm92YXRpb24qKjogTGVhZGluZyBpbiByb2JvdGljcywgZWxlY3Ryb25pY3MsIGFuZCBhdXRvbW90aXZlIG1hbnVmYWN0dXJpbmdcbi0gKipDdWx0dXJlKio6IFJpY2ggdHJhZGl0aW9ucyBpbmNsdWRpbmcgdGVhIGNlcmVtb25pZXMsIG1hcnRpYWwgYXJ0cywgYW5kIGthYnVraSB0aGVhdGVyXG4tICoqQ3Vpc2luZSoqOiBSZW5vd25lZCBmb3Igc3VzaGksIHJhbWVuLCB0ZW1wdXJhLCBhbmQga2Fpc2VraSBkaW5pbmdcbi0gKipOYXR1cmFsIEJlYXV0eSoqOiBNb3VudCBGdWppLCBjaGVycnkgYmxvc3NvbXMsIGFuZCBkaXZlcnNlIGxhbmRzY2FwZXNcblxuIyMgVG9reW9cblxuVG9reW8gaXMgSmFwYW4ncyBjYXBpdGFsIGFuZCB0aGUgd29ybGQncyBsYXJnZXN0IG1ldHJvcG9saXRhbiBhcmVhIGJ5IHBvcHVsYXRpb24gKDM3KyBtaWxsaW9uIGluIHRoZSBncmVhdGVyIGFyZWEpLiBLZXkgZmVhdHVyZXMgaW5jbHVkZTpcblxuKipOb3RhYmxlIERpc3RyaWN0czoqKlxuLSAqU2hpYnV5YSog4oCTIGZhbW91cyBjcm9zc2luZyBhbmQgeW91dGggY3VsdHVyZVxuLSAqU2hpbmp1a3UqIOKAkyBidXNpbmVzcyBodWIgd2l0aCBuZW9uIHNpZ25zXG4tICpBc2FrdXNhKiDigJMgdHJhZGl0aW9uYWwgdGVtcGxlcyBhbmQgaGlzdG9yaWMgYXRtb3NwaGVyZVxuLSAqR2luemEqIOKAkyB1cHNjYWxlIHNob3BwaW5nIGFuZCBkaW5pbmdcblxuKipMYW5kbWFya3M6Kipcbi0gVG9reW8gU2t5dHJlZSBhbmQgVG9reW8gVG93ZXJcbi0gSW1wZXJpYWwgUGFsYWNlXG4tIFNlbnNvLWppIFRlbXBsZVxuLSBNZWlqaSBTaHJpbmVcblxuKipDaGFyYWN0ZXI6KiogQSBibGVuZCBvZiB1bHRyYS1tb2Rlcm4gYW5kIHRyYWRpdGlvbmFs4oCUZ2xlYW1pbmcgc2t5c2NyYXBlcnMgc3RhbmQgbmVhciBhbmNpZW50IHRlbXBsZXMsIGFuZCBjdXR0aW5nLWVkZ2UgdGVjaG5vbG9neSBjb2V4aXN0cyB3aXRoIGNlbnR1cmllcy1vbGQgY3VzdG9tcy5cblxuVG9reW8gaXMgdGhlIGNvdW50cnkncyBwb2xpdGljYWwsIGVjb25vbWljLCBhbmQgY3VsdHVyYWwgY2VudGVyLCBhbmQgc2VydmVzIGFzIGEgZ2F0ZXdheSBmb3IgbW9zdCB2aXNpdG9ycyB0byBKYXBhbi4ifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6MTcsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjozMjgsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Im5vdF9hdmFpbGFibGUifX0=
+  recorded_at: Mon, 13 Jul 2026 23:09:10 GMT
+recorded_with: VCR 6.4.0

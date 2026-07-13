@@ -9,7 +9,7 @@ module Integration
         include Integration::TestHelper
 
         class PreviewAgent < ActiveAgent::Base
-          generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
+          generate_with :anthropic, model: "claude-sonnet-5"
 
           def comprehensive_test
             prompt(

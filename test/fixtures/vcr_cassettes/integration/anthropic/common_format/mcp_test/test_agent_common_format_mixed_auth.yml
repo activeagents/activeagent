@@ -13,7 +13,7 @@ http_interactions:
       Accept:
       - application/json
       User-Agent:
-      - Anthropic::Client/Ruby 1.14.0
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,7 +23,7 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.14.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
@@ -48,7 +48,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 19 Nov 2025 20:59:19 GMT
+      - Mon, 13 Jul 2026 23:10:27 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -56,72 +56,80 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '4000000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '3996000'
+      - '9994000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-11-19T20:59:15Z'
+      - '2026-07-13T23:10:21Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '800000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '800000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-11-19T20:59:19Z'
+      - '2026-07-13T23:10:27Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '4000'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '3999'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-11-19T20:59:14Z'
-      Retry-After:
-      - '48'
+      - '2026-07-13T23:10:20Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '4800000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '4796000'
+      - '11994000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-11-19T20:59:15Z'
+      - '2026-07-13T23:10:21Z'
       Request-Id:
-      - req_011CVHvJ4R1THMo6Nf89VYaH
+      - req_011CczuBusxfPZxSaT98si76
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '7324'
-      Cf-Cache-Status:
-      - DYNAMIC
-      X-Robots-Tag:
-      - none
+      Traceresponse:
+      - 00-11d77e145385482d3fe01c212212710d-f819fe7a8f99817e-01
       Server:
       - cloudflare
+      Vary:
+      - Accept-Encoding
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - 9a12a1499e84cf2b-SJC
+      - a1abf5ccb846eb20-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01J2Kf9xsv5R5PhDfCctoYJb","type":"message","role":"assistant","content":[{"type":"text","text":"I
-        have access to a comprehensive set of tools for interacting with GitHub and
-        Cloudflare. Here''s what I can do:\n\n## GitHub Repository Management\n- **Create/Fork
-        repositories** - Create new repos or fork existing ones\n- **Branch management**
-        - Create branches, list branches\n- **File operations** - Create, update,
-        delete, and view files in repositories\n- **Commit operations** - View commits,
-        list commits, push multiple files\n\n## GitHub Issues\n- **Create and manage
-        issues** - Create new issues, update existing ones, close issues\n- **Issue
-        comments** - Add comments to issues\n- **Issue search** - Search for issues
-        across repositories\n- **Labels** - Get label information\n- **Sub-issues**
-        - Add, remove, and manage sub-issues\n\n## GitHub Pull Requests\n- **Create
-        and manage PRs** - Create PRs, update PR details, merge PRs\n- **PR reviews**
-        - Create reviews, submit reviews, request Copilot reviews\n- **PR comments**
-        - Add comments and review comments to PRs\n- **PR diff/status** - View PR
-        diffs, file changes, and build status\n- **PR search** - Search for pull requests\n-
-        **PR branch updates** - Update PR branches with latest changes\n\n## GitHub
-        Search & Discovery\n- **Code search** - Search across all GitHub repositories
-        for specific code patterns\n- **User search** - Find GitHub users\n- **Repository
-        search** - Discover repositories by name, topic, or metadata\n\n## GitHub
-        User & Team Info\n- **Get authenticated user info** - View current user profile\n-
-        **Team information** - Get teams you''re a member of and team members\n- **Tags
-        and releases** - View, list, and get specific releases and git tags\n\n##
-        Cloudflare\n- **MCP Demo Day info** - Get information about Cloudflare''s
-        MCP Demo Day\n\nIs there something specific you''d like help with?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":9642,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":420,"service_tier":"standard"}}'
-  recorded_at: Wed, 19 Nov 2025 20:59:19 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011CczuCB61Q6mLnE2ghGV3U","type":"message","role":"assistant","content":[{"type":"text","text":"I
+        have access to a comprehensive set of tools for working with GitHub and Cloudflare.
+        Here''s an overview:\n\n## GitHub Tools\n\n### Repository Management\n- **Create/Fork
+        Repositories**: Create new repos or fork existing ones\n- **Create/Manage
+        Branches**: Create branches and list existing ones\n- **File Operations**:
+        Create, update, delete, and read files; push multiple files in one commit\n\n###
+        Pull Request Operations\n- **Create & Update PRs**: Create, update, and merge
+        pull requests\n- **PR Reviews**: Request Copilot reviews, create/submit/delete
+        reviews, add review comments\n- **PR Information**: Read PR details, diffs,
+        files, commits, reviews, comments, and check runs\n\n### Issue Management\n-
+        **Create & Update Issues**: Create new issues and update existing ones\n-
+        **Issue Reading**: Get issue details, comments, sub-issues, parent issues,
+        and labels\n- **Search Issues**: Search for issues across repositories\n-
+        **Sub-Issues**: Add, remove, and reprioritize sub-issues\n\n### Code & Commit
+        Search\n- **Code Search**: Fast code search across GitHub repositories\n-
+        **Commit Search**: Search commits by message, author, date, and more\n- **Commit
+        Details**: Get specific commit information with stats or full patches\n\n###
+        Collaboration\n- **Comments**: Add comments and reactions to issues and pull
+        requests\n- **Teams**: Get team members and user team memberships\n- **Collaborators**:
+        List repository collaborators\n\n### Advanced Features\n- **Copilot Coding
+        Agent**: Assign tasks to Copilot for automated PR creation and issue resolution\n-
+        **Secret Scanning**: Scan code for exposed secrets like API keys and credentials\n-
+        **Labels**: Get label information from repositories\n- **Releases & Tags**:
+        List, get, and manage releases and git tags\n- **User Info**: Get authenticated
+        user details\n- **Issue Fields & Types**: List custom issue fields and supported
+        issue types\n\n### Pull Request Automation\n- **Copilot Job Status**: Track
+        the status of Copilot coding agent tasks\n\n## Cloudflare Tools\n- **MCP Demo
+        Day Info**: Get information about Cloudflare''s MCP Demo Day\n\nAll of these
+        tools are designed to help you manage repositories, automate workflows, collaborate
+        on code, and maintain project quality through reviews and checks."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":14184,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":510,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Mon, 13 Jul 2026 23:10:27 GMT
+recorded_with: VCR 6.4.0

@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages?beta=true
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"content":"What
-        tools do you have available?","role":"user"}],"max_tokens":1024,"mcp_servers":[{"name":"cloudflare-demo","type":"url","url":"https://demo-day.mcp.cloudflare.com/sse"}]}'
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"What tools do you
+        have available?","role":"user"}],"max_tokens":1024,"mcp_servers":[{"name":"cloudflare-demo","type":"url","url":"https://demo-day.mcp.cloudflare.com/sse"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Anthropic::Client/Ruby 1.14.0
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,7 +23,7 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.14.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
@@ -41,14 +41,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '235'
+      - '224'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Wed, 19 Nov 2025 20:58:57 GMT
+      - Mon, 13 Jul 2026 23:07:28 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -56,55 +56,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '2000000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '2000000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-11-19T20:58:55Z'
+      - '2026-07-13T23:07:26Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '400000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '400000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-11-19T20:58:57Z'
+      - '2026-07-13T23:07:28Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '4000'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '3999'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-11-19T20:58:53Z'
-      Retry-After:
-      - '5'
+      - '2026-07-13T23:07:26Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '2400000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '2400000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-11-19T20:58:55Z'
+      - '2026-07-13T23:07:26Z'
       Request-Id:
-      - req_011CVHvGc3DtPq6RQto2kWgz
+      - req_011Cczty8ze6LYBgbphH6ym7
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '5322'
-      Cf-Cache-Status:
-      - DYNAMIC
-      X-Robots-Tag:
-      - none
+      Traceresponse:
+      - 00-044e2cef755d5eda83e8497fa3332af7-53679045fa9174a4-01
       Server:
       - cloudflare
+      Vary:
+      - Accept-Encoding
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - 9a12a0ce1e6e7af1-SJC
+      - a1abf1922bd6efbd-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-4-5-20250929","id":"msg_01JdaKsKdYckuGXMYcz1pRVS","type":"message","role":"assistant","content":[{"type":"text","text":"I
-        have access to one specialized tool:\n\n1. **cloudflare-demo_mcp_demo_day_info**
-        - This tool provides information about Cloudflare''s MCP Demo Day. I can use
-        it to answer questions about Cloudflare''s MCP demo day event.\n\nThis appears
-        to be a specialized assistant focused on providing information about Cloudflare''s
-        MCP (Model Context Protocol) Demo Day. If you have any questions about that
-        event, feel free to ask and I''ll retrieve the information for you!"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":585,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":115,"service_tier":"standard"}}'
-  recorded_at: Wed, 19 Nov 2025 20:58:57 GMT
-recorded_with: VCR 6.3.1
+      string: !binary |-
+        eyJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNSIsImlkIjoibXNnXzAxMUNjenR5TEtYRW5DZW5zVEE2Tk5YRCIsInR5cGUiOiJtZXNzYWdlIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0aGlua2luZyIsInRoaW5raW5nIjoiIiwic2lnbmF0dXJlIjoiRXNjQ0Nva0JDQThZQWlwQXNha3hnV1VscUpNMEwvb2xJRGNoZmZ4SWJWQjFuQytBNnZML2NUOWUrUFQ3Ri8vQUtRZjZxMDNaMXU1a1VZbndXZTRrbnpPUFpZQTZtOHJSZy91Q0lUSVBZMnhoZFdSbExYTnZibTVsZEMwMU9BQkNDSFJvYVc1cmFXNW5XaVF5TlRVM1l6Sm1NaTFpWTJaaExUUXdOVFF0T1daaE9DMWhaVEV6WWpOaU5EZGtObUlTRE92QktCOURzWHZEUG51azdCb01Ka21Cbll3d1VBQTVZa2Y0SWpCNDJIZVNrN3ZVV1NBbkpWMlNUcXEwVHphR1M4M3JQdzZrYWhGNmZMaUNiQ2h0RGxPYkxjQnJDQi9xOTFHcHdjSXFhLytaT1VPZUw1YnREckV5OUluczhwZmdIS1d0UDNWRDRTT1BxRnJyVWdwaElvQVFkM2Q1QmZQZXpEc3M0UTZLeXZxd0lxU1RiN3ZlWENmQmZiTUpwMWNYQkdUZ3lZUnkvY1RiNEZKRzlwd2FvNmpRQnk1cy8wZnQ4K2E1T1NhOHUyMWZCejN4Um9CelFJc0RHQUU9In0seyJ0eXBlIjoidGV4dCIsInRleHQiOiJJIGN1cnJlbnRseSBoYXZlIGFjY2VzcyB0byBvbmUgdG9vbDpcblxuKipjbG91ZGZsYXJlLWRlbW9fbWNwX2RlbW9fZGF5X2luZm8qKiDigJQgVGhpcyB0b29sIHByb3ZpZGVzIGluZm9ybWF0aW9uIGFib3V0IENsb3VkZmxhcmUncyBNQ1AgKE1vZGVsIENvbnRleHQgUHJvdG9jb2wpIERlbW8gRGF5LiBJIGNhbiB1c2UgaXQgaWYgeW91J2QgbGlrZSB0byBrbm93IGRldGFpbHMgYWJvdXQgdGhhdCBldmVudC5cblxuV291bGQgeW91IGxpa2UgbWUgdG8gbG9vayB1cCBpbmZvcm1hdGlvbiBhYm91dCBDbG91ZGZsYXJlJ3MgTUNQIERlbW8gRGF5PyJ9XSwic3RvcF9yZWFzb24iOiJlbmRfdHVybiIsInN0b3Bfc2VxdWVuY2UiOm51bGwsInN0b3BfZGV0YWlscyI6bnVsbCwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjo0NzAsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjoxMzcsIm91dHB1dF90b2tlbnNfZGV0YWlscyI6eyJ0aGlua2luZ190b2tlbnMiOjI1fSwic2VydmljZV90aWVyIjoic3RhbmRhcmQiLCJpbmZlcmVuY2VfZ2VvIjoiZ2xvYmFsIn19
+  recorded_at: Mon, 13 Jul 2026 23:07:28 GMT
+recorded_with: VCR 6.4.0
