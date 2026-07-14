@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"List
-        three primary colors."}],"max_tokens":1024}'
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"List
+        three primary colors.","role":"user"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Sat, 25 Oct 2025 20:04:33 GMT
+      - Tue, 14 Jul 2026 01:05:37 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,52 +54,55 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '450000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '450000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-25T20:04:33Z'
+      - '2026-07-14T01:05:36Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '90000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '90000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-25T20:04:33Z'
+      - '2026-07-14T01:05:37Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '1000'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '999'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-25T20:04:32Z'
+      - '2026-07-14T01:05:36Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '540000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '540000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-25T20:04:33Z'
+      - '2026-07-14T01:05:36Z'
       Request-Id:
-      - req_011CUUWuQVzind9bb6mBZ144
+      - req_011Cd13yxqXUTPMC2wMDuRJK
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '1136'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-f7186d8bc0738e88f5d4f4ab7f3a7bf9-4868c8700e731c5d-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 994452d7680bce9c-SJC
+      - a1ac9ebadb410dfd-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01PN2EKcdKo6AC1PDDQRAhiq","type":"message","role":"assistant","content":[{"type":"text","text":"The
-        three primary colors are:\n\n1. **Red**\n2. **Yellow**\n3. **Blue**\n\nThese
-        are the traditional primary colors in the RYB (Red-Yellow-Blue) color model
-        used in art and painting."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":12,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":54,"service_tier":"standard"}}'
-  recorded_at: Sat, 25 Oct 2025 20:04:33 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13yy6uALCs8pLviXkoE","type":"message","role":"assistant","content":[{"type":"text","text":"The
+        three primary colors are:\n\n1. **Red**\n2. **Blue**\n3. **Yellow**\n\n(Note:
+        In modern color theory, cyan, magenta, and yellow are considered primary colors
+        in printing, while red, green, and blue are primary in light/digital displays.
+        However, red, blue, and yellow remain the traditional primary colors in art.)"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":12,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":81,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:05:37 GMT
+recorded_with: VCR 6.4.0

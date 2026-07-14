@@ -5,14 +5,15 @@ http_interactions:
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"input":"Extract colors: red, blue, green. Return as json.","model":"gpt-4o","text":{"format":{"type":"json_schema","name":"resume_colors","schema":{"type":"object","properties":{"colors":{"type":"array","items":{"type":"string"}}},"required":["colors"],"additionalProperties":false},"strict":true}}}'
+      string: '{"model":"gpt-4o","input":"Extract colors: red, blue, green. Return
+        as json.","text":{"format":{"type":"json_schema","name":"resume_colors","schema":{"type":"object","properties":{"colors":{"type":"array","items":{"type":"string"}}},"required":["colors"],"additionalProperties":false},"strict":true}}}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - OpenAI::Client/Ruby 0.69.0
       Host:
       - api.openai.com
       X-Stainless-Arch:
@@ -22,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 0.34.1
+      - 0.69.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Openai-Organization:
@@ -47,13 +48,35 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Sun, 26 Oct 2025 19:12:16 GMT
+      - Tue, 14 Jul 2026 01:04:17 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
       - chunked
       Connection:
       - keep-alive
+      Cf-Ray:
+      - a1ac9cc4e8fd91f0-SJC
+      Cf-Cache-Status:
+      - DYNAMIC
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      Access-Control-Expose-Headers:
+      - CF-Ray
+      - CF-Ray
+      - X-Request-ID
+      Openai-Organization:
+      - quiltt-cmriu5
+      Openai-Processing-Ms:
+      - '1047'
+      Openai-Project:
+      - PROJECT_ID
+      Openai-Version:
+      - '2020-10-01'
       X-Ratelimit-Limit-Requests:
       - '10000'
       X-Ratelimit-Limit-Tokens:
@@ -66,57 +89,38 @@ http_interactions:
       - 6ms
       X-Ratelimit-Reset-Tokens:
       - 0s
-      Openai-Version:
-      - '2020-10-01'
-      Openai-Organization:
-      - ORGANIZATION_ID
-      Openai-Project:
-      - PROJECT_ID
       X-Request-Id:
-      - req_2b2fbba878cf435eb266b80a41bcbe54
-      Openai-Processing-Ms:
-      - '1495'
-      X-Envoy-Upstream-Service-Time:
-      - '1501'
-      Cf-Cache-Status:
-      - DYNAMIC
+      - req_9ab49d1c4bd8493dbdb83c9485134e18
       Set-Cookie:
-      - __cf_bm=d1pyAi9tLSIk7zllitBkuLCdRzP5Dg4xGHC7_gCh9ow-1761505936-1.0.1.1-xQeeGZQgtJKZv0Fc3E7Amxm60f1AtiWpRvPmM_7Hkh.bS97GcGrYrS12tzoRWQ8ET4jZ930K9cPHfdawwgmg6t4mfyWk4CAeA8vBwCQdu6M;
-        path=/; expires=Sun, 26-Oct-25 19:42:16 GMT; domain=.api.openai.com; HttpOnly;
-        Secure; SameSite=None
-      - _cfuvid=asEp8B6GXKrYWlvpAKN3ILQhECzPjf6LpPC3kJHcq9Y-1761505936618-0.0.1.1-604800000;
-        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      X-Content-Type-Options:
-      - nosniff
-      Server:
-      - cloudflare
-      Cf-Ray:
-      - 994c439c1c04f94f-SJC
+      - __cf_bm=edqH_WVNZq2OREoN8vTCpeATbWroUI5xFxZs5Aov6Wo-1783991056.1452394-1.0.1.1-krYJkD3KJl6KROF9OR_VlaDsVfkNuNbLeLWrCcNcYob_W.ctnpdotcCZHOdVYKVZ9apMumNoheIs0JsbGZ90Ml5FW2FzZOBPJeFh1._RDUMfnvIuGXGeUaTptHn1mpol;
+        HttpOnly; SameSite=None; Secure; Path=/; Domain=api.openai.com; Expires=Tue,
+        14 Jul 2026 01:34:17 GMT
       Alt-Svc:
       - h3=":443"; ma=86400
     body:
       encoding: ASCII-8BIT
       string: |-
         {
-          "id": "resp_0d76c684bc397c8f0068fe728f1b688194a5bd38301d504274",
+          "id": "resp_06c865affaec01bf006a558b1030a081988f633a665b61a7a5",
           "object": "response",
-          "created_at": 1761505935,
+          "created_at": 1783991056,
           "status": "completed",
           "background": false,
           "billing": {
             "payer": "developer"
           },
+          "completed_at": 1783991057,
           "error": null,
+          "frequency_penalty": 0.0,
           "incomplete_details": null,
           "instructions": null,
           "max_output_tokens": null,
           "max_tool_calls": null,
           "model": "gpt-4o-2024-08-06",
+          "moderation": null,
           "output": [
             {
-              "id": "msg_0d76c684bc397c8f0068fe72903bc88194aab0934159e640de",
+              "id": "msg_06c865affaec01bf006a558b1102008198a0662bfb59d7bc43",
               "type": "message",
               "status": "completed",
               "content": [
@@ -131,9 +135,12 @@ http_interactions:
             }
           ],
           "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
           "previous_response_id": null,
           "prompt_cache_key": null,
+          "prompt_cache_retention": "in_memory",
           "reasoning": {
+            "context": null,
             "effort": null,
             "summary": null
           },
@@ -166,6 +173,24 @@ http_interactions:
             "verbosity": "medium"
           },
           "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
           "tools": [],
           "top_logprobs": 0,
           "top_p": 1.0,
@@ -173,6 +198,7 @@ http_interactions:
           "usage": {
             "input_tokens": 49,
             "input_tokens_details": {
+              "cache_write_tokens": 0,
               "cached_tokens": 0
             },
             "output_tokens": 11,
@@ -184,5 +210,5 @@ http_interactions:
           "user": null,
           "metadata": {}
         }
-  recorded_at: Sun, 26 Oct 2025 19:12:16 GMT
-recorded_with: VCR 6.3.1
+  recorded_at: Tue, 14 Jul 2026 01:04:17 GMT
+recorded_with: VCR 6.4.0

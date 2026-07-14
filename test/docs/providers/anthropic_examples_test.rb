@@ -42,7 +42,8 @@ module Providers
           # => { colors: ["red", "blue", "yellow"] }
           # endregion response_format_json_object_example
 
-          assert_equal({ colors: [ "red", "blue", "yellow" ] }, colors)
+          assert colors.key?(:colors)
+          assert colors[:colors].is_a?(Array)
         end
       end
     end

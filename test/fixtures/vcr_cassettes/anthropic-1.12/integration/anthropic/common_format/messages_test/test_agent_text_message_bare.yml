@@ -1,0 +1,120 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"Explain
+        quantum computing in bare terms.","role":"user"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.12.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '128'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Mon, 13 Jul 2026 23:11:56 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '10000000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '10000000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2026-07-13T23:11:52Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '2000000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '2000000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2026-07-13T23:11:56Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '20000'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '19999'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2026-07-13T23:11:51Z'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '12000000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '12000000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2026-07-13T23:11:52Z'
+      Request-Id:
+      - req_011CczuJtb2LbgSGs4EcRvF6
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      Traceresponse:
+      - 00-3b74c4d82a93825ef9a9fbf27c197053-4a1baa9a538a279f-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Ray:
+      - a1abf81cc8dbcc7e-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011CczuJu3JwiZp9iWsaQSWv","type":"message","role":"assistant","content":[{"type":"text","text":"#
+        Quantum Computing Basics\n\n## Regular computers use bits\n- Each bit is either
+        **0 or 1**\n- All calculations built from these binary choices\n\n## Quantum
+        computers use qubits\n- A qubit can be **0, 1, or both simultaneously** (called
+        \"superposition\")\n- This is the key difference\n\n## Why it matters\n- A
+        regular bit: solves one path at a time\n- A qubit: explores many paths at
+        once\n\n**Simple analogy:** Imagine a maze. A regular computer tries one route,
+        hits a dead end, backtracks, tries another. A quantum computer walks all routes
+        simultaneously and finds the exit faster.\n\n## The catch\n- Qubits are extremely
+        fragile and sensitive to interference\n- They \"collapse\" into 0 or 1 when
+        measured\n- Currently limited in what problems they can solve better than
+        regular computers\n- Need extreme cold to operate (~near absolute zero)\n\n##
+        Practical impact (so far)\n- **Good at:** drug discovery, optimization problems,
+        cryptography\n- **Not good at:** everything regular computers do (email, video,
+        gaming)\n- Still mostly experimental technology\n\n**Bottom line:** They''re
+        incredibly fast at specific puzzle-solving tasks, but not replacements for
+        your laptop."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":15,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":279,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Mon, 13 Jul 2026 23:11:56 GMT
+recorded_with: VCR 6.3.1

@@ -5,17 +5,17 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"What''s
-        the weather in San Francisco?"}],"max_tokens":1024,"tools":[{"name":"get_weather","description":"Get
-        the current weather in a given location","input_schema":{"type":"object","properties":{"location":{"type":"string","description":"The
-        city and state, e.g. San Francisco, CA"}},"required":["location"]}}],"tool_choice":{"type":"auto"}}'
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"What''s the weather
+        in San Francisco?","role":"user"}],"max_tokens":1024,"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"}},"required":["location"]},"name":"get_weather","description":"Get
+        the current weather in a given location"}],"tool_choice":{"type":"auto"}}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -25,11 +25,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -41,14 +41,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '417'
+      - '406'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:48:01 GMT
+      - Tue, 14 Jul 2026 01:07:58 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -56,70 +56,74 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-18T03:48:01Z'
+      - '2026-07-14T01:07:57Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-18T03:48:01Z'
+      - '2026-07-14T01:07:58Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-18T03:48:00Z'
+      - '2026-07-14T01:07:57Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-18T03:48:01Z'
+      - '2026-07-14T01:07:57Z'
       Request-Id:
-      - req_011CUDymr31tu4ixq59KGTEs
+      - req_011Cd14AKn8jBuFix3d92J8m
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '2033'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-3df01c09deaa21b8adb7a86cfc096070-8e17bf4e0d476cc8-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 99050eb89e4aeb32-SJC
+      - a1aca2295e4037c1-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-4-5-20250929","id":"msg_01D9UN2Z6pGJCvXQTeH3mVsV","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_014Lzuofpz7Fw3bom6pqBxiA","name":"get_weather","input":{"location":"San
-        Francisco, CA"}}],"stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":585,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":56,"service_tier":"standard"}}'
-  recorded_at: Sat, 18 Oct 2025 03:48:01 GMT
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd14ALDg6h33V6QnMJfCT","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"","signature":"EsgCCokBCA8YAipAPli/+o0KoSAruDCc9DUI5o64QQnFHhRl2ZT7OLRA2Yno5OX9JYvNi/nGziSj0jHK1Q8zUKXHYiY3a8fjkkSXzzIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQyNTU3YzJmMi1iY2ZhLTQwNTQtOWZhOC1hZTEzYjNiNDdkNmISDFoubCLUAXjD1OpI9hoMe6gglOxJ+PJMC2cnIjBcmb1JKxMGA7Gvbd1kPpBSHGt0l29m9yUQ79Cc48ExWSIkiCy0KROPzbmatb66Tz4qbBukmoRlGN9jQTtwePfWLKbu7/wiidArTpc50wcyjQvbAs9ulQT4B2GQ2rgFhVwp5dcZe7n+RMHGSbxSCmD8LFC0KPdrJLzEOtUXYOs4jYIE6LausHlaqWgC1/yxbq/9ba0HQrAMqOaEqU+w9xgB"},{"type":"text","text":"I''ll
+        check the weather in San Francisco for you."},{"type":"tool_use","id":"toolu_012EqZhJ1Pu29Kk5ZBAUxDgg","name":"get_weather","input":{"location":"San
+        Francisco, CA"},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":466,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":101,"output_tokens_details":{"thinking_tokens":28},"service_tier":"standard","inference_geo":"global"}}'
+  recorded_at: Tue, 14 Jul 2026 01:07:58 GMT
 - request:
     method: post
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"What''s
-        the weather in San Francisco?"},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_014Lzuofpz7Fw3bom6pqBxiA","name":"get_weather","input":{"location":"San
-        Francisco, CA"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_014Lzuofpz7Fw3bom6pqBxiA","content":"{\"location\":\"San
-        Francisco, CA\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}"}]}],"max_tokens":1024,"tools":[{"name":"get_weather","description":"Get
-        the current weather in a given location","input_schema":{"type":"object","properties":{"location":{"type":"string","description":"The
-        city and state, e.g. San Francisco, CA"}},"required":["location"]}}],"tool_choice":{"type":"auto"}}'
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"What''s the weather
+        in San Francisco?","role":"user"},{"content":[{"signature":"EsgCCokBCA8YAipAPli/+o0KoSAruDCc9DUI5o64QQnFHhRl2ZT7OLRA2Yno5OX9JYvNi/nGziSj0jHK1Q8zUKXHYiY3a8fjkkSXzzIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQyNTU3YzJmMi1iY2ZhLTQwNTQtOWZhOC1hZTEzYjNiNDdkNmISDFoubCLUAXjD1OpI9hoMe6gglOxJ+PJMC2cnIjBcmb1JKxMGA7Gvbd1kPpBSHGt0l29m9yUQ79Cc48ExWSIkiCy0KROPzbmatb66Tz4qbBukmoRlGN9jQTtwePfWLKbu7/wiidArTpc50wcyjQvbAs9ulQT4B2GQ2rgFhVwp5dcZe7n+RMHGSbxSCmD8LFC0KPdrJLzEOtUXYOs4jYIE6LausHlaqWgC1/yxbq/9ba0HQrAMqOaEqU+w9xgB","thinking":"","type":"thinking"},{"text":"I''ll
+        check the weather in San Francisco for you.","type":"text"},{"id":"toolu_012EqZhJ1Pu29Kk5ZBAUxDgg","input":{"location":"San
+        Francisco, CA"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_012EqZhJ1Pu29Kk5ZBAUxDgg","type":"tool_result","content":"{\"location\":\"San
+        Francisco, CA\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false}],"role":"user"}],"max_tokens":1024,"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string","description":"The
+        city and state, e.g. San Francisco, CA"}},"required":["location"]},"name":"get_weather","description":"Get
+        the current weather in a given location"}],"tool_choice":{"type":"auto"}}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -129,11 +133,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -145,14 +149,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '768'
+      - '1368'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:48:03 GMT
+      - Tue, 14 Jul 2026 01:08:00 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -160,50 +164,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-18T03:48:03Z'
+      - '2026-07-14T01:08:00Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-18T03:48:03Z'
+      - '2026-07-14T01:08:00Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-18T03:48:02Z'
+      - '2026-07-14T01:07:58Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-18T03:48:03Z'
+      - '2026-07-14T01:08:00Z'
       Request-Id:
-      - req_011CUDyn1H8oR4K4GNrPVhKf
+      - req_011Cd14AT5RkU6aMtD55Rqab
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '2119'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-2e636c0a5dbf7f9e83b186491e9e7906-a50d36ab5287ab34-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 99050ec61c6115e3-SJC
+      - a1aca234096cfa49-SJC
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNC01LTIwMjUwOTI5IiwiaWQiOiJtc2dfMDFNUEJYS3A3OFUxUTJoRFRlR3BIc1BaIiwidHlwZSI6Im1lc3NhZ2UiLCJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiVGhlIGN1cnJlbnQgd2VhdGhlciBpbiBTYW4gRnJhbmNpc2NvLCBDQSBpcyBzdW5ueSB3aXRoIGEgdGVtcGVyYXR1cmUgb2YgNzLCsEYuIn1dLCJzdG9wX3JlYXNvbiI6ImVuZF90dXJuIiwic3RvcF9zZXF1ZW5jZSI6bnVsbCwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjo2NzIsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjoyMiwic2VydmljZV90aWVyIjoic3RhbmRhcmQifX0=
-  recorded_at: Sat, 18 Oct 2025 03:48:03 GMT
-recorded_with: VCR 6.3.1
+        eyJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNSIsImlkIjoibXNnXzAxMUNkMTRBVFV6S3ZMOTR4M205SG8zVSIsInR5cGUiOiJtZXNzYWdlIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6IlRoZSB3ZWF0aGVyIGluIFNhbiBGcmFuY2lzY28sIENBIGlzIGN1cnJlbnRseSAqKjcywrBGIGFuZCBzdW5ueSoqLiBBIGJlYXV0aWZ1bCBkYXkgdG8gYmUgb3V0c2lkZSEifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6NjA0LCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6MzgsIm91dHB1dF90b2tlbnNfZGV0YWlscyI6eyJ0aGlua2luZ190b2tlbnMiOjB9LCJzZXJ2aWNlX3RpZXIiOiJzdGFuZGFyZCIsImluZmVyZW5jZV9nZW8iOiJnbG9iYWwifX0=
+  recorded_at: Tue, 14 Jul 2026 01:08:00 GMT
+recorded_with: VCR 6.4.0

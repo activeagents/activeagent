@@ -23,7 +23,7 @@ module Integration
           end
 
           # Validate that the 1st recorded request matches our expectations
-          cassette_file = YAML.load_file("test/fixtures/vcr_cassettes/#{cassette_name}.yml")
+          cassette_file = YAML.load_file("#{VCR_CASSETTE_DIR}/#{cassette_name}.yml")
           saved_request_body = JSON.parse(cassette_file.dig("http_interactions", 0, "request", "body", "string"), symbolize_names: true)
 
           assert_equal expected_request_body, saved_request_body

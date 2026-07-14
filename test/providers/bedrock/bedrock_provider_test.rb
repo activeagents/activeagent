@@ -13,7 +13,7 @@ class BedrockProviderTest < ActiveSupport::TestCase
       aws_region: "eu-west-2",
       aws_access_key: "test-access-key",
       aws_secret_key: "test-secret-key",
-      model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      model: "eu.anthropic.claude-sonnet-5-v1:0",
       messages: [ { role: "user", content: "Hello" } ]
     }
   end
@@ -74,7 +74,7 @@ class BedrockProviderTest < ActiveSupport::TestCase
       service: "Bedrock",
       aws_region: "eu-west-2",
       aws_bearer_token: "test-bearer-token",
-      model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      model: "eu.anthropic.claude-sonnet-5-v1:0",
       messages: [ { role: "user", content: "Hello" } ]
     }
 
@@ -96,7 +96,7 @@ class BedrockProviderTest < ActiveSupport::TestCase
       service: "Bedrock",
       aws_region: "eu-west-2",
       aws_bearer_token: "test-bearer-token",
-      model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      model: "eu.anthropic.claude-sonnet-5-v1:0"
     }
 
     provider = ActiveAgent::Providers::BedrockProvider.new(bearer_config)
@@ -122,7 +122,7 @@ class BedrockProviderTest < ActiveSupport::TestCase
       service: "Bedrock",
       aws_region: "eu-west-2",
       aws_bearer_token: "test-bearer-token",
-      model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      model: "eu.anthropic.claude-sonnet-5-v1:0",
       initial_retry_delay: 2.0,
       max_retry_delay: 30.0
     }

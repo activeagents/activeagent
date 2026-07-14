@@ -5,16 +5,16 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-haiku-4-5","messages":[{"role":"assistant","content":"I
-        can help you with programming questions."},{"role":"user","content":"What
-        are the benefits of using ActiveRecord?"}],"max_tokens":1024}'
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"I
+        can help you with programming questions.","role":"assistant"},{"content":"What
+        are the benefits of using ActiveRecord?","role":"user"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -24,11 +24,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -47,7 +47,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 20 Oct 2025 19:07:03 GMT
+      - Tue, 14 Jul 2026 01:04:43 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -55,71 +55,72 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-20T19:07:00Z'
+      - '2026-07-14T01:04:40Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-20T19:07:05Z'
+      - '2026-07-14T01:04:43Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-20T19:07:00Z'
+      - '2026-07-14T01:04:40Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-20T19:07:00Z'
+      - '2026-07-14T01:04:40Z'
       Request-Id:
-      - req_011CUJyUHNHThUBatRJcqJiv
+      - req_011Cd13upLh6aGn4Gr8HbquA
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '4016'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-8237772ceda856b6fd7176de9de5b492-05961ecfcffdc193-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 991acba95c5622d2-SJC
+      - a1ac9d5b3eee5527-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01TMUAweNTtjC8AiNVgkEXca","type":"message","role":"assistant","content":[{"type":"text","text":"#
-        Benefits of ActiveRecord\n\nActiveRecord is an Object-Relational Mapping (ORM)
-        library, primarily used in Ruby on Rails. Here are its key benefits:\n\n##
-        1. **Simplified Database Interaction**\n- Write less SQL code\n- Use Ruby
-        objects instead of raw queries\n- Intuitive, readable syntax\n\n## 2. **Rapid
-        Development**\n- Quickly scaffold models and migrations\n- Built-in CRUD operations\n-
-        Less boilerplate code\n\n## 3. **Database Abstraction**\n- Switch databases
-        with minimal code changes\n- Works with PostgreSQL, MySQL, SQLite, etc.\n-
-        Database-agnostic queries\n\n## 4. **Built-in Validations**\n- Validate data
-        before saving to database\n- Reduce duplicate validation logic\n- Consistent
-        error handling\n\n## 5. **Associations**\n- Easily define relationships (has_many,
-        belongs_to, etc.)\n- Automatic join queries\n- Reduces manual relationship
-        management\n\n## 6. **Security Features**\n- Protection against SQL injection\n-
-        Parameter sanitization built-in\n- Secure by default\n\n## 7. **Conventions
-        Over Configuration**\n- Follow Rails conventions = less configuration needed\n-
-        Predictable naming patterns\n- Faster onboarding for new developers\n\n##
-        8. **Rich Query Interface**\n- Chainable query methods\n- Lazy evaluation
-        (queries execute only when needed)\n- Complex queries without raw SQL\n\n##
-        9. **Migrations**\n- Version control for database schema\n- Easy rollbacks\n-
-        Team collaboration on schema changes\n\n## 10. **Callbacks & Hooks**\n- Execute
-        code at specific model lifecycle points\n- before_save, after_create, etc.\n-
-        Automate common patterns\n\nWould you like me to elaborate on any of these
-        benefits?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":39,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":405,"service_tier":"standard"}}'
-  recorded_at: Mon, 20 Oct 2025 19:07:03 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13upbpPCvwTiCPWe1JF","type":"message","role":"assistant","content":[{"type":"text","text":"#
+        Benefits of ActiveRecord\n\nActiveRecord is Rails'' Object-Relational Mapping
+        (ORM) layer. Here are its key benefits:\n\n## 1. **Simplified Database Interactions**\n-
+        Write database queries in Ruby instead of SQL\n- Reduces context switching
+        between languages\n- More intuitive for Ruby developers\n\n## 2. **Less Boilerplate
+        Code**\n```ruby\n# ActiveRecord - Clean and simple\nUser.where(active: true)\n\n#
+        vs Raw SQL - More verbose\nconnection.execute(\"SELECT * FROM users WHERE
+        active = true\")\n```\n\n## 3. **Automatic Schema Mapping**\n- Models automatically
+        map to database tables\n- Column types are inferred from the database\n- No
+        manual configuration needed\n\n## 4. **Built-in Validations**\n```ruby\nclass
+        User < ApplicationRecord\n  validates :email, presence: true, uniqueness:
+        true\nend\n```\n\n## 5. **Associations Made Easy**\n```ruby\nclass Post <
+        ApplicationRecord\n  belongs_to :user\n  has_many :comments\nend\n```\n\n##
+        6. **Database Agnostic**\n- Switch between PostgreSQL, MySQL, SQLite, etc.
+        with minimal code changes\n\n## 7. **Safety Features**\n- SQL injection protection
+        through parameterized queries\n- Built-in escaping and sanitization\n\n##
+        8. **Migrations**\n- Version control for database schema\n- Easy rollbacks
+        and team collaboration\n\n## 9. **Lazy Loading & Query Optimization**\n- Queries
+        only execute when needed\n- Supports eager loading to prevent N+1 problems\n\n##
+        10. **Rich Ecosystem**\n- Gems that extend functionality (Devise, Pundit,
+        etc.)\n- Community best practices well-documented\n\nWould you like me to
+        elaborate on any of these benefits?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":39,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":408,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:43 GMT
+recorded_with: VCR 6.4.0

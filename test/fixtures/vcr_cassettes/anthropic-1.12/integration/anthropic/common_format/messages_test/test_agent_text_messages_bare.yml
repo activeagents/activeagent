@@ -1,0 +1,106 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":[{"text":"Tell
+        me a fun fact about Ruby programming.","type":"text"},{"text":"Now explain
+        why that''s interesting.","type":"text"}],"role":"user"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.12.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '216'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Mon, 13 Jul 2026 23:11:39 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '10000000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '10000000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2026-07-13T23:11:35Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '2000000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '2000000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2026-07-13T23:11:39Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '20000'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '19999'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2026-07-13T23:11:35Z'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '12000000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '12000000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2026-07-13T23:11:35Z'
+      Request-Id:
+      - req_011CczuHgis2aoaQiBK6pUnN
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      Traceresponse:
+      - 00-20a8aa865992c6f6572dea84a333bdb1-865f905dd66427eb-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Cf-Ray:
+      - a1abf7b6cd0e7396-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDY3p1SGd5ektIclZEbWk1SHJOdWQiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiIjIEZ1biBGYWN0OiBSdWJ5J3MgQ3JlYXRvciBXYW50ZWQgYSBcIkZ1blwiIExhbmd1YWdlXG5cblJ1Ynkgd2FzIGNyZWF0ZWQgYnkgWXVraWhpcm8gTWF0c3Vtb3RvIGluIDE5OTUgc3BlY2lmaWNhbGx5IHRvIG1ha2UgcHJvZ3JhbW1lcnMgaGFwcHkuIEhlIG5hbWVkIGl0IFwiUnVieVwiIChpbnNwaXJlZCBieSB0aGUgZ2Vtc3RvbmUpIGFuZCBkZXNpZ25lZCBpdCB0byBwcmlvcml0aXplICpkZXZlbG9wZXIgaGFwcGluZXNzKiBvdmVyIHJhdyBleGVjdXRpb24gc3BlZWTigJRhbGxvd2luZyBmb3IgcmVhZGFibGUsIGVsZWdhbnQgY29kZSB0aGF0IGZlZWxzIG1vcmUgbGlrZSB3cml0aW5nIEVuZ2xpc2ggdGhhbiB0cmFkaXRpb25hbCBwcm9ncmFtbWluZy5cblxuIyMgV2h5IFRoYXQncyBJbnRlcmVzdGluZzpcblxuKipJdCBpbnZlcnRlZCB0eXBpY2FsIHByb2dyYW1taW5nIHByaW9yaXRpZXMuKiogTW9zdCBsYW5ndWFnZXMgd2VyZSBvcHRpbWl6ZWQgZm9yIGNvbXB1dGVyIGVmZmljaWVuY3kgb3IgbWF0aGVtYXRpY2FsIHB1cml0eS4gTWF0c3Vtb3RvIHNhaWQ6ICpcIldoYXQgaWYgd2Ugb3B0aW1pemVkIGZvciBodW1hbiBqb3kgaW5zdGVhZD9cIipcblxuVGhpcyBkZXNpZ24gcGhpbG9zb3BoeSBjYXNjYWRlZCBpbnRvIFJ1YnkncyBlbnRpcmUgZWNvc3lzdGVtOlxuXG4tICoqUmVhZGFibGUgc3ludGF4KiogLSBgYXJyYXkuZWFjaCB7IHxpdGVtfCBwdXRzIGl0ZW0gfWAgaW5zdGVhZCBvZiB2ZXJib3NlIGxvb3BzXG4tICoqQWN0aXZlIFJhaWxzKiogLSBXZWIgZGV2ZWxvcG1lbnQgYmVjYW1lIGRyYW1hdGljYWxseSBmYXN0ZXJcbi0gKipDb21tdW5pdHkgY3VsdHVyZSoqIC0gVGhlIGxhbmd1YWdlIGFjdGl2ZWx5IGF0dHJhY3RzIHBlb3BsZSB3aG8gdmFsdWUgZWxlZ2FudCBzb2x1dGlvbnMgYW5kIGNvbGxhYm9yYXRpb25cbi0gKipSZWFsIGJ1c2luZXNzIGltcGFjdCoqIC0gQ29tcGFuaWVzIGxpa2UgR2l0SHViLCBBaXJibmIsIGFuZCBTaG9waWZ5IHdlcmUgYnVpbHQgb24gUnVieSBiZWNhdXNlIHRoZSBoYXBwaW5lc3MgZmFjdG9yIG1lYW50IGRldmVsb3BlcnMgY291bGQgbW92ZSBmYXN0ZXJcblxuSXQncyBhIHJlbWluZGVyIHRoYXQgKipjb25zdHJhaW50cyB3ZSB0aGluayBhcmUgbmVjZXNzYXJ5IG9mdGVuIGFyZW4ndCoqLiBCeSBhc2tpbmcgXCJ3aGF0IGlmIHdlIHByaW9yaXRpemVkIGRpZmZlcmVudGx5P1wiIE1hdHN1bW90byBjcmVhdGVkIHNvbWV0aGluZyB0aGF0IGluZmx1ZW5jZWQgaG93IGFuIGVudGlyZSBnZW5lcmF0aW9uIHRoaW5rcyBhYm91dCBzb2Z0d2FyZSBkZXNpZ24uIEl0IHNob3dzIHRoYXQgc29tZXRpbWVzIHRoZSBtb3N0IFwiaW1wcmFjdGljYWxcIiBjaG9pY2XigJRvcHRpbWl6aW5nIGZvciBqb3nigJRjcmVhdGVzIGVub3Jtb3VzIHByYWN0aWNhbCB2YWx1ZS4ifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6MjMsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjozMDUsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Im5vdF9hdmFpbGFibGUifX0=
+  recorded_at: Mon, 13 Jul 2026 23:11:39 GMT
+recorded_with: VCR 6.3.1

@@ -23,7 +23,7 @@ module Docs
 
       # region anthropic_json_agent
       class AnthropicAgent < ApplicationAgent
-        generate_with :anthropic, model: "claude-3-5-sonnet-latest"
+        generate_with :anthropic, model: "claude-haiku-4-5"
 
         def extract
           prompt(

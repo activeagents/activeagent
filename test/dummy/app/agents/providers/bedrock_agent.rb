@@ -11,7 +11,7 @@ module Providers
   #   response.message.content  #=> "Hi! How can I help you today?"
   # region agent
   class BedrockAgent < ApplicationAgent
-    generate_with :bedrock, model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    generate_with :bedrock, model: "eu.anthropic.claude-sonnet-5-v1:0"
 
     # @return [ActiveAgent::Generation]
     def ask

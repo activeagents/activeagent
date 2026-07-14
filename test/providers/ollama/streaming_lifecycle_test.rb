@@ -34,6 +34,10 @@ module Providers
         def as_json
           { content: content, role: role }.compact
         end
+
+        def deep_to_h
+          to_h.compact
+        end
       end
 
       MockChunkEvent = Struct.new(:type, :chunk, keyword_init: true)

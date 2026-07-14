@@ -14,7 +14,7 @@ http_interactions:
       Accept:
       - application/json
       User-Agent:
-      - Anthropic::Client/Ruby 1.14.0
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -24,11 +24,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.14.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -47,7 +47,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 19 Nov 2025 05:13:47 GMT
+      - Tue, 14 Jul 2026 01:04:26 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -55,60 +55,62 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '4000000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '4000000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-11-19T05:13:47Z'
+      - '2026-07-14T01:04:26Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '800000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '800000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-11-19T05:13:47Z'
+      - '2026-07-14T01:04:26Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '4000'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '3999'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-11-19T05:13:46Z'
-      Retry-After:
-      - '13'
+      - '2026-07-14T01:04:26Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '4800000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '4800000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-11-19T05:13:47Z'
+      - '2026-07-14T01:04:26Z'
       Request-Id:
-      - req_011CVGgCZL1VuQAp6qtQtH4E
+      - req_011Cd13tmXVbaFsQLXf2Mve1
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '1053'
+      Traceresponse:
+      - 00-a845ed304db88d8b9294294485349d5d-6ae9abfeed0b6d6f-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 9a0d38619d7e5c1f-SJC
+      - a1ac9d026d78306f-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01GrmnfB317zDPsKT3smbXAw","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_018gB1gszzTHn8ajnaihUDVH","name":"get_weather","input":{"location":"current
-        location"}}],"stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":650,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":39,"service_tier":"standard"}}'
-  recorded_at: Wed, 19 Nov 2025 05:13:47 GMT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13tmn8DYXHB4ss4AUgm","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01NZuothcKGJ5dsiBrJnPPAJ","name":"get_weather","input":{"location":"current
+        location"},"caller":{"type":"direct"}}],"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":650,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":39,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:26 GMT
 - request:
     method: post
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
       string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What''s
-        the weather?","role":"user"},{"content":[{"id":"toolu_018gB1gszzTHn8ajnaihUDVH","input":{"location":"current
-        location"},"name":"get_weather","type":"tool_use"}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_018gB1gszzTHn8ajnaihUDVH","type":"tool_result","content":"{\"location\":\"current
+        the weather?","role":"user"},{"content":[{"id":"toolu_01NZuothcKGJ5dsiBrJnPPAJ","input":{"location":"current
+        location"},"name":"get_weather","type":"tool_use","caller":{"type":"direct"}}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_01NZuothcKGJ5dsiBrJnPPAJ","type":"tool_result","content":"{\"location\":\"current
         location\",\"temperature\":\"72°F\",\"conditions\":\"sunny\"}","is_error":false}],"role":"user"}],"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
         weather"}]}'
     headers:
@@ -117,7 +119,7 @@ http_interactions:
       Accept:
       - application/json
       User-Agent:
-      - Anthropic::Client/Ruby 1.14.0
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -127,11 +129,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.14.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -143,14 +145,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '635'
+      - '662'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Wed, 19 Nov 2025 05:13:48 GMT
+      - Tue, 14 Jul 2026 01:04:28 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -158,50 +160,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '4000000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '4000000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-11-19T05:13:48Z'
+      - '2026-07-14T01:04:27Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '800000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '800000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-11-19T05:13:48Z'
+      - '2026-07-14T01:04:28Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '4000'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '3999'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-11-19T05:13:47Z'
-      Retry-After:
-      - '12'
+      - '2026-07-14T01:04:26Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '4800000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '4800000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-11-19T05:13:48Z'
+      - '2026-07-14T01:04:27Z'
       Request-Id:
-      - req_011CVGgCeejuG18Mghs594NC
+      - req_011Cd13tq3pjPuW3Fg3DJpw4
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '1120'
-      Cf-Cache-Status:
-      - DYNAMIC
-      X-Robots-Tag:
-      - none
+      Traceresponse:
+      - 00-bbff99213680ef9fbd5bb1d425477138-d436b29b5c44c7ad-01
       Server:
       - cloudflare
+      Vary:
+      - Accept-Encoding
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - 9a0d38695f81fac6-SJC
+      - a1ac9d076914cf16-SJC
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMVlRaWNTTktxa3FESjQxYlNGelB4U2IiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJUaGUgd2VhdGhlciBhdCB5b3VyIGN1cnJlbnQgbG9jYXRpb24gaXM6XG4tICoqVGVtcGVyYXR1cmUqKjogNzLCsEZcbi0gKipDb25kaXRpb25zKio6IFN1bm55XG5cbkl0J3MgYSBuaWNlIHN1bm55IGRheSEgSXMgdGhlcmUgYW55dGhpbmcgZWxzZSB5b3UnZCBsaWtlIHRvIGtub3cgYWJvdXQgdGhlIHdlYXRoZXI/In1dLCJzdG9wX3JlYXNvbiI6ImVuZF90dXJuIiwic3RvcF9zZXF1ZW5jZSI6bnVsbCwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjo2NDEsImNhY2hlX2NyZWF0aW9uX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjAsImNhY2hlX2NyZWF0aW9uIjp7ImVwaGVtZXJhbF81bV9pbnB1dF90b2tlbnMiOjAsImVwaGVtZXJhbF8xaF9pbnB1dF90b2tlbnMiOjB9LCJvdXRwdXRfdG9rZW5zIjo0OSwic2VydmljZV90aWVyIjoic3RhbmRhcmQifX0=
-  recorded_at: Wed, 19 Nov 2025 05:13:48 GMT
-recorded_with: VCR 6.3.1
+        eyJtb2RlbCI6ImNsYXVkZS1oYWlrdS00LTUtMjAyNTEwMDEiLCJpZCI6Im1zZ18wMTFDZDEzdHFXY0g1Qm92MzFUUzNiZmgiLCJ0eXBlIjoibWVzc2FnZSIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJCYXNlZCBvbiB0aGUgY3VycmVudCB3ZWF0aGVyIGRhdGEsIGhlcmUncyB3aGF0IGl0IGxvb2tzIGxpa2U6XG5cbi0gKipUZW1wZXJhdHVyZToqKiA3MsKwRlxuLSAqKkNvbmRpdGlvbnM6KiogU3VubnlcblxuSXQncyBhIHBsZWFzYW50LCBzdW5ueSBkYXkgd2l0aCBtaWxkIHRlbXBlcmF0dXJlcyEgSG93ZXZlciwgSSBzaG91bGQgbm90ZSB0aGF0IHRvIGdpdmUgeW91IG1vcmUgYWNjdXJhdGUgd2VhdGhlciBpbmZvcm1hdGlvbiwgSSB3b3VsZCBuZWVkIHRvIGtub3cgeW91ciBzcGVjaWZpYyBsb2NhdGlvbi4gSWYgeW91J2QgbGlrZSB3ZWF0aGVyIGZvciBhIHBhcnRpY3VsYXIgY2l0eSBvciByZWdpb24sIHBsZWFzZSBsZXQgbWUga25vdyBhbmQgSSBjYW4gZ2V0IG1vcmUgZGV0YWlsZWQgaW5mb3JtYXRpb24gZm9yIHlvdS4ifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJzdG9wX2RldGFpbHMiOm51bGwsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6NjQxLCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6OTUsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Im5vdF9hdmFpbGFibGUifX0=
+  recorded_at: Tue, 14 Jul 2026 01:04:28 GMT
+recorded_with: VCR 6.4.0
