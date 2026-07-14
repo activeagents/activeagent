@@ -10,10 +10,10 @@ module Integration
 
         # Case 1: Agent without instructions (no instructions set in test agent)
         class NoInstructionsAgent < ActiveAgent::Base
-          generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
+          generate_with :anthropic, model: "claude-sonnet-5"
 
           BASIC_REQUEST = {
-            model: "claude-sonnet-4-5-20250929",
+            model: "claude-sonnet-5",
             messages: [
               {
                 role: "user",
@@ -33,7 +33,7 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            model: "claude-sonnet-4-5-20250929",
+            model: "claude-sonnet-5",
             system: "You are an overridden assistant.",
             messages: [
               {
@@ -57,10 +57,10 @@ module Integration
 
         # Case 2: Agent auto loads instructions from template (no instructions set in Test Agent, looked by name)
         class AutoTemplateAgent < ActiveAgent::Base
-          generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
+          generate_with :anthropic, model: "claude-sonnet-5"
 
           BASIC_REQUEST = {
-            model: "claude-sonnet-4-5-20250929",
+            model: "claude-sonnet-5",
             system: "Default auto-loaded instructions for testing.",
             messages: [
               {
@@ -81,7 +81,7 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            model: "claude-sonnet-4-5-20250929",
+            model: "claude-sonnet-5",
             system: "You are an overridden assistant.",
             messages: [
               {
@@ -106,11 +106,11 @@ module Integration
         # Case 3: Agent has instructions set via generate_with instructions:
         class ConfiguredInstructionsAgent < ActiveAgent::Base
           generate_with :anthropic,
-                        model: "claude-sonnet-4-5-20250929",
+                        model: "claude-sonnet-5",
                         instructions: "You are a configured assistant with default instructions."
 
           BASIC_REQUEST = {
-            model: "claude-sonnet-4-5-20250929",
+            model: "claude-sonnet-5",
             system: "You are a configured assistant with default instructions.",
             messages: [
               {
@@ -131,7 +131,7 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            model: "claude-sonnet-4-5-20250929",
+            model: "claude-sonnet-5",
             system: "You are an overridden assistant.",
             messages: [
               {
@@ -156,11 +156,11 @@ module Integration
         # Case 4: Agent with array of system instructions
         class ArrayInstructionsAgent < ActiveAgent::Base
           generate_with :anthropic,
-                        model: "claude-sonnet-4-5-20250929",
+                        model: "claude-sonnet-5",
                         instructions: [ "You are a helpful assistant.", "Always be polite and professional." ]
 
           BASIC_REQUEST = {
-            model: "claude-sonnet-4-5-20250929",
+            model: "claude-sonnet-5",
             system: [
               { type: "text", text: "You are a helpful assistant." },
               { type: "text", text: "Always be polite and professional." }
@@ -184,7 +184,7 @@ module Integration
           end
 
           BASIC_REQUEST_WITH_OVERRIDE = {
-            model: "claude-sonnet-4-5-20250929",
+            model: "claude-sonnet-5",
             system: [
               { type: "text", text: "You are an overridden assistant." },
               { type: "text", text: "Please respond concisely." }

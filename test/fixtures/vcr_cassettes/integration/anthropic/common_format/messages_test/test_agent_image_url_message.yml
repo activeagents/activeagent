@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":[{"type":"text","text":"What''s
-        in this image?"},{"type":"image","source":{"type":"url","url":"https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png?scale-down-to=64"}}]}],"max_tokens":1024}'
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":[{"text":"What''s
+        in this image?","type":"text"},{"source":{"type":"url","url":"https://framerusercontent.com/images/oEx786EYW2ZVL4Xf9hparOVLjHI.png?scale-down-to=64"},"type":"image"}],"role":"user"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Mon, 20 Oct 2025 05:56:44 GMT
+      - Tue, 14 Jul 2026 01:04:40 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,55 +54,55 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-20T05:56:43Z'
+      - '2026-07-14T01:04:39Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-20T05:56:45Z'
+      - '2026-07-14T01:04:40Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-20T05:56:44Z'
+      - '2026-07-14T01:04:38Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-20T05:56:43Z'
+      - '2026-07-14T01:04:39Z'
       Request-Id:
-      - req_011CUHwCznV2on5kjrGXSkeQ
+      - req_011Cd13uhShxWg2w87CNyqBa
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '1838'
-      Via:
-      - 1.1 google
-      Cf-Cache-Status:
-      - DYNAMIC
-      X-Robots-Tag:
-      - none
+      Traceresponse:
+      - 00-f82c13c11930e9ee9e6d795adf62d113-91f331da1e7fe359-01
       Server:
       - cloudflare
+      Vary:
+      - Accept-Encoding
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - 991646074d99963f-SJC
+      - a1ac9d511a76eb21-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01DHMH4m7EHD7GAiYGdKZ69d","type":"message","role":"assistant","content":[{"type":"text","text":"This
-        image shows the **Active Agents** logo, which appears to be a text-based logo
-        with a red circular icon on the left side. The logo uses a clean, professional
-        font and is commonly associated with software or technology services, though
-        without additional context, I cannot specify exactly what Active Agents does.
-        The design is simple and straightforward, suitable for corporate branding
-        purposes."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":19,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":81,"service_tier":"standard"}}'
-  recorded_at: Mon, 20 Oct 2025 05:56:44 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13uiBcCgmzWUk5rgZHc","type":"message","role":"assistant","content":[{"type":"text","text":"This
+        image shows the logo for **Active Agents**. It features the text \"ACTIVE
+        AGENTS\" in a bold, modern font, with a red square icon containing a stylized
+        \"A\" symbol to the left of the text. The design uses a minimalist style with
+        a red and black color scheme."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":19,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":67,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:40 GMT
+recorded_with: VCR 6.4.0

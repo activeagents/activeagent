@@ -113,7 +113,7 @@ module Docs
           VCR.use_cassette("docs/agents/embeddings_examples/mixing_providers") do
             # region mixing_providers
             class HybridAgent < ApplicationAgent
-              generate_with :anthropic, model: "claude-3-5-sonnet-20241022"
+              generate_with :anthropic, model: "claude-sonnet-5"
               embed_with :openai, model: "text-embedding-3-small"
             end
 

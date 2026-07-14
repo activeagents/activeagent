@@ -7,7 +7,7 @@ class UsageTest < ActiveSupport::TestCase
   # Anthropic Provider Tests
 
   class AnthropicTestAgent < ActiveAgent::Base
-    generate_with :anthropic, model: "claude-3-5-haiku-20241022"
+    generate_with :anthropic, model: "claude-haiku-4-5"
 
     def chat
       prompt(message: params[:message])

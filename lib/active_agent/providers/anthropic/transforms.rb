@@ -172,6 +172,8 @@ module ActiveAgent
           # → { format: { type: "json_schema", schema: {...} } }
           #
           # Notes:
+          # - Anthropic requires `additionalProperties: false` on all object schemas.
+          #   This is auto-injected into any object schemas that don't have it set.
           # - Anthropic does not use OpenAI's `name` or `strict` fields in output_config.format.
           # - json_object is not handled here; it remains prompt-emulated.
           # - text is not handled here; Anthropic returns plain text by default.
@@ -184,11 +186,15 @@ module ActiveAgent
               format_hash = format.deep_symbolize_keys
 
               if format_hash[:type].to_s == "json_schema"
+                schema = format_hash[:json_schema]&.dig(:schema)
+                if schema
+                  schema = inject_additional_properties(schema.deep_dup)
+                end
                 {
                   format: {
                     type: "json_schema",
-                    schema: format_hash[:json_schema]&.dig(:schema)
-                  }
+                    schema: schema
+                  }.compact
                 }
               elsif format_hash[:type].to_s == "json_object"
                 # json_object is not handled here; it remains prompt-emulated.
@@ -201,14 +207,43 @@ module ActiveAgent
                 format_hash
               end
             when Symbol, String
-              if format.to_s == "json_schema"
-                { format: { type: "json_schema" } }
-              else
-                nil
-              end
+              # Bare :json_schema without a schema cannot use native output_config.
+              # Anthropic requires a valid JSON Schema — return nil to fall back.
+              nil
             else
               format
             end
+          end
+
+          # Recursively injects `additionalProperties: false` into all object schemas.
+          #
+          # Anthropic's structured output API requires this field on all object types.
+          # Only inserts when not already explicitly set by the user.
+          #
+          # @param schema [Hash] JSON Schema hash
+          # @return [Hash] schema with additionalProperties injected
+          def inject_additional_properties(schema)
+            return schema unless schema.is_a?(Hash)
+
+            if schema[:type] == "object" && !schema.key?(:additionalProperties)
+              schema[:additionalProperties] = false
+            end
+
+            # Recurse into nested schemas
+            schema[:properties]&.each_value { |prop| inject_additional_properties(prop) }
+            schema[:items]&.then { |items| inject_additional_properties(items) }
+            schema[:anyOf]&.each { |s| inject_additional_properties(s) }
+            schema[:oneOf]&.each { |s| inject_additional_properties(s) }
+            schema[:allOf]&.each { |s| inject_additional_properties(s) }
+
+            if schema[:definitions]
+              schema[:definitions].each_value { |defn| inject_additional_properties(defn) }
+            end
+            if schema[:"$defs"]
+              schema[:"$defs"].each_value { |defn| inject_additional_properties(defn) }
+            end
+
+            schema
           end
 
           # Merges consecutive same-role messages into single messages with multiple content blocks.
@@ -489,6 +524,7 @@ module ActiveAgent
                 msg.delete(:model)
                 msg.delete(:stop_reason)
                 msg.delete(:stop_sequence)
+                msg.delete(:stop_details)
                 msg.delete(:type)
                 msg.delete(:usage)
               end

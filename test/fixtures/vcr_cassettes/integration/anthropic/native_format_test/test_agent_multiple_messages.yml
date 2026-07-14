@@ -5,16 +5,16 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"Hello
-        there."},{"role":"assistant","content":"Hi, I''m Claude. How can I help you?"},{"role":"user","content":"Can
-        you explain LLMs in plain English?"}],"max_tokens":1024}'
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"Hello there.","role":"user"},{"content":"Hi,
+        I''m Claude. How can I help you?","role":"assistant"},{"content":"Can you
+        explain LLMs in plain English?","role":"user"}],"max_tokens":1024}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -24,11 +24,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -40,14 +40,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '246'
+      - '235'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:47:54 GMT
+      - Tue, 14 Jul 2026 01:07:27 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -55,66 +55,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-18T03:47:47Z'
+      - '2026-07-14T01:07:19Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '8000'
+      - '1999000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-18T03:47:56Z'
+      - '2026-07-14T01:07:27Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-18T03:47:47Z'
+      - '2026-07-14T01:07:19Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '38000'
+      - '11999000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-18T03:47:47Z'
+      - '2026-07-14T01:07:19Z'
       Request-Id:
-      - req_011CUDykr7Cujboe9DAa4QoZ
+      - req_011Cd147WwGRJhKmtwTEiYRX
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '8260'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-a5bfc561ac836e02535fb7f6d09a7053-67ed789484fc6e65-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 99050e63c82beb20-SJC
+      - a1aca13b3d09250d-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-4-5-20250929","id":"msg_01YWLMZ3ds11dJ9pJsuG88NM","type":"message","role":"assistant","content":[{"type":"text","text":"Sure!
-        LLMs (Large Language Models) are AI programs that understand and generate
-        text.\n\nHere''s how they work in simple terms:\n\n**What they do:**\n- Read
-        and write text that sounds human\n- Answer questions, write essays, code,
-        translate languages, and more\n\n**How they learn:**\n- They''re trained on
-        massive amounts of text from books, websites, and articles\n- They learn patterns
-        - like which words typically go together and how sentences are structured\n-
-        Think of it like someone who''s read millions of books and learned how language
-        works\n\n**How they respond:**\n- When you ask something, they predict what
-        words should come next based on their training\n- They don''t truly \"understand\"
-        like humans do - they''re recognizing patterns\n- They generate responses
-        word by word, choosing what''s most likely to fit\n\n**Key limitations:**\n-
-        They don''t have real knowledge or beliefs\n- They can make mistakes or \"hallucinate\"
-        false information\n- They don''t have access to current events (unless specifically
-        updated)\n- They can''t learn from conversations permanently\n\nThink of an
-        LLM as an incredibly well-read assistant that''s very good at pattern matching
-        in language, but doesn''t actually \"think\" the way humans do.\n\nDoes that
-        help? Any part you''d like me to explain more?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":38,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":282,"service_tier":"standard"}}'
-  recorded_at: Sat, 18 Oct 2025 03:47:54 GMT
-recorded_with: VCR 6.3.1
+      string: !binary |-
+        eyJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNSIsImlkIjoibXNnXzAxMUNkMTQ3WFJIV21NSktNU0NESG5QeSIsInR5cGUiOiJtZXNzYWdlIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0aGlua2luZyIsInRoaW5raW5nIjoiIiwic2lnbmF0dXJlIjoiRXNvQ0Nva0JDQThZQWlwQUpEUGJWOFE1REdPRTFZcHQxOGQyeUY5akQ4SUFRc0VqUXFVcm1ETnh0YStsYlA4TzQ1eGZhZkNNaG9jdGlENXc0TEd1b0xpdmdtVzdmMDJ0UHFzM1F6SVBZMnhoZFdSbExYTnZibTVsZEMwMU9BQkNDSFJvYVc1cmFXNW5XaVF5TlRVM1l6Sm1NaTFpWTJaaExUUXdOVFF0T1daaE9DMWhaVEV6WWpOaU5EZGtObUlTRERwbHVPRU14Q2NHTFd5a0Rob01xNDgzaEVCNDc2bHBhd0JnSWpEZzJWclBaUUQxM0N4eGRMMkZKVytYSHY4eFBjTU5FQ2dEWjU0Vk9kdjJmOFVoUW03cS9kTVNwamRKdFcrMTJiSXFiaDlPVGdwV1kyNGFQSGN6SUwwdGNGejN1UTlSdGNFcmdldXZiNEFtZ2Z6TWtRaHBnbmlVL2lYVXpuVW5iV2txWFRXaHNDSnZzckdWa0J4dEhzazhVZHcvR1EvODk4RkNPZ0NaSy9JSytvRnlKemljRjRDcEs1V3EwS1UyVGtZVEJFZVNza1Y0NEYwTm5jRkI3L1lXR0FFPSJ9LHsidHlwZSI6InRleHQiLCJ0ZXh0IjoiIyBMYXJnZSBMYW5ndWFnZSBNb2RlbHMsIEV4cGxhaW5lZCBTaW1wbHlcblxuKipUaGUgYmFzaWMgaWRlYToqKlxuQW4gTExNIGlzIGEgY29tcHV0ZXIgcHJvZ3JhbSB0cmFpbmVkIHRvIHByZWRpY3Qgd2hhdCB3b3JkIChvciBwaWVjZSBvZiBhIHdvcmQpIGNvbWVzIG5leHQgaW4gYSBzZXF1ZW5jZSBvZiB0ZXh0LiBUaGF0J3MgaXQgYXQgaXRzIGNvcmUg4oCUIGJ1dCBkb2luZyB0aGlzIHJlYWxseSwgcmVhbGx5IHdlbGwgbGVhZHMgdG8gc3VycHJpc2luZ2x5IHBvd2VyZnVsIGNhcGFiaWxpdGllcy5cblxuKipIb3cgdGhleSBsZWFybjoqKlxuMS4gKipUcmFpbmluZyoqOiBUaGUgbW9kZWwgcmVhZHMgZW5vcm1vdXMgYW1vdW50cyBvZiB0ZXh0IChib29rcywgd2Vic2l0ZXMsIGFydGljbGVzKSDigJQgZXNzZW50aWFsbHkgbGVhcm5pbmcgcGF0dGVybnMgaW4gaG93IGxhbmd1YWdlIHdvcmtzLCB3aGF0IGZhY3RzIHRlbmQgdG8gZ28gdG9nZXRoZXIsIGhvdyBpZGVhcyBjb25uZWN0LCBldGMuXG4yLiAqKlBhdHRlcm4gcmVjb2duaXRpb24qKjogVGhyb3VnaCB0aGlzIHByb2Nlc3MsIGl0IGJ1aWxkcyBhbiBpbnRlcm5hbCBzdGF0aXN0aWNhbCBcIm1hcFwiIG9mIGxhbmd1YWdlIOKAlCB3aGljaCB3b3Jkcy9jb25jZXB0cyByZWxhdGUgdG8gZWFjaCBvdGhlciBhbmQgaG93LlxuMy4gKipQcmVkaWN0aW9uKio6IFdoZW4geW91IGdpdmUgaXQgYSBwcm9tcHQsIGl0IHVzZXMgdGhhdCBtYXAgdG8gcHJlZGljdCB0aGUgbW9zdCBsaWtlbHksIGNvaGVyZW50IGNvbnRpbnVhdGlvbiDigJQgb25lIHBpZWNlIGF0IGEgdGltZSwgYnVpbGRpbmcgYSBmdWxsIHJlc3BvbnNlLlxuXG4qKkEgdXNlZnVsIGFuYWxvZ3k6KipcblRoaW5rIG9mIGl0IGxpa2UgYSBleHRyZW1lbHkgd2VsbC1yZWFkIHBlcnNvbiB3aG8gaGFzIGFic29yYmVkIHBhdHRlcm5zIGZyb20gbWlsbGlvbnMgb2YgYm9va3MgYW5kIGNvbnZlcnNhdGlvbnMsIGFuZCBjYW4gZ2VuZXJhdGUgZml0dGluZyByZXNwb25zZXMgYmFzZWQgb24gdGhvc2UgcGF0dGVybnMg4oCUIHdpdGhvdXQgbGl0ZXJhbGx5IFwibG9va2luZyBhbnl0aGluZyB1cFwiIGluIHJlYWwtdGltZSAodW5sZXNzIGl0J3MgY29ubmVjdGVkIHRvIHNlYXJjaCB0b29scykuXG5cbioqV2hhdCBtYWtlcyB0aGVtIHNlZW0gaW50ZWxsaWdlbnQ6Kipcbkxhbmd1YWdlIGVuY29kZXMgYSBsb3Qgb2YgaHVtYW4ga25vd2xlZGdlIGFuZCByZWFzb25pbmcuIFNvIGEgbW9kZWwgdGhhdCdzIHJlYWxseSBnb29kIGF0IHByZWRpY3RpbmcgY29oZXJlbnQsIGNvbnRleHR1YWxseSBhcHByb3ByaWF0ZSB0ZXh0IGVuZHMgdXAgYmVpbmcgZ29vZCBhdDpcbi0gQW5zd2VyaW5nIHF1ZXN0aW9uc1xuLSBXcml0aW5nIGFuZCBzdW1tYXJpemluZ1xuLSBCYXNpYyByZWFzb25pbmcgYW5kIG1hdGhcbi0gQ29kaW5nXG4tIEZvbGxvd2luZyBpbnN0cnVjdGlvbnNcblxuKipJbXBvcnRhbnQgY2F2ZWF0czoqKlxuLSBUaGV5IGRvbid0IFwia25vd1wiIHRoaW5ncyB0aGUgd2F5IGh1bWFucyBkbyDigJQgdGhleSBnZW5lcmF0ZSBwbGF1c2libGUtc291bmRpbmcgdGV4dCBiYXNlZCBvbiBwYXR0ZXJuc1xuLSBUaGV5IGNhbiBiZSBjb25maWRlbnRseSB3cm9uZyAoc29tZXRpbWVzIGNhbGxlZCBcImhhbGx1Y2luYXRpbmdcIilcbi0gVGhleSBkb24ndCBoYXZlIHJlYWwtdGltZSBrbm93bGVkZ2UgdW5sZXNzIGNvbm5lY3RlZCB0byBleHRlcm5hbCB0b29sc1xuLSBUaGV5IGRvbid0IHRydWx5IFwidW5kZXJzdGFuZFwiIGluIHRoZSBodW1hbiBzZW5zZSwgdGhvdWdoIHRoZSBsaW5lIGhlcmUgZ2V0cyBwaGlsb3NvcGhpY2FsbHkgZnV6enlcblxuV2FudCBtZSB0byBnbyBkZWVwZXIgb24gYW55IHBhcnQg4oCUIGxpa2UgaG93IHRoZSB0cmFpbmluZyBhY3R1YWxseSB3b3Jrcywgb3Igd2h5IHRoZXkgc29tZXRpbWVzIG1ha2UgbWlzdGFrZXM/In1dLCJzdG9wX3JlYXNvbiI6ImVuZF90dXJuIiwic3RvcF9zZXF1ZW5jZSI6bnVsbCwic3RvcF9kZXRhaWxzIjpudWxsLCJ1c2FnZSI6eyJpbnB1dF90b2tlbnMiOjQ2LCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6NjM2LCJvdXRwdXRfdG9rZW5zX2RldGFpbHMiOnsidGhpbmtpbmdfdG9rZW5zIjozNX0sInNlcnZpY2VfdGllciI6InN0YW5kYXJkIiwiaW5mZXJlbmNlX2dlbyI6Imdsb2JhbCJ9fQ==
+  recorded_at: Tue, 14 Jul 2026 01:07:27 GMT
+recorded_with: VCR 6.4.0

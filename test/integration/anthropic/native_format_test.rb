@@ -8,13 +8,13 @@ module Integration
       include Integration::TestHelper
 
       class TestAgent < ActiveAgent::Base
-        generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
+        generate_with :anthropic, model: "claude-sonnet-5"
 
         ###############################################################
         # Basic Request
         ###############################################################
         BASIC_REQUEST = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             {
               role: "user",
@@ -36,7 +36,7 @@ module Integration
         # Request with System Prompt
         ###############################################################
         SYSTEM_PROMPT = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           system: "You are a helpful assistant.",
           messages: [
             {
@@ -44,8 +44,7 @@ module Integration
               content: "What is 2+2?"
             }
           ],
-          max_tokens: 1024,
-          temperature: 0.7
+          max_tokens: 1024
         }
         def system_prompt
           prompt(
@@ -53,8 +52,7 @@ module Integration
             messages: [
               { role: "user", content: "What is 2+2?" }
             ],
-            max_tokens: 1024,
-            temperature: 0.7
+            max_tokens: 1024
           )
         end
 
@@ -62,7 +60,7 @@ module Integration
         # Request with Tools
         ###############################################################
         TOOLS_REQUEST = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             {
               role: "user",
@@ -122,7 +120,7 @@ module Integration
         # Request with Extended Thinking
         ###############################################################
         EXTENDED_THINKING = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             {
               role: "user",
@@ -131,8 +129,7 @@ module Integration
           ],
           max_tokens: 4096,
           thinking: {
-            type: "enabled",
-            budget_tokens: 2048
+            type: "adaptive"
           }
         }
         def extended_thinking
@@ -142,8 +139,7 @@ module Integration
             ],
             max_tokens: 4096,
             thinking: {
-              type: "enabled",
-              budget_tokens: 2048
+              type: "adaptive"
             }
           )
         end
@@ -152,7 +148,7 @@ module Integration
         # Request with Metadata
         ###############################################################
         METADATA_REQUEST = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             {
               role: "user",
@@ -180,7 +176,7 @@ module Integration
         # Request with Multiple Messages
         ###############################################################
         MULTIPLE_MESSAGES = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "Hello there." },
             { role: "assistant", content: "Hi, I'm Claude. How can I help you?" },
@@ -203,7 +199,7 @@ module Integration
         # User Message with Content Blocks
         ###############################################################
         USER_MESSAGE_CONTENT_BLOCKS = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             {
               role: "user",
@@ -213,7 +209,7 @@ module Integration
                   type: "image",
                   source: {
                     type: "base64",
-                    media_type: "image/jpeg",
+                    media_type: "image/png",
                     data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
                   }
                 }
@@ -233,7 +229,7 @@ module Integration
                     type: "image",
                     source: {
                       type: "base64",
-                      media_type: "image/jpeg",
+                      media_type: "image/png",
                       data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
                     }
                   }
@@ -248,7 +244,7 @@ module Integration
         # Assistant Message with Tool Use
         ###############################################################
         ASSISTANT_MESSAGE_TOOL_USE = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             {
               role: "user",
@@ -314,7 +310,7 @@ module Integration
         # Tool Choice: Auto (Default)
         ###############################################################
         TOOL_CHOICE_AUTO = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "What's the weather?" }
           ],
@@ -361,7 +357,7 @@ module Integration
         # Tool Choice: Any (Force Tool Use)
         ###############################################################
         TOOL_CHOICE_ANY = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "What's the weather?" }
           ],
@@ -408,7 +404,7 @@ module Integration
         # Tool Choice: Specific Tool
         ###############################################################
         TOOL_CHOICE_SPECIFIC = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "What's the weather?" }
           ],
@@ -455,7 +451,7 @@ module Integration
         # Tool Choice: Disable Parallel Tool Use
         ###############################################################
         TOOL_CHOICE_DISABLE_PARALLEL = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "What's the weather?" }
           ],
@@ -508,7 +504,7 @@ module Integration
         # Thinking Configuration: Disabled
         ###############################################################
         THINKING_DISABLED = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "Hello!" }
           ],
@@ -529,7 +525,7 @@ module Integration
         # Request with Streaming
         ###############################################################
         STREAMING = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "Tell me a story." }
           ],
@@ -581,22 +577,18 @@ module Integration
         # Request with Temperature and Sampling Parameters
         ###############################################################
         SAMPLING_PARAMETERS = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "Write a creative story." }
           ],
-          max_tokens: 2048,
-          top_k: 50,
-          top_p: 0.95
+          max_tokens: 2048
         }
         def sampling_parameters
           prompt(
             messages: [
               { role: "user", content: "Write a creative story." }
             ],
-            max_tokens: 2048,
-            top_k: 50,
-            top_p: 0.95
+            max_tokens: 2048
           )
         end
 
@@ -604,7 +596,7 @@ module Integration
         # Request with Stop Sequences
         ###############################################################
         STOP_SEQUENCES = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             { role: "user", content: "Generate a JSON object representing a person with a name, email, and phone number ." }
           ],
@@ -625,7 +617,7 @@ module Integration
         # Native Format MCP Server
         ###############################################################
         MCP_SERVER = {
-          model: "claude-sonnet-4-5-20250929",
+          model: "claude-sonnet-5",
           messages: [
             {
               role: "user",

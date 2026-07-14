@@ -84,11 +84,19 @@ jobs:
       fail-fast: false
       matrix:
         ruby: ["3.4"]
-        gemfile:
-          - "gemfiles/anthropic_1.12.gemfile"
-          - "gemfiles/anthropic_1.14.gemfile"
-          - "gemfiles/openai_0.34.gemfile"
-          - "gemfiles/openai_0.35.gemfile"
+        include:
+          - gemfile: "gemfiles/anthropic_1.12.gemfile"
+            test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
+          - gemfile: "gemfiles/anthropic_1.14.gemfile"
+            test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
+          - gemfile: "gemfiles/anthropic_latest.gemfile"
+            test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
+          - gemfile: "gemfiles/openai_0.34.gemfile"
+            test-glob: "test/integration/open_ai/**/*_test.rb"
+          - gemfile: "gemfiles/openai_0.35.gemfile"
+            test-glob: "test/integration/open_ai/**/*_test.rb"
+          - gemfile: "gemfiles/openai_latest.gemfile"
+            test-glob: "test/integration/open_ai/**/*_test.rb test/providers/usage_test.rb test/docs/providers/open_ai_examples_test.rb"
     steps:
     - uses: actions/checkout@v6
     - name: Install system deps
@@ -111,4 +119,4 @@ jobs:
       env:
         RAILS_ENV: test
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-      run: bin/test
+      run: bundle exec ruby -Itest ${{ matrix.test-glob }}

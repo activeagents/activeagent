@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"Tell
-        me about Japan and its capital city Tokyo."}],"max_tokens":1024}'
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"Tell
+        me about Japan and its capital city Tokyo.","role":"user"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 22:52:53 GMT
+      - Tue, 14 Jul 2026 01:04:54 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,68 +54,70 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-21T22:52:50Z'
+      - '2026-07-14T01:04:51Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-21T22:52:55Z'
+      - '2026-07-14T01:04:54Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-21T22:52:51Z'
+      - '2026-07-14T01:04:51Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-21T22:52:50Z'
+      - '2026-07-14T01:04:51Z'
       Request-Id:
-      - req_011CUMAW3oobqZ1LqFdzYFN9
+      - req_011Cd13vd5JhdpMHkMuzPqSx
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '4007'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-795ef861836c3d37c42688f9faf2c306-09ebb18587f20460-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 992453daed566802-SJC
+      - a1ac9d9f9ae1fa1e-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01C8i9CozKc31eYJHcNepreW","type":"message","role":"assistant","content":[{"type":"text","text":"#
-        Japan and Tokyo\n\n## Japan Overview\nJapan is an island nation in East Asia
-        consisting of four main islands: Honshu, Hokkaido, Kyushu, and Shikoku. With
-        about 125 million people, it''s one of the world''s most densely populated
-        countries. Japan is known for blending ancient traditions with cutting-edge
-        technology.\n\n**Key characteristics:**\n- Rich cultural heritage (temples,
-        tea ceremonies, martial arts)\n- Economic powerhouse with major tech and automotive
-        industries\n- Famous for cuisine, anime, and manga\n- Mountainous terrain
-        with frequent earthquakes\n\n## Tokyo\n\nTokyo is Japan''s capital and largest
-        city, located on the eastern coast on Honshu island.\n\n**Population & Size:**\n-
-        About 14 million people in the city proper\n- Over 37 million in the greater
-        metropolitan area (one of the world''s largest)\n\n**Notable Features:**\n-
-        **Shinjuku & Shibuya**: Famous bustling districts known for shopping and nightlife\n-
-        **Traditional areas**: Asakusa with its historic temples\n- **Modern landmarks**:
-        Tokyo Tower, Tokyo Skytree\n- **Efficient transit**: Extensive subway and
-        train network\n- **Food scene**: Michelin-starred restaurants alongside street
-        food\n\n**Role:**\nTokyo is the political, economic, and cultural center of
-        Japan, hosting the government, major corporations, and countless cultural
-        institutions.\n\nWould you like to know more about any specific aspect of
-        Japan or Tokyo?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":325,"service_tier":"standard"}}'
-  recorded_at: Tue, 21 Oct 2025 22:52:53 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13vdHCo1ZnA9re3fMy6","type":"message","role":"assistant","content":[{"type":"text","text":"#
+        Japan and Tokyo\n\n## Japan Overview\n\nJapan is an island nation in East
+        Asia, consisting of four main islands: Honshu, Hokkaido, Kyushu, and Shikoku.
+        With a population of about 125 million, it''s one of the world''s most developed
+        economies.\n\n**Key characteristics:**\n- Known for blending tradition with
+        cutting-edge technology\n- Rich cultural heritage including tea ceremonies,
+        martial arts, and traditional arts\n- Mountainous terrain with Mount Fuji
+        as the iconic peak\n- Prone to earthquakes due to its location on the Pacific
+        Ring of Fire\n\n## Tokyo\n\nTokyo is Japan''s capital and largest city, home
+        to around 14 million people (37 million in the metro area).\n\n**Notable features:**\n-
+        **Economy**: A global financial hub with major corporations and stock exchange\n-
+        **Districts**: Shibuya (youth culture), Shinjuku (entertainment), Ginza (luxury
+        shopping)\n- **Landmarks**: Tokyo Tower, Senso-ji Temple, Imperial Palace,
+        Meiji Shrine\n- **Technology**: Known for innovation, robotics, and cutting-edge
+        architecture\n- **Transportation**: Extensive, efficient public transit system\n-
+        **Culture**: World-class museums, restaurants, and entertainment\n\n**Characteristics:**\n-
+        Extremely organized and clean\n- Excellent public safety\n- Blend of ultra-modern
+        skyscrapers and historic temples\n- Known for its vibrant nightlife and unique
+        neighborhoods\n\nTokyo represents the modern face of Japan while preserving
+        deep cultural traditions."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":17,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":337,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:54 GMT
+recorded_with: VCR 6.4.0

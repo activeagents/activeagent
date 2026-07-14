@@ -13,7 +13,7 @@ http_interactions:
       Accept:
       - application/json
       User-Agent:
-      - Anthropic::Client/Ruby 1.14.0
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.14.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -48,7 +48,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Wed, 19 Nov 2025 20:59:30 GMT
+      - Tue, 14 Jul 2026 01:06:46 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -56,76 +56,97 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '4000000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '3996000'
+      - '9994000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-11-19T20:59:25Z'
+      - '2026-07-14T01:06:38Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '800000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '800000'
+      - '1999000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-11-19T20:59:30Z'
+      - '2026-07-14T01:06:46Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '4000'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '3999'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-11-19T20:59:24Z'
-      Retry-After:
-      - '38'
+      - '2026-07-14T01:06:38Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '4800000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '4796000'
+      - '11993000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-11-19T20:59:25Z'
+      - '2026-07-14T01:06:38Z'
       Request-Id:
-      - req_011CVHvJqg53XwN85wMmrdJK
+      - req_011Cd144Ki188Bya3QWn6G7c
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '7193'
+      Traceresponse:
+      - 00-4decbfe1e85d6d1ad49922c9e169cea7-57ffac920f41b5d2-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 9a12a18bed4aeb34-SJC
+      - a1aca02c7ea2ce48-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_01HTby5BZ3WW8X6gZ2nsacx8","type":"message","role":"assistant","content":[{"type":"text","text":"I
-        have access to a comprehensive set of tools for working with GitHub and getting
-        information about Cloudflare events. Here''s what I can do:\n\n## GitHub Repository
-        Management\n- **Create & Fork Repositories** - Create new repos or fork existing
-        ones\n- **Manage Branches** - Create and list branches\n- **File Operations**
-        - Create, update, delete, and view files in repositories\n- **Commit Operations**
-        - View commit details and push multiple files\n\n## GitHub Issues\n- **Create
-        & Update Issues** - Create new issues or update existing ones\n- **Read Issues**
-        - Get issue details, comments, labels, and sub-issues\n- **Search Issues**
-        - Find issues across repositories\n- **Add Comments** - Comment on issues\n\n##
-        GitHub Pull Requests\n- **Create & Manage PRs** - Create pull requests, update
-        titles/descriptions, change state\n- **PR Reviews** - Create, submit, and
-        delete reviews; add review comments\n- **PR Details** - Get PR info, diffs,
-        status, file changes, comments, and reviews\n- **Search PRs** - Find pull
-        requests across repositories\n- **Merge PRs** - Merge pull requests with different
-        merge methods\n- **Update Branches** - Sync PR branches with base branch\n\n##
-        GitHub Releases & Tags\n- **List & Get Releases** - View release information
-        and get specific releases by tag\n- **List & Get Tags** - View git tags in
-        repositories\n\n## GitHub Search & Discovery\n- **Search Code** - Fast code
-        search across all repositories\n- **Search Users** - Find GitHub users by
-        username or profile info\n- **Search Repositories** - Discover repositories
-        by name, description, topics, etc.\n\n## GitHub User & Team Information\n-
-        **Get User Info** - Retrieve authenticated user details\n- **Get Teams** -
-        View teams and team members\n\n## Other Tools\n- **Cloudflare MCP Demo Day
-        Info** - Get information about Cloudflare''s MCP demo day event\n\nAll of
-        these tools work with the GitHub API and allow me to help you manage repositories,
-        collaborate on code, search for information, and handle various development
-        workflows."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":9642,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":465,"service_tier":"standard"}}'
-  recorded_at: Wed, 19 Nov 2025 20:59:30 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd144Xha83Hjm8p66mvRo","type":"message","role":"assistant","content":[{"type":"text","text":"I
+        have access to a comprehensive set of tools for GitHub and Cloudflare operations.
+        Here''s an overview of what I can do:\n\n## GitHub Tools\n\n### Repository
+        Management\n- **Create repositories** - Create new GitHub repositories\n-
+        **Fork repositories** - Fork existing repositories\n- **List branches** -
+        View branches in a repository\n- **List tags** - View git tags in a repository\n-
+        **List releases** - View releases in a repository\n\n### File Operations\n-
+        **Get file contents** - Read files or directories from repositories\n- **Create
+        or update files** - Create new files or update existing ones\n- **Delete files**
+        - Remove files from repositories\n- **Push files** - Push multiple files in
+        a single commit\n\n### Commits & History\n- **List commits** - View commit
+        history with filtering options\n- **Get commit details** - Get detailed information
+        about specific commits\n- **Search commits** - Search across commits with
+        advanced syntax\n\n### Issues & Issue Fields\n- **Create/update issues** -
+        Create new issues or update existing ones\n- **Read issues** - Get issue details,
+        comments, sub-issues, parent issues, and labels\n- **List issues** - List
+        issues with filtering and sorting\n- **Search issues** - Search issues across
+        repositories\n- **Add issue comments** - Add comments and reactions to issues\n-
+        **List issue fields** - Get custom field definitions\n- **List issue types**
+        - Get supported issue types\n\n### Pull Requests\n- **Create pull requests**
+        - Create new PRs\n- **Update pull requests** - Modify PR titles, descriptions,
+        base branches, etc.\n- **Update PR branch** - Sync PR with latest base branch
+        changes\n- **List pull requests** - List PRs with filtering\n- **Search pull
+        requests** - Search across pull requests\n- **Get PR details** - Get PR information
+        including diffs, status, files, commits, reviews, and check runs\n- **Merge
+        pull requests** - Merge PRs with different merge strategies\n- **Request Copilot
+        review** - Get automated code review feedback\n\n### Pull Request Reviews\n-
+        **Create/submit reviews** - Create and submit pull request reviews\n- **Add
+        review comments** - Add comments to specific lines in PR diffs\n- **Add reply
+        to review comments** - Reply to existing review comments\n- **Resolve/unresolve
+        threads** - Manage review thread status\n\n### Copilot Integration\n- **Assign
+        Copilot to issue** - Have Copilot work on specific issues\n- **Create PR with
+        Copilot** - Delegate tasks to Copilot for pull request creation\n- **Get Copilot
+        job status** - Check status of Copilot tasks\n\n### Code & Search\n- **Search
+        code** - Fast code search across repositories using GitHub''s search engine\n-
+        **Search repositories** - Find repositories by name, description, topics,
+        etc.\n- **Search users** - Find GitHub users by username or profile info\n\n###
+        Team & User Management\n- **Get authenticated user info** - Get details about
+        the current user\n- **Get teams** - View teams the user belongs to\n- **Get
+        team members** - List members of a specific team\n- **List repository collaborators**
+        - List collaborators with different affiliation filters\n\n### Security\n-
+        **Run secret scanning** - Scan files or diffs for secrets like API keys and
+        credentials\n\n### Sub-issues\n- **Add/remove sub-issues** - Manage parent-child
+        relationships between issues\n- **Reprioritize sub-issues** - Change the order
+        of sub-issues\n\n## Cloudflare Tools\n- **Get MCP Demo Day info** - Get information
+        about Cloudflare''s MCP Demo Day\n\n---\n\nWould you like me to help you with
+        any specific GitHub or Cloudflare operation?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":14184,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":826,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:06:46 GMT
+recorded_with: VCR 6.4.0

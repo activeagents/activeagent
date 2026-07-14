@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"Generate
-        a JSON object representing a person with a name, email, and phone number ."}],"max_tokens":1024,"stop_sequences":["}"]}'
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"Generate a JSON
+        object representing a person with a name, email, and phone number .","role":"user"}],"max_tokens":1024,"stop_sequences":["}"]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -39,14 +39,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '204'
+      - '193'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:47:37 GMT
+      - Tue, 14 Jul 2026 01:07:52 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,50 +54,53 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-18T03:47:36Z'
+      - '2026-07-14T01:07:51Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-18T03:47:37Z'
+      - '2026-07-14T01:07:52Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-18T03:47:36Z'
+      - '2026-07-14T01:07:51Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-18T03:47:36Z'
+      - '2026-07-14T01:07:51Z'
       Request-Id:
-      - req_011CUDyk4zKeQRqi7FsDRvw3
+      - req_011Cd149tEjbUuX8KMeRV1rK
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '1925'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-57776f84946fd2974c0b7a456657fdde-a2e56e084442e4be-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 99050e21fc37169e-SJC
+      - a1aca203c8b10d16-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-4-5-20250929","id":"msg_01MXYtF6bbpWtwC587ZPpqc2","type":"message","role":"assistant","content":[{"type":"text","text":"```json\n{\n  \"name\":
-        \"John Smith\",\n  \"email\": \"john.smith@example.com\",\n  \"phone\": \"+1-555-123-4567\"\n"}],"stop_reason":"stop_sequence","stop_sequence":"}","usage":{"input_tokens":24,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":44,"service_tier":"standard"}}'
-  recorded_at: Sat, 18 Oct 2025 03:47:37 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd149uugxYJVLtP5uN9d9","type":"message","role":"assistant","content":[{"type":"text","text":"Here''s
+        a JSON object representing a person:\n\n```json\n{\n  \"name\": \"Sarah Johnson\",\n  \"email\":
+        \"sarah.johnson@email.com\",\n  \"phone\": \"+1-555-123-4567\"\n"}],"stop_reason":"stop_sequence","stop_sequence":"}","stop_details":null,"usage":{"input_tokens":29,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":70,"output_tokens_details":{"thinking_tokens":0},"service_tier":"standard","inference_geo":"global"}}'
+  recorded_at: Tue, 14 Jul 2026 01:07:52 GMT
+recorded_with: VCR 6.4.0

@@ -23,7 +23,11 @@ module Providers
         end
 
         teardown do
-          WebMock.disable!
+          # Keep WebMock enabled (its global default). Disabling it here would
+          # stop VCR from intercepting HTTP in every subsequent test, causing
+          # them to hit the real network. Just clear this test's stubs.
+          WebMock.reset!
+          WebMock.enable!
         end
 
         test "accumulates streaming tool call deltas into message_stack" do
@@ -35,7 +39,9 @@ module Providers
             tools: weather_tool
           )
 
-          chat_provider = ActiveAgent::Providers::OpenAI::ChatProvider.new
+          chat_provider = ActiveAgent::Providers::OpenAI::ChatProvider.new(
+            stream_broadcaster: ->(*_) { }
+          )
 
           stream.each do |event|
             chat_provider.send(:process_stream_chunk, event)

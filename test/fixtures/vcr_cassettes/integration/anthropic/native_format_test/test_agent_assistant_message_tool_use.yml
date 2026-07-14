@@ -5,18 +5,18 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"What''s
-        the weather in San Francisco?"},{"role":"assistant","content":[{"type":"text","text":"I''ll
-        check the weather for you."},{"type":"tool_use","id":"toolu_123","name":"get_weather","input":{"location":"San
-        Francisco, CA"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_123","content":"72°F
-        and sunny"}]}],"max_tokens":1024}'
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"What''s the weather
+        in San Francisco?","role":"user"},{"content":[{"text":"I''ll check the weather
+        for you.","type":"text"},{"id":"toolu_123","input":{"location":"San Francisco,
+        CA"},"name":"get_weather","type":"tool_use"}],"role":"assistant"},{"content":[{"tool_use_id":"toolu_123","type":"tool_result","content":"72°F
+        and sunny"}],"role":"user"}],"max_tokens":1024}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -26,11 +26,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -42,14 +42,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '428'
+      - '417'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:48:46 GMT
+      - Tue, 14 Jul 2026 01:07:35 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -57,50 +57,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-18T03:48:46Z'
+      - '2026-07-14T01:07:33Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '7000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-18T03:48:52Z'
+      - '2026-07-14T01:07:35Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-18T03:48:46Z'
+      - '2026-07-14T01:07:33Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '37000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-18T03:48:46Z'
+      - '2026-07-14T01:07:33Z'
       Request-Id:
-      - req_011CUDyqBcKqqFSMBePEVu8q
+      - req_011Cd148aKgrbNGmXyCrM6hE
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '1886'
-      Via:
-      - 1.1 google
-      Cf-Cache-Status:
-      - DYNAMIC
-      X-Robots-Tag:
-      - none
+      Traceresponse:
+      - 00-5729feceea8bf14458e53473ad699aa7-33b29d45ae7951d0-01
       Server:
       - cloudflare
+      Vary:
+      - Accept-Encoding
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
       Cf-Ray:
-      - 99050fd38d4917f2-SJC
+      - a1aca1950f6dcf0e-SJC
     body:
       encoding: ASCII-8BIT
       string: !binary |-
-        eyJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNC01LTIwMjUwOTI5IiwiaWQiOiJtc2dfMDFYRVNtYU5yb043SDk2U3Z6YzJhYlU4IiwidHlwZSI6Im1lc3NhZ2UiLCJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiVGhlIHdlYXRoZXIgaW4gU2FuIEZyYW5jaXNjbyBpcyBjdXJyZW50bHkgNzLCsEYgYW5kIHN1bm55LiBJdCdzIGEgYmVhdXRpZnVsIGRheSB0aGVyZSEifV0sInN0b3BfcmVhc29uIjoiZW5kX3R1cm4iLCJzdG9wX3NlcXVlbmNlIjpudWxsLCJ1c2FnZSI6eyJpbnB1dF90b2tlbnMiOjk3LCJjYWNoZV9jcmVhdGlvbl9pbnB1dF90b2tlbnMiOjAsImNhY2hlX3JlYWRfaW5wdXRfdG9rZW5zIjowLCJjYWNoZV9jcmVhdGlvbiI6eyJlcGhlbWVyYWxfNW1faW5wdXRfdG9rZW5zIjowLCJlcGhlbWVyYWxfMWhfaW5wdXRfdG9rZW5zIjowfSwib3V0cHV0X3Rva2VucyI6MjQsInNlcnZpY2VfdGllciI6InN0YW5kYXJkIn19
-  recorded_at: Sat, 18 Oct 2025 03:48:46 GMT
-recorded_with: VCR 6.3.1
+        eyJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNSIsImlkIjoibXNnXzAxMUNkMTQ4YWp6VGQ3MzVWbU5pY0pYaSIsInR5cGUiOiJtZXNzYWdlIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0aGlua2luZyIsInRoaW5raW5nIjoiIiwic2lnbmF0dXJlIjoiRXM4RENva0JDQThZQWlwQU9iSDF2SnBZR1dBWU1wbnNKR2dLTnRMMVBsVE5IbGVvQW9zdTNwejkwdGhkUUt6MUtiaEY2TVQwMzBOWEpZL3ZBb0xhY0lpT3NVWGdRQ1pGN1Z5NC96SVBZMnhoZFdSbExYTnZibTVsZEMwMU9BQkNDSFJvYVc1cmFXNW5XaVF5TlRVM1l6Sm1NaTFpWTJaaExUUXdOVFF0T1daaE9DMWhaVEV6WWpOaU5EZGtObUlTRE9wQ1QxOU9yc1lSNG9iTmF4b01GMFVBMmlOVU9tdUlqWFJVSWpBSlJIV1RENXVhNVhWNlZtNFYvR2lJMzFDRkhMams0OHVQQXovSVBNSXl0OWdvNlVJTUV0SlJOeG9OZFIvWTFrUXE4Z0ZmRFl2MlB4S0FabHN1VDhUMkRrKzMwSTZuaDcydy9aV1d0cEVUVHRvWVlWNFNzeU1tbnV2RW5Ybnlhemg4Q0l0bzgwOVpNbGgxbUFvbktvcXNsZDJZelluc1BHK1JFb2JxT2NrNW02UTlvdllydDlQb2RDU2RMWCs1dHpoWEtvekszR1J3dDh0akhvcksrYXJramE5SXc3T0J4ZzZqUUpxYlhHUFI4dWwvdnRMMFJlMU1FTnF0UGRPUDNMdjBjSnB4RGRRVjk2Q3J3NXBFcncwYVNMM1BTclVDcVQwSFBMc2NmQ1JBV215UkwwTWk4azBwVnZyZHNLVVdlN2lSS3ZVUVlGY1pxcVdpT0sxeXRPUU9hSWY4T0VBZDVNM1U2VExBcVlrUWd6WE52MHdZSmhyVEwvU2lja3BLbmVlU0VPdnh0eGdCIn0seyJ0eXBlIjoidGV4dCIsInRleHQiOiJUaGUgd2VhdGhlciBpbiBTYW4gRnJhbmNpc2NvIGlzIGN1cnJlbnRseSAqKjcywrBGIGFuZCBzdW5ueSoqLiBBIGJlYXV0aWZ1bCBkYXkgb3V0IHRoZXJlISJ9XSwic3RvcF9yZWFzb24iOiJlbmRfdHVybiIsInN0b3Bfc2VxdWVuY2UiOm51bGwsInN0b3BfZGV0YWlscyI6bnVsbCwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjo5NiwiY2FjaGVfY3JlYXRpb25faW5wdXRfdG9rZW5zIjowLCJjYWNoZV9yZWFkX2lucHV0X3Rva2VucyI6MCwiY2FjaGVfY3JlYXRpb24iOnsiZXBoZW1lcmFsXzVtX2lucHV0X3Rva2VucyI6MCwiZXBoZW1lcmFsXzFoX2lucHV0X3Rva2VucyI6MH0sIm91dHB1dF90b2tlbnMiOjEwNywib3V0cHV0X3Rva2Vuc19kZXRhaWxzIjp7InRoaW5raW5nX3Rva2VucyI6NzN9LCJzZXJ2aWNlX3RpZXIiOiJzdGFuZGFyZCIsImluZmVyZW5jZV9nZW8iOiJnbG9iYWwifX0=
+  recorded_at: Tue, 14 Jul 2026 01:07:35 GMT
+recorded_with: VCR 6.4.0

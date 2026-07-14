@@ -58,7 +58,7 @@ RubyLLM automatically resolves which provider to use based on the model ID. Any 
 | Provider | Example Models |
 |----------|---------------|
 | **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `gpt-4.1` |
-| **Anthropic** | `claude-sonnet-4-5-20250929`, `claude-haiku-4-5` |
+| **Anthropic** | `claude-sonnet-5`, `claude-haiku-4-5` |
 | **Google Gemini** | `gemini-2.0-flash`, `gemini-1.5-pro` |
 | **AWS Bedrock** | Bedrock-hosted models |
 | **Azure OpenAI** | Azure-hosted OpenAI models |
@@ -70,7 +70,7 @@ Switch providers by changing the model:
 class FlexibleAgent < ApplicationAgent
   # Any of these work with the same provider config:
   generate_with :ruby_llm, model: "gpt-4o-mini"
-  # generate_with :ruby_llm, model: "claude-sonnet-4-5-20250929"
+  # generate_with :ruby_llm, model: "claude-sonnet-5"
   # generate_with :ruby_llm, model: "gemini-2.0-flash"
 end
 ```
@@ -79,7 +79,7 @@ end
 
 ### Required Parameters
 
-- **`model`** - Model identifier (e.g., "gpt-4o-mini", "claude-sonnet-4-5-20250929")
+- **`model`** - Model identifier (e.g., "gpt-4o-mini", "claude-sonnet-5")
 
 ### Sampling Parameters
 

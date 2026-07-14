@@ -1,0 +1,85 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"Extract user data
+        as JSON: Jane Smith, jane@example.com, 28","role":"user"},{"content":"Here
+        is the JSON requested:\n{","role":"assistant"}],"max_tokens":4096}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Anthropic::Client/Ruby 1.14.0
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.14.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '210'
+  response:
+    status:
+      code: 400
+      message: Bad Request
+    headers:
+      Date:
+      - Mon, 13 Jul 2026 23:15:47 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      X-Should-Retry:
+      - 'false'
+      Request-Id:
+      - req_011CczucEpAJhxQrXmpnodCV
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      Traceresponse:
+      - 00-2cfc408ff15403541a1143013375d979-14e76c5fa77f7c19-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
+      Cf-Cache-Status:
+      - DYNAMIC
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Ray:
+      - a1abfddbda19545f-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"type":"error","error":{"type":"invalid_request_error","message":"This
+        model does not support assistant message prefill. The conversation must end
+        with a user message."},"request_id":"req_011CczucEpAJhxQrXmpnodCV"}'
+  recorded_at: Mon, 13 Jul 2026 23:15:47 GMT
+recorded_with: VCR 6.3.1

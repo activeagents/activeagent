@@ -15,11 +15,11 @@ module ActiveAgent
     #   bedrock:
     #     service: "Bedrock"
     #     aws_region: "eu-west-2"
-    #     model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    #     model: "eu.anthropic.claude-sonnet-5-v1:0"
     #
     # @example Agent usage
     #   class SummaryAgent < ApplicationAgent
-    #     generate_with :bedrock, model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    #     generate_with :bedrock, model: "eu.anthropic.claude-sonnet-5-v1:0"
     #
     #     def summarize
     #       prompt(message: params[:message])

@@ -6,6 +6,17 @@ unless ENV["CI"]
   Dotenv.load(".env.test")
 end
 
+# When running locally with CI=true, still load env vars from .env.test
+# so VCR cassettes can replay without needing real API keys at client init.
+if ENV["CI"] && !ENV["OPENAI_API_KEY"] && !ENV["OPEN_AI_API_KEY"] && !ENV["OPEN_AI_ACCESS_TOKEN"]
+  begin
+    require "dotenv"
+    Dotenv.load(".env.test")
+  rescue LoadError
+    # dotenv not available
+  end
+end
+
 ENV["RAILS_ENV"] = "test"
 
 # Default to rails8.gemfile for local development.

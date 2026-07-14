@@ -5,15 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"What
-        is the capital of France?"}],"max_tokens":1024}'
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What
+        is the capital of France?","role":"user"}]}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -23,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -46,7 +46,7 @@ http_interactions:
       message: OK
     headers:
       Date:
-      - Tue, 21 Oct 2025 22:52:21 GMT
+      - Tue, 14 Jul 2026 01:04:58 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -54,50 +54,52 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '50000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-21T22:52:20Z'
+      - '2026-07-14T01:04:58Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '10000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-21T22:52:21Z'
+      - '2026-07-14T01:04:58Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-21T22:52:22Z'
+      - '2026-07-14T01:04:58Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '60000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-21T22:52:20Z'
+      - '2026-07-14T01:04:58Z'
       Request-Id:
-      - req_011CUMATuuEydQorXRk5LieC
+      - req_011Cd13w8swJrqq5kiKn1t4P
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '905'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-abe4a5861ba44da01a8efb84117f9349-ce8fc17abf50623f-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 99245325ba3915b4-SJC
+      - a1ac9dcb3c984e35-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_017gMCauBRyzMNZiN1jecf3Z","type":"message","role":"assistant","content":[{"type":"text","text":"The
-        capital of France is Paris."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":14,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":10,"service_tier":"standard"}}'
-  recorded_at: Tue, 21 Oct 2025 22:52:21 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011Cd13w9E2VkdmpnrGYbEg8","type":"message","role":"assistant","content":[{"type":"text","text":"The
+        capital of France is Paris."}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":14,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":10,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Tue, 14 Jul 2026 01:04:58 GMT
+recorded_with: VCR 6.4.0

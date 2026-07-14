@@ -1,5 +1,7 @@
 source "https://rubygems.org"
 
+ENV["ANTHROPIC_GEM_VERSION"] = "1.14"
+
 gem "anthropic", "~> 1.14.0"
 gem "minitest", "~> 5.0"
 gem "rails", "~> 8.0.0"

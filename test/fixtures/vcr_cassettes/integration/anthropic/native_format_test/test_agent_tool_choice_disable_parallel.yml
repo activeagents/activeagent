@@ -5,16 +5,15 @@ http_interactions:
     uri: https://api.anthropic.com/v1/messages
     body:
       encoding: UTF-8
-      string: '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"What''s
-        the weather?"}],"max_tokens":1024,"tools":[{"name":"get_weather","description":"Get
-        weather","input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}],"tool_choice":{"type":"auto","disable_parallel_tool_use":true}}'
+      string: '{"model":"claude-sonnet-5","messages":[{"content":"What''s the weather?","role":"user"}],"max_tokens":1024,"tools":[{"input_schema":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]},"name":"get_weather","description":"Get
+        weather"}],"tool_choice":{"type":"auto","disable_parallel_tool_use":true}}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
       Accept:
       - application/json
       User-Agent:
-      - Ruby
+      - Anthropic::Client/Ruby 1.55.0
       Host:
       - api.anthropic.com
       X-Stainless-Arch:
@@ -24,11 +23,11 @@ http_interactions:
       X-Stainless-Os:
       - MacOS
       X-Stainless-Package-Version:
-      - 1.12.0
+      - 1.55.0
       X-Stainless-Runtime:
       - ruby
       X-Stainless-Runtime-Version:
-      - 3.4.7
+      - 4.0.2
       Content-Type:
       - application/json
       Anthropic-Version:
@@ -40,14 +39,14 @@ http_interactions:
       X-Stainless-Timeout:
       - '600.0'
       Content-Length:
-      - '342'
+      - '331'
   response:
     status:
       code: 200
       message: OK
     headers:
       Date:
-      - Sat, 18 Oct 2025 03:48:56 GMT
+      - Tue, 14 Jul 2026 01:07:55 GMT
       Content-Type:
       - application/json
       Transfer-Encoding:
@@ -55,52 +54,53 @@ http_interactions:
       Connection:
       - keep-alive
       Anthropic-Ratelimit-Input-Tokens-Limit:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Remaining:
-      - '30000'
+      - '10000000'
       Anthropic-Ratelimit-Input-Tokens-Reset:
-      - '2025-10-18T03:48:55Z'
+      - '2026-07-14T01:07:54Z'
       Anthropic-Ratelimit-Output-Tokens-Limit:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Remaining:
-      - '8000'
+      - '2000000'
       Anthropic-Ratelimit-Output-Tokens-Reset:
-      - '2025-10-18T03:48:56Z'
+      - '2026-07-14T01:07:55Z'
       Anthropic-Ratelimit-Requests-Limit:
-      - '50'
+      - '20000'
       Anthropic-Ratelimit-Requests-Remaining:
-      - '49'
+      - '19999'
       Anthropic-Ratelimit-Requests-Reset:
-      - '2025-10-18T03:48:55Z'
+      - '2026-07-14T01:07:54Z'
       Anthropic-Ratelimit-Tokens-Limit:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Remaining:
-      - '38000'
+      - '12000000'
       Anthropic-Ratelimit-Tokens-Reset:
-      - '2025-10-18T03:48:55Z'
+      - '2026-07-14T01:07:54Z'
       Request-Id:
-      - req_011CUDyqsfrLK5Kskz29tTaX
+      - req_011Cd14A8K4rWWzLnx44PLAc
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Anthropic-Organization-Id:
       - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
-      X-Envoy-Upstream-Service-Time:
-      - '2191'
-      Via:
-      - 1.1 google
+      Traceresponse:
+      - 00-32e8a8ba09c49532a195feebe5f3aba5-ce9da17fc33e5eb7-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
       Cf-Cache-Status:
       - DYNAMIC
       X-Robots-Tag:
       - none
-      Server:
-      - cloudflare
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
       Cf-Ray:
-      - 9905100e2dfff97b-SJC
+      - a1aca2189ef68dfa-SJC
     body:
       encoding: ASCII-8BIT
-      string: '{"model":"claude-sonnet-4-5-20250929","id":"msg_01TgfkddeaGEAvSiRwRZKGxk","type":"message","role":"assistant","content":[{"type":"text","text":"I''d
-        be happy to help you check the weather! However, I need to know which location
-        you''d like to know the weather for. Could you please tell me the city or
-        area you''re interested in?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":350,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":45,"service_tier":"standard"}}'
-  recorded_at: Sat, 18 Oct 2025 03:48:56 GMT
-recorded_with: VCR 6.3.1
+      string: '{"model":"claude-sonnet-5","id":"msg_011Cd14A8eAEMrjXV3GCT4vU","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"","signature":"EqkDCokBCA8YAipAcfwUOvv6ho9Lzx5gZQT6SyQBC9NzyEf9HXG3Y6pFc7OZPBEv+KPB9qfSPj3P/KMP7+yBJHy8Cdpydx/LlcGtdTIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQyNTU3YzJmMi1iY2ZhLTQwNTQtOWZhOC1hZTEzYjNiNDdkNmISDGvL34xYqDSKWAoPJxoMiU6TPg0jRbJ9ZajjIjDdnrTLYkHRhF8oTjXmW1H1awKFACzvLXJIm4QG+ByAp9DbPtHgUJYha0qWMxFQ4dkqzAE/Q7hRmR7O7qcKKxnXiRVLfn1q98wZn7s89uqr8gk2b0sxDHtux/slUM7Ss/ijFW7/FVT06Pbr/6rZP2bg+xdM2tfN/0KQliOa62vDGNY5s2DhgcmbgEAluvElhdkUk9mOnQA0/cw0JTFdJWHpnUYuQbiErCOwhyKc/9Msfjv9nLMPs2BbD+NnJ5/RRLWOD3Zs6D9vfpsbsckzobCZRW7MkjLh+poYHo2NkGkD7AR/igfj2RjNrOgh0xiVLD1dDe8N4MX57F+I5OCPlHgYAQ=="},{"type":"text","text":"I''d
+        be happy to check the weather for you! Could you please let me know which
+        location (city/region) you''d like the weather for?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":432,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":89,"output_tokens_details":{"thinking_tokens":49},"service_tier":"standard","inference_geo":"global"}}'
+  recorded_at: Tue, 14 Jul 2026 01:07:55 GMT
+recorded_with: VCR 6.4.0

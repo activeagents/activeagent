@@ -15,7 +15,7 @@ module Docs
 
       # region message_keyword_agent
       class MessageKeywordAgent < ApplicationAgent
-        generate_with :anthropic, model: "claude-3-5-haiku-20241022"
+        generate_with :anthropic, model: "claude-haiku-4-5"
 
         def chat
           prompt(message: "Explain quantum computing")
@@ -62,7 +62,7 @@ module Docs
 
       # region image_agent
       class ImageAgent < ApplicationAgent
-        generate_with :anthropic, model: "claude-3-5-haiku-20241022"
+        generate_with :anthropic, model: "claude-haiku-4-5"
 
         def analyze_url
           prompt(
@@ -109,7 +109,7 @@ module Docs
 
       # region document_base64_agent
       class DocumentBase64Agent < ApplicationAgent
-        generate_with :anthropic, model: "claude-3-5-haiku-20241022"
+        generate_with :anthropic, model: "claude-haiku-4-5"
 
         def extract_base64
           file_path = Rails.root.join("../fixtures/files/sample_resume.pdf")
@@ -136,7 +136,7 @@ module Docs
 
       # region system_messages_agent
       class SystemMessagesAgent < ApplicationAgent
-        generate_with :anthropic, model: "claude-3-5-haiku-20241022"
+        generate_with :anthropic, model: "claude-haiku-4-5"
 
         def chat
           prompt(

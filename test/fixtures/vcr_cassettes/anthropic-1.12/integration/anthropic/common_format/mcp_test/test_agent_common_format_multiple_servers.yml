@@ -1,0 +1,139 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.anthropic.com/v1/messages?beta=true
+    body:
+      encoding: UTF-8
+      string: '{"model":"claude-haiku-4-5","max_tokens":1024,"messages":[{"content":"What
+        tools do you have available?","role":"user"}],"mcp_servers":[{"name":"cloudflare-demo","type":"url","url":"https://demo-day.mcp.cloudflare.com/sse"},{"name":"github-copilot","type":"url","url":"https://api.githubcopilot.com/mcp/","authorization_token":"GITHUB_MCP_TOKEN"}]}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - Ruby
+      Host:
+      - api.anthropic.com
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Lang:
+      - ruby
+      X-Stainless-Os:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 1.12.0
+      X-Stainless-Runtime:
+      - ruby
+      X-Stainless-Runtime-Version:
+      - 3.4.7
+      Content-Type:
+      - application/json
+      Anthropic-Version:
+      - '2023-06-01'
+      X-Api-Key:
+      - ACCESS_TOKEN
+      Anthropic-Beta:
+      - mcp-client-2025-04-04
+      X-Stainless-Retry-Count:
+      - '0'
+      X-Stainless-Timeout:
+      - '600.0'
+      Content-Length:
+      - '425'
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Mon, 13 Jul 2026 23:12:41 GMT
+      Content-Type:
+      - application/json
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Anthropic-Ratelimit-Input-Tokens-Limit:
+      - '10000000'
+      Anthropic-Ratelimit-Input-Tokens-Remaining:
+      - '9994000'
+      Anthropic-Ratelimit-Input-Tokens-Reset:
+      - '2026-07-13T23:12:35Z'
+      Anthropic-Ratelimit-Output-Tokens-Limit:
+      - '2000000'
+      Anthropic-Ratelimit-Output-Tokens-Remaining:
+      - '1999000'
+      Anthropic-Ratelimit-Output-Tokens-Reset:
+      - '2026-07-13T23:12:41Z'
+      Anthropic-Ratelimit-Requests-Limit:
+      - '20000'
+      Anthropic-Ratelimit-Requests-Remaining:
+      - '19999'
+      Anthropic-Ratelimit-Requests-Reset:
+      - '2026-07-13T23:12:35Z'
+      Anthropic-Ratelimit-Tokens-Limit:
+      - '12000000'
+      Anthropic-Ratelimit-Tokens-Remaining:
+      - '11993000'
+      Anthropic-Ratelimit-Tokens-Reset:
+      - '2026-07-13T23:12:35Z'
+      Request-Id:
+      - req_011CczuMu48boxfScZ2AKwvn
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Anthropic-Organization-Id:
+      - 2557c2f2-bcfa-4054-9fa8-ae13b3b47d6b
+      Traceresponse:
+      - 00-ed51081f70fb7c6b6f1b15adb21fa880-cba913e63ca6b777-01
+      Server:
+      - cloudflare
+      Vary:
+      - Accept-Encoding
+      X-Robots-Tag:
+      - none
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'
+      Cf-Cache-Status:
+      - DYNAMIC
+      Cf-Ray:
+      - a1abf91bdfb115aa-SJC
+    body:
+      encoding: ASCII-8BIT
+      string: '{"model":"claude-haiku-4-5-20251001","id":"msg_011CczuN6PmHn9VAcy5ouqxW","type":"message","role":"assistant","content":[{"type":"text","text":"I
+        have a comprehensive set of tools available for working with GitHub and related
+        services. Here''s an overview organized by category:\n\n## GitHub Repository
+        Management\n- **Create & Fork**: Create new repositories, fork existing ones\n-
+        **Branch Management**: List branches, create new branches\n- **File Operations**:
+        Create, update, delete files; push multiple files in a single commit\n\n##
+        GitHub Issues\n- **Issue Operations**: Create, read, and update issues\n-
+        **Issue Search**: Search for issues across repositories\n- **Issue Fields**:
+        List and work with custom issue fields and types\n- **Sub-issues**: Add, remove,
+        and manage parent-child issue relationships\n- **Comments**: Add comments
+        and reactions to issues\n\n## GitHub Pull Requests\n- **PR Operations**: Create,
+        read, update, and merge pull requests\n- **PR Search**: Search for pull requests
+        across repositories\n- **PR Reviews**: Create, submit, and manage pull request
+        reviews\n- **Review Comments**: Add and reply to pull request review comments\n-
+        **PR Status**: Check commit status, check runs, and PR details\n- **PR Management**:
+        Update branch, list files, commits, and diffs\n\n## Code Search & Analysis\n-
+        **Code Search**: Fast, precise code search across GitHub repositories\n- **Commit
+        Search**: Find commits by message, author, date, and other criteria\n- **Secret
+        Scanning**: Scan files and content for exposed secrets (API keys, passwords,
+        tokens)\n\n## GitHub Users & Teams\n- **User Information**: Get authenticated
+        user details\n- **User Search**: Find GitHub users by username or profile
+        information\n- **Team Management**: Get team members and user team memberships\n\n##
+        Repository Information\n- **Repository Search**: Find repositories by name,
+        description, topics, etc.\n- **Collaborators**: List repository collaborators\n-
+        **Releases & Tags**: List releases, get specific releases/tags, list all tags\n-
+        **Commits**: List commits, get specific commit details\n\n## GitHub Copilot
+        Integration\n- **Copilot Code Review**: Request automated code review for
+        pull requests\n- **Copilot Agent Tasks**: Assign tasks to Copilot to create
+        pull requests\n- **Job Status**: Check status of Copilot coding agent jobs\n\n##
+        Miscellaneous\n- **Cloudflare MCP Demo Day**: Get information about Cloudflare''s
+        MCP Demo Day event\n\nThese tools enable me to help you with a wide range
+        of GitHub-related tasks, from simple operations like creating issues or reviewing
+        code, to complex workflows like searching across repositories and managing
+        pull request reviews.\n\nWhat would you like to do?"}],"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"usage":{"input_tokens":14184,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":560,"service_tier":"standard","inference_geo":"not_available"}}'
+  recorded_at: Mon, 13 Jul 2026 23:12:41 GMT
+recorded_with: VCR 6.3.1
