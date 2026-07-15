@@ -1,5 +1,10 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## Unreleased
 
 ### Dashboard & Telemetry — production readiness
@@ -32,12 +37,6 @@ The free self-hosted dashboard engine now works out of the box:
   install, authentication (none by default — see docs), remote ingestion
   and multi-tenant mode; dashboard engine test suite added
   (`test/dashboard/`).
-
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.0] - 2025-11-21
 
