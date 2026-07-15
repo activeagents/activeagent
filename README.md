@@ -123,9 +123,17 @@ development:
     service: "Ollama"
     model: "llama3.2"
 
+  tuning_engines:
+    service: "OpenAI"
+    access_token: <%= Rails.application.credentials.dig(:tuning_engines, :api_key) %>
+    base_url: "https://api.tuningengines.com/v1"
+    model: "gpt-4o-mini"
+
   ruby_llm:
     service: "RubyLLM"
 ```
+
+`tuning_engines` is an OpenAI-compatible gateway configuration for Rails teams that want centralized model routing, policy controls, audit logs, traces, approvals, and cost visibility without changing ActiveAgent code.
 
 ## Features
 
