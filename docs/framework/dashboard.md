@@ -1,10 +1,14 @@
-# Dashboard (Self-Hosted)
+# Dev Console (Dashboard Engine)
 
-Active Agent ships a free, self-hosted observability dashboard as a Rails
-engine: every agent generation recorded as a trace with a span waterfall,
-plus a metrics overview — the same telemetry pipeline that powers the
-hosted [activeagents.ai](https://activeagents.ai) platform, running
-entirely inside your app against your own database.
+Active Agent ships a local development console as a Rails engine: every
+agent generation recorded as a trace with a span waterfall, plus a metrics
+overview — running inside your app against your own database while you
+build. It uses the same telemetry pipeline as the hosted
+[activeagents.ai](https://activeagents.ai) platform, which is the
+production observability product: what you see locally in development is
+what the platform shows (plus evaluations, cost estimates, retention, and
+team workspaces) once you point telemetry at it. Every platform workspace
+starts with a free low-volume trial.
 
 ![Dashboard: traces list with expandable span timelines]
 
@@ -112,16 +116,19 @@ tracking or rate limiting.
 
 ## Relationship to the hosted platform
 
-| | Self-hosted (this engine) | activeagents.ai |
+| | Dev console (this engine) | activeagents.ai (production) |
 |---|---|---|
+| Intended use | Development | Production monitoring |
 | Traces + span waterfall | ✓ | ✓ |
 | Metrics + per-agent stats | ✓ | ✓ |
-| Trace ingest API | ✓ (single tenant) | ✓ (multi-tenant, quotas) |
+| Trace ingest API | ✓ (single tenant, local) | ✓ (multi-tenant, quotas) |
 | Conversation persistence | via [solid_agent](https://github.com/activeagents/solid_agent) | ✓ built in |
-| Evaluations, cost estimates, team accounts | — | ✓ |
+| Evaluations, cost estimates, retention, team accounts | — | ✓ |
 
-The platform is this engine in multi-tenant mode plus managed
-infrastructure — there is one pipeline, not two products.
+One pipeline, two contexts: the console shows your traces while you
+develop; the platform runs the same engine multi-tenant with managed
+infrastructure for production. Free workspaces get a low-volume trial
+tier; paid plans lift the quotas.
 
 ## Conversation persistence
 
