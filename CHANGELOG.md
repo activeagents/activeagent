@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+### Dashboard & Telemetry — production readiness
+
+The free self-hosted dashboard engine now works out of the box:
+
+- **Engine load paths fixed**: `Engine.find_root` now points at the
+  dashboard directory, so `ActiveAgent::TelemetryTrace`,
+  `ProcessTelemetryTracesJob`, the API controller, views and engine routes
+  are auto-discovered in host apps (previously they required manual
+  `require`s). The engine is also required eagerly with Rails, since
+  engines defined lazily miss initializer collection.
+- **Routes now match shipped controllers**: the engine exposes traces,
+  metrics and the ingest API (`/active_agent/api/traces`, matching
+  `Telemetry::Configuration::LOCAL_ENDPOINT_PATH`); routes to
+  never-shipped controllers (agents, sandboxes, templates, recordings,
+  api/v1) were removed. Engine root renders the traces index.
+- **`local_storage` telemetry mode fixed**: tracer payloads are
+  symbol-keyed and were silently dropped by the string-keyed ingestion
+  normalizer; the reporter now stringifies and honors
+  `ActiveAgent::Dashboard.trace_model` overrides.
+- **Token totals no longer double-count**: instrumentation mirrors LLM
+  token usage onto the root span; `TelemetryTrace.create_from_payload`
+  now counts child spans as the source of truth.
+- **Span waterfall renders real offsets** (was pinned to 0ms), turbo-rails
+  is now optional (previously 500s without it), layout route helpers fixed,
+  `Agent.for_owner` scope added, synchronous ingest capped at 100
+  traces/request.
+- **New docs** (`docs/framework/dashboard.md`, README section) covering
+  install, authentication (none by default — see docs), remote ingestion
+  and multi-tenant mode; dashboard engine test suite added
+  (`test/dashboard/`).
+
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

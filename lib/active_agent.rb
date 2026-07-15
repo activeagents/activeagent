@@ -16,6 +16,10 @@ require "active_support/lazy_load_hooks"
 # Module Level Extensions
 require "active_agent/configuration"
 require "active_agent/railtie" if defined?(Rails)
+# The dashboard is a Rails engine; engines must be defined when the gem is
+# required (before the host app collects railtie initializers), so it
+# cannot be left to the Dashboard autoload above.
+require "active_agent/dashboard" if defined?(Rails)
 
 # ActiveAgent is a framework for building AI agents with Rails-like conventions.
 #

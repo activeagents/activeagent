@@ -54,13 +54,20 @@ module ActiveAgent
       spans = trace["spans"] || []
       root_span = spans.find { |s| s["parent_span_id"].nil? } || spans.first || {}
 
-      # Calculate totals from all spans
       total_duration = root_span["duration_ms"]
+
+      # Instrumentation mirrors LLM token usage onto the root span for
+      # display, so summing every span double-counts. When child spans
+      # carry token data, they are the source of truth; the root span only
+      # counts for single-span traces.
+      counted_spans = spans.reject { |s| s["parent_span_id"].nil? }
+      counted_spans = spans if counted_spans.none? { |s| span_token_sum(s).positive? }
+
       total_input = 0
       total_output = 0
       total_thinking = 0
 
-      spans.each do |span|
+      counted_spans.each do |span|
         tokens = span["tokens"] || {}
         total_input += (tokens["input"] || 0)
         total_output += (tokens["output"] || 0)
@@ -98,6 +105,15 @@ module ActiveAgent
       attrs[:account] = account if ActiveAgent::Dashboard.multi_tenant? && account
 
       create!(attrs)
+    end
+
+    # Sums a span's token counts (used to decide which spans carry the
+    # authoritative token data during ingestion).
+    #
+    # @api private
+    def self.span_token_sum(span)
+      tokens = span["tokens"] || {}
+      tokens.fetch("input", 0).to_i + tokens.fetch("output", 0).to_i + tokens.fetch("thinking", 0).to_i
     end
 
     # Returns the root span of this trace.
