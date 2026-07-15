@@ -47,9 +47,11 @@ module ActiveAgent
       attr_accessor :timeout
 
       # @return [Boolean] Whether to capture request/response bodies (default: false)
+      # @note Reserved: not yet consumed by the tracer/instrumentation.
       attr_accessor :capture_bodies
 
       # @return [Array<String>] Attributes to redact from traces
+      # @note Reserved: not yet consumed by the tracer/instrumentation.
       attr_accessor :redact_attributes
 
       # @return [String] Service name for trace attribution

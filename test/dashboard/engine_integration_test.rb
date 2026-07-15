@@ -58,6 +58,15 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
     assert_includes response.location, "/active_agent/traces"
   end
 
+  test "dashboard refuses unauthenticated access in production when no auth is configured" do
+    Rails.env.stub(:production?, true) do
+      get "/active_agent/traces"
+    end
+
+    assert_response :forbidden
+    assert_includes response.body, "authentication_method"
+  end
+
   test "local ingest endpoint matches LOCAL_ENDPOINT_PATH and persists traces" do
     endpoint = ActiveAgent::Telemetry::Configuration::LOCAL_ENDPOINT_PATH
     assert_equal "/active_agent/api/traces", endpoint

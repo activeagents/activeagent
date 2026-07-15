@@ -21,7 +21,17 @@ module ActiveAgent
       private
 
       def authenticate_dashboard!
-        return if ActiveAgent::Dashboard.authentication_method.nil?
+        if ActiveAgent::Dashboard.authentication_method.nil?
+          # Traces contain prompts, outputs, and error backtraces. Refuse to
+          # serve them unauthenticated in production rather than exposing
+          # them to the internet by default.
+          if Rails.env.production?
+            render plain: "ActiveAgent Dashboard: set ActiveAgent::Dashboard.authentication_method " \
+              "(see docs/framework/dashboard.md) to enable access in production.",
+              status: :forbidden
+          end
+          return
+        end
 
         result = ActiveAgent::Dashboard.authentication_method.call(self)
         head :unauthorized unless result
