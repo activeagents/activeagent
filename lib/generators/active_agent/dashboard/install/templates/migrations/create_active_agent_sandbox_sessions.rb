@@ -28,7 +28,7 @@ class CreateActiveAgentSandboxSessions < ActiveRecord::Migration<%= migration_ve
       t.integer :total_duration_ms, default: 0
 
       # Results
-      t.jsonb :runs, default: []
+      t.json :runs, default: []
       t.text :error_message
 
       t.timestamps

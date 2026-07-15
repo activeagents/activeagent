@@ -46,7 +46,18 @@ module ActiveAgent
         def process_prompt
           return super unless Telemetry.enabled?
 
-          Telemetry.trace("#{self.class.name}.#{action_name}", span_type: :root) do |span|
+          # Reuse (or mint) the generation's trace id so the telemetry trace
+          # shares one id with everything else that reads
+          # prompt_options[:trace_id] — the generation request parameters and
+          # e.g. solid_agent's persisted generation records. Without this the
+          # tracer generates its own id and traces can't be correlated with
+          # the records they describe.
+          trace_id = nil
+          if respond_to?(:prompt_options) && prompt_options.is_a?(Hash)
+            trace_id = (prompt_options[:trace_id] ||= SecureRandom.uuid)
+          end
+
+          Telemetry.trace("#{self.class.name}.#{action_name}", span_type: :root, **{ trace_id: trace_id }.compact) do |span|
             span.set_attribute("agent.class", self.class.name)
             span.set_attribute("agent.action", action_name.to_s)
             span.set_attribute("agent.provider", provider_name) if respond_to?(:provider_name)

@@ -16,13 +16,13 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_ve
       t.datetime :timestamp, null: false
 
       # Span data (JSON array of spans)
-      t.jsonb :spans, default: []
+      t.json :spans, default: []
 
       # Resource attributes
-      t.jsonb :resource_attributes, default: {}
+      t.json :resource_attributes, default: {}
 
       # SDK info
-      t.jsonb :sdk_info, default: {}
+      t.json :sdk_info, default: {}
 
       # Aggregated metrics (for quick queries)
       t.integer :total_duration_ms
