@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Dashboard & Telemetry — production readiness
+### Dashboard & Telemetry — dev console readiness
 
-The free self-hosted dashboard engine now works out of the box:
+The dashboard engine — Active Agent's local dev console — now works out of
+the box (production observability is the hosted platform product):
 
 - **Engine load paths fixed**: `Engine.find_root` now points at the
   dashboard directory, so `ActiveAgent::TelemetryTrace`,
