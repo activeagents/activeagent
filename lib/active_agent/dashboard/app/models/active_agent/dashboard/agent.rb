@@ -51,6 +51,17 @@ module ActiveAgent
 
       # Scopes
       scope :active_agents, -> { where(status: :active) }
+      # Scopes agents to their owner: an account in multi-tenant mode, a
+      # user otherwise. Referenced by DashboardController#fetch_agents.
+      scope :for_owner, ->(owner) {
+        next all if owner.nil?
+
+        if ActiveAgent::Dashboard.multi_tenant?
+          where(account: owner)
+        else
+          where(user: owner)
+        end
+      }
       scope :by_provider, ->(provider) { where(provider: provider) }
       scope :with_tool, ->(tool) { where("tools @> ?", [ tool ].to_json) }
 

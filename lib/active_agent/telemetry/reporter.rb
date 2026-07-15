@@ -147,22 +147,45 @@ module ActiveAgent
       # @param traces [Array<Hash>] Traces to store
       def store_traces_locally(traces)
         sdk_info = {
-          name: "activeagent",
-          version: ActiveAgent::VERSION,
-          language: "ruby",
-          runtime_version: RUBY_VERSION
+          "name" => "activeagent",
+          "version" => ActiveAgent::VERSION,
+          "language" => "ruby",
+          "runtime_version" => RUBY_VERSION
         }
 
-        traces.each do |trace|
-          # Skip if trace already exists (idempotency)
-          next if ActiveAgent::TelemetryTrace.exists?(trace_id: trace["trace_id"])
+        model = local_trace_model
+        unless model
+          log_error("local_storage is enabled but no trace model is available — " \
+            "run `rails generate active_agent:dashboard:install` first")
+          return
+        end
 
-          ActiveAgent::TelemetryTrace.create_from_payload(trace, sdk_info)
+        traces.each do |trace|
+          # Tracer payloads are symbol-keyed; create_from_payload reads
+          # string keys (as it does for JSON ingested over HTTP).
+          trace = trace.deep_stringify_keys if trace.respond_to?(:deep_stringify_keys)
+
+          # Skip if trace already exists (idempotency)
+          next if model.exists?(trace_id: trace["trace_id"])
+
+          model.create_from_payload(trace, sdk_info)
         rescue StandardError => e
           log_error("Failed to store trace locally: #{e.class} - #{e.message}")
         end
       rescue StandardError => e
         log_error("Error storing traces locally: #{e.class} - #{e.message}")
+      end
+
+      # Resolves the configured trace model (honors
+      # ActiveAgent::Dashboard.trace_model_class overrides).
+      def local_trace_model
+        if defined?(ActiveAgent::Dashboard) && ActiveAgent::Dashboard.respond_to?(:trace_model)
+          ActiveAgent::Dashboard.trace_model
+        elsif defined?(ActiveAgent::TelemetryTrace)
+          ActiveAgent::TelemetryTrace
+        end
+      rescue NameError
+        nil
       end
 
       # Logs an error message.

@@ -6,23 +6,26 @@ module ActiveAgent
     #
     class DashboardController < ApplicationController
       def index
+        unless ActiveAgent::Dashboard.use_inertia && defined?(InertiaRails)
+          # No ERB overview ships yet — the traces list is the dashboard.
+          # Loading agent/run data here would also require the full
+          # dashboard tables, which telemetry-only installs don't have.
+          return redirect_to(traces_path)
+        end
+
         @agents = fetch_agents.limit(10)
         @recent_runs = fetch_recent_runs.limit(10)
         @recent_traces = fetch_recent_traces.limit(10)
         @metrics = calculate_metrics
 
-        if ActiveAgent::Dashboard.use_inertia && defined?(InertiaRails)
-          render inertia: "Dashboard", props: {
-            agents: serialize_agents(@agents),
-            recentRuns: serialize_runs(@recent_runs),
-            recentTraces: serialize_traces(@recent_traces),
-            metrics: @metrics,
-            user: current_user_props,
-            account: current_account_props
-          }
-        else
-          render :index
-        end
+        render inertia: "Dashboard", props: {
+          agents: serialize_agents(@agents),
+          recentRuns: serialize_runs(@recent_runs),
+          recentTraces: serialize_traces(@recent_traces),
+          metrics: @metrics,
+          user: current_user_props,
+          account: current_account_props
+        }
       end
 
       private

@@ -127,6 +127,29 @@ development:
     service: "RubyLLM"
 ```
 
+## Dashboard & Observability
+
+Active Agent includes a free, self-hosted observability dashboard — traces
+with span waterfalls, token usage, and per-agent metrics — as a mountable
+Rails engine:
+
+```bash
+rails generate active_agent:dashboard:install
+rails db:migrate
+```
+
+```yaml
+# config/active_agent.yml
+telemetry:
+  enabled: true
+  local_storage: true
+```
+
+Open `/active_agent` and every generation appears as a trace. See
+[docs/framework/dashboard.md](docs/framework/dashboard.md) for
+authentication, remote ingestion, and multi-tenant mode — the same engine
+powers the hosted platform at [activeagents.ai](https://activeagents.ai).
+
 ## Features
 
 - **Agent-Oriented Programming**: Build AI applications using familiar Rails patterns
