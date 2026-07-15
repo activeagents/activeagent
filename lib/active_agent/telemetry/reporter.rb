@@ -27,6 +27,7 @@ module ActiveAgent
         @mutex = Mutex.new
         @running = false
         @thread = nil
+        @send_threads = []
         @shutdown = false
 
         start_flush_thread if configuration.enabled?
@@ -49,22 +50,27 @@ module ActiveAgent
         end
       end
 
-      # Flushes all buffered traces immediately.
+      # Flushes all buffered traces immediately and waits for the send to
+      # complete, so callers (tests, rails runner, job shutdown) can rely on
+      # the traces having been delivered/stored when this returns.
       #
       # @return [void]
       def flush
-        @mutex.synchronize do
-          flush_buffer
-        end
+        thread = @mutex.synchronize { flush_buffer }
+        thread&.join(configuration.timeout)
       end
 
-      # Shuts down the reporter, flushing remaining traces.
+      # Shuts down the reporter, flushing remaining traces and waiting for
+      # any in-flight sends — without this, traces flushed near process exit
+      # were silently dropped.
       #
       # @return [void]
       def shutdown
         @shutdown = true
+        @running = false
         flush
         @thread&.join(5) # Wait up to 5 seconds for thread to finish
+        @mutex.synchronize { @send_threads.dup }.each { |t| t.join(configuration.timeout) }
       end
 
       private
@@ -85,16 +91,20 @@ module ActiveAgent
         end
       end
 
-      # Flushes the buffer by sending traces to the endpoint.
+      # Flushes the buffer by sending traces to the endpoint on a background
+      # thread. Must be called within @mutex synchronization.
       #
-      # Must be called within @mutex synchronization.
+      # @return [Thread, nil] the send thread, so callers can join it
       def flush_buffer
         return if @buffer.empty?
 
         traces = @buffer.dup
         @buffer.clear
 
-        Thread.new { send_traces(traces) }
+        @send_threads.select!(&:alive?)
+        thread = Thread.new { send_traces(traces) }
+        @send_threads << thread
+        thread
       end
 
       # Sends traces to the configured endpoint.

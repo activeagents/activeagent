@@ -17,18 +17,18 @@ class CreateActiveAgentAgents < ActiveRecord::Migration<%= migration_version %>
 
       # Avatar/appearance configuration
       t.string :preset_type
-      t.jsonb :appearance, default: {}
+      t.json :appearance, default: {}
 
       # Capabilities
-      t.jsonb :instruction_sets, default: []
-      t.jsonb :tools, default: []
-      t.jsonb :mcp_servers, default: []
+      t.json :instruction_sets, default: []
+      t.json :tools, default: []
+      t.json :mcp_servers, default: []
 
       # Model configuration
-      t.jsonb :model_config, default: {}
+      t.json :model_config, default: {}
 
       # Response format
-      t.jsonb :response_format, default: {}
+      t.json :response_format, default: {}
 
       # Status
       t.integer :status, default: 0, null: false

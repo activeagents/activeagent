@@ -7,11 +7,11 @@ class CreateActiveAgentAgentRuns < ActiveRecord::Migration<%= migration_version 
 
       # Input
       t.text :input_prompt
-      t.jsonb :input_params, default: {}
+      t.json :input_params, default: {}
 
       # Output
       t.text :output
-      t.jsonb :output_metadata, default: {}
+      t.json :output_metadata, default: {}
 
       # Execution details
       t.integer :status, default: 0, null: false
@@ -30,7 +30,7 @@ class CreateActiveAgentAgentRuns < ActiveRecord::Migration<%= migration_version 
 
       # Trace for debugging
       t.string :trace_id
-      t.jsonb :logs, default: []
+      t.json :logs, default: []
 
       t.timestamps
     end
