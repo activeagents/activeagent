@@ -59,11 +59,23 @@
     <div class="mt-4">
       <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Span Timeline</h4>
       <div class="relative bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
-        <% total_duration = trace.total_duration_ms || 1 %>
+        <% total_duration = (trace.total_duration_ms || 1).to_f %>
+        <% total_duration = 1.0 if total_duration.zero? %>
+        <%
+          # Offsets relative to the root span's start. Span payloads carry
+          # absolute ISO8601 start_time values, not relative offsets.
+          root = trace.root_span || trace.spans.first || {}
+          root_start = Time.parse(root["start_time"]) rescue nil
+        %>
         <% trace.spans.each_with_index do |span, index| %>
           <%
-            start_pct = ((span["start_time_relative_ms"] || 0) / total_duration * 100).clamp(0, 100)
-            width_pct = ((span["duration_ms"] || 0) / total_duration * 100).clamp(0.5, 100 - start_pct)
+            relative_ms = span["start_time_relative_ms"]
+            if relative_ms.nil? && root_start && span["start_time"].present?
+              span_start = Time.parse(span["start_time"]) rescue nil
+              relative_ms = ((span_start - root_start) * 1000).round(2) if span_start
+            end
+            start_pct = ((relative_ms || 0).to_f / total_duration * 100).clamp(0, 100)
+            width_pct = ((span["duration_ms"] || 0).to_f / total_duration * 100).clamp(0.5, [ 100 - start_pct, 0.5 ].max)
             span_type = span["type"] || "unknown"
             colors = {
               "root" => "bg-gray-400",

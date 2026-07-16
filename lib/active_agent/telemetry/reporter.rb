@@ -27,6 +27,7 @@ module ActiveAgent
         @mutex = Mutex.new
         @running = false
         @thread = nil
+        @send_threads = []
         @shutdown = false
 
         start_flush_thread if configuration.enabled?
@@ -49,22 +50,27 @@ module ActiveAgent
         end
       end
 
-      # Flushes all buffered traces immediately.
+      # Flushes all buffered traces immediately and waits for the send to
+      # complete, so callers (tests, rails runner, job shutdown) can rely on
+      # the traces having been delivered/stored when this returns.
       #
       # @return [void]
       def flush
-        @mutex.synchronize do
-          flush_buffer
-        end
+        thread = @mutex.synchronize { flush_buffer }
+        thread&.join(configuration.timeout)
       end
 
-      # Shuts down the reporter, flushing remaining traces.
+      # Shuts down the reporter, flushing remaining traces and waiting for
+      # any in-flight sends — without this, traces flushed near process exit
+      # were silently dropped.
       #
       # @return [void]
       def shutdown
         @shutdown = true
+        @running = false
         flush
         @thread&.join(5) # Wait up to 5 seconds for thread to finish
+        @mutex.synchronize { @send_threads.dup }.each { |t| t.join(configuration.timeout) }
       end
 
       private
@@ -85,16 +91,20 @@ module ActiveAgent
         end
       end
 
-      # Flushes the buffer by sending traces to the endpoint.
+      # Flushes the buffer by sending traces to the endpoint on a background
+      # thread. Must be called within @mutex synchronization.
       #
-      # Must be called within @mutex synchronization.
+      # @return [Thread, nil] the send thread, so callers can join it
       def flush_buffer
         return if @buffer.empty?
 
         traces = @buffer.dup
         @buffer.clear
 
-        Thread.new { send_traces(traces) }
+        @send_threads.select!(&:alive?)
+        thread = Thread.new { send_traces(traces) }
+        @send_threads << thread
+        thread
       end
 
       # Sends traces to the configured endpoint.
@@ -147,22 +157,45 @@ module ActiveAgent
       # @param traces [Array<Hash>] Traces to store
       def store_traces_locally(traces)
         sdk_info = {
-          name: "activeagent",
-          version: ActiveAgent::VERSION,
-          language: "ruby",
-          runtime_version: RUBY_VERSION
+          "name" => "activeagent",
+          "version" => ActiveAgent::VERSION,
+          "language" => "ruby",
+          "runtime_version" => RUBY_VERSION
         }
 
-        traces.each do |trace|
-          # Skip if trace already exists (idempotency)
-          next if ActiveAgent::TelemetryTrace.exists?(trace_id: trace["trace_id"])
+        model = local_trace_model
+        unless model
+          log_error("local_storage is enabled but no trace model is available — " \
+            "run `rails generate active_agent:dashboard:install` first")
+          return
+        end
 
-          ActiveAgent::TelemetryTrace.create_from_payload(trace, sdk_info)
+        traces.each do |trace|
+          # Tracer payloads are symbol-keyed; create_from_payload reads
+          # string keys (as it does for JSON ingested over HTTP).
+          trace = trace.deep_stringify_keys if trace.respond_to?(:deep_stringify_keys)
+
+          # Skip if trace already exists (idempotency)
+          next if model.exists?(trace_id: trace["trace_id"])
+
+          model.create_from_payload(trace, sdk_info)
         rescue StandardError => e
           log_error("Failed to store trace locally: #{e.class} - #{e.message}")
         end
       rescue StandardError => e
         log_error("Error storing traces locally: #{e.class} - #{e.message}")
+      end
+
+      # Resolves the configured trace model (honors
+      # ActiveAgent::Dashboard.trace_model_class overrides).
+      def local_trace_model
+        if defined?(ActiveAgent::Dashboard) && ActiveAgent::Dashboard.respond_to?(:trace_model)
+          ActiveAgent::Dashboard.trace_model
+        elsif defined?(ActiveAgent::TelemetryTrace)
+          ActiveAgent::TelemetryTrace
+        end
+      rescue NameError
+        nil
       end
 
       # Logs an error message.

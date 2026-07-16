@@ -127,6 +127,32 @@ development:
     service: "RubyLLM"
 ```
 
+## Dev Console & Observability
+
+Active Agent includes a local dev console — traces with span waterfalls,
+token usage, and per-agent metrics — as a mountable Rails engine, so you
+can watch your agents while you build:
+
+```bash
+rails generate active_agent:dashboard:install
+rails db:migrate
+```
+
+```yaml
+# config/active_agent.yml
+telemetry:
+  enabled: true
+  local_storage: true
+```
+
+Open `/active_agent` and every generation appears as a trace. See
+[docs/framework/dashboard.md](docs/framework/dashboard.md) for
+authentication, remote ingestion, and multi-tenant mode. For production
+monitoring — evaluations, cost estimates, retention, team workspaces —
+point telemetry at the hosted platform at
+[activeagents.ai](https://activeagents.ai); every workspace starts with a
+free low-volume trial.
+
 ## Features
 
 - **Agent-Oriented Programming**: Build AI applications using familiar Rails patterns

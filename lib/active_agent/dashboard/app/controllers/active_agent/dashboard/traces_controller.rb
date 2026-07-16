@@ -16,12 +16,14 @@ module ActiveAgent
 
         respond_to do |format|
           format.html
-          format.turbo_stream
+          # turbo-rails is optional; responding to an unregistered MIME
+          # type raises in host apps without it.
+          format.turbo_stream if turbo_stream_available?
         end
       end
 
       def show
-        @trace = ActiveAgent::TelemetryTrace.find(params[:id])
+        @trace = ActiveAgent::Dashboard.trace_model.find(params[:id])
       end
 
       def metrics
@@ -31,11 +33,15 @@ module ActiveAgent
 
         respond_to do |format|
           format.html
-          format.turbo_stream
+          format.turbo_stream if turbo_stream_available?
         end
       end
 
       private
+
+      def turbo_stream_available?
+        Mime::Type.lookup_by_extension(:turbo_stream).present?
+      end
 
       def fetch_traces
         traces = ActiveAgent::TelemetryTrace.recent
