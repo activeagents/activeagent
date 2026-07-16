@@ -7,9 +7,9 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_ve
       t.string :service_name
       t.string :environment
       t.datetime :timestamp, index: true
-      t.jsonb :spans, default: []
-      t.jsonb :resource_attributes, default: {}
-      t.jsonb :sdk_info, default: {}
+      t.json :spans, default: []
+      t.json :resource_attributes, default: {}
+      t.json :sdk_info, default: {}
       t.decimal :total_duration_ms, precision: 12, scale: 3
       t.integer :total_input_tokens, default: 0
       t.integer :total_output_tokens, default: 0

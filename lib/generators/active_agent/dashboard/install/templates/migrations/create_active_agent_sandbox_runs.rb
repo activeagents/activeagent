@@ -17,7 +17,7 @@ class CreateActiveAgentSandboxRuns < ActiveRecord::Migration<%= migration_versio
       t.datetime :completed_at
 
       # Screenshots
-      t.jsonb :screenshots, default: []
+      t.json :screenshots, default: []
 
       t.timestamps
     end

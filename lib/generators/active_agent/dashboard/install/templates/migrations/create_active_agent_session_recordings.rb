@@ -9,7 +9,7 @@ class CreateActiveAgentSessionRecordings < ActiveRecord::Migration<%= migration_
       t.integer :status, default: 0, null: false
       t.integer :duration_ms
       t.integer :action_count, default: 0
-      t.jsonb :metadata, default: {}
+      t.json :metadata, default: {}
       t.timestamps
     end
 
@@ -22,7 +22,7 @@ class CreateActiveAgentSessionRecordings < ActiveRecord::Migration<%= migration_
       t.text :value
       t.string :screenshot_key
       t.string :dom_snapshot_key
-      t.jsonb :metadata, default: {}
+      t.json :metadata, default: {}
       t.timestamps
     end
 

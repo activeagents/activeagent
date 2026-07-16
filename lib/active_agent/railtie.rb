@@ -67,6 +67,11 @@ module ActiveAgent
           include ActiveAgent::Telemetry::Instrumentation
           instrument_telemetry!
         end
+
+        # Flush remaining traces when the process exits — without this,
+        # short-lived processes (rails runner, jobs, deploys rolling a
+        # server) drop whatever was buffered since the last interval flush.
+        at_exit { ActiveAgent::Telemetry.shutdown }
       end
       # endregion telemetry_configuration
 

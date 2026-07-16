@@ -34,9 +34,13 @@ module ActiveAgent
       class TracesController < ActionController::API
         before_action :authenticate_api_key!, if: -> { ActiveAgent::Dashboard.multi_tenant? }
 
+        # Maximum traces accepted per request (mirrors
+        # ProcessTelemetryTracesJob::MAX_TRACES_PER_JOB).
+        MAX_TRACES_PER_REQUEST = 100
+
         # POST /active_agent/api/traces
         def create
-          traces = params[:traces] || []
+          traces = Array(params[:traces]).take(MAX_TRACES_PER_REQUEST)
           sdk_info = params[:sdk] || {}
 
           return head :accepted if traces.empty?

@@ -75,7 +75,6 @@ module ActiveAgent
           say ""
           say "Next steps:"
           say "  1. Run migrations: rails db:migrate"
-          say "  2. Seed templates:  rails active_agent:dashboard:seed"
           say "  3. Configure authentication in config/initializers/active_agent_dashboard.rb"
           say "  4. Visit /active_agent to access the dashboard"
           say ""

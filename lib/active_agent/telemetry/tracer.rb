@@ -47,7 +47,10 @@ module ActiveAgent
       def trace(name, **attributes, &block)
         return yield(Telemetry::NullSpan.new) unless should_trace?
 
-        trace_id = generate_trace_id
+        # Callers may supply the trace id (instrumentation passes the
+        # generation's prompt_options[:trace_id]) so external records can
+        # correlate with this trace; otherwise generate one.
+        trace_id = attributes.delete(:trace_id) || generate_trace_id
         root_span = Span.new(
           name,
           trace_id: trace_id,

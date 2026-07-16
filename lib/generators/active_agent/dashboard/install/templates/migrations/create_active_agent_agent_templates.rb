@@ -13,11 +13,11 @@ class CreateActiveAgentAgentTemplates < ActiveRecord::Migration<%= migration_ver
       t.string :model, default: "gpt-4o-mini"
       t.text :instructions
       t.string :preset_type
-      t.jsonb :appearance, default: {}
-      t.jsonb :instruction_sets, default: []
-      t.jsonb :tools, default: []
-      t.jsonb :mcp_servers, default: {}
-      t.jsonb :model_config, default: {}
+      t.json :appearance, default: {}
+      t.json :instruction_sets, default: []
+      t.json :tools, default: []
+      t.json :mcp_servers, default: {}
+      t.json :model_config, default: {}
 
       # Metadata
       t.string :icon

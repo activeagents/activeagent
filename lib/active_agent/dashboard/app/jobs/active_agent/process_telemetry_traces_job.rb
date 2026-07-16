@@ -39,7 +39,16 @@ module ActiveAgent
         return
       end
 
+      # Process in bounded slices; anything beyond the cap is re-enqueued
+      # rather than silently dropped (the client already received 202).
+      remainder = traces.drop(MAX_TRACES_PER_JOB)
       traces = traces.take(MAX_TRACES_PER_JOB)
+      if remainder.any?
+        self.class.perform_later(
+          account_id: account_id, traces: remainder,
+          sdk_info: sdk_info, received_at: received_at
+        )
+      end
 
       traces.each do |trace|
         process_trace(trace, sdk_info, account)

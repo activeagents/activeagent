@@ -69,11 +69,11 @@
             </div>
             <div class="ml-10 flex items-baseline space-x-4">
               <%= link_to "Traces",
-                  active_agent_dashboard.traces_path,
-                  class: "px-3 py-2 rounded-md text-sm font-medium #{request.path == active_agent_dashboard.traces_path ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}" %>
+                  traces_path,
+                  class: "px-3 py-2 rounded-md text-sm font-medium #{request.path == traces_path ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}" %>
               <%= link_to "Metrics",
-                  active_agent_dashboard.metrics_traces_path,
-                  class: "px-3 py-2 rounded-md text-sm font-medium #{request.path == active_agent_dashboard.metrics_traces_path ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}" %>
+                  metrics_traces_path,
+                  class: "px-3 py-2 rounded-md text-sm font-medium #{request.path == metrics_traces_path ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}" %>
             </div>
           </div>
           <div class="text-sm text-gray-500 dark:text-gray-400">

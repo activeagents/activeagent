@@ -9,7 +9,7 @@ class CreateActiveAgentAgentVersions < ActiveRecord::Migration<%= migration_vers
       t.string :change_summary
 
       # Snapshot of agent configuration at this version
-      t.jsonb :configuration_snapshot, null: false, default: {}
+      t.json :configuration_snapshot, null: false, default: {}
 
       # Who made the change
       t.string :created_by
