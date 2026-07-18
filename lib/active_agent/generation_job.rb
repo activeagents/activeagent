@@ -18,7 +18,19 @@ module ActiveAgent
 
     rescue_from StandardError, with: :handle_exception_with_agent_class
 
-    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil)
+    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil,
+                direct_generation_type: nil, direct_args: nil, direct_options: nil)
+      if direct_generation_type
+        generation = ActiveAgent::Parameterized::DirectGeneration.new(
+          agent.constantize,
+          direct_generation_type.to_sym,
+          params || {},
+          *Array(direct_args),
+          **(direct_options || {}).to_h.deep_symbolize_keys
+        )
+        return generation.send(generation_method)
+      end
+
       agent_class = params ? agent.constantize.with(params) : agent.constantize
       prompt = if kwargs
         agent_class.public_send(agent_method, *args, **kwargs)

@@ -1,6 +1,8 @@
 require "test_helper"
 
 class ParameterizedDirectTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   class TestAgent < ActiveAgent::Base
     generate_with :mock, model: "mock-model", instructions: "You are a helpful assistant."
     embed_with :mock, model: "mock-embedding-model"
@@ -107,6 +109,14 @@ class ParameterizedDirectTest < ActiveSupport::TestCase
     assert_equal({ queue: :prompts, priority: :high }, generation.enqueue_options)
   end
 
+  test "Agent.prompt(...).generate_later performs the job" do
+    assert_nothing_raised do
+      perform_enqueued_jobs only: ActiveAgent::GenerationJob do
+        TestAgent.prompt(message: "Background task").generate_later
+      end
+    end
+  end
+
   test "Agent.embed returns a generation proxy" do
     generation = TestAgent.embed(input: "Text to embed")
 
@@ -210,6 +220,14 @@ class ParameterizedDirectTest < ActiveSupport::TestCase
     assert generation.enqueue_called?
     assert_equal :embed_now, generation.enqueue_method
     assert_equal({ queue: :embeddings, priority: :low }, generation.enqueue_options)
+  end
+
+  test "Agent.embed(...).embed_later performs the job" do
+    assert_nothing_raised do
+      perform_enqueued_jobs only: ActiveAgent::GenerationJob do
+        TestAgent.embed(input: "Background embedding").embed_later
+      end
+    end
   end
 
   test "prompt() works alongside existing with() method" do
