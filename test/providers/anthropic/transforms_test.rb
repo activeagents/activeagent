@@ -766,7 +766,44 @@ module Providers
         assert_equal "stripe", result[0][:mcp_server_name]
       end
 
-      test "normalize_mcp_tools handles empty allowed_tools array" do
+      test "normalize_mcp_tools handles allowed_tools as array of strings" do
+        mcp_servers = [
+          {
+            name: "stripe",
+            url: "https://mcp.stripe.com",
+            allowed_tools: [ "create_payment", "get_payment" ]
+          }
+        ]
+
+        result = transforms.normalize_mcp_tools(mcp_servers)
+
+        assert_equal 1, result.size
+        assert_equal "mcp_toolset", result[0][:type]
+        assert_equal "stripe", result[0][:mcp_server_name]
+        assert_equal 2, result[0][:configs].size
+        assert_equal true, result[0][:configs]["create_payment"][:enabled]
+        assert_equal true, result[0][:configs]["get_payment"][:enabled]
+      end
+
+      test "normalize_mcp_tools handles mixed string and hash allowed_tools" do
+        mcp_servers = [
+          {
+            name: "stripe",
+            url: "https://mcp.stripe.com",
+            allowed_tools: [ "create_payment", { name: "get_payment" }, :list_payments, 42 ]
+          }
+        ]
+
+        result = transforms.normalize_mcp_tools(mcp_servers)
+
+        assert_equal 1, result.size
+        assert_equal 3, result[0][:configs].size
+        assert_equal true, result[0][:configs]["create_payment"][:enabled]
+        assert_equal true, result[0][:configs]["get_payment"][:enabled]
+        assert_equal true, result[0][:configs]["list_payments"][:enabled]
+      end
+
+      test "normalize_mcp_tools returns nil for empty allowed_tools array" do
         mcp_servers = [
           {
             name: "stripe",
@@ -793,22 +830,22 @@ module Providers
         assert_nil result
       end
 
-      test "normalize_mcp_tools returns empty array for nil input" do
+      test "normalize_mcp_tools returns nil for nil input" do
         result = transforms.normalize_mcp_tools(nil)
 
-        assert_equal [], result
+        assert_nil result
       end
 
-      test "normalize_mcp_tools returns empty array for empty array" do
+      test "normalize_mcp_tools returns nil for empty array" do
         result = transforms.normalize_mcp_tools([])
 
         assert_nil result
       end
 
-      test "normalize_mcp_tools returns empty array for non-array input" do
+      test "normalize_mcp_tools returns nil for non-array input" do
         result = transforms.normalize_mcp_tools("not an array")
 
-        assert_equal [], result
+        assert_nil result
       end
 
       test "normalize_mcp_tools handles single tool" do
@@ -857,6 +894,32 @@ module Providers
         assert_equal "mcp_toolset", result[:tools][0][:type]
         assert_equal "stripe", result[:tools][0][:mcp_server_name]
         assert_equal 2, result[:tools][0][:configs].size
+      end
+
+      test "normalize_params does not set tools key when mcps have no allowed_tools" do
+        params = {
+          mcps: [
+            {
+              name: "stripe",
+              url: "https://mcp.stripe.com"
+            }
+          ]
+        }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal 1, result[:mcp_servers].size
+        assert_not result.key?(:tools)
+      end
+
+      test "normalize_params does not set tools key for empty mcp_servers default" do
+        params = {
+          mcp_servers: []
+        }
+
+        result = transforms.normalize_params(params)
+
+        assert_not result.key?(:tools)
       end
 
       test "normalize_params does not override existing tools when extracting from mcps" do

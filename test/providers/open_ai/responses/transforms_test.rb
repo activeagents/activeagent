@@ -490,8 +490,8 @@ module Providers
               name: "stripe",
               url: "https://mcp.stripe.com",
               require_approval: {
-                always: ["payment_methods"],
-                never: ["read_operations"]
+                always: [ "payment_methods" ],
+                never: [ "read_operations" ]
               }
             }
           ]
@@ -499,8 +499,8 @@ module Providers
           result = transforms.normalize_mcp_servers(servers)
 
           assert_equal 1, result.size
-          assert_equal ["payment_methods"], result[0][:require_approval][:always]
-          assert_equal ["read_operations"], result[0][:require_approval][:never]
+          assert_equal [ "payment_methods" ], result[0][:require_approval][:always]
+          assert_equal [ "read_operations" ], result[0][:require_approval][:never]
         end
 
         test "normalize_mcp_servers without require_approval omits field" do
@@ -520,14 +520,14 @@ module Providers
             {
               name: "stripe",
               url: "https://mcp.stripe.com",
-              allowed_tools: ["create_payment", "get_payment"]
+              allowed_tools: [ "create_payment", "get_payment" ]
             }
           ]
 
           result = transforms.normalize_mcp_servers(servers)
 
           assert_equal 1, result.size
-          assert_equal ["create_payment", "get_payment"], result[0][:allowed_tools]
+          assert_equal [ "create_payment", "get_payment" ], result[0][:allowed_tools]
         end
 
         test "normalize_mcp_servers handles empty allowed_tools array" do
@@ -560,7 +560,7 @@ module Providers
               url: "https://mcp.stripe.com",
               authorization: "sk_test_123",
               require_approval: "always",
-              allowed_tools: ["create_payment", "get_payment"]
+              allowed_tools: [ "create_payment", "get_payment" ]
             }
           ]
 
@@ -572,7 +572,7 @@ module Providers
           assert_equal "https://mcp.stripe.com", result[0][:server_url]
           assert_equal "sk_test_123", result[0][:authorization]
           assert_equal "always", result[0][:require_approval]
-          assert_equal ["create_payment", "get_payment"], result[0][:allowed_tools]
+          assert_equal [ "create_payment", "get_payment" ], result[0][:allowed_tools]
         end
 
         test "normalize_mcp_servers handles different require_approval for multiple servers" do
@@ -581,13 +581,13 @@ module Providers
               name: "stripe",
               url: "https://mcp.stripe.com",
               require_approval: "always",
-              allowed_tools: ["create_payment"]
+              allowed_tools: [ "create_payment" ]
             },
             {
               name: "github",
               url: "https://api.githubcopilot.com/mcp/",
               require_approval: "never",
-              allowed_tools: ["search_repos", "create_issue"]
+              allowed_tools: [ "search_repos", "create_issue" ]
             }
           ]
 
@@ -595,9 +595,9 @@ module Providers
 
           assert_equal 2, result.size
           assert_equal "always", result[0][:require_approval]
-          assert_equal ["create_payment"], result[0][:allowed_tools]
+          assert_equal [ "create_payment" ], result[0][:allowed_tools]
           assert_equal "never", result[1][:require_approval]
-          assert_equal ["search_repos", "create_issue"], result[1][:allowed_tools]
+          assert_equal [ "search_repos", "create_issue" ], result[1][:allowed_tools]
         end
 
         test "normalize_mcp_servers preserves require_approval and allowed_tools in already normalized format" do
@@ -607,7 +607,7 @@ module Providers
               server_label: "stripe",
               server_url: "https://mcp.stripe.com",
               require_approval: "always",
-              allowed_tools: ["create_payment"]
+              allowed_tools: [ "create_payment" ]
             }
           ]
 
@@ -615,7 +615,7 @@ module Providers
 
           assert_equal servers, result
           assert_equal "always", result[0][:require_approval]
-          assert_equal ["create_payment"], result[0][:allowed_tools]
+          assert_equal [ "create_payment" ], result[0][:allowed_tools]
         end
       end
     end
