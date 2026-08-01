@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
-require "net/http"
-require "json"
 require "securerandom"
+require "activeagents/telemetry"
 
 module ActiveAgent
   # Telemetry module for collecting and reporting agent traces.

@@ -2,18 +2,17 @@
 
 module ActiveAgent
   module Telemetry
-    # Manages trace creation and lifecycle.
+    # Manages trace creation and lifecycle on the activeagents-telemetry
+    # core: builds an ActiveAgents::Telemetry::Trace per unit of work, tracks
+    # the current span in thread-local storage, and hands finished traces to
+    # the Reporter.
     #
-    # The Tracer creates traces, manages the current trace context,
-    # and coordinates with the Reporter for async transmission.
-    #
-    # @example Basic usage
+    # @example
     #   tracer = Tracer.new(configuration)
     #   tracer.trace("MyAgent.greet") do |span|
     #     span.set_attribute("user_id", 123)
     #     span.add_span("llm.generate", span_type: :llm)
     #   end
-    #
     class Tracer
       # @return [Configuration] Telemetry configuration
       attr_reader :configuration
@@ -27,47 +26,47 @@ module ActiveAgent
       def initialize(configuration)
         @configuration = configuration
         @reporter = Reporter.new(configuration)
-        @mutex = Mutex.new
       end
 
       # Creates and executes a new trace.
       #
+      # Callers may supply the trace id (instrumentation passes the
+      # generation's prompt_options[:trace_id]) so external records — e.g.
+      # solid_agent's persisted generations — can correlate with this trace;
+      # otherwise one is generated.
+      #
       # @param name [String] Trace name (typically "AgentClass.action")
-      # @param attributes [Hash] Root span attributes
+      # @param attributes [Hash] Root span attributes; :trace_id and
+      #   :span_type are extracted rather than recorded
       # @yield [span] Yields the root span for adding child spans
       # @return [Object] Result of the block
-      #
-      # @example
-      #   tracer.trace("WeatherAgent.forecast") do |span|
-      #     span.set_attribute("location", "Seattle")
-      #     result = do_llm_call
-      #     span.set_tokens(input: 100, output: 50)
-      #     result
-      #   end
-      def trace(name, **attributes, &block)
+      def trace(name, **attributes)
         return yield(Telemetry::NullSpan.new) unless should_trace?
 
-        # Callers may supply the trace id (instrumentation passes the
-        # generation's prompt_options[:trace_id]) so external records can
-        # correlate with this trace; otherwise generate one.
-        trace_id = attributes.delete(:trace_id) || generate_trace_id
+        trace_id = attributes.delete(:trace_id) || SecureRandom.hex(16)
+        span_type = attributes.delete(:span_type) || :root
+
+        trace = build_trace(trace_id)
         root_span = Span.new(
           name,
           trace_id: trace_id,
-          span_type: :root,
+          span_type: span_type,
           **default_attributes.merge(attributes)
         )
+        trace.add_span(root_span)
 
         with_span(root_span) do
           result = yield(root_span)
           root_span.finish
-          report_trace(root_span)
+          reporter.report(redact_trace!(trace))
           result
         end
       rescue StandardError => e
-        root_span&.record_error(e)
-        root_span&.finish
-        report_trace(root_span) if root_span
+        if root_span && !root_span.finished?
+          root_span.record_error(e)
+          root_span.finish
+          reporter.report(redact_trace!(trace))
+        end
         raise
       end
 
@@ -79,11 +78,12 @@ module ActiveAgent
       def span(name, **attributes)
         return Telemetry::NullSpan.new unless should_trace?
 
+        span_type = attributes.delete(:span_type) || :root
         current = current_span
         if current
-          current.add_span(name, **attributes)
+          current.add_span(name, span_type: span_type, **attributes)
         else
-          Span.new(name, trace_id: generate_trace_id, **default_attributes.merge(attributes))
+          Span.new(name, trace_id: SecureRandom.hex(16), span_type: span_type, **default_attributes.merge(attributes))
         end
       end
 
@@ -94,7 +94,9 @@ module ActiveAgent
         Thread.current[CURRENT_SPAN_KEY]
       end
 
-      # Flushes buffered traces immediately.
+      # Flushes buffered traces and waits for delivery to complete, so
+      # callers (tests, rails runner, job shutdown) can rely on the traces
+      # having been delivered/stored when this returns.
       #
       # @return [void]
       def flush
@@ -110,11 +112,16 @@ module ActiveAgent
 
       private
 
+      def build_trace(trace_id)
+        ActiveAgents::Telemetry::Trace.new(
+          trace_id: trace_id,
+          service_name: configuration.resolved_service_name,
+          environment: configuration.resolved_environment,
+          resource_attributes: configuration.resource_attributes
+        )
+      end
+
       # Executes block with span as current context.
-      #
-      # @param span [Span] Span to set as current
-      # @yield Block to execute
-      # @return [Object] Result of block
       def with_span(span)
         previous = Thread.current[CURRENT_SPAN_KEY]
         Thread.current[CURRENT_SPAN_KEY] = span
@@ -123,101 +130,48 @@ module ActiveAgent
         Thread.current[CURRENT_SPAN_KEY] = previous
       end
 
-      # Reports a completed trace to the reporter.
-      #
-      # @param span [Span] Root span of the trace
-      def report_trace(span)
-        reporter.report(build_trace_payload(span))
-      end
-
-      # Builds the trace payload for transmission.
-      #
-      # @param root_span [Span] Root span
-      # @return [Hash] Trace payload
-      def build_trace_payload(root_span)
-        {
-          trace_id: root_span.trace_id,
-          service_name: configuration.resolved_service_name,
-          environment: configuration.environment,
-          timestamp: Time.current.iso8601(6),
-          resource_attributes: configuration.resource_attributes,
-          spans: redact_spans(flatten_spans(root_span))
-        }
-      end
-
       # Redacts span (and span-event) attributes whose keys match any
-      # configured redact_attributes entry, before the payload leaves the
-      # process. Matching is case-insensitive substring — deliberately
+      # configured redact_attributes entry, before the trace is handed to
+      # the reporter. Matching is case-insensitive substring — deliberately
       # over-broad: better to redact a harmless "max_tokens" than to ship
-      # an "api_key".
-      #
-      # @param spans [Array<Hash>] flattened span data
-      # @return [Array<Hash>]
-      def redact_spans(spans)
-        patterns = Array(configuration.redact_attributes).map(&:to_s).reject(&:empty?)
-        return spans if patterns.empty?
-
-        matcher = Regexp.union(patterns.map { |pattern| Regexp.new(Regexp.escape(pattern), Regexp::IGNORECASE) })
-        spans.map { |span| redact_span(span, matcher) }
-      end
-
-      # Flattens span hierarchy into array.
-      #
-      # @param span [Span] Root span
-      # @return [Array<Hash>] Flattened span data
-      def flatten_spans(span)
-        result = [ span.to_h.except(:children) ]
-        span.children.each do |child|
-          result.concat(flatten_spans(child))
-        end
-        result
-      end
-
-      # @param span [Hash]
-      # @param matcher [Regexp]
-      # @return [Hash] span with matching attribute values replaced
-      def redact_span(span, matcher)
-        span = span.dup
-        span[:attributes] = redact_hash(span[:attributes], matcher) if span[:attributes].is_a?(Hash)
-        if span[:events].is_a?(Array)
-          span[:events] = span[:events].map do |event|
-            next event unless event.is_a?(Hash) && event[:attributes].is_a?(Hash)
-
-            event.merge(attributes: redact_hash(event[:attributes], matcher))
-          end
-        end
-        span
-      end
-
+      # an "api_key". (Ported from the pre-shared-core payload builder,
+      # which no longer exists — the gem's reporter ships the trace as-is.)
       REDACTED = "[REDACTED]"
 
-      def redact_hash(attributes, matcher)
-        attributes.to_h do |key, value|
-          [ key, key.to_s.match?(matcher) ? REDACTED : value ]
+      def redact_trace!(trace)
+        patterns = Array(configuration.redact_attributes).map(&:to_s).reject(&:empty?)
+        return trace if patterns.empty?
+
+        matcher = Regexp.union(patterns.map { |pattern| Regexp.new(Regexp.escape(pattern), Regexp::IGNORECASE) })
+        Array(trace.spans).each { |span| redact_span!(span, matcher) }
+        trace
+      end
+
+      def redact_span!(span, matcher)
+        redact_hash!(span.attributes, matcher) if span.attributes.is_a?(Hash)
+        Array(span.events).each do |event|
+          attributes = event.is_a?(Hash) ? (event["attributes"] || event[:attributes]) : nil
+          redact_hash!(attributes, matcher) if attributes.is_a?(Hash)
+        end
+        Array(span.children).each { |child| redact_span!(child, matcher) }
+      end
+
+      def redact_hash!(attributes, matcher)
+        attributes.each_key do |key|
+          attributes[key] = REDACTED if key.to_s.match?(matcher)
         end
       end
 
-      # Returns whether this trace should be sampled.
-      #
-      # @return [Boolean]
+      # Returns whether this trace should be collected at all.
       def should_trace?
         configuration.enabled? && configuration.configured? && configuration.should_sample?
       end
 
-      # Generates a unique trace ID.
-      #
-      # @return [String] 32-character hex trace ID
-      def generate_trace_id
-        SecureRandom.hex(16)
-      end
-
       # Returns default attributes for all spans.
-      #
-      # @return [Hash] Default attributes
       def default_attributes
         {
           "service.name" => configuration.resolved_service_name,
-          "service.environment" => configuration.environment,
+          "service.environment" => configuration.resolved_environment,
           "telemetry.sdk.name" => "activeagent",
           "telemetry.sdk.version" => ActiveAgent::VERSION
         }

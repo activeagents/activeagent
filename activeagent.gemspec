@@ -24,6 +24,9 @@ Gem::Specification.new do |spec|
   spec.add_dependency "activesupport", ">= 7.2", "<= 9.0"
   spec.add_dependency "activemodel", ">= 7.2", "<= 9.0"
   spec.add_dependency "activejob", ">= 7.2", "<= 9.0"
+  # Shared tracing core (Configuration, Span, Trace, Reporter) — the
+  # framework's Telemetry module is a thin layer over this gem.
+  spec.add_dependency "activeagents-telemetry", "~> 0.1"
 
   spec.add_development_dependency "jbuilder", "~> 2.14"
 

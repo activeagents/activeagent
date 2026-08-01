@@ -55,12 +55,18 @@ module ActiveAgent
               OpenAI::Chat::Transforms.normalize_messages(messages)
             end
 
-            # Normalizes instructions using OpenAI transforms
+            # Normalizes instructions using OpenAI transforms, then remaps the
+            # role: OpenAI's transforms emit the "developer" role, but the chat
+            # templates of Ollama-served models (qwen, llama, gemma, …) only
+            # know "system" — a "developer" message is silently dropped, so the
+            # model never sees its instructions.
             #
             # @param instructions [Array<String>, String]
-            # @return [Array<OpenAI::Models::Chat::ChatCompletionMessageParam>]
+            # @return [Array<Hash>] system messages
             def normalize_instructions(instructions)
-              OpenAI::Chat::Transforms.normalize_instructions(instructions)
+              OpenAI::Chat::Transforms.normalize_instructions(instructions).map do |message|
+                message.is_a?(Hash) ? message.merge(role: "system") : message
+              end
             end
 
             # Cleans up serialized request for API submission
