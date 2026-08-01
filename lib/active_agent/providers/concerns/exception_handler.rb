@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../errors"
+
 module ActiveAgent
   module Providers
     # Provides exception handling for provider operations.
@@ -54,7 +56,16 @@ module ActiveAgent
       def with_exception_handling(&block)
         yield
       rescue => exception
-        rescue_with_handler(exception) || raise
+        # Vendor API failures are normalized into the framework taxonomy
+        # (Errors::RateLimited, Errors::ContextLengthExceeded, ...) so
+        # rescue_from policy is portable across providers; the original
+        # exception is preserved as #cause. Anything unrecognizable —
+        # including ordinary Ruby errors — passes through untouched.
+        exception = Errors::Taxonomy.normalize(
+          exception,
+          provider_tag: (tag_name if respond_to?(:tag_name))
+        )
+        rescue_with_handler(exception) || raise(exception)
         nil # Discard handler return value to prevent polluting raw_response
       end
 

@@ -55,7 +55,13 @@ module ActiveAgent
                     :request, :message_stack,        # Runtime
                     :stream_broadcaster, :streaming, # Callback (Streams)
                     :tools_function,                 # Callback (Tools)
-                    :usage_stack                     # Usage Tracking
+                    :usage_stack,                    # Usage Tracking
+                    :max_tool_turns, :tool_turns     # Tool-loop safety
+
+      # Upper bound on tool-calling round-trips within one generation. A
+      # model that keeps emitting tool calls otherwise recurses until the
+      # provider stops it — override per agent/prompt with max_tool_turns:.
+      DEFAULT_MAX_TOOL_TURNS = 25
 
       # @return [String] e.g., "Anthropic", "OpenAI"
       def self.service_name
@@ -106,6 +112,8 @@ module ActiveAgent
         self.stream_broadcaster = kwargs.delete(:stream_broadcaster)
         self.streaming          = false
         self.tools_function     = kwargs.delete(:tools_function)
+        self.max_tool_turns     = kwargs.delete(:max_tool_turns) || DEFAULT_MAX_TOOL_TURNS
+        self.tool_turns         = 0
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context            = kwargs
         self.message_stack      = []
@@ -344,7 +352,7 @@ module ActiveAgent
           message_stack.push(*api_messages)
         end
 
-        if (tool_calls = process_prompt_finished_extract_function_calls)&.any?
+        if (tool_calls = process_prompt_finished_extract_function_calls)&.any? && tool_turn_allowed?
           process_function_calls(tool_calls)
           resolve_prompt
         else
@@ -371,6 +379,19 @@ module ActiveAgent
             usages: usage_stack
           )
         end
+      end
+
+      # Counts a tool round-trip against the per-generation cap. When the
+      # cap is hit the loop finishes cleanly with the messages gathered so
+      # far (a partial result) instead of recursing indefinitely.
+      #
+      # @return [Boolean] whether another tool round-trip may run
+      def tool_turn_allowed?
+        self.tool_turns += 1
+        return true if max_tool_turns.nil? || tool_turns <= max_tool_turns
+
+        instrument("tool_turns_exceeded.active_agent", limit: max_tool_turns)
+        false
       end
 
       # @abstract

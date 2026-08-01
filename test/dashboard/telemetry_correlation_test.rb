@@ -94,6 +94,37 @@ class TelemetryCorrelationTest < ActiveSupport::TestCase
     swap_global_tracer(original_tracer)
   end
 
+  test "instrumented generations record provider and model attributes" do
+    original_tracer = swap_global_tracer(ActiveAgent::Telemetry::Tracer.new(@configuration))
+
+    agent_class = Class.new(ApplicationAgent) do
+      def self.name = "AttributeProbeAgent"
+      generate_with :mock, model: "mock-model"
+
+      def ping
+        prompt(message: "hello")
+      end
+    end
+    agent_class.include(ActiveAgent::Telemetry::Instrumentation)
+    agent_class.instrument_telemetry!
+
+    agent_class.with({}).ping.generate_now
+    ActiveAgent::Telemetry.flush
+
+    trace = ActiveAgent::TelemetryTrace.order(:created_at).last
+    root = trace.spans.find { |span| span["type"] == "root" }
+    llm = trace.spans.find { |span| span["type"] == "llm" }
+    prompt_span = trace.spans.find { |span| span["type"] == "prompt" }
+
+    assert_equal "Mock", root.dig("attributes", "agent.provider")
+    assert_equal "mock-model", root.dig("attributes", "agent.model")
+    assert_equal "Mock", llm.dig("attributes", "llm.provider")
+    assert_equal "mock-model", llm.dig("attributes", "llm.model")
+    assert_operator prompt_span.dig("attributes", "messages.count").to_i, :>=, 1
+  ensure
+    swap_global_tracer(original_tracer)
+  end
+
   private
 
   def stored_payload

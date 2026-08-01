@@ -141,8 +141,24 @@ module ActiveAgent
           environment: configuration.environment,
           timestamp: Time.current.iso8601(6),
           resource_attributes: configuration.resource_attributes,
-          spans: flatten_spans(root_span)
+          spans: redact_spans(flatten_spans(root_span))
         }
+      end
+
+      # Redacts span (and span-event) attributes whose keys match any
+      # configured redact_attributes entry, before the payload leaves the
+      # process. Matching is case-insensitive substring — deliberately
+      # over-broad: better to redact a harmless "max_tokens" than to ship
+      # an "api_key".
+      #
+      # @param spans [Array<Hash>] flattened span data
+      # @return [Array<Hash>]
+      def redact_spans(spans)
+        patterns = Array(configuration.redact_attributes).map(&:to_s).reject(&:empty?)
+        return spans if patterns.empty?
+
+        matcher = Regexp.union(patterns.map { |pattern| Regexp.new(Regexp.escape(pattern), Regexp::IGNORECASE) })
+        spans.map { |span| redact_span(span, matcher) }
       end
 
       # Flattens span hierarchy into array.
@@ -155,6 +171,30 @@ module ActiveAgent
           result.concat(flatten_spans(child))
         end
         result
+      end
+
+      # @param span [Hash]
+      # @param matcher [Regexp]
+      # @return [Hash] span with matching attribute values replaced
+      def redact_span(span, matcher)
+        span = span.dup
+        span[:attributes] = redact_hash(span[:attributes], matcher) if span[:attributes].is_a?(Hash)
+        if span[:events].is_a?(Array)
+          span[:events] = span[:events].map do |event|
+            next event unless event.is_a?(Hash) && event[:attributes].is_a?(Hash)
+
+            event.merge(attributes: redact_hash(event[:attributes], matcher))
+          end
+        end
+        span
+      end
+
+      REDACTED = "[REDACTED]"
+
+      def redact_hash(attributes, matcher)
+        attributes.to_h do |key, value|
+          [ key, key.to_s.match?(matcher) ? REDACTED : value ]
+        end
       end
 
       # Returns whether this trace should be sampled.
