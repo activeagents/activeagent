@@ -101,7 +101,8 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
       ]
     }
 
-    reporter.send(:store_traces_locally, [ symbol_payload ])
+    reporter.report(symbol_payload)
+    reporter.flush
 
     trace = ActiveAgent::TelemetryTrace.find_by(trace_id: symbol_payload[:trace_id])
     assert trace, "symbol-keyed payload was not persisted"

@@ -120,12 +120,14 @@ module Providers
           assert_equal 1, result.size
         end
 
-        test "normalize_instructions uses developer role" do
+        # Ollama-served chat templates (qwen, llama, gemma) drop messages with
+        # OpenAI's "developer" role, so instructions must go out as "system".
+        test "normalize_instructions uses system role" do
           instructions = [ "First instruction", "Second instruction" ]
 
           result = transforms.normalize_instructions(instructions)
 
-          assert_equal "developer", result[0][:role]
+          assert_equal "system", result[0][:role]
         end
 
         test "normalize_instructions creates content parts" do

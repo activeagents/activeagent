@@ -5,3 +5,7 @@ gem "sqlite3", "~> 1.4"
 gem "rails", "~> 7.0"
 
 gemspec path: ".."
+
+# Until activeagents-telemetry is published to RubyGems, resolve the gemspec
+# dependency from GitHub. Remove after the first gem push.
+gem "activeagents-telemetry", github: "activeagents/activeagents-telemetry"
