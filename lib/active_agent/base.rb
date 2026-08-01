@@ -304,6 +304,10 @@ module ActiveAgent
       # Render out proc/lamda attributes before rendering templates
       parameters.deep_transform_values! { _1.respond_to?(:call) ? _1.call : _1 }
 
+      # Strip parameters the target model rejects (e.g. temperature/top_p
+      # on thinking-first models) before they reach the provider.
+      ModelCapabilities.sanitize!(parameters)
+
       # Apply Callbacks
       parameters.merge!(
         trace_id: prompt_options[:trace_id] || SecureRandom.uuid,
