@@ -23,11 +23,6 @@ module ActiveAgent
     module Instrumentation
       extend ActiveSupport::Concern
 
-      included do
-        # Hook into generation lifecycle
-        around_generate :trace_generation if respond_to?(:around_generate)
-      end
-
       class_methods do
         # Installs instrumentation on the agent class.
         #
@@ -60,18 +55,20 @@ module ActiveAgent
           Telemetry.trace("#{self.class.name}.#{action_name}", span_type: :root, **{ trace_id: trace_id }.compact) do |span|
             span.set_attribute("agent.class", self.class.name)
             span.set_attribute("agent.action", action_name.to_s)
-            span.set_attribute("agent.provider", provider_name) if respond_to?(:provider_name)
-            span.set_attribute("agent.model", model_name) if respond_to?(:model_name)
+            span.set_attribute("agent.provider", provider_name)
+            span.set_attribute("agent.model", model_name)
 
             # Add prompt span
             prompt_span = span.add_span("agent.prompt", span_type: :prompt)
-            prompt_span.set_attribute("messages.count", messages.size) if respond_to?(:messages)
+            if (message_stack = prompt_options[:messages]).respond_to?(:size)
+              prompt_span.set_attribute("messages.count", message_stack.size)
+            end
             prompt_span.finish
 
             # Execute generation with LLM span
             llm_span = span.add_span("llm.generate", span_type: :llm)
-            llm_span.set_attribute("llm.provider", provider_name) if respond_to?(:provider_name)
-            llm_span.set_attribute("llm.model", model_name) if respond_to?(:model_name)
+            llm_span.set_attribute("llm.provider", provider_name)
+            llm_span.set_attribute("llm.model", model_name)
 
             begin
               result = super
@@ -127,7 +124,7 @@ module ActiveAgent
           Telemetry.trace("#{self.class.name}.embed", span_type: :embedding) do |span|
             span.set_attribute("agent.class", self.class.name)
             span.set_attribute("agent.action", "embed")
-            span.set_attribute("agent.provider", provider_name) if respond_to?(:provider_name)
+            span.set_attribute("agent.provider", provider_name)
 
             begin
               result = super
@@ -150,7 +147,8 @@ module ActiveAgent
         private
 
         def provider_name
-          self.class.generation_provider&.to_s || "unknown"
+          klass = prompt_provider_klass
+          klass.respond_to?(:tag_name) ? klass.tag_name : "unknown"
         rescue StandardError
           "unknown"
         end

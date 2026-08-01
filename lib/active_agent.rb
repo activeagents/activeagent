@@ -105,6 +105,7 @@ module ActiveAgent
   autoload :Preview, "active_agent/concerns/preview"
   autoload :Previews, "active_agent/concerns/preview"
   autoload :GenerationJob
+  autoload :ModelCapabilities
   autoload :Observers, "active_agent/concerns/observers"
   autoload :Provider, "active_agent/concerns/provider"
   autoload :Rescue, "active_agent/concerns/rescue"

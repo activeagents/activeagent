@@ -81,8 +81,11 @@ module Integration
           assert_includes preview, "Get detailed weather forecast"
           assert_includes preview, "Find popular attractions"
 
-          # Check parameters in YAML section
-          assert_includes preview, "temperature: 0.7"
+          # Check parameters in YAML section. The configured temperature is
+          # stripped by ModelCapabilities — claude-sonnet-5 is a
+          # thinking-first model that rejects sampling params — so the
+          # preview reflects the request that will actually be sent.
+          refute_includes preview, "temperature"
           assert_includes preview, "max_tokens: 2000"
         end
       end
