@@ -50,8 +50,10 @@ module ActiveAgent
       # @note Reserved: not yet consumed by the tracer/instrumentation.
       attr_accessor :capture_bodies
 
-      # @return [Array<String>] Attributes to redact from traces
-      # @note Reserved: not yet consumed by the tracer/instrumentation.
+      # @return [Array<String>] Attribute-key patterns to redact from
+      #   traces (case-insensitive substring match against span and
+      #   span-event attribute keys; matching values become "[REDACTED]"
+      #   before the payload leaves the process)
       attr_accessor :redact_attributes
 
       # @return [String] Service name for trace attribution
