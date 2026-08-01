@@ -17,14 +17,13 @@ platform code that any serious consumer of the gem would have to rebuild.
 
 ## Absorb from the platform
 
-### 1. Per-model capability gating
-The platform strips `temperature`/`top_p` for models that reject them
-(Claude Opus 4.7+, Sonnet 5, Fable/Mythos 5) via a regex before
-`generate_with`. The framework has no capability layer at all — the request
-objects apply `DEFAULTS` (`temperature: 1, top_p: 1`) unconditionally and let
-the vendor 400. v2: a model-capability table consulted by the Request layer
-(sampling params, max_tokens vs max_completion_tokens, reasoning-effort
-support), with a config escape hatch for unknown models.
+### 1. Per-model capability gating — ✅ shipped
+`ActiveAgent::ModelCapabilities` strips parameters the target model rejects
+(temperature/top_p on thinking-first Claude, OpenAI o-series/GPT-5) from
+prepared prompt parameters before they reach the provider. Extensible via
+`ModelCapabilities.register(pattern, unsupported:)`; disable with
+`ModelCapabilities.enabled = false`. Remaining for v2: max_tokens vs
+max_completion_tokens switching and reasoning-effort awareness.
 
 ### 2. Provider model catalogs
 The platform's `/api/provider_models` queries Ollama's live model list, the
@@ -32,11 +31,11 @@ Anthropic Models API, and OpenRouter's catalog, with curated fallbacks.
 v2: `Provider#models` on the provider contract (vendor SDKs all expose a
 listing endpoint), so model pickers and validation stop being app problems.
 
-### 3. Tool-loop safety
-`process_prompt_finished` re-enters `resolve_prompt` with **no max-turn cap
-and no token/cost budget** — a looping model recurses until the provider
-stops emitting tool calls. v2: `max_tool_turns` and a token budget on the
-generation, with a clean partial-result return when hit.
+### 3. Tool-loop safety — ✅ shipped (turns)
+`max_tool_turns` (default 25, per agent/prompt override) now bounds the
+tool-calling recursion; hitting the cap emits
+`tool_turns_exceeded.active_agent` and returns the messages gathered so far.
+Remaining for v2: a token/cost budget alongside the turn cap.
 
 ### 4. Agent-to-agent delegation
 `tools_function` only routes back to `self`. The platform built `call_agent`
@@ -44,13 +43,14 @@ generation, with a clean partial-result return when hit.
 v2: a first-class delegation primitive — invoke another agent class/instance
 as a tool, with depth limits and shared trace/context correlation.
 
-### 5. Provider error taxonomy + fallback
-Only `ProvidersError` exists and nothing raises it; rate limits, context
-overflows, and content filters surface as vendor-specific exceptions, so no
-retry/fallback policy can be written against them. v2: typed errors
-(`RateLimited`, `ContextLengthExceeded`, `ContentFiltered`, …) normalized
-across providers, then a `generate_with ... fallback: [:anthropic, :ollama]`
-chain becomes expressible.
+### 5. Provider error taxonomy + fallback — ✅ taxonomy shipped
+`ActiveAgent::Providers::Errors` (RateLimited, ContextLengthExceeded,
+AuthenticationFailed, ContentFiltered, ServiceUnavailable, InvalidRequest)
+now normalizes vendor exceptions in `with_exception_handling` — classified
+by SDK class name, HTTP status, and message heuristics, original preserved
+as `#cause` — so `rescue_from` policy is portable across providers.
+Remaining for v2: the `generate_with ... fallback: [:anthropic, :ollama]`
+chain the taxonomy makes expressible.
 
 ### 6. A real MCP story
 Today MCP is pass-through only: `mcps:` options are normalized into each
@@ -78,18 +78,20 @@ results stays solid_agent's.
 
 ## Fix in place (bugs and dead seams found during the audit)
 
-- `telemetry/instrumentation.rb` calls `self.class.generation_provider`
-  (method doesn't exist → `llm.provider` attribute always "unknown"/absent),
-  registers `around_generate` (macro is `around_generation` → permanently
-  dead line), and guards on `respond_to?(:messages)` (Base has no
-  `#messages` → message counts never recorded).
+- ✅ **Fixed**: `telemetry/instrumentation.rb` — provider/model/message-count
+  attributes now record (was: nonexistent `generation_provider`, private
+  helpers hidden from `respond_to?`, nonexistent `Base#messages`); the dead
+  `around_generate` registration is removed.
+- ✅ **Fixed**: `redact_attributes` is now consumed — span and span-event
+  attribute values matching the configured patterns become `[REDACTED]` in
+  `build_trace_payload`, covering both transmission and local storage.
+  `capture_bodies` remains reserved (telemetry spans capture no bodies yet;
+  the raw response on the ActiveSupport::Notifications payload is
+  in-process only).
 - `Observers`/`Interceptors` call `Prompt.register_observer` on an
   `ActiveAgent::Prompt` class that doesn't exist; nothing in the generation
   path notifies them. Either implement the ActionMailer-style seam
   (persistence layers want it) or delete it.
-- Telemetry `capture_bodies`/`redact_attributes` are documented config that
-  is never consumed, while notification payloads attach full raw responses.
-  Implement redaction before v2 ships.
 - The dashboard engine ships orphaned platform-shaped models
   (`Dashboard::Agent`, `AgentRun`, `SandboxSession`, jobs, migrations) with
   no controllers or routes. Decide: wire them (framework-level run
@@ -106,9 +108,9 @@ callbacks), never implementations.
 
 ## solid_agent follow-ups (tracked there, listed for completeness)
 
-- `agent_runs` + persisted run progress events (the platform's
-  `AgentRun#append_event` and instruction-cohort fingerprints are the
-  proven shape).
+- ✅ **Shipped**: `agent_runs` + persisted run progress events — the install
+  generator now ships an `AgentRun` model with lifecycle, `append_event`,
+  trace correlation, and `SolidAgent::RunFingerprint` instruction cohorts.
 - Evaluation datasets — `docs/agent-md-spec.md` already specifies
   `*.test.yml` cases; the platform's rule-criteria scorer and LLM-judge
   plumbing are the reference implementation.
