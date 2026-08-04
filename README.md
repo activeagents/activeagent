@@ -161,6 +161,7 @@ free low-volume trial.
 - **View Templates**: Use ERB templates for prompts (text, JSON, HTML)
 - **Streaming Support**: Real-time response streaming with ActionCable
 - **Tool/Function Calling**: Agents can use tools to interact with external services
+- **Agent-as-Tool Delegation**: Hand work to sub-agents with declared schemas, cost/latency budgets, and swappable backends
 - **Context Management**: Maintain conversation history across interactions
 - **Structured Output**: Define JSON schemas for predictable responses
 
@@ -193,6 +194,29 @@ Agents can use tools to perform actions:
 prompt = SupportAgent.prompt(message: "Show me a cat")
 response = prompt.generate_now
 # Response includes tool call results
+```
+
+### Delegation
+Hand part of a job to a sub-agent, under a declared contract and a budget:
+
+```ruby
+class SummarizerAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o-mini"
+
+  delegation :summarize, description: "Condense a document into key points" do
+    string :text, required: true, description: "Full document text"
+  end
+
+  def summarize(text:) = prompt(message: text)
+end
+
+class ResearchAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"
+
+  delegate_to SummarizerAgent, budget: { max_calls: 3, timeout: 20 }
+
+  def research(topic:) = prompt(message: "Research #{topic}")
+end
 ```
 
 ## Learn More
