@@ -84,6 +84,18 @@ jobs:
       - name: Build with VitePress
         run: npm run docs:build
 
+      - name: Validate llms.txt
+        run: |
+          FILE="docs/.vitepress/dist/llms.txt"
+          test -f "$FILE" || { echo "FAIL: $FILE not found"; exit 1; }
+          head -1 "$FILE" | grep -q "^# Active Agent" || { echo "FAIL: missing H1"; exit 1; }
+          ENTRIES=$(grep -c "^- \[" "$FILE")
+          test "$ENTRIES" -ge 30 || { echo "FAIL: only $ENTRIES entries (expected >=30)"; exit 1; }
+          for section in "Getting Started" "Framework" "Agents" "Actions" "Providers" "Examples" "Contributing"; do
+            grep -q "^## $section" "$FILE" || { echo "FAIL: missing section '$section'"; exit 1; }
+          done
+          echo "llms.txt valid: $ENTRIES entries, all sections present"
+
       - name: Upload current docs artifact
         uses: actions/upload-artifact@v7
         with:
