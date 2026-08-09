@@ -149,14 +149,28 @@ class ProviderTest < ActiveSupport::TestCase
     end
   end
 
-  test "configuration raises error on LoadError" do
+  test "configuration raises ProviderLoadError on LoadError" do
     ActiveAgent.configuration[:test_provider] = { service: "NonExistentProvider" }
 
-    error = assert_raises(RuntimeError) do
+    error = assert_raises(ActiveAgent::Providers::Errors::ProviderLoadError) do
       TestAgent.configuration(:test_provider)
     end
 
-    assert_includes error.message, "Failed to load provider"
+    assert_kind_of RuntimeError, error, "stays rescuable as RuntimeError for backwards compatibility"
+    assert_includes error.message, "Failed to load provider test_provider"
+    assert_kind_of LoadError, error.cause
+  end
+
+  test "configuration error for an unknown service lists available providers" do
+    ActiveAgent.configuration[:test_provider] = { service: "NonExistentProvider" }
+
+    error = assert_raises(ActiveAgent::Providers::Errors::ProviderLoadError) do
+      TestAgent.configuration(:test_provider)
+    end
+
+    assert_includes error.message, '"NonExistentProvider" is not a known provider service'
+    assert_includes error.message, "Anthropic"
+    assert_includes error.message, "OpenAI"
   end
 
   # provider_config_load tests
@@ -228,6 +242,36 @@ class ProviderTest < ActiveSupport::TestCase
     end
 
     assert_equal "active_agent/providers/open_router_provider", require_called_with
+  end
+
+  test "provider_load raises LoadError naming the unknown service and available providers" do
+    error = assert_raises(LoadError) do
+      TestAgent.provider_load("Bogus")
+    end
+
+    assert_includes error.message, '"Bogus" is not a known provider service'
+    assert_includes error.message, "Available providers:"
+    assert_includes error.message, "Anthropic"
+    assert_includes error.message, "Ollama"
+  end
+
+  test "provider_service_names derives deduplicated display names from provider files" do
+    names = TestAgent.provider_service_names
+
+    assert_includes names, "Anthropic"
+    assert_includes names, "OpenAI"
+    assert_includes names, "OpenRouter"
+    assert_includes names, "RubyLLM"
+    assert_includes names, "Mock"
+    refute_includes names, "Base"
+    refute_includes names, "OpenAi", "alias files should collapse into one display name"
+    assert_equal names, names.uniq.sort
+  end
+
+  test "provider_load resolves alias service capitalizations to the same provider" do
+    provider = TestAgent.provider_load("OpenAi")
+    assert_equal provider, TestAgent.provider_load("Openai")
+    assert_equal "ActiveAgent::Providers::OpenAIProvider", provider.name
   end
 
   # prompt_provider_klass tests

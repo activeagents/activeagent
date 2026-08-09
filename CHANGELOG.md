@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Provider load errors now say what actually went wrong
+
+- **Missing vs. outdated gems are no longer conflated**: a provider gem at
+  an incompatible version now reports the RubyGems/Bundler explanation
+  (e.g. "can't activate anthropic (~> 1.12), already activated
+  anthropic-1.0") instead of the misleading "add it to your Gemfile", and
+  a gem that is installed but fails to `require` is reported as such. The
+  gem name and version requirement are always included, and the original
+  exception is preserved as `#cause`.
+- **Correct provider names in gem errors**: dependency errors raised from
+  namespaced provider files no longer report nonsense provider names
+  (previously a missing `openai` gem could report "required for Base").
+- **Unknown provider services are called out**: configuring a service that
+  doesn't ship with ActiveAgent now raises "'X' is not a known provider
+  service" with the list of available providers, instead of a bare
+  "cannot load such file".
+- **Named error class**: provider setup failures raise
+  `ActiveAgent::Providers::Errors::ProviderLoadError` (a `RuntimeError`
+  subclass, so existing rescues keep working) rather than a bare
+  `RuntimeError`.
+- `service: "OpenAi"` and `service: "AzureOpenAi"` capitalizations now
+  resolve to their providers instead of failing with `NameError`.
+
 ### Dashboard & Telemetry — dev console readiness
 
 The dashboard engine — Active Agent's local dev console — now works out of

@@ -13,21 +13,45 @@ GEM_LOADERS = {
   ruby_llm:  [ "ruby_llm",  ">= 1.0",  "ruby_llm" ]
 }
 
+# @private — provider names that plain #camelize mangles
+GEM_LOADER_PROVIDER_NAMES = {
+  "OpenAi" => "OpenAI", "AzureOpenAi" => "AzureOpenAI", "RubyLlm" => "RubyLLM"
+}.freeze
+
 # Requires a provider's gem dependency.
+#
+# Activation and load failures are re-raised as LoadError naming the
+# provider, gem, and version requirement, keeping the RubyGems/Bundler
+# message — which says whether the gem is absent or at an incompatible
+# version — and the original exception as #cause. A gem that is installed
+# but fails to require is reported as such, not as missing.
 #
 # @param type [Symbol] provider type (:anthropic, :openai)
 # @param file_name [String] for error context
 # @return [void]
-# @raise [LoadError] when required gem is not installed
+# @raise [LoadError] when the gem is missing, at an incompatible version,
+#   or fails to load
 def require_gem!(type, file_name)
   gem_name, requirement, package_name = GEM_LOADERS.fetch(type)
-  provider_name = file_name.split("/").last.delete_suffix(".rb").camelize
+
+  # Namespaced files like open_ai/_base.rb report their directory's
+  # provider (OpenAI), not "Base".
+  base = File.basename(file_name.to_s, ".rb")
+  base = File.basename(File.dirname(file_name.to_s)) if base.start_with?("_")
+  name = base.delete_suffix("_provider").camelize
+  provider_name = GEM_LOADER_PROVIDER_NAMES.fetch(name, name)
 
   begin
     gem(gem_name, requirement)
+  rescue Gem::LoadError => error
+    hint = error.message.include?("Gemfile") ? "" : " Add it to your Gemfile and run `bundle install`."
+    raise LoadError, "The #{provider_name} provider requires the '#{gem_name}' gem (#{requirement}): #{error.message}#{hint}"
+  end
+
+  begin
     require(package_name)
-  rescue LoadError
-    raise LoadError, "The '#{gem_name}' gem is required for #{provider_name}. Please add it to your Gemfile and run `bundle install`."
+  rescue LoadError => error
+    raise LoadError, "The '#{gem_name}' gem is installed, but `require \"#{package_name}\"` failed while loading the #{provider_name} provider: #{error.message}"
   end
 end
 

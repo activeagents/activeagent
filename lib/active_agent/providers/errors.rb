@@ -57,6 +57,14 @@ module ActiveAgent
       # that doesn't classify more specifically.
       class InvalidRequest < ProviderError; end
 
+      # Raised at setup time when a provider class or one of its gem
+      # dependencies cannot be loaded ("Failed to load provider ...").
+      # Unlike the taxonomy above this is a configuration failure, not a
+      # vendor API failure. Subclasses RuntimeError because provider setup
+      # historically raised RuntimeError, so existing `rescue RuntimeError`
+      # callers keep working; the original LoadError is kept as #cause.
+      class ProviderLoadError < RuntimeError; end
+
       # Classifies vendor SDK exceptions into the taxonomy. Unrecognizable
       # exceptions (including ordinary Ruby errors) pass through untouched —
       # only errors that look like vendor API failures are normalized.
