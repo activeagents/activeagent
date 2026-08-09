@@ -11,7 +11,9 @@ module ActiveAgent
     PROVIDER_SERVICE_NAMES_REMAPS = {
       "Openrouter"  => "OpenRouter",
       "Openai"      => "OpenAI",
+      "OpenAi"      => "OpenAI",
       "AzureOpenai" => "AzureOpenAI",
+      "AzureOpenAi" => "AzureOpenAI",
       "Azureopenai" => "AzureOpenAI",
       "Rubyllm"     => "RubyLLM",
       "RubyLlm"     => "RubyLLM"
@@ -75,14 +77,16 @@ module ActiveAgent
       # @param reference [Symbol, String] Provider identifier
       # @param options [Hash] Additional configuration options
       # @return [Class] Provider class
-      # @raise [RuntimeError] if provider fails to load
+      # @raise [ActiveAgent::Providers::Errors::ProviderLoadError] if the
+      #   provider or one of its gem dependencies fails to load; the
+      #   underlying LoadError is preserved as #cause
       def provider_setup(reference, **options)
         type   = reference.to_sym
         config = { service: type.to_s.camelize }.merge(provider_config_load(type)).merge(options)
         provider_load(config[:service])
 
       rescue LoadError => e
-        raise RuntimeError, "Failed to load provider #{type}: #{e.message}"
+        raise ActiveAgent::Providers::Errors::ProviderLoadError, "Failed to load provider #{type}: #{e.message}"
       end
       alias configuration provider_setup
 
@@ -102,12 +106,36 @@ module ActiveAgent
       #
       # @param service_name [String] Service name (e.g., "OpenAI", "Anthropic")
       # @return [Class] Provider class
+      # @raise [LoadError] when no such provider ships with ActiveAgent, or a
+      #   provider gem dependency cannot be loaded
       def provider_load(service_name)
-        require "active_agent/providers/#{service_name.underscore}_provider"
+        provider_path = "active_agent/providers/#{service_name.underscore}_provider"
+
+        begin
+          require provider_path
+        rescue LoadError => error
+          # A LoadError whose #path is the provider file itself means the
+          # service name doesn't match any bundled provider. Anything else —
+          # a missing dependency gem, a broken transitive require — already
+          # carries its own explanation and is re-raised untouched.
+          raise error unless error.path == provider_path
+          raise LoadError, "#{service_name.inspect} is not a known provider service. Available providers: #{provider_service_names.join(", ")}."
+        end
 
         service_name = Hash.new(service_name).merge!(PROVIDER_SERVICE_NAMES_REMAPS)[service_name]
 
         ActiveAgent::Providers.const_get("#{service_name.camelize}Provider")
+      end
+
+      # Provider service names bundled with ActiveAgent, derived from the
+      # provider files on disk.
+      #
+      # @return [Array<String>]
+      def provider_service_names
+        Dir[File.expand_path("../providers/[a-z]*_provider.rb", __dir__)]
+          .map { |file| File.basename(file, ".rb").delete_suffix("_provider").camelize }
+          .map { |name| Hash.new(name).merge!(PROVIDER_SERVICE_NAMES_REMAPS)[name] }
+          .uniq.sort
       end
 
       # Returns the configured prompt provider class.
