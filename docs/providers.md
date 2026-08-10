@@ -12,6 +12,8 @@ Providers connect your agents to AI services through a unified interface. Switch
 
 <<< @/../test/dummy/app/agents/providers/anthropic_agent.rb#agent{ruby} [Anthropic]
 
+<<< @/../test/dummy/app/agents/providers/atlas_cloud_agent.rb#agent{ruby} [Atlas Cloud]
+
 <<< @/../test/dummy/app/agents/providers/ollama_agent.rb#agent{ruby} [Ollama]
 
 <<< @/../test/dummy/app/agents/providers/open_ai_agent.rb#agent{ruby} [OpenAI]
@@ -32,6 +34,11 @@ end
 :::
 
 ## Choosing a Provider
+
+### [Atlas Cloud](/providers/atlas_cloud)
+**Best for:** OpenAI-compatible access to Atlas Cloud text models
+
+Use Atlas Cloud model identifiers with Active Agent's chat, streaming, structured output, and tool-calling interfaces. The provider reads `ATLASCLOUD_API_KEY` and uses the Atlas Cloud endpoint automatically.
 
 ### [Anthropic](/providers/anthropic)
 **Best for:** Complex reasoning, coding tasks, long context
