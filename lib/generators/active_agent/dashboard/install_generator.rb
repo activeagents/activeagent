@@ -22,7 +22,15 @@ module ActiveAgent
 
       desc "Installs the ActiveAgent Dashboard with telemetry storage"
 
+      class_option :skip_migrations, type: :boolean, default: false,
+        desc: "Skip copying the telemetry traces migration"
+
+      class_option :skip_routes, type: :boolean, default: false,
+        desc: "Skip adding the engine mount to routes.rb"
+
       def copy_migrations
+        return if options[:skip_migrations]
+
         migration_template(
           "create_active_agent_telemetry_traces.rb.erb",
           "db/migrate/create_active_agent_telemetry_traces.rb"
@@ -30,7 +38,9 @@ module ActiveAgent
       end
 
       def add_route
-        route 'mount ActiveAgent::Dashboard::Engine => "/active_agent"'
+        return if options[:skip_routes]
+
+        route 'mount ActiveAgent::Dashboard::Engine => "/activeagents"'
       end
 
       def create_initializer
@@ -50,7 +60,7 @@ module ActiveAgent
         say "     telemetry:"
         say "       enabled: true"
         say "       local_storage: true"
-        say "  3. Visit /active_agent to view the dashboard"
+        say "  3. Visit /activeagents to view the dashboard"
         say "\n"
       end
 

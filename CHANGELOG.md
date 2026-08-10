@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Dashboard — self-hosted (enterprise) mount readiness
+
+The engine can now be mounted in any Rails app as the self-hosted
+observability surface (see `docs/framework/self-hosted-observability.md`):
+
+- **One install generator**: the duplicate `active_agent:dashboard:install`
+  variant that copied eight migrations (agents, sandboxes, recordings —
+  tables for models with no shipped controllers or routes) is removed.
+  The surviving generator installs the telemetry traces table only and
+  gains `--skip_migrations` / `--skip_routes`; its initializer template now
+  covers authentication, `ingest_api_key`, and multi-tenant options.
+- **Canonical mount path is `/activeagents`** (generator, dummy app and
+  docs updated), and the telemetry client now derives its local ingest
+  endpoint from wherever the engine is actually mounted — any mount path,
+  including `/` on a dedicated subdomain, works.
+  `Telemetry::Configuration::LOCAL_ENDPOINT_PATH` remains as the fallback
+  when the engine isn't mounted.
+- **`TracesController` honors configuration**: index/metrics/time-series
+  queries now go through `ActiveAgent::Dashboard.trace_model` (previously
+  only `show` did) and are scoped with `for_account(current_owner)`, so a
+  `trace_model_class` override and multi-tenant scoping apply everywhere.
+- **Single-tenant ingest auth**: new `config.ingest_api_key` requires a
+  matching Bearer token on `POST <mount>/api/traces` when set. The
+  telemetry reporter and ruby_llm_telemetry already send their `api_key`
+  as a Bearer header, so remote apps need no changes.
+- **Metrics page no longer 500s with data**: the per-agent stats table
+  read a grouped SQL alias through a model method that expected per-trace
+  token columns.
+- Removed the never-consumed `base_controller_class` config attribute.
+
 ### Dashboard & Telemetry — dev console readiness
 
 The dashboard engine — Active Agent's local dev console — now works out of
