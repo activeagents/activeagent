@@ -30,9 +30,6 @@ per-app: the same `config/active_agent.yml` switches between them (see
 ```ruby
 # Gemfile
 gem "activeagent"
-# Shared telemetry core; not yet published to RubyGems, so resolve it
-# from GitHub alongside the framework gem.
-gem "activeagents-telemetry", github: "activeagents/activeagents-telemetry"
 ```
 
 ```bash
@@ -153,19 +150,18 @@ installs should leave this off.
 
 Apps that use [RubyLLM](https://rubyllm.com) directly (no
 `ActiveAgent::Base`) can report chats and tool calls to the same endpoint
-with the `active_agents-ruby_llm_telemetry` bridge. It is pre-release
-packaging — installed from GitHub until it's published to RubyGems:
+with the
+[activeagents-telemetry-ruby_llm](https://rubygems.org/gems/activeagents-telemetry-ruby_llm)
+adapter:
 
 ```ruby
 # Gemfile
-gem "active_agents-ruby_llm_telemetry",
-  github: "activeagents/activeagents",
-  glob: "ruby_llm_telemetry/*.gemspec"
+gem "activeagents-telemetry-ruby_llm"
 ```
 
 ```ruby
 # config/initializers/ruby_llm_telemetry.rb
-ActiveAgents::RubyLLMTelemetry.subscribe!(
+ActiveAgents::Telemetry::RubyLLM.subscribe!(
   endpoint: "https://activeagents.combinaut.com/api/traces",
   api_key: Rails.application.credentials.dig(:active_agent, :ingest_api_key),
   service_name: "billing-app"
