@@ -23,7 +23,7 @@ module ActiveAgent
       end
 
       def show
-        @trace = ActiveAgent::Dashboard.trace_model.find(params[:id])
+        @trace = scoped_traces.find(params[:id])
       end
 
       def metrics
@@ -43,8 +43,14 @@ module ActiveAgent
         Mime::Type.lookup_by_extension(:turbo_stream).present?
       end
 
+      # All queries honor the configured trace model and, in multi-tenant
+      # mode, the current owner's account (for_account no-ops otherwise).
+      def scoped_traces
+        ActiveAgent::Dashboard.trace_model.for_account(current_owner)
+      end
+
       def fetch_traces
-        traces = ActiveAgent::TelemetryTrace.recent
+        traces = scoped_traces.recent
 
         traces = traces.for_agent(params[:agent]) if params[:agent].present?
         traces = traces.with_errors if params[:status] == "error"
@@ -61,7 +67,7 @@ module ActiveAgent
       end
 
       def calculate_metrics
-        traces = ActiveAgent::TelemetryTrace.where(
+        traces = scoped_traces.where(
           "created_at > ?", 24.hours.ago
         )
 
@@ -83,7 +89,7 @@ module ActiveAgent
       end
 
       def agent_statistics
-        ActiveAgent::TelemetryTrace
+        scoped_traces
           .where("created_at > ?", 24.hours.ago)
           .group(:agent_class)
           .select(
@@ -96,7 +102,7 @@ module ActiveAgent
       end
 
       def time_series_data
-        ActiveAgent::TelemetryTrace
+        scoped_traces
           .where("created_at > ?", 1.hour.ago)
           .group_by_minute(:created_at)
           .count

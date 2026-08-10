@@ -114,7 +114,9 @@
                 <%= number_with_delimiter(stat.trace_count) %>
               </td>
               <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                <%= number_to_human(stat.total_tokens || 0, precision: 1) %>
+                <%# stat is a grouped row: read the SQL alias, not the model
+                    method (which sums per-trace token columns absent here) %>
+                <%= number_to_human(stat[:total_tokens] || 0, precision: 1) %>
               </td>
               <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
                 <% avg = stat.avg_duration.to_f %>

@@ -8,7 +8,7 @@ module ActiveAgent
   # Mount the engine in your routes to access the full dashboard:
   #
   #   # config/routes.rb
-  #   mount ActiveAgent::Dashboard::Engine => "/active_agent"
+  #   mount ActiveAgent::Dashboard::Engine => "/activeagents"
   #
   # The dashboard provides:
   # - Agent management: Create, edit, version, and execute agents
@@ -91,9 +91,12 @@ module ActiveAgent
       # @return [Object, nil] Object responding to #signed_url_for and #fetch_snapshot
       attr_accessor :storage_service
 
-      # Base controller class for dashboard controllers
-      # @return [String]
-      attr_accessor :base_controller_class
+      # Bearer token required by the ingest API in single-tenant mode. When
+      # unset the local ingest endpoint accepts unauthenticated posts, so set
+      # it whenever the mount is reachable beyond your own machine.
+      # (Multi-tenant mode authenticates per-account keys instead.)
+      # @return [String, nil]
+      attr_accessor :ingest_api_key
 
       # Returns whether multi-tenant mode is enabled.
       #
@@ -141,7 +144,7 @@ module ActiveAgent
         @sandbox_service = :local
         @sandbox_limits = nil
         @storage_service = nil
-        @base_controller_class = "ActionController::Base"
+        @ingest_api_key = nil
       end
     end
 

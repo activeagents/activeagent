@@ -17,8 +17,9 @@ module ActiveAgent
     #
     # @see ActiveAgents::Telemetry::Configuration
     class Configuration < ActiveAgents::Telemetry::Configuration
-      # Local dashboard endpoint path (relative to app root)
-      LOCAL_ENDPOINT_PATH = "/active_agent/api/traces"
+      # Fallback ingest path when the dashboard engine's mount point can't
+      # be resolved from the host's routes (e.g. engine not mounted).
+      LOCAL_ENDPOINT_PATH = "/activeagents/api/traces"
 
       # @return [Boolean] Whether to store traces in the app's own database
       attr_reader :local_storage
@@ -51,7 +52,16 @@ module ActiveAgent
 
       # Returns the resolved endpoint for trace reporting.
       def resolved_endpoint
-        local_storage? ? LOCAL_ENDPOINT_PATH : endpoint
+        local_storage? ? local_endpoint_path : endpoint
+      end
+
+      # The dashboard engine's ingest path, derived from wherever the host
+      # app actually mounted it — "/activeagents", "/observability", or "/"
+      # on a dedicated subdomain all work. Falls back to
+      # LOCAL_ENDPOINT_PATH when the engine isn't mounted.
+      def local_endpoint_path
+        mount = dashboard_mount_path
+        mount ? "#{mount}/api/traces" : LOCAL_ENDPOINT_PATH
       end
 
       # The framework's historical fallback is "activeagent", not the shared
@@ -94,6 +104,17 @@ module ActiveAgent
           ActiveAgent::TelemetryTrace
         end
       rescue NameError
+        nil
+      end
+
+      # The engine's mount point in the host app, via the mount helper Rails
+      # defines from the engine_name ("active_agent"). Returns nil when the
+      # engine isn't mounted or no Rails app is booted; "" for a root mount.
+      def dashboard_mount_path
+        return nil unless defined?(::Rails) && ::Rails.respond_to?(:application) && ::Rails.application
+
+        ::Rails.application.routes.url_helpers.active_agent_path.chomp("/")
+      rescue NoMethodError, NameError
         nil
       end
     end
