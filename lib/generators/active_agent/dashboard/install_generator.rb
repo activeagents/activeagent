@@ -26,7 +26,10 @@ module ActiveAgent
         desc: "Scope traces to an Account (adds account_id to the migration)"
 
       class_option :skip_migrations, type: :boolean, default: false,
-        desc: "Skip copying the telemetry traces migration"
+        desc: "Skip copying the migrations"
+
+      class_option :traces_only, type: :boolean, default: false,
+        desc: "Install trace ingestion alone, without the agent/run/evaluation tables"
 
       class_option :skip_routes, type: :boolean, default: false,
         desc: "Skip adding the engine mount to routes.rb"
@@ -37,6 +40,16 @@ module ActiveAgent
         migration_template(
           "create_active_agent_telemetry_traces.rb.erb",
           "db/migrate/create_active_agent_telemetry_traces.rb"
+        )
+
+        # The rest of the dashboard — agents, runs, versions, conversations,
+        # evaluations, sandboxes, recordings, keys. Skippable for an app that
+        # only wants to be a trace sink.
+        return if options[:traces_only]
+
+        migration_template(
+          "create_active_agent_dashboard_tables.rb.erb",
+          "db/migrate/create_active_agent_dashboard_tables.rb"
         )
       end
 
@@ -74,6 +87,12 @@ module ActiveAgent
         say "       enabled: true"
         say "       local_storage: true"
         say "  3. Visit /activeagents to view the dashboard"
+        unless options[:traces_only]
+          say "\n"
+          say "The dashboard stores API keys and provider credentials encrypted."
+          say "Run `rails db:encryption:init` and add the keys to your credentials"
+          say "before creating any."
+        end
         say "\n"
       end
 

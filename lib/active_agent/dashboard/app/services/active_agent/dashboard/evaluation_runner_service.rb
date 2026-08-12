@@ -152,7 +152,7 @@ module ActiveAgent
       def sample_generations(model: nil)
         scope = AgentGeneration
           .joins(:agent_context)
-          .where(agent_contexts: { contextable: @evaluation.agent })
+          .where(AgentContext.table_name => { contextable: @evaluation.agent })
         scope = scope.where(model: model) if model
         scope.order(created_at: :desc).limit(@evaluation.sample_size).to_a
       end

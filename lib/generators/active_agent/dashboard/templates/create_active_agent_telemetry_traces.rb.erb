@@ -25,6 +25,9 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_ve
       t.string :status
       t.string :agent_class, index: true
       t.string :agent_action
+      # Set on ingest when the trace can be attributed to a dashboard agent;
+      # nullable because a trace must still land when it cannot be.
+      t.bigint :agent_id, index: true
       t.text :error_message
 
       t.timestamps

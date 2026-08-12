@@ -41,6 +41,9 @@ module ActiveAgent
     scope :for_environment, ->(env) { where(environment: env) }
     scope :for_agent, ->(agent_class) { where(agent_class: agent_class) }
     scope :for_date_range, ->(start_date, end_date) { where(timestamp: start_date..end_date) }
+    # The dashboard agent this trace was attributed to on ingest, if any.
+    belongs_to :agent, class_name: "ActiveAgent::Dashboard::Agent", optional: true
+
     scope :for_account, ->(account) { where(account: account) if ActiveAgent::Dashboard.multi_tenant? }
 
     # Creates a TelemetryTrace from an ingested trace payload.
