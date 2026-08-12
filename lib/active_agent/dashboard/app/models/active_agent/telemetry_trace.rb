@@ -17,6 +17,8 @@ module ActiveAgent
   #   ActiveAgent::TelemetryTrace.create_from_payload(trace_payload, sdk_info, account: account)
   #
   class TelemetryTrace < ::ActiveRecord::Base
+    include ActiveAgent::Dashboard::AdapterAware
+
     self.table_name = "active_agent_telemetry_traces"
 
     # Optional account association for multi-tenant mode

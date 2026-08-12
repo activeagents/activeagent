@@ -4,16 +4,19 @@ module ActiveAgent
   module Dashboard
     # Base class for all Dashboard engine models.
     #
-    # Provides multi-tenant support when configured, allowing the same models
-    # to work in both local (single-tenant) and platform (multi-tenant) modes.
+    # Table names come from ActiveAgent::Dashboard.table_name_prefix through
+    # Rails' standard namespaced-model resolution, so the engine's own
+    # migrations (active_agent_agents, active_agent_agent_runs, ...) and a
+    # host app that already owns the tables unprefixed are both supported
+    # without touching the models.
+    #
+    # Ownership is configurable: multi-tenant installs scope records to an
+    # Account, single-tenant installs to a User, and a single-user install
+    # scopes to nothing at all.
     class ApplicationRecord < ::ActiveRecord::Base
-      self.abstract_class = true
+      include AdapterAware
 
-      # Override table name calculation to use active_agent_ prefix
-      # without the "dashboard_" from the module namespace
-      def self.table_name
-        @table_name ||= "active_agent_#{name.demodulize.underscore.pluralize}"
-      end
+      self.abstract_class = true
 
       class << self
         # Returns the owner association name based on configuration.
@@ -32,10 +35,10 @@ module ActiveAgent
         def for_owner(owner)
           return all if owner.nil?
 
-          if ActiveAgent::Dashboard.multi_tenant?
-            where(account: owner)
+          if ActiveAgent::Dashboard.multi_tenant? && column_names.include?("account_id")
+            where(account_id: owner.id)
           elsif column_names.include?("user_id")
-            where(user: owner)
+            where(user_id: owner.id)
           else
             all
           end

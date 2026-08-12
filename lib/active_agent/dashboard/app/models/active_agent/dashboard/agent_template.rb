@@ -2,15 +2,6 @@
 
 module ActiveAgent
   module Dashboard
-    # Pre-built agent templates for quick agent creation.
-    #
-    # Templates provide starting configurations for common use cases like
-    # code assistance, research, writing, and browser automation.
-    #
-    # @example Creating an agent from a template
-    #   template = ActiveAgent::Dashboard::AgentTemplate.find_by(slug: "code-assistant")
-    #   agent = template.create_agent_for(user)
-    #
     class AgentTemplate < ApplicationRecord
       # Validations
       validates :name, presence: true
@@ -34,11 +25,9 @@ module ActiveAgent
         automation
       ].freeze
 
-      # Create an agent from this template for a user/account
-      def create_agent_for(owner, name: nil)
-        agent_class = ActiveAgent::Dashboard::Agent
-
-        agent = agent_class.new(
+      # Create an agent from this template for a user
+      def create_agent_for(user, name: nil)
+        agent = user.agents.build(
           name: name || self.name,
           description: description,
           provider: provider,
@@ -52,13 +41,6 @@ module ActiveAgent
           model_config: model_config,
           status: :draft
         )
-
-        # Set owner based on mode
-        if ActiveAgent::Dashboard.multi_tenant? && owner.respond_to?(:id)
-          agent.account = owner
-        elsif owner.respond_to?(:id)
-          agent.user = owner if agent.respond_to?(:user=)
-        end
 
         if agent.save
           increment!(:usage_count)
@@ -84,8 +66,7 @@ module ActiveAgent
             model_config: { temperature: 0.3 },
             instructions: "You are a senior software engineer with expertise in multiple programming languages. Help users with:\n- Code explanations and reviews\n- Debugging issues\n- Suggesting best practices\n- Writing tests\n\nAlways explain your reasoning and provide examples when helpful.",
             icon: "💻",
-            featured: true,
-            free_tier: true
+            featured: true
           },
           {
             name: "Research Assistant",
@@ -93,7 +74,7 @@ module ActiveAgent
             description: "Helps research topics, summarize information, and organize findings.",
             category: "research",
             provider: "anthropic",
-            model: "claude-sonnet-4-20250514",
+            model: "claude-sonnet-5",
             preset_type: "research",
             appearance: { hat: "safari", heldItem: "magnifyingGlass" },
             instruction_sets: %w[github python],
@@ -101,8 +82,7 @@ module ActiveAgent
             model_config: { temperature: 0.5 },
             instructions: "You are a thorough research assistant. Help users by:\n- Searching for relevant information\n- Summarizing complex topics\n- Organizing findings into clear reports\n- Identifying key insights and patterns\n\nAlways cite sources when available and distinguish between facts and opinions.",
             icon: "🔍",
-            featured: true,
-            free_tier: true
+            featured: true
           },
           {
             name: "Writing Assistant",
@@ -118,8 +98,7 @@ module ActiveAgent
             model_config: { temperature: 0.7 },
             instructions: "You are a skilled writer and editor. Help users with:\n- Writing and editing content\n- Improving clarity and flow\n- Adjusting tone for different audiences\n- Grammar and style corrections\n\nMaintain the author's voice while suggesting improvements.",
             icon: "✍️",
-            featured: true,
-            free_tier: true
+            featured: true
           },
           {
             name: "Browser Automation",
@@ -127,7 +106,7 @@ module ActiveAgent
             description: "Automates web browsing tasks like form filling, data extraction, and testing.",
             category: "automation",
             provider: "anthropic",
-            model: "claude-sonnet-4-20250514",
+            model: "claude-sonnet-5",
             preset_type: "playwright",
             appearance: { hat: "fedora", hatAccessory: "theaterMasks", heldItem: "browser" },
             instruction_sets: %w[typescript],
@@ -135,8 +114,7 @@ module ActiveAgent
             model_config: { temperature: 0.2 },
             instructions: "You are a browser automation specialist. Help users by:\n- Navigating web pages\n- Filling out forms\n- Extracting data from websites\n- Testing web applications\n\nAlways wait for page loads and handle errors gracefully.",
             icon: "🎭",
-            featured: false,
-            free_tier: true
+            featured: false
           },
           {
             name: "Data Analyst",
@@ -152,8 +130,7 @@ module ActiveAgent
             model_config: { temperature: 0.3 },
             instructions: "You are a data analyst. Help users by:\n- Analyzing datasets\n- Creating visualizations\n- Finding patterns and insights\n- Generating reports\n\nExplain your methodology and provide clear interpretations of results.",
             icon: "📊",
-            featured: true,
-            free_tier: true
+            featured: true
           },
           {
             name: "DevOps Assistant",
@@ -169,8 +146,7 @@ module ActiveAgent
             model_config: { temperature: 0.2 },
             instructions: "You are a DevOps engineer. Help users with:\n- Infrastructure setup and management\n- CI/CD pipeline configuration\n- Container orchestration\n- Cloud resource management\n\nAlways prioritize security and follow best practices.",
             icon: "🚀",
-            featured: false,
-            free_tier: true
+            featured: false
           },
           {
             name: "PlaywrightMCP Demo",
@@ -178,7 +154,7 @@ module ActiveAgent
             description: "Free browser automation demo using Playwright MCP. Navigate sites, take screenshots, and extract content.",
             category: "automation",
             provider: "anthropic",
-            model: "claude-sonnet-4-20250514",
+            model: "claude-sonnet-5",
             preset_type: "playwright",
             appearance: { hat: "fedora", hatAccessory: "theaterMasks", heldItem: "browser" },
             instruction_sets: [],
@@ -198,7 +174,7 @@ module ActiveAgent
         ]
 
         templates.each do |template_attrs|
-          find_or_create_by!(slug: template_attrs[:slug]) do |t|
+          AgentTemplate.find_or_create_by!(slug: template_attrs[:slug]) do |t|
             t.assign_attributes(template_attrs)
           end
         end

@@ -2,31 +2,12 @@
 
 module ActiveAgent
   module Dashboard
-    # Records browser sessions for playback and analysis.
-    #
-    # Session recordings capture the sequence of actions taken during
-    # an agent run or sandbox session, including screenshots, DOM snapshots,
-    # and timing information.
-    #
-    # @example Starting a recording
-    #   recording = ActiveAgent::Dashboard::SessionRecording.start!(
-    #     agent_run: run,
-    #     name: "checkout_flow"
-    #   )
-    #
-    # @example Recording an action
-    #   recording.record_action!(
-    #     action_type: "click",
-    #     selector: "button.submit",
-    #     screenshot: screenshot_data
-    #   )
-    #
     class SessionRecording < ApplicationRecord
-      belongs_to :agent_run, class_name: "ActiveAgent::Dashboard::AgentRun", optional: true
-      belongs_to :sandbox_session, class_name: "ActiveAgent::Dashboard::SandboxSession", optional: true
+      belongs_to :agent_run, optional: true
+      belongs_to :sandbox_session, optional: true
 
-      has_many :recording_actions, class_name: "ActiveAgent::Dashboard::RecordingAction", dependent: :destroy
-      has_many :recording_snapshots, class_name: "ActiveAgent::Dashboard::RecordingSnapshot", dependent: :destroy
+      has_many :recording_actions, dependent: :destroy
+      has_many :recording_snapshots, dependent: :destroy
 
       enum :status, { recording: 0, completed: 1, failed: 2 }
 
@@ -70,7 +51,7 @@ module ActiveAgent
             visitor_id: visitor_id,
             parent_demo_id: parent_demo_id,
             page_url: page_url,
-            user_agent: nil
+            user_agent: nil # Will be set from request
           }
         )
       end
@@ -88,11 +69,13 @@ module ActiveAgent
           metadata: metadata
         )
 
+        # Handle screenshot attachment if provided
         if screenshot.present?
           snapshot = store_snapshot(screenshot, :screenshot, action)
           action.update!(screenshot_key: snapshot.storage_key)
         end
 
+        # Handle DOM snapshot if provided
         if dom_snapshot.present?
           snapshot = store_snapshot(dom_snapshot, :dom, action)
           action.update!(dom_snapshot_key: snapshot.storage_key)
@@ -174,6 +157,7 @@ module ActiveAgent
       def store_snapshot(data, snapshot_type, action = nil)
         storage_key = generate_storage_key(snapshot_type, action&.sequence)
 
+        # For now, store metadata - actual file upload handled by service
         recording_snapshots.create!(
           recording_action: action,
           storage_key: storage_key,

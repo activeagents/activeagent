@@ -2,16 +2,11 @@
 
 module ActiveAgent
   module Dashboard
-    # Stores screenshots and DOM snapshots from session recordings.
-    #
-    # Supports Active Storage for file attachment and provides
-    # signed URLs for secure access.
-    #
     class RecordingSnapshot < ApplicationRecord
-      belongs_to :session_recording, class_name: "ActiveAgent::Dashboard::SessionRecording"
-      belongs_to :recording_action, class_name: "ActiveAgent::Dashboard::RecordingAction", optional: true
+      belongs_to :session_recording
+      belongs_to :recording_action, optional: true
 
-      has_one_attached :file if defined?(ActiveStorage)
+      has_one_attached :file
 
       SNAPSHOT_TYPES = %w[screenshot dom full_page].freeze
 
@@ -24,17 +19,16 @@ module ActiveAgent
 
       # Get a signed URL for the file
       def signed_url(expires_in: 15.minutes)
-        return nil unless respond_to?(:file) && file.attached?
+        return nil unless file.attached?
 
         file.url(expires_in: expires_in)
       rescue StandardError
+        # Fallback if storage not configured
         nil
       end
 
       # Store file data
       def store!(data, filename: nil, content_type: nil)
-        return unless respond_to?(:file)
-
         content_type ||= infer_content_type
         filename ||= generate_filename
 

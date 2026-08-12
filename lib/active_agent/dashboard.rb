@@ -104,11 +104,109 @@ module ActiveAgent
       # @return [String]
       attr_accessor :base_controller_class
 
+      # Called before each run/trace-ingest to enforce host-app limits.
+      # Receives (owner, kind) where kind is :execution or :trace_ingest, and
+      # returns nil to allow or a message String to deny. Denials surface as
+      # HTTP 402 (execution) / 429 (ingest).
+      #
+      # Unset means unlimited, which is what a self-hosted install wants.
+      # @return [Proc, nil]
+      attr_accessor :quota_checker
+
+      # Resolves LLM provider credentials for a run. Receives
+      # (owner, provider_name) and returns a Hash merged into the agent's
+      # generation options (e.g. { access_token: "sk-..." } or
+      # { host: "http://localhost:11434" }), or nil to fall back to the
+      # host app's config/active_agent.yml.
+      #
+      # Unset means config/active_agent.yml is the only source, which is what
+      # a self-hosted install wants.
+      # @return [Proc, nil]
+      attr_accessor :provider_credentials_resolver
+
+      # Extra sandbox backends contributed by the host app, as
+      # { "cloud_run" => "CloudRunService" }. The engine ships :mock and
+      # :local (Docker); cloud backends live in the app that operates them.
+      # @return [Hash{String => String}]
+      attr_accessor :sandbox_backends
+
+      # Whether the dashboard may execute agents against real providers.
+      # Disable to run the dashboard as a read-only observability surface.
+      # @return [Boolean]
+      attr_accessor :execution_enabled
+
+      # Maps an ingested trace to the owner that its newly observed agents
+      # belong to. Defaults to the trace's account in multi-tenant mode and to
+      # nobody in single-tenant mode. A host app whose agents hang off a
+      # different record (the platform's hang off the account's owning user)
+      # supplies its own mapping.
+      # @return [Proc, nil]
+      attr_accessor :trace_owner_resolver
+
+      # How long telemetry traces are kept before TraceRetentionJob prunes
+      # them. A Duration applies to every trace; a callable receives each
+      # owner and returns that owner's window (nil keeps everything). Unset
+      # means nothing is ever deleted.
+      # @return [ActiveSupport::Duration, Proc, nil]
+      attr_accessor :trace_retention
+
+      # Whether API keys and provider credentials are encrypted at rest with
+      # Active Record Encryption. On by default, which requires the host app
+      # to have run `rails db:encryption:init`. Turning it off stores those
+      # secrets in plain text — a deliberate downgrade, never a default.
+      # @return [Boolean]
+      attr_accessor :encrypt_credentials
+
+      # Value stored in polymorphic *_type columns for dashboard agents
+      # (agent_memories.memorable_type, agent_contexts.contextable_type).
+      # Unset means the class name. A host app whose existing rows were
+      # written under its own constant sets its name here.
+      # @return [String, nil]
+      attr_accessor :agent_polymorphic_name
+
+      # Table name prefix for the engine's models. The engine's own
+      # migrations create `active_agent_*` tables, so the default matches.
+      #
+      # A host app that already owns these tables under different names
+      # (the activeagents.ai platform grew them unprefixed) sets this to ""
+      # rather than renaming production tables.
+      # @return [String]
+      attr_accessor :table_name_prefix
+
       # Returns whether multi-tenant mode is enabled.
       #
       # @return [Boolean]
       def multi_tenant?
         @multi_tenant == true
+      end
+
+      # Returns whether agent execution is permitted.
+      #
+      # @return [Boolean]
+      def execution_enabled?
+        @execution_enabled != false
+      end
+
+      # Asks the host app whether +owner+ may perform +kind+.
+      #
+      # @return [String, nil] denial message, or nil when allowed
+      def quota_denial(owner, kind)
+        return nil if quota_checker.nil?
+
+        quota_checker.call(owner, kind)
+      end
+
+      # Provider options for +owner+, or {} when the host app has none and
+      # config/active_agent.yml should be used as-is.
+      #
+      # @return [Hash]
+      def provider_credentials(owner, provider)
+        return {} if provider_credentials_resolver.nil?
+
+        provider_credentials_resolver.call(owner, provider) || {}
+      rescue StandardError => e
+        Rails.logger.warn("[ActiveAgent::Dashboard] provider credential lookup failed: #{e.message}")
+        {}
       end
 
       # Returns the trace model class to use.
@@ -127,6 +225,16 @@ module ActiveAgent
       # @return [Class] The agent model class
       def agent_model
         ActiveAgent::Dashboard::Agent
+      end
+
+      # Returns the configured owner class: the Account in multi-tenant mode,
+      # the User otherwise. Nil when the host app configured neither, which
+      # is the single-user self-hosted case.
+      #
+      # @return [Class, nil]
+      def owner_class
+        name = multi_tenant? ? account_class : user_class
+        name&.safe_constantize
       end
 
       # Configures the dashboard.
@@ -152,6 +260,15 @@ module ActiveAgent
         @storage_service = nil
         @ingest_api_key = nil
         @base_controller_class = "ActionController::Base" # deprecated no-op
+        @quota_checker = nil
+        @provider_credentials_resolver = nil
+        @sandbox_backends = {}
+        @execution_enabled = true
+        @table_name_prefix = "active_agent_"
+        @agent_polymorphic_name = nil
+        @encrypt_credentials = true
+        @trace_retention = nil
+        @trace_owner_resolver = nil
       end
     end
 
