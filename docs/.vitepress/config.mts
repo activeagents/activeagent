@@ -100,6 +100,8 @@ export default defineConfig({
           { text: 'Configuration', link: '/framework/configuration' },
           { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Telemetry', link: '/framework/telemetry' },
+          { text: 'Dashboard (Dev Console)', link: '/framework/dashboard' },
+          { text: 'Self-Hosted Observability', link: '/framework/self-hosted-observability' },
           { text: 'Retries', link: '/framework/retries' },
           { text: 'Rails Integration', link: '/framework/rails' },
           { text: 'Testing', link: '/framework/testing' },

@@ -9,11 +9,14 @@ module ActiveAgent
       # for analysis and visualization in the dashboard.
       #
       # Supports two modes:
-      # - Local mode: No authentication, synchronous processing
-      # - Multi-tenant mode: Bearer token auth, async processing via job
+      # - Local mode: synchronous processing; unauthenticated unless
+      #   ActiveAgent::Dashboard.ingest_api_key is set (set it whenever the
+      #   mount is reachable beyond your own machine)
+      # - Multi-tenant mode: per-account Bearer token auth, async processing
+      #   via job
       #
       # @example Local mode request
-      #   POST /active_agent/api/traces
+      #   POST <mount>/api/traces  (e.g. /activeagents/api/traces)
       #   Content-Type: application/json
       #
       #   {
@@ -22,7 +25,7 @@ module ActiveAgent
       #   }
       #
       # @example Multi-tenant mode request
-      #   POST /active_agent/api/traces
+      #   POST <mount>/api/traces  (e.g. /activeagents/api/traces)
       #   Authorization: Bearer <api_key>
       #   Content-Type: application/json
       #
@@ -33,12 +36,13 @@ module ActiveAgent
       #
       class TracesController < ActionController::API
         before_action :authenticate_api_key!, if: -> { ActiveAgent::Dashboard.multi_tenant? }
+        before_action :authenticate_ingest_key!, unless: -> { ActiveAgent::Dashboard.multi_tenant? }
 
         # Maximum traces accepted per request (mirrors
         # ProcessTelemetryTracesJob::MAX_TRACES_PER_JOB).
         MAX_TRACES_PER_REQUEST = 100
 
-        # POST /active_agent/api/traces
+        # POST <mount>/api/traces  (e.g. /activeagents/api/traces)
         def create
           traces = Array(params[:traces]).take(MAX_TRACES_PER_REQUEST)
           sdk_info = params[:sdk] || {}
@@ -88,6 +92,19 @@ module ActiveAgent
 
           # Track usage for rate limiting (if the account responds to it)
           @account.increment_telemetry_usage! if @account.respond_to?(:increment_telemetry_usage!)
+        end
+
+        # Requires the configured single-tenant ingest key when one is set.
+        # The telemetry reporter and ruby_llm_telemetry both send their
+        # api_key as a Bearer header, so remote apps work unchanged.
+        def authenticate_ingest_key!
+          expected = ActiveAgent::Dashboard.ingest_api_key
+          return if expected.blank?
+
+          token = extract_bearer_token
+          return if token.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected)
+
+          render json: { error: "Invalid API key" }, status: :unauthorized
         end
 
         # Extracts Bearer token from Authorization header.

@@ -3,7 +3,15 @@
 class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_version %>
   def change
     create_table :active_agent_telemetry_traces do |t|
-      t.string :trace_id, null: false, index: true
+<% if multi_tenant? -%>
+      # Multi-tenant mode: every query is scoped through `for_account`, and
+      # ingest authenticates a per-account key. The foreign key requires an
+      # existing `accounts` table — on PostgreSQL/MySQL this migration must
+      # run after the one that creates it (drop `foreign_key: true` if your
+      # tenant table is named differently).
+      t.references :account, null: false, foreign_key: true
+<% end -%>
+      t.string :trace_id, null: false
       t.string :service_name
       t.string :environment
       t.datetime :timestamp, index: true
@@ -22,6 +30,14 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_ve
       t.timestamps
     end
 
+<% if multi_tenant? -%>
+    # Ingest dedupes on trace_id (per account when multi-tenant); the unique
+    # index makes that dedupe race-proof rather than check-then-insert.
+    add_index :active_agent_telemetry_traces, [:account_id, :trace_id], unique: true
+    add_index :active_agent_telemetry_traces, [:account_id, :timestamp]
+<% else -%>
+    add_index :active_agent_telemetry_traces, :trace_id, unique: true
+<% end -%>
     add_index :active_agent_telemetry_traces, :status
     add_index :active_agent_telemetry_traces, [:agent_class, :agent_action]
     add_index :active_agent_telemetry_traces, [:service_name, :environment]

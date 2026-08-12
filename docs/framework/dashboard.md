@@ -21,10 +21,14 @@ rails db:migrate
 
 The generator:
 
-- copies the `active_agent_telemetry_traces` migration (plus agent,
-  run, template, sandbox and recording tables for the full install),
-- mounts the engine at `/active_agent`,
+- copies the `active_agent_telemetry_traces` migration (the one table the
+  dashboard reads),
+- mounts the engine at `/activeagents`,
 - writes `config/initializers/active_agent_dashboard.rb`.
+
+Deploying this beyond your laptop — for a team, or as the trace sink for
+a fleet of apps? See
+[Self-Hosted Observability](/framework/self-hosted-observability).
 
 Then enable telemetry with local storage in `config/active_agent.yml`:
 
@@ -34,7 +38,7 @@ telemetry:
   local_storage: true
 ```
 
-That's it. Run any agent and open `/active_agent` — each generation
+That's it. Run any agent and open `/activeagents` — each generation
 appears as a trace with prompt/LLM/tool spans, timing, token usage
 (input / output / thinking), provider and model.
 
@@ -42,10 +46,10 @@ appears as a trace with prompt/LLM/tool spans, timing, token usage
 
 | Page | Path | Contents |
 |------|------|----------|
-| Traces | `/active_agent/traces` | Every generation: agent + action, status, duration, tokens; expandable span timeline; All/Errors filter; 30s auto-refresh |
-| Trace detail | `/active_agent/traces/:id` | Span waterfall with relative offsets, token breakdown, error details, raw payload |
-| Metrics | `/active_agent/traces/metrics` | Last-24h totals: traces, tokens, avg duration, error rate, active agents; per-agent statistics |
-| Ingest API | `POST /active_agent/api/traces` | JSON trace ingestion (used by `local_storage` mode and remote SDKs) |
+| Traces | `/activeagents/traces` | Every generation: agent + action, status, duration, tokens; expandable span timeline; All/Errors filter; 30s auto-refresh |
+| Trace detail | `/activeagents/traces/:id` | Span waterfall with relative offsets, token breakdown, error details, raw payload |
+| Metrics | `/activeagents/traces/metrics` | Last-24h totals: traces, tokens, avg duration, error rate, active agents; per-agent statistics |
+| Ingest API | `POST /activeagents/api/traces` | JSON trace ingestion (used by `local_storage` mode and remote SDKs) |
 
 Time-series charts on the metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
@@ -70,13 +74,17 @@ Or constrain the mount in `config/routes.rb`:
 
 ```ruby
 authenticate :user, ->(u) { u.admin? } do
-  mount ActiveAgent::Dashboard::Engine => "/active_agent"
+  mount ActiveAgent::Dashboard::Engine => "/activeagents"
 end
 ```
 
-The local ingest endpoint is unauthenticated in local mode by design (it
-receives traces from your own app process). In multi-tenant mode it
-requires a Bearer token (see below).
+The local ingest endpoint accepts unauthenticated posts by default (it
+receives traces from your own app process on your own machine). If the
+mount is reachable from other machines, set `config.ingest_api_key` to
+require a Bearer token — see
+[Self-Hosted Observability](/framework/self-hosted-observability). In
+multi-tenant mode ingest always authenticates per-account keys (see
+below).
 
 ## Sending traces to a remote endpoint instead
 

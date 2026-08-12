@@ -11,9 +11,8 @@ ActiveAgent::Dashboard::Engine.routes.draw do
     end
   end
 
-  # Telemetry ingestion — matches
-  # ActiveAgent::Telemetry::Configuration::LOCAL_ENDPOINT_PATH
-  # (/active_agent/api/traces when mounted at the default /active_agent).
+  # Telemetry ingestion, relative to wherever the engine is mounted:
+  # <mount>/api/traces (e.g. /activeagents/api/traces at the default mount).
   namespace :api do
     resources :traces, only: [ :create ]
   end

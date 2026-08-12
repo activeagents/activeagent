@@ -8,7 +8,7 @@ module ActiveAgent
     # and the local trace ingestion API.
     #
     # Mount in your routes:
-    #   mount ActiveAgent::Dashboard::Engine => "/active_agent"
+    #   mount ActiveAgent::Dashboard::Engine => "/activeagents"
     #
     class Engine < ::Rails::Engine
       # The engine lives at lib/active_agent/dashboard rather than the gem
