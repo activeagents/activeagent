@@ -118,6 +118,16 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
       mount ActiveAgent::Dashboard::Engine => "/", as: :root_dashboard
     end
     assert_equal "/api/traces", rooted
+
+    # The deployment the self-hosted guide recommends: engine at the root of
+    # a dedicated subdomain. This is the shape the old helper-based lookup
+    # silently got wrong.
+    subdomain = endpoint_path_for_routes(config) do
+      constraints subdomain: "activeagents" do
+        mount ActiveAgent::Dashboard::Engine => "/", as: :active_agent_subdomain
+      end
+    end
+    assert_equal "/api/traces", subdomain
   end
 
   test "local endpoint path falls back when the engine is not mounted" do

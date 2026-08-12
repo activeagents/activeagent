@@ -45,8 +45,16 @@ module ActiveAgent
 
       # All queries honor the configured trace model and, in multi-tenant
       # mode, the current owner's account (for_account no-ops otherwise).
+      #
+      # In multi-tenant mode an unresolvable owner returns nothing rather
+      # than falling through: current_owner degrades to current_user when
+      # current_account_method is unset, which would scope by a user id
+      # against account_id — another tenant's traces.
       def scoped_traces
-        ActiveAgent::Dashboard.trace_model.for_account(current_owner)
+        model = ActiveAgent::Dashboard.trace_model
+        return model.none if ActiveAgent::Dashboard.multi_tenant? && current_owner.nil?
+
+        model.for_account(current_owner)
       end
 
       def fetch_traces
