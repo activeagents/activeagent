@@ -35,7 +35,14 @@ observability surface (see `docs/framework/self-hosted-observability.md`):
 - **Metrics page no longer 500s with data**: the per-agent stats table
   read a grouped SQL alias through a model method that expected per-trace
   token columns.
-- Removed the never-consumed `base_controller_class` config attribute.
+- **Mount detection is route-set based**: the ingest path is resolved by
+  locating the mounted engine in the host's routes rather than assuming
+  the default `active_agent_path` helper, so `mount ... => "/", as:
+  :something_else` and constraint-wrapped (subdomain) mounts resolve
+  correctly instead of silently falling back.
+- Deprecated the never-consumed `base_controller_class` config attribute:
+  it remains a no-op accessor with its historical default so existing
+  initializers keep booting, and will be removed in the next major.
 
 ### Dashboard & Telemetry — dev console readiness
 
