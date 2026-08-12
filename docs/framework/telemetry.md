@@ -215,6 +215,12 @@ at_exit { ActiveAgent::Telemetry.shutdown }
 
 ## Self-Hosting
 
+The dashboard engine already implements this endpoint spec: mount it and
+its ingest API (`<mount>/api/traces`) receives traces from any app in
+your fleet — see
+[Self-Hosted Observability](/framework/self-hosted-observability). The
+requirements below are for building your own receiver instead.
+
 ### Endpoint Requirements
 
 Your telemetry endpoint must accept POST requests with:

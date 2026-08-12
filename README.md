@@ -145,7 +145,7 @@ telemetry:
   local_storage: true
 ```
 
-Open `/active_agent` and every generation appears as a trace. See
+Open `/activeagents` and every generation appears as a trace. See
 [docs/framework/dashboard.md](docs/framework/dashboard.md) for
 authentication, remote ingestion, and multi-tenant mode. For production
 monitoring — evaluations, cost estimates, retention, team workspaces —

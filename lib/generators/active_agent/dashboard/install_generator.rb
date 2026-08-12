@@ -22,7 +22,18 @@ module ActiveAgent
 
       desc "Installs the ActiveAgent Dashboard with telemetry storage"
 
+      class_option :multi_tenant, type: :boolean, default: false,
+        desc: "Scope traces to an Account (adds account_id to the migration)"
+
+      class_option :skip_migrations, type: :boolean, default: false,
+        desc: "Skip copying the telemetry traces migration"
+
+      class_option :skip_routes, type: :boolean, default: false,
+        desc: "Skip adding the engine mount to routes.rb"
+
       def copy_migrations
+        return if options[:skip_migrations]
+
         migration_template(
           "create_active_agent_telemetry_traces.rb.erb",
           "db/migrate/create_active_agent_telemetry_traces.rb"
@@ -30,7 +41,19 @@ module ActiveAgent
       end
 
       def add_route
-        route 'mount ActiveAgent::Dashboard::Engine => "/active_agent"'
+        return if options[:skip_routes]
+
+        # Rails' `route` action is only idempotent on an exact string match,
+        # so an app installed before the default path changed would get a
+        # second mount — and two unnamed mounts of the same engine raise
+        # "Invalid route name, already in use: 'active_agent'" at boot.
+        routes_file = File.join(destination_root, "config/routes.rb")
+        if File.exist?(routes_file) && File.read(routes_file).include?("ActiveAgent::Dashboard::Engine")
+          say_status :skip, "engine already mounted in config/routes.rb", :yellow
+          return
+        end
+
+        route 'mount ActiveAgent::Dashboard::Engine => "/activeagents"'
       end
 
       def create_initializer
@@ -50,7 +73,7 @@ module ActiveAgent
         say "     telemetry:"
         say "       enabled: true"
         say "       local_storage: true"
-        say "  3. Visit /active_agent to view the dashboard"
+        say "  3. Visit /activeagents to view the dashboard"
         say "\n"
       end
 
@@ -58,6 +81,11 @@ module ActiveAgent
 
       def migration_version
         "[#{ActiveRecord::Migration.current_version}]"
+      end
+
+      # Consumed by the migration template.
+      def multi_tenant?
+        options[:multi_tenant]
       end
     end
   end

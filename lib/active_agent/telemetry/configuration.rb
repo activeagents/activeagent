@@ -17,8 +17,9 @@ module ActiveAgent
     #
     # @see ActiveAgents::Telemetry::Configuration
     class Configuration < ActiveAgents::Telemetry::Configuration
-      # Local dashboard endpoint path (relative to app root)
-      LOCAL_ENDPOINT_PATH = "/active_agent/api/traces"
+      # Fallback ingest path when the dashboard engine's mount point can't
+      # be resolved from the host's routes (e.g. engine not mounted).
+      LOCAL_ENDPOINT_PATH = "/activeagents/api/traces"
 
       # @return [Boolean] Whether to store traces in the app's own database
       attr_reader :local_storage
@@ -51,7 +52,16 @@ module ActiveAgent
 
       # Returns the resolved endpoint for trace reporting.
       def resolved_endpoint
-        local_storage? ? LOCAL_ENDPOINT_PATH : endpoint
+        local_storage? ? local_endpoint_path : endpoint
+      end
+
+      # The dashboard engine's ingest path, derived from wherever the host
+      # app actually mounted it — "/activeagents", "/observability", or "/"
+      # on a dedicated subdomain all work. Falls back to
+      # LOCAL_ENDPOINT_PATH when the engine isn't mounted.
+      def local_endpoint_path
+        mount = dashboard_mount_path
+        mount ? "#{mount}/api/traces" : LOCAL_ENDPOINT_PATH
       end
 
       # The framework's historical fallback is "activeagent", not the shared
@@ -94,6 +104,48 @@ module ActiveAgent
           ActiveAgent::TelemetryTrace
         end
       rescue NameError
+        nil
+      end
+
+      # The engine's mount point in the host app, found by locating the
+      # mounted engine in the host's route set. Works regardless of the
+      # helper name, so `mount ... => "/", as: :something_else` and
+      # constraint-wrapped mounts resolve correctly. Returns nil when the
+      # engine isn't mounted or no Rails app is booted; "" for a root mount.
+      def dashboard_mount_path
+        return nil unless defined?(::Rails) && ::Rails.respond_to?(:application) && ::Rails.application
+
+        mount_path_in(::Rails.application.routes)
+      rescue StandardError
+        nil
+      end
+
+      # The engine's mount path within a given route set, or nil when it
+      # isn't mounted there. Separate from #dashboard_mount_path so it can be
+      # exercised against a route set directly.
+      public def mount_path_in(route_set)
+        return nil unless defined?(::ActiveAgent::Dashboard::Engine)
+
+        route = route_set.routes.find do |candidate|
+          mounted_engine(candidate.app) == ::ActiveAgent::Dashboard::Engine
+        end
+        return nil unless route
+
+        # "/activeagents(.:format)" -> "/activeagents"; a root mount -> "".
+        route.path.spec.to_s.sub(/\(\.:format\)\z/, "").chomp("/")
+      end
+
+      # Unwraps the constraint layers Rails wraps a mounted engine in,
+      # returning the engine class (or nil for ordinary routes). Stops at the
+      # engine class itself — engines also respond to #app (their route set),
+      # so unwrapping blindly walks straight past them.
+      def mounted_engine(app)
+        5.times do
+          return app if app.is_a?(Class) && app < ::Rails::Engine
+          break unless app.respond_to?(:app) && !app.app.equal?(app)
+
+          app = app.app
+        end
         nil
       end
     end

@@ -39,46 +39,141 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
   test "traces index renders" do
     ActiveAgent::TelemetryTrace.create_from_payload(sample_payload)
 
-    get "/active_agent/traces"
+    get "/activeagents/traces"
 
     assert_response :success
     assert_includes response.body, "SupportAgent"
   end
 
+  test "traces index and metrics honor a trace_model_class override" do
+    override = Class.new(ActiveAgent::TelemetryTrace) do
+      default_scope { where(service_name: "scoped-service") }
+    end
+    Object.const_set(:ScopedTelemetryTrace, override)
+
+    ActiveAgent::TelemetryTrace.create_from_payload(sample_payload)
+    scoped = sample_payload
+    scoped["service_name"] = "scoped-service"
+    scoped["spans"][0]["name"] = "ScopedAgent.respond"
+    scoped["spans"][0]["attributes"]["agent.class"] = "ScopedAgent"
+    ActiveAgent::TelemetryTrace.create_from_payload(scoped)
+
+    ActiveAgent::Dashboard.trace_model_class = "ScopedTelemetryTrace"
+
+    get "/activeagents/traces"
+
+    assert_response :success
+    assert_includes response.body, "ScopedAgent"
+    assert_not_includes response.body, "SupportAgent"
+
+    get "/activeagents/traces/metrics"
+    assert_response :success
+    assert_includes response.body, "ScopedAgent"
+  ensure
+    ActiveAgent::Dashboard.trace_model_class = nil
+    Object.send(:remove_const, :ScopedTelemetryTrace)
+  end
+
   test "engine root renders the traces index" do
-    get "/active_agent/"
+    get "/activeagents/"
 
     assert_response :success
   end
 
   test "dashboard overview redirects to traces in ERB mode" do
-    get "/active_agent/dashboard"
+    get "/activeagents/dashboard"
 
     assert_response :redirect
-    assert_includes response.location, "/active_agent/traces"
+    assert_includes response.location, "/activeagents/traces"
   end
 
   test "dashboard refuses unauthenticated access in production when no auth is configured" do
     Rails.env.stub(:production?, true) do
-      get "/active_agent/traces"
+      get "/activeagents/traces"
     end
 
     assert_response :forbidden
     assert_includes response.body, "authentication_method"
   end
 
-  test "local ingest endpoint matches LOCAL_ENDPOINT_PATH and persists traces" do
-    endpoint = ActiveAgent::Telemetry::Configuration::LOCAL_ENDPOINT_PATH
-    assert_equal "/active_agent/api/traces", endpoint
+  test "local endpoint path derives from the engine's actual mount" do
+    config = ActiveAgent::Telemetry::Configuration.new
+    config.local_storage = true
 
+    assert_equal "/activeagents/api/traces", config.local_endpoint_path
+    assert_equal "/activeagents/api/traces", config.resolved_endpoint
+  end
+
+  # The mount is found in the route set, not via the default `active_agent_path`
+  # helper — so an `as:` override (the docs' subdomain example) still resolves.
+  test "local endpoint path resolves for aliased and root mounts" do
+    config = ActiveAgent::Telemetry::Configuration.new
+
+    aliased = endpoint_path_for_routes(config) do
+      mount ActiveAgent::Dashboard::Engine => "/observability", as: :renamed_dashboard
+    end
+    assert_equal "/observability/api/traces", aliased
+
+    rooted = endpoint_path_for_routes(config) do
+      mount ActiveAgent::Dashboard::Engine => "/", as: :root_dashboard
+    end
+    assert_equal "/api/traces", rooted
+
+    # The deployment the self-hosted guide recommends: engine at the root of
+    # a dedicated subdomain. This is the shape the old helper-based lookup
+    # silently got wrong.
+    subdomain = endpoint_path_for_routes(config) do
+      constraints subdomain: "activeagents" do
+        mount ActiveAgent::Dashboard::Engine => "/", as: :active_agent_subdomain
+      end
+    end
+    assert_equal "/api/traces", subdomain
+  end
+
+  test "local endpoint path falls back when the engine is not mounted" do
+    config = ActiveAgent::Telemetry::Configuration.new
+
+    unmounted = endpoint_path_for_routes(config) { get "up", to: proc { [ 200, {}, [ "ok" ] ] } }
+
+    assert_equal ActiveAgent::Telemetry::Configuration::LOCAL_ENDPOINT_PATH, unmounted
+  end
+
+  test "local ingest endpoint persists traces" do
     payload = sample_payload
-    post endpoint, params: { traces: [ payload ], sdk: { name: "activeagent" } }, as: :json
+    post "/activeagents/api/traces", params: { traces: [ payload ], sdk: { name: "activeagent" } }, as: :json
 
     assert_response :accepted
     trace = ActiveAgent::TelemetryTrace.find_by(trace_id: payload["trace_id"])
     assert trace
     assert_equal "SupportAgent", trace.agent_class
     assert_equal 100, trace.total_input_tokens
+  end
+
+  test "local ingest requires the configured ingest_api_key" do
+    ActiveAgent::Dashboard.ingest_api_key = "secret-ingest-key"
+    payload = sample_payload
+
+    post "/activeagents/api/traces", params: { traces: [ payload ], sdk: {} }, as: :json
+    assert_response :unauthorized
+
+    post "/activeagents/api/traces", params: { traces: [ payload ], sdk: {} }, as: :json,
+      headers: { "Authorization" => "Bearer wrong" }
+    assert_response :unauthorized
+    assert_nil ActiveAgent::TelemetryTrace.find_by(trace_id: payload["trace_id"])
+
+    post "/activeagents/api/traces", params: { traces: [ payload ], sdk: {} }, as: :json,
+      headers: { "Authorization" => "Bearer secret-ingest-key" }
+    assert_response :accepted
+    assert ActiveAgent::TelemetryTrace.find_by(trace_id: payload["trace_id"])
+  ensure
+    ActiveAgent::Dashboard.ingest_api_key = nil
+  end
+
+  test "exactly one install generator resolves" do
+    require "rails/generators"
+    generator = Rails::Generators.find_by_namespace("active_agent:dashboard:install")
+
+    assert_equal ActiveAgent::Dashboard::InstallGenerator, generator
   end
 
   test "reporter local storage persists symbol-keyed tracer payloads" do
@@ -112,6 +207,16 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  # Resolves the ingest path against a temporary route set, restoring the
+  # real routes (and the dummy app's /activeagents mount) afterward.
+  def endpoint_path_for_routes(config, &route_definition)
+    route_set = ActionDispatch::Routing::RouteSet.new
+    route_set.draw(&route_definition)
+
+    mount = config.mount_path_in(route_set)
+    mount ? "#{mount}/api/traces" : ActiveAgent::Telemetry::Configuration::LOCAL_ENDPOINT_PATH
+  end
 
   def sample_payload
     {
