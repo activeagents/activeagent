@@ -98,6 +98,12 @@ module ActiveAgent
       # @return [String, nil]
       attr_accessor :ingest_api_key
 
+      # @deprecated Never consumed — dashboard controllers inherit
+      #   ActionController::Base. Retained as a no-op so existing
+      #   initializers that set it keep booting; remove in the next major.
+      # @return [String]
+      attr_accessor :base_controller_class
+
       # Returns whether multi-tenant mode is enabled.
       #
       # @return [Boolean]
@@ -145,6 +151,7 @@ module ActiveAgent
         @sandbox_limits = nil
         @storage_service = nil
         @ingest_api_key = nil
+        @base_controller_class = "ActionController::Base" # deprecated no-op
       end
     end
 

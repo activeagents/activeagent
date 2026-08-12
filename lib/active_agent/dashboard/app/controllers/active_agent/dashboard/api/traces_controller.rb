@@ -16,7 +16,7 @@ module ActiveAgent
       #   via job
       #
       # @example Local mode request
-      #   POST /active_agent/api/traces
+      #   POST <mount>/api/traces  (e.g. /activeagents/api/traces)
       #   Content-Type: application/json
       #
       #   {
@@ -25,7 +25,7 @@ module ActiveAgent
       #   }
       #
       # @example Multi-tenant mode request
-      #   POST /active_agent/api/traces
+      #   POST <mount>/api/traces  (e.g. /activeagents/api/traces)
       #   Authorization: Bearer <api_key>
       #   Content-Type: application/json
       #
@@ -42,7 +42,7 @@ module ActiveAgent
         # ProcessTelemetryTracesJob::MAX_TRACES_PER_JOB).
         MAX_TRACES_PER_REQUEST = 100
 
-        # POST /active_agent/api/traces
+        # POST <mount>/api/traces  (e.g. /activeagents/api/traces)
         def create
           traces = Array(params[:traces]).take(MAX_TRACES_PER_REQUEST)
           sdk_info = params[:sdk] || {}

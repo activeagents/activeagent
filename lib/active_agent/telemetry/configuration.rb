@@ -107,14 +107,45 @@ module ActiveAgent
         nil
       end
 
-      # The engine's mount point in the host app, via the mount helper Rails
-      # defines from the engine_name ("active_agent"). Returns nil when the
+      # The engine's mount point in the host app, found by locating the
+      # mounted engine in the host's route set. Works regardless of the
+      # helper name, so `mount ... => "/", as: :something_else` and
+      # constraint-wrapped mounts resolve correctly. Returns nil when the
       # engine isn't mounted or no Rails app is booted; "" for a root mount.
       def dashboard_mount_path
         return nil unless defined?(::Rails) && ::Rails.respond_to?(:application) && ::Rails.application
 
-        ::Rails.application.routes.url_helpers.active_agent_path.chomp("/")
-      rescue NoMethodError, NameError
+        mount_path_in(::Rails.application.routes)
+      rescue StandardError
+        nil
+      end
+
+      # The engine's mount path within a given route set, or nil when it
+      # isn't mounted there. Separate from #dashboard_mount_path so it can be
+      # exercised against a route set directly.
+      public def mount_path_in(route_set)
+        return nil unless defined?(::ActiveAgent::Dashboard::Engine)
+
+        route = route_set.routes.find do |candidate|
+          mounted_engine(candidate.app) == ::ActiveAgent::Dashboard::Engine
+        end
+        return nil unless route
+
+        # "/activeagents(.:format)" -> "/activeagents"; a root mount -> "".
+        route.path.spec.to_s.sub(/\(\.:format\)\z/, "").chomp("/")
+      end
+
+      # Unwraps the constraint layers Rails wraps a mounted engine in,
+      # returning the engine class (or nil for ordinary routes). Stops at the
+      # engine class itself — engines also respond to #app (their route set),
+      # so unwrapping blindly walks straight past them.
+      def mounted_engine(app)
+        5.times do
+          return app if app.is_a?(Class) && app < ::Rails::Engine
+          break unless app.respond_to?(:app) && !app.app.equal?(app)
+
+          app = app.app
+        end
         nil
       end
     end

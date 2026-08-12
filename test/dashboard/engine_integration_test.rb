@@ -104,6 +104,30 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
     assert_equal "/activeagents/api/traces", config.resolved_endpoint
   end
 
+  # The mount is found in the route set, not via the default `active_agent_path`
+  # helper — so an `as:` override (the docs' subdomain example) still resolves.
+  test "local endpoint path resolves for aliased and root mounts" do
+    config = ActiveAgent::Telemetry::Configuration.new
+
+    aliased = endpoint_path_for_routes(config) do
+      mount ActiveAgent::Dashboard::Engine => "/observability", as: :renamed_dashboard
+    end
+    assert_equal "/observability/api/traces", aliased
+
+    rooted = endpoint_path_for_routes(config) do
+      mount ActiveAgent::Dashboard::Engine => "/", as: :root_dashboard
+    end
+    assert_equal "/api/traces", rooted
+  end
+
+  test "local endpoint path falls back when the engine is not mounted" do
+    config = ActiveAgent::Telemetry::Configuration.new
+
+    unmounted = endpoint_path_for_routes(config) { get "up", to: proc { [ 200, {}, [ "ok" ] ] } }
+
+    assert_equal ActiveAgent::Telemetry::Configuration::LOCAL_ENDPOINT_PATH, unmounted
+  end
+
   test "local ingest endpoint persists traces" do
     payload = sample_payload
     post "/activeagents/api/traces", params: { traces: [ payload ], sdk: { name: "activeagent" } }, as: :json
@@ -173,6 +197,16 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  # Resolves the ingest path against a temporary route set, restoring the
+  # real routes (and the dummy app's /activeagents mount) afterward.
+  def endpoint_path_for_routes(config, &route_definition)
+    route_set = ActionDispatch::Routing::RouteSet.new
+    route_set.draw(&route_definition)
+
+    mount = config.mount_path_in(route_set)
+    mount ? "#{mount}/api/traces" : ActiveAgent::Telemetry::Configuration::LOCAL_ENDPOINT_PATH
+  end
 
   def sample_payload
     {
