@@ -19,11 +19,12 @@ observability surface (see `docs/framework/self-hosted-observability.md`):
   gains `--skip_migrations` / `--skip_routes`; its initializer template now
   covers authentication, `ingest_api_key`, and multi-tenant options.
 - **Canonical mount path is `/activeagents`** (generator, dummy app and
-  docs updated), and the telemetry client now derives its local ingest
-  endpoint from wherever the engine is actually mounted — any mount path,
-  including `/` on a dedicated subdomain, works.
-  `Telemetry::Configuration::LOCAL_ENDPOINT_PATH` remains as the fallback
-  when the engine isn't mounted.
+  docs updated). `Telemetry::Configuration#resolved_endpoint` now reports
+  the ingest path for wherever the engine is actually mounted — any mount
+  path, including `/` on a dedicated subdomain — instead of a hardcoded
+  constant, falling back to `LOCAL_ENDPOINT_PATH` when it isn't mounted.
+  Note this is informational: `local_storage` capture writes through the
+  trace model without HTTP, and remote apps set `endpoint:` explicitly.
 - **`TracesController` honors configuration**: index/metrics/time-series
   queries now go through `ActiveAgent::Dashboard.trace_model` (previously
   only `show` did) and are scoped with `for_account(current_owner)`, so a
@@ -56,8 +57,7 @@ the box (production observability is the hosted platform product):
   `require`s). The engine is also required eagerly with Rails, since
   engines defined lazily miss initializer collection.
 - **Routes now match shipped controllers**: the engine exposes traces,
-  metrics and the ingest API (`/active_agent/api/traces`, matching
-  `Telemetry::Configuration::LOCAL_ENDPOINT_PATH`); routes to
+  metrics and the ingest API (`<mount>/api/traces`); routes to
   never-shipped controllers (agents, sandboxes, templates, recordings,
   api/v1) were removed. Engine root renders the traces index.
 - **`local_storage` telemetry mode fixed**: tracer payloads are

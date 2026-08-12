@@ -53,9 +53,12 @@ yourself.)
 
 ## Routing: a path or a subdomain
 
-The mount path is yours to choose — the telemetry client derives its
-local ingest endpoint from wherever the engine is actually mounted, so
-nothing else needs configuring:
+The mount path is yours to choose. The ingest route always lives at
+`<mount>/api/traces`, and `ActiveAgent::Telemetry::Configuration#resolved_endpoint`
+reports it for whatever mount the app actually uses — handy for
+diagnostics. (Same-app capture with `local_storage: true` writes through
+the model and issues no HTTP at all; apps posting from elsewhere set
+`endpoint:` to the full URL, as shown below.)
 
 ```ruby
 # A path on your main app:
