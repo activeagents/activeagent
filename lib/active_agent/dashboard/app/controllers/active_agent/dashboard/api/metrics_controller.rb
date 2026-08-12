@@ -104,8 +104,12 @@ module ActiveAgent
         end
 
         def hourly_requests(scope, hours, now)
-          counts = scope.group(Arel.sql("date_trunc('hour', timestamp)")).count.transform_keys(&:to_i)
-          latencies = scope.group(Arel.sql("date_trunc('hour', timestamp)")).average(:total_duration_ms).transform_keys(&:to_i)
+          traces = ActiveAgent::Dashboard.trace_model
+          bucket_sql = Arel.sql(traces.hour_bucket_sql)
+          to_epoch = ->(hash) { hash.transform_keys { |key| traces.hour_bucket_epoch(key) } }
+
+          counts = to_epoch.call(scope.group(bucket_sql).count)
+          latencies = to_epoch.call(scope.group(bucket_sql).average(:total_duration_ms))
 
           start_hour = (now - (hours - 1).hours).beginning_of_hour
           (0...hours).map do |offset|

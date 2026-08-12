@@ -11,7 +11,7 @@
 # JSON columns are jsonb on PostgreSQL and json elsewhere: the dashboard runs
 # on SQLite and MySQL, it just loses jsonb containment (see
 # ActiveAgent::Dashboard::Agent.with_tool, which falls back to a LIKE).
-class CreateActiveAgentDashboardTables < ActiveRecord::Migration[7.2]
+class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_version %>
   def change
     prefix = ActiveAgent::Dashboard.table_name_prefix
 

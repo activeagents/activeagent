@@ -27,6 +27,7 @@ class TelemetryTraceTest < ActiveSupport::TestCase
         t.string :status, default: "UNSET"
         t.string :agent_class
         t.string :agent_action
+        t.bigint :agent_id
         t.text :error_message
         t.timestamps
       end
