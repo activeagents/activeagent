@@ -2,47 +2,42 @@
 
 module ActiveAgent
   module Dashboard
-    # Background job for cleaning up sandbox environments.
-    #
-    # Removes containers, Cloud Run jobs, or other resources
-    # when a sandbox session expires.
-    #
     class SandboxCleanupJob < ApplicationJob
-      queue_as :default
+      queue_as :sandboxes
 
+      # Clean up Cloud Run resources for an expired sandbox
       def perform(sandbox_session_id)
-        session = SandboxSession.find_by(id: sandbox_session_id)
-        return unless session
+        sandbox = SandboxSession.find_by(id: sandbox_session_id)
+        return unless sandbox
 
-        cleanup_sandbox(session)
+        Rails.logger.info("Cleaning up sandbox: #{sandbox.session_id}")
+
+        # Delete Cloud Run Job if exists
+        if sandbox.cloud_run_job_id.present? && !Rails.env.development?
+          delete_cloud_run_job(sandbox.cloud_run_job_id)
+        end
+
+        # Optionally delete old sandbox records
+        # For now, keep for analytics
+        sandbox.update!(cloud_run_url: nil, cloud_run_job_id: nil)
+      end
+
+      # Periodic cleanup of all expired sandboxes
+      def self.cleanup_expired!
+        SandboxSession.expired_sessions.active.find_each do |sandbox|
+          sandbox.expire!
+        end
       end
 
       private
 
-      def cleanup_sandbox(session)
-        case ActiveAgent::Dashboard.sandbox_service
-        when :cloud_run
-          cleanup_cloud_run(session)
-        when :kubernetes
-          cleanup_kubernetes(session)
-        else
-          cleanup_local(session)
-        end
-      end
+      def delete_cloud_run_job(job_id)
+        require "google/cloud/run/v2"
 
-      def cleanup_local(session)
-        # Local mode: Nothing to clean up
-        Rails.logger.info "[ActiveAgent::Dashboard] Cleaned up local sandbox: #{session.session_id}"
-      end
-
-      def cleanup_cloud_run(session)
-        # TODO: Implement Cloud Run cleanup
-        Rails.logger.info "[ActiveAgent::Dashboard] Would clean up Cloud Run job: #{session.cloud_run_job_id}"
-      end
-
-      def cleanup_kubernetes(session)
-        # TODO: Implement Kubernetes cleanup
-        Rails.logger.info "[ActiveAgent::Dashboard] Would clean up Kubernetes pod: #{session.cloud_run_job_id}"
+        client = Google::Cloud::Run::V2::Jobs::Client.new
+        client.delete_job(name: job_id)
+      rescue => e
+        Rails.logger.warn("Failed to delete Cloud Run job #{job_id}: #{e.message}")
       end
     end
   end

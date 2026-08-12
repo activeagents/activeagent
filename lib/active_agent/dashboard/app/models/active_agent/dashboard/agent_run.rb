@@ -2,22 +2,8 @@
 
 module ActiveAgent
   module Dashboard
-    # Tracks individual agent execution runs.
-    #
-    # Each run captures input, output, timing, token usage, and any errors
-    # that occurred during execution.
-    #
-    # @example Creating a run
-    #   run = agent.execute("Analyze this code", code: code)
-    #   run.status # => "pending"
-    #
-    # @example Monitoring a run
-    #   run.in_progress? # => true
-    #   run.finished?    # => false
-    #
     class AgentRun < ApplicationRecord
-      belongs_to :agent, class_name: "ActiveAgent::Dashboard::Agent"
-      has_one :session_recording, class_name: "ActiveAgent::Dashboard::SessionRecording", dependent: :nullify
+      belongs_to :agent
 
       # Status enum
       enum :status, { pending: 0, running: 1, complete: 2, failed: 3, cancelled: 4 }
@@ -44,6 +30,60 @@ module ActiveAgent
           message: message
         }
         update!(logs: new_logs)
+      end
+
+      # Appends a progress event to logs mid-run so pollers can stream what the
+      # agent is doing (pending llm/tool/agent calls). Events pair up by eid:
+      # a "started" event is pending until a "done"/"error" with the same eid
+      # lands. update_column: no validations/callbacks, safe from the run's own
+      # execution thread; reads current DB state so add_log interleaves safely.
+      def append_event(eid:, kind:, label:, status: "done", detail: nil, duration_ms: nil)
+        event = {
+          "at" => Time.current.iso8601(3),
+          "eid" => eid,
+          "kind" => kind.to_s,
+          "label" => label.to_s,
+          "status" => status.to_s
+        }
+        event["detail"] = detail.to_s.byteslice(0, 1200).to_s.scrub if detail
+        event["duration_ms"] = duration_ms if duration_ms
+        current = self.class.where(id: id).pick(:logs) || []
+        update_column(:logs, current + [ event ])
+        event
+      end
+
+      # Stable short fingerprint of the instructions this run executed under —
+      # the grouping key (with model) for configuration cohorts when comparing
+      # instruction/model changes.
+      def instructions_digest
+        instructions = output_metadata&.dig("instructions")
+        return nil if instructions.blank?
+
+        Digest::SHA256.hexdigest(instructions).first(8)
+      end
+
+      # Deterministic memorable name for the digest ("calm-heron") — reads far
+      # better than hex when comparing cohorts, and is stable across runs and
+      # deployments because it's derived from the digest alone.
+      CODENAME_ADJECTIVES = %w[
+        calm brisk quiet bold amber coral dusky fresh golden keen
+        lively mellow nimble pale rustic silver tidal vivid wry zesty
+        arid breezy crisp dapper eager foggy hazy icy jolly lunar
+        misty polar
+      ].freeze
+      CODENAME_NOUNS = %w[
+        heron otter falcon cedar willow harbor mesa ridge grove delta
+        prairie summit canyon reef atoll fjord tundra oasis lagoon dune
+        glacier meadow bluff cove marsh basin knoll strait quarry vale
+        hollow crag
+      ].freeze
+
+      def instructions_codename
+        digest = instructions_digest
+        return nil unless digest
+
+        value = digest.to_i(16)
+        "#{CODENAME_ADJECTIVES[value % 32]}-#{CODENAME_NOUNS[(value / 32) % 32]}"
       end
 
       # Calculate duration if not set
@@ -73,6 +113,12 @@ module ActiveAgent
           output_preview: output&.truncate(200),
           duration_ms: calculated_duration_ms,
           tokens: total_tokens,
+          provider: output_metadata&.dig("provider"),
+          model: output_metadata&.dig("model"),
+          action_name: action_name || output_metadata&.dig("action") || "ask",
+          instructions_digest: instructions_digest,
+          instructions_codename: instructions_codename,
+          instructions_preview: output_metadata&.dig("instructions")&.truncate(120),
           created_at: created_at,
           error: error_message
         }
@@ -80,15 +126,9 @@ module ActiveAgent
 
       # Stream output updates via ActionCable
       def broadcast_update
-        return unless defined?(ActionCable)
-
-        ActionCable.server.broadcast(
-          "agent_run_#{id}",
-          {
-            type: "update",
-            run: summary
-          }
-        )
+        payload = { type: "update", run: summary }
+        ActionCable.server.broadcast("agent_run_#{id}", payload)
+        ActionCable.server.broadcast("agent_runs_#{agent_id}", payload)
       end
 
       # Cancel a running execution

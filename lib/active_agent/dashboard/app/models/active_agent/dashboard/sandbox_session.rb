@@ -2,27 +2,10 @@
 
 module ActiveAgent
   module Dashboard
-    # Manages sandbox execution sessions for agent runs.
-    #
-    # Sandbox sessions provide isolated execution environments for running
-    # agents with tools like browser automation, file system access, etc.
-    #
-    # Supports both local (Docker/Incus) and cloud (Cloud Run) sandbox providers.
-    #
-    # @example Creating a sandbox session
-    #   session = ActiveAgent::Dashboard::SandboxSession.create!(
-    #     sandbox_type: "playwright_mcp"
-    #   )
-    #   session.provision!
-    #
     class SandboxSession < ApplicationRecord
-      # Owner associations - optional to support anonymous users
-      belongs_to :user, class_name: ActiveAgent::Dashboard.user_class, optional: true if ActiveAgent::Dashboard.user_class
-      belongs_to :account, class_name: ActiveAgent::Dashboard.account_class, optional: true if ActiveAgent::Dashboard.multi_tenant?
-      belongs_to :agent_template, class_name: "ActiveAgent::Dashboard::AgentTemplate", optional: true
+      include Ownable
 
-      has_many :sandbox_runs, class_name: "ActiveAgent::Dashboard::SandboxRun", dependent: :destroy
-      has_one :session_recording, class_name: "ActiveAgent::Dashboard::SessionRecording", dependent: :nullify
+      belongs_to :agent_template, optional: true
 
       # Session statuses
       enum :status, {
@@ -38,8 +21,8 @@ module ActiveAgent
       # Sandbox types
       SANDBOX_TYPES = %w[playwright_mcp terminal research].freeze
 
-      # Default limits (can be overridden by platform tier limits)
-      DEFAULT_LIMITS = {
+      # Free tier limits
+      FREE_TIER_LIMITS = {
         max_runs: 10,
         timeout_seconds: 300,
         max_tokens: 50_000,
@@ -52,7 +35,7 @@ module ActiveAgent
 
       # Callbacks
       before_validation :generate_session_id, on: :create
-      before_create :set_defaults
+      before_create :set_expiration
 
       # Scopes
       scope :active, -> { where(status: [ :pending, :provisioning, :ready, :running ]) }
@@ -85,8 +68,9 @@ module ActiveAgent
           created_at: Time.current.iso8601
         }
 
+        # Use pessimistic locking to prevent race conditions when multiple providers run in parallel
         with_lock do
-          reload
+          reload # Reload to get the latest state
           self.runs = runs + [ run ]
           self.runs_count = runs.size
           self.total_tokens += tokens
@@ -98,33 +82,34 @@ module ActiveAgent
         run
       end
 
-      # Provision the sandbox
+      # Provision the Cloud Run sandbox
       def provision!
         return if provisioning? || ready?
 
         update!(status: :provisioning)
 
-        # Use configured sandbox service
+        # In development, run synchronously for immediate feedback
         if Rails.env.development? || Rails.env.test?
-          ActiveAgent::Dashboard::SandboxProvisionJob.perform_now(id)
+          SandboxProvisionJob.perform_now(id)
         else
-          ActiveAgent::Dashboard::SandboxProvisionJob.perform_later(id)
+          SandboxProvisionJob.perform_later(id)
         end
       end
 
-      # Mark as ready with sandbox URL
-      def mark_ready!(sandbox_url:, sandbox_job_id: nil)
+      # Mark as ready with Cloud Run URL
+      def mark_ready!(cloud_run_url:, cloud_run_job_id: nil)
         update!(
           status: :ready,
-          cloud_run_url: sandbox_url,
-          cloud_run_job_id: sandbox_job_id
+          cloud_run_url: cloud_run_url,
+          cloud_run_job_id: cloud_run_job_id
         )
       end
 
       # Expire the session
       def expire!
         update!(status: :expired)
-        ActiveAgent::Dashboard::SandboxCleanupJob.perform_later(id) if cloud_run_job_id.present?
+        # Cleanup Cloud Run resources
+        SandboxCleanupJob.perform_later(id) if cloud_run_job_id.present?
       end
 
       # Summary for API responses
@@ -158,11 +143,10 @@ module ActiveAgent
         self.session_id ||= SecureRandom.uuid
       end
 
-      def set_defaults
-        limits = ActiveAgent::Dashboard.sandbox_limits || DEFAULT_LIMITS
-        self.expires_at ||= limits[:session_duration_minutes].minutes.from_now
-        self.max_runs ||= limits[:max_runs]
-        self.timeout_seconds ||= limits[:timeout_seconds]
+      def set_expiration
+        self.expires_at ||= FREE_TIER_LIMITS[:session_duration_minutes].minutes.from_now
+        self.max_runs ||= FREE_TIER_LIMITS[:max_runs]
+        self.timeout_seconds ||= FREE_TIER_LIMITS[:timeout_seconds]
       end
     end
   end

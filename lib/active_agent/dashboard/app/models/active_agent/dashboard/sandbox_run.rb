@@ -2,14 +2,9 @@
 
 module ActiveAgent
   module Dashboard
-    # Tracks individual task executions within a sandbox session.
-    #
-    # Each sandbox run represents a single agent task execution,
-    # capturing input, output, timing, and any errors.
-    #
+    # SandboxRun tracks individual agent task executions within a sandbox container.
+    # This model uses SQLite in sandbox mode for isolated, ephemeral storage.
     class SandboxRun < ApplicationRecord
-      belongs_to :sandbox_session, class_name: "ActiveAgent::Dashboard::SandboxSession", optional: true
-
       enum :status, {
         pending: 0,
         running: 1,

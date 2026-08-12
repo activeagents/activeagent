@@ -2,18 +2,8 @@
 
 module ActiveAgent
   module Dashboard
-    # Tracks version history for agent configurations.
-    #
-    # Each time an agent's configuration changes, a new version is created
-    # with a snapshot of the configuration at that point in time.
-    #
-    # @example Comparing versions
-    #   v1 = agent.agent_versions.find_by(version_number: 1)
-    #   v2 = agent.agent_versions.find_by(version_number: 2)
-    #   changes = v2.diff(v1)
-    #
     class AgentVersion < ApplicationRecord
-      belongs_to :agent, class_name: "ActiveAgent::Dashboard::Agent"
+      belongs_to :agent
 
       validates :version_number, presence: true, uniqueness: { scope: :agent_id }
       validates :configuration_snapshot, presence: true

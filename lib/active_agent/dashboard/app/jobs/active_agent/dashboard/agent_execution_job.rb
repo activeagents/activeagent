@@ -2,23 +2,21 @@
 
 module ActiveAgent
   module Dashboard
-    # Background job for executing agent runs.
-    #
-    # Handles the actual execution of an agent with the given input,
-    # updating the AgentRun record with results.
-    #
     class AgentExecutionJob < ApplicationJob
-      queue_as :default
+      queue_as :agents
 
-      def perform(agent_run_id)
-        run = AgentRun.find(agent_run_id)
-        return if run.finished?
+      def perform(run_id)
+        run = AgentRun.find(run_id)
+        return if run.cancelled? || run.complete?
 
         run.update!(status: :running, started_at: Time.current)
+        run.add_log("Starting execution", level: :info)
 
         begin
-          agent = run.agent
-          result = execute_agent(agent, run.input_prompt, **(run.input_params || {}))
+          agent_record = run.agent
+
+          # Build the agent class dynamically based on configuration
+          result = execute_agent(agent_record, run)
 
           run.update!(
             output: result[:output],
@@ -30,6 +28,8 @@ module ActiveAgent
             output_tokens: result.dig(:usage, :output_tokens),
             total_tokens: result.dig(:usage, :total_tokens)
           )
+          run.add_log("Execution completed successfully", level: :info)
+
         rescue => e
           run.update!(
             status: :failed,
@@ -37,19 +37,17 @@ module ActiveAgent
             error_message: e.message,
             error_backtrace: e.backtrace&.first(10)&.join("\n")
           )
+          run.add_log("Execution failed: #{e.message}", level: :error)
+          raise
+        ensure
+          run.broadcast_update
         end
       end
 
       private
 
-      def execute_agent(agent, input_prompt, **params)
-        # TODO: Build and execute actual ActiveAgent::Base subclass
-        # For now, return mock data
-        {
-          output: "Executed: #{input_prompt}",
-          metadata: { provider: agent.provider, model: agent.model },
-          usage: { input_tokens: 100, output_tokens: 200, total_tokens: 300 }
-        }
+      def execute_agent(agent_record, run)
+        AgentExecutionService.call(agent_record, run)
       end
     end
   end
