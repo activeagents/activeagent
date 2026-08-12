@@ -15,6 +15,7 @@ module ActiveAgent
       TOKEN_PREFIX = "aa_"
 
       include Ownable
+      owned_by :account, :user
 
       encrypts :token, deterministic: true if ActiveAgent::Dashboard.encrypt_credentials
 

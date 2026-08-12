@@ -18,31 +18,11 @@ module ActiveAgent
 
       self.abstract_class = true
 
+      # Models that are not themselves owned still answer the ownership
+      # questions, so callers can scope any dashboard relation uniformly.
       class << self
-        # Returns the owner association name based on configuration.
-        # In multi-tenant mode, this returns :account.
-        # In local mode, this returns :user (optional).
-        def owner_association
-          if ActiveAgent::Dashboard.multi_tenant?
-            :account
-          else
-            :user
-          end
-        end
-
-        # Scopes records to the current owner (account or user).
-        # No-op in local mode without owner configuration.
-        def for_owner(owner)
-          return all if owner.nil?
-
-          if ActiveAgent::Dashboard.multi_tenant? && column_names.include?("account_id")
-            where(account_id: owner.id)
-          elsif column_names.include?("user_id")
-            where(user_id: owner.id)
-          else
-            all
-          end
-        end
+        def owner_association = nil
+        def for_owner(_owner) = all
       end
     end
   end

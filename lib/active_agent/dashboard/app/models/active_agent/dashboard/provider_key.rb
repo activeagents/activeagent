@@ -19,6 +19,7 @@ module ActiveAgent
       PROVIDERS = (KEY_PROVIDERS + HOST_PROVIDERS).freeze
 
       include Ownable
+      owned_by :account, :user
 
       encrypts :credential if ActiveAgent::Dashboard.encrypt_credentials
 

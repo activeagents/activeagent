@@ -2,76 +2,57 @@
 
 module ActiveAgent
   module Dashboard
-    # Main dashboard controller showing overview metrics and recent activity.
+    # Serves the React dashboard.
     #
+    # Every path under the mount renders this one action; routing below it
+    # happens in the browser. Initial state is handed over as a JSON data
+    # attribute rather than through Inertia, so the engine works in any host
+    # app without adding a frontend framework to it.
     class DashboardController < ApplicationController
+      # The React dashboard brings its own chrome, so it does not use the
+      # server-rendered layout the traces views share.
+      layout -> { ActiveAgent::Dashboard.layout || "active_agent/dashboard/react" }
+
       def index
-        unless ActiveAgent::Dashboard.use_inertia && defined?(InertiaRails)
-          # No ERB overview ships yet — the traces list is the dashboard.
-          # Loading agent/run data here would also require the full
-          # dashboard tables, which telemetry-only installs don't have.
-          return redirect_to(traces_path)
-        end
-
-        @agents = fetch_agents.limit(10)
-        @recent_runs = fetch_recent_runs.limit(10)
-        @recent_traces = fetch_recent_traces.limit(10)
-        @metrics = calculate_metrics
-
-        render inertia: "Dashboard", props: {
-          agents: serialize_agents(@agents),
-          recentRuns: serialize_runs(@recent_runs),
-          recentTraces: serialize_traces(@recent_traces),
-          metrics: @metrics,
-          user: current_user_props,
-          account: current_account_props
-        }
+        render "active_agent/dashboard/dashboard/index", locals: { props: props }
       end
 
       private
 
-      def fetch_agents
-        agents = Agent.order(updated_at: :desc)
-        agents = agents.for_owner(current_owner) if current_owner
-        agents
-      end
-
-      def fetch_recent_runs
-        runs = AgentRun.includes(:agent).recent
-        if current_owner && ActiveAgent::Dashboard.multi_tenant?
-          runs = runs.joins(:agent).where(agents: { account_id: current_owner.id })
-        end
-        runs
-      end
-
-      def fetch_recent_traces
-        traces = ActiveAgent::Dashboard.trace_model.recent
-        traces = traces.for_account(current_owner) if current_owner && ActiveAgent::Dashboard.multi_tenant?
-        traces
-      end
-
-      def calculate_metrics
-        traces_24h = ActiveAgent::Dashboard.trace_model.where("created_at > ?", 24.hours.ago)
-        runs_24h = AgentRun.where("created_at > ?", 24.hours.ago)
-
-        if current_owner && ActiveAgent::Dashboard.multi_tenant?
-          traces_24h = traces_24h.for_account(current_owner)
-          runs_24h = runs_24h.joins(:agent).where(agents: { account_id: current_owner.id })
-        end
-
+      def props
         {
-          total_agents: fetch_agents.count,
-          active_agents: fetch_agents.active_agents.count,
-          total_runs_24h: runs_24h.count,
-          successful_runs_24h: runs_24h.successful.count,
-          failed_runs_24h: runs_24h.failed_runs.count,
-          total_traces_24h: traces_24h.count,
-          total_tokens_24h: traces_24h.sum(:total_input_tokens).to_i + traces_24h.sum(:total_output_tokens).to_i,
-          avg_duration_ms: runs_24h.where.not(duration_ms: nil).average(:duration_ms)&.round || 0
+          user: current_user_props,
+          account: current_account_props,
+          initialAgents: serialize_agents(owner_agents.order(updated_at: :desc).limit(20)),
+          meta: meta_props,
+          mountPath: active_agent_dashboard_mount_path,
+          # Billing is the host app's business; the dashboard renders no
+          # subscription chrome unless it is told about one.
+          subscription: nil
+        }
+      end
+
+      def owner_agents
+        Agent.for_owner(current_owner)
+      end
+
+      def meta_props
+        {
+          activeagentVersion: ActiveAgent::VERSION,
+          providers: Agent::PROVIDERS,
+          presetTypes: Agent::PRESET_TYPES,
+          instructionSets: Agent::INSTRUCTION_SETS,
+          availableTools: Agent::AVAILABLE_TOOLS,
+          executionEnabled: ActiveAgent::Dashboard.execution_enabled?,
+          multiTenant: ActiveAgent::Dashboard.multi_tenant?,
+          upgradeUrl: ActiveAgent::Dashboard.upgrade_url
         }
       end
 
       def serialize_agents(agents)
+        agents = agents.to_a
+        scorecards = AgentScorecard.for_agents(agents)
+
         agents.map do |agent|
           {
             id: agent.id,
@@ -82,47 +63,43 @@ module ActiveAgent
             model: agent.model,
             status: agent.status,
             presetType: agent.preset_type,
+            appearance: agent.appearance,
             versionCount: agent.version_count,
-            updatedAt: agent.updated_at.iso8601
+            createdAt: agent.created_at,
+            updatedAt: agent.updated_at,
+            stats: scorecards[agent.id]
           }
         end
-      end
-
-      def serialize_runs(runs)
-        runs.map(&:summary)
-      end
-
-      def serialize_traces(traces)
-        traces.map do |trace|
-          {
-            id: trace.id,
-            traceId: trace.trace_id,
-            displayName: trace.display_name,
-            status: trace.status,
-            duration: trace.formatted_duration,
-            tokens: trace.formatted_tokens,
-            timestamp: trace.timestamp&.iso8601
-          }
-        end
+      rescue ActiveRecord::StatementInvalid
+        # Telemetry-only installs have the traces table but not the rest of
+        # the dashboard schema; the app still boots and shows an empty list.
+        []
       end
 
       def current_user_props
-        return nil unless current_user
+        return { name: "Guest" } unless current_user
 
         {
           id: current_user.id,
-          name: current_user.try(:display_name) || current_user.try(:name) || current_user.try(:email),
-          email: current_user.try(:email)
+          name: current_user.try(:display_name) || current_user.try(:name) || current_user.try(:email_address),
+          email: current_user.try(:email_address) || current_user.try(:email)
         }
       end
 
       def current_account_props
-        return nil unless current_owner && ActiveAgent::Dashboard.multi_tenant?
+        return nil unless current_owner
 
         {
           id: current_owner.id,
-          name: current_owner.try(:name)
+          name: current_owner.try(:name),
+          telemetry_api_key: current_owner.try(:telemetry_api_key)
         }
+      end
+
+      # Where the engine is mounted, so the React app can build API URLs
+      # without assuming a path.
+      def active_agent_dashboard_mount_path
+        request.script_name.presence || "/"
       end
     end
   end

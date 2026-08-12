@@ -52,6 +52,28 @@ module ActiveAgent
     # @param sdk_info [Hash] SDK metadata
     # @param account [Object, nil] Optional account for multi-tenant mode
     # @return [TelemetryTrace] The created trace
+    # Plucks [llm_model, *columns] per trace, where llm_model comes from the
+    # first llm span. PostgreSQL digs into the spans jsonb in SQL so span
+    # payloads never reach Ruby; other adapters read the column back and dig
+    # in Ruby, which costs more but keeps the dashboard adapter-agnostic.
+    def self.pluck_with_llm_model(scope, *columns)
+      if postgres?
+        scope.pluck(
+          Arel.sql(
+            "(SELECT s.value -> 'attributes' ->> 'llm.model' " \
+            "FROM jsonb_array_elements(spans) AS s " \
+            "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
+          ),
+          *columns
+        )
+      else
+        scope.pluck(:spans, *columns).map do |spans, *rest|
+          llm = Array(spans).find { |span| span.is_a?(Hash) && span["type"].to_s == "llm" }
+          [ llm&.dig("attributes", "llm.model"), *rest ]
+        end
+      end
+    end
+
     def self.create_from_payload(trace, sdk_info = {}, account: nil)
       spans = trace["spans"] || []
       root_span = spans.find { |s| s["parent_span_id"].nil? } || spans.first || {}

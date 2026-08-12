@@ -18,6 +18,14 @@ module ActiveAgent
 
       helper_method :current_user, :current_owner
 
+      # Opts an action out of the host app's authentication — for the handful
+      # of endpoints that are deliberately public (the template gallery, the
+      # demo sandbox). Mirrors the Rails 8 authentication generator's helper
+      # so controllers read the same either side of the extraction.
+      def self.allow_unauthenticated_access(**options)
+        skip_before_action :authenticate_dashboard!, **options
+      end
+
       private
 
       def authenticate_dashboard!

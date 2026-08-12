@@ -7,7 +7,10 @@ Gem::Specification.new do |spec|
   spec.description = "The only agent-oriented AI framework designed for Rails, where Agents are Controllers. Build AI features with less complexity using the MVC conventions you love."
   spec.authors = [ "Justin Bowen" ]
   spec.email = "jusbowen@gmail.com"
+  # The dashboard's JS sources build into lib/active_agent/dashboard/app/assets/builds,
+  # which ships; its node_modules never does.
   spec.files = Dir["CHANGELOG.md", "README.md", "LICENSE", "lib/**/*"]
+    .reject { |f| f.include?("dashboard/frontend/node_modules/") }
   spec.require_paths = "lib"
   spec.homepage = "https://activeagents.ai"
   spec.license = "MIT"

@@ -134,29 +134,13 @@ module ActiveAgent
       end
       private_class_method :run_models
 
-      # The same, for reported traces: the model is on the first llm span,
-      # dug out of the spans JSON.
+      # The same, for reported traces: the model is on the first llm span.
       def self.trace_models(traces)
         table = ActiveAgent::Dashboard.trace_model.table_name
 
-        if ActiveAgent::Dashboard.trace_model.postgres?
-          traces.pluck(
-            Arel.sql("#{table}.agent_id"),
-            Arel.sql(
-              "(SELECT s.value -> 'attributes' ->> 'llm.model' " \
-              "FROM jsonb_array_elements(spans) AS s " \
-              "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
-            ),
-            Arel.sql("total_input_tokens"),
-            Arel.sql("total_output_tokens")
-          )
-        else
-          traces.pluck(Arel.sql("#{table}.agent_id"), :spans, :total_input_tokens, :total_output_tokens)
-            .map do |agent_id, spans, input, output|
-              llm = Array(spans).find { |span| span.is_a?(Hash) && span["type"].to_s == "llm" }
-              [ agent_id, llm&.dig("attributes", "llm.model"), input, output ]
-            end
-        end
+        ActiveAgent::Dashboard.trace_model.pluck_with_llm_model(
+          traces, Arel.sql("#{table}.agent_id"), :total_input_tokens, :total_output_tokens
+        ).map { |model, agent_id, input, output| [ agent_id, model, input, output ] }
       end
       private_class_method :trace_models
 

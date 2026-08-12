@@ -3,6 +3,9 @@
 module ActiveAgent
   module Dashboard
     class SessionRecording < ApplicationRecord
+      include Ownable
+      owned_by :user, :account
+
       belongs_to :agent_run, optional: true
       belongs_to :sandbox_session, optional: true
 

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Active Agent</title>
+  <%= csrf_meta_tags %>
+  <%#
+    Bundles ship prebuilt in the gem (see lib/active_agent/dashboard/frontend)
+    and are added to the host app's asset paths by the engine, so mounting the
+    dashboard never asks the host to run a JavaScript build.
+  %>
+  <%= stylesheet_link_tag "active_agent_dashboard", "data-turbo-track": "reload" %>
+  <%= javascript_include_tag "active_agent_dashboard", type: "module", defer: true %>
+</head>
+<body class="h-full">
+  <%= yield %>
+</body>
+</html>

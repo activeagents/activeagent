@@ -1,0 +1,9 @@
+/* Tailwind source for the mounted dashboard. Scanned sources are the JSX in
+   this directory, so the built stylesheet carries only what the dashboard
+   uses and never collides with the host app's own CSS. */
+@import "tailwindcss";
+
+@source "./components";
+@source "./contexts";
+@source "./pages";
+@source "./index.jsx";
