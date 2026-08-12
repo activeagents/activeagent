@@ -247,9 +247,13 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration[7.2]
       t.integer :action_count, default: 0
       t.integer :duration_ms
       t.column :metadata, json_type, default: {}
+      t.bigint :user_id
+      t.bigint :account_id
       t.timestamps
       t.index :agent_run_id
       t.index :sandbox_session_id
+      t.index :user_id
+      t.index :account_id
     end
 
     create_table "#{prefix}recording_actions" do |t|

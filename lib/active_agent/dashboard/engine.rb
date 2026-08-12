@@ -38,6 +38,19 @@ module ActiveAgent
       end
 
       config.active_agent_dashboard = ActiveSupport::OrderedOptions.new
+
+      # The dashboard's JS and CSS ship prebuilt in the gem. Adding the
+      # directory to the host app's asset paths is what lets a plain
+      # `mount ActiveAgent::Dashboard::Engine` work without the host running
+      # a JavaScript build — or having a JavaScript build at all.
+      initializer "active_agent.dashboard.assets", before: :append_assets_path do |app|
+        builds = root.join("app", "assets", "builds").to_s
+        next unless File.directory?(builds)
+
+        if app.config.respond_to?(:assets) && app.config.assets.respond_to?(:paths)
+          app.config.assets.paths << builds unless app.config.assets.paths.include?(builds)
+        end
+      end
     end
   end
 end

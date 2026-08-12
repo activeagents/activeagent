@@ -6,6 +6,7 @@
 /doc/
 /log/*.log
 /node_modules/
+node_modules/
 /pkg/
 /test/dummy/db/*.sqlite3
 /test/dummy/db/*.sqlite3-*

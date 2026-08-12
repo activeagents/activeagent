@@ -4,45 +4,74 @@ module ActiveAgent
   module Dashboard
     # Attaches a dashboard record to whatever the host app calls an owner.
     #
-    # Multi-tenant installs own records through an Account, single-tenant
-    # installs through a User, and a single-user self-hosted install owns
-    # nothing at all — the associations simply aren't declared, so the engine
-    # boots in an app with no User model.
+    # Each model names the associations that could own it, most preferred
+    # first, and the first one the host app has actually configured wins:
     #
-    # Both foreign keys exist in the engine's schema either way, so switching
-    # a deployment between modes is a configuration change, not a migration.
+    #   class Agent < ApplicationRecord
+    #     include Ownable
+    #     owned_by :user, :account
+    #   end
+    #
+    # So an app with users scopes agents per user, an app with only accounts
+    # scopes them per account, and a single-user self-hosted install declares
+    # neither association and owns everything implicitly. That ordering is
+    # per-model on purpose: an app can reasonably keep agents per user while
+    # keeping API keys per account, and the platform does exactly that.
+    #
+    # Both foreign keys exist in the engine's schema either way, so moving a
+    # deployment between shapes is a configuration change, not a migration.
     module Ownable
       extend ActiveSupport::Concern
 
-      included do
-        if ActiveAgent::Dashboard.account_class
-          belongs_to :account, class_name: ActiveAgent::Dashboard.account_class, optional: true
+      CLASS_FOR = { account: :account_class, user: :user_class }.freeze
+
+      class_methods do
+        # Declares the candidate owners for this model, most preferred first.
+        def owned_by(*candidates)
+          @owner_candidates = candidates.map(&:to_sym)
+
+          @owner_candidates.each do |candidate|
+            class_name = ActiveAgent::Dashboard.public_send(CLASS_FOR.fetch(candidate))
+            next if class_name.blank?
+
+            belongs_to candidate, class_name: class_name, optional: true
+          end
         end
 
-        if ActiveAgent::Dashboard.user_class
-          belongs_to :user, class_name: ActiveAgent::Dashboard.user_class, optional: true
+        def owner_candidates
+          @owner_candidates || []
         end
 
-        scope :owned_by, ->(owner) { for_owner(owner) }
+        # The association this install owns the model through, or nil when the
+        # host app configured no owner model at all.
+        def owner_association
+          owner_candidates.find { |c| ActiveAgent::Dashboard.public_send(CLASS_FOR.fetch(c)).present? }
+        end
+
+        # Scopes to records owned by +owner+. A nil owner means "everything",
+        # which is the single-user case; an unowned model is never filtered.
+        def for_owner(owner)
+          return all if owner.nil?
+
+          case owner_association
+          when :account then where(account_id: owner.id)
+          when :user then where(user_id: owner.id)
+          else all
+          end
+        end
       end
 
-      # The record's owner under the current mode, or nil when unowned.
+      # The record's owner under the current configuration, or nil.
       def owner
-        if ActiveAgent::Dashboard.multi_tenant?
-          respond_to?(:account) ? account : nil
-        else
-          respond_to?(:user) ? user : nil
-        end
+        association = self.class.owner_association
+        association && public_send(association)
       end
 
-      # Assigns +owner+ to whichever association this mode uses. Ignored when
-      # the host app configured no owner model.
+      # Assigns +owner+ to whichever association this install uses. A no-op
+      # when the host app configured no owner model.
       def owner=(record)
-        if ActiveAgent::Dashboard.multi_tenant?
-          self.account = record if respond_to?(:account=)
-        elsif respond_to?(:user=)
-          self.user = record
-        end
+        association = self.class.owner_association
+        public_send(:"#{association}=", record) if association
       end
     end
   end

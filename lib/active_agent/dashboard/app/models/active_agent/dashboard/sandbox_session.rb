@@ -4,6 +4,7 @@ module ActiveAgent
   module Dashboard
     class SandboxSession < ApplicationRecord
       include Ownable
+      owned_by :user, :account
 
       belongs_to :agent_template, optional: true
 

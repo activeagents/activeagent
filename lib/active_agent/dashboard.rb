@@ -1,5 +1,30 @@
 # frozen_string_literal: true
 
+module ActiveAgent
+  module Dashboard
+    class << self
+      # Table name prefix for the engine's models. The engine's own
+      # migrations create `active_agent_*` tables, so the default matches.
+      #
+      # A host app that already owns these tables under different names (the
+      # activeagents.ai platform grew them unprefixed) sets this to "" rather
+      # than renaming production tables. The engine's migrations read the same
+      # value, so the schema and the models never disagree.
+      #
+      # Defined before the engine is required on purpose: Rails' isolate_namespace
+      # installs its own table_name_prefix on an on_load(:active_record) hook
+      # unless the module already has one, and that hook would win over any
+      # definition made afterwards.
+      attr_writer :table_name_prefix
+
+      def table_name_prefix
+        global = defined?(::ActiveRecord::Base) ? ::ActiveRecord::Base.table_name_prefix : ""
+        "#{global}#{@table_name_prefix ||= "active_agent_"}"
+      end
+    end
+  end
+end
+
 require "active_agent/dashboard/engine"
 
 module ActiveAgent
@@ -135,6 +160,18 @@ module ActiveAgent
       # @return [Boolean]
       attr_accessor :execution_enabled
 
+      # Where the dashboard's upgrade CTAs should send people. Unset in a
+      # self-hosted install, where there is nothing to upgrade, and the CTAs
+      # say so instead of linking nowhere.
+      # @return [String, nil]
+      attr_accessor :upgrade_url
+
+      # Called after the dashboard performs a metered action, as
+      # (owner, kind) — the counterpart to quota_checker, for host apps that
+      # track usage against a plan. Unset means nothing is counted.
+      # @return [Proc, nil]
+      attr_accessor :usage_recorder
+
       # Maps an ingested trace to the owner that its newly observed agents
       # belong to. Defaults to the trace's account in multi-tenant mode and to
       # nobody in single-tenant mode. A host app whose agents hang off a
@@ -164,15 +201,6 @@ module ActiveAgent
       # @return [String, nil]
       attr_accessor :agent_polymorphic_name
 
-      # Table name prefix for the engine's models. The engine's own
-      # migrations create `active_agent_*` tables, so the default matches.
-      #
-      # A host app that already owns these tables under different names
-      # (the activeagents.ai platform grew them unprefixed) sets this to ""
-      # rather than renaming production tables.
-      # @return [String]
-      attr_accessor :table_name_prefix
-
       # Returns whether multi-tenant mode is enabled.
       #
       # @return [Boolean]
@@ -185,6 +213,15 @@ module ActiveAgent
       # @return [Boolean]
       def execution_enabled?
         @execution_enabled != false
+      end
+
+      # Tells the host app that +owner+ performed +kind+. Never raises: a
+      # bookkeeping failure must not fail the action that was already taken.
+      def record_usage(owner, kind)
+        usage_recorder&.call(owner, kind)
+      rescue StandardError => e
+        Rails.logger.warn("[ActiveAgent::Dashboard] usage recording failed: #{e.message}")
+        nil
       end
 
       # Asks the host app whether +owner+ may perform +kind+.
@@ -269,6 +306,8 @@ module ActiveAgent
         @encrypt_credentials = true
         @trace_retention = nil
         @trace_owner_resolver = nil
+        @usage_recorder = nil
+        @upgrade_url = nil
       end
     end
 

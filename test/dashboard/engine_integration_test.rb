@@ -74,17 +74,28 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
     Object.send(:remove_const, :ScopedTelemetryTrace)
   end
 
-  test "engine root renders the traces index" do
+  test "engine root renders the dashboard" do
     get "/activeagents/"
 
     assert_response :success
+    assert_includes response.body, "active-agent-dashboard"
   end
 
-  test "dashboard overview redirects to traces in ERB mode" do
+  test "the dashboard hands its initial state to the React app" do
     get "/activeagents/dashboard"
 
-    assert_response :redirect
-    assert_includes response.location, "/activeagents/traces"
+    assert_response :success
+    props = JSON.parse(Nokogiri::HTML(response.body).at("#active-agent-dashboard")["data-props"])
+    assert_equal "/activeagents", props["mountPath"]
+    assert_equal [], props["initialAgents"]
+    assert_includes props.dig("meta", "providers"), "openai"
+  end
+
+  test "client-side dashboard routes all render the same page" do
+    get "/activeagents/dashboard/traces"
+
+    assert_response :success
+    assert_includes response.body, "active-agent-dashboard"
   end
 
   test "dashboard refuses unauthenticated access in production when no auth is configured" do

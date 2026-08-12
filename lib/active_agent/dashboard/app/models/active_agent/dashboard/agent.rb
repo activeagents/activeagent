@@ -4,6 +4,7 @@ module ActiveAgent
   module Dashboard
     class Agent < ApplicationRecord
       include Ownable
+      owned_by :user, :account
 
       has_many :agent_versions, dependent: :destroy
       has_many :agent_runs, dependent: :destroy
