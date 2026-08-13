@@ -69,10 +69,14 @@ module ActionAgent
           sandbox_type: @catalog_entry[:sandbox_type] || "terminal",
           mcp_servers: [ @catalog_entry[:key] ]
         )
-        # Through the ownership seam rather than a named association: a
-        # single-user install declares neither, and assigning `user` there
-        # would call a method the model never defined.
-        sandbox.owner = current_owner
+        # A sandbox belongs to whoever opened it, which is how
+        # SandboxesController assigns them too — not to whatever
+        # `current_owner` resolves to, since that is the account in a
+        # multi-tenant install and this model prefers :user. Both are set
+        # when the host app has them; a single-user install declares neither
+        # association, so both are skipped.
+        sandbox.user = current_user if sandbox.respond_to?(:user=)
+        sandbox.account = current_account if sandbox.respond_to?(:account=)
 
         if sandbox.save
           sandbox.provision!
