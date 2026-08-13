@@ -1,0 +1,315 @@
+# frozen_string_literal: true
+
+# Creates every table the ActiveAgent Dashboard reads and writes, apart from
+# active_agent_telemetry_traces (which ships separately so an app can install
+# trace ingestion alone).
+#
+# Table names follow ActionAgent.table_name_prefix, so an app that
+# has deliberately set the prefix to "" gets unprefixed tables and one that
+# leaves the default gets active_agent_*.
+#
+# JSON columns are jsonb on PostgreSQL and json elsewhere: the dashboard runs
+# on SQLite and MySQL, it just loses jsonb containment (see
+# ActiveAgent::Dashboard::Agent.with_tool, which falls back to a LIKE).
+class CreateActiveAgentDashboardTables < ActiveRecord::Migration[7.2]
+  def change
+    prefix = ActionAgent.table_name_prefix
+
+    create_table "#{prefix}agents" do |t|
+      t.string :name, null: false
+      t.string :slug, null: false
+      t.text :description
+      t.string :provider, default: "openai"
+      t.string :model, default: "gpt-4o-mini"
+      t.text :instructions
+      t.string :preset_type
+      t.string :agent_class_name
+      t.string :action_name
+      t.integer :status, default: 0, null: false
+      t.column :appearance, json_type, default: {}
+      t.column :instruction_sets, json_type, default: []
+      t.column :tools, json_type, default: []
+      t.column :mcp_servers, json_type, default: []
+      t.column :model_config, json_type, default: {}
+      t.column :response_format, json_type, default: {}
+      t.column :action_prompts, json_type, default: [], null: false
+
+      # Agents discovered from reported telemetry rather than authored here.
+      t.string :service_name
+      t.string :source
+      t.datetime :first_observed_at
+      t.datetime :last_observed_at
+
+      t.bigint :user_id
+      t.bigint :account_id
+      t.timestamps
+      t.index :user_id
+      t.index :account_id
+      t.index [ :user_id, :slug ], unique: true
+      t.index :status
+    end
+
+    create_table "#{prefix}agent_versions" do |t|
+      t.bigint :agent_id, null: false
+      t.integer :version_number, default: 1, null: false
+      t.column :configuration_snapshot, json_type, default: {}, null: false
+      t.string :change_summary
+      t.string :created_by
+      t.timestamps
+      t.index [ :agent_id, :version_number ], unique: true
+    end
+
+    create_table "#{prefix}agent_runs" do |t|
+      t.bigint :agent_id, null: false
+      t.string :trace_id
+      t.string :action_name
+      t.integer :status, default: 0, null: false
+      t.text :input_prompt
+      t.column :input_params, json_type, default: {}
+      t.text :output
+      t.column :output_metadata, json_type, default: {}
+      t.column :logs, json_type, default: []
+      t.text :error_message
+      t.text :error_backtrace
+      t.integer :input_tokens
+      t.integer :output_tokens
+      t.integer :total_tokens
+      t.integer :duration_ms
+      t.datetime :started_at
+      t.datetime :completed_at
+      t.timestamps
+      t.index :agent_id
+      t.index :trace_id
+      t.index :created_at
+    end
+
+    create_table "#{prefix}agent_templates" do |t|
+      t.string :name, null: false
+      t.string :slug, null: false
+      t.text :description
+      t.string :category
+      t.string :icon
+      t.string :provider, default: "openai"
+      t.string :model, default: "gpt-4o-mini"
+      t.text :instructions
+      t.string :preset_type
+      t.column :appearance, json_type, default: {}
+      t.column :instruction_sets, json_type, default: []
+      t.column :tools, json_type, default: []
+      t.column :mcp_servers, json_type, default: {}
+      t.column :model_config, json_type, default: {}
+      t.boolean :featured, default: false
+      t.boolean :free_tier, default: false
+      t.boolean :public, default: true
+      t.integer :usage_count, default: 0
+      t.timestamps
+      t.index :slug, unique: true
+    end
+
+    # Conversation persistence — the solid_agent schema, owned by the engine
+    # so the dashboard's Interactions view works without that gem installed.
+    create_table "#{prefix}agent_contexts" do |t|
+      t.string :agent_name, null: false
+      t.string :action_name, null: false
+      t.string :contextable_type
+      t.bigint :contextable_id
+      t.text :instructions
+      t.column :options, json_type, default: {}
+      t.string :trace_id
+      t.integer :total_input_tokens, default: 0
+      t.integer :total_output_tokens, default: 0
+      t.timestamps
+      t.index [ :contextable_type, :contextable_id ]
+      t.index :trace_id
+    end
+
+    create_table "#{prefix}agent_messages" do |t|
+      t.bigint :agent_context_id, null: false
+      t.string :role, null: false
+      t.text :content
+      t.string :content_checksum
+      t.string :tool_call_id
+      t.string :tool_name
+      t.column :tool_arguments, json_type, default: {}
+      t.column :tool_result, json_type
+      t.column :attachments, json_type, default: []
+      t.column :metadata, json_type, default: {}
+      t.column :provenance, json_type, default: {}
+      t.timestamps
+      t.index :agent_context_id
+    end
+
+    create_table "#{prefix}agent_generations" do |t|
+      t.bigint :agent_context_id, null: false
+      t.text :content
+      t.string :model
+      t.string :provider
+      t.string :finish_reason
+      t.integer :input_tokens, default: 0
+      t.integer :output_tokens, default: 0
+      t.integer :cached_tokens, default: 0
+      t.integer :reasoning_tokens, default: 0
+      t.float :duration_seconds
+      t.column :tool_calls, json_type, default: []
+      t.column :raw_response, json_type
+      t.column :provenance, json_type, default: {}
+      t.string :trace_id
+      t.timestamps
+      t.index :agent_context_id
+      t.index :trace_id
+    end
+
+    create_table "#{prefix}agent_memories" do |t|
+      t.string :memorable_type
+      t.bigint :memorable_id
+      t.string :scope, default: "default", null: false
+      t.timestamps
+      t.index [ :memorable_type, :memorable_id, :scope ], unique: true,
+        name: "index_active_agent_memories_on_memorable_and_scope"
+    end
+
+    create_table "#{prefix}agent_memory_entries" do |t|
+      t.bigint :agent_memory_id, null: false
+      t.text :content, null: false
+      t.string :source_agent
+      t.string :category
+      t.timestamps
+      t.index :agent_memory_id
+    end
+
+    create_table "#{prefix}evaluations" do |t|
+      t.bigint :agent_id, null: false
+      t.string :name, null: false
+      t.string :judge_kind, default: "rules", null: false
+      t.string :judge_model
+      t.integer :sample_size, default: 20, null: false
+      t.column :criteria, json_type, default: [], null: false
+      t.column :config, json_type, default: {}, null: false
+      t.timestamps
+      t.index [ :agent_id, :name ], unique: true
+    end
+
+    create_table "#{prefix}evaluation_runs" do |t|
+      t.bigint :evaluation_id, null: false
+      t.integer :status, default: 0, null: false
+      t.column :scores, json_type, default: {}
+      t.integer :samples_evaluated, default: 0
+      t.integer :samples_passed, default: 0
+      t.text :error_message
+      t.datetime :completed_at
+      t.timestamps
+      t.index :evaluation_id
+    end
+
+    create_table "#{prefix}sandbox_sessions" do |t|
+      t.string :session_id, null: false
+      t.bigint :agent_template_id
+      t.integer :status, default: 0
+      t.string :sandbox_type, default: "playwright_mcp"
+      t.string :cloud_run_job_id
+      t.string :cloud_run_url
+      t.column :runs, json_type, default: []
+      t.integer :runs_count, default: 0
+      t.integer :max_runs, default: 10
+      t.integer :timeout_seconds, default: 300
+      t.integer :total_duration_ms, default: 0
+      t.integer :total_tokens, default: 0
+      t.text :error_message
+      t.datetime :expires_at
+      t.datetime :last_activity_at
+      t.bigint :user_id
+      t.bigint :account_id
+      t.timestamps
+      t.index :session_id, unique: true
+      t.index :user_id
+    end
+
+    create_table "#{prefix}sandbox_runs" do |t|
+      t.bigint :sandbox_session_id
+      t.text :task, null: false
+      t.integer :status, default: 0, null: false
+      t.text :result
+      t.text :error
+      t.column :screenshots, json_type, default: []
+      t.integer :tokens_used, default: 0
+      t.integer :duration_ms
+      t.datetime :started_at
+      t.datetime :completed_at
+      t.timestamps
+      t.index :sandbox_session_id
+    end
+
+    create_table "#{prefix}session_recordings" do |t|
+      t.string :name
+      t.bigint :agent_run_id
+      t.bigint :sandbox_session_id
+      t.integer :status, default: 0, null: false
+      t.integer :action_count, default: 0
+      t.integer :duration_ms
+      t.column :metadata, json_type, default: {}
+      t.bigint :user_id
+      t.bigint :account_id
+      t.timestamps
+      t.index :agent_run_id
+      t.index :sandbox_session_id
+      t.index :user_id
+      t.index :account_id
+    end
+
+    create_table "#{prefix}recording_actions" do |t|
+      t.bigint :session_recording_id, null: false
+      t.integer :sequence, null: false
+      t.string :action_type, null: false
+      t.string :selector
+      t.text :value
+      t.integer :timestamp_ms, null: false
+      t.string :screenshot_key
+      t.string :dom_snapshot_key
+      t.column :metadata, json_type, default: {}
+      t.timestamps
+      t.index [ :session_recording_id, :sequence ], unique: true,
+        name: "index_active_agent_recording_actions_on_recording_and_sequence"
+    end
+
+    create_table "#{prefix}recording_snapshots" do |t|
+      t.bigint :session_recording_id, null: false
+      t.bigint :recording_action_id
+      t.string :snapshot_type, null: false
+      t.string :storage_key, null: false
+      t.integer :width
+      t.integer :height
+      t.integer :file_size_bytes
+      t.timestamps
+      t.index :session_recording_id
+      t.index :recording_action_id
+    end
+
+    create_table "#{prefix}api_keys" do |t|
+      t.string :name, null: false
+      t.string :token, null: false
+      t.string :token_prefix, null: false
+      t.datetime :last_used_at
+      t.bigint :user_id
+      t.bigint :account_id
+      t.timestamps
+      t.index :token, unique: true
+    end
+
+    create_table "#{prefix}provider_keys" do |t|
+      t.string :provider, null: false
+      t.string :credential, null: false
+      t.bigint :user_id
+      t.bigint :account_id
+      t.timestamps
+      t.index [ :account_id, :provider ]
+      t.index [ :user_id, :provider ]
+    end
+  end
+
+  private
+
+  # jsonb where the adapter has it, json where it doesn't.
+  def json_type
+    @json_type ||= connection.adapter_name.to_s.downcase.include?("postgres") ? :jsonb : :json
+  end
+end

@@ -1,0 +1,58 @@
+# frozen_string_literal: true
+
+class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_version %>
+  def change
+    create_table :active_agent_telemetry_traces do |t|
+<% if multi_tenant? -%>
+      # Multi-tenant mode: every query is scoped through `for_account`, and
+      # ingest authenticates a per-account key. The foreign key requires an
+      # existing `accounts` table — on PostgreSQL/MySQL this migration must
+      # run after the one that creates it (drop `foreign_key: true` if your
+      # tenant table is named differently).
+      t.references :account, null: false, foreign_key: true
+<% end -%>
+      t.string :trace_id, null: false
+      t.string :service_name
+      t.string :environment
+      t.datetime :timestamp, index: true
+      t.column :spans, json_type, default: []
+      t.column :resource_attributes, json_type, default: {}
+      t.column :sdk_info, json_type, default: {}
+      t.decimal :total_duration_ms, precision: 12, scale: 3
+      t.integer :total_input_tokens, default: 0
+      t.integer :total_output_tokens, default: 0
+      t.integer :total_thinking_tokens, default: 0
+      t.string :status
+      t.string :agent_class, index: true
+      t.string :agent_action
+      # Set on ingest when the trace can be attributed to a dashboard agent;
+      # nullable because a trace must still land when it cannot be.
+      t.bigint :agent_id, index: true
+      t.text :error_message
+
+      t.timestamps
+    end
+
+<% if multi_tenant? -%>
+    # Ingest dedupes on trace_id (per account when multi-tenant); the unique
+    # index makes that dedupe race-proof rather than check-then-insert.
+    add_index :active_agent_telemetry_traces, [:account_id, :trace_id], unique: true
+    add_index :active_agent_telemetry_traces, [:account_id, :timestamp]
+<% else -%>
+    add_index :active_agent_telemetry_traces, :trace_id, unique: true
+<% end -%>
+    add_index :active_agent_telemetry_traces, :status
+    add_index :active_agent_telemetry_traces, [:agent_class, :agent_action]
+    add_index :active_agent_telemetry_traces, [:service_name, :environment]
+    add_index :active_agent_telemetry_traces, :created_at
+  end
+
+  private
+
+  # jsonb where the adapter has it, json where it doesn't. The dashboard
+  # traverses spans in SQL on PostgreSQL, and jsonb_array_elements rejects a
+  # json argument, so the column type and the query have to agree.
+  def json_type
+    @json_type ||= connection.adapter_name.to_s.downcase.include?("postgres") ? :jsonb : :json
+  end
+end

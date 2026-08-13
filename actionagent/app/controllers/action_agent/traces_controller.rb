@@ -1,0 +1,121 @@
+# frozen_string_literal: true
+
+module ActionAgent
+  # Controller for viewing telemetry traces.
+  #
+  # Provides:
+  # - List view with filtering and pagination
+  # - Detail view with span timeline
+  # - Metrics overview
+  # - Live updates via Turbo Streams
+  class TracesController < ApplicationController
+    def index
+      @traces = fetch_traces
+      @metrics = calculate_metrics
+
+      respond_to do |format|
+        format.html
+        # turbo-rails is optional; responding to an unregistered MIME
+        # type raises in host apps without it.
+        format.turbo_stream if turbo_stream_available?
+      end
+    end
+
+    def show
+      @trace = scoped_traces.find(params[:id])
+    end
+
+    def metrics
+      @metrics = calculate_metrics
+      @agent_stats = agent_statistics
+      @time_series = time_series_data
+
+      respond_to do |format|
+        format.html
+        format.turbo_stream if turbo_stream_available?
+      end
+    end
+
+    private
+
+    def turbo_stream_available?
+      Mime::Type.lookup_by_extension(:turbo_stream).present?
+    end
+
+    # All queries honor the configured trace model and, in multi-tenant
+    # mode, the current owner's account (for_account no-ops otherwise).
+    #
+    # In multi-tenant mode an unresolvable owner returns nothing rather
+    # than falling through: current_owner degrades to current_user when
+    # current_account_method is unset, which would scope by a user id
+    # against account_id — another tenant's traces.
+    def scoped_traces
+      model = ActionAgent.trace_model
+      return model.none if ActionAgent.multi_tenant? && current_owner.nil?
+
+      model.for_account(current_owner)
+    end
+
+    def fetch_traces
+      traces = scoped_traces.recent
+
+      traces = traces.for_agent(params[:agent]) if params[:agent].present?
+      traces = traces.with_errors if params[:status] == "error"
+      traces = traces.for_service(params[:service]) if params[:service].present?
+
+      if params[:start_date].present? && params[:end_date].present?
+        traces = traces.for_date_range(
+          Time.parse(params[:start_date]),
+          Time.parse(params[:end_date])
+        )
+      end
+
+      traces.limit(params[:limit] || 50)
+    end
+
+    def calculate_metrics
+      traces = scoped_traces.where(
+        "created_at > ?", 24.hours.ago
+      )
+
+      {
+        total_traces: traces.count,
+        total_tokens: traces.sum(:total_input_tokens) + traces.sum(:total_output_tokens),
+        avg_duration_ms: traces.average(:total_duration_ms)&.round(2) || 0,
+        error_rate: calculate_error_rate(traces),
+        unique_agents: traces.distinct.count(:agent_class)
+      }
+    end
+
+    def calculate_error_rate(traces)
+      total = traces.count
+      return 0.0 if total.zero?
+
+      errors = traces.with_errors.count
+      ((errors.to_f / total) * 100).round(2)
+    end
+
+    def agent_statistics
+      scoped_traces
+        .where("created_at > ?", 24.hours.ago)
+        .group(:agent_class)
+        .select(
+          "agent_class",
+          "COUNT(*) as trace_count",
+          "SUM(total_input_tokens + total_output_tokens) as total_tokens",
+          "AVG(total_duration_ms) as avg_duration",
+          "SUM(CASE WHEN status = 'ERROR' THEN 1 ELSE 0 END) as error_count"
+        )
+    end
+
+    def time_series_data
+      scoped_traces
+        .where("created_at > ?", 1.hour.ago)
+        .group_by_minute(:created_at)
+        .count
+    rescue NoMethodError
+      # Fallback if groupdate gem not available
+      {}
+    end
+  end
+end

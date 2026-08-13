@@ -7,6 +7,8 @@ Gem::Specification.new do |spec|
   spec.description = "The only agent-oriented AI framework designed for Rails, where Agents are Controllers. Build AI features with less complexity using the MVC conventions you love."
   spec.authors = [ "Justin Bowen" ]
   spec.email = "jusbowen@gmail.com"
+  # The dashboard lives in the sibling `actionagent` gem (actionagent/), so
+  # nothing under it ships here.
   spec.files = Dir["CHANGELOG.md", "README.md", "LICENSE", "lib/**/*"]
   spec.require_paths = "lib"
   spec.homepage = "https://activeagents.ai"
@@ -24,6 +26,8 @@ Gem::Specification.new do |spec|
   spec.add_dependency "activesupport", ">= 7.2", "<= 9.0"
   spec.add_dependency "activemodel", ">= 7.2", "<= 9.0"
   spec.add_dependency "activejob", ">= 7.2", "<= 9.0"
+  # lib/active_agent/railtie.rb requires "rails"; actionpack does not pull it in.
+  spec.add_dependency "railties", ">= 7.2", "<= 9.0"
   # Shared tracing core (Configuration, Span, Trace, Reporter) — the
   # framework's Telemetry module is a thin layer over this gem.
   spec.add_dependency "activeagents-telemetry", "~> 0.1"

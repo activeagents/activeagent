@@ -5,3 +5,4 @@ gem "sqlite3", "~> 2.0"
 gem "rails", github: "rails/rails"
 
 gemspec path: ".."
+gemspec path: "../actionagent", name: "actionagent"

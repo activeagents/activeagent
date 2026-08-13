@@ -37,17 +37,28 @@ development:
 
 ### Self-Hosted
 
-For complete control, run your own telemetry endpoint:
+For complete control, add the `actionagent` gem to an app of your own, mount
+its engine, and point telemetry at the ingest path — `<mount>/api/traces`, so
+`/activeagents/api/traces` at the default mount (see
+[Self-Hosted Dashboard](/framework/self-hosted-observability)). Only the app
+that hosts the dashboard needs that gem; the apps reporting to it need
+`activeagent` alone:
 
 ```yaml
 # config/active_agent.yml
 production:
   telemetry:
     enabled: true
-    endpoint: https://observability.mycompany.com/v1/traces
+    endpoint: https://observability.mycompany.com/activeagents/api/traces
     api_key: <%= ENV["TELEMETRY_API_KEY"] %>
     service_name: my-rails-app
 ```
+
+The app that mounts the dashboard itself stores its own traces with
+`local_storage: true` instead, writing through the engine's trace model with
+no HTTP involved. That switch needs `actionagent` installed and migrated —
+without it, telemetry logs that it has nowhere to write rather than falling
+back to HTTP.
 
 ## Configuration
 
@@ -104,6 +115,7 @@ config.active_agent.telemetry = {
 |--------|------|---------|-------------|
 | `enabled` | Boolean | `false` | Enable telemetry collection |
 | `endpoint` | String | `https://api.activeagents.ai/v1/traces` | Telemetry receiver URL |
+| `local_storage` | Boolean | `false` | Store traces through the mounted dashboard's trace model instead of posting them (requires the `actionagent` gem) |
 | `api_key` | String | `nil` | Authentication token |
 | `sample_rate` | Float | `1.0` | Sampling rate (0.0 - 1.0) |
 | `batch_size` | Integer | `100` | Traces per batch before flush |
@@ -215,9 +227,9 @@ at_exit { ActiveAgent::Telemetry.shutdown }
 
 ## Self-Hosting
 
-The dashboard engine already implements this endpoint spec: mount it and
-its ingest API (`<mount>/api/traces`) receives traces from any app in
-your fleet — see
+The `actionagent` dashboard engine already implements this endpoint spec:
+add the gem, mount the engine, and its ingest API (`<mount>/api/traces`)
+receives traces from any app in your fleet — see
 [Self-Hosted Observability](/framework/self-hosted-observability). The
 requirements below are for building your own receiver instead.
 
