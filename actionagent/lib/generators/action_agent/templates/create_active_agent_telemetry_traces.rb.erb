@@ -15,9 +15,9 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_ve
       t.string :service_name
       t.string :environment
       t.datetime :timestamp, index: true
-      t.json :spans, default: []
-      t.json :resource_attributes, default: {}
-      t.json :sdk_info, default: {}
+      t.column :spans, json_type, default: []
+      t.column :resource_attributes, json_type, default: {}
+      t.column :sdk_info, json_type, default: {}
       t.decimal :total_duration_ms, precision: 12, scale: 3
       t.integer :total_input_tokens, default: 0
       t.integer :total_output_tokens, default: 0
@@ -45,5 +45,14 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_ve
     add_index :active_agent_telemetry_traces, [:agent_class, :agent_action]
     add_index :active_agent_telemetry_traces, [:service_name, :environment]
     add_index :active_agent_telemetry_traces, :created_at
+  end
+
+  private
+
+  # jsonb where the adapter has it, json where it doesn't. The dashboard
+  # traverses spans in SQL on PostgreSQL, and jsonb_array_elements rejects a
+  # json argument, so the column type and the query have to agree.
+  def json_type
+    @json_type ||= connection.adapter_name.to_s.downcase.include?("postgres") ? :jsonb : :json
   end
 end

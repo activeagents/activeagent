@@ -272,16 +272,24 @@ export default function SessionReplayView({ recordingId: initialRecordingId, onH
   };
 
   const loadRecording = async (recordingId) => {
+    // Nothing selected yet. This used to fall back to a lander demo endpoint
+    // that served an arbitrary recording; with no recording to show, the
+    // empty state is the honest answer.
+    if (!recordingId) {
+      setRecording(null);
+      setActions([]);
+      setCurrentActionIndex(0);
+      setIsPlaying(false);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // If no recordingId, try to load demo recording
-      const url = recordingId
-        ? `/api/session_recordings/${recordingId}`
-        : '/api/session_recordings/demo';
-
-      const response = await fetch(url);
+      const response = await fetch(`/api/session_recordings/${recordingId}`);
       if (!response.ok) throw new Error('Failed to load recording');
 
       const data = await response.json();

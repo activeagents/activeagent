@@ -5,7 +5,16 @@ module ActionAgent
     belongs_to :session_recording
     belongs_to :recording_action, optional: true
 
-    has_one_attached :file
+    # Guarded: a host app created with --skip-active-storage (or --minimal)
+    # has no has_one_attached, and the gem depends on railties rather than
+    # rails, so it may not even have the gem to require. Without this the
+    # engine dies during eager load at boot.
+    has_one_attached :file if defined?(ActiveStorage)
+
+    # Whether file attachment is available in this host app.
+    def self.attachments_available?
+      defined?(ActiveStorage) && method_defined?(:file)
+    end
 
     SNAPSHOT_TYPES = %w[screenshot dom full_page].freeze
 
@@ -18,6 +27,7 @@ module ActionAgent
 
     # Get a signed URL for the file
     def signed_url(expires_in: 15.minutes)
+      return nil unless self.class.attachments_available?
       return nil unless file.attached?
 
       file.url(expires_in: expires_in)
@@ -26,16 +36,19 @@ module ActionAgent
       nil
     end
 
-    # Store file data
+    # Store file data. Without Active Storage the row still records the
+    # snapshot's metadata; only the blob is skipped.
     def store!(data, filename: nil, content_type: nil)
       content_type ||= infer_content_type
       filename ||= generate_filename
 
-      file.attach(
-        io: StringIO.new(data),
-        filename: filename,
-        content_type: content_type
-      )
+      if self.class.attachments_available?
+        file.attach(
+          io: StringIO.new(data),
+          filename: filename,
+          content_type: content_type
+        )
+      end
 
       update!(file_size_bytes: data.bytesize)
     end

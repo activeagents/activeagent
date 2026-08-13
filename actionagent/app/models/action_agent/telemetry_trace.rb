@@ -63,8 +63,12 @@ module ActionAgent
       if postgres?
         scope.pluck(
           Arel.sql(
+            # spans is cast rather than assumed to be jsonb: the column is
+            # json on every install created before the migration template
+            # started picking jsonb per adapter, and jsonb_array_elements
+            # rejects a json argument outright.
             "(SELECT s.value -> 'attributes' ->> 'llm.model' " \
-            "FROM jsonb_array_elements(spans) AS s " \
+            "FROM jsonb_array_elements(spans::jsonb) AS s " \
             "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
           ),
           *columns

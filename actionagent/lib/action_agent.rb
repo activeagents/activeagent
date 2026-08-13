@@ -23,6 +23,22 @@ module ActionAgent
   end
 end
 
+# Both are hard requirements, and both must be loaded here rather than left to
+# the host app's Gemfile. Bundler.require only requires the gems an app lists
+# directly, so a transitive dependency is installed and activated but never
+# loaded:
+#
+#   * active_agent — Compatibility.install! below dereferences ::ActiveAgent at
+#     load time. An app whose Gemfile happens to list actionagent first (which
+#     RuboCop's Bundler/OrderedGems will produce, since it sorts before
+#     activeagent) would otherwise die at Bundler.require.
+#   * solid_agent — AgentExecutionService includes SolidAgent::HasContext in the
+#     agent class it builds for every run, so without this every Run fails with
+#     an uninitialized-constant error on any install that does not list the gem
+#     itself.
+require "active_agent"
+require "solid_agent"
+
 require "action_agent/version"
 require "action_agent/engine"
 require "action_agent/compatibility"

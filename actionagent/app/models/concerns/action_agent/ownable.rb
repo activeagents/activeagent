@@ -47,10 +47,20 @@ module ActionAgent
         owner_candidates.find { |c| ActionAgent.public_send(CLASS_FOR.fetch(c)).present? }
       end
 
-      # Scopes to records owned by +owner+. A nil owner means "everything",
-      # which is the single-user case; an unowned model is never filtered.
+      # Scopes to records owned by +owner+.
+      #
+      # A nil owner is read two different ways, and the difference is the
+      # whole point:
+      #
+      #   * No owner model configured at all — the single-user self-hosted
+      #     install. Nothing is owned, so everything is visible.
+      #   * An owner model IS configured but did not resolve — a signed-out
+      #     request, or a resolver that returned nil. Returning `all` here
+      #     would hand one tenant every other tenant's records, so it
+      #     returns nothing instead.
       def for_owner(owner)
-        return all if owner.nil?
+        return all if owner_association.nil?
+        return none if owner.nil?
 
         case owner_association
         when :account then where(account_id: owner.id)

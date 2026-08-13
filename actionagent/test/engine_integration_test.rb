@@ -106,12 +106,59 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "dashboard refuses unauthenticated access in production when no auth is configured" do
-    Rails.env.stub(:production?, true) do
+    Rails.env.stub(:local?, false) do
       get "/activeagents/console/traces"
     end
 
     assert_response :forbidden
     assert_includes response.body, "authentication_method"
+  end
+
+  # A staging or review-app deployment runs under its own RAILS_ENV and is
+  # every bit as reachable as production, so the refusal keys on "not local"
+  # rather than on production alone.
+  test "dashboard refuses unauthenticated access in a staging environment" do
+    Rails.stub(:env, ActiveSupport::EnvironmentInquirer.new("staging")) do
+      get "/activeagents/console/traces"
+    end
+
+    assert_response :forbidden
+    assert_includes response.body, "authentication_method"
+  end
+
+  # The sandbox API used to opt out of authentication entirely for an
+  # anonymous free tier, which made it an open proxy onto the host app's
+  # provider credentials.
+  test "the sandbox API is not anonymously reachable" do
+    ActionAgent.authentication_method = ->(_controller) { false }
+
+    post "/activeagents/api/sandboxes", params: { sandbox_type: "playwright_mcp" }
+
+    assert_response :unauthorized
+  ensure
+    ActionAgent.authentication_method = nil
+  end
+
+  test "session recording capture is not anonymously reachable" do
+    ActionAgent.authentication_method = ->(_controller) { false }
+
+    post "/activeagents/api/session_recordings/start_user_session"
+
+    assert_response :unauthorized
+  ensure
+    ActionAgent.authentication_method = nil
+  end
+
+  # The lander demo endpoint served the oldest completed recording — a real
+  # customer session, with its typed form values — to anyone. "demo" is now
+  # just an id that will not be found.
+  test "the lander demo recording endpoint is gone" do
+    recognized = ActionAgent::Engine.routes.recognize_path(
+      "/api/session_recordings/demo", method: :get
+    )
+
+    assert_equal "show", recognized[:action]
+    assert_equal "demo", recognized[:id]
   end
 
   test "local endpoint path derives from the engine's actual mount" do

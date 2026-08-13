@@ -13,13 +13,18 @@ Gem::Specification.new do |spec|
   # The React sources under frontend/ build into app/assets/builds, which is
   # what ships. Host apps never run a JavaScript build, so the sources (and
   # their node_modules) stay out of the gem.
-  spec.files = Dir[
-    "app/**/*",
-    "config/**/*",
-    "lib/**/*",
-    "README.md",
-    "LICENSE"
-  ]
+  # Globbed relative to this file, not the working directory: `gem build
+  # actionagent/actionagent.gemspec` from the repository root would otherwise
+  # sweep up the framework's lib/ and ship it as this gem, with no app/ at all.
+  spec.files = Dir.chdir(__dir__) do
+    Dir[
+      "app/**/*",
+      "config/**/*",
+      "lib/**/*",
+      "README.md",
+      "LICENSE"
+    ]
+  end
   spec.require_paths = "lib"
   spec.homepage = "https://activeagents.ai"
   spec.license = "MIT"
@@ -32,8 +37,13 @@ Gem::Specification.new do |spec|
     "rubygems_mfa_required" => "true"
   }
 
-  # The dashboard executes agents through the framework.
-  spec.add_dependency "activeagent", ">= 1.1", "< 2"
+  # The dashboard executes agents through the framework. The floor is 2.0
+  # deliberately: activeagent 1.x still contains the in-gem dashboard this
+  # engine replaces, and lacks ActiveAgent::Telemetry::ToolOrigin, which the
+  # Tools view calls. Resolving against 1.x would load two dashboards and
+  # leave ActiveAgent::Dashboard defined, so the compatibility shim would
+  # never fire.
+  spec.add_dependency "activeagent", ">= 2.0", "< 3"
 
   # It is a Rails engine, so it needs railties — as does the framework, which
   # declares it too. Active Record is the one that matters here: `activeagent`
