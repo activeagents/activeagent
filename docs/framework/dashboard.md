@@ -124,19 +124,22 @@ tracking or rate limiting.
 
 ## Relationship to the hosted platform
 
-| | Dev console (this engine) | activeagents.ai (production) |
+| | This engine | activeagents.ai (production) |
 |---|---|---|
-| Intended use | Development | Production monitoring |
+| Intended use | Development, or your own production mount | Managed production |
 | Traces + span waterfall | ✓ | ✓ |
 | Metrics + per-agent stats | ✓ | ✓ |
 | Trace ingest API | ✓ (single tenant, local) | ✓ (multi-tenant, quotas) |
-| Conversation persistence | via [solid_agent](https://github.com/activeagents/solid_agent) | ✓ built in |
-| Evaluations, cost estimates, retention, team accounts | — | ✓ |
+| Agent builder, runs, versions | ✓ | ✓ |
+| Conversations, evaluations, scorecards, cost estimates | ✓ built in | ✓ |
+| Accounts, plans, billing, managed sandboxes | Yours to operate | ✓ |
 
-One pipeline, two contexts: the console shows your traces while you
-develop; the platform runs the same engine multi-tenant with managed
-infrastructure for production. Free workspaces get a low-volume trial
-tier; paid plans lift the quotas.
+One engine, two contexts: it shows your traces while you develop, and the
+platform runs the same code multi-tenant with managed infrastructure. What
+the platform adds is the business around it — accounts, plans, billing,
+quotas and cloud sandboxes — not a bigger feature set. To run it as a
+shared production surface of your own, see
+[Self-Hosted Dashboard](/framework/self-hosted-observability).
 
 ## Conversation persistence
 
