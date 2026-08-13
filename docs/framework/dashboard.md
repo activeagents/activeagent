@@ -61,12 +61,12 @@ run a JavaScript build.
 | Interactions | `/activeagents/interactions` | The conversations behind the traces: messages, tool calls, generations |
 | Evaluations | `/activeagents/evaluations` | Scored agent outputs |
 | Console | `/activeagents/console/traces` | The same traces and metrics server-rendered, without JavaScript; span waterfall per trace at `/activeagents/console/traces/:id` |
-| Ingest API | `POST /activeagents/api/traces` | JSON trace ingestion (used by `local_storage` mode and remote SDKs) |
+| Ingest API | `POST /activeagents/api/traces` | JSON trace ingestion from other apps and SDKs (`local_storage` writes through the model instead, no HTTP) |
 
 Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
-degrade gracefully without it; the React metrics page buckets in Ruby and
-needs nothing extra.
+degrade gracefully without it; the React metrics page does its own hourly
+bucketing and needs nothing extra.
 
 ## Authentication
 

@@ -11,8 +11,8 @@
 | Provider implementations | `lib/active_agent/providers/` |
 | Agent concerns/mixins | `lib/active_agent/concerns/` |
 | Rails generators | `lib/generators/active_agent/` |
-| Dashboard engine | `lib/active_agent/dashboard/` |
-| Dashboard React source | `lib/active_agent/dashboard/frontend/` |
+| Dashboard engine (`actionagent` gem) | `actionagent/` |
+| Dashboard React source | `actionagent/frontend/` |
 | Test suite | `test/` |
 | Test Rails app | `test/dummy/` |
 | Documentation source | `docs/` |
@@ -232,35 +232,47 @@ bin/test test/integration/open_ai/
 - Model ID determines which provider is used automatically
 - Supports prompts, embeddings, tool calling, and streaming
 
-## Dashboard Engine
+## The dashboard: a second gem in this repo
 
-The gem ships the dashboard as a mountable Rails engine
-(`ActiveAgent::Dashboard::Engine`): traces and metrics, the agent builder,
-runs, conversations, evaluations, scorecards, sandboxes, session recordings,
-and the agents-as-MCP-server endpoint.
+This repo ships **two** gems. `activeagent` is the framework — agents,
+providers, generation, telemetry reporting, and no Active Record. `actionagent`
+is the dashboard: a mountable Rails engine under `actionagent/`, with its own
+gemspec, holding traces and metrics, the agent builder, runs, conversations,
+evaluations, scorecards, sandboxes, session recordings, and the
+agents-as-MCP-server endpoint.
+
+They are separate because the dashboard needs `activerecord`, `railties` and
+`solid_agent` — and `solid_agent` depends on `activeagent`, so the framework
+could never declare that last one without a cycle.
 
 | What | Where |
 |------|-------|
-| Engine + configuration seams | `lib/active_agent/dashboard/engine.rb`, `lib/active_agent/dashboard.rb` |
-| Routes | `lib/active_agent/dashboard/config/routes.rb` |
-| Models, controllers, jobs, services, serializers | `lib/active_agent/dashboard/app/` |
-| React source (entry `index.jsx`) | `lib/active_agent/dashboard/frontend/` |
-| Prebuilt JS/CSS (committed) | `lib/active_agent/dashboard/app/assets/builds/` |
-| Install generator | `lib/generators/active_agent/dashboard/install_generator.rb` |
-| Engine tests | `test/dashboard/` |
+| Gemspec | `actionagent/actionagent.gemspec` |
+| Engine + configuration seams | `actionagent/lib/action_agent/engine.rb`, `actionagent/lib/action_agent.rb` |
+| Routes | `actionagent/config/routes.rb` |
+| Models, controllers, jobs, services, serializers | `actionagent/app/` |
+| React source (entry `index.jsx`) | `actionagent/frontend/` |
+| Prebuilt JS/CSS (committed) | `actionagent/app/assets/builds/` |
+| Install generator | `actionagent/lib/generators/action_agent/install_generator.rb` |
+| Engine tests | `actionagent/test/` |
 
-- Classes under `app/` are namespaced `ActiveAgent::Dashboard::`
-  (`Agent`, `AgentRun`, `AgentExecutionService`, `AgentToolbox`, …).
-  `ActiveAgent::TelemetryTrace` and `ActiveAgent::ProcessTelemetryTracesJob`
-  are the exceptions.
+- Everything in the engine is namespaced `ActionAgent::` (`ActionAgent::Agent`,
+  `ActionAgent::AgentRun`, `ActionAgent::AgentExecutionService`,
+  `ActionAgent::TelemetryTrace`, …). The engine is a normal gem root, so Rails
+  finds `app/` and `config/routes.rb` without help.
+- `ActionAgent::Compatibility` keeps the pre-split names
+  (`ActiveAgent::Dashboard`, `ActiveAgent::TelemetryTrace`,
+  `ActiveAgent::ProcessTelemetryTracesJob`) resolving with a deprecation, so
+  existing initializers and already-enqueued jobs keep working.
 - Paths are relative to wherever the host mounts the engine (the generator
   writes `/activeagents`): `<mount>/api/...` for the JSON API, `<mount>/mcp`
   for the MCP endpoint, `<mount>/console/traces` for the server-rendered
-  views; every other path renders the React app for client-side routing.
-- The frontend is built with `npm run build` inside `frontend/` and the
+  views; every other path outside `/api` renders the React app for
+  client-side routing.
+- The frontend is built with `npm run build` inside `actionagent/frontend/` and the
   output is committed, so host apps never run a JavaScript build. Initial
   state reaches React through a JSON data attribute, not Inertia.
-- Host integration goes through `ActiveAgent::Dashboard.configure` seams
+- Host integration goes through `ActionAgent.configure` seams
   (authentication, `current_user_resolver`, `multi_tenant`,
   `table_name_prefix`, `execution_enabled`, sandbox backends, quotas); all
   are optional and unset means single-user self-hosted behaviour.
@@ -284,7 +296,7 @@ rails generate active_agent:install
 rails generate active_agent:agent MyAgent action1 action2
 
 # Install the dashboard engine (migrations, mount, initializer)
-rails generate active_agent:dashboard:install
+rails generate action_agent:install
 
 # Run tests
 bin/test
