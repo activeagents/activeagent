@@ -54,13 +54,25 @@ whatever your app already calls things:
 ```ruby
 # config/initializers/action_agent.rb
 ActionAgent.configure do |config|
-  config.current_user_resolver    = -> (controller) { controller.send(:current_user) }
-  config.current_account_resolver = -> (controller) { controller.send(:current_account) }
+  config.user_class = "User"
+
+  # Resolve the signed-in user from your own session or auth library. The
+  # engine's controllers are their own base class, so your app's
+  # `current_user` helper is not available on them — and a resolver that
+  # calls `controller.current_user` reaches the engine's own accessor
+  # rather than yours, which resolves to nobody.
+  config.current_user_resolver = ->(controller) {
+    User.find_by(id: controller.session[:user_id])
+  }
 
   # Restrict what a given owner can see.
   config.agent_scope_resolver = ->(owner) { ActionAgent::Agent.where(user: owner) }
 end
 ```
+
+Once `user_class` (or `account_class`) is set, a request whose owner does not
+resolve sees nothing rather than everything. If a signed-in user gets an empty
+dashboard, the resolver above returned `nil`.
 
 See [the self-hosted observability guide](https://docs.activeagents.ai/framework/self-hosted-observability)
 for the full list.
