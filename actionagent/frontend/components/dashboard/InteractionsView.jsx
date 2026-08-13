@@ -5,10 +5,20 @@ import {
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
-import InteractionStream from './InteractionStream';
+import InteractionStream, { roleBubble } from './InteractionStream';
 import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
-import TraceSpanPills from './TraceSpanPills';
+import TraceSpanBar from './TraceSpanBar';
+import TraceDetail from './TraceDetail';
+import { formatDuration } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
+import {
+  Chevron,
+  ObjectCard,
+  PreviewLines,
+  SegmentedControl,
+  telemetryColors,
+  useDisclosureSet,
+} from './TelemetryObject';
 
 // Context pressure for one interaction: the biggest generation's real token
 // counts against its model's window, with segment sizes estimated from the
@@ -66,6 +76,14 @@ const SORT_OPTIONS = [
   { id: 'messages', label: 'Messages' },
 ];
 
+// The same pair of sub-views a trace offers, in the same order and with the
+// same labels — an interaction is the conversation side of the runs Traces
+// shows from the execution side, so the toggle between them reads alike.
+const INTERACTION_VIEWS = [
+  { id: 'conversation', label: 'Conversation', hint: 'Messages, tool calls and responses in order' },
+  { id: 'spans', label: 'Spans', hint: 'Each generation as a trace — waterfall, span details, timings' },
+];
+
 const REFRESH_INTERVAL_MS = 30000;
 
 const formatNumber = (num) => {
@@ -84,6 +102,114 @@ const timeAgo = (iso) => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
+
+// One generation as an expandable object: what the provider was asked to do
+// and what it charged for, collapsed to a metadata line and a span bar. Every
+// generation is one trace, so expanding it opens the very panel the Traces
+// view opens — waterfall, per-span contents, context pressure and all.
+function GenerationRow({ generation, darkMode, maxMs, expanded, onToggle }) {
+  const colors = telemetryColors(darkMode);
+  const [trace, setTrace] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const traceId = generation.trace_id;
+  const ms = (generation.duration_seconds || 0) * 1000;
+
+  useEffect(() => {
+    if (!traceId) return undefined;
+    let alive = true;
+    fetch(`/api/traces/${encodeURIComponent(traceId)}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('not found'))))
+      .then(({ trace: detail }) => alive && setTrace(detail))
+      .catch(() => alive && setFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, [traceId]);
+
+  const expandable = Boolean(trace);
+  const spanCount = (trace?.spans || []).length;
+
+  return (
+    <div
+      className={`rounded-lg px-2 py-1.5 -mx-2 transition-colors ${
+        expandable ? (darkMode ? 'hover:bg-white/5' : 'hover:bg-gray-100') : ''
+      }`}
+      style={expanded ? { background: colors.hoverBg } : undefined}
+    >
+      <div
+        className={expandable ? 'cursor-pointer' : undefined}
+        onClick={expandable ? onToggle : undefined}
+        title={expandable ? `${spanCount} spans — click for the trace` : undefined}
+      >
+        <div className="flex flex-wrap items-center gap-3 text-xs font-mono" style={{ color: colors.textSecondary }}>
+          <span
+            title={generation.cache_hit ? `${formatNumber(generation.tokens.cached)} cached prompt tokens` : 'No prompt cache hit'}
+            style={{ color: generation.cache_hit ? colors.good : colors.textMuted }}
+          >
+            {generation.cache_hit ? '⚡ cache hit' : '● generated'}
+          </span>
+          {generation.thinking && (
+            <span className="text-amber-500" title={`${formatNumber(generation.tokens.thinking)} thinking tokens`}>
+              🧠 {formatNumber(generation.tokens.thinking)}
+            </span>
+          )}
+          <span>{generation.model || 'unknown-model'}</span>
+          {generation.provider && <span>{generation.provider}</span>}
+          <span className="text-blue-500">in:{formatNumber(generation.tokens.input)}</span>
+          <span className="text-green-500">out:{formatNumber(generation.tokens.output)}</span>
+          {generation.finish_reason && <span>{generation.finish_reason}</span>}
+          {generation.duration_seconds != null && <span>{formatDuration(ms)}</span>}
+          {traceId && (
+            <a
+              href={dashboardPath(`/traces?trace=${traceId}`)}
+              title={`${traceId} — open in Traces`}
+              style={{ color: colors.link }}
+              className="hover:underline"
+              onClick={(event) => event.stopPropagation()}
+            >
+              trace:{traceId.slice(0, 8)} →
+            </a>
+          )}
+          {failed && <span style={{ color: colors.textMuted }}>trace unavailable</span>}
+        </div>
+
+        <div className="flex items-center gap-2 mt-1">
+          {traceId && !failed ? (
+            <TraceSpanBar trace={trace} darkMode={darkMode} />
+          ) : ms > 0 ? (
+            // No trace behind this generation — its runtime against the
+            // interaction's slowest is still worth a bar.
+            <div className="rounded flex-1" style={{ height: '8px', background: colors.trackBg }}>
+              <div
+                className="rounded"
+                style={{ height: '8px', width: `${Math.max((ms / maxMs) * 100, 2)}%`, background: '#ef4444' }}
+              />
+            </div>
+          ) : null}
+          {expandable && (
+            <>
+              <span className="font-mono flex-shrink-0" style={{ fontSize: '10px', color: colors.textMuted }}>
+                {spanCount} {spanCount === 1 ? 'span' : 'spans'}
+              </span>
+              <Chevron open={expanded} darkMode={darkMode} size={12} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {expanded && trace && (
+        <div
+          className="mt-2 rounded-lg border p-3"
+          style={{ background: colors.cardBg, borderColor: colors.cardBorder }}
+        >
+          {/* compact: the row above already prints this generation's tokens
+              and model, so the panel doesn't repeat them. */}
+          <TraceDetail trace={trace} darkMode={darkMode} compact />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // agentId scopes the view to one agent's conversation streams (per-agent
 // embed: same component, different UX context); embedded hides the page
@@ -245,47 +371,13 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
     }
   };
 
-  const colors = {
-    cardBg: darkMode ? '#1f1f1f' : '#ffffff',
-    cardBorder: darkMode ? '#2a2a2a' : '#e5e7eb',
-    innerBg: darkMode ? 'rgba(255,255,255,0.04)' : '#f9fafb',
-    textPrimary: darkMode ? '#ffffff' : '#111827',
-    textSecondary: darkMode ? 'rgba(255,255,255,0.6)' : '#6b7280',
-    textMuted: darkMode ? 'rgba(255,255,255,0.4)' : '#9ca3af',
-  };
+  // Which sub-view an expanded interaction is showing, per interaction, so
+  // reopening one comes back to where you left it.
+  const [sessionViews, setSessionViews] = useState({});
+  // Generations expand independently of each other and of their interaction.
+  const [isGenerationOpen, toggleGeneration] = useDisclosureSet();
 
-  // Tool arguments/results arrive as JSON — objects from platform runs, encoded
-  // strings from reported traces. Indent either so the stream stays readable.
-  const formatPayload = (value) => {
-    if (value == null) return '—';
-    if (typeof value !== 'string') return JSON.stringify(value, null, 2);
-    try {
-      return JSON.stringify(JSON.parse(value), null, 2);
-    } catch {
-      return value;
-    }
-  };
-
-  const roleBubble = (role) => {
-    switch (role) {
-      case 'user':
-        return darkMode
-          ? { background: 'rgba(59,130,246,0.15)', color: '#93c5fd', label: 'User' }
-          : { background: '#eff6ff', color: '#1d4ed8', label: 'User' };
-      case 'assistant':
-        return darkMode
-          ? { background: 'rgba(239,68,68,0.12)', color: '#fca5a5', label: 'Assistant' }
-          : { background: '#fef2f2', color: '#b91c1c', label: 'Assistant' };
-      case 'tool':
-        return darkMode
-          ? { background: 'rgba(245,158,11,0.12)', color: '#fcd34d', label: 'Tool' }
-          : { background: '#fffbeb', color: '#b45309', label: 'Tool' };
-      default:
-        return darkMode
-          ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', label: role }
-          : { background: '#f3f4f6', color: '#374151', label: role };
-    }
-  };
+  const colors = telemetryColors(darkMode);
 
   if (isLoading) {
     return (
@@ -456,16 +548,17 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
           {group.sessions.map((session) => {
             const detail = details[session.id];
             const isExpanded = expandedSession === session.id;
+            const sessionView = sessionViews[session.id] || 'conversation';
             return (
-              <div
-                key={session.id}
-                className="rounded-xl border shadow-sm overflow-hidden"
-                style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
-              >
-                {/* Session header */}
+              <ObjectCard key={session.id} darkMode={darkMode} className="shadow-sm">
+                {/* Session header — the same object header a trace card uses:
+                    kind, identity, meta strip, chevron. */}
                 <div
-                  className="flex items-center justify-between p-4 cursor-pointer"
+                  className={`flex items-center justify-between flex-wrap gap-y-2 p-4 cursor-pointer transition-colors ${
+                    darkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'
+                  }`}
                   onClick={() => toggleSession(session.id)}
+                  style={isExpanded ? { background: colors.hoverBg } : undefined}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {session.source === 'telemetry' ? (
@@ -511,14 +604,23 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                       />
                     )}
                     <span style={{ color: colors.textMuted }}>{timeAgo(session.last_activity_at)}</span>
-                    <svg
-                      className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <Chevron open={isExpanded} darkMode={darkMode} />
                   </div>
                 </div>
+
+                {/* What this conversation was about, before you open it —
+                    the same two lines a trace row shows. */}
+                {!isExpanded && (
+                  <PreviewLines
+                    darkMode={darkMode}
+                    onClick={() => toggleSession(session.id)}
+                    style={{ padding: '0 16px 12px' }}
+                    lines={[
+                      { label: 'input', text: session.preview?.input, color: roleBubble('user', darkMode).color },
+                      { label: 'output', text: session.preview?.output, color: roleBubble('assistant', darkMode).color },
+                    ]}
+                  />
+                )}
 
                 {/* Expanded conversation */}
                 {isExpanded && (
@@ -529,114 +631,94 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                       </div>
                     ) : (
                       <>
-                        {detail.messages.length === 0 && (
-                          // A run reported without content capture: we know it
-                          // happened and what it cost, not what was said.
-                          <div className="text-sm" style={{ color: colors.textMuted }}>
-                            No conversation content captured for this run. Enable content capture in
-                            the reporting app to record prompts, tool arguments, and responses.
-                          </div>
-                        )}
-                        <InteractionStream
-                          darkMode={darkMode}
-                          messages={detail.instructions
-                            ? [
-                                {
-                                  id: `ctx-${session.id}-system`,
-                                  role: 'system',
-                                  content: detail.instructions,
-                                  created_at: session.created_at
-                                },
-                                ...detail.messages
-                              ]
-                            : detail.messages}
-                        />
+                        {/* Conversation or execution, the same toggle a trace
+                            offers — an interaction and a trace are two sides
+                            of the same run. */}
+                        <div className="flex items-center justify-between flex-wrap gap-y-2">
+                          <SegmentedControl
+                            options={INTERACTION_VIEWS}
+                            value={sessionView}
+                            onChange={(next) => setSessionViews((prev) => ({ ...prev, [session.id]: next }))}
+                            darkMode={darkMode}
+                          />
+                          <span className="text-xs" style={{ color: colors.textSecondary }}>
+                            {detail.messages.length} {detail.messages.length === 1 ? 'message' : 'messages'}
+                            {detail.generations.length > 0 && ` · ${detail.generations.length} ${detail.generations.length === 1 ? 'generation' : 'generations'}`}
+                          </span>
+                        </div>
 
-                        {/* Generation metadata */}
-                        {detail.generations.length > 0 && (
-                          <div className="pt-3 mt-2 border-t" style={{ borderColor: colors.cardBorder }}>
-                            <div className="text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted }}>
-                              Generations
-                            </div>
-                            <div className="space-y-2">
-                              {detail.generations.map((generation) => {
-                                // Bars compare runtimes across the interaction's
-                                // generations, trace-span style.
-                                const maxMs = Math.max(
-                                  ...detail.generations.map((g) => (g.duration_seconds || 0) * 1000),
-                                  1
-                                );
-                                const ms = (generation.duration_seconds || 0) * 1000;
-                                return (
-                              <div key={generation.id}>
-                                <div className="flex flex-wrap items-center gap-3 text-xs font-mono" style={{ color: colors.textSecondary }}>
-                                  <span
-                                    title={generation.cache_hit ? `${formatNumber(generation.tokens.cached)} cached prompt tokens` : 'No prompt cache hit'}
-                                    className={generation.cache_hit ? 'text-green-600' : ''}
-                                    style={generation.cache_hit ? {} : { color: colors.textMuted }}
-                                  >
-                                    {generation.cache_hit ? '⚡ cache hit' : '● generated'}
-                                  </span>
-                                  {generation.thinking && (
-                                    <span className="text-amber-600" title={`${formatNumber(generation.tokens.thinking)} thinking tokens`}>
-                                      🧠 {formatNumber(generation.tokens.thinking)}
-                                    </span>
-                                  )}
-                                  <span>{generation.model || 'unknown-model'}</span>
-                                  {generation.provider && <span>{generation.provider}</span>}
-                                  <span className="text-blue-500">in:{formatNumber(generation.tokens.input)}</span>
-                                  <span className="text-green-600">out:{formatNumber(generation.tokens.output)}</span>
-                                  {generation.finish_reason && <span>{generation.finish_reason}</span>}
-                                  {generation.duration_seconds != null && <span>{(generation.duration_seconds * 1000).toFixed(0)}ms</span>}
-                                  {generation.trace_id && (
-                                    <a
-                                      href={dashboardPath(`/traces?trace=${generation.trace_id}`)}
-                                      title={`${generation.trace_id} — open in Traces`}
-                                      style={{ color: '#3b82f6' }}
-                                      className="hover:underline"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      trace:{generation.trace_id.slice(0, 8)} →
-                                    </a>
-                                  )}
-                                </div>
-                                {generation.trace_id ? (
-                                  // Each generation is one trace: its spans
-                                  // render as a pill that expands to a mini
-                                  // waterfall.
-                                  <TraceSpanPills traceId={generation.trace_id} darkMode={darkMode} />
-                                ) : ms > 0 && (
-                                  <div
-                                    className="rounded mt-1"
-                                    title={`${ms.toFixed(0)}ms`}
-                                    style={{ height: '6px', background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6' }}
-                                  >
-                                    <div
-                                      className="rounded"
-                                      style={{ height: '6px', width: `${Math.max((ms / maxMs) * 100, 2)}%`, background: '#ef4444' }}
-                                    />
-                                  </div>
-                                )}
+                        {sessionView === 'conversation' && (
+                          <>
+                            {detail.messages.length === 0 && (
+                              // A run reported without content capture: we know
+                              // it happened and what it cost, not what was said.
+                              <div className="text-sm" style={{ color: colors.textMuted }}>
+                                No conversation content captured for this run. Enable content capture in
+                                the reporting app to record prompts, tool arguments, and responses.
                               </div>
-                                );
-                              })}
-                            </div>
-                          </div>
+                            )}
+                            <InteractionStream
+                              darkMode={darkMode}
+                              messages={detail.instructions
+                                ? [
+                                    {
+                                      id: `ctx-${session.id}-system`,
+                                      role: 'system',
+                                      content: detail.instructions,
+                                      created_at: session.created_at
+                                    },
+                                    ...detail.messages
+                                  ]
+                                : detail.messages}
+                            />
+
+                            {/* Context pressure for the interaction as a
+                                whole. The Spans view states it per
+                                generation instead, which is the finer answer
+                                — saying both would print the same meter
+                                twice. */}
+                            {(() => {
+                              const ctx = interactionContext(detail);
+                              return ctx ? (
+                                <div className="pt-3 mt-2 border-t" style={{ borderColor: colors.cardBorder }}>
+                                  <ContextMeter {...ctx} label="Context pressure" estimated darkMode={darkMode} />
+                                </div>
+                              ) : null;
+                            })()}
+                          </>
                         )}
 
-                        {(() => {
-                          const ctx = interactionContext(detail);
-                          return ctx ? (
-                            <div className="pt-3 mt-2 border-t" style={{ borderColor: colors.cardBorder }}>
-                              <ContextMeter {...ctx} label="Context pressure" estimated darkMode={darkMode} />
+                        {sessionView === 'spans' && (
+                          detail.generations.length === 0 ? (
+                            <div className="text-sm" style={{ color: colors.textMuted }}>
+                              No generations recorded for this interaction — nothing to trace.
                             </div>
-                          ) : null;
-                        })()}
+                          ) : (
+                            <div className="space-y-2">
+                              {detail.generations.map((generation) => (
+                                <GenerationRow
+                                  key={generation.id}
+                                  generation={generation}
+                                  darkMode={darkMode}
+                                  // Bars compare runtimes across the
+                                  // interaction's generations, trace-span style.
+                                  maxMs={Math.max(
+                                    ...detail.generations.map((g) => (g.duration_seconds || 0) * 1000),
+                                    1
+                                  )}
+                                  expanded={isGenerationOpen(`${session.id}:${generation.id}`)}
+                                  onToggle={() => toggleGeneration(`${session.id}:${generation.id}`)}
+                                />
+                              ))}
+                            </div>
+                          )
+                        )}
+
                       </>
                     )}
                   </div>
                 )}
-              </div>
+              </ObjectCard>
             );
           })}
           </div>
