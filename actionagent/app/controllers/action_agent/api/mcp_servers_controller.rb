@@ -11,6 +11,11 @@ module ActionAgent
     # therefore sees both what it is already using and what it could turn on.
     class McpServersController < BaseController
       before_action :require_owner!
+      # Launching provisions a sandbox and runs a server in it, so it answers
+      # to the same two gates as any other execution: the read-only kill
+      # switch, and whatever limits the host app imposes.
+      before_action :require_execution_enabled!, only: [ :launch ]
+      before_action :enforce_execution_quota!, only: [ :launch ]
       before_action :set_catalog_entry, only: [ :show, :launch ]
 
       STATUS_LABELS = {
@@ -84,6 +89,7 @@ module ActionAgent
         if sandbox.save
           sandbox.provision!
           sandbox.reload
+          record_execution_usage
           render json: { sandbox: sandbox.summary, server: @catalog_entry }, status: :created
         else
           render json: { error: sandbox.errors.full_messages }, status: :unprocessable_entity
@@ -136,7 +142,7 @@ module ActionAgent
       def active_sandboxes
         owned(SandboxSession)
           .active
-          .where.not(mcp_servers: [])
+          .where(SandboxSession.json_array_not_empty_sql(:mcp_servers))
           .recent
           .limit(20)
           .map { |sandbox| sandbox.summary.merge(mcp_servers: Array(sandbox.mcp_servers)) }
