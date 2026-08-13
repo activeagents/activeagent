@@ -3,8 +3,13 @@
 module ActionAgent
   module Api
     class SessionRecordingsController < BaseController
-      # Allow unauthenticated access for user session tracking (lander analytics)
-      allow_unauthenticated_access only: [ :start_user_session, :record_action, :complete_session, :demo ]
+      # Every action authenticates. Recordings carry a replayable timeline of
+      # a real browser session — including values typed into forms — so the
+      # lander-analytics exemption that used to cover start_user_session,
+      # record_action, complete_session and demo published exactly the data
+      # that most needs a login. A marketing site that wants to record its
+      # own visitors should do so against its own endpoint, not one the
+      # engine exposes on every host that mounts it.
 
       before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff ]
 
@@ -57,26 +62,6 @@ module ActionAgent
         render json: {
           recordings: recordings.map { |r| recording_summary(r) }
         }
-      end
-
-      # GET /api/session_recordings/demo
-      # Get the pre-recorded demo session for the lander
-      def demo
-        # Find the featured demo recording or create a placeholder
-        demo_recording = SessionRecording.find_by(name: "lander_demo") ||
-                         SessionRecording.completed.order(:created_at).first
-
-        if demo_recording
-          render json: {
-            recording: recording_detail(demo_recording),
-            handoff_available: demo_recording.metadata["handoff_state"].present?
-          }
-        else
-          render json: {
-            recording: nil,
-            message: "No demo recording available"
-          }
-        end
       end
 
       # GET /api/session_recordings/:id
@@ -179,6 +164,7 @@ module ActionAgent
       # Record a user action in an active session
       def record_action
         recording = SessionRecording.find(params[:id])
+        return not_found unless can_manage_recording?(recording)
 
         unless recording.recording?
           render json: { error: "Recording already completed" }, status: :unprocessable_entity
@@ -203,6 +189,7 @@ module ActionAgent
       # Complete a user session recording
       def complete_session
         recording = SessionRecording.find(params[:id])
+        return not_found unless can_manage_recording?(recording)
 
         unless recording.recording?
           render json: { error: "Recording already completed" }, status: :unprocessable_entity
@@ -277,8 +264,15 @@ module ActionAgent
 
       private
 
+      # Scoped through can_manage_recording? rather than owned(): nothing in
+      # the engine writes user_id/account_id onto a recording, so an
+      # ownership scope would hide it from the person who made it. 404 rather
+      # than 403 so ids stay unenumerable.
       def set_recording
         @recording = SessionRecording.find(params[:id])
+        return if can_manage_recording?(@recording)
+
+        not_found
       end
 
       def can_manage_recording?(recording)

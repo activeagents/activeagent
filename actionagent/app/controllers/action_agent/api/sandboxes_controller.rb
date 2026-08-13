@@ -3,9 +3,16 @@
 module ActionAgent
   module Api
     class SandboxesController < BaseController
-      # Allow anonymous access to sandbox API for free tier
-      allow_unauthenticated_access
+      # Authenticated like the rest of the dashboard. This controller used to
+      # opt out entirely for an anonymous free tier, which made #run and
+      # #compare an open proxy: any unauthenticated caller could execute
+      # arbitrary prompts against the host app's provider credentials, and
+      # #show would read back any session by id. Opting out also skipped the
+      # callback that refuses to serve an unauthenticated dashboard outside
+      # development, so it bypassed that safeguard too.
 
+      before_action :require_execution_enabled!, only: [ :run, :compare ]
+      before_action :enforce_execution_quota!, only: [ :compare ]
       before_action :set_sandbox, only: [ :show, :run, :destroy ]
 
       # POST /api/sandboxes/compare
@@ -24,12 +31,11 @@ module ActionAgent
 
         # Use existing sandbox or create a new one (single container per user)
         sandbox = if sandbox_id.present?
-          SandboxSession.find_by!(session_id: sandbox_id)
+          owned(SandboxSession).find_by!(session_id: sandbox_id)
         else
-          s = SandboxSession.create!(
-            sandbox_type: params[:sandbox_type] || "playwright_mcp",
-            user: current_user
-          )
+          s = SandboxSession.new(sandbox_type: params[:sandbox_type] || "playwright_mcp")
+          s.user = current_user if s.respond_to?(:user=)
+          s.save!
           s.provision!
           s.reload
           s
@@ -77,10 +83,12 @@ module ActionAgent
       end
 
       # POST /api/sandboxes
-      # Create a new sandbox session (no auth required for free tier)
+      # Create a new sandbox session, owned by whoever opened it.
       def create
         @sandbox = SandboxSession.new(sandbox_params)
-        @sandbox.user = current_user # nil for anonymous users
+        # Guarded: the association only exists when the host app configured a
+        # user model, and a single-user install configures none.
+        @sandbox.user = current_user if @sandbox.respond_to?(:user=)
         @sandbox.agent_template = AgentTemplate.find_by(slug: params[:template_slug]) if params[:template_slug]
 
         if @sandbox.save
@@ -152,7 +160,7 @@ module ActionAgent
       private
 
       def set_sandbox
-        @sandbox = SandboxSession.find_by!(session_id: params[:id])
+        @sandbox = owned(SandboxSession).find_by!(session_id: params[:id])
       end
 
       def sandbox_params

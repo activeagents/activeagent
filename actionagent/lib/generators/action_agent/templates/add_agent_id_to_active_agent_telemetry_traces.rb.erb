@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+# Tops up a telemetry_traces table created before traces carried an agent
+# attribution. Emitted instead of the create-table migration when the install
+# generator finds one already in db/migrate.
+#
+# Without agent_id, AgentRegistrar cannot attribute an ingested trace to a
+# dashboard agent: auto-registration silently does nothing, and the dashboard
+# home page fails as soon as the first agent exists.
+class AddAgentIdToActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_version %>
+  def up
+    return unless table_exists?(:active_agent_telemetry_traces)
+    return if column_exists?(:active_agent_telemetry_traces, :agent_id)
+
+    add_column :active_agent_telemetry_traces, :agent_id, :bigint
+    add_index :active_agent_telemetry_traces, :agent_id
+  end
+
+  def down
+    return unless column_exists?(:active_agent_telemetry_traces, :agent_id)
+
+    remove_column :active_agent_telemetry_traces, :agent_id
+  end
+end

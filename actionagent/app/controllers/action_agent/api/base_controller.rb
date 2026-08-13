@@ -26,12 +26,15 @@ module ActionAgent
       # Scopes +relation+ to the caller, following the model's own
       # declaration. Unowned models (a single-user install, or a model that
       # nothing owns) come back unfiltered.
+      # An unresolved owner scopes to nothing rather than to
+      # `where(id: nil)`, which would match every unowned row and leak them
+      # across tenants.
       def owned(relation)
         klass = relation.respond_to?(:klass) ? relation.klass : relation
 
         case klass.owner_association
-        when :account then relation.where(account_id: current_account&.id)
-        when :user then relation.where(user_id: current_user&.id)
+        when :account then current_account ? relation.where(account_id: current_account.id) : relation.none
+        when :user then current_user ? relation.where(user_id: current_user.id) : relation.none
         else relation.all
         end
       end

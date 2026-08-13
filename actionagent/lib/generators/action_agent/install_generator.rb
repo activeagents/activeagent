@@ -36,15 +36,36 @@ module ActionAgent
     def copy_migrations
       return if options[:skip_migrations]
 
-      migration_template(
-        "create_active_agent_telemetry_traces.rb.erb",
-        "db/migrate/create_active_agent_telemetry_traces.rb"
-      )
+      # An app that installed the dashboard when it shipped inside activeagent
+      # already has this migration. Re-emitting it aborts the whole generator
+      # on a duplicate name, so upgrade that install in place instead: the
+      # table exists but predates agent attribution, and only agent_id is
+      # missing.
+      if existing_migration?("create_active_agent_telemetry_traces")
+        say_status :skip, "create_active_agent_telemetry_traces already exists", :yellow
+
+        unless existing_migration?("add_agent_id_to_active_agent_telemetry_traces")
+          migration_template(
+            "add_agent_id_to_active_agent_telemetry_traces.rb.erb",
+            "db/migrate/add_agent_id_to_active_agent_telemetry_traces.rb"
+          )
+        end
+      else
+        migration_template(
+          "create_active_agent_telemetry_traces.rb.erb",
+          "db/migrate/create_active_agent_telemetry_traces.rb"
+        )
+      end
 
       # The rest of the dashboard — agents, runs, versions, conversations,
       # evaluations, sandboxes, recordings, keys. Skippable for an app that
       # only wants to be a trace sink.
       return if options[:traces_only]
+
+      if existing_migration?("create_active_agent_dashboard_tables")
+        say_status :skip, "create_active_agent_dashboard_tables already exists", :yellow
+        return
+      end
 
       migration_template(
         "create_active_agent_dashboard_tables.rb.erb",
@@ -99,6 +120,13 @@ module ActionAgent
 
     def migration_version
       "[#{ActiveRecord::Migration.current_version}]"
+    end
+
+    # Whether db/migrate already carries a migration with this name. Checked
+    # against the filesystem rather than the database so the generator still
+    # works before the database exists.
+    def existing_migration?(name)
+      Dir.glob(File.join(destination_root.to_s, "db", "migrate", "*_#{name}.rb")).any?
     end
 
     # Consumed by the migration template.

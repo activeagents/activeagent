@@ -83,7 +83,6 @@ ActionAgent::Engine.routes.draw do
       end
       collection do
         get :recent
-        get :demo
         post :start_user_session
       end
     end

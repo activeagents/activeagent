@@ -50,7 +50,10 @@ module ActionAgent
     # is a prefix of another, so the JSON quoting is kept in the pattern.
     scope :with_tool, ->(tool) {
       if postgres?
-        where("tools @> ?", [ tool ].to_json)
+        # Cast both sides: @> is a jsonb operator, and a host app mounting
+        # the engine over its own pre-existing tables may have declared the
+        # column as json.
+        where("tools::jsonb @> ?::jsonb", [ tool ].to_json)
       else
         where("tools LIKE ?", "%\"#{tool}\"%")
       end

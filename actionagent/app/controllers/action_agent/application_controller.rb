@@ -27,9 +27,10 @@ module ActionAgent
     def authenticate_dashboard!
       if ActionAgent.authentication_method.nil?
         # Traces contain prompts, outputs, and error backtraces. Refuse to
-        # serve them unauthenticated in production rather than exposing
-        # them to the internet by default.
-        if Rails.env.production?
+        # serve them unauthenticated anywhere but a local development or
+        # test environment — a staging or review-app deployment runs under
+        # its own RAILS_ENV and is just as reachable as production.
+        unless Rails.env.local?
           render plain: "ActiveAgent Dashboard: set ActionAgent.authentication_method " \
             "(see docs/framework/dashboard.md) to enable access in production.",
             status: :forbidden
@@ -75,13 +76,28 @@ module ActionAgent
     # controller really responds to it and it isn't the accessor we are
     # already inside — configuring current_user_method = :current_user is
     # the obvious thing to write, and it would otherwise recurse forever.
+    #
+    # The re-entrancy guard covers the same mistake in lambda form. The
+    # engine's controllers are their own base class, so the natural-looking
+    # `->(c) { c.current_user }` resolves to *this* method rather than the
+    # host app's, and without the guard it recurses until SystemStackError.
+    # Degrading to nil turns a 500 into an unresolved owner, which now
+    # scopes to nothing rather than to everything.
     def resolve_actor(resolver, method_name, own_name)
-      return resolver.call(self) if resolver
+      @resolving_actors ||= {}
+      return nil if @resolving_actors[own_name]
 
-      return nil if method_name.nil? || method_name.to_sym == own_name
-      return nil unless respond_to?(method_name, true)
+      @resolving_actors[own_name] = true
+      begin
+        return resolver.call(self) if resolver
 
-      send(method_name)
+        return nil if method_name.nil? || method_name.to_sym == own_name
+        return nil unless respond_to?(method_name, true)
+
+        send(method_name)
+      ensure
+        @resolving_actors[own_name] = false
+      end
     rescue NoMethodError
       nil
     end

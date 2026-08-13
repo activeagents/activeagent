@@ -3,7 +3,10 @@
 module ActionAgent
   module Api
     class TemplatesController < BaseController
-      allow_unauthenticated_access only: [ :index, :show ]
+      # No anonymous exemption: #show looks a template up by bare id, so the
+      # exemption served unpublished drafts and private prompt libraries to
+      # anyone walking the id space. #index was already limited to public
+      # templates; #show was not.
 
       # GET /api/templates
       def index

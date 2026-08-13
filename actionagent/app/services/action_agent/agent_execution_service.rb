@@ -354,10 +354,19 @@ module ActionAgent
         define_singleton_method(:name) { klass_name }
 
         # Persist the conversation (agent_contexts / agent_messages /
-        # agent_generations) via solid_agent. contextual: false — the context
+        # agent_generations) via solid_agent. contextable: false — the context
         # is loaded explicitly in the action below.
+        #
+        # The model classes are named explicitly because solid_agent infers
+        # bare "AgentContext"/"AgentMessage"/"AgentGeneration" and resolves
+        # them against Object. The engine's models are namespaced, so the
+        # inferred names only resolve in a host app that happens to have
+        # top-level models of its own.
         include SolidAgent::HasContext
-        has_context contextual: false
+        has_context contextable: false,
+          class_name: "ActionAgent::AgentContext",
+          message_class: "ActionAgent::AgentMessage",
+          generation_class: "ActionAgent::AgentGeneration"
 
         if effective_provider == :mock
           # Test environment only (see #provider_available?).

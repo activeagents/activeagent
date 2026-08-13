@@ -160,6 +160,21 @@ class DashboardOwnershipTest < ActiveSupport::TestCase
       ActionAgent::Agent.for_owner(nil).to_sql
   end
 
+  # The dangerous direction. "No owner resolved" and "this install has no
+  # owners" look the same at the call site and mean opposite things: the
+  # first must show nothing, the second everything.
+  test "an unresolved owner sees nothing once an owner model is configured" do
+    ActionAgent::Agent.create!(name: "Owned", provider: "openai", model: "gpt-4o-mini")
+    ActionAgent.user_class = "User"
+
+    assert_equal :user, ActionAgent::Agent.owner_association
+    assert_empty ActionAgent::Agent.for_owner(nil),
+      "a nil owner must not fall through to every owner's agents"
+    assert_equal 1, ActionAgent::Agent.count
+  ensure
+    ActionAgent::Agent.delete_all
+  end
+
   test "agents prefer a user and keys prefer an account" do
     ActionAgent.user_class = "User"
     ActionAgent.account_class = "User" # the dummy app has no Account
