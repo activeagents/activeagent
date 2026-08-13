@@ -5,27 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - Unreleased
+## [1.2.0] - Unreleased
 
-### ⚠️ Breaking: the dashboard is now a separate gem
+### ⚠️ The dashboard has moved to its own gem
 
-The dashboard engine that shipped inside `activeagent` has moved to a new
-gem, **`actionagent`**. `activeagent` is now the framework alone — it no
-longer defines `ActiveAgent::Dashboard`, and no longer pulls Active Record
-into apps that do not use it.
+The dashboard engine that shipped inside `activeagent` is now a separate
+gem, **`actionagent`**. Nothing is gone — the dashboard is the same
+dashboard, and it gained a great deal in this release — but it comes from a
+different gem now. `activeagent` is the framework alone: it no longer
+defines `ActiveAgent::Dashboard`, and no longer pulls Active Record into
+apps that do not use it.
 
-**If you mount the dashboard, add the new gem before upgrading:**
+**If you mount the dashboard, add the new gem in the same change that
+upgrades `activeagent`:**
 
 ```ruby
-gem "activeagent", "~> 2.0"
-gem "actionagent", "~> 2.0"   # required if you mount the dashboard
+gem "activeagent", "~> 1.2"
+gem "actionagent", "~> 1.2"   # required if you mount the dashboard
 ```
 
-Upgrading `activeagent` alone will fail at boot with
+This is a minor version, so a `~> 1.0` or `~> 1.1` constraint **will** pick
+it up on the next `bundle update`. If you mount the dashboard and do not add
+`actionagent` at the same time, the app fails at boot with
 `NameError: uninitialized constant ActiveAgent::Dashboard`, raised by your
 own initializer or by the `mount ActiveAgent::Dashboard::Engine` line in
-`config/routes.rb`. This is a major version precisely so that a
-`~> 1.1` constraint will not pick it up on its own.
+`config/routes.rb`. Adding the gem is the whole fix — your existing
+configuration keeps working through the compatibility shims below.
+
+If you do not mount the dashboard, there is nothing to do: the framework API
+is unchanged, and the gem is 95% smaller.
 
 With `actionagent` installed, the old constants keep resolving through
 `ActionAgent::Compatibility` with a deprecation warning:

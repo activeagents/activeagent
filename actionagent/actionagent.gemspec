@@ -37,13 +37,13 @@ Gem::Specification.new do |spec|
     "rubygems_mfa_required" => "true"
   }
 
-  # The dashboard executes agents through the framework. The floor is 2.0
-  # deliberately: activeagent 1.x still contains the in-gem dashboard this
-  # engine replaces, and lacks ActiveAgent::Telemetry::ToolOrigin, which the
-  # Tools view calls. Resolving against 1.x would load two dashboards and
-  # leave ActiveAgent::Dashboard defined, so the compatibility shim would
-  # never fire.
-  spec.add_dependency "activeagent", ">= 2.0", "< 3"
+  # The dashboard executes agents through the framework. The floor is 1.2
+  # deliberately: every earlier release still contains the in-gem dashboard
+  # this engine replaces, and lacks ActiveAgent::Telemetry::ToolOrigin, which
+  # the Tools view calls. Resolving against one of those would load two
+  # dashboards and leave ActiveAgent::Dashboard defined, so the compatibility
+  # shim would never fire.
+  spec.add_dependency "activeagent", ">= 1.2", "< 2"
 
   # It is a Rails engine, so it needs railties — as does the framework, which
   # declares it too. Active Record is the one that matters here: `activeagent`
