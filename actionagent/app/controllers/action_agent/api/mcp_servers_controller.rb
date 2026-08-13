@@ -75,8 +75,11 @@ module ActionAgent
         # multi-tenant install and this model prefers :user. Both are set
         # when the host app has them; a single-user install declares neither
         # association, so both are skipped.
-        sandbox.user = current_user if sandbox.respond_to?(:user=)
-        sandbox.account = current_account if sandbox.respond_to?(:account=)
+        # respond_to? alone isn't enough: the association is declared from
+        # configuration, but a host app's pre-existing table may not carry
+        # the column behind it.
+        assign_owner(sandbox, :user, current_user)
+        assign_owner(sandbox, :account, current_account)
 
         if sandbox.save
           sandbox.provision!
@@ -91,6 +94,14 @@ module ActionAgent
 
       def discovery
         ToolDiscovery.new(traces: owned_traces, agents: owner_agents, hours: window_hours)
+      end
+
+      def assign_owner(sandbox, association, record)
+        return if record.nil?
+        return unless sandbox.respond_to?(:"#{association}=")
+        return unless sandbox.has_attribute?(:"#{association}_id")
+
+        sandbox.public_send(:"#{association}=", record)
       end
 
       def set_catalog_entry
