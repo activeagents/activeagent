@@ -209,6 +209,7 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration[7.2]
       t.string :cloud_run_job_id
       t.string :cloud_run_url
       t.column :runs, json_type, default: []
+      t.column :mcp_servers, json_type, default: []
       t.integer :runs_count, default: 0
       t.integer :max_runs, default: 10
       t.integer :timeout_seconds, default: 300

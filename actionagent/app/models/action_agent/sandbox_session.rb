@@ -44,6 +44,13 @@ module ActionAgent
     scope :anonymous, -> { where(user_id: nil) }
     scope :recent, -> { order(created_at: :desc) }
 
+    # Catalog entries for the MCP servers this session was started with.
+    # Unknown keys are dropped rather than raising — a session outlives a
+    # catalog edit.
+    def mcp_catalog_entries
+      Array(mcp_servers).filter_map { |key| McpCatalog.find(key) }
+    end
+
     # Check if session is still valid
     def active?
       !expired? && !failed? && !completed? && expires_at > Time.current
@@ -124,7 +131,8 @@ module ActionAgent
         total_tokens: total_tokens,
         expires_at: expires_at&.iso8601,
         created_at: created_at.iso8601,
-        cloud_run_url: cloud_run_url
+        cloud_run_url: cloud_run_url,
+        mcp_servers: Array(mcp_servers)
       }
     end
 

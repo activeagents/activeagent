@@ -65,6 +65,19 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # Tool inventory — auto-detected from the tool roster each generation
+    # request offered, telemetry tool spans, and solid_agent records.
+    resources :tools, only: [ :index ]
+
+    # MCP services — detected servers unioned with the default catalog
+    # (McpCatalog), plus on-demand sandbox provisioning. Keys are catalog
+    # slugs like "sequential-thinking", so the id segment allows dashes.
+    resources :mcp_servers, only: [ :index, :show ], id: /[^\/]+/ do
+      member do
+        post :launch
+      end
+    end
+
     resources :instance_tiers, only: [ :index, :show ] do
       collection do
         get :recommend
