@@ -9,7 +9,7 @@ module ActionAgent
 
     scope :recent, -> { order(created_at: :desc) }
     scope :by_model, ->(model) { where(model: model) }
-    scope :with_tool_calls, -> { where.not(tool_calls: []) }
+    scope :with_tool_calls, -> { where(json_array_not_empty_sql(:tool_calls)) }
     scope :with_trace, ->(trace_id) { where(trace_id: trace_id) }
 
     def total_tokens

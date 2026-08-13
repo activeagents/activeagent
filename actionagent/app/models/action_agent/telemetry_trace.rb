@@ -168,6 +168,75 @@ module ActionAgent
       spans&.select { |s| s["type"] == "tool" } || []
     end
 
+    # Returns each tool call in this trace, normalized for display.
+    #
+    # Tool spans are tagged with their origin at instrumentation time
+    # (ActiveAgent::Telemetry::ToolOrigin), but traces ingested before that
+    # shipped — or sent by another SDK — only carry +tool.name+. Those are
+    # classified on read from the same naming convention, so a dashboard
+    # sees consistent attribution across old and new traces.
+    #
+    # @return [Array<Hash>] one entry per tool span with :name, :base_name,
+    #   :origin, :mcp_server, :duration_ms, :status, :error, :arguments and
+    #   :result
+    def tool_usage
+      tool_spans.map do |span|
+        attributes = span["attributes"] || {}
+        name = attributes["tool.name"] || span["name"].to_s.delete_prefix("tool.")
+        classification = classify_tool(name, attributes)
+
+        {
+          name: name,
+          base_name: attributes["tool.base_name"] || classification[:tool],
+          origin: attributes["tool.origin"] || classification[:origin],
+          mcp_server: attributes["tool.mcp_server"] || classification[:server],
+          duration_ms: span["duration_ms"],
+          status: span["status"],
+          error: attributes["error.message"],
+          arguments: attributes["tool.input.args"],
+          result: attributes["tool.output.result"]
+        }
+      end
+    end
+
+    # Returns the tools this trace's generation request OFFERED the
+    # provider, whether or not the model went on to call any of them.
+    #
+    # Instrumentation records the roster on the prompt span as
+    # +prompt.input.tools+ (name, description, parameter keys), which is
+    # the agent's declared tool surface for that generation. Reading it
+    # here is what lets a dashboard show a tool that exists but has never
+    # been invoked — a state that tool spans alone can't express.
+    #
+    # @return [Array<Hash>] entries with :name, :description, :parameters,
+    #   :origin and :mcp_server
+    def declared_tools
+      Array(tool_roster).filter_map do |tool|
+        next unless tool.is_a?(Hash)
+
+        name = (tool["name"] || tool[:name]).to_s
+        next if name.empty?
+
+        classification = ActiveAgent::Telemetry::ToolOrigin.classify(name)
+        {
+          name: name,
+          description: (tool["description"] || tool[:description]).presence,
+          parameters: normalize_parameters(tool["parameters"] || tool[:parameters]),
+          origin: classification[:origin],
+          mcp_server: classification[:server]
+        }
+      end
+    end
+
+    # Returns the distinct MCP servers this trace touched — both the ones
+    # it called and the ones it was merely offered.
+    #
+    # @return [Array<String>] server names, in first-seen order
+    def mcp_servers
+      (tool_usage.filter_map { |tool| tool[:mcp_server] } +
+        declared_tools.filter_map { |tool| tool[:mcp_server] }).uniq
+    end
+
     # Returns total token count.
     #
     # @return [Integer] Total tokens used
@@ -240,6 +309,49 @@ module ActionAgent
       return nil unless llm_span
 
       llm_span.dig("attributes", "llm.model")
+    end
+
+    private
+
+    # The offered roster, as stored. Instrumentation writes JSON onto the
+    # prompt span; +llm.tools+ is accepted as an alias because some SDK
+    # versions put the roster on the llm span instead, and a payload that
+    # arrived already decoded is passed straight through.
+    def tool_roster
+      raw = spans.to_a.filter_map do |span|
+        attributes = span["attributes"] || {}
+        attributes["prompt.input.tools"].presence || attributes["llm.tools"].presence
+      end.first
+      return nil if raw.blank?
+      return raw unless raw.is_a?(String)
+
+      JSON.parse(raw)
+    rescue JSON::ParserError
+      nil
+    end
+
+    # The roster records parameters as a name list, but a raw JSON Schema
+    # arrives instead when an SDK forwards tool definitions verbatim.
+    def normalize_parameters(parameters)
+      return [] if parameters.blank?
+      return parameters.map(&:to_s) if parameters.is_a?(Array)
+
+      if parameters.is_a?(Hash)
+        properties = parameters["properties"] || parameters[:properties]
+        return properties.keys.map(&:to_s) if properties.is_a?(Hash)
+      end
+
+      []
+    end
+
+    # Recovers a tool's origin for traces that predate origin tagging.
+    # Prefers an explicit server attribute when the SDK sent one, then
+    # falls back to the shared name-convention classifier.
+    def classify_tool(name, attributes)
+      explicit = attributes["mcp.server"] || attributes["tool.server"]
+      return { origin: "mcp", server: explicit, tool: name } if explicit.present?
+
+      ActiveAgent::Telemetry::ToolOrigin.classify(name)
     end
   end
 end

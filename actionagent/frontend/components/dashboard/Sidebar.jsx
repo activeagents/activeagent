@@ -31,6 +31,8 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const observabilityItems = [
     { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
     { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
+    { id: 'tools', label: 'Tools', icon: ICONS.nav.tools },
+    { id: 'mcp', label: 'MCP Services', icon: ICONS.nav.mcp },
     { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
     { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
     { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },

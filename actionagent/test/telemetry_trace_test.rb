@@ -108,6 +108,89 @@ class TelemetryTraceTest < ActiveSupport::TestCase
     assert_equal "mock", trace.provider
     assert_equal "mock-model", trace.model
   end
+
+  def tool_span(attributes, id: "tool1", status: "OK")
+    {
+      "span_id" => id, "parent_span_id" => "llm1", "name" => "tool.#{attributes['tool.name']}",
+      "type" => "tool", "duration_ms" => 42.0, "status" => status, "attributes" => attributes
+    }
+  end
+
+  def prompt_span(roster)
+    {
+      "span_id" => "prompt1", "parent_span_id" => "root1", "name" => "prompt",
+      "type" => "prompt", "duration_ms" => 2.0, "status" => "OK",
+      "attributes" => { "prompt.input.tools" => roster.to_json }
+    }
+  end
+
+  test "normalizes tool calls with the origin attributes instrumentation recorded" do
+    trace = ActiveAgent::TelemetryTrace.create_from_payload(
+      payload(spans: [
+        root_span, llm_span(tokens: {}),
+        tool_span({
+          "tool.name" => "mcp__playwright__browser_click", "tool.origin" => "mcp",
+          "tool.mcp_server" => "playwright", "tool.base_name" => "browser_click",
+          "tool.input.args" => '{"ref":"e12"}'
+        })
+      ])
+    )
+
+    usage = trace.tool_usage.first
+    assert_equal "mcp", usage[:origin]
+    assert_equal "playwright", usage[:mcp_server]
+    assert_equal "browser_click", usage[:base_name]
+    assert_equal '{"ref":"e12"}', usage[:arguments]
+    assert_equal 42.0, usage[:duration_ms]
+  end
+
+  test "classifies tool calls on read when the trace predates origin tagging" do
+    trace = ActiveAgent::TelemetryTrace.create_from_payload(
+      payload(spans: [ root_span, llm_span(tokens: {}), tool_span({ "tool.name" => "mcp__git__git_status" }) ])
+    )
+
+    usage = trace.tool_usage.first
+    assert_equal "mcp", usage[:origin]
+    assert_equal "git", usage[:mcp_server]
+    assert_equal "git_status", usage[:base_name]
+  end
+
+  test "reads the tool roster the generation request offered" do
+    trace = ActiveAgent::TelemetryTrace.create_from_payload(
+      payload(spans: [
+        root_span,
+        prompt_span([ { "name" => "mcp__fetch__fetch", "description" => "Fetch a URL", "parameters" => [ "url" ] } ]),
+        llm_span(tokens: {})
+      ])
+    )
+
+    declared = trace.declared_tools.first
+    assert_equal "mcp__fetch__fetch", declared[:name]
+    assert_equal "Fetch a URL", declared[:description]
+    assert_equal [ "url" ], declared[:parameters]
+    assert_equal "fetch", declared[:mcp_server]
+  end
+
+  test "mcp_servers covers both offered and called servers" do
+    trace = ActiveAgent::TelemetryTrace.create_from_payload(
+      payload(spans: [
+        root_span,
+        prompt_span([ { "name" => "mcp__memory__read_graph" } ]),
+        llm_span(tokens: {}),
+        tool_span({ "tool.name" => "mcp__git__git_status" })
+      ])
+    )
+
+    assert_equal %w[git memory], trace.mcp_servers
+  end
+
+  test "tool readers are empty for a trace with neither tool spans nor a roster" do
+    trace = ActiveAgent::TelemetryTrace.create_from_payload(payload(spans: [ root_span, llm_span(tokens: {}) ]))
+
+    assert_empty trace.tool_usage
+    assert_empty trace.declared_tools
+    assert_empty trace.mcp_servers
+  end
 end
 
 TelemetryTraceTest.ensure_table!
