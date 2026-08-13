@@ -39,6 +39,14 @@ module ActionAgent
     DEFAULT_WINDOW_HOURS = 24 * 7
     MAX_WINDOW_HOURS = 24 * 90
 
+    # The inventory is derived by reading records rather than by maintaining
+    # a summary table, and the window alone does not bound how many rows a
+    # busy account has in it — a 90-day window over a high-traffic workspace
+    # is millions. Scans stop here and say so rather than pinning a worker
+    # for the length of a request. A precomputed summary is the real answer;
+    # this keeps the page responsive until there is one.
+    MAX_SCAN_ROWS = 20_000
+
     # Origin values, matching the framework's ToolOrigin plus the
     # dashboard-only "builtin" bucket for AgentToolbox's executable tools.
     ORIGIN_MCP = "mcp"
@@ -152,7 +160,12 @@ module ActionAgent
     # spans are a nested JSON array; traversing it in SQL would be a
     # PostgreSQL-only query, and the dashboard runs on SQLite and MySQL too.
     def merge_trace_tools(index)
+      scanned = 0
+
       traces_scope.find_each(batch_size: 200) do |trace|
+        scanned += 1
+        break if scanned > MAX_SCAN_ROWS
+
         agent_label = trace.agent_class.presence
 
         # Same pass, two readings of one trace: what the request offered,
@@ -179,6 +192,18 @@ module ActionAgent
           touch(entry, trace.timestamp)
         end
       end
+
+      warn_if_capped(scanned, "traces")
+    end
+
+    # A capped scan is a partial inventory, so it is never silent.
+    def warn_if_capped(count, what)
+      return if count < MAX_SCAN_ROWS
+
+      Rails.logger.warn(
+        "[ActionAgent] tool discovery stopped at #{MAX_SCAN_ROWS} #{what}; " \
+        "the inventory for this window may be incomplete"
+      )
     end
 
     # Tool calls the model asked for, recorded on each solid_agent
@@ -253,7 +278,7 @@ module ActionAgent
       AgentGeneration
         .select(:id, :agent_context_id, :tool_calls, :created_at)
         .where(agent_context_id: context_ids, created_at: since..)
-        .where.not(tool_calls: [])
+        .where(AgentGeneration.json_array_not_empty_sql(:tool_calls))
     end
 
     def messages_scope
@@ -269,14 +294,39 @@ module ActionAgent
     # rows are read and filtered in Ruby, which is why this returns records
     # rather than a relation. The window already bounds how many.
     def declared_generations
-      scope = AgentGeneration
-        .select(:id, :agent_context_id, :provenance, :created_at)
-        .where(agent_context_id: context_ids, created_at: since..)
+      @declared_generations ||= begin
+        scope = AgentGeneration
+          .select(:id, :agent_context_id, :provenance, :created_at)
+          .where(agent_context_id: context_ids, created_at: since..)
+
+        rows =
+          if AgentGeneration.postgres?
+            scope.where(Arel.sql("jsonb_exists(provenance, 'tools')")).limit(MAX_SCAN_ROWS).to_a
+          else
+            # No portable way to ask this of the column, so the rows are read
+            # and filtered in Ruby. Capped, because the window alone does not
+            # bound how many a busy account has.
+            scope.limit(MAX_SCAN_ROWS).to_a.select do |generation|
+              generation.provenance.is_a?(Hash) && generation.provenance.key?("tools")
+            end
+          end
+
+        warn_if_capped(rows.length, "provenance generations")
+        rows
+      end
+    end
+
+    # Whether any generation in the window carries an offered tool roster,
+    # asked as cheaply as the adapter allows. Kept separate from
+    # declared_generations so source_availability never materialises rows
+    # just to decide a boolean.
+    def declared_generations?
+      scope = AgentGeneration.where(agent_context_id: context_ids, created_at: since..)
 
       if AgentGeneration.postgres?
-        scope.where(Arel.sql("jsonb_exists(provenance, 'tools')")).to_a
+        scope.where(Arel.sql("jsonb_exists(provenance, 'tools')")).limit(1).exists?
       else
-        scope.to_a.select { |generation| generation.provenance.is_a?(Hash) && generation.provenance.key?("tools") }
+        declared_generations.any?
       end
     end
 
@@ -292,7 +342,7 @@ module ActionAgent
         telemetry: traces_scope.limit(1).exists?,
         generations: generations_scope.limit(1).exists?,
         messages: messages_scope.limit(1).exists?,
-        declared: declared_generations.any?
+        declared: declared_generations?
       }
     end
 

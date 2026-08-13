@@ -25,6 +25,20 @@ module ActionAgent
         end
       end
 
+      # SQL matching rows whose JSON array +column+ actually has entries.
+      #
+      # `where.not(column: [])` cannot express this and is not a slower way
+      # of doing it — Active Record reads the empty array as an empty IN
+      # list, so the condition compiles to `1=1` and matches every row.
+      # +column+ is always a literal from this codebase, never user input.
+      def json_array_not_empty_sql(column)
+        case connection.adapter_name.to_s.downcase
+        when /postgres/ then "COALESCE(jsonb_array_length(#{column}::jsonb), 0) > 0"
+        when /mysql/ then "COALESCE(JSON_LENGTH(#{column}), 0) > 0"
+        else "COALESCE(json_array_length(#{column}), 0) > 0"
+        end
+      end
+
       # PostgreSQL hands back a Time; the others a UTC string.
       def hour_bucket_epoch(value)
         return value.to_i if value.is_a?(Time) || value.is_a?(DateTime)
