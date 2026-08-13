@@ -8,12 +8,12 @@ the three-layer architecture:
 - **activeagent** — execution: agents, providers, tools, telemetry
 - **solid_agent** — persistence: contexts, generations, tool streams, memory,
   pricing
-- **the platform** — accounts, billing, quotas, hosted UI, multi-tenancy
+- **the platform** — accounts, billing, quotas, multi-tenancy
 
 The solid_agent side of this audit already landed (enriched tool persistence,
 `ModelPricing`, memory/tool-cache contracts). What follows is the
-framework-shaped remainder, proposed for v2 — each item exists today as
-platform code that any serious consumer of the gem would have to rebuild.
+framework-shaped remainder, proposed for v2 — each item began as platform
+code that any serious consumer of the gem would have to rebuild.
 
 ## Absorb from the platform
 
@@ -26,8 +26,9 @@ prepared prompt parameters before they reach the provider. Extensible via
 max_completion_tokens switching and reasoning-effort awareness.
 
 ### 2. Provider model catalogs
-The platform's `/api/provider_models` queries Ollama's live model list, the
-Anthropic Models API, and OpenRouter's catalog, with curated fallbacks.
+The dashboard engine's `<mount>/api/provider_models` queries Ollama's live
+model list, the Anthropic Models API, and OpenRouter's catalog, with curated
+fallbacks — still a dashboard endpoint rather than a provider capability.
 v2: `Provider#models` on the provider contract (vendor SDKs all expose a
 listing endpoint), so model pickers and validation stop being app problems.
 
@@ -52,15 +53,17 @@ as `#cause` — so `rescue_from` policy is portable across providers.
 Remaining for v2: the `generate_with ... fallback: [:anthropic, :ollama]`
 chain the taxonomy makes expressible.
 
-### 6. A real MCP story
-Today MCP is pass-through only: `mcps:` options are normalized into each
-vendor's *remote* MCP format (the LLM vendor's servers do the connecting).
-There is no MCP client (stdio/HTTP, `tools/list` discovery → routable
-actions) and no server facade. The platform built an MCP server over its
-agents (`run_<slug>` tools, `agent://` resources, Bearer auth) as a
-controller. v2: both halves — a client that turns any MCP server's tools
-into agent actions, and a mountable engine that presents agents as an MCP
-server.
+### 6. A real MCP story — ✅ server half shipped
+The server facade landed with the dashboard engine: an owner's agents are
+presented as an MCP server at `<mount>/mcp` (`run_<slug>` tools,
+`agent://` resources, Bearer API-key auth) over Streamable HTTP JSON-RPC.
+On the client side MCP is still pass-through only: `mcps:` options are
+normalized into each vendor's *remote* MCP format (the LLM vendor's servers
+do the connecting), and the one client in the gem
+(`Dashboard::PlaywrightMcpClient`) speaks just enough JSON-RPC for one
+server. Remaining for v2: a general MCP client (stdio/HTTP, `tools/list`
+discovery → routable actions) that turns any MCP server's tools into agent
+actions.
 
 ### 7. Tool DSL / schema derivation
 `lib/active_agent.rb`'s docstring advertises a `tool def get_weather(...)`
@@ -69,12 +72,13 @@ solid_agent's `HasTools` (DSL + JSON view templates) already fills this —
 v2 should either absorb it or bless it as the canonical declaration path,
 not leave two half-standards.
 
-### 8. Server-side tool implementations
-The platform's `AgentToolbox` (safe `fetch_url` with SSRF guard + redirect
-caps, `web_search`, a no-eval `Calculator`, allowlisted `browse_page`) is
-generic execution code with zero app coupling. It belongs beside the
-framework's tool routing, not in a dashboard app — persistence/caching of
-results stays solid_agent's.
+### 8. Server-side tool implementations — ✅ in the gem, wrong layer
+`AgentToolbox` (safe `fetch_url` with SSRF guard + redirect caps,
+`web_search`, a no-eval `Calculator`, allowlisted `browse_page`) now ships
+in the gem as `ActiveAgent::Dashboard::AgentToolbox`. It is generic
+execution code with zero app coupling, so v2 should move it beside the
+framework's tool routing rather than leave it reachable only through the
+dashboard engine — persistence/caching of results stays solid_agent's.
 
 ## Fix in place (bugs and dead seams found during the audit)
 
@@ -92,19 +96,21 @@ results stays solid_agent's.
   `ActiveAgent::Prompt` class that doesn't exist; nothing in the generation
   path notifies them. Either implement the ActionMailer-style seam
   (persistence layers want it) or delete it.
-- The dashboard engine ships orphaned platform-shaped models
-  (`Dashboard::Agent`, `AgentRun`, `SandboxSession`, jobs, migrations) with
-  no controllers or routes. Decide: wire them (framework-level run
-  orchestration — run records, status, cancellation would pair with the
-  tool-loop limits above) or drop them from the gem.
+- ✅ **Fixed**: the dashboard engine's platform-shaped models
+  (`Dashboard::Agent`, `AgentRun`, `SandboxSession`, jobs, migrations) are
+  wired — the engine now ships the controllers, routes and React UI that
+  drive them, and the install generator creates their tables in a second
+  migration (skippable with `--traces_only`).
 
 ## Stays in the platform
 
-Accounts/users, billing and plan quotas, encrypted API/provider key storage,
-trace retention by plan, the hosted React dashboard, sandboxes/session
-recordings, and the account-scoped `TelemetryTrace` subclass. These touch
-tenancy and money; the gems should expose seams (auth hooks, quota
-callbacks), never implementations.
+Accounts/users, billing and plan quotas, which retention window applies to
+which plan, the managed sandbox infrastructure the engine's backends talk
+to, and the account-scoped `TelemetryTrace` subclass. These touch tenancy
+and money; the gems should expose seams (auth hooks, quota callbacks),
+never implementations. The dashboard UI, key storage, sandbox and session
+recording code that used to sit here now ships in the engine, configured
+per host.
 
 ## solid_agent follow-ups (tracked there, listed for completeness)
 

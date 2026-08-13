@@ -169,8 +169,10 @@ production:
 ```
 
 **Multi-tenant mode** — if your self-hosted install itself serves multiple
-accounts, enable `config.multi_tenant` with `account_class` /
-`current_account_method`; ingest then authenticates per-account
+accounts, enable `config.multi_tenant` with `account_class` and a
+`current_account_resolver` lambda (the engine's controllers are their own
+base class, so your app's `current_account` helper is not on them); ingest
+then authenticates per-account
 `telemetry_api_key` Bearer tokens and processes asynchronously via
 `ActiveAgent::ProcessTelemetryTracesJob` (requires an Active Job backend),
 and every dashboard query scopes to the current account. Most self-hosted
@@ -242,8 +244,10 @@ dashboard traces correlate.
   console at `<mount>/console/traces` still loads Tailwind, Turbo and
   Stimulus from public CDNs and renders unstyled without them — set
   `config.layout` to a layout of your own that bundles them locally.
-- **Time-series charts** on the metrics page light up when the optional
-  [groupdate](https://github.com/ankane/groupdate) gem is installed.
+- **Time-series charts** on the console's metrics page light up when the
+  optional [groupdate](https://github.com/ankane/groupdate) gem is
+  installed. The React metrics page buckets by hour in Ruby and needs
+  nothing extra.
 - **Sensitive content.** Prompt/output capture obeys the telemetry
   `redact_attributes` configuration — see [Telemetry](/framework/telemetry).
 
@@ -256,7 +260,7 @@ dashboard traces correlate.
 - **401 from ingest** — the poster's `api_key` doesn't match
   `config.ingest_api_key` (single-tenant) or an account
   `telemetry_api_key` (multi-tenant).
-- **Metrics page has no chart** — install `groupdate`.
+- **Console metrics page has no chart** — install `groupdate`.
 
 ## Running agents from the dashboard
 

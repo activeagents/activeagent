@@ -127,11 +127,12 @@ development:
     service: "RubyLLM"
 ```
 
-## Dev Console & Observability
+## Dashboard & Dev Console
 
-Active Agent includes a local dev console — traces with span waterfalls,
-token usage, and per-agent metrics — as a mountable Rails engine, so you
-can watch your agents while you build:
+Active Agent ships its dashboard as a mountable Rails engine — traces with
+span waterfalls, token usage and per-agent metrics, plus the agent builder,
+runs, conversations, evaluations, scorecards and cost estimates — so you
+can watch and drive your agents while you build:
 
 ```bash
 rails generate active_agent:dashboard:install
@@ -147,11 +148,11 @@ telemetry:
 
 Open `/activeagents` and every generation appears as a trace. See
 [docs/framework/dashboard.md](docs/framework/dashboard.md) for
-authentication, remote ingestion, and multi-tenant mode. For production
-monitoring — evaluations, cost estimates, retention, team workspaces —
-point telemetry at the hosted platform at
-[activeagents.ai](https://activeagents.ai); every workspace starts with a
-free low-volume trial.
+authentication, remote ingestion, and multi-tenant mode. The hosted
+platform at [activeagents.ai](https://activeagents.ai) runs this same
+engine multi-tenant, adding what a hosted product has to have — accounts,
+plans, billing, quotas and managed sandboxes; every workspace starts with
+a free low-volume trial.
 
 ## Features
 
