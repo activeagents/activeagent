@@ -52,8 +52,23 @@ ActionAgent.configure do |config|
   # config.multi_tenant = true
   # config.account_class = "Account"
   # config.user_class = "User"
-  # config.current_account_method = :current_account
-  # config.current_user_method = :current_user
+  #
+  # How the engine finds the signed-in user and their account. These have to
+  # be resolvers rather than method names: the dashboard's controllers are
+  # their own base class, so your app's `current_user` helper is not on them.
+  # Read the session (or your auth library) directly — a resolver that calls
+  # back into `current_user` reaches the engine's own accessor, not yours.
+  #
+  # config.current_user_resolver = ->(controller) {
+  #   User.find_by(id: controller.session[:user_id])
+  # }
+  # config.current_account_resolver = ->(controller) {
+  #   controller.send(:current_user)&.account
+  # }
+  #
+  # With an owner model configured, an owner that does not resolve sees
+  # nothing rather than everything. An empty dashboard for a signed-in user
+  # means the resolver above returned nil.
 
   # ==========================================================================
   # UI
