@@ -324,8 +324,45 @@ end
 
 See [Instrumentation](/framework/instrumentation) for detailed logging and monitoring options.
 
+## Dashboard configuration
+
+`ActiveAgent.configure` and `config/active_agent.yml` configure the framework
+only. The dashboard is a separate gem — `actionagent` — with its own
+configuration object and its own initializer, so none of its settings hang off
+`ActiveAgent`:
+
+```ruby
+# config/initializers/action_agent.rb
+# `rails generate action_agent:install` writes this file with the options
+# commented out; fill in the ones you need.
+ActionAgent.configure do |config|
+  config.authentication_method = ->(controller) { controller.authenticate_admin! }
+  config.ingest_api_key = Rails.application.credentials.dig(:active_agent, :ingest_api_key)
+
+  # Run the mount as a read-only observability surface:
+  # config.execution_enabled = false
+end
+```
+
+The two stay separate on purpose. `config/active_agent.yml` is read by every
+app that runs agents; `config/initializers/action_agent.rb` only exists in the
+app that mounts `ActionAgent::Engine`. Provider credentials still come from
+`config/active_agent.yml` even for agents executed from the dashboard — the
+dashboard's own per-owner keys layer on top of it rather than replacing it.
+
+**[Dev Console](/framework/dashboard)** covers `authentication_method`,
+`multi_tenant`, `account_class` and `trace_model_class`;
+**[Self-Hosted Dashboard](/framework/self-hosted-observability)** adds
+`ingest_api_key`, `current_account_resolver`, `trace_retention`,
+`execution_enabled`, `sandbox_backends` and `layout`. The host-app
+integration seams — `quota_checker`, `usage_recorder`,
+`agent_scope_resolver`, `tenant_resolver`, `trace_owner_resolver`,
+`provider_credentials_resolver` and the rest — are documented on
+`ActionAgent` itself, in the gem's `lib/action_agent.rb`.
+
 ## Related Documentation
 
+- **[Dev Console](/framework/dashboard)** - Installing and mounting the `actionagent` dashboard engine
 - **[Retries](/framework/retries)** - Retry strategies, custom retry logic, and error handling
 - **[Instrumentation](/framework/instrumentation)** - Logging, monitoring, and event tracking
 - **[Rails Integration](/framework/rails)** - Rails-specific configuration and setup

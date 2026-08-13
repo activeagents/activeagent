@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 4) do
+ActiveRecord::Schema[8.0].define(version: 4) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -23,8 +23,8 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.integer "total_output_tokens", default: 0
     t.string "trace_id"
     t.datetime "updated_at", null: false
-    t.index ["contextable_type", "contextable_id"], name: "idx_on_contextable_type_contextable_id_572beb2580"
-    t.index ["trace_id"], name: "index_active_agent_agent_contexts_on_trace_id"
+    t.index [ "contextable_type", "contextable_id" ], name: "idx_on_contextable_type_contextable_id_572beb2580"
+    t.index [ "trace_id" ], name: "index_active_agent_agent_contexts_on_trace_id"
   end
 
   create_table "active_agent_agent_generations", force: :cascade do |t|
@@ -44,8 +44,8 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.json "tool_calls", default: []
     t.string "trace_id"
     t.datetime "updated_at", null: false
-    t.index ["agent_context_id"], name: "index_active_agent_agent_generations_on_agent_context_id"
-    t.index ["trace_id"], name: "index_active_agent_agent_generations_on_trace_id"
+    t.index [ "agent_context_id" ], name: "index_active_agent_agent_generations_on_agent_context_id"
+    t.index [ "trace_id" ], name: "index_active_agent_agent_generations_on_trace_id"
   end
 
   create_table "active_agent_agent_memories", force: :cascade do |t|
@@ -54,7 +54,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "memorable_type"
     t.string "scope", default: "default", null: false
     t.datetime "updated_at", null: false
-    t.index ["memorable_type", "memorable_id", "scope"], name: "index_active_agent_memories_on_memorable_and_scope", unique: true
+    t.index [ "memorable_type", "memorable_id", "scope" ], name: "index_active_agent_memories_on_memorable_and_scope", unique: true
   end
 
   create_table "active_agent_agent_memory_entries", force: :cascade do |t|
@@ -64,7 +64,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.datetime "created_at", null: false
     t.string "source_agent"
     t.datetime "updated_at", null: false
-    t.index ["agent_memory_id"], name: "index_active_agent_agent_memory_entries_on_agent_memory_id"
+    t.index [ "agent_memory_id" ], name: "index_active_agent_agent_memory_entries_on_agent_memory_id"
   end
 
   create_table "active_agent_agent_messages", force: :cascade do |t|
@@ -81,7 +81,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "tool_name"
     t.json "tool_result"
     t.datetime "updated_at", null: false
-    t.index ["agent_context_id"], name: "index_active_agent_agent_messages_on_agent_context_id"
+    t.index [ "agent_context_id" ], name: "index_active_agent_agent_messages_on_agent_context_id"
   end
 
   create_table "active_agent_agent_runs", force: :cascade do |t|
@@ -104,9 +104,9 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.integer "total_tokens"
     t.string "trace_id"
     t.datetime "updated_at", null: false
-    t.index ["agent_id"], name: "index_active_agent_agent_runs_on_agent_id"
-    t.index ["created_at"], name: "index_active_agent_agent_runs_on_created_at"
-    t.index ["trace_id"], name: "index_active_agent_agent_runs_on_trace_id"
+    t.index [ "agent_id" ], name: "index_active_agent_agent_runs_on_agent_id"
+    t.index [ "created_at" ], name: "index_active_agent_agent_runs_on_created_at"
+    t.index [ "trace_id" ], name: "index_active_agent_agent_runs_on_trace_id"
   end
 
   create_table "active_agent_agent_templates", force: :cascade do |t|
@@ -130,7 +130,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.json "tools", default: []
     t.datetime "updated_at", null: false
     t.integer "usage_count", default: 0
-    t.index ["slug"], name: "index_active_agent_agent_templates_on_slug", unique: true
+    t.index [ "slug" ], name: "index_active_agent_agent_templates_on_slug", unique: true
   end
 
   create_table "active_agent_agent_versions", force: :cascade do |t|
@@ -141,7 +141,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "created_by"
     t.datetime "updated_at", null: false
     t.integer "version_number", default: 1, null: false
-    t.index ["agent_id", "version_number"], name: "idx_on_agent_id_version_number_3d7d356d2e", unique: true
+    t.index [ "agent_id", "version_number" ], name: "idx_on_agent_id_version_number_3d7d356d2e", unique: true
   end
 
   create_table "active_agent_agents", force: :cascade do |t|
@@ -170,10 +170,10 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.json "tools", default: []
     t.datetime "updated_at", null: false
     t.bigint "user_id"
-    t.index ["account_id"], name: "index_active_agent_agents_on_account_id"
-    t.index ["status"], name: "index_active_agent_agents_on_status"
-    t.index ["user_id", "slug"], name: "index_active_agent_agents_on_user_id_and_slug", unique: true
-    t.index ["user_id"], name: "index_active_agent_agents_on_user_id"
+    t.index [ "account_id" ], name: "index_active_agent_agents_on_account_id"
+    t.index [ "status" ], name: "index_active_agent_agents_on_status"
+    t.index [ "user_id", "slug" ], name: "index_active_agent_agents_on_user_id_and_slug", unique: true
+    t.index [ "user_id" ], name: "index_active_agent_agents_on_user_id"
   end
 
   create_table "active_agent_api_keys", force: :cascade do |t|
@@ -185,7 +185,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "token_prefix", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
-    t.index ["token"], name: "index_active_agent_api_keys_on_token", unique: true
+    t.index [ "token" ], name: "index_active_agent_api_keys_on_token", unique: true
   end
 
   create_table "active_agent_evaluation_runs", force: :cascade do |t|
@@ -198,7 +198,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.json "scores", default: {}
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
-    t.index ["evaluation_id"], name: "index_active_agent_evaluation_runs_on_evaluation_id"
+    t.index [ "evaluation_id" ], name: "index_active_agent_evaluation_runs_on_evaluation_id"
   end
 
   create_table "active_agent_evaluations", force: :cascade do |t|
@@ -211,7 +211,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "name", null: false
     t.integer "sample_size", default: 20, null: false
     t.datetime "updated_at", null: false
-    t.index ["agent_id", "name"], name: "index_active_agent_evaluations_on_agent_id_and_name", unique: true
+    t.index [ "agent_id", "name" ], name: "index_active_agent_evaluations_on_agent_id_and_name", unique: true
   end
 
   create_table "active_agent_provider_keys", force: :cascade do |t|
@@ -221,8 +221,8 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "provider", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
-    t.index ["account_id", "provider"], name: "index_active_agent_provider_keys_on_account_id_and_provider"
-    t.index ["user_id", "provider"], name: "index_active_agent_provider_keys_on_user_id_and_provider"
+    t.index [ "account_id", "provider" ], name: "index_active_agent_provider_keys_on_account_id_and_provider"
+    t.index [ "user_id", "provider" ], name: "index_active_agent_provider_keys_on_user_id_and_provider"
   end
 
   create_table "active_agent_recording_actions", force: :cascade do |t|
@@ -237,7 +237,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.integer "timestamp_ms", null: false
     t.datetime "updated_at", null: false
     t.text "value"
-    t.index ["session_recording_id", "sequence"], name: "index_active_agent_recording_actions_on_recording_and_sequence", unique: true
+    t.index [ "session_recording_id", "sequence" ], name: "index_active_agent_recording_actions_on_recording_and_sequence", unique: true
   end
 
   create_table "active_agent_recording_snapshots", force: :cascade do |t|
@@ -250,8 +250,8 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "storage_key", null: false
     t.datetime "updated_at", null: false
     t.integer "width"
-    t.index ["recording_action_id"], name: "index_active_agent_recording_snapshots_on_recording_action_id"
-    t.index ["session_recording_id"], name: "index_active_agent_recording_snapshots_on_session_recording_id"
+    t.index [ "recording_action_id" ], name: "index_active_agent_recording_snapshots_on_recording_action_id"
+    t.index [ "session_recording_id" ], name: "index_active_agent_recording_snapshots_on_session_recording_id"
   end
 
   create_table "active_agent_sandbox_runs", force: :cascade do |t|
@@ -267,7 +267,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.text "task", null: false
     t.integer "tokens_used", default: 0
     t.datetime "updated_at", null: false
-    t.index ["sandbox_session_id"], name: "index_active_agent_sandbox_runs_on_sandbox_session_id"
+    t.index [ "sandbox_session_id" ], name: "index_active_agent_sandbox_runs_on_sandbox_session_id"
   end
 
   create_table "active_agent_sandbox_sessions", force: :cascade do |t|
@@ -290,8 +290,8 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.integer "total_tokens", default: 0
     t.datetime "updated_at", null: false
     t.bigint "user_id"
-    t.index ["session_id"], name: "index_active_agent_sandbox_sessions_on_session_id", unique: true
-    t.index ["user_id"], name: "index_active_agent_sandbox_sessions_on_user_id"
+    t.index [ "session_id" ], name: "index_active_agent_sandbox_sessions_on_session_id", unique: true
+    t.index [ "user_id" ], name: "index_active_agent_sandbox_sessions_on_user_id"
   end
 
   create_table "active_agent_session_recordings", force: :cascade do |t|
@@ -306,10 +306,10 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
-    t.index ["account_id"], name: "index_active_agent_session_recordings_on_account_id"
-    t.index ["agent_run_id"], name: "index_active_agent_session_recordings_on_agent_run_id"
-    t.index ["sandbox_session_id"], name: "index_active_agent_session_recordings_on_sandbox_session_id"
-    t.index ["user_id"], name: "index_active_agent_session_recordings_on_user_id"
+    t.index [ "account_id" ], name: "index_active_agent_session_recordings_on_account_id"
+    t.index [ "agent_run_id" ], name: "index_active_agent_session_recordings_on_agent_run_id"
+    t.index [ "sandbox_session_id" ], name: "index_active_agent_session_recordings_on_sandbox_session_id"
+    t.index [ "user_id" ], name: "index_active_agent_session_recordings_on_user_id"
   end
 
   create_table "posts", force: :cascade do |t|
@@ -320,8 +320,8 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id"
-    t.index ["published"], name: "index_posts_on_published"
-    t.index ["user_id"], name: "index_posts_on_user_id"
+    t.index [ "published" ], name: "index_posts_on_published"
+    t.index [ "user_id" ], name: "index_posts_on_user_id"
   end
 
   create_table "profiles", force: :cascade do |t|
@@ -332,7 +332,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.datetime "updated_at", null: false
     t.integer "user_id"
     t.string "website"
-    t.index ["user_id"], name: "index_profiles_on_user_id", unique: true
+    t.index [ "user_id" ], name: "index_profiles_on_user_id", unique: true
   end
 
   create_table "users", force: :cascade do |t|
@@ -343,7 +343,7 @@ ActiveRecord::Schema[8.1].define(version: 4) do
     t.string "name", null: false
     t.string "role", default: "user"
     t.datetime "updated_at", null: false
-    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index [ "email" ], name: "index_users_on_email", unique: true
   end
 
   add_foreign_key "posts", "users"

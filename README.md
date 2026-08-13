@@ -25,6 +25,10 @@ Use bundler to add activeagent to your Gemfile and install:
 bundle add activeagent
 ```
 
+That is the framework — agents, providers, generation and telemetry
+reporting. The dashboard is a second gem, `actionagent`, added separately
+when you want it; see [Dashboard & Dev Console](#dashboard--dev-console).
+
 Add the generation provider gem you want to use:
 
 ```bash
@@ -129,13 +133,17 @@ development:
 
 ## Dashboard & Dev Console
 
-Active Agent ships its dashboard as a mountable Rails engine — traces with
-span waterfalls, token usage and per-agent metrics, plus the agent builder,
-runs, conversations, evaluations, scorecards and cost estimates — so you
-can watch and drive your agents while you build:
+The dashboard is its own gem, `actionagent`: a mountable Rails engine with
+traces and span waterfalls, token usage and per-agent metrics, plus the agent
+builder, runs, conversations, evaluations, scorecards and cost estimates — so
+you can watch and drive your agents while you build. It ships separately
+because its models are Active Record models and it runs agents through
+[solid_agent](https://github.com/activeagents/solid_agent) — neither of which
+`activeagent` depends on, so an app that only runs agents installs neither.
 
 ```bash
-rails generate active_agent:dashboard:install
+bundle add actionagent
+rails generate action_agent:install
 rails db:migrate
 ```
 
@@ -146,7 +154,8 @@ telemetry:
   local_storage: true
 ```
 
-Open `/activeagents` and every generation appears as a trace. See
+The generator mounts the engine at `/activeagents` — open it and every
+generation appears as a trace. See
 [docs/framework/dashboard.md](docs/framework/dashboard.md) for
 authentication, remote ingestion, and multi-tenant mode. The hosted
 platform at [activeagents.ai](https://activeagents.ai) runs this same
@@ -200,12 +209,12 @@ response = prompt.generate_now
 
 - [Documentation](https://docs.activeagents.ai)
 - [Getting Started Guide](https://docs.activeagents.ai/getting_started)
-- [API Reference](https://docs.activeagents.ai/docs/framework)
-- [Examples](https://docs.activeagents.ai/docs/agents)
+- [API Reference](https://docs.activeagents.ai/framework)
+- [Examples](https://docs.activeagents.ai/agents)
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.MD) for details.
 
 ## License
 
