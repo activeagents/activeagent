@@ -45,6 +45,7 @@ module ActionAgent
           total: @trace.total_input_tokens.to_i + @trace.total_output_tokens.to_i
         },
         message_count: messages.size,
+        preview: preview,
         # Tool activity is known even when content capture is off, so a run
         # reported without prompts still shows what it did.
         tool_count: tool_spans.size,
@@ -64,6 +65,19 @@ module ActionAgent
     end
 
     private
+
+    # What the run was asked and what it answered — the opening prompt and the
+    # final assistant turn, since the middle of a stream is tool traffic.
+    def preview
+      said = ->(role, list) { list.find { |m| m[:role] == role && m[:content].present? }&.[](:content) }
+
+      {
+        input: InteractionPreview.line(said.call("user", messages)),
+        # A tool-calling assistant turn carries no prose, so the last one that
+        # does is the answer.
+        output: InteractionPreview.line(said.call("assistant", messages.reverse))
+      }
+    end
 
     # The generation span. Older traces wrapped a separate `llm` span inside a
     # root; newer ones merge them, since the provider loop *is* the interaction.
@@ -96,9 +110,9 @@ module ActionAgent
       raw = any_attribute("prompt.input.messages")
       return [] if raw.blank?
 
-      entries = JSON.parse(raw)
+      entries = raw.is_a?(String) ? JSON.parse(raw) : raw
       entries.is_a?(Array) ? entries.select { |m| m.is_a?(Hash) && m["content"].present? } : []
-    rescue JSON::ParserError
+    rescue JSON::ParserError, TypeError
       []
     end
 
@@ -209,9 +223,13 @@ module ActionAgent
     # so it renders structurally rather than as an escaped string.
     def parsed(value)
       return nil if value.blank?
+      # A reporter can send an attribute already decoded — JSON.parse raises
+      # TypeError rather than ParserError on a Hash or Array, and one such
+      # span would otherwise take down the whole Interactions list.
+      return value unless value.is_a?(String)
 
       JSON.parse(value)
-    rescue JSON::ParserError
+    rescue JSON::ParserError, TypeError
       value
     end
 
