@@ -8,6 +8,7 @@ import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
 import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import TraceSpanPills from './TraceSpanPills';
+import { dashboardPath } from '../../utils/dashboardPath';
 
 // Context pressure for one interaction: the biggest generation's real token
 // counts against its model's window, with segment sizes estimated from the
@@ -589,7 +590,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                                   {generation.duration_seconds != null && <span>{(generation.duration_seconds * 1000).toFixed(0)}ms</span>}
                                   {generation.trace_id && (
                                     <a
-                                      href={`/dashboard/traces?trace=${generation.trace_id}`}
+                                      href={dashboardPath(`/traces?trace=${generation.trace_id}`)}
                                       title={`${generation.trace_id} — open in Traces`}
                                       style={{ color: '#3b82f6' }}
                                       className="hover:underline"

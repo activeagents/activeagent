@@ -3,6 +3,7 @@ import AgentAvatar from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
 import { startCheckout } from '../../utils/checkout';
 import { roleBubble, streamPreStyle } from './InteractionStream';
+import { dashboardPath } from '../../utils/dashboardPath';
 
 // Feed event kinds mapped onto the shared stream chip palette so streamed
 // run output matches the Interactions/Traces visual language.
@@ -303,7 +304,7 @@ export default function AgentRunner({ agent, onBack }) {
                 )}
                 {currentRun.trace_id && (
                   <a
-                    href={`/dashboard/traces?trace=${currentRun.trace_id}`}
+                    href={dashboardPath(`/traces?trace=${currentRun.trace_id}`)}
                     className="text-gray-400 hover:text-red-500 font-mono text-xs"
                     title={`${currentRun.trace_id} — open in Traces`}
                   >

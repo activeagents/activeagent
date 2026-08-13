@@ -4,6 +4,7 @@ import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
+import { dashboardPath } from '../../utils/dashboardPath';
 
 export default function AgentInteractions({ agent, onBack }) {
   const { timeWindow } = useTimeWindow();
@@ -31,7 +32,7 @@ export default function AgentInteractions({ agent, onBack }) {
   const [sort, setSort] = useState('recent'); // see AgentExecutions::SORTS
   const conversationRef = useRef(null);
 
-  const basePath = `/dashboard/agents/${agent.id}/interactions`;
+  const basePath = dashboardPath(`/agents/${agent.id}/interactions`);
 
   useEffect(() => {
     loadRuns();
@@ -157,8 +158,8 @@ export default function AgentInteractions({ agent, onBack }) {
   const openExecution = (execution) => {
     if (execution.source === 'reported') {
       const ref = execution.trace_id || String(execution.id).replace(/^trace-/, '');
-      window.history.pushState(window.history.state, '', `/dashboard/traces/${ref}`);
-      window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path: `/dashboard/traces/${ref}` } }));
+      window.history.pushState(window.history.state, '', dashboardPath(`/traces/${ref}`));
+      window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path: dashboardPath(`/traces/${ref}`) } }));
       return;
     }
     loadRunDetails(execution.record_id || execution.id);
@@ -635,7 +636,7 @@ export default function AgentInteractions({ agent, onBack }) {
                 )}
                 {selectedRun.trace_id && (
                   <a
-                    href={`/dashboard/traces?trace=${selectedRun.trace_id}`}
+                    href={dashboardPath(`/traces?trace=${selectedRun.trace_id}`)}
                     className="font-mono text-xs text-blue-500 hover:underline"
                     title={`${selectedRun.trace_id} — open in Traces`}
                   >

@@ -217,7 +217,7 @@ module ActiveAgent
 
       def telemetry_traces(window_hours)
         ActiveAgent::Dashboard.trace_model
-          .for_account(owner)
+          .for_account(ActiveAgent::Dashboard.tenant_for(owner))
           .for_agent(@evaluation.agent.telemetry_agent_class)
           .for_date_range(window_hours.hours.ago, Time.current)
       end

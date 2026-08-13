@@ -1,18 +1,20 @@
 # frozen_string_literal: true
 
 ActiveAgent::Dashboard::Engine.routes.draw do
-  # The React dashboard. Every path below it is routed client-side, so the
-  # controller renders the same page for all of them and the browser's back
-  # button keeps working.
+  # The React dashboard's entry point. Its own paths (/traces, /metrics,
+  # /agents/1/edit, ...) are matched by the catch-all at the bottom of this
+  # file, so deep links and the browser's back button both work wherever the
+  # engine is mounted.
   root to: "dashboard#index"
-  get "dashboard", to: "dashboard#index"
-  get "dashboard/*path", to: "dashboard#index"
 
-  # The server-rendered traces surface. Older installs linked straight to it,
-  # and it stays useful where the JS bundle can't run.
-  resources :traces, only: [ :index, :show ], controller: "traces" do
-    collection do
-      get :metrics
+  # The server-rendered console. Same data, no JavaScript — useful when the
+  # bundle can't run, and the surface the dashboard shipped with before the
+  # React app moved into the engine.
+  scope :console do
+    resources :traces, only: [ :index, :show ], controller: "traces" do
+      collection do
+        get :metrics
+      end
     end
   end
 
@@ -121,4 +123,10 @@ ActiveAgent::Dashboard::Engine.routes.draw do
   # dashboard API key rather than a session, so it sits outside the api
   # namespace's session-authenticated controllers.
   post "mcp", to: "api/mcp#create"
+
+  # Everything else under the mount is a client-side route: render the
+  # dashboard and let the browser resolve it. Anchored last so it can only
+  # ever catch what the routes above did not, and refuses /api paths so a
+  # mistyped endpoint answers as an API would rather than returning a page.
+  get "*path", to: "dashboard#index", constraints: ->(request) { !request.path.include?("/api/") }
 end

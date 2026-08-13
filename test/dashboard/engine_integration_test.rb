@@ -39,7 +39,7 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
   test "traces index renders" do
     ActiveAgent::TelemetryTrace.create_from_payload(sample_payload)
 
-    get "/activeagents/traces"
+    get "/activeagents/console/traces"
 
     assert_response :success
     assert_includes response.body, "SupportAgent"
@@ -60,13 +60,13 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
 
     ActiveAgent::Dashboard.trace_model_class = "ScopedTelemetryTrace"
 
-    get "/activeagents/traces"
+    get "/activeagents/console/traces"
 
     assert_response :success
     assert_includes response.body, "ScopedAgent"
     assert_not_includes response.body, "SupportAgent"
 
-    get "/activeagents/traces/metrics"
+    get "/activeagents/console/traces/metrics"
     assert_response :success
     assert_includes response.body, "ScopedAgent"
   ensure
@@ -92,7 +92,7 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "client-side dashboard routes all render the same page" do
-    get "/activeagents/dashboard/traces"
+    get "/activeagents/agents/12/edit"
 
     assert_response :success
     assert_includes response.body, "active-agent-dashboard"
@@ -100,7 +100,7 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
 
   test "dashboard refuses unauthenticated access in production when no auth is configured" do
     Rails.env.stub(:production?, true) do
-      get "/activeagents/traces"
+      get "/activeagents/console/traces"
     end
 
     assert_response :forbidden

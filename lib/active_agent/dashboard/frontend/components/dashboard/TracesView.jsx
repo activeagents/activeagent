@@ -10,6 +10,7 @@ import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import AgentStatCard from './AgentStatCard';
 import TimeWindowSelector from './TimeWindowSelector';
+import { dashboardPath } from '../../utils/dashboardPath';
 
 // Deterministic color assignment for agent classes
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
@@ -524,7 +525,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     const id = agentIds[agentClassName];
     if (!id) return toggleAgentFilter(agentClassName);
 
-    const path = `/dashboard/agents/${id}`;
+    const path = dashboardPath(`/agents/${id}`);
     window.history.pushState(window.history.state, '', path);
     // A custom event, not a synthetic popstate: Inertia listens for popstate
     // and reads event.state.component, so a hand-dispatched one (state null)

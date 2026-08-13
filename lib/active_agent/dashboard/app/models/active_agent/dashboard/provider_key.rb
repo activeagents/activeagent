@@ -55,7 +55,7 @@ module ActiveAgent
 
         siblings = self.class.for_owner(owner)
         siblings = siblings.where.not(id: id) if persisted?
-        errors.add(:provider, "already has a credential") if siblings.exists?(provider: provider)
+        errors.add(:provider, "has already been taken") if siblings.exists?(provider: provider)
       end
     end
   end

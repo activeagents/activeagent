@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { dashboardPath } from '../../utils/dashboardPath';
 
 // A trace as a pill: one segmented bar per trace (each segment a span,
 // positioned on the trace's wall clock, colored by span type). Click to
@@ -111,7 +112,7 @@ export default function TraceSpanPills({ traceId, darkMode }) {
             </div>
           ))}
           <a
-            href={`/dashboard/traces?trace=${trace.trace_id || traceId}`}
+            href={dashboardPath(`/traces?trace=${trace.trace_id || traceId}`)}
             className="font-mono hover:underline"
             style={{ fontSize: '10px', color: '#3b82f6', justifySelf: 'start' }}
           >
