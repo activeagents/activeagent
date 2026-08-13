@@ -110,9 +110,9 @@ module ActionAgent
       raw = any_attribute("prompt.input.messages")
       return [] if raw.blank?
 
-      entries = JSON.parse(raw)
+      entries = raw.is_a?(String) ? JSON.parse(raw) : raw
       entries.is_a?(Array) ? entries.select { |m| m.is_a?(Hash) && m["content"].present? } : []
-    rescue JSON::ParserError
+    rescue JSON::ParserError, TypeError
       []
     end
 
@@ -223,9 +223,13 @@ module ActionAgent
     # so it renders structurally rather than as an escaped string.
     def parsed(value)
       return nil if value.blank?
+      # A reporter can send an attribute already decoded — JSON.parse raises
+      # TypeError rather than ParserError on a Hash or Array, and one such
+      # span would otherwise take down the whole Interactions list.
+      return value unless value.is_a?(String)
 
       JSON.parse(value)
-    rescue JSON::ParserError
+    rescue JSON::ParserError, TypeError
       value
     end
 
