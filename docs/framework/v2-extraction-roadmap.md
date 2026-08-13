@@ -39,8 +39,9 @@ tool-calling recursion; hitting the cap emits
 Remaining for v2: a token/cost budget alongside the turn cap.
 
 ### 4. Agent-to-agent delegation
-`tools_function` only routes back to `self`. The platform built `call_agent`
-(sub-agent invocation with a `Thread.current` depth cap) as an app tool.
+`tools_function` only routes back to `self`. `call_agent` (sub-agent
+invocation with a `Thread.current` depth cap) now ships in the gem on
+`Dashboard::AgentExecutionService`, reachable only from a dashboard run.
 v2: a first-class delegation primitive — invoke another agent class/instance
 as a tool, with depth limits and shared trace/context correlation.
 
@@ -105,10 +106,11 @@ dashboard engine — persistence/caching of results stays solid_agent's.
 ## Stays in the platform
 
 Accounts/users, billing and plan quotas, which retention window applies to
-which plan, the managed sandbox infrastructure the engine's backends talk
-to, and the account-scoped `TelemetryTrace` subclass. These touch tenancy
-and money; the gems should expose seams (auth hooks, quota callbacks),
-never implementations. The dashboard UI, key storage, sandbox and session
+which plan, the managed sandbox infrastructure registered as the engine's
+backends (`IncusSandboxService`, `KubernetesSandboxService`,
+`CloudRunService`), and the account-scoped `TelemetryTrace` subclass. These
+touch tenancy and money; the gems should expose seams (auth hooks, quota
+callbacks), never implementations. The dashboard UI, key storage, sandbox and session
 recording code that used to sit here now ships in the engine, configured
 per host.
 
@@ -118,7 +120,9 @@ per host.
   generator now ships an `AgentRun` model with lifecycle, `append_event`,
   trace correlation, and `SolidAgent::RunFingerprint` instruction cohorts.
 - Evaluation datasets — `docs/agent-md-spec.md` already specifies
-  `*.test.yml` cases; the platform's rule-criteria scorer and LLM-judge
-  plumbing are the reference implementation.
-- Fold the platform's drifted model copies back onto the generator
-  templates once the app's Gemfile.lock reaches solid_agent 0.2.
+  `*.test.yml` cases; the engine's `Dashboard::EvaluationRunnerService`
+  (rule criteria scored from recorded data, plus an LLM judge) is the
+  reference implementation.
+- Fold the engine's drifted copies of the solid_agent generator models
+  (`AgentContext`, `AgentMessage`, `AgentGeneration`) back onto the
+  generator templates once host apps reach solid_agent 0.2.
