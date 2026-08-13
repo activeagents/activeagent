@@ -1,0 +1,135 @@
+# frozen_string_literal: true
+
+module ActionAgent
+  module Api
+    # Read API for MCP services, plus sandbox provisioning for the servers
+    # that can be started on demand. Backs the dashboard MCP Services view.
+    #
+    # The list is the union of three things: servers detected from telemetry
+    # and solid_agent records (ToolDiscovery), servers an agent declares in
+    # its configuration, and the default catalog (McpCatalog). An install
+    # therefore sees both what it is already using and what it could turn on.
+    class McpServersController < BaseController
+      before_action :require_owner!
+      before_action :set_catalog_entry, only: [ :show, :launch ]
+
+      STATUS_LABELS = {
+        "active" => "Called in this window",
+        "configured" => "Declared by an agent, no traffic yet",
+        "available" => "Available to connect",
+        "idle" => "Seen previously, no traffic in this window"
+      }.freeze
+
+      # GET /api/mcp_servers
+      def index
+        finder = discovery
+        tools = finder.detected_tools
+        servers = finder.servers(tools)
+
+        render json: {
+          servers: servers,
+          catalog: McpCatalog.all,
+          summary: summary_for(servers),
+          sandboxes: active_sandboxes,
+          window_hours: finder.window_hours,
+          statuses: STATUS_LABELS
+        }
+      end
+
+      # GET /api/mcp_servers/:id
+      #
+      # One server with the tools detected for it, so the view can expand a
+      # row without refetching the whole inventory.
+      def show
+        finder = discovery
+        tools = finder.detected_tools
+        server = finder.servers(tools).find { |row| row[:key] == params[:id] }
+
+        render json: {
+          server: server || @catalog_entry,
+          tools: tools.select { |tool| tool[:mcp_server] == params[:id] }
+        }
+      end
+
+      # POST /api/mcp_servers/:id/launch
+      #
+      # Starts the server inside a sandbox session. Only catalog entries
+      # marked +sandbox: true+ are launchable — the rest need credentials
+      # the dashboard has nowhere safe to source, so they are listed but not
+      # startable.
+      def launch
+        unless @catalog_entry[:sandbox]
+          return render json: {
+            error: "#{@catalog_entry[:name]} can't be started from the dashboard",
+            reason: launch_blocked_reason(@catalog_entry)
+          }, status: :unprocessable_entity
+        end
+
+        sandbox = SandboxSession.new(
+          sandbox_type: @catalog_entry[:sandbox_type] || "terminal",
+          mcp_servers: [ @catalog_entry[:key] ]
+        )
+        # Through the ownership seam rather than a named association: a
+        # single-user install declares neither, and assigning `user` there
+        # would call a method the model never defined.
+        sandbox.owner = current_owner
+
+        if sandbox.save
+          sandbox.provision!
+          sandbox.reload
+          render json: { sandbox: sandbox.summary, server: @catalog_entry }, status: :created
+        else
+          render json: { error: sandbox.errors.full_messages }, status: :unprocessable_entity
+        end
+      end
+
+      private
+
+      def discovery
+        ToolDiscovery.new(traces: owned_traces, agents: owner_agents, hours: window_hours)
+      end
+
+      def set_catalog_entry
+        @catalog_entry = McpCatalog.find(params[:id])
+        render json: { error: "Unknown MCP server: #{params[:id]}" }, status: :not_found if @catalog_entry.nil?
+      end
+
+      def launch_blocked_reason(entry)
+        if entry[:requires_credentials].any?
+          "Needs #{entry[:requires_credentials].to_sentence}. Configure it on an agent instead."
+        else
+          "This server runs outside the sandbox environment."
+        end
+      end
+
+      def summary_for(servers)
+        {
+          total: servers.size,
+          active: servers.count { |server| server[:status] == "active" },
+          configured: servers.count { |server| server[:status] == "configured" },
+          available: servers.count { |server| server[:status] == "available" },
+          launchable: servers.count { |server| server[:launchable] },
+          # Servers seen in traffic that the catalog doesn't describe — worth
+          # surfacing, since they're the ones nobody documented.
+          unknown: servers.count { |server| !server[:known] },
+          total_calls: servers.sum { |server| server[:calls] }
+        }
+      end
+
+      # Running sandboxes started with an MCP server, so the view can show
+      # "running" beside the launch button instead of starting a second copy.
+      def active_sandboxes
+        owned(SandboxSession)
+          .active
+          .where.not(mcp_servers: [])
+          .recent
+          .limit(20)
+          .map { |sandbox| sandbox.summary.merge(mcp_servers: Array(sandbox.mcp_servers)) }
+      end
+
+      def window_hours
+        params.fetch(:hours, ToolDiscovery::DEFAULT_WINDOW_HOURS).to_i
+      end
+    end
+  end
+end

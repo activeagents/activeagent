@@ -11,6 +11,8 @@ import Header from '../components/dashboard/Header';
 import TracesView from '../components/dashboard/TracesView';
 import MetricsView from '../components/dashboard/MetricsView';
 import InteractionsView from '../components/dashboard/InteractionsView';
+import ToolsView from '../components/dashboard/ToolsView';
+import McpServersView from '../components/dashboard/McpServersView';
 import EvaluationsView from '../components/dashboard/EvaluationsView';
 import SandboxRunner from '../components/dashboard/SandboxRunner';
 import SessionReplayView from '../components/dashboard/SessionReplayView';
@@ -35,6 +37,9 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const [notification, setNotification] = useState(null);
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [agentSort, setAgentSort] = useState('recent');
+  // Which MCP service the MCP view should open expanded — set when a tool
+  // row links to the server that serves it, or from a /mcp/:server URL.
+  const [focusServer, setFocusServer] = useState(null);
 
   // Parse the URL into a view. Runs on mount and on popstate, so browser
   // back/forward and in-app pushState navigation (e.g. a Traces agent card
@@ -48,6 +53,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       setCurrentView('metrics');
     } else if (path.includes('/interactions') && !path.includes('/agents/')) {
       setCurrentView('interactions');
+    } else if (path.includes('/tools')) {
+      setCurrentView('tools');
+    } else if (path.includes('/mcp')) {
+      // <mount>/mcp/:server deep-links straight to one service.
+      const key = path.match(/\/mcp\/([^/?#]+)/)?.[1];
+      if (key) setFocusServer(decodeURIComponent(key));
+      setCurrentView('mcp');
     } else if (path.includes('/evaluations')) {
       setCurrentView('evaluations');
     } else if (path.includes('/analytics') && !path.includes('/agents/')) {
@@ -268,6 +280,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     else if (view === 'traces') path = dashboardPath('/traces');
     else if (view === 'metrics') path = dashboardPath('/metrics');
     else if (view === 'interactions') path = dashboardPath('/interactions');
+    else if (view === 'tools') path = dashboardPath('/tools');
+    else if (view === 'mcp') path = dashboardPath('/mcp');
     else if (view === 'evaluations') path = dashboardPath('/evaluations');
     else if (view === 'benchmarks') path = dashboardPath('/benchmarks');
     else if (view === 'replay') path = dashboardPath('/replay');
@@ -350,6 +364,25 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         return <MetricsView />;
       case 'interactions':
         return <InteractionsView />;
+      case 'tools':
+        return (
+          <ToolsView
+            onOpenServer={(key) => {
+              setFocusServer(key);
+              navigateTo('mcp');
+            }}
+          />
+        );
+      case 'mcp':
+        return (
+          <McpServersView
+            focusServer={focusServer}
+            onOpenTools={() => {
+              setFocusServer(null);
+              navigateTo('tools');
+            }}
+          />
+        );
       case 'evaluations':
         return <EvaluationsView />;
       case 'replay':

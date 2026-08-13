@@ -211,12 +211,7 @@ module ActionAgent
     # @return [Array<Hash>] entries with :name, :description, :parameters,
     #   :origin and :mcp_server
     def declared_tools
-      roster = spans.to_a.filter_map { |span| span.dig("attributes", "prompt.input.tools").presence }.first
-      return [] if roster.blank?
-
-      parsed = roster.is_a?(String) ? (JSON.parse(roster) rescue []) : roster
-
-      Array(parsed).filter_map do |tool|
+      Array(tool_roster).filter_map do |tool|
         next unless tool.is_a?(Hash)
 
         name = (tool["name"] || tool[:name]).to_s
@@ -225,8 +220,8 @@ module ActionAgent
         classification = ActiveAgent::Telemetry::ToolOrigin.classify(name)
         {
           name: name,
-          description: tool["description"] || tool[:description],
-          parameters: Array(tool["parameters"] || tool[:parameters]),
+          description: (tool["description"] || tool[:description]).presence,
+          parameters: normalize_parameters(tool["parameters"] || tool[:parameters]),
           origin: classification[:origin],
           mcp_server: classification[:server]
         }
@@ -317,6 +312,37 @@ module ActionAgent
     end
 
     private
+
+    # The offered roster, as stored. Instrumentation writes JSON onto the
+    # prompt span; +llm.tools+ is accepted as an alias because some SDK
+    # versions put the roster on the llm span instead, and a payload that
+    # arrived already decoded is passed straight through.
+    def tool_roster
+      raw = spans.to_a.filter_map do |span|
+        attributes = span["attributes"] || {}
+        attributes["prompt.input.tools"].presence || attributes["llm.tools"].presence
+      end.first
+      return nil if raw.blank?
+      return raw unless raw.is_a?(String)
+
+      JSON.parse(raw)
+    rescue JSON::ParserError
+      nil
+    end
+
+    # The roster records parameters as a name list, but a raw JSON Schema
+    # arrives instead when an SDK forwards tool definitions verbatim.
+    def normalize_parameters(parameters)
+      return [] if parameters.blank?
+      return parameters.map(&:to_s) if parameters.is_a?(Array)
+
+      if parameters.is_a?(Hash)
+        properties = parameters["properties"] || parameters[:properties]
+        return properties.keys.map(&:to_s) if properties.is_a?(Hash)
+      end
+
+      []
+    end
 
     # Recovers a tool's origin for traces that predate origin tagging.
     # Prefers an explicit server attribute when the SDK sent one, then
