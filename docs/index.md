@@ -50,6 +50,10 @@ features:
     icon: 🧪
     link: /framework/testing
     details: Test with fixtures and VCR cassettes. Mock providers for fast tests.
+  - title: Dashboard
+    icon: 📈
+    link: /framework/dashboard
+    details: Mount the engine for traces, metrics, the agent builder, conversations and evaluations.
   - title: Background Jobs
     link: /agents/generation
     icon: ⏳

@@ -1,14 +1,14 @@
 # Dev Console (Dashboard Engine)
 
-Active Agent ships a local development console as a Rails engine: every
-agent generation recorded as a trace with a span waterfall, plus a metrics
-overview — running inside your app against your own database while you
-build. It uses the same telemetry pipeline as the hosted
-[activeagents.ai](https://activeagents.ai) platform, which is the
-production observability product: what you see locally in development is
-what the platform shows (plus evaluations, cost estimates, retention, and
-team workspaces) once you point telemetry at it. Every platform workspace
-starts with a free low-volume trial.
+Active Agent ships its dashboard as a Rails engine: every agent generation
+recorded as a trace with a span waterfall, a metrics overview, and the
+agent builder, interactions and evaluations alongside them — running
+inside your app against your own database while you build. The hosted
+[activeagents.ai](https://activeagents.ai) platform mounts this engine too,
+so what you see locally in development is what the platform shows (plus the
+accounts, plans, billing and managed sandbox infrastructure a hosted
+product has to have) once you point telemetry at it. Every platform
+workspace starts with a free low-volume trial.
 
 ![Dashboard: traces list with expandable span timelines]
 
@@ -21,10 +21,17 @@ rails db:migrate
 
 The generator:
 
-- copies the `active_agent_telemetry_traces` migration (the one table the
-  dashboard reads),
+- copies two migrations — `active_agent_telemetry_traces` (the trace store)
+  and `active_agent_dashboard_tables` (agents, runs, versions,
+  conversations, evaluations, sandboxes, recordings, keys); pass
+  `--traces_only` for a trace sink alone,
 - mounts the engine at `/activeagents`,
 - writes `config/initializers/active_agent_dashboard.rb`.
+
+API keys and provider credentials are encrypted at rest, so run
+`rails db:encryption:init` before creating any (or set
+`ActiveAgent::Dashboard.encrypt_credentials = false` to store them in plain
+text — a deliberate downgrade, not a default).
 
 Deploying this beyond your laptop — for a team, or as the trace sink for
 a fleet of apps? See
@@ -40,20 +47,26 @@ telemetry:
 
 That's it. Run any agent and open `/activeagents` — each generation
 appears as a trace with prompt/LLM/tool spans, timing, token usage
-(input / output / thinking), provider and model.
+(input / output / thinking), provider and model. The dashboard's React
+bundle ships prebuilt in the gem, so mounting it doesn't ask your app to
+run a JavaScript build.
 
 ## What you get
 
 | Page | Path | Contents |
 |------|------|----------|
+| Agents | `/activeagents` | Your agents with per-agent request, token and error stats; build, edit, version and run them |
 | Traces | `/activeagents/traces` | Every generation: agent + action, status, duration, tokens; expandable span timeline; All/Errors filter; 30s auto-refresh |
-| Trace detail | `/activeagents/traces/:id` | Span waterfall with relative offsets, token breakdown, error details, raw payload |
-| Metrics | `/activeagents/traces/metrics` | Last-24h totals: traces, tokens, avg duration, error rate, active agents; per-agent statistics |
+| Metrics | `/activeagents/metrics` | Last-24h totals: traces, tokens, avg duration, error rate, active agents; per-agent statistics |
+| Interactions | `/activeagents/interactions` | The conversations behind the traces: messages, tool calls, generations |
+| Evaluations | `/activeagents/evaluations` | Scored agent outputs |
+| Console | `/activeagents/console/traces` | The same traces and metrics server-rendered, without JavaScript; span waterfall per trace at `/activeagents/console/traces/:id` |
 | Ingest API | `POST /activeagents/api/traces` | JSON trace ingestion (used by `local_storage` mode and remote SDKs) |
 
-Time-series charts on the metrics page use the optional
+Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
-degrade gracefully without it.
+degrade gracefully without it; the React metrics page buckets in Ruby and
+needs nothing extra.
 
 ## Authentication
 

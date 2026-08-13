@@ -37,17 +37,24 @@ development:
 
 ### Self-Hosted
 
-For complete control, run your own telemetry endpoint:
+For complete control, mount the dashboard engine in an app of your own and
+point telemetry at its ingest path — `<mount>/api/traces`, so
+`/activeagents/api/traces` at the default mount (see
+[Self-Hosted Dashboard](/framework/self-hosted-observability)):
 
 ```yaml
 # config/active_agent.yml
 production:
   telemetry:
     enabled: true
-    endpoint: https://observability.mycompany.com/v1/traces
+    endpoint: https://observability.mycompany.com/activeagents/api/traces
     api_key: <%= ENV["TELEMETRY_API_KEY"] %>
     service_name: my-rails-app
 ```
+
+The app that mounts the dashboard itself stores its own traces with
+`local_storage: true` instead, writing through the trace model with no HTTP
+involved.
 
 ## Configuration
 
@@ -104,6 +111,7 @@ config.active_agent.telemetry = {
 |--------|------|---------|-------------|
 | `enabled` | Boolean | `false` | Enable telemetry collection |
 | `endpoint` | String | `https://api.activeagents.ai/v1/traces` | Telemetry receiver URL |
+| `local_storage` | Boolean | `false` | Store traces through the mounted dashboard's trace model instead of posting them |
 | `api_key` | String | `nil` | Authentication token |
 | `sample_rate` | Float | `1.0` | Sampling rate (0.0 - 1.0) |
 | `batch_size` | Integer | `100` | Traces per batch before flush |
