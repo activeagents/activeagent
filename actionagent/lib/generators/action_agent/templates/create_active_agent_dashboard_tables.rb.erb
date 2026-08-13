@@ -209,6 +209,10 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
       t.string :cloud_run_job_id
       t.string :cloud_run_url
       t.column :runs, json_type, default: []
+      # MCP servers this session was started with, so the MCP Services view
+      # can show a launched server as running rather than offering to start
+      # a second copy.
+      t.column :mcp_servers, json_type, default: []
       t.integer :runs_count, default: 0
       t.integer :max_runs, default: 10
       t.integer :timeout_seconds, default: 300

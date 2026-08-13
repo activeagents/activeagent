@@ -64,6 +64,8 @@ export const ICONS = {
     interactions: '<>',
     benchmarks: '%%',
     replay: '[>]',
+    tools: '[]',
+    mcp: '{}',
     docs: '?',
     github: '*',
   },

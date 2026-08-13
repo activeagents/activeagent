@@ -280,6 +280,7 @@ ActiveRecord::Schema[8.0].define(version: 4) do
     t.datetime "expires_at"
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
+    t.json "mcp_servers", default: []
     t.json "runs", default: []
     t.integer "runs_count", default: 0
     t.string "sandbox_type", default: "playwright_mcp"
