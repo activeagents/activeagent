@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - Unreleased
+
+### ⚠️ Breaking: the dashboard is now a separate gem
+
+The dashboard engine that shipped inside `activeagent` has moved to a new
+gem, **`actionagent`**. `activeagent` is now the framework alone — it no
+longer defines `ActiveAgent::Dashboard`, and no longer pulls Active Record
+into apps that do not use it.
+
+**If you mount the dashboard, add the new gem before upgrading:**
+
+```ruby
+gem "activeagent", "~> 2.0"
+gem "actionagent", "~> 2.0"   # required if you mount the dashboard
+```
+
+Upgrading `activeagent` alone will fail at boot with
+`NameError: uninitialized constant ActiveAgent::Dashboard`, raised by your
+own initializer or by the `mount ActiveAgent::Dashboard::Engine` line in
+`config/routes.rb`. This is a major version precisely so that a
+`~> 1.1` constraint will not pick it up on its own.
+
+With `actionagent` installed, the old constants keep resolving through
+`ActionAgent::Compatibility` with a deprecation warning:
+
+- `ActiveAgent::Dashboard` → `ActionAgent`
+- `ActiveAgent::TelemetryTrace` → `ActionAgent::TelemetryTrace`
+- `ActiveAgent::ProcessTelemetryTracesJob` → `ActionAgent::ProcessTelemetryTracesJob`
+
+That last one matters beyond tidiness: Active Job serializes the class name
+into the queue payload, so jobs enqueued before the upgrade still resolve
+after it.
+
+Other changes for mounted installs:
+
+- **The server-rendered traces console moves from `/traces` to
+  `/console/traces`.** `/traces` is now the React traces view — the same
+  data, with more of it.
+- **The mount is authenticated everywhere but development and test.** The
+  sandbox API, the session-recording capture endpoints and the template
+  endpoints previously allowed anonymous access; they no longer do. The
+  `GET /api/session_recordings/demo` endpoint is removed.
+- **`current_user_method` / `current_account_method` are superseded by
+  `current_user_resolver` / `current_account_resolver`.** The engine's
+  controllers are their own base class, so a host app's `current_user`
+  helper is not available to them.
+- **An unresolved owner now scopes to nothing rather than to everything.**
+  If you configure `user_class` or `account_class`, make sure the matching
+  resolver actually returns a record, or the dashboard will show no data.
+- Existing installs upgrading from the in-gem dashboard: re-run
+  `rails generate action_agent:install`. It detects the migrations you
+  already have and emits only what is missing.
+
 ## [1.1.0] - 2026-08-12
 
 ### Dashboard — self-hosted (enterprise) mount readiness

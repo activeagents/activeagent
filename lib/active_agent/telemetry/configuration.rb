@@ -78,15 +78,19 @@ module ActiveAgent
       private
 
       # Persists a trace through the dashboard's trace model, honoring
-      # ActiveAgent::Dashboard.trace_model_class overrides. Idempotent on
-      # trace_id, as HTTP ingest is.
+      # ActionAgent.trace_model_class overrides. Idempotent on trace_id, as
+      # HTTP ingest is.
+      #
+      # The dashboard is the `actionagent` gem, which the framework does not
+      # depend on — every reference to it here is guarded, so local_storage
+      # simply reports that it has nowhere to write when it isn't installed.
       def dashboard_store
         @dashboard_store ||= lambda do |trace, sdk|
           model = local_trace_model
           unless model
             resolved_logger.error(
               "[ActiveAgent::Telemetry] local_storage is enabled but no trace model is available — " \
-              "run `rails generate active_agent:dashboard:install` first"
+              "add the actionagent gem and run `rails generate action_agent:install` first"
             )
             next
           end
@@ -98,10 +102,10 @@ module ActiveAgent
       end
 
       def local_trace_model
-        if defined?(ActiveAgent::Dashboard) && ActiveAgent::Dashboard.respond_to?(:trace_model)
-          ActiveAgent::Dashboard.trace_model
-        elsif defined?(ActiveAgent::TelemetryTrace)
-          ActiveAgent::TelemetryTrace
+        if defined?(::ActionAgent) && ::ActionAgent.respond_to?(:trace_model)
+          ::ActionAgent.trace_model
+        elsif defined?(::ActionAgent::TelemetryTrace)
+          ::ActionAgent::TelemetryTrace
         end
       rescue NameError
         nil
@@ -124,10 +128,10 @@ module ActiveAgent
       # isn't mounted there. Separate from #dashboard_mount_path so it can be
       # exercised against a route set directly.
       public def mount_path_in(route_set)
-        return nil unless defined?(::ActiveAgent::Dashboard::Engine)
+        return nil unless defined?(::ActionAgent::Engine)
 
         route = route_set.routes.find do |candidate|
-          mounted_engine(candidate.app) == ::ActiveAgent::Dashboard::Engine
+          mounted_engine(candidate.app) == ::ActionAgent::Engine
         end
         return nil unless route
 

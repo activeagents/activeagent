@@ -5,3 +5,4 @@ gem "sqlite3", "~> 1.4"
 gem "rails", "~> 7.0"
 
 gemspec path: ".."
+gemspec path: "../actionagent", name: "actionagent"

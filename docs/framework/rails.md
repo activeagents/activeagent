@@ -76,7 +76,8 @@ Creates:
 app/agents/support_agent.rb
 app/views/agents/support/instructions.md
 app/views/agents/support/respond.md.erb
-test/docs/support_agent_test.rb
+test/agents/support_agent_test.rb
+test/docs/previews/support_agent_preview.rb
 ```
 
 Multiple actions:
