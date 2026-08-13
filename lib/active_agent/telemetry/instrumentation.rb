@@ -147,6 +147,7 @@ module ActiveAgent
                   tool_span = span.add_span("tool.#{tool_call[:name]}", span_type: :tool)
                   tool_span.set_attribute("tool.name", tool_call[:name])
                   tool_span.set_attribute("tool.id", tool_call[:id]) if tool_call[:id]
+                  ToolOrigin.annotate(tool_span, tool_call[:name])
                   tool_span.finish
                 end
               end
@@ -202,6 +203,9 @@ module ActiveAgent
 
             tool_span = parent.add_span("tool.#{tool_name}", span_type: :tool)
             tool_span.set_attribute("tool.name", tool_name.to_s)
+            # Records which MCP server (if any) serves this tool, so tool
+            # traffic can be grouped by service downstream.
+            ToolOrigin.annotate(tool_span, tool_name)
             arguments = kwargs.presence || (args.length == 1 ? args.first : args.presence)
             if arguments.present?
               tool_span.set_attribute("tool.input.args", agent.send(:telemetry_truncate, JSON.generate(arguments)))

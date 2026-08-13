@@ -54,6 +54,7 @@ module ActiveAgent
     autoload :Span
     autoload :Reporter
     autoload :Instrumentation
+    autoload :ToolOrigin
 
     class << self
       # Returns the telemetry configuration instance.
