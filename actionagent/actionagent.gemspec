@@ -35,9 +35,10 @@ Gem::Specification.new do |spec|
   # The dashboard executes agents through the framework.
   spec.add_dependency "activeagent", ">= 1.1", "< 2"
 
-  # It is a Rails engine with Active Record models, so unlike the framework it
-  # genuinely needs both. Keeping these here is the point of the separate gem:
-  # `activeagent` can stay usable in an app that has neither.
+  # It is a Rails engine, so it needs railties — as does the framework, which
+  # declares it too. Active Record is the one that matters here: `activeagent`
+  # deliberately does without it, and keeping it on this side is what lets the
+  # framework stay usable in an app that has no database.
   spec.add_dependency "railties", ">= 7.2", "<= 9.0"
   spec.add_dependency "activerecord", ">= 7.2", "<= 9.0"
 

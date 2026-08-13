@@ -53,7 +53,7 @@ features:
   - title: Dashboard
     icon: 📈
     link: /framework/dashboard
-    details: Mount the engine for traces, metrics, the agent builder, conversations and evaluations.
+    details: Add the actionagent gem and mount its engine for traces, metrics, the agent builder, conversations and evaluations.
   - title: Background Jobs
     link: /agents/generation
     icon: ⏳

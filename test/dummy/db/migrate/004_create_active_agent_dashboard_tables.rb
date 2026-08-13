@@ -4,7 +4,7 @@
 # active_agent_telemetry_traces (which ships separately so an app can install
 # trace ingestion alone).
 #
-# Table names follow ActiveAgent::Dashboard.table_name_prefix, so an app that
+# Table names follow ActionAgent.table_name_prefix, so an app that
 # has deliberately set the prefix to "" gets unprefixed tables and one that
 # leaves the default gets active_agent_*.
 #
@@ -13,7 +13,7 @@
 # ActiveAgent::Dashboard::Agent.with_tool, which falls back to a LIKE).
 class CreateActiveAgentDashboardTables < ActiveRecord::Migration[7.2]
   def change
-    prefix = ActiveAgent::Dashboard.table_name_prefix
+    prefix = ActionAgent.table_name_prefix
 
     create_table "#{prefix}agents" do |t|
       t.string :name, null: false
