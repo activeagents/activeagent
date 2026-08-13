@@ -17,6 +17,13 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
     assert_includes engine.paths["config/routes.rb"].existent, root.join("config", "routes.rb").to_s
   end
 
+  test "every engine class eager loads" do
+    # Autoloading only reaches what a test happens to touch; eager loading is
+    # how a host app in production finds a file whose name and constant
+    # disagree. Zeitwerk raises here rather than at 3am.
+    assert_nothing_raised { ActiveAgent::Dashboard::Engine.eager_load! }
+  end
+
   test "dashboard classes are autoloadable without manual requires" do
     assert_equal "active_agent_telemetry_traces", ActiveAgent::TelemetryTrace.table_name
     assert ActiveAgent::ProcessTelemetryTracesJob < ActiveJob::Base
