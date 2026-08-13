@@ -120,9 +120,13 @@ module ActiveAgent
       end
 
       def include_dashboard? = @source.nil? || @source == "dashboard"
-      # Reported traces are in scope whether or not the install has tenants;
-      # a single-user dashboard still receives telemetry from its own apps.
-      def include_reported? = @source.nil? || @source == "reported"
+      # A single-tenant dashboard reads every trace it holds. A multi-tenant
+      # one has no business reading any without a tenant to scope them to.
+      def include_reported?
+        return false if ActiveAgent::Dashboard.multi_tenant? && @owner.nil?
+
+        @source.nil? || @source == "reported"
+      end
 
       def since = @window_minutes ? @window_minutes.to_i.minutes.ago : nil
 

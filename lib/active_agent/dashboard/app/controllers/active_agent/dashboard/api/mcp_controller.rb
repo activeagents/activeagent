@@ -90,7 +90,7 @@ module ActiveAgent
         # a single-user install has no owner, so the key reaches every agent
         # the dashboard holds.
         def key_agents
-          ActiveAgent::Dashboard::Agent.for_owner(@owner).where.not(status: :archived).order(:slug)
+          ActiveAgent::Dashboard.agents_for(@owner).where.not(status: :archived).order(:slug)
         end
 
         def initialize_result
@@ -147,8 +147,8 @@ module ActiveAgent
           unless ActiveAgent::Dashboard.execution_enabled?
             raise McpError.new("Agent execution is disabled on this dashboard")
           end
-          if (denial = ActiveAgent::Dashboard.quota_denial(@owner, :execution))
-            raise McpError.new(denial)
+          if (denial = ActiveAgent::Dashboard.quota_denial(@owner, :execution)).present?
+            raise McpError.new(denial.is_a?(Hash) ? denial[:message] || denial["message"] : denial)
           end
 
           run = agent.test_execute(message, action: action)

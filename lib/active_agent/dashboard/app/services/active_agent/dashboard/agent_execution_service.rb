@@ -316,7 +316,7 @@ module ActiveAgent
       # Agents callable via call_agent: everything the calling agent's owner
       # owns. A single-user install has no owner, so every agent is in scope.
       def workspace_agents
-        Agent.for_owner(owner).where.not(status: :archived)
+        ActiveAgent::Dashboard.agents_for(owner).where.not(status: :archived)
       end
 
       def agent_memory
@@ -544,9 +544,10 @@ module ActiveAgent
         }.as_json
 
         trace_model = ActiveAgent::Dashboard.trace_model
-        return if trace_model.for_account(owner).exists?(trace_id: root_span.trace_id)
+        tenant = ActiveAgent::Dashboard.tenant_for(owner)
+        return if trace_model.for_account(tenant).exists?(trace_id: root_span.trace_id)
 
-        trace_model.create_from_payload(payload, sdk_info, account: owner)
+        trace_model.create_from_payload(payload, sdk_info, account: tenant)
       rescue StandardError => e
         Rails.logger.error("[AgentExecutionService] Failed to record trace #{root_span.trace_id}: #{e.class} - #{e.message}")
         nil

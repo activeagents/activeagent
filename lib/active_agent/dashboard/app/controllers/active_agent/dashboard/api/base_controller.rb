@@ -37,9 +37,11 @@ module ActiveAgent
           end
         end
 
-        # The agents the caller can see.
+        # The agents the caller can see. Not simply `owned(Agent)`: a host
+        # app can define reachability more broadly than ownership (an
+        # account's key reaching every member's agents, say).
         def owner_agents
-          owned(ActiveAgent::Dashboard::Agent)
+          ActiveAgent::Dashboard.agents_for(current_owner)
         end
 
         # Reported traces visible to the caller. Scoped to the tenant in a
@@ -48,13 +50,10 @@ module ActiveAgent
           ActiveAgent::Dashboard.trace_model.for_account(current_account)
         end
 
-        # The tenant, when the host app has one.
+        # The tenant, when the host app has one. current_owner already
+        # resolves it in multi-tenant mode; single-tenant installs have none.
         def current_account
-          return nil unless ActiveAgent::Dashboard.current_account_method
-
-          send(ActiveAgent::Dashboard.current_account_method)
-        rescue NoMethodError
-          nil
+          ActiveAgent::Dashboard.multi_tenant? ? current_owner : nil
         end
 
         # Refuses the request when a multi-tenant install can't resolve a
@@ -69,14 +68,16 @@ module ActiveAgent
         # Asks the host app whether this owner may do +kind+ (:execution or
         # :trace_ingest). Unlimited unless the app said otherwise.
         def enforce_quota!(kind)
-          message = ActiveAgent::Dashboard.quota_denial(current_owner, kind)
-          return if message.nil?
+          denial = ActiveAgent::Dashboard.quota_denial(current_owner, kind)
+          return if denial.blank?
 
-          render json: {
-            error: "Plan limit reached",
-            upgrade_required: true,
-            message: message
-          }, status: :payment_required
+          body = { error: "Plan limit reached", upgrade_required: true }
+          # A checker can answer with a message, or with a hash carrying
+          # whatever else the host app wants the client to see (its own usage
+          # numbers, an upgrade link).
+          body = denial.is_a?(Hash) ? body.merge(denial) : body.merge(message: denial)
+
+          render json: body, status: :payment_required
         end
 
         def enforce_execution_quota! = enforce_quota!(:execution)

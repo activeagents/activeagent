@@ -261,9 +261,10 @@ module ActiveAgent
         base_slug = name.to_s.parameterize
         self.slug = base_slug
 
-        # Ensure uniqueness
+        # Checked globally rather than per owner: a host app may have a global
+        # unique index on slug (ours does), and suffixing costs one query.
         counter = 1
-        while self.class.for_owner(owner).exists?(slug: slug)
+        while self.class.exists?(slug: slug)
           self.slug = "#{base_slug}-#{counter}"
           counter += 1
         end

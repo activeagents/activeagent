@@ -33,7 +33,7 @@ module ActiveAgent
       end
 
       def owner_agents
-        Agent.for_owner(current_owner)
+        ActiveAgent::Dashboard.agents_for(current_owner)
       end
 
       def meta_props

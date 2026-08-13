@@ -84,13 +84,40 @@ module ActiveAgent
       # @return [String, nil]
       attr_accessor :user_class
 
-      # Method to call on controller to get current account (multi-tenant mode)
+      # Method to call on controller to get current account (multi-tenant mode).
+      # Only usable when the host app has mixed that method into the engine's
+      # controllers; otherwise use current_account_resolver.
       # @return [Symbol, nil]
       attr_accessor :current_account_method
 
-      # Method to call on controller to get current user
+      # Method to call on controller to get current user. Same caveat as
+      # current_account_method — see current_user_resolver.
       # @return [Symbol, nil]
       attr_accessor :current_user_method
+
+      # Resolves the signed-in user from the controller. Preferred over
+      # current_user_method: the engine's controllers are their own base
+      # class, so a host app's `current_user` helper is not on them unless
+      # the app deliberately put it there.
+      # @return [Proc, nil]
+      attr_accessor :current_user_resolver
+
+      # Resolves the current tenant from the controller. See
+      # current_user_resolver.
+      # @return [Proc, nil]
+      attr_accessor :current_account_resolver
+
+      # The tenant whose telemetry relates to +owner+. Traces belong to
+      # accounts while agents may belong to users, so the two are not always
+      # the same record and a host app says how to get from one to the other.
+      # @return [Proc, nil]
+      attr_accessor :tenant_resolver
+
+      # The agents an owner can reach. Defaults to the ones that owner owns.
+      # A host app where those differ — the platform's agents belong to users
+      # while its API keys belong to accounts — supplies its own scope.
+      # @return [Proc, nil]
+      attr_accessor :agent_scope_resolver
 
       # Custom trace model class (for host app overrides)
       # @return [String, nil]
@@ -131,8 +158,9 @@ module ActiveAgent
 
       # Called before each run/trace-ingest to enforce host-app limits.
       # Receives (owner, kind) where kind is :execution or :trace_ingest, and
-      # returns nil to allow or a message String to deny. Denials surface as
-      # HTTP 402 (execution) / 429 (ingest).
+      # returns nil to allow, or to deny: a message String, or a Hash merged
+      # into the response so the app can surface its own usage numbers.
+      # Denials surface as HTTP 402 (execution) / 429 (ingest).
       #
       # Unset means unlimited, which is what a self-hosted install wants.
       # @return [Proc, nil]
@@ -226,7 +254,7 @@ module ActiveAgent
 
       # Asks the host app whether +owner+ may perform +kind+.
       #
-      # @return [String, nil] denial message, or nil when allowed
+      # @return [String, Hash, nil] denial message or payload, nil when allowed
       def quota_denial(owner, kind)
         return nil if quota_checker.nil?
 
@@ -255,6 +283,23 @@ module ActiveAgent
         else
           ActiveAgent::TelemetryTrace
         end
+      end
+
+      # The tenant +owner+ belongs to. Identity unless the host app says
+      # otherwise, which is right for every single-tenant install.
+      def tenant_for(owner)
+        return owner if tenant_resolver.nil?
+
+        tenant_resolver.call(owner)
+      end
+
+      # The agents +owner+ can reach.
+      #
+      # @return [ActiveRecord::Relation]
+      def agents_for(owner)
+        return agent_model.for_owner(owner) if agent_scope_resolver.nil?
+
+        agent_scope_resolver.call(owner) || agent_model.none
       end
 
       # Returns the agent model class to use.
@@ -289,6 +334,10 @@ module ActiveAgent
         @user_class = nil
         @current_account_method = nil
         @current_user_method = nil
+        @current_user_resolver = nil
+        @current_account_resolver = nil
+        @agent_scope_resolver = nil
+        @tenant_resolver = nil
         @trace_model_class = nil
         @use_inertia = false
         @layout = nil

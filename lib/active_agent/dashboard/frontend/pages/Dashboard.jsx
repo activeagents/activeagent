@@ -18,6 +18,7 @@ import OrganizationView from '../components/dashboard/OrganizationView';
 import SettingsView from '../components/dashboard/SettingsView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
+import { dashboardPath } from '../utils/dashboardPath';
 
 /**
  * Dashboard - Main dashboard application
@@ -158,7 +159,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         setSelectedAgent(data.agent);
         setCurrentView('editor');
         showNotification('Agent created successfully!', 'success');
-        window.history.pushState({}, '', `/dashboard/agents/${data.agent.id}/edit`);
+        window.history.pushState({}, '', dashboardPath(`/agents/${data.agent.id}/edit`));
       } else {
         const error = await response.json();
         showNotification(error.errors?.join(', ') || 'Failed to create agent', 'error');
@@ -207,7 +208,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         setSelectedAgent(null);
         setCurrentView('list');
         showNotification('Agent deleted', 'success');
-        window.history.pushState({}, '', '/dashboard');
+        window.history.pushState({}, '', dashboardPath());
       }
     } catch (error) {
       showNotification('Failed to delete agent', 'error');
@@ -239,7 +240,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     setCurrentView('editor');
     setShowTemplateLibrary(false);
     showNotification('Agent created from template!', 'success');
-    window.history.pushState({}, '', `/dashboard/agents/${agent.id}/edit`);
+    window.history.pushState({}, '', dashboardPath(`/agents/${agent.id}/edit`));
   };
 
   // Views that edit or run an agent need its detail fields (instructions,
@@ -257,22 +258,22 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     }
 
     // Update URL
-    let path = '/dashboard';
-    if (view === 'builder') path = '/dashboard/agents/new';
-    else if (view === 'editor' && agent) path = `/dashboard/agents/${agent.id}/edit`;
-    else if (view === 'runner' && agent) path = `/dashboard/agents/${agent.id}/run`;
-    else if (view === 'agent-analytics' && agent) path = `/dashboard/agents/${agent.id}/analytics`;
-    else if (view === 'history' && agent) path = `/dashboard/agents/${agent.id}/interactions`;
-    else if (view === 'analytics') path = '/dashboard/analytics';
-    else if (view === 'traces') path = '/dashboard/traces';
-    else if (view === 'metrics') path = '/dashboard/metrics';
-    else if (view === 'interactions') path = '/dashboard/interactions';
-    else if (view === 'evaluations') path = '/dashboard/evaluations';
-    else if (view === 'benchmarks') path = '/dashboard/benchmarks';
-    else if (view === 'replay') path = '/dashboard/replay';
-    else if (view === 'sandbox') path = '/dashboard/sandbox';
-    else if (view === 'organization') path = '/dashboard/organization';
-    else if (view === 'settings') path = '/dashboard/settings';
+    let path = dashboardPath();
+    if (view === 'builder') path = dashboardPath('/agents/new');
+    else if (view === 'editor' && agent) path = dashboardPath(`/agents/${agent.id}/edit`);
+    else if (view === 'runner' && agent) path = dashboardPath(`/agents/${agent.id}/run`);
+    else if (view === 'agent-analytics' && agent) path = dashboardPath(`/agents/${agent.id}/analytics`);
+    else if (view === 'history' && agent) path = dashboardPath(`/agents/${agent.id}/interactions`);
+    else if (view === 'analytics') path = dashboardPath('/analytics');
+    else if (view === 'traces') path = dashboardPath('/traces');
+    else if (view === 'metrics') path = dashboardPath('/metrics');
+    else if (view === 'interactions') path = dashboardPath('/interactions');
+    else if (view === 'evaluations') path = dashboardPath('/evaluations');
+    else if (view === 'benchmarks') path = dashboardPath('/benchmarks');
+    else if (view === 'replay') path = dashboardPath('/replay');
+    else if (view === 'sandbox') path = dashboardPath('/sandbox');
+    else if (view === 'organization') path = dashboardPath('/organization');
+    else if (view === 'settings') path = dashboardPath('/settings');
 
     window.history.pushState({}, '', path);
   };

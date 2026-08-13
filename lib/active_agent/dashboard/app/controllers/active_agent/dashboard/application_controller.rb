@@ -50,20 +50,42 @@ module ActiveAgent
 
       # Returns the current user from the host application.
       def current_user
-        return nil unless ActiveAgent::Dashboard.current_user_method
+        return @current_user if defined?(@current_user)
 
-        send(ActiveAgent::Dashboard.current_user_method)
-      rescue NoMethodError
-        nil
+        @current_user = resolve_actor(
+          ActiveAgent::Dashboard.current_user_resolver,
+          ActiveAgent::Dashboard.current_user_method,
+          :current_user
+        )
       end
 
       # Returns the current owner (account in multi-tenant, user otherwise).
       def current_owner
-        if ActiveAgent::Dashboard.multi_tenant? && ActiveAgent::Dashboard.current_account_method
-          send(ActiveAgent::Dashboard.current_account_method)
+        # No fallback to the user in multi-tenant mode: a signed-in user with
+        # no tenant owns nothing here, and quietly substituting them would
+        # hand them a scope they are not part of.
+        if ActiveAgent::Dashboard.multi_tenant?
+          resolve_actor(
+            ActiveAgent::Dashboard.current_account_resolver,
+            ActiveAgent::Dashboard.current_account_method,
+            :current_owner
+          )
         else
           current_user
         end
+      end
+
+      # Prefers the host app's lambda. A named method is only called when the
+      # controller really responds to it and it isn't the accessor we are
+      # already inside — configuring current_user_method = :current_user is
+      # the obvious thing to write, and it would otherwise recurse forever.
+      def resolve_actor(resolver, method_name, own_name)
+        return resolver.call(self) if resolver
+
+        return nil if method_name.nil? || method_name.to_sym == own_name
+        return nil unless respond_to?(method_name, true)
+
+        send(method_name)
       rescue NoMethodError
         nil
       end
