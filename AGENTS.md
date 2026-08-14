@@ -10,6 +10,7 @@
 | Base agent class | `lib/active_agent/base.rb` |
 | Provider implementations | `lib/active_agent/providers/` |
 | Agent concerns/mixins | `lib/active_agent/concerns/` |
+| Agent-as-tool delegation | `lib/active_agent/delegation/` |
 | Rails generators | `lib/generators/active_agent/` |
 | Dashboard engine (`actionagent` gem) | `actionagent/` |
 | Dashboard React source | `actionagent/frontend/` |
@@ -172,6 +173,58 @@ class MyAgent < ApplicationAgent
 end
 ```
 
+### Delegating to Another Agent (Agent-as-Tool)
+
+When the work behind a tool is itself an AI task, expose a sub-agent instead of a
+plain method. The sub-agent declares its own contract; the caller decides what it
+may spend and what runs it:
+
+```ruby
+class SummarizerAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o-mini"
+
+  delegation :summarize, description: "Condense a document into key points" do
+    string  :text, required: true, description: "Full document text"
+    integer :limit, description: "Maximum number of key points"
+
+    returns do                      # optional: becomes the sub-agent's response_format
+      string :summary, required: true
+      array  :points, of: :string, required: true
+    end
+  end
+
+  def summarize(text:, limit: 5)
+    prompt(message: "Summarize in #{limit} points: #{text}")
+  end
+end
+
+class ResearchAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o"
+
+  delegation_budget max_calls: 8, max_duration: 60          # all delegations, together
+
+  delegate_to SummarizerAgent, budget: { max_calls: 3, timeout: 20 }
+  delegate_to FactCheckAgent, as: :verify,
+              backend: { provider: :anthropic, model: "claude-haiku-4-5" }
+
+  def research(topic:)
+    prompt(message: "Research #{topic}. Summarize sources before citing them.")
+  end
+end
+```
+
+Key points:
+- `delegate_to` defines a real instance method, so `agent.summarize(text: "...")`
+  runs the delegation directly — handy in tests, no model required.
+- Delegated tools merge into `prompt`'s `tools:` automatically. Scope them per
+  action with `delegations: false` or `delegations: [:summarize]`.
+- Exhausting a budget returns `{ error: "budget_exceeded", ... }` to the calling
+  model by default; pass `on_exceeded: :raise` to fail loudly instead.
+- Swap `backend: :mock` in tests to run a delegation offline with the contract
+  unchanged.
+
+See `docs/actions/delegation.md` and `lib/active_agent/concerns/delegation.rb`.
+
 ### Adding a New Provider
 
 1. Create `lib/active_agent/providers/{service}_provider.rb` defining
@@ -317,6 +370,11 @@ cycle. (Both gemspecs declare `railties`; that one is not part of the split.)
 4. **No `tool` macro** - Tools are passed as hashes to `prompt()`, not decorated methods
 5. **Templates use ERB** - Instance variables from agent are available
 6. **Provider config precedence**: Runtime > Agent class > config/active_agent.yml
+7. **Delegations do have a macro** - Unlike tools, sub-agents are declared with
+   `delegation` (on the callee) and `delegate_to` (on the caller); the tool
+   method is generated for you
+8. **Delegation budgets are per generation** - The ledger lives on the agent
+   instance, so there is nothing to reset between requests
 
 ## Useful Commands
 

@@ -144,8 +144,21 @@ If the LLM doesn't call your function when expected, improve the tool descriptio
 
 If the LLM passes unexpected parameters, add detailed parameter descriptions with `enum` for restricted choices and mark required parameters explicitly.
 
+## Delegating to Another Agent
+
+When the work behind a tool is itself an AI task — summarizing, classifying, translating — reach for [delegation](/actions/delegation) instead of a plain function. A delegated sub-agent keeps its own instructions, templates and model, and runs under a declared schema, a cost/latency budget, and a swappable backend:
+
+```ruby
+class TriageAgent < ApplicationAgent
+  delegation_budget max_calls: 6, max_duration: 45
+
+  delegate_to TicketClassifierAgent, budget: { max_calls: 1, timeout: 10 }
+end
+```
+
 ## Related Documentation
 
+- [Delegation](/actions/delegation) - Expose another agent to your model as a tool
 - [MCP (Model Context Protocol)](/actions/mcps) - Connect to external services via MCP
 - [Agents](/agents) - Understand the agent lifecycle and callbacks
 - [Generation](/agents/generation) - Execute tool-enabled generations

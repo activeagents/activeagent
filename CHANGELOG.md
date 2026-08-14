@@ -128,6 +128,45 @@ observability surface (see `docs/framework/self-hosted-observability.md`):
   it remains a no-op accessor with its historical default so existing
   initializers keep booting, and will be removed in the next major.
 
+### Agent-as-tool delegation
+
+Sub-agents are now a first-class primitive. A tool is a Ruby method your
+model can call; a delegation is another agent your model can call — with
+its own instructions, templates, model and budget.
+
+- **`delegation :action, description:`** declares what a sub-agent exposes:
+  a description for the calling model, a JSON Schema for its inputs (block
+  DSL, a plain hash, or any class responding to `to_json_schema`), and
+  optionally a `returns` schema. A declared `returns` becomes the
+  sub-agent's `response_format`, and its answer is parsed and checked
+  before the caller sees it.
+- **`delegate_to AgentClass`** exposes those contracts to the calling model
+  as tools, with `only:`/`except:`/`as:` for scoping and renaming,
+  `params:` for forwarding, and `action:` for declaring a contract at the
+  call site when you don't own the sub-agent. Per-action scoping via the
+  `delegations:` prompt option.
+- **Cost and latency budgets**: `max_calls`, `max_tokens`, `max_cost`,
+  `max_duration` and a per-call `timeout`, set per delegation and/or
+  agent-wide with `delegation_budget`. Exhausting one returns a structured
+  result the model can act on (`on_exceeded: :stop`, the default) instead
+  of raising mid-conversation; `:raise` is available. Budgets are scoped
+  to a single generation, and spend is readable afterwards via
+  `delegation_ledger`.
+- **Swappable backends**: `backend: :ollama` or
+  `backend: { provider: :anthropic, model: "claude-haiku-4-5" }` moves a
+  delegation to different silicon without touching the sub-agent. Provider
+  swaps rebuild provider configuration rather than merging over it, and
+  template lookup still resolves to the original agent's views.
+- **Cost registry**: `ActiveAgent::Delegation::Pricing.register` records
+  token rates in USD per 1M tokens (no built-in price list, so `max_cost`
+  never fires on stale numbers); rates can also be stated inline on a budget.
+- **Instrumentation**: `delegate.active_agent` (agent, sub-agent, action,
+  model, duration, usage, cost, ledger) and
+  `delegation_refused.active_agent` (violated limit).
+- **New docs** (`docs/actions/delegation.md`) with a worked support-triage
+  example, plus test coverage in `test/features/delegation_test.rb` and
+  `test/docs/actions/delegation_examples_test.rb`.
+
 ### Dashboard & Telemetry — dev console readiness
 
 The dashboard engine — Active Agent's local dev console — now works out of
