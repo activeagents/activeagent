@@ -182,11 +182,19 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
 
   # The API half must keep answering 401: a redirect to an HTML sign-in page
   # is not something an XHR or a JSON client can act on.
+  #
+  # The bare `get` without `as: :json` is the case that matters. A request
+  # with no Accept header is HTML as far as Rails is concerned, so deciding
+  # this by request format would answer a JSON client that simply omitted
+  # the header with a 302 to a login form.
   test "the JSON API still answers 401 when a sign-in page is configured" do
     ActionAgent.authentication_method = ->(_controller) { false }
     ActionAgent.sign_in_path = "/session/new"
 
     get "/activeagents/api/agents", as: :json
+    assert_response :unauthorized
+
+    get "/activeagents/api/agents"
     assert_response :unauthorized
 
     post "/activeagents/api/sandboxes", params: { sandbox_type: "playwright_mcp" }

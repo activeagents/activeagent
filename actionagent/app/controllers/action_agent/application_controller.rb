@@ -49,15 +49,35 @@ module ActionAgent
     # not a failed API client, and a bare 401 gives them a blank screen with
     # no way forward. Send a browser navigation to the host app's sign-in
     # page when it has told us where that is, and keep 401 for everything
-    # else — XHR, JSON, and any host that configured no sign-in path.
+    # else.
     def deny_access!
-      target = ActionAgent.sign_in_path_for(self)
+      target = sign_in_redirect_target
 
-      if target && request.get? && request.format.html?
+      if target
         redirect_to target, allow_other_host: false
       else
         head :unauthorized
       end
+    end
+
+    # Where a denial on this controller should send the caller, or nil to
+    # answer 401.
+    def sign_in_redirect_target
+      return nil unless redirect_signed_out_to_sign_in?
+      return nil unless request.get? && request.format.html?
+
+      ActionAgent.sign_in_path_for(self)
+    end
+
+    # Whether a denial here may answer with a redirect rather than 401.
+    #
+    # True for the dashboard's pages. Api::BaseController overrides it to
+    # false: a JSON client cannot act on a redirect to an HTML form, and
+    # deciding by request format alone would not protect it — a request with
+    # no Accept header is HTML by default, so a client that simply omits the
+    # header would be handed a 302 to a login page instead of a 401.
+    def redirect_signed_out_to_sign_in?
+      true
     end
 
     # Returns the current user from the host application.
