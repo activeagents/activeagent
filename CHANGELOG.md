@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-08-14
+
+### Fixed
+
+- **`actionagent`: every engine constant resolves under a host's
+  inflections.** 1.2.1 scoped its autoloader override to the basename `api`,
+  which covered the controllers under `app/controllers/action_agent/api` and
+  nothing else. Seven files camelize differently once a host registers an
+  acronym — `mcp_catalog.rb`, `mcp_recording_middleware.rb`,
+  `playwright_mcp_client.rb`, `api_key.rb`, and the `api_keys`, `mcp` and
+  `mcp_servers` controllers — and each raised `Zeitwerk::NameError` on first
+  reference. In a host declaring `inflect.acronym "MCP"` the **Tools view was
+  unreachable** (`uninitialized constant
+  ActionAgent::ToolDiscovery::McpCatalog`), as were the MCP endpoints and
+  anything touching an API key.
+
+  Every path under the engine now camelizes with Zeitwerk's default
+  inflector, ignoring the host's acronyms, scoped by path so the host's own
+  constants keep their spelling. The router half generalizes with it: an
+  all-caps run in a missing constant is retried in the relaxed spelling
+  (`API` → `Api`, `MCPServersController` → `McpServersController`) rather
+  than aliasing each pair by hand.
+
 ## [1.2.1] - 2026-08-14
 
 ### Fixed
