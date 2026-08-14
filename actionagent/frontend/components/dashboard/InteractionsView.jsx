@@ -6,12 +6,13 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream, { roleBubble } from './InteractionStream';
-import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
+import ContextMeter, { contextWindowFor, estimateContentTokens, messageSegments } from './ContextMeter';
 import TraceSpanBar from './TraceSpanBar';
 import TraceDetail from './TraceDetail';
 import { formatDuration } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
 import {
+  CapturedAt,
   Chevron,
   ObjectCard,
   PreviewLines,
@@ -41,24 +42,29 @@ const interactionContext = (detail) => {
   });
   if (!peak) return null;
 
-  const instructions = estimateTokens(detail?.instructions);
+  // A trace serialized as an interaction carries the SDK's truncated content,
+  // so sizes read through the truncation marker where there is one.
+  const instructions = estimateContentTokens(detail?.instructions);
   let toolResults = 0;
   (detail?.messages || []).forEach((message) => {
     if (message.role !== 'tool') return;
-    toolResults += estimateTokens(message.content) + estimateTokens(message.tool_arguments);
+    toolResults += estimateContentTokens(message.content) + estimateContentTokens(message.tool_arguments);
   });
   toolResults = Math.min(toolResults, peak.input);
   const conversation = Math.max(peak.input - instructions - toolResults, 0);
+  const byRole = messageSegments(conversation, detail?.messages);
 
   return {
     used: peak.total,
     limit: contextWindowFor(peak.model),
     cached: peak.cached,
     thinking: peak.thinking,
+    // Same order and the same colours as a trace's meter: instructions, the
+    // conversation by role, tool traffic, then the generation.
     segments: [
-      { key: 'messages', label: 'Messages', tokens: conversation },
-      { key: 'tool_results', label: 'Tool results', tokens: toolResults },
       { key: 'instructions', label: 'Instructions', tokens: instructions },
+      ...(byRole.length ? byRole : [{ key: 'messages', label: 'Messages', tokens: conversation }]),
+      { key: 'tool_results', label: 'Tool results', tokens: toolResults },
       { key: 'output', label: 'Generated output', tokens: peak.output },
     ],
   };
@@ -91,15 +97,6 @@ const formatNumber = (num) => {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
   return num.toString();
-};
-
-const timeAgo = (iso) => {
-  if (!iso) return '';
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
 };
 
 
@@ -142,6 +139,7 @@ function GenerationRow({ generation, darkMode, maxMs, expanded, onToggle }) {
         title={expandable ? `${spanCount} spans — click for the trace` : undefined}
       >
         <div className="flex flex-wrap items-center gap-3 text-xs font-mono" style={{ color: colors.textSecondary }}>
+          <CapturedAt at={generation.created_at} darkMode={darkMode} style={{ fontSize: '12px' }} />
           <span
             title={generation.cache_hit ? `${formatNumber(generation.tokens.cached)} cached prompt tokens` : 'No prompt cache hit'}
             style={{ color: generation.cache_hit ? colors.good : colors.textMuted }}
@@ -603,7 +601,9 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                         segments={[{ key: 'messages', label: 'Context', tokens: (session.tokens?.input || 0) + (session.tokens?.output || 0) || session.tokens?.total }]}
                       />
                     )}
-                    <span style={{ color: colors.textMuted }}>{timeAgo(session.last_activity_at)}</span>
+                    {/* Last activity, not capture time — an interaction spans
+                        many runs — but dated the way a trace row is. */}
+                    <CapturedAt at={session.last_activity_at} darkMode={darkMode} verb="Last activity" />
                     <Chevron open={isExpanded} darkMode={darkMode} />
                   </div>
                 </div>

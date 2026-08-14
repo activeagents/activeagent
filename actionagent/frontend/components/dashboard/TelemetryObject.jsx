@@ -39,6 +39,50 @@ export const previewText = (text, max = 200) => {
   return clean.length > max ? `${clean.slice(0, max)}…` : clean;
 };
 
+// When a captured object happened, as a list row should say it. The wall
+// clock leads, because the question a list of runs answers is "what was going
+// on at 14:22" and "2m ago" can't answer it; the relative age and the full
+// date stay on hover. Anything not from today carries its date inline, so a
+// list that spans midnight can't read as one afternoon.
+export const capturedAtLabel = (value, verb = 'Captured') => {
+  if (!value) return null;
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return null;
+
+  const seconds = Math.max(Math.floor((Date.now() - at.getTime()) / 1000), 0);
+  const age =
+    seconds < 60 ? 'just now'
+      : seconds < 3600 ? `${Math.floor(seconds / 60)}m ago`
+        : seconds < 86400 ? `${Math.floor(seconds / 3600)}h ago`
+          : `${Math.floor(seconds / 86400)}d ago`;
+  const time = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const today = at.toDateString() === new Date().toDateString();
+
+  return {
+    short: today ? time : `${at.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`,
+    full: `${verb} ${at.toLocaleString()} · ${age}`,
+  };
+};
+
+// The timestamp cell every telemetry list row uses, so a trace, a generation
+// and an interaction all date themselves the same way. `verb` names what the
+// time means for objects that aren't captured at a point (an interaction's
+// last activity, say).
+export function CapturedAt({ at, darkMode, style, verb }) {
+  const label = capturedAtLabel(at, verb);
+  if (!label) return null;
+
+  return (
+    <span
+      className="flex-shrink-0"
+      title={label.full}
+      style={{ fontFamily: TYPOGRAPHY.mono, fontSize: '12px', color: telemetryColors(darkMode).textMuted, ...style }}
+    >
+      {label.short}
+    </span>
+  );
+}
+
 // Every object in Traces and Interactions opens with the same affordance, at
 // the same size, in the same corner.
 export function Chevron({ open, darkMode, size = 14, style }) {

@@ -4,7 +4,7 @@ import ContextMeter from './ContextMeter';
 import TraceDetail, { traceContext } from './TraceDetail';
 import { formatDuration, traceContentPreview } from './SpanWaterfall';
 import { roleBubble } from './InteractionStream';
-import { Chevron, ObjectCard, PreviewLines, telemetryColors } from './TelemetryObject';
+import { CapturedAt, Chevron, ObjectCard, PreviewLines, telemetryColors } from './TelemetryObject';
 
 // One trace as an expandable object: what ran, what it cost, what went in and
 // came out — then the full waterfall or conversation underneath. The same card
@@ -52,6 +52,7 @@ export default function TraceCard({ trace, darkMode, expanded, onToggle }) {
           </span>
         </div>
         <div className="flex items-center gap-4 flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>
+          <CapturedAt at={trace.timestamp} darkMode={darkMode} />
           {trace.model && (
             <span
               className="text-xs px-2 py-0.5 rounded"

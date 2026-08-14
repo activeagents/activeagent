@@ -4,17 +4,26 @@ import React, { useState } from 'react';
 // A segmented bar of what occupies the model's context — messages, tool
 // results, instructions, tool/MCP schemas, generated output — against the
 // window limit, with semantic thresholds: >=75% warns, >=90% signals
-// imminent compaction. The blue ramp is deliberate: warning/error are the
-// only warm colors here so the threshold states read as alarms.
-
-const SEGMENT_COLORS = {
-  messages: '#2563eb',
-  tool_results: '#5b84ec',
-  instructions: '#85a3f0',
-  tool_schemas: '#a6bcf4',
-  mcp_schemas: '#c3d2f8',
-  memory: '#dce4fb',
-  output: '#7c3aed',
+// imminent compaction.
+//
+// Segments carry the same colours the rest of the dashboard already gives
+// those things: the span waterfall's types (SpanWaterfall's SPAN_COLORS) and
+// the conversation's role bubbles (InteractionStream's roleBubble). The
+// prompt is blue in the waterfall, so what the prompt put in context is blue
+// here; the generation is red there, so generated output is red here; system
+// instructions violet, tool traffic amber, tool schemas green. Reading the bar
+// then means the same thing as reading the trace directly above it.
+export const SEGMENT_COLORS = {
+  instructions: '#8b5cf6', // system role — violet
+  messages_system: '#a78bfa', // system turns in the history — the same violet, one step back
+  messages: '#3b82f6', // conversation, mixed roles — user blue
+  messages_user: '#3b82f6',
+  messages_assistant: '#f87171', // assistant turns — red, one step off the live generation
+  tool_results: '#f59e0b', // tool role — amber
+  tool_schemas: '#22c55e', // tool spans — green
+  mcp_schemas: '#4ade80',
+  memory: '#14b8a6', // developer-supplied — teal
+  output: '#ef4444', // the generation itself — llm red
 };
 
 // Context-window sizes by model family. The provider reports real token
@@ -34,6 +43,56 @@ export const estimateTokens = (value) => {
   if (value == null) return 0;
   const text = typeof value === 'string' ? value : JSON.stringify(value);
   return Math.round(text.length / 4);
+};
+
+// Content captured on a span is truncated before it is stored, and the marker
+// left behind states the original length. Reading it back keeps a 40k-char
+// turn from weighing the same as a 4k one — without it every message over the
+// cap estimates identically and the breakdown flattens.
+const TRUNCATION_MARKER = /… \(truncated, (\d+) chars total\)$/;
+
+export const estimateContentTokens = (value) => {
+  const marker = typeof value === 'string' ? value.match(TRUNCATION_MARKER) : null;
+  return marker ? Math.round(Number(marker[1]) / 4) : estimateTokens(value);
+};
+
+// Split a conversation's share of the window across the roles that wrote it,
+// so the bar reads the way the message stream does: user blue, assistant red,
+// system violet. Only the recorded text sets the proportions — the size being
+// divided is the provider's real input count minus the parts measured
+// directly (instructions, schemas, tool results), so the roles still sum to
+// what the model was actually charged for. Tool messages are left out: their
+// tokens are counted from tool spans, not from this split.
+export const messageSegments = (total, messages) => {
+  if (!(total > 0)) return [];
+
+  const roles = [
+    { key: 'messages_system', label: 'System messages', roles: ['system', 'developer'] },
+    { key: 'messages_user', label: 'User messages', roles: ['user'] },
+    { key: 'messages_assistant', label: 'Assistant messages', roles: ['assistant'] },
+  ];
+  const weights = {};
+  let weighed = 0;
+
+  (messages || []).forEach((message) => {
+    if (!message) return;
+    const entry = roles.find((role) => role.roles.includes(message.role));
+    if (!entry) return;
+    const size = estimateContentTokens(message.content) + estimateTokens(message.tool_calls);
+    if (size <= 0) return;
+    weights[entry.key] = (weights[entry.key] || 0) + size;
+    weighed += size;
+  });
+
+  if (weighed <= 0) return [];
+
+  const segments = roles
+    .filter((role) => weights[role.key] > 0)
+    .map((role) => ({ key: role.key, label: role.label, tokens: Math.round((weights[role.key] / weighed) * total) }));
+  // Rounding shouldn't lose (or invent) tokens — the parts add back to the whole.
+  const drift = total - segments.reduce((sum, segment) => sum + segment.tokens, 0);
+  if (drift !== 0) segments[0].tokens = Math.max(segments[0].tokens + drift, 0);
+  return segments;
 };
 
 export const formatTokenCount = (value) => {
@@ -67,10 +126,10 @@ export default function ContextMeter({
   const trackColor = darkMode ? 'rgba(255,255,255,0.1)' : '#f3f4f6';
   const valueLabel = `${formatTokenCount(total)} / ${formatTokenCount(limit)} (${Math.round(ratio * 100)}%)`;
 
-  const segmentColor = (segment) =>
-    // The messages segment recolors with the threshold so the legend always
-    // keys the bar.
-    segment.key === 'messages' && stateColor ? stateColor : (segment.color || SEGMENT_COLORS[segment.key] || '#2563eb');
+  // Segment colours never move with the threshold: they say what the tokens
+  // are, and that has to hold at 95% as much as at 5%. The threshold states
+  // read off the frame instead — the border, the value, the compaction line.
+  const segmentColor = (segment) => segment.color || SEGMENT_COLORS[segment.key] || SEGMENT_COLORS.messages;
 
   const bar = (height) => (
     <div style={{ display: 'flex', height, borderRadius: '999px', overflow: 'hidden', background: trackColor, flex: 1 }}>
@@ -189,12 +248,13 @@ export default function ContextMeter({
             >
               {cached > 0 && (
                 <span>
-                  <span style={{ color: '#2563eb' }}>[=]</span> cached prefix {formatTokenCount(cached)}
+                  <span style={{ color: SEGMENT_COLORS.messages }}>[=]</span> cached prefix {formatTokenCount(cached)}
                 </span>
               )}
               {thinking > 0 && (
+                // Amber, as thinking is in the waterfall and in the token line.
                 <span>
-                  <span style={{ color: '#7c3aed' }}>[~]</span> thinking {formatTokenCount(thinking)}
+                  <span style={{ color: '#fbbf24' }}>[~]</span> thinking {formatTokenCount(thinking)}
                 </span>
               )}
             </div>
