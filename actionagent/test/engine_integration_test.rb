@@ -149,6 +149,53 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
     ActionAgent.authentication_method = nil
   end
 
+  # A signed-out person following a link to the dashboard is not a failed API
+  # client. Without a sign_in_path they get a bare 401 — a blank page with no
+  # way forward — which is what the host app's own controllers avoided before
+  # the dashboard moved into this engine.
+  test "a signed-out browser is sent to the host app's sign-in page" do
+    ActionAgent.authentication_method = ->(_controller) { false }
+    ActionAgent.sign_in_path = "/session/new"
+
+    get "/activeagents"
+
+    assert_redirected_to "/session/new"
+  ensure
+    ActionAgent.authentication_method = nil
+    ActionAgent.sign_in_path = nil
+  end
+
+  test "sign_in_path may be a callable, and never turns a denial into a 500" do
+    ActionAgent.authentication_method = ->(_controller) { false }
+    ActionAgent.sign_in_path = ->(controller) { "/login?from=#{controller.request.path}" }
+
+    get "/activeagents"
+    assert_redirected_to "/login?from=/activeagents/"
+
+    ActionAgent.sign_in_path = ->(_controller) { raise "boom" }
+    get "/activeagents"
+    assert_response :unauthorized
+  ensure
+    ActionAgent.authentication_method = nil
+    ActionAgent.sign_in_path = nil
+  end
+
+  # The API half must keep answering 401: a redirect to an HTML sign-in page
+  # is not something an XHR or a JSON client can act on.
+  test "the JSON API still answers 401 when a sign-in page is configured" do
+    ActionAgent.authentication_method = ->(_controller) { false }
+    ActionAgent.sign_in_path = "/session/new"
+
+    get "/activeagents/api/agents", as: :json
+    assert_response :unauthorized
+
+    post "/activeagents/api/sandboxes", params: { sandbox_type: "playwright_mcp" }
+    assert_response :unauthorized
+  ensure
+    ActionAgent.authentication_method = nil
+    ActionAgent.sign_in_path = nil
+  end
+
   # The lander demo endpoint served the oldest completed recording — a real
   # customer session, with its typed form values — to anyone. "demo" is now
   # just an id that will not be found.
