@@ -33,6 +33,23 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     assert defined?(SolidAgent::HasContext)
   end
 
+  # solid_agent renamed has_context's owner keyword from contextable: to
+  # contextual: without changing its version number, so both spellings are in
+  # the wild under "0.1.1". Passing one the installed copy does not declare is
+  # an ArgumentError on every run, which is how it reached a release: the gem
+  # installs, resolves, boots and serves the dashboard, and only dies the
+  # moment someone runs an agent.
+  test "the context owner keyword is one the installed solid_agent declares" do
+    keyword = ActionAgent::AgentExecutionService.context_owner_keyword
+    declared = SolidAgent::HasContext::ClassMethods
+      .instance_method(:has_context)
+      .parameters
+      .filter_map { |type, name| name if %i[key keyreq].include?(type) }
+
+    assert_includes declared, keyword,
+      "has_context does not accept #{keyword}:, so every run would raise ArgumentError"
+  end
+
   test "the run's agent class builds and persists through the engine's own models" do
     agent, run = build_run
 

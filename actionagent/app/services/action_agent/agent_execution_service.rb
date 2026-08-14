@@ -27,6 +27,31 @@ module ActionAgent
       new(agent_record, run).call
     end
 
+    # The keyword solid_agent's +has_context+ uses to name the record a
+    # context belongs to.
+    #
+    # solid_agent renamed it from +contextable:+ to +contextual:+ without
+    # changing its version number, so the spelling cannot be inferred from the
+    # dependency: the copy published to RubyGems as 0.1.1 answers to
+    # +contextable:+, while the repository at 0.1.1 and 0.2.0 answers to
+    # +contextual:+. +has_context+ takes only the keywords it declares, so the
+    # wrong one raises ArgumentError for every run rather than being ignored.
+    #
+    # Reflecting on the installed method is what lets one release of this gem
+    # work on both. Falls back to +contextual:+ — the current spelling — when
+    # neither is declared, so a future rename surfaces as solid_agent's own
+    # error rather than this lookup silently choosing nothing.
+    def self.context_owner_keyword
+      @context_owner_keyword ||= begin
+        keywords = SolidAgent::HasContext::ClassMethods
+          .instance_method(:has_context)
+          .parameters
+          .filter_map { |type, name| name if %i[key keyreq].include?(type) }
+
+        (keywords & %i[contextual contextable]).first || :contextual
+      end
+    end
+
     def initialize(agent_record, run)
       @agent_record = agent_record
       @run = run
@@ -354,8 +379,16 @@ module ActionAgent
         define_singleton_method(:name) { klass_name }
 
         # Persist the conversation (agent_contexts / agent_messages /
-        # agent_generations) via solid_agent. contextable: false — the context
-        # is loaded explicitly in the action below.
+        # agent_generations) via solid_agent. The owner keyword is passed as
+        # false because the context is loaded explicitly in the action below.
+        #
+        # Which keyword that is depends on the installed solid_agent, and the
+        # two spellings are not interchangeable: the copy published to
+        # RubyGems as 0.1.1 declares `contextable:`, while the repository at
+        # that same version number — and 0.2.0 after it — declares
+        # `contextual:`. has_context accepts only the keywords it declares, so
+        # hard-coding either spelling is an ArgumentError on every run against
+        # half the installs. Ask the installed copy which one it speaks.
         #
         # The model classes are named explicitly because solid_agent infers
         # bare "AgentContext"/"AgentMessage"/"AgentGeneration" and resolves
@@ -363,10 +396,10 @@ module ActionAgent
         # inferred names only resolve in a host app that happens to have
         # top-level models of its own.
         include SolidAgent::HasContext
-        has_context contextable: false,
+        has_context(**{ ActionAgent::AgentExecutionService.context_owner_keyword => false },
           class_name: "ActionAgent::AgentContext",
           message_class: "ActionAgent::AgentMessage",
-          generation_class: "ActionAgent::AgentGeneration"
+          generation_class: "ActionAgent::AgentGeneration")
 
         if effective_provider == :mock
           # Test environment only (see #provider_available?).
