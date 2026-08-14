@@ -26,6 +26,15 @@ module ActiveAgent
 
         protected
 
+        # Chat Completions reports a streamed request's token usage on a final
+        # chunk, and only when the request opts in.
+        #
+        # @return [Hash]
+        # @see Base#api_stream_usage_parameters
+        def api_stream_usage_parameters
+          { stream_options: { include_usage: true } }
+        end
+
         # @return [OpenAI::Client::Completions] the API client for chat completions
         # @see Base#api_prompt_executer
         def api_prompt_executer
@@ -100,7 +109,12 @@ module ActiveAgent
           # Called Multiple Times: [Chunk<T>, T]<Content, ToolsCall>
           case api_response_event.type
           when :chunk
+            # The usage chunk carries usage and an empty choices array, so it
+            # must be read before choices.first is dereferenced below.
+            record_stream_usage(api_response_event.chunk.try(:usage))
+
             api_message = api_response_event.chunk.choices.first
+            return if api_message.nil?
 
             # If we have a delta, we need to update a message in the stack
             message = find_or_create_message(api_message.index)
@@ -118,8 +132,13 @@ module ActiveAgent
             # Returns the full content when complete
             # => {type: :"content.done", content: "Hi there! How can I help you today?", parsed: nil}
 
-            # Once we are finished, close out and run tooling callbacks (Recursive)
-            process_prompt_finished
+            # Close out and run tooling callbacks (Recursive) — but not here.
+            # The usage chunk is emitted *after* content.done, and finishing
+            # at this point builds the response from a usage_stack that has
+            # not received it yet, so a streamed generation reports zero
+            # tokens. Deferred to stream_finished!, which the base provider
+            # calls once the stream has drained.
+            self.stream_completion_pending = true
           when :"tool_calls.function.arguments.delta"
             # => {type: :"tool_calls.function.arguments.delta", name: "get_current_weather", index: 0, arguments: "", parsed: nil, arguments_delta: ""}
           when :"tool_calls.function.arguments.done"
