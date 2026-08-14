@@ -93,6 +93,7 @@ module ActiveAgent
   # These components are loaded on-demand when first referenced.
   autoload :Base
   autoload :Callbacks, "active_agent/concerns/callbacks"
+  autoload :Delegation, "active_agent/concerns/delegation"
   autoload :Streaming, "active_agent/concerns/streaming"
   autoload :InlinePreviewInterceptor
   autoload :Generation

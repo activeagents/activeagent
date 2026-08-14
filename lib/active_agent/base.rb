@@ -5,6 +5,7 @@ require "active_support/core_ext/module/anonymous"
 require "active_support/core_ext/string/inflections"
 
 require "active_agent/concerns/callbacks"
+require "active_agent/concerns/delegation"
 require "active_agent/concerns/observers"
 require "active_agent/concerns/parameterized"
 require "active_agent/concerns/preview"
@@ -42,6 +43,7 @@ module ActiveAgent
     include AbstractController::Caching
 
     include Callbacks
+    include Delegation
     include Parameterized
     include Provider
     include Queueing
@@ -299,18 +301,25 @@ module ActiveAgent
 
     # @api private
     def prepare_prompt_parameters
-      parameters = prompt_options.deep_dup.except(:locals, *PROTECTED_OPTIONS)
+      parameters = prompt_options.deep_dup.except(:locals, :delegations, *PROTECTED_OPTIONS)
 
       # Render out proc/lamda attributes before rendering templates
       parameters.deep_transform_values! { _1.respond_to?(:call) ? _1.call : _1 }
+
+      # Expose declared sub-agents (agent-as-tool) alongside the action's own tools
+      parameters = apply_delegated_tools(parameters, prompt_options)
 
       # Strip parameters the target model rejects (e.g. temperature/top_p
       # on thinking-first models) before they reach the provider.
       ModelCapabilities.sanitize!(parameters)
 
       # Apply Callbacks
+      #
+      # The trace id is written back so it stays stable for the generation and
+      # readable from prompt_options — delegated sub-agents inherit it, which
+      # is what lets a delegation tree show up as one trace.
       parameters.merge!(
-        trace_id: prompt_options[:trace_id] || SecureRandom.uuid,
+        trace_id: prompt_options[:trace_id] ||= SecureRandom.uuid,
         exception_handler:,
         stream_broadcaster:,
         tools_function:,
