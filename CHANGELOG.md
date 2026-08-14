@@ -5,7 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - Unreleased
+## actionagent [1.2.1]
+
+### Fixed
+
+- **Running an agent raised `ArgumentError: unknown keyword: :contextable`
+  against solid_agent installed from git.** `AgentExecutionService` built the
+  run's agent class with `has_context contextable: false`, but solid_agent
+  renamed that keyword to `contextual:` without changing its version number —
+  the copy published to RubyGems as 0.1.1 declares `contextable:`, while the
+  repository at 0.1.1, and 0.2.0 after it, declares `contextual:`.
+  `has_context` accepts only the keywords it declares, so whichever spelling
+  the gem hard-coded raised on every run for half of all installs. The engine
+  now reflects on the installed `has_context` and passes the keyword it
+  actually declares, so one release works against both.
+
+  Nothing about the failure was visible before a run: the gem installs,
+  resolves, boots, mounts and serves the dashboard, and only raises the moment
+  an agent executes.
+
+`activeagent` is unchanged in this release.
+
+## [1.2.0]
 
 ### ⚠️ The dashboard has moved to its own gem
 
