@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { TYPOGRAPHY } from '../../utils/designTokens';
-import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
+import ContextMeter, { contextWindowFor, estimateContentTokens, messageSegments } from './ContextMeter';
 import InteractionStream from './InteractionStream';
 import SpanWaterfall, {
   SPAN_SORTS,
   formatDuration,
+  parsePromptMessages,
   traceTools,
 } from './SpanWaterfall';
 import { SegmentedControl, telemetryColors } from './TelemetryObject';
@@ -51,29 +52,38 @@ export const traceContext = (trace) => {
   // Both telemetry shapes: ActiveAgent SDK (prompt.input.*, tool.input/
   // output.*) and the RubyLLM adapter (llm.instructions/tools,
   // tool.arguments/result).
-  const instructions = estimateTokens(attr('prompt.input.instructions') || attr('llm.instructions'));
-  const toolSchemas = estimateTokens(attr('prompt.input.tools') || attr('llm.tools'));
-  const mcpSchemas = estimateTokens(attr('prompt.input.mcp_tools'));
+  // Sizes come from the captured text, which the SDK truncates — so they read
+  // through the truncation marker rather than measuring the stored excerpt.
+  const instructions = estimateContentTokens(attr('prompt.input.instructions') || attr('llm.instructions'));
+  const toolSchemas = estimateContentTokens(attr('prompt.input.tools') || attr('llm.tools'));
+  const mcpSchemas = estimateContentTokens(attr('prompt.input.mcp_tools'));
   let toolResults = 0;
   for (const span of spans) {
     const attrs = span.attributes || {};
     const result = attrs['tool.output.result'] || attrs['tool.result'];
     const args = attrs['tool.input.args'] || attrs['tool.arguments'];
-    if (result) toolResults += estimateTokens(result);
-    if (args) toolResults += estimateTokens(args);
+    if (result) toolResults += estimateContentTokens(result);
+    if (args) toolResults += estimateContentTokens(args);
   }
   toolResults = Math.min(toolResults, peak.input);
   const messages = Math.max(peak.input - instructions - toolSchemas - mcpSchemas - toolResults, 0);
+  // The recorded prompt splits the conversation by role, so the bar can say
+  // whose turns are filling the window. Without it (an adapter that doesn't
+  // capture messages) the conversation stays one segment.
+  const byRole = messageSegments(messages, parsePromptMessages(attr('prompt.input.messages')));
 
   return {
     used: peak.total,
     limit: contextWindowFor(trace.model),
     cached: peak.cached,
     thinking: peak.thinking,
+    // Ordered so the bar groups by colour as well as by meaning: the prompt
+    // in conversation order (violet, blue, red), then everything the tools
+    // account for (amber, green), then the generation itself.
     segments: [
-      { key: 'messages', label: 'Messages', tokens: messages },
-      { key: 'tool_results', label: 'Tool results', tokens: toolResults },
       { key: 'instructions', label: 'Instructions', tokens: instructions },
+      ...(byRole.length ? byRole : [{ key: 'messages', label: 'Messages', tokens: messages }]),
+      { key: 'tool_results', label: 'Tool results', tokens: toolResults },
       { key: 'tool_schemas', label: 'Tool schemas', tokens: toolSchemas },
       { key: 'mcp_schemas', label: 'MCP tool schemas', tokens: mcpSchemas },
       { key: 'output', label: 'Generated output', tokens: peak.output },

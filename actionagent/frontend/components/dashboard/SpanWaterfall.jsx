@@ -107,6 +107,19 @@ const attributeRank = (key) => {
   return 2;
 };
 
+// The message history a prompt span recorded, as an array. Anything that
+// isn't a JSON array of messages (an older capture, a provider that stores
+// markup) reads as no history rather than as garbage.
+export const parsePromptMessages = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+};
+
 // At-a-glance contents for a trace: the latest user input and the final
 // output, pulled from span content attributes (either SDK's shape — RubyLLM's
 // llm.prompt/llm.completion or ActiveAgent's prompt.input.messages/
@@ -122,16 +135,8 @@ export const traceContentPreview = (trace) => {
   };
   let input = attr('llm.prompt');
   if (!input) {
-    const raw = attr('prompt.input.messages');
-    if (raw) {
-      try {
-        const messages = JSON.parse(raw);
-        const lastUser = [...messages].reverse().find((m) => m && m.role === 'user' && m.content);
-        input = lastUser?.content;
-      } catch {
-        // not JSON — skip the preview rather than show markup soup
-      }
-    }
+    const messages = parsePromptMessages(attr('prompt.input.messages'));
+    input = [...messages].reverse().find((m) => m.role === 'user' && m.content)?.content;
   }
   const output = attr('llm.completion') || attr('llm.output.message');
   return { input, output };
@@ -145,15 +150,9 @@ export const spanContentPreview = (span) => {
   let input = null;
   let inputLabel = 'input';
   let inputTone = 'user';
-  if (attrs['prompt.input.messages']) {
-    try {
-      const parsed = JSON.parse(attrs['prompt.input.messages']);
-      const lastUser = [...parsed].reverse().find((m) => m && m.role === 'user' && m.content);
-      if (typeof lastUser?.content === 'string') input = lastUser.content;
-    } catch {
-      // not JSON — no preview
-    }
-  }
+  const promptMessages = parsePromptMessages(attrs['prompt.input.messages']);
+  const lastUser = [...promptMessages].reverse().find((m) => m.role === 'user' && m.content);
+  if (typeof lastUser?.content === 'string') input = lastUser.content;
   if (!input && attrs['llm.prompt']) input = String(attrs['llm.prompt']);
   if (!input && (attrs['tool.input.args'] || attrs['tool.arguments'])) {
     const args = attrs['tool.input.args'] || attrs['tool.arguments'];
