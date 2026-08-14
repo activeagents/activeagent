@@ -31,7 +31,7 @@ jobs:
       # actually contain their entry points — a gem missing one installs and
       # resolves, then dies on require.
       - run: bundle exec rake build_all
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: gems
           path: pkg/*.gem
