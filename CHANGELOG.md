@@ -5,7 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - Unreleased
+## [1.2.1] - 2026-08-14
+
+### Fixed
+
+- **`actionagent`: the install migrations now run on MySQL.** Both templates
+  already chose the JSON column type per adapter, but kept `default: []` /
+  `default: {}` for every adapter, and MySQL rejects a default on a JSON
+  column outright — so `rails g action_agent:install && rails db:migrate`
+  aborted mid-`create_table` on any MySQL host. The default (and the paired
+  `null: false`, which without it would reject the inserts the default
+  existed to satisfy) is now PostgreSQL-only. Every JSON column is read
+  through `Array(...)` / `|| {}`, so a NULL reads as the empty value.
+- **`actionagent`: the mount works in a host that declares
+  `inflect.acronym "API"`.** An engine's files are autoloaded under the
+  host's inflections, so such a host made Zeitwerk expect
+  `ActionAgent::API::TracesController` from a file defining
+  `ActionAgent::Api::TracesController`, and every request to the mount
+  raised `Zeitwerk::NameError`. Rails separately camelizes a route's stored
+  controller path with the host's global inflections, which no engine-level
+  setting scopes. The autoloader is now pinned to `Api` for this engine's
+  own path, and the namespace answers to `API` as well.
+
+## [1.2.0] - 2026-08-14
 
 ### ⚠️ The dashboard has moved to its own gem
 
