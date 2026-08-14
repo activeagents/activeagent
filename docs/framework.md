@@ -121,6 +121,7 @@ ActiveAgent integrates with Rails features and AI capabilities:
 - **[Streaming](/agents/streaming)** - Real-time response updates
 - **[Messages](/actions/messages)** - Multimodal conversation context
 - **[Embeddings](/actions/embeddings)** - Vector generation for semantic search
+- **[Persistence](/solid_agent)** - Database-backed conversations, memory, runs and cost via the `solid_agent` gem
 
 ## Next Steps
 
@@ -146,6 +147,7 @@ ActiveAgent integrates with Rails features and AI capabilities:
 - [Configuration](/framework/configuration) - Environment-specific settings
 - [Instrumentation](/framework/instrumentation) - Logging and monitoring
 - [Rails Integration](/framework/rails) - ActionCable, ActiveJob, and more
+- [Persistence (SolidAgent)](/solid_agent) - Conversations, memory, runs and cost in your database
 
 **Examples:**
 - [Data Extraction](/examples/data_extraction_agent) - Parse structured data from documents

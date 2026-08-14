@@ -139,11 +139,25 @@ export default defineConfig({
           { text: 'Mock', link: '/providers/mock' },
         ]
       },
+      {
+        text: 'Persistence (SolidAgent)',
+        items: [
+          { text: 'Overview', link: '/solid_agent' },
+          { text: 'Conversation Context', link: '/solid_agent/context' },
+          { text: 'Long-Term Memory', link: '/solid_agent/memory' },
+          { text: 'Tools, Streaming & Caching', link: '/solid_agent/tools' },
+          { text: 'Reasoning', link: '/solid_agent/reasoning' },
+          { text: 'Runs, Cohorts & Cost', link: '/solid_agent/runs' },
+          { text: 'Agent Manifests', link: '/solid_agent/manifests' },
+          { text: 'Examples', link: '/solid_agent/examples' },
+        ]
+      },
       { text: 'Examples',
         items: [
           // { text: 'Browser Use', link: '/examples/browser-use-agent' },
           { text: 'Data Extraction', link: '/examples/data_extraction_agent' },
           // { text: 'Translation', link: '/examples/translation-agent' },
+          { text: 'SolidAgent Examples', link: '/solid_agent/examples' },
         ]
       },
       { text: 'Contributing',

@@ -273,6 +273,22 @@ Use tabs to show different perspectives of the same data:
 - `docs/` — All documentation markdown files
 - `docs/parts/examples/` — Auto-generated outputs (naming: `{test-file}-{test-method}.md`)
 
+## Documenting sibling gems
+
+`docs/solid_agent/` documents
+[solid_agent](https://github.com/activeagents/solid_agent), which lives in
+its own repository — so there is nothing here for `<<<` to import, and
+those pages carry their code inline. They are the exception, not a
+loosening of the rule: examples on those pages mirror
+[`examples/`](https://github.com/activeagents/solid_agent/tree/main/examples)
+in that repo, where a test parses every Ruby file, validates every
+manifest, and checks that every `SolidAgent::` constant they name still
+exists. Change one of those pages and change the example it mirrors, so the
+tested copy stays the source of truth.
+
+Everything documenting code in *this* repo — the framework and the
+`actionagent` engine — imports from tests as described above.
+
 ## Troubleshooting
 
 ### Import Not Showing
