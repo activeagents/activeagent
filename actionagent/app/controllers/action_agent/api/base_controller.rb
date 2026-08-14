@@ -23,6 +23,15 @@ module ActionAgent
 
       private
 
+      # This is the JSON API: an unauthenticated call gets 401, never a
+      # redirect to the host app's sign-in form, which no JSON client can
+      # act on. Stated here rather than inferred from the request format,
+      # because a caller that omits Accept is HTML by default and would
+      # otherwise be answered with a 302 to a login page.
+      def redirect_signed_out_to_sign_in?
+        false
+      end
+
       # Scopes +relation+ to the caller, following the model's own
       # declaration. Unowned models (a single-user install, or a model that
       # nothing owns) come back unfiltered.
