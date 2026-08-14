@@ -64,6 +64,31 @@ jobs:
       - name: Publish the framework, then the dashboard that depends on it
         # actionagent declares activeagent >= 1.2, so publishing it first
         # would leave a release nobody can bundle until the framework lands.
+        #
+        # A version already on RubyGems is skipped rather than fatal: the two
+        # gems share this tag but version independently, so a release that
+        # patches only one of them rebuilds the other at its current version.
+        # Without the skip, `gem push` rejects that duplicate and takes the
+        # gem that actually changed down with it.
         run: |
-          gem push pkg/activeagent-*.gem
-          gem push pkg/actionagent-*.gem
+          publish() {
+            local gem_path
+            gem_path=$(ls $1)
+            local name version
+            name=$(basename "$gem_path" .gem | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+.*$//')
+            version=$(basename "$gem_path" .gem | sed -E "s/^${name}-//")
+
+            # `gem list --all` prints one line: `name (1.2.0, 1.1.0, ...)`, so the
+            # version is matched between its delimiters — anchoring on "($version"
+            # alone would only ever see the newest release.
+            if gem list --remote --exact --all "$name" | tr -d ' ' |
+                 grep -qE "[(,]${version//./\\.}[,)]"; then
+              echo "$name $version is already on RubyGems; skipping."
+              return 0
+            fi
+
+            gem push "$gem_path"
+          }
+
+          publish "pkg/activeagent-*.gem"
+          publish "pkg/actionagent-*.gem"
