@@ -15,9 +15,9 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_ve
       t.string :service_name
       t.string :environment
       t.datetime :timestamp, index: true
-      t.column :spans, json_type, default: []
-      t.column :resource_attributes, json_type, default: {}
-      t.column :sdk_info, json_type, default: {}
+      t.column :spans, json_type, **json_default([])
+      t.column :resource_attributes, json_type, **json_default({})
+      t.column :sdk_info, json_type, **json_default({})
       t.decimal :total_duration_ms, precision: 12, scale: 3
       t.integer :total_input_tokens, default: 0
       t.integer :total_output_tokens, default: 0
@@ -53,6 +53,19 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration<%= migration_ve
   # traverses spans in SQL on PostgreSQL, and jsonb_array_elements rejects a
   # json argument, so the column type and the query have to agree.
   def json_type
-    @json_type ||= connection.adapter_name.to_s.downcase.include?("postgres") ? :jsonb : :json
+    @json_type ||= postgres? ? :jsonb : :json
+  end
+
+  # MySQL rejects a default on a JSON column outright ("BLOB, TEXT, GEOMETRY or
+  # JSON column can't have a default value"), which aborts create_table, so the
+  # column is created without one there. ActionAgent::TelemetryTrace reads every
+  # JSON column through `Array(...)`/`|| {}`, and ingest always assigns all
+  # three, so a NULL reads the same as the empty default would.
+  def json_default(value)
+    postgres? ? { default: value } : {}
+  end
+
+  def postgres?
+    connection.adapter_name.to_s.downcase.include?("postgres")
   end
 end
