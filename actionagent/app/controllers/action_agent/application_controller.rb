@@ -38,11 +38,26 @@ module ActionAgent
         return
       end
 
-      result = ActionAgent.authentication_method.call(self)
-      head :unauthorized unless result
+      deny_access! unless ActionAgent.authentication_method.call(self)
     rescue StandardError => e
       Rails.logger.error("[ActionAgent] Authentication error: #{e.message}")
-      head :unauthorized
+      deny_access!
+    end
+
+    # 401 is the right answer for the dashboard's API, and the wrong one for
+    # its pages: a signed-out person following a link to the mount point is
+    # not a failed API client, and a bare 401 gives them a blank screen with
+    # no way forward. Send a browser navigation to the host app's sign-in
+    # page when it has told us where that is, and keep 401 for everything
+    # else — XHR, JSON, and any host that configured no sign-in path.
+    def deny_access!
+      target = ActionAgent.sign_in_path_for(self)
+
+      if target && request.get? && request.format.html?
+        redirect_to target, allow_other_host: false
+      else
+        head :unauthorized
+      end
     end
 
     # Returns the current user from the host application.

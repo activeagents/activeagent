@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## actionagent [1.2.1]
 
+### Added
+
+- **`ActionAgent.sign_in_path`** — where to send a signed-out browser that
+  asks for a dashboard page. Unset, the engine answers every unauthenticated
+  request with 401, which is right for the API and wrong for the pages:
+  someone following a link to the mount point got a blank error with no way
+  forward. Set it and browser navigations redirect there, while XHR and JSON
+  still get 401. Accepts a String, or a callable receiving the controller so
+  a host app can stash a return-to path first.
+
+  ```ruby
+  ActionAgent.configure do |config|
+    config.sign_in_path = "/session/new"
+  end
+  ```
+
 ### Fixed
 
 - **Running an agent raised `ArgumentError: unknown keyword: :contextable`

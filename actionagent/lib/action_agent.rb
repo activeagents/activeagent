@@ -152,6 +152,19 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :layout
 
+    # Where to send a signed-out browser that asks for a dashboard page.
+    #
+    # Unset, every unauthenticated request answers 401. That is correct for
+    # the API and wrong for the pages: someone following a link to the mount
+    # point gets a blank error instead of the sign-in form. Set this to the
+    # host app's sign-in path and browser navigations redirect there, while
+    # XHR and JSON still get 401.
+    #
+    # A String is used as-is; a callable receives the controller, which is
+    # what lets a host app stash a return-to path before redirecting.
+    # @return [String, Proc, nil]
+    attr_accessor :sign_in_path
+
     # Sandbox service type (:local, :cloud_run, :kubernetes)
     # @return [Symbol]
     attr_accessor :sandbox_service
@@ -306,6 +319,21 @@ module ActionAgent
       end
     end
 
+    # Resolves sign_in_path for +controller+, or nil when the host app set
+    # none. Never raises: a broken redirect target must not turn a denial
+    # into a 500 — the caller falls back to 401.
+    #
+    # @return [String, nil]
+    def sign_in_path_for(controller)
+      return nil if sign_in_path.nil?
+
+      path = sign_in_path.respond_to?(:call) ? sign_in_path.call(controller) : sign_in_path
+      path.presence
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] sign_in_path lookup failed: #{e.message}")
+      nil
+    end
+
     # The tenant +owner+ belongs to. Identity unless the host app says
     # otherwise, which is right for every single-tenant install.
     def tenant_for(owner)
@@ -362,6 +390,7 @@ module ActionAgent
       @trace_model_class = nil
       @use_inertia = false
       @layout = nil
+      @sign_in_path = nil
       @sandbox_service = :local
       @sandbox_limits = nil
       @storage_service = nil
