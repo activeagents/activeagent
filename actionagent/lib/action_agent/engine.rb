@@ -26,6 +26,47 @@ module ActionAgent
       app.config.filter_parameters += [ :credential, :api_key, :access_token ]
     end
 
+    # The controllers under app/controllers/action_agent/api are ActionAgent::Api,
+    # but an engine's files are autoloaded by the host's `rails.main` loader,
+    # under the host's inflections. A host that declares `inflect.acronym "API"`
+    # — common enough that Rails documents it — makes Zeitwerk expect
+    # ActionAgent::API::TracesController in a file that defines
+    # ActionAgent::Api::TracesController, and every request to the mount raises
+    # Zeitwerk::NameError.
+    #
+    # Scoped to this engine's own path rather than set through `inflect`: the
+    # loader is shared, so a blanket rule would re-spell the host's own API
+    # constants. `camelize` receives the absolute path, which is the only hook
+    # that can tell this engine's api/ from the host's.
+    initializer "action_agent.inflections", before: :set_autoload_paths do
+      engine_root = root.to_s
+
+      Rails.autoloaders.main.inflector.singleton_class.prepend(Module.new do
+        define_method(:camelize) do |basename, abspath|
+          next "Api" if basename == "api" && abspath.to_s.start_with?(engine_root)
+
+          super(basename, abspath)
+        end
+      end)
+    end
+
+    # Rails resolves a route's controller by camelizing the stored path
+    # ("action_agent/api/traces") with the host's *global* inflections, and no
+    # engine-level setting scopes that — so an acronym host looks up
+    # ActionAgent::API::TracesController and raises NameError even though the
+    # autoloader named the module correctly above. No single spelling satisfies
+    # both kinds of host: a plain host camelizes to Api, an acronym host to API.
+    # So the namespace answers to both. `const_missing` rather than an eager
+    # alias because the controllers are autoloaded on demand, and naming them at
+    # boot would load the whole dashboard.
+    ActionAgent.singleton_class.prepend(Module.new do
+      def const_missing(name)
+        return const_get(:Api) if name == :API
+
+        super
+      end
+    end)
+
     initializer "action_agent.assets", before: :append_assets_path do |app|
       builds = root.join("app", "assets", "builds").to_s
       next unless File.directory?(builds)
