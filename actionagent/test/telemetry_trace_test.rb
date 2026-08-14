@@ -191,6 +191,47 @@ class TelemetryTraceTest < ActiveSupport::TestCase
     assert_empty trace.declared_tools
     assert_empty trace.mcp_servers
   end
+
+  # Ingest is the only place an agent running in a host app can be discovered:
+  # it never authors a record in the dashboard, it only reports traces. Without
+  # registration here the Agents list reads 0 while Traces and Interactions are
+  # full of that agent's runs, and nothing — per-agent metrics, evaluations,
+  # versions — has an agent to hang off.
+  test "registers an agent for the action it observes" do
+    ActionAgent::Agent.delete_all
+
+    trace = ActionAgent::TelemetryTrace.create_from_payload(payload(spans: [ root_span ]))
+
+    agent = ActionAgent::Agent.find_by(agent_class_name: "SupportAgent", action_name: "respond")
+    assert agent, "ingest should register the observed agent"
+    assert_equal "observed", agent.status
+    assert_equal agent.id, trace.reload.agent_id, "the trace should be attributed to it"
+  end
+
+  test "reuses the agent record across repeated ingests" do
+    ActionAgent::Agent.delete_all
+
+    2.times { ActionAgent::TelemetryTrace.create_from_payload(payload(spans: [ root_span ])) }
+
+    assert_equal 1, ActionAgent::Agent.where(agent_class_name: "SupportAgent").count
+  end
+
+  # Exercises AgentRegistrar's own rescue rather than a stub of it: a broken
+  # registration must never cost a host app its telemetry.
+  test "registration failure does not fail ingest" do
+    ActionAgent::Agent.delete_all
+    exploding = Object.new
+    def exploding.call = raise("boom")
+
+    ActionAgent::AgentRegistrar.stub(:new, exploding) do
+      trace = nil
+      assert_nothing_raised do
+        trace = ActionAgent::TelemetryTrace.create_from_payload(payload(spans: [ root_span ]))
+      end
+      assert trace.persisted?, "the trace should still be stored"
+      assert_nil trace.reload.agent_id
+    end
+  end
 end
 
 TelemetryTraceTest.ensure_table!
