@@ -13,6 +13,13 @@ module ActionAgent
 
     engine_name "action_agent"
 
+    # Basenames this engine spells differently from Zeitwerk's default
+    # camelization, consulted by the inflections initializer below. Empty
+    # today: every file here is named for the constant default camelization
+    # produces. An engine file that wants a genuine acronym in its constant
+    # adds its basename here rather than relying on the host to register one.
+    INFLECTION_OVERRIDES = {}.freeze
+
     config.action_agent = ActiveSupport::OrderedOptions.new
 
     # The dashboard's JS and CSS ship prebuilt in the gem. Adding the
@@ -26,26 +33,34 @@ module ActionAgent
       app.config.filter_parameters += [ :credential, :api_key, :access_token ]
     end
 
-    # The controllers under app/controllers/action_agent/api are ActionAgent::Api,
-    # but an engine's files are autoloaded by the host's `rails.main` loader,
-    # under the host's inflections. A host that declares `inflect.acronym "API"`
-    # — common enough that Rails documents it — makes Zeitwerk expect
-    # ActionAgent::API::TracesController in a file that defines
-    # ActionAgent::Api::TracesController, and every request to the mount raises
-    # Zeitwerk::NameError.
+    # This engine's constants are spelled the way Zeitwerk's own inflector
+    # spells them — Api, McpCatalog, ApiKey — but an engine's files are
+    # autoloaded by the host's `rails.main` loader, under the *host's*
+    # inflections. A host that declares `inflect.acronym "API"` or "MCP" (both
+    # common, and documented by Rails) makes Zeitwerk expect
+    # ActionAgent::API::TracesController or ActionAgent::MCPCatalog from files
+    # that define ActionAgent::Api::TracesController and
+    # ActionAgent::McpCatalog. The constant never resolves and the request
+    # raises Zeitwerk::NameError.
     #
-    # Scoped to this engine's own path rather than set through `inflect`: the
-    # loader is shared, so a blanket rule would re-spell the host's own API
-    # constants. `camelize` receives the absolute path, which is the only hook
-    # that can tell this engine's api/ from the host's.
+    # Every path under this engine therefore camelizes with Zeitwerk's default
+    # rules, ignoring whatever acronyms the host has registered. Applied by
+    # path rather than through `inflect`: the loader is shared with the host,
+    # so a blanket rule would re-spell the host's own constants. `camelize`
+    # receives the absolute path, which is the only hook that can tell this
+    # engine's files from the host's.
+    #
+    # Basenames whose spelling this engine cannot express through default
+    # camelization (a genuine acronym it wants uppercased) go in OVERRIDES.
     initializer "action_agent.inflections", before: :set_autoload_paths do
-      engine_root = root.to_s
+      engine_root = File.join(root.to_s, "")
+      default = Zeitwerk::Inflector.new
 
       Rails.autoloaders.main.inflector.singleton_class.prepend(Module.new do
         define_method(:camelize) do |basename, abspath|
-          next "Api" if basename == "api" && abspath.to_s.start_with?(engine_root)
+          next super(basename, abspath) unless abspath.to_s.start_with?(engine_root)
 
-          super(basename, abspath)
+          ActionAgent::Engine::INFLECTION_OVERRIDES.fetch(basename) { default.camelize(basename, abspath) }
         end
       end)
     end
@@ -59,13 +74,33 @@ module ActionAgent
     # So the namespace answers to both. `const_missing` rather than an eager
     # alias because the controllers are autoloaded on demand, and naming them at
     # boot would load the whole dashboard.
-    ActionAgent.singleton_class.prepend(Module.new do
+    # The router does not consult the autoloader's inflector, so an acronym
+    # host asks for ActionAgent::API::MCPServersController while the constants
+    # are Api::McpServersController. Rather than enumerate the pairs, an
+    # all-caps run in a missing constant is retried in the spelling default
+    # camelization produces: API -> Api, MCPServersController -> McpServers-
+    # Controller. Only the engine's own namespaces are touched, and only for a
+    # constant that is already missing.
+    inflection_shim = Module.new do
       def const_missing(name)
-        return const_get(:Api) if name == :API
+        relaxed = name.to_s.gsub(/([A-Z])([A-Z]+)(?=[A-Z][a-z]|\d|\z)/) { "#{$1}#{$2.downcase}" }
 
-        super
+        return super if relaxed == name.to_s || !const_defined?(relaxed, false)
+
+        const_get(relaxed, false)
       end
-    end)
+    end
+
+    ActionAgent.singleton_class.prepend(inflection_shim)
+
+    # ActionAgent::Api is autoloaded, so it cannot be reopened at this point.
+    # Zeitwerk hands it over as soon as it is defined, which is before the
+    # router can ask it for a controller.
+    initializer "action_agent.api_inflection_shim" do
+      Rails.autoloaders.main.on_load("ActionAgent::Api") do |mod, _abspath|
+        mod.singleton_class.prepend(inflection_shim)
+      end
+    end
 
     initializer "action_agent.assets", before: :append_assets_path do |app|
       builds = root.join("app", "assets", "builds").to_s
