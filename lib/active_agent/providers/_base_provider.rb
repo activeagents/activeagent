@@ -54,8 +54,11 @@ module ActiveAgent
       attr_internal :options, :context, :trace_id,   # Setup
                     :request, :message_stack,        # Runtime
                     :stream_broadcaster, :streaming, # Callback (Streams)
+                    :stream_completion_pending,      # Callback (Streams)
+                    :stream_completion_result,       # Callback (Streams)
                     :tools_function,                 # Callback (Tools)
                     :usage_stack,                    # Usage Tracking
+                    :stream_usage_index,             # Usage Tracking (Streams)
                     :max_tool_turns, :tool_turns     # Tool-loop safety
 
       # Upper bound on tool-calling round-trips within one generation. A
@@ -118,6 +121,9 @@ module ActiveAgent
         self.context            = kwargs
         self.message_stack      = []
         self.usage_stack        = []
+        self.stream_completion_pending = false
+        self.stream_completion_result  = nil
+        self.stream_usage_index        = nil
       end
 
       # Generates prompt preview without executing the API call.
@@ -179,6 +185,9 @@ module ActiveAgent
       #
       # @return [ActiveAgent::Providers::Common::PromptResponse]
       def resolve_prompt
+        # Each turn streams its own usage; see record_stream_usage.
+        self.stream_usage_index = nil
+
         api_parameters = api_request_build(prepare_prompt_request, prompt_request_type)
         api_response = instrument("prompt.provider.active_agent") do |payload|
           raw_response = with_exception_handling { api_prompt_execute(api_parameters) }
@@ -192,6 +201,12 @@ module ActiveAgent
 
           raw_response
         end
+
+        # A stream that deferred its completion has already run
+        # process_prompt_finished (including any tool-call recursion) from
+        # stream_finished!, and holds the response it produced. Calling it a
+        # second time here would re-run that work.
+        return stream_completion_result if stream_completion_result
 
         process_prompt_finished(api_response)
       end
@@ -231,13 +246,31 @@ module ActiveAgent
       # @return [Hash] API request parameters
       def api_request_build(request, request_type)
         parameters          = request_type.serialize(request)
-        parameters[:stream] = process_stream if request.try(:stream)
+
+        if request.try(:stream)
+          parameters[:stream] = process_stream
+          parameters.deep_merge!(api_stream_usage_parameters)
+        end
 
         if options.extra_headers.present?
           parameters[:request_options] = { extra_headers: options.extra_headers }.deep_merge(parameters[:request_options] || {})
         end
 
         parameters
+      end
+
+      # Extra request parameters needed to make the provider report token usage
+      # while streaming.
+      #
+      # A streaming request returns its usage on a final chunk rather than in a
+      # response body, and several providers only send that chunk when the
+      # request asks for it. Providers that need such a flag override this;
+      # the default asks for nothing, so a provider that reports usage
+      # unconditionally — or not at all — is unaffected.
+      #
+      # @return [Hash]
+      def api_stream_usage_parameters
+        {}
       end
 
       # @return [Proc] for each response chunk
@@ -258,8 +291,25 @@ module ActiveAgent
           api_prompt_executer.create(**parameters)
         else
           api_prompt_executer.stream(**parameters.except(:stream)).each(&parameters[:stream])
+          stream_finished!
           nil
         end
+      end
+
+      # Runs the deferred end-of-generation work once a stream has drained.
+      #
+      # A chunk handler that completed the message marks the generation
+      # pending rather than finishing inline, because providers emit their
+      # usage chunk after the content is done — finishing inline would build
+      # the response before usage is recorded. Handlers that finish inline
+      # leave the flag unset and this is a no-op.
+      #
+      # @return [Object, nil] result of process_prompt_finished, if deferred
+      def stream_finished!
+        return unless stream_completion_pending
+
+        self.stream_completion_pending = false
+        self.stream_completion_result  = process_prompt_finished
       end
 
       # Returns provider-specific API executer for prompt requests.
@@ -303,6 +353,52 @@ module ActiveAgent
       # @raise [NotImplementedError]
       def process_stream_chunk(api_response_chunk)
         fail NotImplementedError, "Subclass expected to implement"
+      end
+
+      # Records token usage carried on a streaming chunk.
+      #
+      # The non-streaming path pushes onto usage_stack in resolve_prompt, from
+      # the response body. A streaming request has no response body — the
+      # provider streams chunks and api_prompt_execute returns nil — so usage
+      # would otherwise be lost, and every streamed generation reports zero
+      # tokens and zero cost. Chunk handlers call this when they see usage so
+      # the two paths converge on the same usage_stack.
+      #
+      # Ignores blank and all-zero payloads: providers send `usage: null` on
+      # ordinary content chunks, and pushing those would add empty entries to
+      # a stack that is summed with reduce(:+).
+      #
+      # A streamed usage payload is a running total for the turn, not a delta,
+      # so the turn keeps a single entry that later payloads replace. Chat
+      # Completions sends exactly one, on a final chunk, but Gemini's
+      # OpenAI-compatible endpoint repeats a cumulative usage on every chunk —
+      # summing those would report a turn's tokens many times over. Tool
+      # calling still accumulates across turns: each turn enters resolve_prompt
+      # and starts a fresh entry.
+      #
+      # @param raw_usage [Hash, Object, nil] provider-shaped usage payload
+      # @return [void]
+      def record_stream_usage(raw_usage)
+        return if raw_usage.blank?
+
+        # from_provider_usage only reads hashes, and the stainless gems hand
+        # back model objects (e.g. OpenAI::Models::CompletionUsage), so an
+        # unconverted object is silently dropped.
+        raw_usage = raw_usage.deep_to_h if raw_usage.respond_to?(:deep_to_h)
+        raw_usage = raw_usage.to_h if !raw_usage.is_a?(Hash) && raw_usage.respond_to?(:to_h)
+
+        usage = Common::Usage.from_provider_usage(raw_usage)
+        return if usage.blank?
+        return if usage.total_tokens.to_i.zero? &&
+                  usage.input_tokens.to_i.zero? &&
+                  usage.output_tokens.to_i.zero?
+
+        if stream_usage_index
+          usage_stack[stream_usage_index] = usage
+        else
+          self.stream_usage_index = usage_stack.length
+          usage_stack.push(usage)
+        end
       end
 
       # Broadcasts stream open event.
