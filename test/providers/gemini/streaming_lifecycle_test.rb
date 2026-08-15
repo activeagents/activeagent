@@ -132,8 +132,10 @@ module Providers
         )
 
         # Stub process_prompt_finished to just call broadcast_stream_close
+        # The generation finishes when the stream drains, not on content.done
         @provider.stub(:process_prompt_finished, ->(*_) { @provider.send(:broadcast_stream_close) }) do
           @provider.send(:process_stream_chunk, done_event)
+          @provider.send(:stream_finished!)
         end
 
         event_types = @stream_events.map { |e| e[:type] }
@@ -183,8 +185,10 @@ module Providers
         )
 
         # Stub process_prompt_finished to just call broadcast_stream_close
+        # The generation finishes when the stream drains, not on content.done
         @provider.stub(:process_prompt_finished, ->(*_) { @provider.send(:broadcast_stream_close) }) do
           @provider.send(:process_stream_chunk, done_event)
+          @provider.send(:stream_finished!)
         end
 
         refute @provider.send(:streaming), "streaming should be false after close"

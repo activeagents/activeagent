@@ -58,6 +58,7 @@ module ActiveAgent
                     :stream_completion_result,       # Callback (Streams)
                     :tools_function,                 # Callback (Tools)
                     :usage_stack,                    # Usage Tracking
+                    :stream_usage_index,             # Usage Tracking (Streams)
                     :max_tool_turns, :tool_turns     # Tool-loop safety
 
       # Upper bound on tool-calling round-trips within one generation. A
@@ -122,6 +123,7 @@ module ActiveAgent
         self.usage_stack        = []
         self.stream_completion_pending = false
         self.stream_completion_result  = nil
+        self.stream_usage_index        = nil
       end
 
       # Generates prompt preview without executing the API call.
@@ -183,6 +185,9 @@ module ActiveAgent
       #
       # @return [ActiveAgent::Providers::Common::PromptResponse]
       def resolve_prompt
+        # Each turn streams its own usage; see record_stream_usage.
+        self.stream_usage_index = nil
+
         api_parameters = api_request_build(prepare_prompt_request, prompt_request_type)
         api_response = instrument("prompt.provider.active_agent") do |payload|
           raw_response = with_exception_handling { api_prompt_execute(api_parameters) }
@@ -363,6 +368,14 @@ module ActiveAgent
       # ordinary content chunks, and pushing those would add empty entries to
       # a stack that is summed with reduce(:+).
       #
+      # A streamed usage payload is a running total for the turn, not a delta,
+      # so the turn keeps a single entry that later payloads replace. Chat
+      # Completions sends exactly one, on a final chunk, but Gemini's
+      # OpenAI-compatible endpoint repeats a cumulative usage on every chunk —
+      # summing those would report a turn's tokens many times over. Tool
+      # calling still accumulates across turns: each turn enters resolve_prompt
+      # and starts a fresh entry.
+      #
       # @param raw_usage [Hash, Object, nil] provider-shaped usage payload
       # @return [void]
       def record_stream_usage(raw_usage)
@@ -380,7 +393,12 @@ module ActiveAgent
                   usage.input_tokens.to_i.zero? &&
                   usage.output_tokens.to_i.zero?
 
-        usage_stack.push(usage)
+        if stream_usage_index
+          usage_stack[stream_usage_index] = usage
+        else
+          self.stream_usage_index = usage_stack.length
+          usage_stack.push(usage)
+        end
       end
 
       # Broadcasts stream open event.

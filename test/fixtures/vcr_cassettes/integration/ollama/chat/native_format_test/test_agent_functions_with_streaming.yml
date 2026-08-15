@@ -8,7 +8,7 @@ http_interactions:
       string: '{"messages":[{"role":"user","content":"What is the weather like in
         Boston today?"}],"model":"qwen3","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
         the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
-        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"stream":true}'
+        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"stream_options":{"include_usage":true},"stream":true}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
@@ -1765,7 +1765,7 @@ http_interactions:
         MA\"}","name":"get_current_weather"},"type":"function"}]},{"role":"tool","content":"{\"location\":\"Boston,
         MA\",\"unit\":\"fahrenheit\",\"temperature\":\"22\"}","tool_call_id":"call_e26xiwn7"}],"model":"qwen3","tool_choice":"auto","tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get
         the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The
-        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"stream":true}'
+        city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"stream_options":{"include_usage":true},"stream":true}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
