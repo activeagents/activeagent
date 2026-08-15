@@ -82,7 +82,7 @@ module Providers
           assert_equal 1, open_events.size, "Expected only one :open event even after multiple chunks"
         end
 
-        test "content.done event triggers :close via process_prompt_finished" do
+        test "a drained stream, not content.done, triggers :close via process_prompt_finished" do
           # First send a chunk to trigger :open
           chunk = MockChunk.new(
             choices: [ MockChoice.new(index: 0, delta: MockDelta.new(content: "Hi", role: "assistant")) ]
@@ -90,7 +90,7 @@ module Providers
           chunk_event = MockChunkEvent.new(type: :chunk, chunk: chunk)
           @provider.send(:process_stream_chunk, chunk_event)
 
-          # Then send content.done event which triggers process_prompt_finished
+          # Then send content.done event, which only marks the generation complete
           done_event = MockContentDoneEvent.new(
             type: :"content.done",
             content: "Hi there!",
@@ -101,6 +101,11 @@ module Providers
           # This avoids the nil request issue while testing the streaming lifecycle
           @provider.stub(:process_prompt_finished, ->(*_) { @provider.send(:broadcast_stream_close) }) do
             @provider.send(:process_stream_chunk, done_event)
+
+            assert_empty @stream_events.select { |e| e[:type] == :close },
+                         "content.done must not finish the generation: the usage chunk arrives after it"
+
+            @provider.send(:stream_finished!)
           end
 
           close_events = @stream_events.select { |e| e[:type] == :close }
@@ -133,8 +138,10 @@ module Providers
           )
 
           # Stub process_prompt_finished to just call broadcast_stream_close
+          # The generation finishes when the stream drains, not on content.done
           @provider.stub(:process_prompt_finished, ->(*_) { @provider.send(:broadcast_stream_close) }) do
             @provider.send(:process_stream_chunk, done_event)
+            @provider.send(:stream_finished!)
           end
 
           event_types = @stream_events.map { |e| e[:type] }
@@ -183,8 +190,10 @@ module Providers
           )
 
           # Stub process_prompt_finished to just call broadcast_stream_close
+          # The generation finishes when the stream drains, not on content.done
           @provider.stub(:process_prompt_finished, ->(*_) { @provider.send(:broadcast_stream_close) }) do
             @provider.send(:process_stream_chunk, done_event)
+            @provider.send(:stream_finished!)
           end
 
           refute @provider.send(:streaming), "streaming should be false after close"

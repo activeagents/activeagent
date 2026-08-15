@@ -5,7 +5,7 @@ http_interactions:
     uri: http://127.0.0.1:11434/v1/chat/completions
     body:
       encoding: UTF-8
-      string: '{"messages":[{"role":"developer","content":"You are a helpful assistant."},{"role":"user","content":"Hello!"}],"model":"deepseek-r1:latest","stream":true}'
+      string: '{"messages":[{"role":"developer","content":"You are a helpful assistant."},{"role":"user","content":"Hello!"}],"model":"deepseek-r1:latest","stream_options":{"include_usage":true},"stream":true}'
     headers:
       Accept-Encoding:
       - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
