@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-15
+
+`actionagent` 1.2.2 was tagged but never reached RubyGems — its release run
+failed before publishing — so its fixes ship here for the first time.
+
+### Added
+
+- **`activeagent`: agent-as-tool delegation.** A tool is a Ruby method the
+  model can call; a delegation is another agent it can call. `delegation
+  :action, description:` declares the contract on the sub-agent — the
+  description the calling model reads, a JSON Schema for the inputs (block
+  DSL, plain hash, or any class answering `to_json_schema`), and optionally a
+  `returns` schema. A declared `returns` becomes the sub-agent's
+  `response_format`, and its answer is parsed and checked against the
+  required keys before the caller sees it, so callers receive data rather
+  than text to re-parse. The callee keeps its own instructions, templates,
+  model and budget: a specialist agent stays specialist, and the generalist
+  orchestrating it never inherits its prompt.
+
+### Fixed
+
+- **`activeagent`: a streamed generation reports its token usage.** Any
+  generation with `stream: true` reported zero tokens, zero cost and no
+  context-pressure estimate. Three things had to hold at once and none did:
+  a streaming request has no response body to read usage from, Chat
+  Completions only sends its usage chunk when the request sets
+  `stream_options: {include_usage: true}`, and that chunk lands *after*
+  `content.done` — where the response was already being built. Completion is
+  now deferred until the stream drains, the opt-in rides on a new
+  `api_stream_usage_parameters` hook (empty by default, so providers that
+  report unconditionally or not at all are unaffected), and usage is
+  converted from the provider's model object rather than silently dropped.
+
+  A streamed usage payload is treated as a running total for the turn rather
+  than a delta: Chat Completions sends exactly one, but Gemini's
+  OpenAI-compatible endpoint repeats a cumulative usage on every chunk, and
+  summing those reported a turn's tokens several times over. Tool calling
+  still accumulates across turns.
+- **`actionagent`: an agent running in a host app appears in the Agents
+  list.** `AgentRegistrar` shipped with the engine and was never called, so a
+  self-hosted mount read **Agents: 0** while Traces and Interactions were
+  full of that agent's runs. `agent_id` also stayed null on every ingested
+  trace, leaving per-agent Traces, Interactions, Metrics, Evals and Versions
+  empty. Ingest now registers the agent it observes, through the single
+  funnel every ingest path already shares. A registration failure cannot cost
+  a host app its telemetry — the registrar never raises.
+
 ## [1.2.2] - 2026-08-14
 
 ### Fixed
