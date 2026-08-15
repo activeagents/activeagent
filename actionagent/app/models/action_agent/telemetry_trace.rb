@@ -135,7 +135,7 @@ module ActionAgent
       # Add account if in multi-tenant mode
       attrs[:account] = account if ActionAgent.multi_tenant? && account
 
-      create!(attrs)
+      create!(attrs).tap { |record| AgentRegistrar.call(record) }
     end
 
     # Sums a span's token counts (used to decide which spans carry the
