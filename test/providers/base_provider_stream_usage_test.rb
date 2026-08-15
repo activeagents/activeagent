@@ -15,10 +15,6 @@ class BaseProviderStreamUsageTest < ActiveSupport::TestCase
 
     class_attribute :usage_payload, default: nil
 
-    def api_stream_usage_parameters
-      { stream_options: { include_usage: true } }
-    end
-
     # Mimics the real shape: content arrives first and marks the generation
     # complete, then a final chunk carries the usage.
     def api_prompt_execute(parameters)
@@ -69,13 +65,33 @@ class BaseProviderStreamUsageTest < ActiveSupport::TestCase
     assert_empty provider.usage_stack, "an all-zero payload should not enter the stack"
   end
 
-  test "asks Chat Completions for usage when streaming" do
-    provider = ActiveAgent::Providers::OpenAI::ChatProvider.allocate
+  test "a repeated cumulative usage replaces the turn's entry instead of stacking" do
+    # Gemini's OpenAI-compatible endpoint repeats a running total on every
+    # chunk rather than sending one usage at the end of the stream.
+    provider = build(usage: nil)
+    [ 6, 12, 18 ].each do |total|
+      provider.send(:record_stream_usage,
+                    { "prompt_tokens" => total - 2, "completion_tokens" => 2, "total_tokens" => total })
+    end
 
-    assert_equal({ stream_options: { include_usage: true } },
-                 provider.send(:api_stream_usage_parameters))
+    assert_equal 1, provider.usage_stack.size
+    assert_equal 16, provider.usage_stack.first.input_tokens, "the last running total wins"
   end
 
+  test "each turn of a generation records its own usage" do
+    # Tool calling re-enters resolve_prompt per turn, and each turn streams a
+    # usage of its own — those accumulate rather than replacing one another.
+    provider = build(usage: { "prompt_tokens" => 5, "completion_tokens" => 1, "total_tokens" => 6 })
+
+    provider.prompt
+    response = provider.prompt
+
+    assert_equal 2, provider.usage_stack.size
+    assert_equal 10, response.usage.input_tokens
+  end
+
+  # Chat Completions' own opt-in is asserted against a real serialized request
+  # in Providers::OpenAI::Chat::StreamingUsageTest.
   test "the default provider asks for no extra streaming parameters" do
     assert_empty build(usage: nil).send(:api_stream_usage_parameters)
   end

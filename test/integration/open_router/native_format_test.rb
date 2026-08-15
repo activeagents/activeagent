@@ -96,6 +96,9 @@ module Integration
               content: "Hello!"
             }
           ],
+          # Chat Completions only reports a streamed request's token usage
+          # when the request opts in.
+          stream_options: { include_usage: true },
           stream: true
         }
         def streaming
@@ -310,7 +313,7 @@ module Integration
           )
         end
 
-        FUNCTIONS_WITH_STREAMING = FUNCTIONS.merge(stream: true)
+        FUNCTIONS_WITH_STREAMING = FUNCTIONS.merge(stream_options: { include_usage: true }, stream: true)
         def functions_with_streaming
           prompt(
             model: "google/gemini-2.0-flash-001",
