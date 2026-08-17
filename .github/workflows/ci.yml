@@ -9,7 +9,11 @@ jobs:
   # activeagent + actionagent against solid_agent, in both the combination
   # this repository develops against and the one users install today. See
   # .github/workflows/integration.yml.
+  #
+  # Pull requests only: on main that workflow triggers itself, so its runs
+  # are attributed to it and its status badge means something.
   integration:
+    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/integration.yml
     secrets: inherit
 
