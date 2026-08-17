@@ -399,7 +399,7 @@ module ActionAgent
         if defined?(SolidAgent::ToolCache)
           SolidAgent::ToolCache.fetch(tool: name.to_s, args: kwargs, ttl: CACHE_TTL, &block)
         else
-          key = "solid_agent:tool_cache:#{name}:#{Digest::SHA256.hexdigest(kwargs.sort.to_h.to_json)}"
+          key = fallback_cache_key(name, kwargs)
           cached = Rails.cache.read(key)
           return cached.merge(cached: true) unless cached.nil?
 
@@ -408,6 +408,29 @@ module ActionAgent
             Rails.cache.write(key, result, expires_in: CACHE_TTL)
           end
           result
+        end
+      end
+
+      # Byte-for-byte the key SolidAgent::ToolCache would compute, so an app
+      # that upgrades solid_agent mid-TTL keeps reading what it already
+      # cached instead of silently starting over. Nested hashes and
+      # symbol/string keys have to normalize the same way, which a plain
+      # `kwargs.sort.to_h.to_json` does not do.
+      #
+      # test/integration/solid_agent/tool_cache_test.rb asserts the two
+      # schemes still agree.
+      def fallback_cache_key(name, kwargs)
+        "solid_agent:tool_cache:#{name}:#{Digest::SHA256.hexdigest(normalize_cache_args(kwargs).to_json)}"
+      end
+
+      def normalize_cache_args(args)
+        case args
+        when Hash
+          args.map { |key, value| [ key.to_s, normalize_cache_args(value) ] }.sort_by(&:first)
+        when Array
+          args.map { |value| normalize_cache_args(value) }
+        else
+          args
         end
       end
 

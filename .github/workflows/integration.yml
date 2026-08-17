@@ -1,0 +1,128 @@
+name: Cross-repo integration
+
+# activeagent, actionagent and solid_agent release independently, and
+# solid_agent depends on the framework — so each repository's own suite can
+# be green while the combination people install is broken. This workflow is
+# the thing that runs them together.
+#
+# Two configurations, both meaningful:
+#
+#   source    this checkout against solid_agent's main branch, with
+#             SOLID_AGENT_STRICT=1 so a test that would skip fails instead.
+#             This is what the two repositories are developing toward.
+#
+#   released  this checkout against whatever solid_agent Bundler resolves
+#             from RubyGems — the combination a user gets today. Tests skip
+#             what the released gem cannot do, and the skips are printed to
+#             the job summary, so the gap between the gem and its source is
+#             visible rather than assumed.
+#
+# Called by ci.yml on every pull request, by release.yml before publishing,
+# by solid_agent's CI (via repository_dispatch) when that repo changes, and
+# nightly so drift surfaces without anyone pushing.
+
+on:
+  workflow_call:
+    inputs:
+      solid_agent_ref:
+        description: solid_agent branch, tag or SHA to test against
+        type: string
+        default: main
+  workflow_dispatch:
+    inputs:
+      solid_agent_ref:
+        description: solid_agent branch, tag or SHA to test against
+        type: string
+        default: main
+  repository_dispatch:
+    types: [ solid-agent-changed ]
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  integration:
+    name: ${{ matrix.configuration }} solid_agent
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_JOBS: 4
+      BUNDLE_RETRY: 3
+      CI: true
+      RAILS_ENV: test
+      ANTHROPIC_API_KEY: ANTHROPIC_API_KEY
+      OPEN_AI_API_KEY: OPEN_AI_API_KEY
+      OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: source
+            gemfile: gemfiles/solid_agent_main.gemfile
+            strict: "1"
+          - configuration: released
+            gemfile: gemfiles/rails8.gemfile
+            strict: ""
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
+          SOLID_AGENT_REF: ${{ inputs.solid_agent_ref || github.event.client_payload.solid_agent_ref || 'main' }}
+
+      - name: Setup database
+        working-directory: test/dummy
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
+          SOLID_AGENT_REF: ${{ inputs.solid_agent_ref || github.event.client_payload.solid_agent_ref || 'main' }}
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        run: |
+          bundle exec ruby bin/rails db:create
+          bundle exec ruby bin/rails db:migrate
+
+      - name: Report the resolved versions
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
+          SOLID_AGENT_REF: ${{ inputs.solid_agent_ref || github.event.client_payload.solid_agent_ref || 'main' }}
+        run: |
+          {
+            echo "### ${{ matrix.configuration }} combination"
+            echo
+            echo '```'
+            bundle list | grep -E "activeagent|actionagent|solid_agent" || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The engine's own suite runs here too, not just the integration
+      # directory: ActionAgent::AgentExecutionService builds an agent class
+      # around SolidAgent::HasContext, and that path is only exercised by
+      # actionagent/test.
+      - name: Run the integration suite
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
+          SOLID_AGENT_REF: ${{ inputs.solid_agent_ref || github.event.client_payload.solid_agent_ref || 'main' }}
+          SOLID_AGENT_STRICT: ${{ matrix.strict }}
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        run: |
+          bin/test test/integration/solid_agent/*_test.rb \
+                   actionagent/test/agent_execution_service_test.rb 2>&1 | tee integration.log
+
+      # Skips are the report: on the released combination they name every
+      # API the published gem is missing, which is the cue to cut a
+      # solid_agent release.
+      - name: Summarize what the resolved gem could not cover
+        if: always()
+        run: |
+          {
+            echo
+            echo '```'
+            grep -E "does not provide|skips" integration.log || echo "nothing skipped"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

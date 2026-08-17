@@ -160,6 +160,7 @@ end
 
 - [Delegation](/actions/delegation) - Expose another agent to your model as a tool
 - [MCP (Model Context Protocol)](/actions/mcps) - Connect to external services via MCP
+- [Tools, Streaming & Caching (SolidAgent)](/solid_agent/tools) - Declarative tool schemas, live tool status, cached results
 - [Agents](/agents) - Understand the agent lifecycle and callbacks
 - [Generation](/agents/generation) - Execute tool-enabled generations
 - [Messages](/actions/messages) - Learn about conversation structure

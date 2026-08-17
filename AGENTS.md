@@ -395,7 +395,36 @@ bin/test
 
 # Lint
 bin/rubocop
+
+# Cross-repo: this checkout against a local solid_agent (strict = no skips)
+SOLID_AGENT_PATH=../solid_agent \
+  BUNDLE_GEMFILE=gemfiles/solid_agent_main.gemfile \
+  SOLID_AGENT_STRICT=1 \
+  bin/test test/integration/solid_agent/*_test.rb \
+           actionagent/test/agent_execution_service_test.rb
 ```
+
+## Cross-repo testing (solid_agent)
+
+`solid_agent` lives in its own repository, depends on this framework, and is
+depended on by `actionagent` — so all three suites can be green while the
+combination a user installs is broken. `test/integration/solid_agent/` runs
+them together in the dummy app, against the models
+`rails generate solid_agent:install` writes, using the mock provider.
+
+- `gemfiles/solid_agent_main.gemfile` swaps the released gem for source:
+  `SOLID_AGENT_PATH` (local checkout) or `SOLID_AGENT_REF` (branch/tag/SHA).
+- Tests declare what they need (`requires_solid_agent`,
+  `requires_solid_agent_capability`) and skip when the resolved gem lacks
+  it; `SOLID_AGENT_STRICT=1` turns those skips into failures.
+- CI runs both configurations (`.github/workflows/integration.yml`), and
+  `release.yml` gates publishing on them. solid_agent's CI runs the same
+  suite against this repo's main branch and latest release tag.
+- Version skew between the two gems is handled by feature detection rather
+  than a dependency-floor bump, since the floor can only move after the
+  dependency ships — see `ActionAgent.solid_agent_auto_context_keyword`.
+
+Full write-up: `docs/contributing/releasing.md`.
 
 ## Dependencies
 

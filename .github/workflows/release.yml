@@ -17,7 +17,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  # solid_agent depends on this framework, so a release can break it
+  # downstream without either repository's own suite noticing. Publishing
+  # waits on the combination being green.
+  integration:
+    uses: ./.github/workflows/integration.yml
+    secrets: inherit
+
   build:
+    needs: integration
     runs-on: ubuntu-latest
     permissions:
       contents: write
