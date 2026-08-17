@@ -10,6 +10,16 @@
 >
 > *Makes code [TonsOfFun](https://tonsoffun.github.io)!*
 
+[![Gem Version](https://img.shields.io/gem/v/activeagent?label=activeagent&logo=rubygems&color=CC342D)](https://rubygems.org/gems/activeagent)
+[![actionagent](https://img.shields.io/gem/v/actionagent?label=actionagent&logo=rubygems&color=CC342D)](https://rubygems.org/gems/actionagent)
+[![Downloads](https://img.shields.io/gem/dt/activeagent?label=downloads)](https://rubygems.org/gems/activeagent)
+[![CI](https://github.com/activeagents/activeagent/actions/workflows/ci.yml/badge.svg)](https://github.com/activeagents/activeagent/actions/workflows/ci.yml)
+[![Cross-repo integration](https://github.com/activeagents/activeagent/actions/workflows/integration.yml/badge.svg)](https://github.com/activeagents/activeagent/actions/workflows/integration.yml)
+[![Docs](https://img.shields.io/badge/docs-docs.activeagents.ai-2563eb)](https://docs.activeagents.ai)
+[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.1-CC342D)](https://www.ruby-lang.org)
+[![Rails](https://img.shields.io/badge/rails-7.2%20%7C%208.0%20%7C%208.1-D30001)](https://rubyonrails.org)
+[![License](https://img.shields.io/github/license/activeagents/activeagent)](LICENSE)
+
 # Active Agent
 Active Agent provides that missing AI layer in the Rails framework, offering a structured approach to building AI-powered applications through Agent Oriented Programming. **Now Agents are Controllers!** Designing applications using agents allows developers to create modular, reusable components that can be easily integrated into existing systems. This approach promotes code reusability, maintainability, and scalability, making it easier to build complex AI-driven applications with the Object Oriented Ruby code you already use today.
 

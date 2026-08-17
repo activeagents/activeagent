@@ -78,7 +78,10 @@ And three things that are useful without an agent at all:
 class SupportAgent < ApplicationAgent
   include SolidAgent::HasContext
 
-  has_context :conversation, contextual: :user
+  # class_name points the named context at the installed models; without it,
+  # :conversation infers Conversation / ConversationMessage /
+  # ConversationGeneration. See Conversation Context for why.
+  has_context :conversation, class_name: "AgentContext", contextual: :user
 
   def answer
     load_conversation(contextable: params[:user])

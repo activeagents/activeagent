@@ -39,7 +39,8 @@ class SupportAgent < ApplicationAgent
 
   generate_with :openai, model: "gpt-4o-mini"
 
-  has_context :conversation, contextual: :user
+  # class_name keeps the named context on the installed models
+  has_context :conversation, class_name: "AgentContext", contextual: :user
 
   def answer
     load_conversation(contextable: params[:user])

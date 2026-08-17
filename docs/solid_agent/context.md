@@ -13,7 +13,7 @@ and the tool exchange in between are written to `agent_contexts`,
 class SupportAgent < ApplicationAgent
   include SolidAgent::HasContext
 
-  has_context :conversation, contextual: :user
+  has_context :conversation, class_name: "AgentContext", contextual: :user
 
   def answer
     load_conversation(contextable: params[:user])
@@ -27,6 +27,25 @@ end
 
 A context row is keyed by **contextable + agent class + action**, so each
 action of each agent keeps its own thread per record.
+
+::: danger Naming a context also names its models
+`has_context :conversation` infers `Conversation`, `ConversationMessage`
+and `ConversationGeneration` — *not* the `AgentContext` family the install
+generator wrote. Without `class_name:`, the first request raises
+`NameError: uninitialized constant Conversation`.
+
+Two ways out, and the second is the one most apps want:
+
+```ruby
+has_context contextual: :user                      # unnamed -> AgentContext
+has_context :conversation, class_name: "AgentContext", contextual: :user
+```
+
+`class_name: "AgentContext"` infers `AgentMessage` and `AgentGeneration`
+alongside it, so one option is enough. Genuinely want separate tables per
+context? `rails generate solid_agent:context conversation` writes the
+models and migrations the inferred names expect.
+:::
 
 ## What gets written, and when
 
@@ -57,6 +76,9 @@ has_context                              # context, load_context, add_user_messa
 has_context :conversation                # conversation, load_conversation, ...
 has_context :research_session            # research_session, load_research_session, ...
 ```
+
+Remember that a name without `class_name:` also changes which models the
+context resolves — see the warning above.
 
 | Method | Returns |
 |--------|---------|

@@ -163,6 +163,7 @@ export default defineConfig({
       { text: 'Contributing',
         items: [
           { text: 'Documentation', link: '/contributing/documentation' },
+          { text: 'Releasing & Cross-Repo Testing', link: '/contributing/releasing' },
         ]
       },
     ],
