@@ -354,8 +354,14 @@ module ActionAgent
         define_singleton_method(:name) { klass_name }
 
         # Persist the conversation (agent_contexts / agent_messages /
-        # agent_generations) via solid_agent. contextable: false — the context
-        # is loaded explicitly in the action below.
+        # agent_generations) via solid_agent. Auto-context is switched off —
+        # the context is loaded explicitly in the action below.
+        #
+        # The keyword that switches it off was renamed (contextable: ->
+        # contextual:) between solid_agent 0.1 and 0.2, and the gemspec floor
+        # admits both, so it is resolved from the installed method rather than
+        # hard-coded: passing the wrong one is an ArgumentError that only
+        # surfaces when a run executes.
         #
         # The model classes are named explicitly because solid_agent infers
         # bare "AgentContext"/"AgentMessage"/"AgentGeneration" and resolves
@@ -363,10 +369,12 @@ module ActionAgent
         # inferred names only resolve in a host app that happens to have
         # top-level models of its own.
         include SolidAgent::HasContext
-        has_context contextable: false,
+        has_context(
+          ActionAgent.solid_agent_auto_context_keyword => false,
           class_name: "ActionAgent::AgentContext",
           message_class: "ActionAgent::AgentMessage",
           generation_class: "ActionAgent::AgentGeneration"
+        )
 
         if effective_provider == :mock
           # Test environment only (see #provider_available?).

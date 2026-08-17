@@ -20,6 +20,25 @@ module ActionAgent
       global = defined?(::ActiveRecord::Base) ? ::ActiveRecord::Base.table_name_prefix : ""
       "#{global}#{@table_name_prefix ||= "active_agent_"}"
     end
+
+    # Which keyword the installed solid_agent uses to switch has_context's
+    # auto-context off: `contextable:` up to 0.1, `contextual:` from 0.2. The
+    # gemspec floor admits both, and passing the wrong one raises an
+    # ArgumentError deep inside a run rather than at boot — so
+    # AgentExecutionService asks rather than assumes.
+    #
+    # Covered by test/integration/solid_agent, which runs this engine against
+    # solid_agent's main branch as well as the released gem.
+    def solid_agent_auto_context_keyword
+      @solid_agent_auto_context_keyword ||= begin
+        keywords = ::SolidAgent::HasContext::ClassMethods
+          .instance_method(:has_context).parameters
+          .select { |type, _| [ :key, :keyreq ].include?(type) }
+          .map(&:last)
+
+        keywords.include?(:contextual) ? :contextual : :contextable
+      end
+    end
   end
 end
 

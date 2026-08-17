@@ -18,9 +18,8 @@ workspace starts with a free low-volume trial.
 
 The dashboard's models are Active Record models and its runs persist
 conversations, so `actionagent` adds `activerecord` and
-[solid_agent](https://github.com/activeagents/solid_agent) on top of what the
-framework already pulls in — neither of which `activeagent` itself requires.
-Add both gems:
+[solid_agent](/solid_agent) on top of what the framework already pulls in —
+neither of which `activeagent` itself requires. Add both gems:
 
 ```ruby
 # Gemfile
@@ -199,3 +198,6 @@ class ApplicationAgent < ActiveAgent::Base
   has_context contextual: :user
 end
 ```
+
+See [Persistence (SolidAgent)](/solid_agent) for the rest of what that gem
+records — the tool exchange, long-term memory, runs and cost.

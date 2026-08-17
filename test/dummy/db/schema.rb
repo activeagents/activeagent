@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 4) do
+ActiveRecord::Schema[8.0].define(version: 5) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -313,6 +313,111 @@ ActiveRecord::Schema[8.0].define(version: 4) do
     t.index [ "user_id" ], name: "index_active_agent_session_recordings_on_user_id"
   end
 
+  create_table "agent_contexts", force: :cascade do |t|
+    t.string "action_name", null: false
+    t.string "agent_name", null: false
+    t.integer "contextable_id"
+    t.string "contextable_type"
+    t.datetime "created_at", null: false
+    t.text "instructions"
+    t.json "options", default: {}
+    t.integer "total_input_tokens", default: 0
+    t.integer "total_output_tokens", default: 0
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index [ "agent_name", "action_name" ], name: "index_agent_contexts_on_agent_name_and_action_name"
+    t.index [ "contextable_type", "contextable_id" ], name: "index_agent_contexts_on_contextable"
+    t.index [ "trace_id" ], name: "index_agent_contexts_on_trace_id"
+  end
+
+  create_table "agent_generations", force: :cascade do |t|
+    t.integer "agent_context_id", null: false
+    t.integer "cached_tokens", default: 0
+    t.text "content"
+    t.datetime "created_at", null: false
+    t.float "duration_seconds"
+    t.string "finish_reason"
+    t.integer "input_tokens", default: 0
+    t.string "model"
+    t.integer "output_tokens", default: 0
+    t.json "provenance", default: {}
+    t.string "provider"
+    t.json "raw_response"
+    t.integer "reasoning_tokens", default: 0
+    t.json "tool_calls", default: []
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index [ "agent_context_id" ], name: "index_agent_generations_on_agent_context_id"
+    t.index [ "trace_id" ], name: "index_agent_generations_on_trace_id"
+  end
+
+  create_table "agent_memories", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "memorable_id"
+    t.string "memorable_type"
+    t.string "scope", default: "default", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "memorable_type", "memorable_id", "scope" ], name: "index_agent_memories_on_memorable_and_scope", unique: true
+    t.index [ "memorable_type", "memorable_id" ], name: "index_agent_memories_on_memorable"
+  end
+
+  create_table "agent_memory_entries", force: :cascade do |t|
+    t.integer "agent_memory_id", null: false
+    t.string "category"
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.string "source_agent"
+    t.datetime "updated_at", null: false
+    t.index [ "agent_memory_id" ], name: "index_agent_memory_entries_on_agent_memory_id"
+    t.index [ "category" ], name: "index_agent_memory_entries_on_category"
+  end
+
+  create_table "agent_messages", force: :cascade do |t|
+    t.integer "agent_context_id", null: false
+    t.json "attachments", default: []
+    t.text "content"
+    t.string "content_checksum"
+    t.datetime "created_at", null: false
+    t.json "metadata", default: {}
+    t.json "provenance", default: {}
+    t.string "role", null: false
+    t.json "tool_arguments", default: {}
+    t.string "tool_call_id"
+    t.string "tool_name"
+    t.json "tool_result"
+    t.datetime "updated_at", null: false
+    t.index [ "agent_context_id" ], name: "index_agent_messages_on_agent_context_id"
+    t.index [ "role" ], name: "index_agent_messages_on_role"
+    t.index [ "tool_call_id" ], name: "index_agent_messages_on_tool_call_id"
+  end
+
+  create_table "agent_runs", force: :cascade do |t|
+    t.string "action_name"
+    t.string "agent_name"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.json "events", default: []
+    t.json "input_params", default: {}
+    t.text "input_prompt"
+    t.integer "input_tokens", default: 0
+    t.string "instructions_digest"
+    t.text "output"
+    t.json "output_metadata", default: {}
+    t.integer "output_tokens", default: 0
+    t.integer "runnable_id"
+    t.string "runnable_type"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index [ "instructions_digest" ], name: "index_agent_runs_on_instructions_digest"
+    t.index [ "runnable_type", "runnable_id" ], name: "index_agent_runs_on_runnable"
+    t.index [ "status" ], name: "index_agent_runs_on_status"
+    t.index [ "trace_id" ], name: "index_agent_runs_on_trace_id"
+  end
+
   create_table "posts", force: :cascade do |t|
     t.text "content"
     t.datetime "created_at", null: false
@@ -347,6 +452,9 @@ ActiveRecord::Schema[8.0].define(version: 4) do
     t.index [ "email" ], name: "index_users_on_email", unique: true
   end
 
+  add_foreign_key "agent_generations", "agent_contexts"
+  add_foreign_key "agent_memory_entries", "agent_memories"
+  add_foreign_key "agent_messages", "agent_contexts"
   add_foreign_key "posts", "users"
   add_foreign_key "profiles", "users"
 end

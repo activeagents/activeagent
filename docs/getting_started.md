@@ -211,6 +211,7 @@ See **[Generation](/agents/generation)** for background jobs, callbacks, and res
 **Framework:**
 - **[Configuration](/framework/configuration)** - Environment settings, precedence
 - **[Rails Integration](/framework/rails)** - Generators, helpers, conventions
+- **[Persistence (SolidAgent)](/solid_agent)** - Store conversations, memory, runs and cost in your database
 - **[Retries](/framework/retries)** - Error handling and retry strategies
 - **[Instrumentation](/framework/instrumentation)** - Logging and monitoring
 - **[Testing](/framework/testing)** - Test your agents with fixtures and VCR

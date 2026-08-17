@@ -96,6 +96,7 @@ See [Streaming](/agents/streaming) for complete documentation.
 
 **Related Topics:**
 - [Tools](/actions/tools) - Use agent actions as AI-callable tools
+- [Persistence (SolidAgent)](/solid_agent) - Persist conversations, memory and runs to your database
 - [Structured Output](/actions/structured_output) - Extract typed data with schemas
 - [Embeddings](/actions/embeddings) - Vector generation for semantic search
 - [Testing](/framework/testing) - Test agents and concerns

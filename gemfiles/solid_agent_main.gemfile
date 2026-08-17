@@ -1,0 +1,35 @@
+source "https://rubygems.org"
+
+gem "minitest", "~> 5.0"
+gem "sqlite3", "~> 2.0"
+gem "rails", "~> 8.1.1"
+gem "tzinfo-data"
+
+gemspec path: ".."
+gemspec path: "../actionagent", name: "actionagent"
+
+# The cross-repo integration bundle: this framework, plus solid_agent from
+# source rather than the released gem.
+#
+# `actionagent` depends on solid_agent, so the default bundle already
+# resolves whatever is on RubyGems — which is the combination users install,
+# not the one the two repositories are developing toward. Tests under
+# test/integration/solid_agent run against both: they skip what the resolved
+# version cannot do, and SOLID_AGENT_STRICT=1 turns those skips into
+# failures, which is how CI asserts the source-to-source combination is
+# whole.
+#
+# SOLID_AGENT_PATH points at a local checkout, so solid_agent's own CI can
+# run this suite against its working tree:
+#
+#   SOLID_AGENT_PATH=../solid_agent \
+#     BUNDLE_GEMFILE=gemfiles/solid_agent_main.gemfile bin/test
+#
+# SOLID_AGENT_REF picks a branch, tag or SHA when there is no checkout.
+if (path = ENV["SOLID_AGENT_PATH"])
+  gem "solid_agent", path: File.expand_path(path, __dir__)
+else
+  gem "solid_agent",
+    github: "activeagents/solid_agent",
+    ref: ENV.fetch("SOLID_AGENT_REF", "main")
+end

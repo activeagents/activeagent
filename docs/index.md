@@ -50,6 +50,10 @@ features:
     icon: 🧪
     link: /framework/testing
     details: Test with fixtures and VCR cassettes. Mock providers for fast tests.
+  - title: Persistence
+    icon: 🗄️
+    link: /solid_agent
+    details: Add the solid_agent gem for database-backed conversations, long-term memory, runs and cost — as models you own.
   - title: Dashboard
     icon: 📈
     link: /framework/dashboard

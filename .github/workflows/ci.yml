@@ -6,6 +6,13 @@ on:
     branches: [ main ]
 
 jobs:
+  # activeagent + actionagent against solid_agent, in both the combination
+  # this repository develops against and the one users install today. See
+  # .github/workflows/integration.yml.
+  integration:
+    uses: ./.github/workflows/integration.yml
+    secrets: inherit
+
   lint:
     runs-on: ubuntu-latest
     steps:
