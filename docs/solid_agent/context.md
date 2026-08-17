@@ -62,8 +62,8 @@ they run after the provider has answered:
 
 ::: warning Don't write the user turn twice
 With `auto_save` on (the default), step 3 stores the last prompt message
-for you. Call `add_conversation_user_message` yourself only when you've
-turned `auto_save: false` off, or the same turn lands in the table twice.
+for you. Call `add_conversation_user_message` yourself only when you have
+set `auto_save: false`, or the same turn lands in the table twice.
 :::
 
 ## Naming the context

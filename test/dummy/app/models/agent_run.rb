@@ -70,8 +70,14 @@ class AgentRun < ApplicationRecord
     }.compact
     event["detail"] = detail.to_s.byteslice(0, 1200).to_s.scrub if detail
     event["duration_ms"] = duration_ms if duration_ms
-    current = self.class.where(id: id).pick(:events) || []
-    update_column(:events, current + [ event ])
+
+    # Read-modify-write on a JSON column drops entries when two writers
+    # race, so the re-read and the write are serialized by a row lock.
+    with_lock do
+      current = self.class.where(id: id).pick(:events) || []
+      update_column(:events, current + [ event ])
+    end
+
     event
   end
 

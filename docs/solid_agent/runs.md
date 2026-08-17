@@ -62,8 +62,10 @@ Predicates come with it: `pending?`, `running?`, `complete?`, `failed?`,
 
 `append_event` appends to a JSON column with `update_column` — no
 validations, no callbacks, safe to call from the run's own thread while it
-works. Each append reads current database state first, so concurrent
-appends interleave instead of clobbering each other.
+works. Read-modify-write on a JSON column would drop entries when two
+writers race, so the re-read and the write are serialized by a row lock:
+an append made while another is in flight lands after it rather than on
+top of it.
 
 ```ruby
 run.append_event(kind: "tool", label: "fetch_url", eid: "e1", status: "started")
