@@ -38,6 +38,13 @@ on:
     types: [ solid-agent-changed ]
   schedule:
     - cron: "0 6 * * *"
+  # Runs here rather than through ci.yml on main. A workflow_call run is
+  # attributed to the caller, so this workflow had no runs of its own and
+  # its status badge read "no status" however often the suite passed.
+  # ci.yml keeps calling it for pull requests, where the badge is irrelevant
+  # and one combined check is what reviewers want.
+  push:
+    branches: [ main ]
 
 jobs:
   integration:
