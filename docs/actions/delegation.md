@@ -139,7 +139,7 @@ delegate_to KnowledgeBaseAgent, budget: { max_calls: 3, max_tokens: 20_000 }
 
 Both apply — a call has to clear the agent-wide ceiling *and* its own limit.
 
-<!-- @include: @/parts/examples/delegation-examples-test.rb-test-budgets-layer:-the-agent-wide-ceiling-and-the-per-delegation-limit.md -->
+<!-- @include: @/parts/examples/delegation-examples-test.rb-test-budgets-layer--the-agent-wide-ceiling-and-the-per-delegation-limit.md -->
 
 | Limit | Unit | Meaning |
 |:------|:-----|:--------|

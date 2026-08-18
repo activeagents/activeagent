@@ -38,6 +38,18 @@ def extract_path_info(caller_info)
   end
 end
 
+# Test names become filenames, and those filenames become artifact paths on
+# the docs deploy. actions/upload-artifact rejects a handful of characters
+# outright — a colon in one test name failed every Pages deploy from the
+# moment it was added, after the docs themselves had built fine.
+#
+# The rejected set is the action's own: " : < > | * ? \r \n
+DOC_EXAMPLE_UNSAFE_CHARACTERS = /["*:<>?|\r\n]/
+
+def doc_example_filename_safe(name)
+  name.to_s.gsub(DOC_EXAMPLE_UNSAFE_CHARACTERS, "-")
+end
+
 def doc_example_output(example = nil, test_name = nil)
   # Extract caller information
   caller_info = caller.find { |line| line.include?("_test.rb") }
@@ -49,8 +61,9 @@ def doc_example_output(example = nil, test_name = nil)
   end
 
   path_info = extract_path_info(caller_info)
-  file_name = path_info[:file_name].dasherize
+  file_name = doc_example_filename_safe(path_info[:file_name].dasherize)
   test_name ||= name.to_s.dasherize if respond_to?(:name)
+  test_name = doc_example_filename_safe(test_name)
 
   file_path = Rails.root.join("..", "..", "docs", "parts", "examples", "#{file_name}-#{test_name}.md")
   # puts "\nWriting example output to #{file_path}\n"
