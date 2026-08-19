@@ -30,7 +30,7 @@ module ActionAgent
   #
   # MCP attribution comes from ActiveAgent::Telemetry::ToolOrigin (the
   # +mcp__server__tool+ convention, tagged onto spans at instrumentation
-  # time), then McpCatalog's hints for bare tool names, then the tool is
+  # time), then MCPCatalog's hints for bare tool names, then the tool is
   # treated as a method the agent class defines.
   #
   # Scopes are passed in rather than derived, so the caller's ownership
@@ -404,7 +404,7 @@ module ActionAgent
       classification = ActiveAgent::Telemetry::ToolOrigin.classify(name)
       return { origin: ORIGIN_MCP, server: classification[:server] } if classification[:server].present?
 
-      if (hinted = McpCatalog.server_for_tool(name))
+      if (hinted = MCPCatalog.server_for_tool(name))
         # A catalog hint is weaker evidence than a namespaced name: the tool
         # is *probably* this server's, but a builtin of the same name is the
         # dashboard's own implementation, so builtins win the tie.
@@ -474,7 +474,7 @@ module ActionAgent
 
     def source_label(origin, server)
       case origin
-      when ORIGIN_MCP then server.present? ? "MCP · #{McpCatalog.display_name(server)}" : "MCP"
+      when ORIGIN_MCP then server.present? ? "MCP · #{MCPCatalog.display_name(server)}" : "MCP"
       when ORIGIN_BUILTIN then "Dashboard toolbox"
       else "Agent-defined"
       end
@@ -500,7 +500,7 @@ module ActionAgent
         end
       end
 
-      keys = (McpCatalog::BY_KEY.keys + detected.keys + configured_servers.keys).uniq
+      keys = (MCPCatalog::BY_KEY.keys + detected.keys + configured_servers.keys).uniq
 
       # detected has a default block that would materialize a bucket on
       # lookup, so unseen servers are passed through as an explicit nil.
@@ -509,7 +509,7 @@ module ActionAgent
     end
 
     def server_row(key, bucket)
-      catalog = McpCatalog.find(key)
+      catalog = MCPCatalog.find(key)
       configured = configured_servers[key].to_a.sort
       calls = bucket ? bucket[:calls] : 0
 

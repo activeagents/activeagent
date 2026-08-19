@@ -48,7 +48,7 @@ module ActionAgent
     # Unknown keys are dropped rather than raising — a session outlives a
     # catalog edit.
     def mcp_catalog_entries
-      Array(mcp_servers).filter_map { |key| McpCatalog.find(key) }
+      Array(mcp_servers).filter_map { |key| MCPCatalog.find(key) }
     end
 
     # Check if session is still valid
