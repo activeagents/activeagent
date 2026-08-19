@@ -99,15 +99,15 @@ to the full URL, as shown below, and `resolved_endpoint` returns that.)
 # A path on your main app:
 mount ActionAgent::Engine => "/activeagents"
 
-# Or the root of a dedicated subdomain, e.g. activeagents.combinaut.com:
+# Or the root of a dedicated subdomain, e.g. activeagents.example.com:
 constraints subdomain: "activeagents" do
   mount ActionAgent::Engine => "/", as: :active_agent_subdomain
 end
 ```
 
 With the subdomain mount, the dashboard lives at
-`https://activeagents.combinaut.com/` and remote apps post traces to
-`https://activeagents.combinaut.com/api/traces`.
+`https://activeagents.example.com/` and remote apps post traces to
+`https://activeagents.example.com/api/traces`.
 
 ## Authentication (required in production)
 
@@ -161,7 +161,7 @@ mount:
 production:
   telemetry:
     enabled: true
-    endpoint: https://activeagents.combinaut.com/api/traces
+    endpoint: https://activeagents.example.com/api/traces
     api_key: <%= Rails.application.credentials.dig(:active_agent, :ingest_api_key) %>
 ```
 
@@ -202,7 +202,7 @@ gem "activeagents-telemetry-ruby_llm"
 ```ruby
 # config/initializers/ruby_llm_telemetry.rb
 ActiveAgents::Telemetry::RubyLLM.subscribe!(
-  endpoint: "https://activeagents.combinaut.com/api/traces",
+  endpoint: "https://activeagents.example.com/api/traces",
   api_key: Rails.application.credentials.dig(:active_agent, :ingest_api_key),
   service_name: "billing-app"
 )
