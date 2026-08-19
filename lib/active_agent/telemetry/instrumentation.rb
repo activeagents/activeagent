@@ -94,12 +94,24 @@ module ActiveAgent
                 prompt_span.set_attribute("prompt.input.tools", JSON.generate(roster)) if roster.any?
               end
 
-              if (outbound = prompt_options[:messages]).present?
+              # prompt_options[:messages] holds the turns a caller passed
+              # explicitly. An agent that renders its user turn from the
+              # action's template — the idiomatic form, `instructions:` plus
+              # `locals:` — has none at this point: the rendering happens
+              # later, in prepare_prompt_parameters. Falling back to it means
+              # the message the model actually received is on the trace either
+              # way, which is what an evaluation scores.
+              outbound = prompt_options[:messages]
+              outbound = rendered_prompt_messages if outbound.blank?
+
+              if outbound.present?
                 serialized = Array(outbound).map { |message|
                   if message.is_a?(Hash)
                     role = message[:role] || message["role"] || "user"
                     content = message[:content] || message["content"]
                     { role: role.to_s, content: telemetry_truncate(content) }
+                  elsif message.respond_to?(:content)
+                    { role: (message.try(:role) || "user").to_s, content: telemetry_truncate(message.content) }
                   else
                     { role: "user", content: telemetry_truncate(message) }
                   end
@@ -256,6 +268,27 @@ module ActiveAgent
         # Content attributes are capped so a large prompt (e.g. a 100k-token
         # tool loop) can't bloat the trace payload.
         TELEMETRY_ATTRIBUTE_MAX_CHARS = 4_000
+
+        # The turns this generation will actually send, for an agent that
+        # renders its user message from the action's template rather than
+        # passing `messages:`. prepare_prompt_parameters is a pure function of
+        # prompt_options — it deep_dups its input and mutates no instance
+        # state — so calling it here is a read, not a side effect. It does
+        # re-render the templates, which is why it is only reached when there
+        # are no explicit messages to record.
+        #
+        # Never raises: a provider that builds parameters differently, or an
+        # agent whose templates need context this call does not have, must
+        # cost the generation nothing more than an absent attribute.
+        def rendered_prompt_messages
+          return unless respond_to?(:prepare_prompt_parameters, true)
+
+          parameters = prepare_prompt_parameters
+          parameters[:messages] || parameters["messages"]
+        rescue StandardError => e
+          logger&.debug { "[ActiveAgent::Telemetry] could not read rendered messages: #{e.class}: #{e.message}" }
+          nil
+        end
 
         def telemetry_truncate(value)
           text = value.to_s
