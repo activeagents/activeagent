@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-08-19
+
+### Fixed
+
+- **Traces record the user turn an agent renders from its template.** An
+  agent written the idiomatic way — `instructions:` plus `locals:`, with the
+  user message in the action's ERB — passed no `messages:`, so the
+  instrumentation had nothing to serialize and `prompt.input.messages` was
+  absent from its traces. The system prompt and the completion were both
+  captured, which made the gap easy to miss: a trace looked populated while
+  the half an evaluation scores, what the model was actually asked, was
+  missing. The instrumentation now falls back to the rendered parameters when
+  no explicit messages exist.
+
+### Note on the 1.3.0 gem
+
+`activeagent 1.3.0` was published from a tree that already carried the fix
+above, so the released gem did not match the `v1.3.0` tag — the tag's source
+would not reproduce it. This release contains no change relative to that
+published gem; it exists so that the tag, `main` and the published gem agree
+again. Upgrading from 1.3.0 is optional and changes no behaviour.
+
 ## [1.3.0] - 2026-08-18
 
 ### Added
