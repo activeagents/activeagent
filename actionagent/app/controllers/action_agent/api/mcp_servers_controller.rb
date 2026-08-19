@@ -9,7 +9,7 @@ module ActionAgent
     # and solid_agent records (ToolDiscovery), servers an agent declares in
     # its configuration, and the default catalog (MCPCatalog). An install
     # therefore sees both what it is already using and what it could turn on.
-    class McpServersController < BaseController
+    class MCPServersController < BaseController
       before_action :require_owner!
       # Launching provisions a sandbox and runs a server in it, so it answers
       # to the same two gates as any other execution: the read-only kill

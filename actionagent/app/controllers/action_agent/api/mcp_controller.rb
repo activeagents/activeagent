@@ -19,7 +19,7 @@ module ActionAgent
     # Connect from an MCP client with:
     #   { "type": "http", "url": "https://activeagents.ai/mcp",
     #     "headers": { "Authorization": "Bearer aa_..." } }
-    class McpController < BaseController
+    class MCPController < BaseController
       # Authenticated by API key rather than by the host app's sessions.
       allow_unauthenticated_access
       before_action :authenticate_api_key!
@@ -51,7 +51,7 @@ module ActionAgent
       rescue McpError => e
         render_error(request_id, e.code, e.message)
       rescue StandardError => e
-        Rails.logger.error("[Api::McpController] #{e.class}: #{e.message}")
+        Rails.logger.error("[Api::MCPController] #{e.class}: #{e.message}")
         render_error(request_id, JSONRPC_SERVER_ERROR, "Internal error")
       end
 
