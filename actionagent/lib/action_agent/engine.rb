@@ -31,7 +31,7 @@ module ActionAgent
     # (a plain host's router, or caller code written against the pre-acronym
     # names) with the acronym constant.
     DEFAULT_SPELLINGS = INFLECTION_OVERRIDES.to_h { |basename, constant|
-      [Zeitwerk::Inflector.new.camelize(basename, nil), constant]
+      [ Zeitwerk::Inflector.new.camelize(basename, nil), constant ]
     }.freeze
 
     config.action_agent = ActiveSupport::OrderedOptions.new
