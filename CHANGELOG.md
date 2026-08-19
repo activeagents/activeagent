@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-18
+
+### Added
+
+- **Agent-as-tool delegation.** A tool is a Ruby method the model can call; a
+  delegation is another agent it can call. The callee keeps its own
+  instructions, templates, model and budget, so a specialist agent stays
+  specialist and the generalist orchestrating it never inherits its prompt.
+  Declared with `delegation :action, description:` on the sub-agent, with a
+  JSON Schema for the inputs and an optional `returns` schema that becomes the
+  sub-agent's response format. See `docs/actions/delegation.md`.
+
+### Fixed
+
+- **Streamed generations report their token usage.** A request with
+  `stream: true` recorded zero input and output tokens, and so zero cost and
+  no context-pressure estimate downstream — dashboards showed `Tokens 0` and
+  `$0.00` beside a run that had plainly called the API. Three things had to
+  hold at once for the usage to survive, and none did: the streaming path
+  returns `nil` rather than a response body to read usage from; Chat
+  Completions only emits its usage chunk when the request sets
+  `stream_options: {include_usage: true}`, which was never sent; and that
+  chunk arrives *after* `content.done`, where the response was already being
+  built. Completion now defers until the stream drains, and the usage chunk
+  is recorded on the way past. A provider hook (`api_stream_usage_parameters`,
+  empty by default) keeps providers that report unconditionally — or not at
+  all — unaffected.
+
+  Also fixed a silent conversion failure behind the same symptom:
+  `Usage.from_provider_usage` early-returns on anything that is not a Hash,
+  and the stainless gems hand back model objects, so usage was dropped even
+  when it did arrive.
+
+### Note on the 1.2.0 tag
+
+The `v1.2.0` tag had been moved to a commit later than the one published as
+`activeagent 1.2.0`, so the tag and the gem disagreed. It has been repointed
+to the commit that actually produced the release. If you fetched the tag
+between 2026-08-14 and 2026-08-18, re-fetch with `git fetch --tags --force`.
+
 ## [1.2.2] - 2026-08-14
 
 ### Fixed
