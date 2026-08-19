@@ -70,7 +70,7 @@ ActionAgent::Engine.routes.draw do
     resources :tools, only: [ :index ]
 
     # MCP services — detected servers unioned with the default catalog
-    # (McpCatalog), plus on-demand sandbox provisioning. Keys are catalog
+    # (MCPCatalog), plus on-demand sandbox provisioning. Keys are catalog
     # slugs like "sequential-thinking", so the id segment allows dashes.
     resources :mcp_servers, only: [ :index, :show ], id: /[^\/]+/ do
       member do

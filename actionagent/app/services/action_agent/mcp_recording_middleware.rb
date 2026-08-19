@@ -7,7 +7,7 @@ module ActionAgent
   # to a SessionRecording for playback and debugging.
   #
   # Usage:
-  #   middleware = McpRecordingMiddleware.new(session_recording: recording)
+  #   middleware = MCPRecordingMiddleware.new(session_recording: recording)
   #
   #   # Process a tool call
   #   result = middleware.intercept(tool_call) do
@@ -15,7 +15,7 @@ module ActionAgent
   #     mcp_client.call_tool(tool_call)
   #   end
   #
-  class McpRecordingMiddleware
+  class MCPRecordingMiddleware
     # Map of Playwright MCP tool names to our action types
     PLAYWRIGHT_TOOLS = {
       "browser_navigate" => "navigate",

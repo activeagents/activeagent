@@ -9,7 +9,7 @@ module ActionAgent
   # app in development, or a sandbox-provisioned browser container in
   # production. Speaks just enough JSON-RPC for tools/call: initialize once
   # per process, then call tools under the session id the server hands back.
-  class PlaywrightMcpClient
+  class PlaywrightMCPClient
     DEFAULT_URL = ENV.fetch("PLAYWRIGHT_MCP_URL", "http://host.orb.internal:8931/mcp")
     OPEN_TIMEOUT_SECONDS = 5
     READ_TIMEOUT_SECONDS = 60
@@ -31,7 +31,7 @@ module ActionAgent
 
     # Returns { text:, is_error: } — the tool result's text content.
     def call_tool(name, arguments = {})
-      Rails.logger.debug("[PlaywrightMcpClient] call #{name} args=#{arguments.inspect[0, 200]}")
+      Rails.logger.debug("[PlaywrightMCPClient] call #{name} args=#{arguments.inspect[0, 200]}")
       ensure_session!
       response = post(
         { jsonrpc: "2.0", id: next_id, method: "tools/call",
@@ -40,7 +40,7 @@ module ActionAgent
       )
       result = response["result"]
       unless result
-        Rails.logger.warn("[PlaywrightMcpClient] #{name} unexpected response: #{response.inspect[0, 500]}")
+        Rails.logger.warn("[PlaywrightMCPClient] #{name} unexpected response: #{response.inspect[0, 500]}")
         raise Error, (response.dig("error", "message") || "empty MCP response")
       end
 
@@ -100,17 +100,17 @@ module ActionAgent
 
       response = http.request(request)
       Rails.logger.debug(
-        "[PlaywrightMcpClient] #{payload[:method]} -> #{response.code} " \
+        "[PlaywrightMCPClient] #{payload[:method]} -> #{response.code} " \
         "ct=#{response['Content-Type']} bytes=#{response.body.to_s.bytesize} session=#{session ? 'yes' : 'no'}"
       )
       unless response.code.to_i.between?(200, 299)
-        Rails.logger.warn("[PlaywrightMcpClient] HTTP #{response.code}: #{response.body.to_s[0, 300]}")
+        Rails.logger.warn("[PlaywrightMCPClient] HTTP #{response.code}: #{response.body.to_s[0, 300]}")
         raise Error, "MCP server returned HTTP #{response.code}"
       end
 
       parsed = parse_body(response)
       if parsed.empty? && payload[:id]
-        Rails.logger.warn("[PlaywrightMcpClient] unparsed body (#{response['Content-Type']}): #{response.body.to_s[0, 500]}")
+        Rails.logger.warn("[PlaywrightMCPClient] unparsed body (#{response['Content-Type']}): #{response.body.to_s[0, 500]}")
       end
       [ parsed, response ]
     end
