@@ -312,8 +312,8 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
     }
   }, [sortBy]);
 
-  // Group by Agent.action, not by agent class. Clara.respond (admin assistant,
-  // full tool access, ~$0.03/run) and Clara.title (no tools, temperature 0.2,
+  // Group by Agent.action, not by agent class. Assistant.respond (admin assistant,
+  // full tool access, ~$0.03/run) and Assistant.title (no tools, temperature 0.2,
   // ~$0.0004/run) are different agents that share a class name because one app
   // method spawns both; interleaving their streams hides that.
   const agentGroups = useMemo(() => {
@@ -533,7 +533,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
         <div className="space-y-8">
           {agentGroups.map((group) => (
           <div key={group.key} className="space-y-4">
-            {/* Agent header — Clara.respond and Clara.title are different
+            {/* Agent header — Assistant.respond and Assistant.title are different
                 agents (different instructions, tools, cost), so their streams
                 are grouped rather than interleaved. */}
             <div className="flex items-baseline justify-between">
