@@ -30,6 +30,16 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
     assert ActionAgent::Api::TracesController < ActionController::API
   end
 
+  test "acronym constants answer to their default spellings" do
+    # A plain-inflection host's router camelizes the engine's mcp_* files to
+    # Mcp* names; the files define MCP* constants (INFLECTION_OVERRIDES), and
+    # the const_missing shim bridges the lookup.
+    assert_equal ActionAgent::MCPCatalog, ActionAgent::McpCatalog
+    assert_equal ActionAgent::PlaywrightMCPClient, ActionAgent::PlaywrightMcpClient
+    assert_equal ActionAgent::Api::MCPServersController, ActionAgent::Api::McpServersController
+    assert_equal ActionAgent::Api::MCPController, ActionAgent::Api::McpController
+  end
+
   test "every engine route maps to a shipped controller action" do
     ActionAgent::Engine.routes.routes.each do |route|
       controller = route.defaults[:controller]

@@ -46,7 +46,7 @@ module ActionAgent
           }
         }
       ],
-      # A real browser via a Playwright MCP server (PlaywrightMcpClient).
+      # A real browser via a Playwright MCP server (PlaywrightMCPClient).
       # Stateful: navigate changes what snapshot/click see, so these bypass
       # the toolbox result cache.
       "playwright_mcp" => [
@@ -288,17 +288,17 @@ module ActionAgent
       SNAPSHOT_LINK = /\[Snapshot\]\(([^)]+)\)/
 
       def playwright_mcp(tool, arguments, retried: false)
-        result = PlaywrightMcpClient.instance.call_tool(tool, arguments)
+        result = PlaywrightMCPClient.instance.call_tool(tool, arguments)
         text = inline_snapshot(result[:text].to_s)
         if text.length > PLAYWRIGHT_RESULT_LIMIT
           text = "#{text[0, PLAYWRIGHT_RESULT_LIMIT]}\n…(truncated, #{text.length} chars total)"
         end
         result[:is_error] ? { error: text.presence || "browser tool failed" } : { text: text }
-      rescue PlaywrightMcpClient::Error => e
+      rescue PlaywrightMCPClient::Error => e
         # One fresh-session retry: the first call after a server (re)start can
         # race the browser launch.
         unless retried
-          PlaywrightMcpClient.reset!
+          PlaywrightMCPClient.reset!
           return playwright_mcp(tool, arguments, retried: true)
         end
         { error: e.message }

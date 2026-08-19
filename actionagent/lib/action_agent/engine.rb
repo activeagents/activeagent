@@ -14,11 +14,25 @@ module ActionAgent
     engine_name "action_agent"
 
     # Basenames this engine spells differently from Zeitwerk's default
-    # camelization, consulted by the inflections initializer below. Empty
-    # today: every file here is named for the constant default camelization
-    # produces. An engine file that wants a genuine acronym in its constant
-    # adds its basename here rather than relying on the host to register one.
-    INFLECTION_OVERRIDES = {}.freeze
+    # camelization, consulted by the inflections initializer below. An engine
+    # file that wants a genuine acronym in its constant adds its basename here
+    # rather than relying on the host to register one.
+    INFLECTION_OVERRIDES = {
+      "mcp_catalog" => "MCPCatalog",
+      "mcp_controller" => "MCPController",
+      "mcp_recording_middleware" => "MCPRecordingMiddleware",
+      "mcp_servers_controller" => "MCPServersController",
+      "playwright_mcp_client" => "PlaywrightMCPClient"
+    }.freeze
+
+    # The spelling default camelization produces for each overridden file,
+    # mapped to the constant the file actually defines. The const_missing shim
+    # below uses it to answer lookups that camelized with default inflections
+    # (a plain host's router, or caller code written against the pre-acronym
+    # names) with the acronym constant.
+    DEFAULT_SPELLINGS = INFLECTION_OVERRIDES.to_h { |basename, constant|
+      [ Zeitwerk::Inflector.new.camelize(basename, nil), constant ]
+    }.freeze
 
     config.action_agent = ActiveSupport::OrderedOptions.new
 
@@ -34,14 +48,13 @@ module ActionAgent
     end
 
     # This engine's constants are spelled the way Zeitwerk's own inflector
-    # spells them — Api, McpCatalog, ApiKey — but an engine's files are
+    # spells them — Api, ApiKey — but an engine's files are
     # autoloaded by the host's `rails.main` loader, under the *host's*
     # inflections. A host that declares `inflect.acronym "API"` or "MCP" (both
     # common, and documented by Rails) makes Zeitwerk expect
-    # ActionAgent::API::TracesController or ActionAgent::MCPCatalog from files
-    # that define ActionAgent::Api::TracesController and
-    # ActionAgent::McpCatalog. The constant never resolves and the request
-    # raises Zeitwerk::NameError.
+    # ActionAgent::API::TracesController from a file
+    # that defines ActionAgent::Api::TracesController. The constant never
+    # resolves and the request raises Zeitwerk::NameError.
     #
     # Every path under this engine therefore camelizes with Zeitwerk's default
     # rules, ignoring whatever acronyms the host has registered. Applied by
@@ -51,7 +64,8 @@ module ActionAgent
     # engine's files from the host's.
     #
     # Basenames whose spelling this engine cannot express through default
-    # camelization (a genuine acronym it wants uppercased) go in OVERRIDES.
+    # camelization (a genuine acronym it wants uppercased) go in
+    # INFLECTION_OVERRIDES.
     initializer "action_agent.inflections", before: :set_autoload_paths do
       engine_root = File.join(root.to_s, "")
       default = Zeitwerk::Inflector.new
@@ -74,15 +88,22 @@ module ActionAgent
     # So the namespace answers to both. `const_missing` rather than an eager
     # alias because the controllers are autoloaded on demand, and naming them at
     # boot would load the whole dashboard.
-    # The router does not consult the autoloader's inflector, so an acronym
-    # host asks for ActionAgent::API::MCPServersController while the constants
-    # are Api::McpServersController. Rather than enumerate the pairs, an
-    # all-caps run in a missing constant is retried in the spelling default
-    # camelization produces: API -> Api, MCPServersController -> McpServers-
-    # Controller. Only the engine's own namespaces are touched, and only for a
-    # constant that is already missing.
+    # The router does not consult the autoloader's inflector, so its lookups
+    # miss in both directions. An acronym host asks for
+    # ActionAgent::API::TracesController while the constant is
+    # Api::TracesController: an all-caps run in a missing constant is retried
+    # in the spelling default camelization produces (API -> Api). A plain host
+    # asks for Api::McpServersController while the constant is
+    # MCPServersController (the file is in INFLECTION_OVERRIDES): a missing
+    # constant matching an override's default spelling is retried as the
+    # acronym constant, via DEFAULT_SPELLINGS — which also keeps caller code
+    # written against the pre-acronym names resolving. Only the engine's own
+    # namespaces are touched, and only for a constant that is already missing.
     inflection_shim = Module.new do
       def const_missing(name)
+        acronym = ActionAgent::Engine::DEFAULT_SPELLINGS[name.to_s]
+        return const_get(acronym, false) if acronym && const_defined?(acronym, false)
+
         relaxed = name.to_s.gsub(/([A-Z])([A-Z]+)(?=[A-Z][a-z]|\d|\z)/) { "#{$1}#{$2.downcase}" }
 
         return super if relaxed == name.to_s || !const_defined?(relaxed, false)

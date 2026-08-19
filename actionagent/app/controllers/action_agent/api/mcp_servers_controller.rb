@@ -7,9 +7,9 @@ module ActionAgent
     #
     # The list is the union of three things: servers detected from telemetry
     # and solid_agent records (ToolDiscovery), servers an agent declares in
-    # its configuration, and the default catalog (McpCatalog). An install
+    # its configuration, and the default catalog (MCPCatalog). An install
     # therefore sees both what it is already using and what it could turn on.
-    class McpServersController < BaseController
+    class MCPServersController < BaseController
       before_action :require_owner!
       # Launching provisions a sandbox and runs a server in it, so it answers
       # to the same two gates as any other execution: the read-only kill
@@ -33,7 +33,7 @@ module ActionAgent
 
         render json: {
           servers: servers,
-          catalog: McpCatalog.all,
+          catalog: MCPCatalog.all,
           summary: summary_for(servers),
           sandboxes: active_sandboxes,
           window_hours: finder.window_hours,
@@ -111,7 +111,7 @@ module ActionAgent
       end
 
       def set_catalog_entry
-        @catalog_entry = McpCatalog.find(params[:id])
+        @catalog_entry = MCPCatalog.find(params[:id])
         render json: { error: "Unknown MCP server: #{params[:id]}" }, status: :not_found if @catalog_entry.nil?
       end
 

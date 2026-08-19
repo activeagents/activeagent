@@ -82,7 +82,7 @@ JSON-RPC, served by `actionagent`.
 On the client side MCP is still pass-through only: `mcps:` options are
 normalized into each vendor's *remote* MCP format (the LLM vendor's servers
 do the connecting), and the only client in either gem
-(`ActionAgent::PlaywrightMcpClient`, also in `actionagent`) speaks just
+(`ActionAgent::PlaywrightMCPClient`, also in `actionagent`) speaks just
 enough JSON-RPC for one server. Remaining for v2: a general MCP client in
 `activeagent` (stdio/HTTP, `tools/list` discovery → routable actions) that
 turns any MCP server's tools into agent actions.
