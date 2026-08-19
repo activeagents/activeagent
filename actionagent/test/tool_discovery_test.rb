@@ -250,7 +250,7 @@ end
 
 # The MCP Services API: detected servers unioned with the default catalog,
 # and starting a catalog server inside a sandbox.
-class McpServersApiTest < ActionDispatch::IntegrationTest
+class MCPServersApiTest < ActionDispatch::IntegrationTest
   def setup
     ActionAgent::Agent.delete_all
     ActionAgent::TelemetryTrace.delete_all
