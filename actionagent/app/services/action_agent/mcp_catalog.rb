@@ -19,7 +19,7 @@ module ActionAgent
   # shows up in the MCP Services view (as +known: false+) the moment a
   # namespaced tool call from it is ingested. The catalog only adds names,
   # descriptions, and the ability to launch.
-  class McpCatalog
+  class MCPCatalog
     # Whether a server can be started inside a sandbox session. Servers that
     # need workspace-specific credentials (github, slack, postgres) are
     # listable and attributable but not launchable from the dashboard — there

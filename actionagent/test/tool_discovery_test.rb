@@ -415,11 +415,11 @@ class McpServersApiTest < ActionDispatch::IntegrationTest
   end
 
   test "a catalog server resolves to its entry and its launchability" do
-    assert ActionAgent::McpCatalog.launchable?("playwright")
-    assert_not ActionAgent::McpCatalog.launchable?("github")
-    assert_nil ActionAgent::McpCatalog.find("nope")
-    assert_equal "Playwright", ActionAgent::McpCatalog.display_name("playwright")
+    assert ActionAgent::MCPCatalog.launchable?("playwright")
+    assert_not ActionAgent::MCPCatalog.launchable?("github")
+    assert_nil ActionAgent::MCPCatalog.find("nope")
+    assert_equal "Playwright", ActionAgent::MCPCatalog.display_name("playwright")
     # An unknown key displays as itself rather than blank.
-    assert_equal "acme", ActionAgent::McpCatalog.display_name("acme")
+    assert_equal "acme", ActionAgent::MCPCatalog.display_name("acme")
   end
 end
