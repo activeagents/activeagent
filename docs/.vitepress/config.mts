@@ -133,6 +133,7 @@ export default defineConfig({
         text: 'Providers',
         items: [
           { text: 'Anthropic', link: '/providers/anthropic' },
+          { text: 'Atlas Cloud', link: '/providers/atlas_cloud' },
           { text: 'Ollama', link: '/providers/ollama' },
           { text: 'OpenAI', link: '/providers/open_ai' },
           { text: 'OpenRouter', link: '/providers/open_router' },
