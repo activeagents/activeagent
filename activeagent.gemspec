@@ -44,7 +44,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "ostruct"
   spec.add_development_dependency "puma"
   spec.add_development_dependency "sqlite3"
-  spec.add_development_dependency "minitest", "~> 5.0"
+  spec.add_development_dependency "minitest", "~> 6.0"
   # Older vcr 6.3.x breaks on Ruby 3.5+/4.0 with a CGI.parse NameError. Keep a
   # floor so no gemfile resolves back to the broken version.
   spec.add_development_dependency "vcr", ">= 6.4"
