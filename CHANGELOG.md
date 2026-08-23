@@ -5,7 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.1] - 2026-08-19
+## [Unreleased]
+
+### Added
+
+- **RubyLLM backend pinning via `platform:`.** RubyLLM resolves which of its
+  providers serves a request from the model ID, and a model served by more
+  than one — `gemini-2.5-flash` exists on both the Gemini API and Vertex
+  AI — lands on whichever RubyLLM's registry prefers, with no way to say
+  otherwise from ActiveAgent. The new `platform:` option
+  (`generate_with :ruby_llm, model: "gemini-2.5-flash", platform: :vertexai`)
+  forwards to RubyLLM's `provider:` and pins the backend, for embeddings as
+  well as prompts. It is not named `provider:` because a provider reference
+  is already the first argument to `generate_with`. Omitting it keeps
+  model-based routing unchanged. (#373)
+
+### Fixed
+
+- **`service: "RubyLLM"` loads when the ruby_llm railtie has run.** The
+  ruby_llm gem registers `RubyLLM` as an inflector acronym in Rails apps,
+  which turns `"RubyLLM".underscore` into `rubyllm` — so provider loading
+  required a nonexistent `rubyllm_provider.rb` and failed with
+  `cannot load such file`. An alias file now covers that require path, the
+  same fix `openai_provider.rb` applies for `OpenAI`. (#371, fix proposed
+  in #372 by @aoki-ryusei)
 
 ### Fixed
 
