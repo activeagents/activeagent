@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Time to first token, reported for every streamed generation.** No
+  provider wire format used here carries TTFT, so the base provider now
+  observes it where every provider's stream already converges: the moment
+  the first chunk of any kind arrives (`time_to_first_chunk_ms`) and the
+  moment the first non-empty content delta does (`ttft_ms`). Both surface on
+  the prompt response (`response.ttft_ms`), on the `prompt.active_agent` and
+  `prompt.provider.active_agent` notification payloads, in the debug log
+  line, and on the telemetry `llm.generate` span (`llm.ttft_ms`, tagged
+  `llm.ttft_source: "measured"` so dashboards never silently mix
+  client-observed values with provider-reported ones if a native source is
+  added later). Each turn of a tool-calling loop times itself; the
+  generation reports its first text-producing turn. Non-streamed requests
+  report nothing rather than letting total latency stand in — a `nil` here
+  must never be conflated with a measurement.
+
 ## [1.3.1] - 2026-08-19
 
 ### Fixed

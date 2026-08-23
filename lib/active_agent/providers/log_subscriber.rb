@@ -33,6 +33,7 @@ module ActiveAgent
         stream          = event.payload[:stream]
         usage           = event.payload[:usage]
         finish_reason   = event.payload[:finish_reason]
+        ttft_ms         = event.payload[:ttft_ms]
         duration        = event.duration.round(1)
 
         debug do
@@ -50,6 +51,7 @@ module ActiveAgent
           end
 
           parts << "finish=#{finish_reason}" if finish_reason
+          parts << "ttft=#{ttft_ms}ms" if ttft_ms
           parts << "#{duration}ms"
 
           parts.join(" ")

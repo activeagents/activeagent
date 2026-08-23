@@ -20,8 +20,8 @@ This instrumentation API is in beta and may change with Rails 8.1. Event names, 
 
 | Event | When Triggered | Key Payload Data |
 |-------|----------------|------------------|
-| `prompt.active_agent` | After prompt completion | `model`, `message_count`, `stream`, `usage`, `finish_reason`, `response_model`, `response_id` |
-| `prompt.provider.active_agent` | After individual API call | Same as above (per-call usage in multi-turn) |
+| `prompt.active_agent` | After prompt completion | `model`, `message_count`, `stream`, `usage`, `finish_reason`, `response_model`, `response_id`, `ttft_ms` / `time_to_first_chunk_ms` (streamed requests only) |
+| `prompt.provider.active_agent` | After individual API call | Same as above (per-call usage and latency in multi-turn) |
 | `embed.active_agent` | After embedding completion | `model`, `input_size`, `embedding_count`, `usage`, `response_model`, `response_id` |
 | `embed.provider.active_agent` | After individual embed call | Same as above |
 
@@ -54,6 +54,7 @@ ActiveAgent automatically logs all provider operations at the `debug` level:
 **Example output:**
 ```
 [trace-123] [ActiveAgent] [OpenAI] Prompt completed: model=gpt-4o messages=2 stream=false tokens=150/75 finish=stop 543.2ms
+[trace-789] [ActiveAgent] [OpenAI] Prompt completed: model=gpt-4o messages=2 stream=true tokens=150/75 finish=stop ttft=412.5ms 1204.7ms
 [trace-456] [ActiveAgent] [OpenAI] Embed completed: model=text-embedding-ada-002 inputs=5 embeddings=5 tokens=150 89.1ms
 ```
 
@@ -118,9 +119,15 @@ end
   },
   finish_reason: "stop",     # "stop", "length", "tool_calls"
   response_model: "gpt-4o",
-  response_id: "chatcmpl-123"
+  response_id: "chatcmpl-123",
+  ttft_ms: 412.5,                 # streamed requests only: ms to first content delta
+  time_to_first_chunk_ms: 288.1   # streamed requests only: ms to first chunk of any kind
 }
 ```
+
+Both latency keys are client-observed (network time to the provider is
+included) and simply absent when the request did not stream — a non-streamed
+response has no first token to time.
 
 ::: tip Usage Object Details
 See [Usage Statistics](/actions/usage) for field definitions and provider-specific metrics.

@@ -181,6 +181,21 @@ module ActiveAgent
                 llm_span.set_attribute("llm.finish_reason", result.finish_reason.to_s)
               end
 
+              # Stream latency. Client-observed — no provider here reports
+              # TTFT on the wire — and tagged with its source so a dashboard
+              # never silently mixes measured values with provider-reported
+              # ones if a native source appears later. Absent for
+              # non-streamed generations: they have no first token to time,
+              # and total duration standing in for TTFT would poison the
+              # percentiles.
+              if result.respond_to?(:ttft_ms) && result.ttft_ms
+                llm_span.set_attribute("llm.ttft_ms", result.ttft_ms)
+                llm_span.set_attribute("llm.ttft_source", "measured")
+              end
+              if result.respond_to?(:time_to_first_chunk_ms) && result.time_to_first_chunk_ms
+                llm_span.set_attribute("llm.time_to_first_chunk_ms", result.time_to_first_chunk_ms)
+              end
+
               llm_span.set_status(:ok)
               llm_span.finish
               span.set_status(:ok)

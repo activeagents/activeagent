@@ -15,6 +15,8 @@ module ActiveAgent
     #   Initial: `{ model:, temperature:, max_tokens:, message_count:, has_tools:, stream: }`
     #   Final: `{ usage: { input_tokens:, output_tokens:, total_tokens: }, finish_reason:, response_model:, response_id: }`
     #   Note: Usage is cumulative across all API calls in multi-turn conversations
+    #   Streamed requests also carry `ttft_ms:` and `time_to_first_chunk_ms:`
+    #   (client-observed; absent when the request did not stream)
     #
     # embed.active_agent::
     #   Initial: `{ model:, input_size:, encoding_format:, dimensions: }`
@@ -25,7 +27,8 @@ module ActiveAgent
     # prompt.provider.active_agent::
     #   Initial: `{ model:, temperature:, max_tokens:, message_count:, has_tools:, stream: }`
     #   Final: `{ usage: { input_tokens:, output_tokens:, total_tokens: }, finish_reason:, response_model:, response_id: }`
-    #   Note: Usage is per individual API call
+    #   Note: Usage is per individual API call, as are the `ttft_ms:` /
+    #   `time_to_first_chunk_ms:` keys streamed calls carry
     #
     # embed.provider.active_agent::
     #   Initial: `{ model:, input_size:, encoding_format:, dimensions: }`
@@ -82,6 +85,16 @@ module ActiveAgent
           payload[:usage][:cache_creation_tokens] = usage.cache_creation_tokens if usage.cache_creation_tokens
           payload[:usage][:reasoning_tokens]      = usage.reasoning_tokens      if usage.reasoning_tokens
           payload[:usage][:audio_tokens]          = usage.audio_tokens          if usage.audio_tokens
+        end
+
+        # Stream latency, client-observed. Only a streamed request has a
+        # first token to time, so these are simply absent otherwise — a nil
+        # here must never be conflated with total duration.
+        if (ttft_ms = safe_access(response, :ttft_ms))
+          payload[:ttft_ms] = ttft_ms
+        end
+        if (first_chunk_ms = safe_access(response, :time_to_first_chunk_ms))
+          payload[:time_to_first_chunk_ms] = first_chunk_ms
         end
 
         # Response metadata

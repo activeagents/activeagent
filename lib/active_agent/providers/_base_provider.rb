@@ -59,6 +59,8 @@ module ActiveAgent
                     :tools_function,                 # Callback (Tools)
                     :usage_stack,                    # Usage Tracking
                     :stream_usage_index,             # Usage Tracking (Streams)
+                    :timing_stack,                   # Latency Tracking
+                    :stream_turn_timing,             # Latency Tracking (Streams)
                     :max_tool_turns, :tool_turns     # Tool-loop safety
 
       # Upper bound on tool-calling round-trips within one generation. A
@@ -121,6 +123,7 @@ module ActiveAgent
         self.context            = kwargs
         self.message_stack      = []
         self.usage_stack        = []
+        self.timing_stack       = []
         self.stream_completion_pending = false
         self.stream_completion_result  = nil
         self.stream_usage_index        = nil
@@ -190,6 +193,7 @@ module ActiveAgent
 
         api_parameters = api_request_build(prepare_prompt_request, prompt_request_type)
         api_response = instrument("prompt.provider.active_agent") do |payload|
+          turn_timing  = begin_stream_timing
           raw_response = with_exception_handling { api_prompt_execute(api_parameters) }
 
           # Instrumentation Context Building
@@ -198,6 +202,11 @@ module ActiveAgent
           common_response = Common::PromptResponse.new(raw_response: normalized_response)
           instrumentation_prompt_payload(payload, self.request, common_response)
           usage_stack.push(common_response.usage) if common_response&.usage
+
+          # The per-call response above is built from the raw body alone and
+          # carries no timings, so the stream latency goes on the event here.
+          payload[:time_to_first_chunk_ms] = turn_timing[:first_chunk_ms] if turn_timing[:first_chunk_ms]
+          payload[:ttft_ms]                = turn_timing[:first_token_ms] if turn_timing[:first_token_ms]
 
           raw_response
         end
@@ -276,6 +285,7 @@ module ActiveAgent
       # @return [Proc] for each response chunk
       def process_stream
         proc do |api_response_chunk|
+          record_stream_first_chunk
           process_stream_chunk(api_response_chunk)
         end
       end
@@ -401,6 +411,68 @@ module ActiveAgent
         end
       end
 
+      # Starts the latency clock for one API call and returns its entry.
+      #
+      # Time to first token has to be observed client-side: none of the wire
+      # formats used here report it, so the stream callbacks measure it —
+      # {#record_stream_first_chunk} when any chunk arrives,
+      # {#record_stream_first_token} when the first content delta does. Each
+      # turn of a tool-calling loop gets its own entry (the nested
+      # resolve_prompt re-points stream_turn_timing before its chunks flow),
+      # and a call that never streams leaves its entry empty — a
+      # non-streamed response has no observable first token, and reporting
+      # total latency as TTFT would poison any percentile it lands in.
+      #
+      # @return [Hash] the turn's mutable timing entry
+      def begin_stream_timing
+        timing = { started_at: monotonic_time }
+        timing_stack.push(timing)
+        self.stream_turn_timing = timing
+        timing
+      end
+
+      # Records the arrival of the turn's first streamed chunk of any kind,
+      # handshake chunks included — this is the "provider is responding"
+      # mark, network and queue time in front of it.
+      #
+      # @return [void]
+      def record_stream_first_chunk
+        timing = stream_turn_timing
+        return unless timing && timing[:first_chunk_ms].nil?
+
+        timing[:first_chunk_ms] = elapsed_ms_since(timing[:started_at])
+      end
+
+      # Records the turn's first visible content delta — the first token a
+      # user would see. Handshake broadcasts carry no delta (or an empty
+      # one) and don't count; a whitespace-only token does, so this checks
+      # empty?, not blank?.
+      #
+      # @param delta [String, nil]
+      # @return [void]
+      def record_stream_first_token(delta)
+        return if delta.nil? || delta.to_s.empty?
+
+        timing = stream_turn_timing
+        return unless timing && timing[:first_token_ms].nil?
+
+        timing[:first_token_ms] = elapsed_ms_since(timing[:started_at])
+      end
+
+      # @param since [Float] a monotonic timestamp
+      # @return [Float] milliseconds elapsed, to two decimal places
+      def elapsed_ms_since(since)
+        ((monotonic_time - since) * 1000.0).round(2)
+      end
+
+      # The wall clock jumps (NTP, DST); latency math needs a clock that
+      # only moves forward.
+      #
+      # @return [Float]
+      def monotonic_time
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      end
+
       # Broadcasts stream open event.
       #
       # Fires once per request cycle, even during multi-turn tool calling.
@@ -420,6 +492,7 @@ module ActiveAgent
       # @param delta [String, nil]
       # @return [void]
       def broadcast_stream_update(message, delta = nil)
+        record_stream_first_token(delta)
         stream_broadcaster.call(message, delta, :update)
       end
 
@@ -472,7 +545,10 @@ module ActiveAgent
             messages:,
             raw_request:  prompt_request_type.serialize(request),
             raw_response: api_response,
-            usages: usage_stack
+            usages: usage_stack,
+            # started_at is a monotonic timestamp — meaningless outside this
+            # process — so only the computed durations leave the provider.
+            timings: timing_stack.map { |timing| timing.slice(:first_chunk_ms, :first_token_ms) }
           )
         end
       end

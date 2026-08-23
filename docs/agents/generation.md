@@ -98,7 +98,15 @@ response.usage             # Normalized usage object across all providers
 response.usage.input_tokens
 response.usage.output_tokens
 response.usage.total_tokens
+
+# Stream latency (streamed generations only; nil otherwise)
+response.ttft_ms                 # Time to first token: ms until the first content delta
+response.time_to_first_chunk_ms  # Ms until the first streamed chunk of any kind
 ```
+
+Both latency figures are observed client-side — no provider reports time to
+first token on the wire — so they include network time to the provider. A
+non-streamed generation has no observable first token and reports `nil`.
 
 For embeddings:
 
