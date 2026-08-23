@@ -309,7 +309,9 @@ default glob; the Rakefile's `test` task is what sweeps both.
 ### RubyLLM
 - Uses `ruby_llm` gem for unified access to 15+ providers
 - RubyLLM manages its own API keys via `RubyLLM.configure`
-- Model ID determines which provider is used automatically
+- Model ID determines which provider is used automatically; `platform:`
+  (maps to RubyLLM's `provider:`) pins it when a model ID is served by
+  more than one, e.g. `platform: :vertexai` for Gemini models on Vertex AI
 - Supports prompts, embeddings, tool calling, and streaming
 
 ## The dashboard: a second gem in this repo
