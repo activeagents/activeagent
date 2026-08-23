@@ -11,6 +11,10 @@ module ActiveAgent
       # provider-specific API key attributes are needed here.
       class Options < Common::BaseModel
         attribute :model, :string
+        # Pins which RubyLLM backend serves the model (RubyLLM's provider:,
+        # e.g. :vertexai, :gemini, :bedrock). A model ID served by several
+        # backends otherwise resolves by RubyLLM's registry preference.
+        attribute :platform, :string
         attribute :temperature, :float
         attribute :max_tokens, :integer
 

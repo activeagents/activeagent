@@ -873,6 +873,112 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     end
   end
 
+  # --- platform pinning (RubyLLM's provider:) ---
+
+  test "platform option pins the RubyLLM backend when resolving the model" do
+    resolve_kwargs = nil
+    capturing_resolve = ->(model_id, **kwargs) {
+      resolve_kwargs = kwargs
+      [ stub_model_info(model_id), ::RubyLLM::StubProvider.new ]
+    }
+
+    ::RubyLLM::Models.stub(:resolve, capturing_resolve) do
+      provider = ActiveAgent::Providers::RubyLLMProvider.new(
+        service: "RubyLLM",
+        model: "gemini-2.5-flash",
+        platform: :vertexai,
+        messages: [ { role: "user", content: "hello" } ]
+      )
+
+      provider.prompt
+    end
+
+    assert_equal :vertexai, resolve_kwargs[:provider]
+  end
+
+  test "platform option accepts a string" do
+    resolve_kwargs = nil
+    capturing_resolve = ->(model_id, **kwargs) {
+      resolve_kwargs = kwargs
+      [ stub_model_info(model_id), ::RubyLLM::StubProvider.new ]
+    }
+
+    ::RubyLLM::Models.stub(:resolve, capturing_resolve) do
+      provider = ActiveAgent::Providers::RubyLLMProvider.new(
+        service: "RubyLLM",
+        model: "gemini-2.5-flash",
+        platform: "vertexai",
+        messages: [ { role: "user", content: "hello" } ]
+      )
+
+      provider.prompt
+    end
+
+    assert_equal :vertexai, resolve_kwargs[:provider]
+  end
+
+  test "model routing is unchanged when platform is not set" do
+    resolve_kwargs = nil
+    capturing_resolve = ->(model_id, **kwargs) {
+      resolve_kwargs = kwargs
+      [ stub_model_info(model_id), ::RubyLLM::StubProvider.new ]
+    }
+
+    ::RubyLLM::Models.stub(:resolve, capturing_resolve) do
+      provider = ActiveAgent::Providers::RubyLLMProvider.new(
+        service: "RubyLLM",
+        model: "gpt-4o-mini",
+        messages: [ { role: "user", content: "hello" } ]
+      )
+
+      provider.prompt
+    end
+
+    assert_nil resolve_kwargs[:provider]
+  end
+
+  test "platform option pins the RubyLLM backend for embeddings" do
+    resolve_kwargs = nil
+    capturing_resolve = ->(model_id, **kwargs) {
+      resolve_kwargs = kwargs
+      [ stub_model_info(model_id), ::RubyLLM::StubProvider.new ]
+    }
+
+    ::RubyLLM::Models.stub(:resolve, capturing_resolve) do
+      provider = ActiveAgent::Providers::RubyLLMProvider.new(
+        service: "RubyLLM",
+        input: "test text",
+        model: "text-embedding-004",
+        platform: :vertexai
+      )
+
+      provider.embed
+    end
+
+    assert_equal :vertexai, resolve_kwargs[:provider]
+  end
+
+  test "platform set via generate_with reaches the provider options" do
+    agent_class = Class.new(ApplicationAgent) do
+      def self.name = "PlatformProbeAgent"
+      generate_with :ruby_llm, model: "gemini-2.5-flash", platform: :vertexai
+
+      def ping
+        prompt(message: "hello")
+      end
+    end
+
+    agent = agent_class.new
+    agent.params = {}
+    agent.process(:ping)
+    parameters = agent.send(:prepare_prompt_parameters)
+
+    assert_equal :vertexai, parameters[:platform]
+
+    provider = agent.prompt_provider_klass.new(**parameters)
+    assert_equal "vertexai", provider.options.platform
+  end
+
   # --- stop_reason from RubyLLM response ---
 
   test "stop_reason from RubyLLM response is preserved" do
