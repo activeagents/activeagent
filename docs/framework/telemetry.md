@@ -136,10 +136,19 @@ Trace: WeatherAgent.forecast
 ├── Span: agent.prompt (prompt preparation)
 ├── Span: llm.generate (API call)
 │   ├── tokens: { input: 150, output: 75, total: 225 }
-│   └── model: "gpt-4o"
+│   ├── model: "gpt-4o"
+│   └── llm.ttft_ms: 412.5 (streamed requests; client-observed)
 └── Span: tool.get_weather (tool invocation)
     └── duration: 234ms
 ```
+
+Streamed generations also carry stream latency on the `llm.generate` span:
+`llm.ttft_ms` (time to first token — the first non-empty content delta),
+`llm.time_to_first_chunk_ms` (first streamed chunk of any kind), and
+`llm.ttft_source` (`"measured"`: observed client-side, so network time to the
+provider is included). Non-streamed generations omit these — without a stream
+there is no observable first token, and total duration standing in for TTFT
+would distort latency percentiles.
 
 ### Span Types
 
