@@ -54,26 +54,34 @@ class RubyLLMProviderLoadingTest < ActiveSupport::TestCase
 
   private
 
-  # Registers the RubyLLM acronym the way the ruby_llm gem's railtie does,
-  # and removes it again afterwards. Where the :en Inflections instance is
-  # stored varies across Rails versions (an @__instance__ map entry on 7.2,
-  # a dedicated @__en_instance__ on 8.1), so this mutates the live instance
-  # in both directions rather than swapping it out.
+  # Registers the RubyLLM acronym the way the ruby_llm gem's railtie does.
+  # Edge Rails freezes every Inflections instance after boot, so the acronym
+  # goes on an unfrozen dup swapped in for the duration (dup support is what
+  # Inflections#initialize_dup exists for), and the original instance --
+  # frozen or not -- is restored afterwards.
   def with_rubyllm_acronym
-    inflections = nil
-    had_acronym = nil
+    original = ActiveSupport::Inflector.inflections(:en)
+    swap_en_inflections(original.dup)
 
     ActiveSupport::Inflector.inflections(:en) do |inflect|
-      inflections = inflect
-      had_acronym = inflect.acronyms.key?("rubyllm")
       inflect.acronym "RubyLLM"
     end
 
     yield
   ensure
-    if inflections && !had_acronym
-      inflections.acronyms.delete("rubyllm")
-      inflections.send(:define_acronym_regex_patterns)
+    swap_en_inflections(original) if original
+  end
+
+  # Installs an :en Inflections instance in the slot this Rails version
+  # reads from: a dedicated @__en_instance__ where defined (8.1+), the
+  # @__instance__ map otherwise (7.2).
+  def swap_en_inflections(instance)
+    klass = ActiveSupport::Inflector::Inflections
+
+    if klass.instance_variable_defined?(:@__en_instance__)
+      klass.instance_variable_set(:@__en_instance__, instance)
+    else
+      klass.instance_variable_get(:@__instance__)[:en] = instance
     end
   end
 end
