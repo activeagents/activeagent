@@ -27,8 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which turns `"RubyLLM".underscore` into `rubyllm` — so provider loading
   required a nonexistent `rubyllm_provider.rb` and failed with
   `cannot load such file`. An alias file now covers that require path, the
-  same fix `openai_provider.rb` applies for `OpenAI`. (#371, fix proposed
-  in #372 by @aoki-ryusei)
+  same fix `openai_provider.rb` applies for `OpenAI`. (#371, fixed in #372
+  by @aoki-ryusei; regression tests in #374)
 
 ### Fixed
 
