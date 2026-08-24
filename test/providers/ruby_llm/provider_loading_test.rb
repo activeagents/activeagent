@@ -22,11 +22,17 @@ class RubyLLMProviderLoadingTest < ActiveSupport::TestCase
   end
 
   test "provider concern loads the RubyLLM service with the gem's acronym registered" do
+    already_registered = "RubyLLM".underscore == "rubyllm"
+
     with_rubyllm_acronym do
       assert_equal "rubyllm", "RubyLLM".underscore
 
       klass = ActiveAgent::Base.provider_load("RubyLLM")
       assert_equal ActiveAgent::Providers::RubyLLMProvider, klass
+    end
+
+    unless already_registered
+      assert_equal "ruby_llm", "RubyLLM".underscore, "acronym leaked out of with_rubyllm_acronym"
     end
   end
 
@@ -49,19 +55,25 @@ class RubyLLMProviderLoadingTest < ActiveSupport::TestCase
   private
 
   # Registers the RubyLLM acronym the way the ruby_llm gem's railtie does,
-  # on a duplicate of the :en inflections so the process-wide state is
-  # restored afterwards.
+  # and removes it again afterwards. Where the :en Inflections instance is
+  # stored varies across Rails versions (an @__instance__ map entry on 7.2,
+  # a dedicated @__en_instance__ on 8.1), so this mutates the live instance
+  # in both directions rather than swapping it out.
   def with_rubyllm_acronym
-    store = ActiveSupport::Inflector::Inflections.instance_variable_get(:@__instance__)
-    original = store[:en]
-    store[:en] = original.dup
+    inflections = nil
+    had_acronym = nil
 
     ActiveSupport::Inflector.inflections(:en) do |inflect|
+      inflections = inflect
+      had_acronym = inflect.acronyms.key?("rubyllm")
       inflect.acronym "RubyLLM"
     end
 
     yield
   ensure
-    store[:en] = original
+    if inflections && !had_acronym
+      inflections.acronyms.delete("rubyllm")
+      inflections.send(:define_acronym_regex_patterns)
+    end
   end
 end
