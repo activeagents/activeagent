@@ -12,6 +12,10 @@ module ActiveAgent
     # Provider for RubyLLM's unified API, supporting 15+ LLM providers
     # (OpenAI, Anthropic, Gemini, Bedrock, Azure, Ollama, etc.).
     #
+    # RubyLLM resolves which backend serves a request from the model ID; the
+    # platform option pins it when a model ID is served by more than one
+    # (e.g. Gemini models on the Gemini API vs Vertex AI).
+    #
     # Uses RubyLLM's provider-level API (provider.complete()) rather than
     # the high-level Chat object to avoid conflicts with ActiveAgent's own
     # conversation management and tool execution loop.
@@ -254,13 +258,22 @@ module ActiveAgent
       # Reuses the cached provider if the model hasn't changed (e.g., during
       # multi-turn tool calling loops).
       #
+      # The platform option is forwarded as RubyLLM's provider: so a model ID
+      # served by several backends (e.g. gemini-2.5-flash on the Gemini API
+      # and Vertex AI) can be pinned instead of resolving by RubyLLM's
+      # registry preference.
+      #
       # @param model_id [String] model identifier
       # @return [void]
       def resolve_ruby_llm_provider!(model_id)
         return if @ruby_llm_provider && @cached_model_id == model_id
 
         @cached_model_id = model_id
-        @ruby_llm_model, @ruby_llm_provider = ::RubyLLM::Models.resolve(model_id, config: ::RubyLLM.config)
+        @ruby_llm_model, @ruby_llm_provider = ::RubyLLM::Models.resolve(
+          model_id,
+          provider: options.platform&.to_sym,
+          config: ::RubyLLM.config
+        )
       end
 
       # Converts ActiveAgent messages to RubyLLM message format.
