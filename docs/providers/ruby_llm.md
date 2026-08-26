@@ -75,11 +75,47 @@ class FlexibleAgent < ApplicationAgent
 end
 ```
 
+### Pinning the Platform
+
+When the same model ID is served by more than one of RubyLLM's providers, RubyLLM picks one by its own registry preference — `gemini-2.5-flash` resolves to the Gemini API even when you have configured Vertex AI credentials. Set `platform:` to pin the request to a specific RubyLLM provider; it maps to RubyLLM's own `provider:` option:
+
+```ruby
+class VertexAgent < ApplicationAgent
+  generate_with :ruby_llm, model: "gemini-2.5-flash", platform: :vertexai
+end
+```
+
+Or in `config/active_agent.yml`:
+
+```yaml
+production:
+  ruby_llm:
+    service: "RubyLLM"
+    model: "gemini-2.5-flash"
+    platform: "vertexai"
+```
+
+Authentication and region stay in RubyLLM's configuration:
+
+```ruby
+# config/initializers/ruby_llm.rb
+RubyLLM.configure do |config|
+  config.vertexai_project_id = "your-project-id"
+  config.vertexai_location = "us-central1"
+end
+```
+
+Valid values are RubyLLM's provider keys — `:openai`, `:anthropic`, `:gemini`, `:vertexai`, `:bedrock`, `:openrouter`, `:ollama`, and so on. Omitting `platform:` keeps RubyLLM's automatic model-based routing. The option applies to embeddings as well as prompts.
+
 ## Provider-Specific Parameters
 
 ### Required Parameters
 
 - **`model`** - Model identifier (e.g., "gpt-4o-mini", "claude-sonnet-5")
+
+### Routing Parameters
+
+- **`platform`** - Pins which RubyLLM provider serves the model (maps to RubyLLM's `provider:`), e.g. `:vertexai` for Gemini models on Vertex AI. See [Pinning the Platform](#pinning-the-platform)
 
 ### Sampling Parameters
 
