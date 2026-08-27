@@ -135,6 +135,9 @@ ActionAgent::Engine.routes.draw do
   # dashboard API key rather than a session, so it sits outside the api
   # namespace's session-authenticated controllers.
   post "mcp", to: "api/mcp#create"
+  match "mcp", to: ->(_env) { [ 405, { "Allow" => "POST" }, [] ] },
+    via: [ :get, :delete ],
+    constraints: ->(request) { request.delete? || !request.format.html? }
 
   # Everything else under the mount is a client-side route: render the
   # dashboard and let the browser resolve it. Anchored last so it can only
