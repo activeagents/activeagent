@@ -135,13 +135,25 @@ module ActionAgent
           id: run.id,
           status: run.status,
           scores: run.scores,
-          average_score: run.average_score,
+          average_score: safe_average_score(run),
           samples_evaluated: run.samples_evaluated,
           samples_passed: run.samples_passed,
           error_message: run.error_message,
           completed_at: run.completed_at&.iso8601,
           created_at: run.created_at.iso8601
         }
+      end
+
+      # index serializes the latest run of every listed evaluation, so an
+      # unaveragable scores payload used to 500 the entire Evaluations page
+      # instead of degrading that one run's headline number.
+      def safe_average_score(run)
+        run.average_score
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[ActionAgent] evaluation run #{run.id} average_score failed: #{e.class}: #{e.message}"
+        )
+        nil
       end
     end
   end
