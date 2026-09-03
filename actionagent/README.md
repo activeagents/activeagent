@@ -37,6 +37,9 @@ mount ActionAgent::Engine => "/activeagents"
 Mount it wherever you like — the client-side routes are resolved relative to
 the mount point, so `/activeagents`, `/admin/agents` and `/dashboard` all work.
 
+The host needs an asset pipeline (propshaft or sprockets-rails) to serve the
+prebuilt dashboard bundles — see [Assets](#assets).
+
 ### Options
 
 | Flag | Effect |
@@ -80,9 +83,17 @@ for the full list.
 ## Assets
 
 The dashboard's JavaScript and CSS ship prebuilt in the gem, under
-`app/assets/builds`. Host apps never run a JavaScript build — there is nothing
-to install, compile or configure. The React sources live in `frontend/` in the
-repository and are deliberately excluded from the packaged gem.
+`app/assets/builds`. Host apps never run a JavaScript build. The React sources
+live in `frontend/` in the repository and are deliberately excluded from the
+packaged gem.
+
+The prebuilt bundles are served through the host app's **asset pipeline** —
+propshaft (the Rails default) or sprockets-rails — which is the one
+prerequisite. A `rails --api` app, or one that removed propshaft, has none:
+the engine logs a warning at boot and the dashboard renders blank with
+`action_agent.js` and `action_agent.css` 404ing. Add propshaft to the Gemfile
+(and, for an API-only app, re-enable the asset initializer and middleware) and
+the bundles are served with nothing else to configure.
 
 ## Upgrading from activeagent <= 1.1.0
 

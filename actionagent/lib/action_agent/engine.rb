@@ -171,7 +171,18 @@ module ActionAgent
       builds = root.join("app", "assets", "builds").to_s
       next unless File.directory?(builds)
 
-      next unless app.config.respond_to?(:assets)
+      # The prebuilt bundles are served through the host's asset pipeline —
+      # propshaft (the Rails default) or sprockets-rails. A host without one
+      # (a `rails --api` app, or one that removed propshaft) used to get a
+      # silently blank dashboard with two 404s; say why instead.
+      unless app.config.respond_to?(:assets)
+        Rails.logger&.warn(
+          "[ActionAgent] the dashboard's assets cannot be served: this app has no asset pipeline. " \
+          "Add propshaft (or sprockets-rails) to the Gemfile so action_agent.js and action_agent.css " \
+          "are served from the engine's app/assets/builds."
+        )
+        next
+      end
 
       if app.config.assets.respond_to?(:paths)
         app.config.assets.paths << builds unless app.config.assets.paths.include?(builds)
