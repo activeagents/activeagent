@@ -351,6 +351,25 @@ class MCPServersApiTest < ActionDispatch::IntegrationTest
     assert_equal "configured", server_named("git")["status"]
   end
 
+  # The shape an older PlaywrightMCP template seed wrote onto agents: a
+  # top-level Hash keyed by server name. Array() turned it into [key, value]
+  # pairs and the key lookup raised on the Array, 500ing both inventories
+  # for the whole workspace (#391).
+  test "tolerates an agent whose mcp_servers is a hash keyed by server name" do
+    create_agent(mcp_servers: { "playwright" => { "command" => "npx", "args" => [ "-y", "@anthropic/mcp-server-playwright" ] } })
+
+    assert_equal "configured", server_named("playwright")["status"]
+
+    get "/activeagents/api/tools"
+    assert_response :success
+  end
+
+  test "skips mcp_servers entries it cannot name instead of raising" do
+    create_agent(mcp_servers: [ "filesystem", [ "not", "a", "server" ], 42, nil ])
+
+    assert_equal "configured", server_named("filesystem")["status"]
+  end
+
   test "summarizes servers by status" do
     create_trace([ "mcp__playwright__browser_navigate" ])
     create_agent(mcp_servers: [ "filesystem" ])
