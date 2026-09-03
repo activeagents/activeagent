@@ -193,8 +193,13 @@ module ActionAgent
           duration_ms: span["duration_ms"],
           status: span["status"],
           error: attributes["error.message"],
-          arguments: attributes["tool.input.args"],
-          result: attributes["tool.output.result"]
+          # Two key families: the framework's instrumentation records
+          # tool.input.args / tool.output.result, the activeagents-telemetry
+          # ruby_llm adapter records tool.arguments / tool.result. The
+          # Interactions serializer already reads both; the Tools view's
+          # sample arguments come from here and were blank for adapter traffic.
+          arguments: attributes["tool.input.args"] || attributes["tool.arguments"],
+          result: attributes["tool.output.result"] || attributes["tool.result"]
         }
       end
     end

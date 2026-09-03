@@ -52,7 +52,18 @@ module ActionAgent
     # as sandbox_service, falling back to the in-memory one.
     def self.default_backend
       name = ENV["SANDBOX_BACKEND"].presence || ActionAgent.sandbox_service.to_s
-      backends.key?(name) ? name : "mock"
+      return name if backends.key?(name)
+
+      # Substituting the mock silently made a misconfigured operator's
+      # sandbox "runs" succeed against nothing real.
+      if name.present? && name != "mock"
+        Rails.logger.warn(
+          "[ActionAgent] sandbox backend #{name.inspect} is not registered " \
+          "(ActionAgent.sandbox_backends knows #{backends.keys.inspect}); " \
+          "using the in-memory mock backend, which runs nothing."
+        )
+      end
+      "mock"
     end
 
     def initialize(backend: nil)

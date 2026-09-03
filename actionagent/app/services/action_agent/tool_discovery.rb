@@ -259,7 +259,7 @@ module ActionAgent
           end
         end
 
-        Array(agent.mcp_servers).each do |server|
+        configured_mcp_servers(agent).each do |server|
           key = mcp_server_key(server)
           next if key.blank?
 
@@ -559,11 +559,25 @@ module ActionAgent
       @configured_servers ||= Hash.new { |hash, key| hash[key] = Set.new }
     end
 
+    # The servers an agent declares, as a list. Agents store an Array, but
+    # an agent created from an older template seed carried a top-level Hash
+    # keyed by server name ({"playwright" => {"command" => ...}}); Array()
+    # turned that into [key, value] pairs and the key lookup below raised
+    # TypeError on the Array, taking down /api/tools and /api/mcp_servers
+    # for the whole workspace.
+    def configured_mcp_servers(agent)
+      servers = agent.mcp_servers
+      return servers.keys if servers.is_a?(Hash)
+
+      Array(servers)
+    end
+
     # An agent's mcp_servers entries are free-form: a bare string name, or a
     # hash from the builder ({"name" => "playwright", "url" => ...}).
+    # Anything else (a stray Array, a number) is skipped rather than raised on.
     def mcp_server_key(server)
-      return server.to_s.strip if server.is_a?(String)
-      return nil unless server.respond_to?(:[])
+      return server.to_s.strip.presence if server.is_a?(String) || server.is_a?(Symbol)
+      return nil unless server.respond_to?(:key?)
 
       (server["key"] || server[:key] || server["name"] || server[:name]).to_s.strip.presence
     end

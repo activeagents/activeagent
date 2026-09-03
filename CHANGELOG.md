@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same fix `openai_provider.rb` applies for `OpenAI`. (#371, fixed in #372
   by @aoki-ryusei; regression tests in #374)
 
+## [1.3.1] - 2026-08-19
+
 ### Fixed
 
 - **Traces record the user turn an agent renders from its template.** An
