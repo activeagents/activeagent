@@ -16,7 +16,7 @@ module ActionAgent
       # switch, and whatever limits the host app imposes.
       before_action :require_execution_enabled!, only: [ :launch ]
       before_action :enforce_execution_quota!, only: [ :launch ]
-      before_action :set_catalog_entry, only: [ :show, :launch ]
+      before_action :set_catalog_entry, only: [ :launch ]
 
       STATUS_LABELS = {
         "active" => "Called in this window",
@@ -32,8 +32,8 @@ module ActionAgent
         servers = finder.servers(tools)
 
         render json: {
-          servers: servers,
-          catalog: MCPCatalog.all,
+          servers: servers.map { |server| at_mount(server) },
+          catalog: MCPCatalog.all.map { |entry| at_mount(entry) },
           summary: summary_for(servers),
           sandboxes: active_sandboxes,
           window_hours: finder.window_hours,
@@ -45,13 +45,23 @@ module ActionAgent
       #
       # One server with the tools detected for it, so the view can expand a
       # row without refetching the whole inventory.
+      #
+      # The index is a union of detected, declared and catalog servers, and
+      # a server it lists must be fetchable individually — including the
+      # ones the catalog doesn't describe (listed as known: false). Discovery
+      # is consulted first; the catalog is the fallback, and only when
+      # neither knows the key is it a 404.
       def show
         finder = discovery
         tools = finder.detected_tools
-        server = finder.servers(tools).find { |row| row[:key] == params[:id] }
+        server = finder.servers(tools).find { |row| row[:key] == params[:id] } || MCPCatalog.find(params[:id])
+
+        if server.nil?
+          return render json: { error: "Unknown MCP server: #{params[:id]}" }, status: :not_found
+        end
 
         render json: {
-          server: server || @catalog_entry,
+          server: at_mount(server),
           tools: tools.select { |tool| tool[:mcp_server] == params[:id] }
         }
       end
@@ -100,6 +110,16 @@ module ActionAgent
 
       def discovery
         ToolDiscovery.new(traces: owned_traces, agents: owner_agents, hours: window_hours)
+      end
+
+      # The catalog names this dashboard's own MCP endpoint as "<mount>/mcp",
+      # relative to wherever the engine is mounted; only a request knows
+      # where that is. Substituted here, at the edge, so the view shows the
+      # endpoint a client can actually connect to rather than the template.
+      def at_mount(row)
+        return row unless row.is_a?(Hash) && row[:url].is_a?(String) && row[:url].include?("<mount>")
+
+        row.merge(url: row[:url].sub("<mount>", request.script_name.to_s))
       end
 
       def assign_owner(sandbox, association, record)
