@@ -64,12 +64,20 @@ module ActionAgent
 
       if existing_migration?("create_active_agent_dashboard_tables")
         say_status :skip, "create_active_agent_dashboard_tables already exists", :yellow
-        return
+      else
+        migration_template(
+          "create_active_agent_dashboard_tables.rb.erb",
+          "db/migrate/create_active_agent_dashboard_tables.rb"
+        )
       end
 
+      # Scenario suites arrived after the dashboard tables shipped, so an
+      # install that already has those still needs this one.
+      return if existing_migration?("create_active_agent_evaluation_scenarios")
+
       migration_template(
-        "create_active_agent_dashboard_tables.rb.erb",
-        "db/migrate/create_active_agent_dashboard_tables.rb"
+        "create_active_agent_evaluation_scenarios.rb.erb",
+        "db/migrate/create_active_agent_evaluation_scenarios.rb"
       )
     end
 

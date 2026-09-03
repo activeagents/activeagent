@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import ScenarioSuitePanel from './ScenarioSuitePanel';
 
 const RULE_CRITERIA = [
   { type: 'response_present', key: 'response_present', label: 'Response present', config: {} },
@@ -49,7 +50,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     agent_id: agentId ? String(agentId) : '', name: '', sample_size: 20,
     criteria: RULE_CRITERIA.map((c) => c.key),
     containsPattern: '', llmJudgePrompt: '',
-    judgeKind: 'manual', judgeModel: '', compareModels: '',
+    judgeKind: 'manual', judgeModel: '', compareModels: '', scenariosText: '',
   });
   const [formError, setFormError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -111,13 +112,14 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
             judge_model: form.judgeModel.trim() || undefined,
             compare_models: form.compareModels.split(',').map((m) => m.trim()).filter(Boolean),
             criteria: form.judgeKind === 'judge_defined' ? [] : buildCriteria(),
+            scenarios_text: form.scenariosText.trim() || undefined,
           },
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || 'Failed to create evaluation');
       setShowForm(false);
-      setForm({ ...form, name: '' });
+      setForm({ ...form, name: '', scenariosText: '' });
       await fetchEvaluations();
       setExpandedEval(data.evaluation?.id ?? null);
     } catch (error) {
@@ -230,7 +232,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           <div>
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Evaluations</h1>
             <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-              Score outputs with LLM-as-judge, rule-based checks, or custom criteria
+              Score recorded outputs, or paste a list of user messages to replay through the agent under one or more models
             </p>
           </div>
         )}
@@ -327,6 +329,24 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
             </div>
           </div>
 
+          <div>
+            <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
+              Scenarios (optional) — paste user messages to replay, one per line
+            </label>
+            <textarea
+              value={form.scenariosText}
+              onChange={(e) => setForm({ ...form, scenariosText: e.target.value })}
+              rows={form.scenariosText ? 8 : 3}
+              placeholder={'# Find records\nWhich gynecologists in Charlotte have scheduling enabled? | tools: find_records\n# Blame\nWho changed the biography for Dr. AbdelRazek?'}
+              style={{ ...inputStyle, width: '100%', fontFamily: 'monospace', fontSize: '12px' }}
+            />
+            <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
+              With scenarios, each run replays every message through the agent — once per model in “Compare models” — and
+              reports which tasks it completes, what faults it hits, and how to fix them. <code># Heading</code> lines group related
+              tasks so they can be run together; <code>| tools: a, b</code> names the tool a task should call.
+            </p>
+          </div>
+
           {form.judgeKind === 'judge_defined' && (
             <p className="text-xs" style={{ color: colors.textSecondary }}>
               On the first run the judge reads the agent's instructions and recent interactions,
@@ -413,7 +433,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
             disabled={isSubmitting}
             className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? 'Creating & running…' : 'Create & Run'}
+            {isSubmitting ? (form.scenariosText.trim() ? 'Creating & starting run…' : 'Creating & running…') : 'Create & Run'}
           </button>
         </form>
       )}
@@ -460,12 +480,19 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                 onClick={() => setExpandedEval(isExpanded ? null : evaluation.id)}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded flex-shrink-0">EVALUATION</span>
+                  {evaluation.scenario_suite ? (
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded flex-shrink-0" title={`${evaluation.scenario_count} scenarios`}>
+                      SUITE · {evaluation.scenario_count}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded flex-shrink-0">EVALUATION</span>
+                  )}
                   <span className="font-medium truncate" style={{ color: colors.textPrimary }}>{evaluation.name}</span>
                   <span className="text-sm truncate" style={{ color: colors.textSecondary }}>{evaluation.agent?.name}</span>
                 </div>
                 <div className="flex items-center gap-4 flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>
                   {run?.status === 'failed' && <span className="text-red-500">failed</span>}
+                  {(run?.status === 'pending' || run?.status === 'running') && <span style={{ color: colors.textMuted }}>running…</span>}
                   {run?.status === 'complete' && run.average_score != null && (
                     <span style={{ color: statusColor[scoreStatus(run.average_score)], fontWeight: 600 }}>
                       {(run.average_score * 100).toFixed(0)}%
@@ -477,6 +504,9 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
 
               {isExpanded && (
                 <div className="border-t" style={{ borderColor: colors.cardBorder }}>
+                  {evaluation.scenario_suite && (
+                    <ScenarioSuitePanel evaluation={evaluation} colors={colors} darkMode={darkMode} onChanged={fetchEvaluations} />
+                  )}
                   {run?.status === 'failed' ? (
                     <div className="p-4 text-sm text-red-500">{run.error_message}</div>
                   ) : run?.scores ? (
@@ -526,19 +556,19 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                       </div>
                     </div>
                     <div>
-                      <div style={{ color: colors.textMuted }}>Samples</div>
+                      <div style={{ color: colors.textMuted }}>{evaluation.scenario_suite ? 'Scenario runs' : 'Samples'}</div>
                       <div className="font-medium" style={{ color: colors.textPrimary }}>
-                        {run ? `${run.samples_passed} / ${run.samples_evaluated} passed` : '—'}
+                        {run && run.status === 'complete' ? `${run.samples_passed} / ${run.samples_evaluated} passed` : '—'}
                       </div>
                     </div>
                     <div className="flex items-end justify-end">
-                      <button
+                      {!evaluation.scenario_suite && <button
                         onClick={(e) => { e.stopPropagation(); handleRun(evaluation.id); }}
                         disabled={runningId === evaluation.id}
                         className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                       >
                         {runningId === evaluation.id ? 'Running…' : 'Run again'}
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 </div>
@@ -551,7 +581,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       {shownEvaluations.length === 0 && !showForm && (
         <div className="text-center py-12 rounded-xl border" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
           <div className="text-lg" style={{ color: colors.textMuted }}>No evaluations yet</div>
-          <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>Create an evaluation to start scoring agent outputs</p>
+          <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>Create an evaluation to score recorded outputs, or paste scenarios to test new tasks across models</p>
         </div>
       )}
     </div>

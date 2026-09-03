@@ -13,6 +13,7 @@ module ActionAgent
   class Evaluation < ApplicationRecord
     belongs_to :agent
     has_many :evaluation_runs, dependent: :destroy
+    has_many :scenarios, class_name: "EvaluationScenario", dependent: :destroy
 
     # judge_defined: the judge model authors the KPI criteria itself from the
     # agent's instructions + sample interactions on the first run, then scores
@@ -47,8 +48,58 @@ module ActionAgent
       Array(config["compare_models"]).map(&:to_s).reject(&:blank?)
     end
 
-    def run!
-      EvaluationRunnerService.call(self)
+    # A scenario evaluation replays its own prompts rather than sampling the
+    # agent's recorded generations.
+    def scenario_suite?
+      scenarios.any?
+    end
+
+    def scenario_groups
+      scenarios.where.not(group: [ nil, "" ]).distinct.order(:group).pluck(:group)
+    end
+
+    # Runs the evaluation. `selection` narrows a scenario evaluation to some of
+    # its scenarios (`scenario_ids`, `keys`, `group`) and/or to specific
+    # `models`; it is ignored by a generation-sampling evaluation.
+    def run!(run: nil, **selection)
+      if scenario_suite?
+        ScenarioEvaluationRunner.call(self, selection: selection, run: run)
+      else
+        EvaluationRunnerService.call(self)
+      end
+    end
+
+    # Creates the run now and executes it in the background, so a suite of
+    # many scenarios under several models does not have to finish inside one
+    # request. Returns the pending EvaluationRun.
+    def run_later!(**selection)
+      run = evaluation_runs.create!(status: :pending, selection: selection.deep_stringify_keys)
+      EvaluationRunJob.perform_later(id, run.id, selection.deep_stringify_keys)
+      run
+    end
+
+    # Replaces the suite with the scenarios described by +attributes+ (the
+    # ScenarioParser output). Keys already in the suite keep their records, so
+    # earlier runs' results still resolve to their scenario.
+    def replace_scenarios!(attributes)
+      transaction do
+        keep = attributes.map { |attrs| attrs["key"] }
+        scenarios.where.not(key: keep).destroy_all
+
+        attributes.each_with_index do |attrs, index|
+          scenario = scenarios.find_or_initialize_by(key: attrs["key"])
+          scenario.assign_attributes(
+            prompt: attrs["prompt"],
+            group: attrs["group"],
+            notes: attrs["notes"],
+            expectations: attrs["expectations"] || {},
+            position: attrs.fetch("position", index),
+            enabled: attrs.fetch("enabled", true)
+          )
+          scenario.save!
+        end
+      end
+      scenarios.reload
     end
 
     def llm_criteria
@@ -60,8 +111,9 @@ module ActionAgent
     def validate_criteria
       if criteria.blank?
         # judge_defined evaluations start empty — the judge authors the KPIs
-        # on the first run.
-        errors.add(:criteria, "must include at least one criterion") unless judge_defined?
+        # on the first run — and a scenario suite is scored by its scenarios'
+        # own expectations even with no criteria.
+        errors.add(:criteria, "must include at least one criterion") unless judge_defined? || scenarios.any?
         return
       end
 

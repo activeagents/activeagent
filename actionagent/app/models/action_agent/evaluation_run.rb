@@ -8,10 +8,24 @@ module ActionAgent
   # See #average_score, which is what has to tolerate both shapes.
   class EvaluationRun < ApplicationRecord
     belongs_to :evaluation
+    has_many :scenario_results, class_name: "EvaluationScenarioResult", dependent: :destroy
 
     enum :status, { pending: 0, running: 1, complete: 2, failed: 3 }
 
     scope :recent, -> { order(created_at: :desc) }
+
+    # Which scenarios and models a scenario run covered; empty for a
+    # generation-sampling run.
+    def selection
+      value = super
+      value.is_a?(Hash) ? value : {}
+    end
+
+    # The candidate models a scenario run compared, in the order they were
+    # requested; empty for a generation-sampling run.
+    def models
+      Array(scores&.dig("_models")&.keys)
+    end
 
     # scores is not uniformly { criterion => stats }: a comparison run also
     # records "_"-prefixed metadata (EvaluationRunnerService writes
