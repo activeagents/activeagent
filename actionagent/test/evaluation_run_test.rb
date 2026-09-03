@@ -96,7 +96,7 @@ class ActionAgentEvaluationRunTest < ActiveSupport::TestCase
 end
 
 # The Evaluations index serializes the latest run of every listed evaluation,
-# so a single unaveragable run used to take the whole page down.
+# so a single unaverageable run used to take the whole page down.
 class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
   def setup
     ActionAgent::Agent.delete_all
