@@ -202,37 +202,82 @@ module ActionAgent
       end
 
       # GET /api/agents/:id/analytics
+      #
+      # Every execution of this agent, whoever ran it — the same merged model
+      # the runs list and the scorecard use. Agents observed from telemetry
+      # have no AgentRun rows at all, so a runs-only aggregate showed them
+      # with all-zero metrics beside a card and a runs list reporting real
+      # traffic.
       def analytics
         days = (params[:days] || 30).to_i
         start_date = days.days.ago.beginning_of_day
 
         runs = @agent.agent_runs.where("created_at >= ?", start_date)
+        traces = AgentExecutions.unclaimed_traces([ @agent.id ], since: start_date, owner: current_owner)
+        traces_table = ActionAgent.trace_model.table_name
+        trace_tokens_sql = Arel.sql(
+          "COALESCE(#{traces_table}.total_input_tokens, 0) + COALESCE(#{traces_table}.total_output_tokens, 0) + " \
+          "COALESCE(#{traces_table}.total_thinking_tokens, 0)"
+        )
 
-        # Calculate stats
-        total_runs = runs.count
+        # Dashboard runs
+        run_count = runs.count
         completed_runs = runs.where(status: :complete).count
         failed_runs = runs.where(status: :failed).count
-        avg_duration = runs.where.not(duration_ms: nil).average(:duration_ms)&.round || 0
-        total_tokens = runs.sum(:total_tokens)
+        timed_runs = runs.where.not(duration_ms: nil)
+        run_tokens = runs.sum(:total_tokens)
+
+        # Reported executions
+        trace_count = traces.count
+        trace_failures = traces.where(status: "ERROR").count
+        timed_traces = traces.where.not(total_duration_ms: nil)
+        trace_tokens = traces.sum(trace_tokens_sql)
+
+        total_runs = run_count + trace_count
+        completed_runs += trace_count - trace_failures
+        failed_runs += trace_failures
+        total_tokens = run_tokens + trace_tokens
         avg_tokens = total_runs > 0 ? (total_tokens.to_f / total_runs).round : 0
 
-        # Runs by day
-        runs_by_day = runs.group("DATE(created_at)")
+        # Weighted across both sources, so one side's long tail counts for
+        # what it is.
+        timed_total = timed_runs.count + timed_traces.count
+        avg_duration = if timed_total.positive?
+          (timed_runs.sum(:duration_ms) + timed_traces.sum(:total_duration_ms)).to_f / timed_total
+        else
+          0
+        end.round
+
+        # Runs by day, zero-filled across the window (see AnalyticsController)
+        by_day = Hash.new { |hash, date| hash[date] = { date: date, count: 0, tokens: 0 } }
+        runs.group("DATE(created_at)")
           .select("DATE(created_at) as date, COUNT(*) as count, SUM(total_tokens) as tokens")
-          .order("date")
-          .map { |r| { date: r.date.to_s, count: r.count, tokens: r.tokens || 0 } }
-
-        # Status breakdown
-        status_breakdown = runs.group(:status).count.transform_keys(&:to_s)
-
-        # Recent errors
-        recent_errors = runs.failed_runs.recent.limit(5).map do |run|
-          {
-            id: run.id,
-            error: run.error_message&.truncate(200),
-            created_at: run.created_at
-          }
+          .each { |r| by_day[r.date.to_s].merge!(count: r.count, tokens: r.tokens || 0) }
+        trace_day_sql = Arel.sql("DATE(#{traces_table}.timestamp)")
+        trace_counts = traces.group(trace_day_sql).count
+        trace_token_sums = traces.group(trace_day_sql).sum(trace_tokens_sql)
+        trace_counts.each do |date, count|
+          bucket = by_day[date.to_s]
+          bucket[:count] += count
+          bucket[:tokens] += trace_token_sums[date].to_i
         end
+        runs_by_day = (start_date.to_date..Date.current).map { |day| by_day[day.to_s] }
+
+        # Status breakdown. A reported execution is complete unless its trace
+        # errored; those are the only two states a trace can be in.
+        status_breakdown = runs.group(:status).count.transform_keys(&:to_s)
+        status_breakdown["complete"] = status_breakdown.fetch("complete", 0) + (trace_count - trace_failures)
+        status_breakdown["failed"] = status_breakdown.fetch("failed", 0) + trace_failures
+        status_breakdown.delete_if { |_status, count| count.zero? }
+
+        # Recent errors, from both sources
+        recent_errors = runs.failed_runs.recent.limit(5).map do |run|
+          { id: run.id, source: "dashboard", error: run.error_message&.truncate(200), created_at: run.created_at }
+        end
+        recent_errors += traces.where(status: "ERROR").order(timestamp: :desc).limit(5).map do |trace|
+          { id: "trace-#{trace.id}", source: "reported", error: trace.error_message&.truncate(200), created_at: trace.timestamp }
+        end
+        recent_errors = recent_errors.sort_by { |row| row[:created_at] }.reverse.first(5)
 
         render json: {
           period_days: days,

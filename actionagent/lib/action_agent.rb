@@ -234,6 +234,24 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :upgrade_url
 
+    # Answers GET <mount>/api/usage — the plan meter the Organization view
+    # and the Run Agents quota banner read. Receives (owner) and returns a
+    # Hash in the platform's shape:
+    #
+    #   { runs_used: 12, runs_limit: 100, runs_remaining: 88,
+    #     can_run: true, plan: "pro" }
+    #
+    # Unset means unlimited: the engine reports UNLIMITED_USAGE and the
+    # views hide the meter.
+    # @return [Proc, nil]
+    attr_accessor :usage_resolver
+
+    # What a dashboard with no usage_resolver reports: no limit, nothing
+    # counted, always allowed.
+    UNLIMITED_USAGE = {
+      runs_used: 0, runs_limit: nil, runs_remaining: nil, can_run: true, plan: nil, unlimited: true
+    }.freeze
+
     # Called after the dashboard performs a metered action, as
     # (owner, kind) — the counterpart to quota_checker, for host apps that
     # track usage against a plan. Unset means nothing is counted.
@@ -290,6 +308,19 @@ module ActionAgent
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] usage recording failed: #{e.message}")
       nil
+    end
+
+    # The usage meter for +owner+. Never raises: a bookkeeping failure must
+    # not take the views that display it down with it.
+    #
+    # @return [Hash] the platform's usage shape, UNLIMITED_USAGE by default
+    def usage_for(owner)
+      return UNLIMITED_USAGE.dup if usage_resolver.nil?
+
+      usage_resolver.call(owner) || UNLIMITED_USAGE.dup
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] usage lookup failed: #{e.message}")
+      UNLIMITED_USAGE.dup
     end
 
     # Asks the host app whether +owner+ may perform +kind+.
@@ -396,6 +427,7 @@ module ActionAgent
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil
+      @usage_resolver = nil
       @upgrade_url = nil
     end
   end

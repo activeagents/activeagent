@@ -128,6 +128,12 @@ ActionAgent::Engine.routes.draw do
     # Model catalogs for the agent builder (Ollama queried live from the
     # configured host; hosted providers curated).
     resources :provider_models, only: [ :index ]
+
+    # The plan meter the Organization view and the Run Agents quota banner
+    # read. The engine meters nothing itself: a host that tracks usage
+    # against a plan answers through ActionAgent.usage_resolver, and a bare
+    # mount reports unlimited rather than 404.
+    resource :usage, only: [ :show ], controller: "usage"
   end
 
   # The account's agents presented as an authenticated MCP server (tools +

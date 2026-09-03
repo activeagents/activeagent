@@ -32,17 +32,26 @@ module ActionAgent
         avg_duration = runs.where.not(duration_ms: nil).average(:duration_ms)&.round || 0
         avg_tokens_per_run = total_runs > 0 ? (total_tokens.to_f / total_runs).round : 0
 
-        # Runs over time
-        runs_by_day = runs.group("DATE(#{runs_table}.created_at)")
-          .select("DATE(#{runs_table}.created_at) as date, COUNT(*) as count")
-          .order("date")
-          .map { |r| { date: r.date.to_s, count: r.count } }
+        # Runs over time. Zero-filled across the window: grouping only
+        # returns days that have rows, and the chart draws whatever it gets
+        # as adjacent bars, so a 30-day window with runs on two far-apart
+        # days rendered as two neighbouring bars.
+        runs_by_day = zero_filled_days(
+          start_date,
+          runs.group("DATE(#{runs_table}.created_at)")
+            .select("DATE(#{runs_table}.created_at) as date, COUNT(*) as count")
+            .map { |r| { date: r.date.to_s, count: r.count } },
+          count: 0
+        )
 
         # Token usage over time
-        tokens_by_day = runs.group("DATE(#{runs_table}.created_at)")
-          .select("DATE(#{runs_table}.created_at) as date, SUM(total_tokens) as tokens")
-          .order("date")
-          .map { |r| { date: r.date.to_s, tokens: r.tokens || 0 } }
+        tokens_by_day = zero_filled_days(
+          start_date,
+          runs.group("DATE(#{runs_table}.created_at)")
+            .select("DATE(#{runs_table}.created_at) as date, SUM(total_tokens) as tokens")
+            .map { |r| { date: r.date.to_s, tokens: r.tokens || 0 } },
+          tokens: 0
+        )
 
         # Top agents by usage
         top_agents = agents.joins(:agent_runs)
@@ -88,6 +97,19 @@ module ActionAgent
           status_breakdown: status_breakdown,
           provider_breakdown: provider_breakdown
         }
+      end
+
+      private
+
+      # One entry per calendar day from +start_date+ through today, in
+      # order, with +defaults+ for the days the grouped +rows+ did not
+      # mention. Keyed on the ISO date string so it reads the same whether
+      # the adapter returns DATE() as a Date or a String.
+      def zero_filled_days(start_date, rows, **defaults)
+        by_date = rows.index_by { |row| row[:date] }
+        (start_date.to_date..Date.current).map do |day|
+          by_date[day.to_s] || defaults.merge(date: day.to_s)
+        end
       end
     end
   end
