@@ -3,8 +3,10 @@
 require "test_helper"
 require_relative "telemetry_trace_test"
 
-# GET /api/usage on the engine (#395).
-class UsageTest < ActionDispatch::IntegrationTest
+# GET /api/usage on the engine (#395). Namespaced: bin/test loads the
+# framework's own test/providers/usage_test.rb (a plain UsageTest) into the
+# same process, and a bare name here clashed with it.
+class EngineUsageApiTest < ActionDispatch::IntegrationTest
   def teardown
     ActionAgent.usage_resolver = nil
   end
@@ -42,7 +44,7 @@ end
 
 # Daily charts are zero-filled across the window (#385) and per-agent
 # analytics count telemetry-observed executions (#376).
-class AnalyticsTest < ActionDispatch::IntegrationTest
+class EngineAnalyticsApiTest < ActionDispatch::IntegrationTest
   TelemetryTraceTest.ensure_table!
 
   def setup
