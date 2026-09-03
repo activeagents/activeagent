@@ -92,6 +92,38 @@ class ToolDiscoveryApiTest < ActionDispatch::IntegrationTest
 
   # --- sources ----------------------------------------------------------
 
+  # The activeagents-telemetry ruby_llm adapter records tool I/O under
+  # tool.arguments / tool.result rather than the framework's tool.input.args
+  # / tool.output.result. TelemetryTrace#tool_usage read only the framework's
+  # keys, so adapter traffic showed no sample arguments in the Tools view
+  # even though the data was in the stored spans (#384).
+  test "sample arguments are read from the ruby_llm adapter's attribute keys" do
+    ActionAgent::TelemetryTrace.create_from_payload({
+      "trace_id" => SecureRandom.hex(16),
+      "service_name" => "customer-app",
+      "timestamp" => Time.current.iso8601(6),
+      "spans" => [
+        {
+          "span_id" => "r1", "parent_span_id" => nil, "name" => "SupportAgent.respond",
+          "type" => "root", "duration_ms" => 900.0, "status" => "OK",
+          "attributes" => { "agent.class" => "SupportAgent", "agent.action" => "respond" }
+        },
+        {
+          "span_id" => "t1", "parent_span_id" => "r1", "name" => "tool.search_docs",
+          "type" => "tool", "duration_ms" => 50.0, "status" => "OK",
+          "attributes" => { "tool.name" => "search_docs", "tool.arguments" => { "q" => "refunds" }, "tool.result" => "3 hits" }
+        }
+      ]
+    })
+
+    usage = ActionAgent::TelemetryTrace.last.tool_usage.first
+    assert_equal({ "q" => "refunds" }, usage[:arguments])
+    assert_equal "3 hits", usage[:result]
+
+    tool = tool_named("search_docs")
+    assert_equal({ "q" => "refunds" }, tool["sample_arguments"])
+  end
+
   test "detects tools called in telemetry spans" do
     create_trace(calls: [ { name: "lookup_order", duration: 200.0 } ])
 
