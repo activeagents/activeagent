@@ -242,6 +242,12 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :upgrade_url
 
+    # The host app's sign-out endpoint, which the header's "Sign out" item
+    # POSTs to (with _method=delete and the CSRF token). The engine has no
+    # session of its own; unset, the menu item is not shown.
+    # @return [String, nil]
+    attr_accessor :sign_out_path
+
     # Answers GET <mount>/api/usage — the plan meter the Organization view
     # and the Run Agents quota banner read. Receives (owner) and returns a
     # Hash in the platform's shape:
@@ -437,6 +443,7 @@ module ActionAgent
       @usage_recorder = nil
       @usage_resolver = nil
       @upgrade_url = nil
+      @sign_out_path = nil
     end
   end
 

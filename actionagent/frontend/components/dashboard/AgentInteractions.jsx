@@ -4,7 +4,7 @@ import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
-import { dashboardPath } from '../../utils/dashboardPath';
+import { dashboardPath, dashboardRelativePath } from '../../utils/dashboardPath';
 
 export default function AgentInteractions({ agent, onBack }) {
   const { timeWindow } = useTimeWindow();
@@ -60,7 +60,8 @@ export default function AgentInteractions({ agent, onBack }) {
   // whatever level the URL points at.
   useEffect(() => {
     const applyLocation = () => {
-      const path = window.location.pathname;
+      // Relative to the mount, so a mount prefix can never match a level.
+      const path = dashboardRelativePath();
       const runMatch = path.match(/\/interactions\/runs\/(\d+)/);
       const sessionMatch = path.match(/\/interactions\/sessions\/(\d+)/);
       if (runMatch) {

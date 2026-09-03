@@ -20,7 +20,7 @@ import OrganizationView from '../components/dashboard/OrganizationView';
 import SettingsView from '../components/dashboard/SettingsView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
-import { dashboardPath } from '../utils/dashboardPath';
+import { dashboardPath, dashboardRelativePath } from '../utils/dashboardPath';
 
 /**
  * Dashboard - Main dashboard application
@@ -46,25 +46,28 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   // opening its agent) both land on the right view.
   useEffect(() => {
     const applyPath = () => {
-    const path = window.location.pathname;
-    if (path.includes('/traces')) {
+    // Relative to the mount, and anchored at its start: matched against the
+    // raw pathname, a mount like /admin/agents made '/agents/' true for
+    // every URL and a mount like /demo rendered the sandbox everywhere.
+    const path = dashboardRelativePath();
+    if (path.startsWith('/traces')) {
       setCurrentView('traces');
-    } else if (path.includes('/metrics')) {
+    } else if (path.startsWith('/metrics')) {
       setCurrentView('metrics');
-    } else if (path.includes('/interactions') && !path.includes('/agents/')) {
+    } else if (path.startsWith('/interactions')) {
       setCurrentView('interactions');
-    } else if (path.includes('/tools')) {
+    } else if (path.startsWith('/tools')) {
       setCurrentView('tools');
-    } else if (path.includes('/mcp')) {
+    } else if (path.startsWith('/mcp')) {
       // <mount>/mcp/:server deep-links straight to one service.
-      const key = path.match(/\/mcp\/([^/?#]+)/)?.[1];
+      const key = path.match(/^\/mcp\/([^/?#]+)/)?.[1];
       if (key) setFocusServer(decodeURIComponent(key));
       setCurrentView('mcp');
-    } else if (path.includes('/evaluations')) {
+    } else if (path.startsWith('/evaluations')) {
       setCurrentView('evaluations');
-    } else if (path.includes('/analytics') && !path.includes('/agents/')) {
+    } else if (path.startsWith('/analytics')) {
       setCurrentView('analytics');
-    } else if (path.includes('/agents/new')) {
+    } else if (path.startsWith('/agents/new')) {
       setCurrentView('builder');
     } else if (path.match(/\/agents\/\d+\/(interactions|history)/)) {
       const id = path.match(/\/agents\/(\d+)/)?.[1];
@@ -89,15 +92,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       // down into individual traces.
       const id = path.match(/\/agents\/(\d+)/)?.[1];
       if (id) loadAgent(id, 'history');
-    } else if (path.includes('/benchmarks')) {
-      setCurrentView('benchmarks');
-    } else if (path.includes('/replay')) {
+    } else if (path.startsWith('/replay')) {
       setCurrentView('replay');
-    } else if (path.includes('/sandbox') || path.includes('/demo')) {
+    } else if (path.startsWith('/sandbox') || path.startsWith('/demo')) {
       setCurrentView('sandbox');
-    } else if (path.includes('/organization')) {
+    } else if (path.startsWith('/organization')) {
       setCurrentView('organization');
-    } else if (path.includes('/settings')) {
+    } else if (path.startsWith('/settings')) {
       setCurrentView('settings');
     } else {
       setCurrentView('list');
@@ -248,11 +249,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
   const handleUseTemplate = (agent) => {
     setAgents([agent, ...agents]);
-    setSelectedAgent(agent);
-    setCurrentView('editor');
     setShowTemplateLibrary(false);
     showNotification('Agent created from template!', 'success');
-    window.history.pushState({}, '', dashboardPath(`/agents/${agent.id}/edit`));
+    // Through navigateTo rather than setSelectedAgent directly: it refetches
+    // the full record whenever it is handed a summary, so the editor never
+    // initializes from a shallow object and wipes the template's
+    // instructions, tools and model_config on the first save.
+    navigateTo('editor', agent);
   };
 
   // Views that edit or run an agent need its detail fields (instructions,
@@ -283,7 +286,6 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     else if (view === 'tools') path = dashboardPath('/tools');
     else if (view === 'mcp') path = dashboardPath('/mcp');
     else if (view === 'evaluations') path = dashboardPath('/evaluations');
-    else if (view === 'benchmarks') path = dashboardPath('/benchmarks');
     else if (view === 'replay') path = dashboardPath('/replay');
     else if (view === 'sandbox') path = dashboardPath('/sandbox');
     else if (view === 'organization') path = dashboardPath('/organization');

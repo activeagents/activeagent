@@ -44,7 +44,8 @@ module ActionAgent
         availableTools: Agent::AVAILABLE_TOOLS,
         executionEnabled: ActionAgent.execution_enabled?,
         multiTenant: ActionAgent.multi_tenant?,
-        upgradeUrl: ActionAgent.upgrade_url
+        upgradeUrl: ActionAgent.upgrade_url,
+        signOutPath: ActionAgent.sign_out_path
       }
     end
 
