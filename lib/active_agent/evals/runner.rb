@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # Replays every scenario under every candidate model, scores and diagnoses
     # each answer, and returns a Report.
@@ -111,7 +111,7 @@ module ActiveAgents
         case value
         when Replay then value
         when Hash then Replay.new(**value.to_h.symbolize_keys)
-        else raise ArgumentError, "replay must return an ActiveAgents::Evals::Replay or a Hash, got #{value.class}"
+        else raise ArgumentError, "replay must return an ActiveAgent::Evals::Replay or a Hash, got #{value.class}"
         end
       rescue ArgumentError
         raise

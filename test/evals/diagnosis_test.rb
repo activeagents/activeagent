@@ -1,14 +1,15 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require "test_helper"
+require_relative "evals_test_support"
 
-class DiagnosisTest < Minitest::Test
+class EvalsDiagnosisTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
   ROSTER = %w[fetch_url find_records].freeze
 
   def diagnose(scenario:, replay:, scores: { "response_present" => 1.0 }, score: 1.0, available_tools: ROSTER)
-    ActiveAgents::Evals::Diagnosis.call(
+    ActiveAgent::Evals::Diagnosis.call(
       scenario: scenario, replay: replay, scores: scores, score: score,
       available_tools: available_tools, threshold: 0.7
     )
@@ -65,7 +66,7 @@ class DiagnosisTest < Minitest::Test
   end
 
   def test_the_agent_name_appears_in_the_wording
-    result = ActiveAgents::Evals::Diagnosis.call(
+    result = ActiveAgent::Evals::Diagnosis.call(
       scenario: scenario, replay: replay(answer: "I cannot access that."), scores: {}, score: 0.1,
       available_tools: [], threshold: 0.7, agent_name: "Clara"
     )

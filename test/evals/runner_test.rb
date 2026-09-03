@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require "test_helper"
+require_relative "evals_test_support"
 
-class RunnerTest < Minitest::Test
+class EvalsRunnerTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
   CRITERIA = [ { "key" => "response_present", "type" => "response_present" } ].freeze
@@ -16,7 +17,7 @@ class RunnerTest < Minitest::Test
   end
 
   def models
-    ActiveAgents::Evals::ModelSpec.parse_all(%w[gpt-5-mini qwen3:8b], default_provider: "openai")
+    ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini qwen3:8b], default_provider: "openai")
   end
 
   # A stand-in agent: answers with the model name, calls find_records only for
@@ -29,7 +30,7 @@ class RunnerTest < Minitest::Test
   end
 
   def runner(**options)
-    ActiveAgents::Evals::Runner.new(
+    ActiveAgent::Evals::Runner.new(
       scenarios: scenarios, models: models, criteria: CRITERIA,
       available_tools: { "find_records" => "Look up records", "fetch_url" => "Fetch a page" },
       replay: method(:replay_agent), **options
@@ -68,7 +69,7 @@ class RunnerTest < Minitest::Test
 
   def test_criterion_scores_are_cohort_maps_when_comparing_and_flat_otherwise
     comparing = runner.call.criterion_scores
-    single = ActiveAgents::Evals::Runner.new(scenarios: scenarios, models: models.first(1), criteria: CRITERIA,
+    single = ActiveAgent::Evals::Runner.new(scenarios: scenarios, models: models.first(1), criteria: CRITERIA,
                                              replay: method(:replay_agent)).call.criterion_scores
 
     assert_equal %w[gpt-5-mini qwen3:8b], comparing["response_present"].keys
@@ -78,7 +79,7 @@ class RunnerTest < Minitest::Test
   end
 
   def test_a_replay_that_raises_becomes_an_errored_result_and_the_run_continues
-    report = ActiveAgents::Evals::Runner.new(
+    report = ActiveAgent::Evals::Runner.new(
       scenarios: scenarios.first(2), models: models.first(1),
       replay: ->(_scenario, _spec) { raise "provider down" }
     ).call
@@ -91,7 +92,7 @@ class RunnerTest < Minitest::Test
   end
 
   def test_a_hash_replay_is_accepted
-    report = ActiveAgents::Evals::Runner.new(
+    report = ActiveAgent::Evals::Runner.new(
       scenarios: scenarios.first(1), models: models.first(1),
       replay: ->(_scenario, _spec) { { answer: "12 providers match.", tool_calls: [ { name: "find_records" } ] } }
     ).call

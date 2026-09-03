@@ -15,8 +15,8 @@ module ActionAgent
     enum :status, { pending: 0, passed: 1, failed: 2, errored: 3 }
 
     # Why a scenario did not pass, from the most mechanical cause to the
-    # least; ActiveAgents::Evals::Diagnosis assigns exactly one per failing result.
-    FAULTS = ActiveAgents::Evals::Diagnosis::FAULTS
+    # least; ActiveAgent::Evals::Diagnosis assigns exactly one per failing result.
+    FAULTS = ActiveAgent::Evals::Diagnosis::FAULTS
 
     validates :model, presence: true
     validates :fault, inclusion: { in: FAULTS }, allow_nil: true

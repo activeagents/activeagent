@@ -5,7 +5,7 @@ module ActionAgent
   # agent once per candidate model and writes one EvaluationScenarioResult per
   # scenario × model plus a per-model summary and verdict on the run.
   #
-  # The scoring, fault diagnosis and roll-up are ActiveAgents::Evals'; this
+  # The scoring, fault diagnosis and roll-up are ActiveAgent::Evals'; this
   # class supplies what only the dashboard knows — how to run the agent
   # (Agent#test_execute with a model override), where to persist each result,
   # how to price tokens, and which judge model the owner has credentials for.
@@ -19,7 +19,7 @@ module ActionAgent
   #   "_verdict"         — the best model and why (judge-written when a judge is available)
   #   "_selection"       — the scenarios and models this run covered
   class ScenarioEvaluationRunner < EvaluationRunnerService
-    Evals = ActiveAgents::Evals
+    Evals = ActiveAgent::Evals
 
     # `run` is an EvaluationRun created ahead of time (by run_later!, so the
     # UI can show it pending while the job waits); absent, one is created here.

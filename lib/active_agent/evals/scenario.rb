@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # One task an evaluation replays through the agent: the message a user
     # would send, the group of related tasks it belongs to, and what a passing

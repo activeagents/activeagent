@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # Turns a pasted list of user messages into scenario attributes. Accepts the
     # shapes people actually paste:

@@ -108,6 +108,7 @@ module ActiveAgent
   autoload :Rescue, "active_agent/concerns/rescue"
   autoload :Tooling, "active_agent/concerns/tooling"
   autoload :View, "active_agent/concerns/view"
+  autoload :Evals
   autoload :Telemetry
 
   class << self

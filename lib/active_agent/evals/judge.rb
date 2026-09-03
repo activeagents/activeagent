@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # A second model that scores answers, refines recommendations, and picks a
     # winner. The gem owns the prompts and the parsing; the caller supplies the
     # one thing that differs per stack — how to get a completion:
     #
-    #   judge = ActiveAgents::Evals::Judge.new(label: "claude-opus-5") do |instructions:, prompt:|
+    #   judge = ActiveAgent::Evals::Judge.new(label: "claude-opus-5") do |instructions:, prompt:|
     #     RubyLLM.chat(model: "claude-opus-5").with_instructions(instructions).ask(prompt).content
     #   end
     #
@@ -162,7 +162,7 @@ module ActiveAgents
       end
 
       def warn_failure(error)
-        message = "[ActiveAgents::Evals] judge #{label} failed: #{error.class}: #{error.message}"
+        message = "[ActiveAgent::Evals] judge #{label} failed: #{error.class}: #{error.message}"
         if defined?(Rails) && Rails.respond_to?(:logger) && Rails.logger
           Rails.logger.warn(message)
         else

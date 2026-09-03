@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # An evaluation suite read from one or more YAML documents, later documents
     # layered over earlier ones: a scenario with a key already present replaces

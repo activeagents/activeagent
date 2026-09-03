@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # One scenario replayed under one model: the Replay, its scores, and the
     # diagnosis when it fell short.

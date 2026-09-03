@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require "test_helper"
+require_relative "evals_test_support"
 require "tmpdir"
 
-class SuiteTest < Minitest::Test
+class EvalsSuiteTest < ActiveSupport::TestCase
   CORE = <<~YAML
     suite: clara_dashboard
     description: The V1 question catalog
@@ -53,7 +54,7 @@ class SuiteTest < Minitest::Test
 
   def test_loads_a_suite_with_its_groups_and_scenarios
     with_files do |core, _client|
-      suite = ActiveAgents::Evals::Suite.load(core)
+      suite = ActiveAgent::Evals::Suite.load(core)
 
       assert_equal "clara_dashboard", suite.name
       assert_equal "The V1 question catalog", suite.description
@@ -67,7 +68,7 @@ class SuiteTest < Minitest::Test
 
   def test_a_later_document_overrides_by_key_and_appends_the_rest
     with_files do |core, client|
-      suite = ActiveAgents::Evals::Suite.load(core, client)
+      suite = ActiveAgent::Evals::Suite.load(core, client)
 
       assert_equal "Which cardiologists in Dallas have scheduling enabled?", suite.find("find_records_2").prompt
       assert_includes suite.scenarios(groups: [ "find_records" ]).map(&:key), "find_records_99"
@@ -77,15 +78,15 @@ class SuiteTest < Minitest::Test
 
   def test_missing_files_are_skipped_and_none_at_all_raises
     with_files do |core, _client|
-      suite = ActiveAgents::Evals::Suite.load(core, "/nowhere/clara_dashboard.yml")
+      suite = ActiveAgent::Evals::Suite.load(core, "/nowhere/clara_dashboard.yml")
       assert_equal 3, suite.all_scenarios.size
     end
 
-    assert_raises(ActiveAgents::Evals::Suite::NotFound) { ActiveAgents::Evals::Suite.load("/nowhere/nope.yml") }
+    assert_raises(ActiveAgent::Evals::Suite::NotFound) { ActiveAgent::Evals::Suite.load("/nowhere/nope.yml") }
   end
 
   def test_scenarios_narrow_by_group_key_and_production_only
-    suite = ActiveAgents::Evals::Suite.new([ YAML.safe_load(CORE) ])
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
 
     assert_equal [ "analytics_1" ], suite.scenarios(groups: %w[analytics]).map(&:key)
     assert_equal [ "find_records_2" ], suite.scenarios(keys: %w[find_records_2]).map(&:key)
@@ -93,8 +94,8 @@ class SuiteTest < Minitest::Test
   end
 
   def test_find_raises_for_an_unknown_key
-    suite = ActiveAgents::Evals::Suite.new([ YAML.safe_load(CORE) ])
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
 
-    assert_raises(ActiveAgents::Evals::Suite::NotFound) { suite.find("nope") }
+    assert_raises(ActiveAgent::Evals::Suite::NotFound) { suite.find("nope") }
   end
 end

@@ -5,6 +5,5 @@ gem "rubocop-rails-omakase"
 
 gemspec
 
-# The evaluation core and the dashboard engine, sibling gems in this repo.
-gemspec path: "evals", name: "activeagents-evals"
+# The dashboard engine, a sibling gem in this repo.
 gemspec path: "actionagent", name: "actionagent"

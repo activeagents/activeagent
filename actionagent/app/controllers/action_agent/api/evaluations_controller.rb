@@ -204,9 +204,9 @@ module ActionAgent
 
         if list.present?
           list = list.to_unsafe_h.values if list.is_a?(ActionController::Parameters)
-          ActiveAgents::Evals::ScenarioParser.parse(Array(list).map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }.to_json)
+          ActiveAgent::Evals::ScenarioParser.parse(Array(list).map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }.to_json)
         elsif text.present?
-          ActiveAgents::Evals::ScenarioParser.parse(text)
+          ActiveAgent::Evals::ScenarioParser.parse(text)
         else
           []
         end

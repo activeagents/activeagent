@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # The outcome of one evaluation run: every scenario × model Result, a summary
     # per model, criterion statistics, the faults grouped with the fix each

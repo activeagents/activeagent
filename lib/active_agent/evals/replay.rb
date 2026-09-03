@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # What one run of the agent on one scenario produced — the value the
     # Runner's `replay` callable returns.
