@@ -4,16 +4,16 @@ module ActionAgent
   class SandboxCleanupJob < ApplicationJob
     queue_as :sandboxes
 
-    # Clean up Cloud Run resources for an expired sandbox
+    # Release the infrastructure behind an expired sandbox.
     def perform(sandbox_session_id)
       sandbox = SandboxSession.find_by(id: sandbox_session_id)
       return unless sandbox
 
       Rails.logger.info("Cleaning up sandbox: #{sandbox.session_id}")
 
-      # Delete Cloud Run Job if exists
+      # Terminate the backend resource if one was provisioned
       if sandbox.cloud_run_job_id.present? && !Rails.env.development?
-        delete_cloud_run_job(sandbox.cloud_run_job_id)
+        terminate_backend_sandbox(sandbox.cloud_run_job_id)
       end
 
       # Optionally delete old sandbox records
@@ -30,13 +30,16 @@ module ActionAgent
 
     private
 
-    def delete_cloud_run_job(job_id)
-      require "google/cloud/run/v2"
-
-      client = Google::Cloud::Run::V2::Jobs::Client.new
-      client.delete_job(name: job_id)
-    rescue => e
-      Rails.logger.warn("Failed to delete Cloud Run job #{job_id}: #{e.message}")
+    # Through the orchestrator, like provisioning: whichever backend the
+    # host registered (Incus, Kubernetes, Cloud Run, or the built-in mock)
+    # reclaims its own resource. This used to require google/cloud/run/v2
+    # directly, which the engine does not depend on — a LoadError is a
+    # ScriptError, not a StandardError, so it escaped the rescue and the job
+    # failed on every host but the one that happened to bundle the SDK.
+    def terminate_backend_sandbox(sandbox_id)
+      SandboxOrchestrator.new.terminate(sandbox_id)
+    rescue StandardError => e
+      Rails.logger.warn("Failed to terminate sandbox #{sandbox_id}: #{e.message}")
     end
   end
 end
