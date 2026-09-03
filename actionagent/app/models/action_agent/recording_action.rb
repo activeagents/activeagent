@@ -75,13 +75,22 @@ module ActionAgent
       }
     end
 
-    private
-
+    # The value with passwords, card numbers and the like masked. Public so
+    # every read path — /actions, the show timeline, and the export
+    # cassette — serializes through the one redaction rule.
     def redacted_value
       return value unless should_redact?
 
       "[REDACTED]"
     end
+
+    # Metadata with the sensitive keys removed. Public for the same reason.
+    def safe_metadata
+      # Remove any sensitive data from metadata
+      metadata.except("password", "credit_card", "cvv", "ssn")
+    end
+
+    private
 
     def should_redact?
       return false unless value.present?
@@ -100,11 +109,6 @@ module ActionAgent
       value_is_sensitive = sensitive_patterns.any? { |p| value.match?(p) }
 
       selector_is_sensitive || value_is_sensitive
-    end
-
-    def safe_metadata
-      # Remove any sensitive data from metadata
-      metadata.except("password", "credit_card", "cvv", "ssn")
     end
 
     def extract_url
