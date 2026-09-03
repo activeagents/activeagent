@@ -83,7 +83,10 @@ require "action_agent/compatibility"
 #
 #   ActionAgent.configure do |config|
 #     config.authentication_method = ->(controller) { controller.authenticate_admin! }
-#     config.sandbox_service = :local  # Docker/Incus
+#     # Sandboxes run in the in-memory mock unless the app registers a real
+#     # backend (see sandbox_backends) and names it here:
+#     config.sandbox_backends = { "incus" => "IncusSandboxService" }
+#     config.sandbox_service = :incus
 #   end
 #
 # == Multi-tenant Mode
@@ -171,7 +174,10 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :layout
 
-    # Sandbox service type (:local, :cloud_run, :kubernetes)
+    # Which sandbox backend to provision with: :mock (the only one the
+    # engine ships — an in-memory fake that runs nothing) or the name of a
+    # backend the host registered in sandbox_backends. An unregistered name
+    # falls back to :mock with a logged warning.
     # @return [Symbol]
     attr_accessor :sandbox_service
 
@@ -217,9 +223,11 @@ module ActionAgent
     # @return [Proc, nil]
     attr_accessor :provider_credentials_resolver
 
-    # Extra sandbox backends contributed by the host app, as
-    # { "cloud_run" => "CloudRunService" }. The engine ships :mock and
-    # :local (Docker); cloud backends live in the app that operates them.
+    # Sandbox backends contributed by the host app, as
+    # { "cloud_run" => "CloudRunService" }. The engine ships only :mock;
+    # every real backend (Docker/Incus, Cloud Run, Kubernetes) lives in the
+    # app that operates it, which registers it here and selects it with
+    # sandbox_service.
     # @return [Hash{String => String}]
     attr_accessor :sandbox_backends
 
@@ -412,7 +420,7 @@ module ActionAgent
       @trace_model_class = nil
       @use_inertia = false
       @layout = nil
-      @sandbox_service = :local
+      @sandbox_service = :mock
       @sandbox_limits = nil
       @storage_service = nil
       @ingest_api_key = nil
