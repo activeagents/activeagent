@@ -3,6 +3,8 @@
 module ActionAgent
   module Api
     class AgentsController < BaseController
+      include AgentSerialization
+
       # Ranking for the agent cards. Every dimension except "recent" reads the
       # scorecard, which is computed in Ruby over both execution sources, so
       # the ordering is applied there rather than in the SQL scope.
@@ -335,39 +337,6 @@ module ActionAgent
           model_config: {},
           response_format: {}
         )
-      end
-
-      def agent_json(agent, include_details: false)
-        json = {
-          id: agent.id,
-          name: agent.name,
-          slug: agent.slug,
-          description: agent.description,
-          provider: agent.provider,
-          model: agent.model,
-          status: agent.status,
-          preset_type: agent.preset_type,
-          appearance: agent.appearance,
-          version_count: agent.version_count,
-          created_at: agent.created_at,
-          updated_at: agent.updated_at
-        }
-
-        if include_details
-          json.merge!(
-            instructions: agent.instructions,
-            action_prompts: agent.action_prompts,
-            instruction_sets: agent.instruction_sets,
-            tools: agent.tools,
-            mcp_servers: agent.mcp_servers,
-            model_config: agent.model_config,
-            response_format: agent.response_format,
-            agent_class_name: agent.agent_class_name,
-            telemetry_agent_class: agent.telemetry_agent_class
-          )
-        end
-
-        json
       end
 
       def version_json(version, include_diff: false)
