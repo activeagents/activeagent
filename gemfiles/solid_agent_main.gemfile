@@ -6,7 +6,6 @@ gem "rails", "~> 8.1.1"
 gem "tzinfo-data"
 
 gemspec path: ".."
-gemspec path: "../evals", name: "activeagents-evals"
 gemspec path: "../actionagent", name: "actionagent"
 
 # The cross-repo integration bundle: this framework, plus solid_agent from

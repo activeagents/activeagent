@@ -55,12 +55,8 @@ end
 #     agent class it builds for every run, so without this every Run fails with
 #     an uninitialized-constant error on any install that does not list the gem
 #     itself.
-#   * activeagents-evals — the scenario parser, scorer, diagnosis and report
-#     behind scenario evaluations; ScenarioEvaluationRunner and the evaluations
-#     API reference its constants directly.
 require "active_agent"
 require "solid_agent"
-require "activeagents/evals"
 
 require "action_agent/version"
 require "action_agent/engine"

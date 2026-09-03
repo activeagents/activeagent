@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require "test_helper"
+require_relative "evals_test_support"
 
-class ScorerTest < Minitest::Test
+class EvalsScorerTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
   CRITERIA = [
@@ -15,7 +16,7 @@ class ScorerTest < Minitest::Test
   ].freeze
 
   def scorer(criteria: CRITERIA, judge: nil)
-    ActiveAgents::Evals::Scorer.new(criteria: criteria, judge: judge)
+    ActiveAgent::Evals::Scorer.new(criteria: criteria, judge: judge)
   end
 
   def test_rule_criteria_score_the_replay
@@ -63,11 +64,11 @@ class ScorerTest < Minitest::Test
   end
 
   def test_mean_ignores_unscorable_criteria
-    assert_equal 0.75, ActiveAgents::Evals::Scorer.mean("a" => 1.0, "b" => 0.5, "c" => nil)
-    assert_nil ActiveAgents::Evals::Scorer.mean("c" => nil)
+    assert_equal 0.75, ActiveAgent::Evals::Scorer.mean("a" => 1.0, "b" => 0.5, "c" => nil)
+    assert_nil ActiveAgent::Evals::Scorer.mean("c" => nil)
   end
 
   def test_an_invalid_regex_falls_back_to_a_substring_match
-    assert ActiveAgents::Evals::Scorer.matches_pattern?("costs $5 (approx", "(approx")
+    assert ActiveAgent::Evals::Scorer.matches_pattern?("costs $5 (approx", "(approx")
   end
 end

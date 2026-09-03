@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require "test_helper"
+require_relative "evals_test_support"
 
-class ModelSpecTest < Minitest::Test
+class EvalsModelSpecTest < ActiveSupport::TestCase
   def parse(value, **options)
-    ActiveAgents::Evals::ModelSpec.parse(value, default_provider: "openai", **options)
+    ActiveAgent::Evals::ModelSpec.parse(value, default_provider: "openai", **options)
   end
 
   def test_a_provider_prefix_names_the_provider
@@ -48,11 +49,11 @@ class ModelSpecTest < Minitest::Test
   end
 
   def test_an_unrecognised_name_runs_under_the_default_provider
-    assert_equal "ollama", ActiveAgents::Evals::ModelSpec.parse("mistral", default_provider: "ollama").provider
+    assert_equal "ollama", ActiveAgent::Evals::ModelSpec.parse("mistral", default_provider: "ollama").provider
   end
 
   def test_parse_all_drops_blanks_and_duplicates_and_accepts_a_comma_list
-    specs = ActiveAgents::Evals::ModelSpec.parse_all(" gpt-5-mini , ,gpt-5-mini, qwen3:8b", default_provider: "openai")
+    specs = ActiveAgent::Evals::ModelSpec.parse_all(" gpt-5-mini , ,gpt-5-mini, qwen3:8b", default_provider: "openai")
 
     assert_equal [ "gpt-5-mini", "qwen3:8b" ], specs.map(&:label)
   end

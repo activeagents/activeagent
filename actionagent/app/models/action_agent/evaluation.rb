@@ -79,7 +79,7 @@ module ActionAgent
     end
 
     # Replaces the suite with the scenarios described by +attributes+ (the
-    # ActiveAgents::Evals::ScenarioParser output). Keys already in the suite keep their records, so
+    # ActiveAgent::Evals::ScenarioParser output). Keys already in the suite keep their records, so
     # earlier runs' results still resolve to their scenario.
     def replace_scenarios!(attributes)
       transaction do

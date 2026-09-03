@@ -45,12 +45,6 @@ Gem::Specification.new do |spec|
   # shim would never fire.
   spec.add_dependency "activeagent", ">= 1.2", "< 2"
 
-  # The evaluation core — scenario parsing, scoring, fault diagnosis and the
-  # report — is a framework-agnostic sibling gem so apps that are not on
-  # ActiveAgent can run the same evaluations; the engine adds persistence,
-  # the job, the API and the UI on top.
-  spec.add_dependency "activeagents-evals", ">= 0.1", "< 1"
-
   # It is a Rails engine, so it needs railties — as does the framework, which
   # declares it too. Active Record is the one that matters here: `activeagent`
   # deliberately does without it, and keeping it on this side is what lets the

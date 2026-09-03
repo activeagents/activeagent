@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # A candidate model for a comparison run, resolved from the string a user
     # types. `label` is that string verbatim and keys the model's cohort in a

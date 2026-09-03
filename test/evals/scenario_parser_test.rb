@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require "test_helper"
+require_relative "evals_test_support"
 
-class ScenarioParserTest < Minitest::Test
+class EvalsScenarioParserTest < ActiveSupport::TestCase
   def parse(text)
-    ActiveAgents::Evals::ScenarioParser.parse(text)
+    ActiveAgent::Evals::ScenarioParser.parse(text)
   end
 
   def test_one_message_per_line_keyed_by_position
@@ -73,9 +74,9 @@ class ScenarioParserTest < Minitest::Test
   end
 
   def test_scenarios_builds_structs
-    scenario = ActiveAgents::Evals::ScenarioParser.scenarios("# Blame\nWho? | tools: history").first
+    scenario = ActiveAgent::Evals::ScenarioParser.scenarios("# Blame\nWho? | tools: history").first
 
-    assert_kind_of ActiveAgents::Evals::Scenario, scenario
+    assert_kind_of ActiveAgent::Evals::Scenario, scenario
     assert_equal "blame_1", scenario.key
     assert_equal [ "history" ], scenario.expected_tools
     assert_equal({ "tools" => [ "history" ] }, scenario.expectations)

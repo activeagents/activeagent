@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ActiveAgents
+module ActiveAgent
   module Evals
     # Scores one Replay against an evaluation's criteria and the scenario's
     # expectations. Returns `criterion key => 0.0..1.0`, with nil for a

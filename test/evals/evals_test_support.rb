@@ -1,17 +1,11 @@
 # frozen_string_literal: true
 
-# The evaluation core runs without Rails: this helper loads only the gem.
-# `bin/test` at the repository root requires the dummy app's test_helper first;
-# both paths work because everything here is idempotent.
-$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
-
-require "activeagents/evals"
-require "minitest/autorun"
-
+# Builders shared by the evaluation tests. Loaded by each test file after the
+# dummy app's test_helper.
 module EvalsTestSupport
-  Scenario = ActiveAgents::Evals::Scenario
-  Replay = ActiveAgents::Evals::Replay
-  ModelSpec = ActiveAgents::Evals::ModelSpec
+  Scenario = ActiveAgent::Evals::Scenario
+  Replay = ActiveAgent::Evals::Replay
+  ModelSpec = ActiveAgent::Evals::ModelSpec
 
   def scenario(key = "s_1", prompt = "Who changed the biography?", group: "blame", **expectations)
     Scenario.from_hash({ "key" => key, "prompt" => prompt, "expectations" => expectations.transform_keys(&:to_s) }, group: group)
@@ -27,6 +21,6 @@ module EvalsTestSupport
 
   # A judge whose completions come from a hash of `instructions fragment => reply`.
   def fake_judge(label: "judge", &block)
-    ActiveAgents::Evals::Judge.new(label: label) { |instructions:, prompt:| block.call(instructions, prompt) }
+    ActiveAgent::Evals::Judge.new(label: label) { |instructions:, prompt:| block.call(instructions, prompt) }
   end
 end
