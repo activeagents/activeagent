@@ -74,7 +74,7 @@ module ActionAgent
       # Queries the Anthropic Models API with the account's key (newest first,
       # as returned by the API) so new model releases appear without a deploy.
       def live_anthropic_models
-        key = current_user_provider_key("anthropic")&.credential
+        key = owner_provider_key("anthropic")&.credential
         return nil if key.blank?
 
         data = Rails.cache.fetch("provider_models:anthropic:#{Digest::SHA256.hexdigest(key)}", expires_in: 1.hour) do
