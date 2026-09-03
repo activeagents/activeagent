@@ -83,7 +83,10 @@ require "action_agent/compatibility"
 #
 #   ActionAgent.configure do |config|
 #     config.authentication_method = ->(controller) { controller.authenticate_admin! }
-#     config.sandbox_service = :local  # Docker/Incus
+#     # Sandboxes run in the in-memory mock unless the app registers a real
+#     # backend (see sandbox_backends) and names it here:
+#     config.sandbox_backends = { "incus" => "IncusSandboxService" }
+#     config.sandbox_service = :incus
 #   end
 #
 # == Multi-tenant Mode
@@ -171,7 +174,10 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :layout
 
-    # Sandbox service type (:local, :cloud_run, :kubernetes)
+    # Which sandbox backend to provision with: :mock (the only one the
+    # engine ships — an in-memory fake that runs nothing) or the name of a
+    # backend the host registered in sandbox_backends. An unregistered name
+    # falls back to :mock with a logged warning.
     # @return [Symbol]
     attr_accessor :sandbox_service
 
@@ -217,9 +223,11 @@ module ActionAgent
     # @return [Proc, nil]
     attr_accessor :provider_credentials_resolver
 
-    # Extra sandbox backends contributed by the host app, as
-    # { "cloud_run" => "CloudRunService" }. The engine ships :mock and
-    # :local (Docker); cloud backends live in the app that operates them.
+    # Sandbox backends contributed by the host app, as
+    # { "cloud_run" => "CloudRunService" }. The engine ships only :mock;
+    # every real backend (Docker/Incus, Cloud Run, Kubernetes) lives in the
+    # app that operates it, which registers it here and selects it with
+    # sandbox_service.
     # @return [Hash{String => String}]
     attr_accessor :sandbox_backends
 
@@ -233,6 +241,30 @@ module ActionAgent
     # say so instead of linking nowhere.
     # @return [String, nil]
     attr_accessor :upgrade_url
+
+    # The host app's sign-out endpoint, which the header's "Sign out" item
+    # POSTs to (with _method=delete and the CSRF token). The engine has no
+    # session of its own; unset, the menu item is not shown.
+    # @return [String, nil]
+    attr_accessor :sign_out_path
+
+    # Answers GET <mount>/api/usage — the plan meter the Organization view
+    # and the Run Agents quota banner read. Receives (owner) and returns a
+    # Hash in the platform's shape:
+    #
+    #   { runs_used: 12, runs_limit: 100, runs_remaining: 88,
+    #     can_run: true, plan: "pro" }
+    #
+    # Unset means unlimited: the engine reports UNLIMITED_USAGE and the
+    # views hide the meter.
+    # @return [Proc, nil]
+    attr_accessor :usage_resolver
+
+    # What a dashboard with no usage_resolver reports: no limit, nothing
+    # counted, always allowed.
+    UNLIMITED_USAGE = {
+      runs_used: 0, runs_limit: nil, runs_remaining: nil, can_run: true, plan: nil, unlimited: true
+    }.freeze
 
     # Called after the dashboard performs a metered action, as
     # (owner, kind) — the counterpart to quota_checker, for host apps that
@@ -290,6 +322,19 @@ module ActionAgent
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] usage recording failed: #{e.message}")
       nil
+    end
+
+    # The usage meter for +owner+. Never raises: a bookkeeping failure must
+    # not take the views that display it down with it.
+    #
+    # @return [Hash] the platform's usage shape, UNLIMITED_USAGE by default
+    def usage_for(owner)
+      return UNLIMITED_USAGE.dup if usage_resolver.nil?
+
+      usage_resolver.call(owner) || UNLIMITED_USAGE.dup
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] usage lookup failed: #{e.message}")
+      UNLIMITED_USAGE.dup
     end
 
     # Asks the host app whether +owner+ may perform +kind+.
@@ -381,7 +426,7 @@ module ActionAgent
       @trace_model_class = nil
       @use_inertia = false
       @layout = nil
-      @sandbox_service = :local
+      @sandbox_service = :mock
       @sandbox_limits = nil
       @storage_service = nil
       @ingest_api_key = nil
@@ -396,7 +441,9 @@ module ActionAgent
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil
+      @usage_resolver = nil
       @upgrade_url = nil
+      @sign_out_path = nil
     end
   end
 

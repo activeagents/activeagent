@@ -88,6 +88,19 @@ class DashboardEngineApiTest < ActionDispatch::IntegrationTest
     assert_equal [ [ nil, :execution ] ], recorded
   end
 
+  # #compare enforced the execution quota but never advanced it, so a
+  # caller at the limit was refused while everyone else compared for free (#386).
+  test "a comparison records one execution per provider" do
+    recorded = []
+    ActionAgent.usage_recorder = ->(_owner, kind) { recorded << kind }
+
+    post "/activeagents/api/sandboxes/compare",
+      params: { task: "Say hello", providers: %w[anthropic openai] }, as: :json
+
+    assert_response :success, response.body
+    assert_equal [ :execution, :execution ], recorded
+  end
+
   test "metrics and traces read the same store the ingest endpoint writes" do
     ActionAgent::TelemetryTrace.create_from_payload(sample_trace_payload)
 

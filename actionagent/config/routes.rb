@@ -128,6 +128,12 @@ ActionAgent::Engine.routes.draw do
     # Model catalogs for the agent builder (Ollama queried live from the
     # configured host; hosted providers curated).
     resources :provider_models, only: [ :index ]
+
+    # The plan meter the Organization view and the Run Agents quota banner
+    # read. The engine meters nothing itself: a host that tracks usage
+    # against a plan answers through ActionAgent.usage_resolver, and a bare
+    # mount reports unlimited rather than 404.
+    resource :usage, only: [ :show ], controller: "usage"
   end
 
   # The account's agents presented as an authenticated MCP server (tools +
@@ -135,6 +141,16 @@ ActionAgent::Engine.routes.draw do
   # dashboard API key rather than a session, so it sits outside the api
   # namespace's session-authenticated controllers.
   post "mcp", to: "api/mcp#create"
+
+  # MCP Streamable HTTP (2025-03-26): a client MAY open the server-to-client
+  # SSE stream with GET, and ends a session with DELETE. This facade offers
+  # no stream and keeps no sessions, so both answer 405 with Allow: POST —
+  # the clean "not offered" signal SDK clients expect, instead of the
+  # dashboard's HTML page parsed as an event stream. A browser's GET (Accept
+  # prefers HTML) is the MCP Services view's deep link, and falls through to
+  # the catch-all below like any other client-side route.
+  match "mcp", to: "api/mcp#unsupported", via: [ :get, :delete ],
+    constraints: ->(request) { request.delete? || !ActionAgent::Engine.html_request?(request) }
 
   # Everything else under the mount is a client-side route: render the
   # dashboard and let the browser resolve it. Anchored last so it can only

@@ -16,10 +16,10 @@ module ActionAgent
       # GET /api/session_recordings
       # List recordings with optional filters
       def index
-        # Recordings the caller owns, plus the shared demo. Ownership is a
-        # real column rather than a JSON metadata key, so this works on
+        # Recordings the caller can reach, plus the shared demo. Ownership is
+        # a real column rather than a JSON metadata key, so this works on
         # every adapter.
-        recordings = owned(SessionRecording).or(SessionRecording.where(name: "lander_demo")).recent
+        recordings = reachable_recordings.or(SessionRecording.where(name: "lander_demo")).recent
 
         # Filter by status
         recordings = recordings.where(status: params[:status]) if params[:status].present?
@@ -57,7 +57,7 @@ module ActionAgent
       # GET /api/session_recordings/recent
       # Get recent recordings for the current user
       def recent
-        recordings = owned(SessionRecording).recent.limit(10)
+        recordings = reachable_recordings.recent.limit(10)
 
         render json: {
           recordings: recordings.map { |r| recording_summary(r) }
@@ -132,14 +132,17 @@ module ActionAgent
         recording = SessionRecording.start_user_session!(
           visitor_id: params[:visitor_id] || generate_visitor_id,
           parent_demo_id: params[:parent_demo_id],
-          page_url: params[:page_url]
+          page_url: params[:page_url],
+          owner: current_owner
         )
 
-        # Set user agent from request
+        # Set user agent from request. String keys: the stored metadata is
+        # string-keyed, and merging symbols wrote a second "user_agent" that
+        # json 3.0 refuses to encode.
         recording.update!(
           metadata: recording.metadata.merge(
-            user_agent: request.user_agent,
-            ip_hash: Digest::SHA256.hexdigest(request.remote_ip.to_s)[0..16]
+            "user_agent" => request.user_agent,
+            "ip_hash" => Digest::SHA256.hexdigest(request.remote_ip.to_s)[0..16]
           )
         )
 
@@ -226,8 +229,10 @@ module ActionAgent
           return
         end
 
-        # Create a new recording for the user's continuation
-        continuation = SessionRecording.create!(
+        # Create a new recording for the user's continuation. It records the
+        # caller's own session, so it is owned by the caller — through the
+        # owner column the list reads, not a metadata key it never consults.
+        continuation = SessionRecording.new(
           sandbox_session: @recording.sandbox_session,
           agent_run: @recording.agent_run,
           name: "#{@recording.name}_continuation",
@@ -239,6 +244,8 @@ module ActionAgent
             user_id: current_user&.id
           }
         )
+        continuation.owner = current_owner || @recording.owner
+        continuation.save!
 
         render json: {
           handoff_state: handoff_state,
@@ -273,6 +280,19 @@ module ActionAgent
         return if can_manage_recording?(@recording)
 
         not_found
+      end
+
+      # What the list shows: recordings the caller owns, plus recordings made
+      # inside a sandbox the caller owns — the same reachability
+      # can_manage_recording? grants to a direct read, so a recording never
+      # opens by id while missing from the list. The second clause is what
+      # keeps recordings created before the owner column was written
+      # reachable.
+      def reachable_recordings
+        scope = owned(SessionRecording)
+        return scope if SessionRecording.owner_association.nil?
+
+        scope.or(SessionRecording.where(sandbox_session_id: owned(SandboxSession).select(:id)))
       end
 
       def can_manage_recording?(recording)
@@ -346,8 +366,10 @@ module ActionAgent
               sequence: action.sequence,
               timestamp_ms: action.timestamp_ms,
               selector: action.selector,
-              value: action.value,
-              metadata: action.metadata
+              # Redacted like /actions: the export used to ship the cleartext
+              # the action list had masked.
+              value: action.redacted_value,
+              metadata: action.safe_metadata
             }
           end
         }

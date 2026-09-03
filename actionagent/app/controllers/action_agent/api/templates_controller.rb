@@ -3,13 +3,24 @@
 module ActionAgent
   module Api
     class TemplatesController < BaseController
+      include AgentSerialization
+
       # No anonymous exemption: #show looks a template up by bare id, so the
       # exemption served unpublished drafts and private prompt libraries to
       # anyone walking the id space. #index was already limited to public
       # templates; #show was not.
 
+      before_action :require_owner!, only: [ :use ]
+
       # GET /api/templates
       def index
+        # The library ships with the engine but nothing ever seeded it, so a
+        # fresh install showed "No templates found" behind every Browse
+        # Templates button. seed_defaults! is idempotent (find_or_create_by!
+        # on slug), so an empty table is seeded on first read; the
+        # action_agent:seed_templates task does the same on demand.
+        AgentTemplate.seed_defaults! if AgentTemplate.none?
+
         @templates = AgentTemplate.public_templates.order(usage_count: :desc)
 
         # Filter by category
@@ -31,16 +42,23 @@ module ActionAgent
       end
 
       # POST /api/templates/:id/use
+      #
+      # Built through the engine's ownership layer (owner_agents, as
+      # AgentsController#create does) rather than the host user's `agents`
+      # association: a single-user install has no user, and the old
+      # `current_user.agents.build` raised NoMethodError on nil for every
+      # click of "Use This Template".
       def use
         @template = AgentTemplate.find(params[:id])
+        agent = @template.build_agent_in(owner_agents, name: params[:name])
 
-        agent = @template.create_agent_for(
-          current_user,
-          name: params[:name] || @template.name
-        )
-
-        if agent.persisted?
-          render json: { agent: agent_json(agent) }, status: :created
+        if agent.save
+          @template.increment!(:usage_count)
+          # The detail shape, not a summary: the dashboard opens the new agent
+          # in the editor straight from this response, and an editor seeded
+          # from a summary saved empty instructions/tools/model_config over
+          # the template's real ones.
+          render json: { agent: agent_json(agent, include_details: true) }, status: :created
         else
           render json: { errors: agent.errors.full_messages }, status: :unprocessable_entity
         end
@@ -74,20 +92,6 @@ module ActionAgent
         end
 
         json
-      end
-
-      def agent_json(agent)
-        {
-          id: agent.id,
-          name: agent.name,
-          slug: agent.slug,
-          description: agent.description,
-          provider: agent.provider,
-          model: agent.model,
-          status: agent.status,
-          preset_type: agent.preset_type,
-          appearance: agent.appearance
-        }
       end
     end
   end

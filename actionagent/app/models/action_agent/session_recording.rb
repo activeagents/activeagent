@@ -31,20 +31,30 @@ module ActionAgent
       name&.start_with?("user_takeover_")
     end
 
-    # Start a new recording session
-    def self.start!(agent_run: nil, sandbox_session: nil, name: nil)
-      create!(
+    # Start a new recording session.
+    #
+    # The owner column is written here, at creation: the index and recent
+    # endpoints scope through it, and a recording nothing ever stamped was
+    # invisible in the list to the very person who made it. An explicit
+    # +owner+ wins; otherwise the recording inherits the owner of the sandbox
+    # or agent it records. Ownable#owner= is a no-op in a single-user
+    # install, where nothing is owned.
+    def self.start!(agent_run: nil, sandbox_session: nil, name: nil, owner: nil)
+      recording = new(
         agent_run: agent_run,
         sandbox_session: sandbox_session,
         name: name || generate_name(agent_run, sandbox_session),
         status: :recording,
         metadata: { started_at: Time.current.iso8601 }
       )
+      recording.owner = owner || inherited_owner(agent_run, sandbox_session)
+      recording.save!
+      recording
     end
 
     # Start a user takeover session (for lander demo analytics)
-    def self.start_user_session!(visitor_id: nil, parent_demo_id: nil, page_url: nil)
-      create!(
+    def self.start_user_session!(visitor_id: nil, parent_demo_id: nil, page_url: nil, owner: nil)
+      recording = new(
         name: "user_takeover_#{Time.current.strftime('%Y%m%d_%H%M%S')}_#{SecureRandom.hex(4)}",
         status: :recording,
         metadata: {
@@ -56,6 +66,16 @@ module ActionAgent
           user_agent: nil # Will be set from request
         }
       )
+      recording.owner = owner
+      recording.save!
+      recording
+    end
+
+    # Whoever owns the sandbox or agent a recording is made against. Both
+    # models declare the same owner candidates as this one, so the record
+    # they hand back is of the class this install owns things through.
+    def self.inherited_owner(agent_run, sandbox_session)
+      sandbox_session&.owner || agent_run&.agent&.owner
     end
 
     # Record a browser action
@@ -112,7 +132,10 @@ module ActionAgent
       )
     end
 
-    # Get timeline data for playback
+    # Get timeline data for playback. Values and metadata go through the
+    # same redaction the /actions endpoint applies: this is what #show
+    # renders, and it used to hand back the cleartext password that
+    # /actions had just redacted for the same action.
     def timeline
       recording_actions.order(:sequence).map do |action|
         {
@@ -121,9 +144,9 @@ module ActionAgent
           sequence: action.sequence,
           timestamp_ms: action.timestamp_ms,
           selector: action.selector,
-          value: action.value,
+          value: action.redacted_value,
           screenshot_key: action.screenshot_key,
-          metadata: action.metadata
+          metadata: action.safe_metadata
         }
       end
     end

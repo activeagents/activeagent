@@ -73,7 +73,7 @@ module ActiveAgent
               rescue StandardError
                 prompt_options[:instructions].is_a?(String) ? prompt_options[:instructions] : nil
               end
-              if rendered_instructions.present?
+              if rendered_instructions.present? && telemetry_capture_bodies?
                 prompt_span.set_attribute("prompt.input.instructions", telemetry_truncate(Array(rendered_instructions).join("\n\n")))
               end
 
@@ -101,8 +101,14 @@ module ActiveAgent
               # later, in prepare_prompt_parameters. Falling back to it means
               # the message the model actually received is on the trace either
               # way, which is what an evaluation scores.
-              outbound = prompt_options[:messages]
-              outbound = rendered_prompt_messages if outbound.blank?
+              # Bodies only when the configuration asks for them. (The
+              # messages.count above is independent of this switch, but is
+              # itself only present when explicit messages were passed — an
+              # agent rendering its user turn from a template has none at this
+              # point.) Rendering is skipped entirely when bodies are off —
+              # there would be nothing to record.
+              outbound = telemetry_capture_bodies? ? prompt_options[:messages] : nil
+              outbound = rendered_prompt_messages if outbound.blank? && telemetry_capture_bodies?
 
               if outbound.present?
                 serialized = Array(outbound).map { |message|
@@ -174,7 +180,7 @@ module ActiveAgent
 
               # Carry the generation contents so dashboards can show what
               # came back, not just how many tokens it cost.
-              if result.respond_to?(:message) && result.message.respond_to?(:content) && result.message.content.present?
+              if telemetry_capture_bodies? && result.respond_to?(:message) && result.message.respond_to?(:content) && result.message.content.present?
                 llm_span.set_attribute("llm.output.message", telemetry_truncate(result.message.content))
               end
               if result.respond_to?(:finish_reason) && result.finish_reason.present?
@@ -218,13 +224,16 @@ module ActiveAgent
             # Records which MCP server (if any) serves this tool, so tool
             # traffic can be grouped by service downstream.
             ToolOrigin.annotate(tool_span, tool_name)
+            capture_bodies = agent.send(:telemetry_capture_bodies?)
             arguments = kwargs.presence || (args.length == 1 ? args.first : args.presence)
-            if arguments.present?
+            if arguments.present? && capture_bodies
               tool_span.set_attribute("tool.input.args", agent.send(:telemetry_truncate, JSON.generate(arguments)))
             end
             begin
               result = base.call(tool_name, *args, **kwargs)
-              tool_span.set_attribute("tool.output.result", agent.send(:telemetry_truncate, result))
+              if capture_bodies
+                tool_span.set_attribute("tool.output.result", agent.send(:telemetry_truncate, result))
+              end
               tool_span.set_status(:ok)
               result
             rescue StandardError => e
@@ -268,6 +277,17 @@ module ActiveAgent
         # Content attributes are capped so a large prompt (e.g. a 100k-token
         # tool loop) can't bloat the trace payload.
         TELEMETRY_ATTRIBUTE_MAX_CHARS = 4_000
+
+        # Whether message bodies — the rendered system prompt, the outbound
+        # messages, the completion, and tool arguments and results — go on
+        # the spans at all. Off by default (the shared telemetry gem's
+        # contract, and what the docs promise), so an app reporting to a
+        # remote endpoint ships counts, names and tokens but not content
+        # unless it opted in. Configuration turns it on under local_storage,
+        # where bodies never leave the process.
+        def telemetry_capture_bodies?
+          Telemetry.configuration.capture_bodies?
+        end
 
         # The turns this generation will actually send, for an agent that
         # renders its user message from the action's template rather than
