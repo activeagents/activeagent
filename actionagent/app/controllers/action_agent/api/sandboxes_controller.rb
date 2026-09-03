@@ -51,6 +51,12 @@ module ActionAgent
         sandbox.update!(status: :running)
         comparison_id = SecureRandom.uuid
 
+        # One execution per provider. Recorded before the jobs are enqueued,
+        # mirroring #run's record-before-enqueue order, so usage is counted
+        # even if a later enqueue raises. Without this the quota gate on
+        # compare was checked but never advanced: comparisons were free.
+        providers.size.times { record_execution_usage }
+
         # Spawn a separate generation job for each provider (all in same sandbox)
         runs = providers.map do |provider|
           run_id = SecureRandom.uuid
