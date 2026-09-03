@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`activeagents-evals`, a third gem in this repository.** The scenario
+  evaluation core — pasted-list and YAML suite parsing, model resolution,
+  rule and expectation scoring, the fault taxonomy with its recommendations,
+  the optional judge, and the per-model report — is framework-agnostic and
+  ships on its own (`ActiveAgents::Evals`, depending on `activesupport`
+  alone), so a dashboard that is not on ActiveAgent can replay tasks across
+  models against its own agent through one `replay` callable. `actionagent`
+  depends on it and keeps only what the dashboard adds: persistence, the
+  job, the API and the UI. Released alongside `activeagent` and
+  `actionagent`; publish it before `actionagent`.
 - **Scenario evaluations in the dashboard.** An evaluation can now carry a
   suite of scenarios — a pasted list of user messages, grouped with
   `# Heading` lines and annotated with the tool each should call — and a run

@@ -194,7 +194,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     evaluation = build_suite
     original = evaluation.scenarios.find_by!(key: "find_1")
 
-    evaluation.replace_scenarios!(ActionAgent::ScenarioParser.parse("# Find\nA rewritten first question\n# Search\nWhy is this provider not showing?"))
+    evaluation.replace_scenarios!(ActiveAgents::Evals::ScenarioParser.parse("# Find\nA rewritten first question\n# Search\nWhy is this provider not showing?"))
 
     assert_equal %w[find_1 search_1], evaluation.scenarios.ordered.map(&:key)
     assert_equal original.id, evaluation.scenarios.find_by!(key: "find_1").id

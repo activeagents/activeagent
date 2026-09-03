@@ -59,7 +59,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
   test "a run can be narrowed to a group and to models, and its results are readable" do
     agent = create_agent
     evaluation = agent.evaluations.new(name: "Catalog", judge_kind: "rules", criteria: [])
-    ActionAgent::ScenarioParser.parse(CATALOG).each do |attrs|
+    ActiveAgents::Evals::ScenarioParser.parse(CATALOG).each do |attrs|
       evaluation.scenarios.build(attrs.slice("key", "prompt", "group", "notes", "expectations", "position"))
     end
     evaluation.save!

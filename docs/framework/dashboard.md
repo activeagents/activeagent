@@ -155,6 +155,11 @@ one fault, assigned from the evidence in this order:
 turn a pasted list of new tasks into a backlog: they say which tasks the
 current toolset cannot reach and what to build.
 
+The parsing, scoring, diagnosis and report are the
+[`activeagents-evals`](/framework/evaluations) gem; the engine adds the
+persistence, the job, the API and the UI. An app that is not on ActiveAgent
+can run the same evaluations against its own agent with that gem alone.
+
 The API: `POST /api/evaluations` with `scenarios_text`;
 `POST /api/evaluations/:id/run` with `group`, `keys[]`, `scenario_ids[]`
 and `models[]`; `GET /api/evaluations/:id/runs/:run_id` for the results;

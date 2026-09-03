@@ -4,7 +4,7 @@ require "rake/testtask"
 
 Rake::TestTask.new(:test) do |t|
   t.libs << "test"
-  t.test_files = FileList["test/**/*_test.rb", "actionagent/test/**/*_test.rb"]
+  t.test_files = FileList["test/**/*_test.rb", "evals/test/**/*_test.rb", "actionagent/test/**/*_test.rb"]
     .exclude("test/**/integration_test.rb")
     .exclude("test/dummy/tmp/**/*")
   t.verbose = true
@@ -31,6 +31,7 @@ task :build_all do
   # guards against, and it is invisible without looking inside the archive.
   required_contents = {
     "activeagent" => %w[lib/active_agent.rb],
+    "activeagents-evals" => %w[lib/activeagents/evals.rb],
     "actionagent" => %w[
       lib/action_agent.rb
       config/routes.rb
@@ -39,7 +40,7 @@ task :build_all do
     ]
   }
 
-  Dir["*.gemspec", "actionagent/*.gemspec"].each do |spec|
+  Dir["*.gemspec", "evals/*.gemspec", "actionagent/*.gemspec"].each do |spec|
     Dir.chdir(File.dirname(spec)) do
       sh "gem build #{File.basename(spec)}"
 
@@ -58,5 +59,5 @@ task :build_all do
 
   puts "\nBuilt:"
   Dir["pkg/*.gem"].sort.each { |gem_file| puts "  #{gem_file}" }
-  puts "\nPublish activeagent before actionagent, which depends on it."
+  puts "\nPublish activeagent and activeagents-evals before actionagent, which depends on both."
 end

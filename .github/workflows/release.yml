@@ -99,4 +99,5 @@ jobs:
           }
 
           publish "pkg/activeagent-*.gem"
+          publish "pkg/activeagents-evals-*.gem"
           publish "pkg/actionagent-*.gem"

@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require_relative "test_helper"
 
-class ActionAgentScenarioParserTest < ActiveSupport::TestCase
+class ScenarioParserTest < Minitest::Test
   def parse(text)
-    ActionAgent::ScenarioParser.parse(text)
+    ActiveAgents::Evals::ScenarioParser.parse(text)
   end
 
-  test "one message per line, keyed by position" do
+  def test_one_message_per_line_keyed_by_position
     scenarios = parse("Where is my order?\nCancel my subscription\n")
 
     assert_equal [ "Where is my order?", "Cancel my subscription" ], scenarios.map { |s| s["prompt"] }
@@ -15,7 +15,7 @@ class ActionAgentScenarioParserTest < ActiveSupport::TestCase
     assert_equal [ 0, 1 ], scenarios.map { |s| s["position"] }
   end
 
-  test "headings start a group and list markers are stripped" do
+  def test_headings_start_a_group_and_list_markers_are_stripped
     scenarios = parse(<<~TEXT)
       # Find records
       1. Which gynecologists in Charlotte have scheduling enabled?
@@ -30,14 +30,14 @@ class ActionAgentScenarioParserTest < ActiveSupport::TestCase
     assert_equal "Who changed the biography for Dr. AbdelRazek?", scenarios.last["prompt"]
   end
 
-  test "a backticked message keeps the rest of the line as notes" do
+  def test_a_backticked_message_keeps_the_rest_of_the_line_as_notes
     scenarios = parse("3. `Show me all providers with no license on file` — ✏️ reworded: 1,060 of 15,043 physicians have no license row")
 
     assert_equal "Show me all providers with no license on file", scenarios.first["prompt"]
     assert_match(/reworded/, scenarios.first["notes"])
   end
 
-  test "inline options declare expectations, keys and groups" do
+  def test_inline_options_declare_expectations_keys_and_groups
     scenarios = parse("Why is this provider not showing? | tools: record_visibility_status, sync_status | contains: index | key: vis_1 | group: Diagnostics")
 
     scenario = scenarios.first
@@ -48,7 +48,7 @@ class ActionAgentScenarioParserTest < ActiveSupport::TestCase
     assert_equal [ "index" ], scenario["expectations"]["contains"]
   end
 
-  test "a JSON array of strings or objects is accepted" do
+  def test_a_json_array_of_strings_or_objects_is_accepted
     scenarios = parse(<<~JSON)
       [
         "Plain question",
@@ -62,13 +62,22 @@ class ActionAgentScenarioParserTest < ActiveSupport::TestCase
     assert_equal [ "I cannot" ], scenarios.last["expectations"]["not_contains"]
   end
 
-  test "explicit keys are kept and generated keys never collide with them" do
+  def test_explicit_keys_are_kept_and_generated_keys_never_collide_with_them
     scenarios = parse("# A\nfirst | key: a_1\nsecond")
 
     assert_equal [ "a_1", "a_2" ], scenarios.map { |s| s["key"] }
   end
 
-  test "blank input parses to nothing" do
+  def test_blank_input_parses_to_nothing
     assert_equal [], parse("  \n\n")
+  end
+
+  def test_scenarios_builds_structs
+    scenario = ActiveAgents::Evals::ScenarioParser.scenarios("# Blame\nWho? | tools: history").first
+
+    assert_kind_of ActiveAgents::Evals::Scenario, scenario
+    assert_equal "blame_1", scenario.key
+    assert_equal [ "history" ], scenario.expected_tools
+    assert_equal({ "tools" => [ "history" ] }, scenario.expectations)
   end
 end

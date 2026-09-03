@@ -28,15 +28,17 @@ require "bundler/setup"
 $LOAD_PATH.unshift File.expand_path("../test", __dir__)
 require "test_helper"
 
-# Collect test files. Both suites: the framework's, and the actionagent
-# engine's, which lives in its own gem directory and would otherwise never run
-# in CI — the Rakefile sweeps both, but CI invokes this script.
+# Collect test files. All three suites: the framework's, the evaluation core's
+# and the actionagent engine's — the latter two live in their own gem
+# directories and would otherwise never run in CI; the Rakefile sweeps them
+# too, but CI invokes this script.
 test_files = if ARGV.empty?
   (
     Dir[File.expand_path("../test/**/*_test.rb", __dir__)] +
+    Dir[File.expand_path("../evals/test/**/*_test.rb", __dir__)] +
     Dir[File.expand_path("../actionagent/test/**/*_test.rb", __dir__)]
-  # Generator tests write into the dummy app's tmp/, and those artifacts are
-  # not tests. The Rakefile excludes them too.
+    # Generator tests write into the dummy app's tmp/, and those artifacts are
+    # not tests. The Rakefile excludes them too.
   ).reject { |path| path.include?("/test/dummy/tmp/") }
 else
   ARGV.map do |arg|
