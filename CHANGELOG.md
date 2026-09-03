@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Scenario evaluations in the dashboard.** An evaluation can now carry a
+  suite of scenarios — a pasted list of user messages, grouped with
+  `# Heading` lines and annotated with the tool each should call — and a run
+  replays every selected scenario through the agent once per candidate model
+  (`compare_models`, or a per-run `models` selection) instead of sampling
+  recorded generations. Each scenario × model result records the answer, the
+  tools called, its score, and, when it falls short, one fault
+  (`run_error`, `tool_error`, `missing_capability`,
+  `expected_tool_not_called`, `forbidden_content`, `missing_content`,
+  `low_quality`) with a recommendation; a configured judge model refines the
+  recommendation with the tool to add or the instruction to change. Runs can
+  be narrowed to a group or to single scenarios, and the run summary ranks
+  the models by pass rate with a verdict. New tables
+  `evaluation_scenarios` and `evaluation_scenario_results` ship in
+  `create_active_agent_evaluation_scenarios`, which
+  `rails generate action_agent:install` emits for new and existing installs.
+
 - **RubyLLM backend pinning via `platform:`.** RubyLLM resolves which of its
   providers serves a request from the model ID, and a model served by more
   than one — `gemini-2.5-flash` exists on both the Gemini API and Vertex
