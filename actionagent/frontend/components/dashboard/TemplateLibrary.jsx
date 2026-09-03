@@ -17,6 +17,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
 
   useEffect(() => {
     loadTemplates();
@@ -41,6 +42,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
 
   const handleUseTemplate = async (template) => {
     setIsCreating(true);
+    setCreateError(null);
     try {
       const response = await fetch(`/api/templates/${template.id}/use`, {
         method: 'POST',
@@ -51,9 +53,22 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
       if (response.ok) {
         const data = await response.json();
         onUseTemplate(data.agent);
+      } else {
+        // A 422 (validation) or an expired session used to reset the button
+        // silently, as if nothing had been clicked.
+        let message = `Could not create the agent (HTTP ${response.status})`;
+        try {
+          const data = await response.json();
+          const errors = data.errors || data.error;
+          if (errors) message = Array.isArray(errors) ? errors.join(', ') : String(errors);
+        } catch (_) {
+          // Non-JSON body (e.g. a sign-in redirect): keep the status message.
+        }
+        setCreateError(message);
       }
     } catch (error) {
       console.error('Failed to create agent from template:', error);
+      setCreateError('Could not create the agent — check your connection and try again.');
     } finally {
       setIsCreating(false);
     }
@@ -195,6 +210,9 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
               >
                 {isCreating ? 'Creating...' : 'Use This Template'}
               </button>
+              {createError && (
+                <p className="mt-2 text-sm text-red-600" role="alert">{createError}</p>
+              )}
             </div>
           )}
         </div>
