@@ -40,5 +40,13 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
-# Use Active Agent gem
+# Use Active Agent gem, and the dashboard engine that config/routes.rb mounts.
+# Without the second line the reference host raised "uninitialized constant
+# ActionAgent" on its own bundle and only booted through the repo-root
+# gemfiles, which carry actionagent transitively.
 gem "activeagent", path: "../../.."
+gem "actionagent", path: "../../actionagent"
+
+# The dashboard's prebuilt bundles are served through the asset pipeline;
+# without one the mounted dashboard is a blank page with two 404s.
+gem "propshaft"
