@@ -61,7 +61,7 @@ module ActionAgent
         )
 
         if evaluation.save
-          evaluation.run!
+          run_evaluation(evaluation)
           render json: { evaluation: serialize(evaluation.reload) }, status: :created
         else
           render json: { errors: evaluation.errors.full_messages }, status: :unprocessable_entity
@@ -71,7 +71,7 @@ module ActionAgent
       # POST /api/evaluations/:id/run
       def run
         evaluation = evaluations_scope.find(params[:id])
-        run = evaluation.run!
+        run = run_evaluation(evaluation)
 
         render json: { evaluation: serialize(evaluation.reload), run: serialize_run(run) }
       end
@@ -83,6 +83,25 @@ module ActionAgent
       end
 
       private
+
+      # EvaluationRunnerService marks the run failed with the error message
+      # and then re-raises. Letting that escape returned an HTML 500 for a
+      # request that had already persisted the evaluation and its failed
+      # run: the client saw a JSON parse error, the form stayed open, and a
+      # resubmit failed on the now-taken name. The failure is on the run
+      # record, which is what the response carries.
+      def run_evaluation(evaluation)
+        evaluation.run!
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[ActionAgent] evaluation #{evaluation.id} run failed: #{e.class}: #{e.message}"
+        )
+        # The service records the failure before re-raising; a failure that
+        # predates the run record (creating it, say) is recorded here so the
+        # response always carries one.
+        evaluation.evaluation_runs.recent.first ||
+          evaluation.evaluation_runs.create!(status: :failed, error_message: e.message, completed_at: Time.current)
+      end
 
       def evaluations_scope
         Evaluation.joins(:agent).where(agent: owner_agents)
