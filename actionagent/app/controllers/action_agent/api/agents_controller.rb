@@ -18,6 +18,7 @@ module ActionAgent
       before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
       before_action :require_execution_enabled!, only: [ :execute, :test ]
       before_action :require_owner!, only: [ :execute, :test ]
+      before_action :require_executable_agent!, only: [ :execute, :test ]
       before_action :enforce_execution_quota!, only: [ :execute, :test ]
 
       # GET /api/agents
@@ -264,6 +265,19 @@ module ActionAgent
       end
 
       private
+
+      # Observed agents were discovered from reported telemetry; the platform
+      # has no configuration to run them with (a placeholder model, no
+      # instructions), so executing one only manufactured a failed run that
+      # was then blended into the clean scorecard its telemetry had built.
+      # Duplicating an observed agent yields a draft that can be run.
+      def require_executable_agent!
+        return unless @agent.observed?
+
+        render json: {
+          error: "Observed agents are read-only — duplicate this agent to create an executable copy"
+        }, status: :unprocessable_entity
+      end
 
       def list_sort(requested)
         LIST_SORTS.key?(requested.to_s) ? requested.to_s : DEFAULT_LIST_SORT
