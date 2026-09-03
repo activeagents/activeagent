@@ -36,6 +36,15 @@ module ActionAgent
 
     config.action_agent = ActiveSupport::OrderedOptions.new
 
+    # Whether a request is a browser asking for a page, as opposed to an API
+    # or MCP client: the routes use it to tell the dashboard's client-side
+    # deep links apart from protocol traffic on the same path.
+    def self.html_request?(request)
+      Array(request.accepts).any? { |type| type.respond_to?(:html?) && type.html? }
+    rescue StandardError
+      false
+    end
+
     # The dashboard's JS and CSS ship prebuilt in the gem. Adding the
     # directory to the host app's asset paths is what lets a plain
     # `mount ActionAgent::Engine` work without the host running a

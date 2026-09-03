@@ -136,6 +136,16 @@ ActionAgent::Engine.routes.draw do
   # namespace's session-authenticated controllers.
   post "mcp", to: "api/mcp#create"
 
+  # MCP Streamable HTTP (2025-03-26): a client MAY open the server-to-client
+  # SSE stream with GET, and ends a session with DELETE. This facade offers
+  # no stream and keeps no sessions, so both answer 405 with Allow: POST —
+  # the clean "not offered" signal SDK clients expect, instead of the
+  # dashboard's HTML page parsed as an event stream. A browser's GET (Accept
+  # prefers HTML) is the MCP Services view's deep link, and falls through to
+  # the catch-all below like any other client-side route.
+  match "mcp", to: "api/mcp#unsupported", via: [ :get, :delete ],
+    constraints: ->(request) { request.delete? || !ActionAgent::Engine.html_request?(request) }
+
   # Everything else under the mount is a client-side route: render the
   # dashboard and let the browser resolve it. Anchored last so it can only
   # ever catch what the routes above did not, and refuses /api paths so a
