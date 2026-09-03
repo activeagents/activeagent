@@ -2,7 +2,10 @@
 
 module ActionAgent
   # One execution of an Evaluation over a sample of the agent's generations.
-  # scores: { criterion_key => { "score", "min", "max", "passed", "total" } }
+  # scores: { criterion_key => { "score", "min", "max", "passed", "total" } },
+  # except on a comparison run, where each criterion is a cohort map of
+  # model => stats and "_"-prefixed metadata keys sit alongside the criteria.
+  # See #average_score, which is what has to tolerate both shapes.
   class EvaluationRun < ApplicationRecord
     belongs_to :evaluation
 
