@@ -20,8 +20,24 @@ module ActionAgent
       rescue_from ActiveRecord::RecordNotFound, with: :not_found
       rescue_from ActiveRecord::RecordInvalid, with: :unprocessable_entity
       rescue_from ActionController::ParameterMissing, with: :bad_request
+      rescue_from ActiveRecord::Encryption::Errors::Configuration, with: :encryption_unconfigured
 
       private
+
+      # API keys and provider credentials are encrypted at rest, which needs
+      # Active Record Encryption keys. The engine derives fallback keys when
+      # the host set none (see Engine's action_agent.active_record_encryption
+      # initializer), so this is only reached when that fallback was disabled
+      # or the host's own keys are broken — in which case the operator gets
+      # told what to do rather than an HTML 500 the Settings view collapses
+      # into "Could not create the API key."
+      def encryption_unconfigured(exception)
+        render json: {
+          error: "Active Record encryption is not configured (#{exception.message}). " \
+                 "Run `rails db:encryption:init` and add the keys to your credentials, " \
+                 "or set ActionAgent.encrypt_credentials = false to store credentials unencrypted."
+        }, status: :service_unavailable
+      end
 
       # Scopes +relation+ to the caller, following the model's own
       # declaration. Unowned models (a single-user install, or a model that
