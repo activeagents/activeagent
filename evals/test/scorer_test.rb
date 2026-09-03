@@ -1,0 +1,73 @@
+# frozen_string_literal: true
+
+require_relative "test_helper"
+
+class ScorerTest < Minitest::Test
+  include EvalsTestSupport
+
+  CRITERIA = [
+    { "key" => "response_present", "type" => "response_present" },
+    { "key" => "response_length", "type" => "min_length", "config" => { "chars" => 20 } },
+    { "key" => "latency", "type" => "max_latency_ms", "config" => { "ms" => 1000 } },
+    { "key" => "token_budget", "type" => "token_budget", "config" => { "output_tokens" => 100 } },
+    { "key" => "mentions_alice", "type" => "contains", "config" => { "pattern" => "alice" } },
+    { "key" => "no_apology", "type" => "not_contains", "config" => { "pattern" => "sorry" } }
+  ].freeze
+
+  def scorer(criteria: CRITERIA, judge: nil)
+    ActiveAgents::Evals::Scorer.new(criteria: criteria, judge: judge)
+  end
+
+  def test_rule_criteria_score_the_replay
+    scores = scorer.score(scenario, replay(answer: "Alice changed it on Monday.", duration_ms: 2000, output_tokens: 50))
+
+    assert_equal 1.0, scores["response_present"]
+    assert_equal 1.0, scores["response_length"]
+    assert_equal 0.5, scores["latency"]
+    assert_equal 1.0, scores["token_budget"]
+    assert_equal 1.0, scores["mentions_alice"]
+    assert_equal 1.0, scores["no_apology"]
+  end
+
+  def test_partial_credit_below_a_length_and_above_a_token_budget
+    scores = scorer.score(scenario, replay(answer: "Ten chars.", output_tokens: 200))
+
+    assert_equal 0.5, scores["response_length"]
+    assert_equal 0.5, scores["token_budget"]
+  end
+
+  def test_an_empty_answer_scores_zero_on_every_criterion
+    scores = scorer.score(scenario, replay(answer: ""))
+
+    assert scores.values.all?(0.0)
+  end
+
+  def test_expectations_add_their_own_keys
+    scores = scorer(criteria: []).score(
+      scenario(tools: [ "find_records" ], contains: %w[Alice Monday Tuesday], not_contains: [ "Bob" ]),
+      replay(answer: "Alice changed it on Monday.", tool_calls: [ { "name" => "find_records" }, { "name" => "fetch_url", "error" => true } ])
+    )
+
+    assert_equal 1.0, scores["expected_tools"]
+    assert_equal 0.667, scores["expected_content"]
+    assert_equal 1.0, scores["forbidden_content"]
+    assert_equal 0.0, scores["tools_succeeded"]
+  end
+
+  def test_an_llm_judge_criterion_asks_the_judge_and_is_nil_without_one
+    judge = fake_judge { |_instructions, prompt| prompt.include?("Criterion: Is it helpful?") ? '{"score": 0.8}' : "?" }
+    criteria = [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Is it helpful?" } } ]
+
+    assert_equal 0.8, scorer(criteria: criteria, judge: judge).score(scenario, replay)["quality"]
+    assert_nil scorer(criteria: criteria).score(scenario, replay)["quality"]
+  end
+
+  def test_mean_ignores_unscorable_criteria
+    assert_equal 0.75, ActiveAgents::Evals::Scorer.mean("a" => 1.0, "b" => 0.5, "c" => nil)
+    assert_nil ActiveAgents::Evals::Scorer.mean("c" => nil)
+  end
+
+  def test_an_invalid_regex_falls_back_to_a_substring_match
+    assert ActiveAgents::Evals::Scorer.matches_pattern?("costs $5 (approx", "(approx")
+  end
+end

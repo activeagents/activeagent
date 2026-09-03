@@ -5,4 +5,5 @@ gem "sqlite3", "~> 1.4"
 gem "rails", "~> 7.0"
 
 gemspec path: ".."
+gemspec path: "../evals", name: "activeagents-evals"
 gemspec path: "../actionagent", name: "actionagent"
