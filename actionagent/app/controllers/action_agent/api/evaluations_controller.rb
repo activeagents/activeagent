@@ -145,7 +145,7 @@ module ActionAgent
       end
 
       # index serializes the latest run of every listed evaluation, so an
-      # unaveragable scores payload used to 500 the entire Evaluations page
+      # unaverageable scores payload used to 500 the entire Evaluations page
       # instead of degrading that one run's headline number.
       def safe_average_score(run)
         run.average_score
