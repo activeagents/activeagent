@@ -101,9 +101,12 @@ module ActiveAgent
               # later, in prepare_prompt_parameters. Falling back to it means
               # the message the model actually received is on the trace either
               # way, which is what an evaluation scores.
-              # Bodies only when the configuration asks for them; the count
-              # above is always recorded. Rendering is skipped entirely when
-              # they are off — there is nothing to record.
+              # Bodies only when the configuration asks for them. (The
+              # messages.count above is independent of this switch, but is
+              # itself only present when explicit messages were passed — an
+              # agent rendering its user turn from a template has none at this
+              # point.) Rendering is skipped entirely when bodies are off —
+              # there would be nothing to record.
               outbound = telemetry_capture_bodies? ? prompt_options[:messages] : nil
               outbound = rendered_prompt_messages if outbound.blank? && telemetry_capture_bodies?
 
