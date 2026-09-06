@@ -181,14 +181,21 @@ module ActionAgent
       agent_versions.count
     end
 
-    # Generate Ruby agent class code
+    # Generate Ruby agent class code.
+    #
+    # The class is named by telemetry_agent_class: it parameterizes a name
+    # with spaces ("My Agent" -> MyAgentAgent, not `class My AgentAgent`) and
+    # appends the Agent suffix only when it is missing, so an observed agent
+    # whose reported class already ends in Agent is not doubled. It is also
+    # the key traces are correlated on, so the exported class reports under
+    # the same name this record listens for.
     def to_agent_class_code
       <<~RUBY
-        class #{agent_class_name || name.camelize}Agent < ApplicationAgent
+        class #{telemetry_agent_class} < ApplicationAgent
           generate_with :#{provider}, model: "#{model}"#{model_config_code}
 
           def perform
-            prompt#{instructions_code}
+            #{instructions_code}
           end
         end
       RUBY
@@ -334,10 +341,12 @@ module ActionAgent
       ", #{configs}"
     end
 
+    # Exactly one prompt call: a bare `prompt` without instructions, or a
+    # single `prompt instructions:` heredoc with them.
     def instructions_code
-      return "" if instructions.blank?
+      return "prompt" if instructions.blank?
 
-      "\n    prompt instructions: <<~INSTRUCTIONS\n      #{instructions.gsub("\n", "\n      ")}\n    INSTRUCTIONS"
+      "prompt instructions: <<~INSTRUCTIONS\n      #{instructions.gsub("\n", "\n      ")}\n    INSTRUCTIONS"
     end
   end
 end

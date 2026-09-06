@@ -156,7 +156,12 @@ module ActionAgent
         sandbox: false,
         first_party: true,
         requires_credentials: [ "Platform API key" ],
-        tool_hints: %w[call_agent list_agents]
+        # No tool_hints: the facade's tools are run_<slug> (one per agent, see
+        # Api::MCPController#tools_list), which no static list can name. The
+        # old hints advertised call_agent and list_agents, which the facade
+        # never exposed, and would have misattributed an agent-defined tool
+        # of either name to this server.
+        tool_hints: []
       }
     ].freeze
 

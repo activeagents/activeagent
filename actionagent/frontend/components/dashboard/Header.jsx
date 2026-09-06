@@ -17,14 +17,23 @@ export default function Header({ user, account }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Sign-out belongs to the host app: the engine has no session of its own,
+  // so the path comes from ActionAgent.sign_out_path (published in the meta
+  // blob) and the menu item is hidden when the host configured none. The
+  // extracted copy posted to the platform's /session, which 404s on any
+  // other host.
+  const signOutPath = window.ACTIVE_AGENT_DASHBOARD?.meta?.signOutPath;
+
   const handleSignOut = () => {
+    if (!signOutPath) return;
+
     // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 
     // Create and submit a form to sign out
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/session';
+    form.action = signOutPath;
 
     const methodInput = document.createElement('input');
     methodInput.type = 'hidden';
@@ -128,6 +137,7 @@ export default function Header({ user, account }) {
               </div>
 
               {/* Menu items */}
+              {signOutPath && (
               <div className="py-1">
                 <button
                   onClick={handleSignOut}
@@ -143,6 +153,7 @@ export default function Header({ user, account }) {
                   <span>Sign out</span>
                 </button>
               </div>
+              )}
             </div>
           )}
         </div>

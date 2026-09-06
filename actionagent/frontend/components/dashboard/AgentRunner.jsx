@@ -191,6 +191,25 @@ export default function AgentRunner({ agent, onBack }) {
     }
   };
 
+  const upgradeUrl = window.ACTIVE_AGENT_DASHBOARD?.meta?.upgradeUrl;
+
+  // The Recent Runs rows are list summaries (input/output previews, no
+  // output, error_message or logs), while the Output panel reads the detail
+  // shape — so a clicked historical run showed "No output" and hid its
+  // error. Show the summary at once, then replace it with the detail.
+  const openRun = async (run) => {
+    setCurrentRun({ ...run, output: run.output ?? run.output_preview, error_message: run.error_message ?? run.error });
+    try {
+      const response = await fetch(`/api/runs/${run.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentRun(data.run);
+      }
+    } catch (err) {
+      console.error('Failed to load run details:', err);
+    }
+  };
+
   return (
     <div className="grid grid-cols-3 gap-6 h-full">
       {/* Main Runner Interface */}
@@ -207,9 +226,13 @@ export default function AgentRunner({ agent, onBack }) {
               {upgradeError && <p className="text-sm text-red-600 mt-1">{upgradeError}</p>}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <a href="/pricing" className="px-4 py-2 text-sm text-amber-800 hover:text-amber-900">
-                See plans
-              </a>
+              {/* Same source as startCheckout: the host's upgrade_url, or
+                  nothing — the engine has no /pricing of its own. */}
+              {upgradeUrl && (
+                <a href={upgradeUrl} className="px-4 py-2 text-sm text-amber-800 hover:text-amber-900">
+                  See plans
+                </a>
+              )}
               <button
                 onClick={handleUpgrade}
                 disabled={isUpgrading}
@@ -497,7 +520,7 @@ export default function AgentRunner({ agent, onBack }) {
                   <div
                     key={run.id}
                     className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setCurrentRun(run)}
+                    onClick={() => openRun(run)}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(run.status)}`}>

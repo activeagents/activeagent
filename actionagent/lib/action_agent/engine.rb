@@ -36,6 +36,15 @@ module ActionAgent
 
     config.action_agent = ActiveSupport::OrderedOptions.new
 
+    # Whether a request is a browser asking for a page, as opposed to an API
+    # or MCP client: the routes use it to tell the dashboard's client-side
+    # deep links apart from protocol traffic on the same path.
+    def self.html_request?(request)
+      Array(request.accepts).any? { |type| type.respond_to?(:html?) && type.html? }
+    rescue StandardError
+      false
+    end
+
     # The dashboard's JS and CSS ship prebuilt in the gem. Adding the
     # directory to the host app's asset paths is what lets a plain
     # `mount ActionAgent::Engine` work without the host running a
@@ -123,11 +132,57 @@ module ActionAgent
       end
     end
 
+    # API keys and provider credentials are encrypted at rest (`encrypts` on
+    # ApiKey and ProviderKey), which needs Active Record Encryption keys the
+    # host app may never have generated — `rails db:encryption:init` is a
+    # step most installs skip, and the engine's own reference host had
+    # skipped it too. Without keys, every credential write and every
+    # authenticated MCP request raised Errors::Configuration as an HTML 500.
+    #
+    # Rails reads config.active_record.encryption in after_initialize, so an
+    # initializer can still supply keys. When the host set none — neither
+    # here nor in credentials — derive stable ones from secret_key_base,
+    # overridable through the ACTIVE_RECORD_ENCRYPTION_* variables, exactly
+    # as the activeagents.ai platform does. Host-provided keys are never
+    # overridden, and the derivation is stable as long as secret_key_base is.
+    initializer "action_agent.active_record_encryption", after: :load_config_initializers do |app|
+      next unless ActionAgent.encrypt_credentials
+      next unless app.config.respond_to?(:active_record)
+
+      encryption = app.config.active_record.encryption
+      configured = %i[primary_key deterministic_key key_derivation_salt].any? { |key| encryption[key].present? }
+      configured ||= begin
+        app.credentials.dig(:active_record_encryption, :primary_key).present?
+      rescue StandardError
+        false
+      end
+      next if configured
+
+      derive = lambda do |purpose|
+        app.key_generator.generate_key("active_record_encryption.#{purpose}", 32).unpack1("H*")
+      end
+
+      encryption.primary_key = ENV["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"].presence || derive.call("primary_key")
+      encryption.deterministic_key = ENV["ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY"].presence || derive.call("deterministic_key")
+      encryption.key_derivation_salt = ENV["ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT"].presence || derive.call("key_derivation_salt")
+    end
+
     initializer "action_agent.assets", before: :append_assets_path do |app|
       builds = root.join("app", "assets", "builds").to_s
       next unless File.directory?(builds)
 
-      next unless app.config.respond_to?(:assets)
+      # The prebuilt bundles are served through the host's asset pipeline —
+      # propshaft (the Rails default) or sprockets-rails. A host without one
+      # (a `rails --api` app, or one that removed propshaft) used to get a
+      # silently blank dashboard with two 404s; say why instead.
+      unless app.config.respond_to?(:assets)
+        Rails.logger&.warn(
+          "[ActionAgent] the dashboard's assets cannot be served: this app has no asset pipeline. " \
+          "Add propshaft (or sprockets-rails) to the Gemfile so action_agent.js and action_agent.css " \
+          "are served from the engine's app/assets/builds."
+        )
+        next
+      end
 
       if app.config.assets.respond_to?(:paths)
         app.config.assets.paths << builds unless app.config.assets.paths.include?(builds)

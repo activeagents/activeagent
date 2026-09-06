@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
+// A date-only string ("2026-08-26") parses as UTC midnight, which
+// toLocaleDateString then shifts back a day for every viewer west of UTC.
+// Parsing it as local midnight labels the bar with the day it is.
+const localDay = (date) => new Date(`${date}T00:00:00`);
+
 const PERIOD_OPTIONS = [
   { value: 7, label: '7 days' },
   { value: 14, label: '14 days' },
@@ -135,8 +140,8 @@ export default function DashboardAnalytics({ onSelectAgent }) {
                 ))}
               </div>
               <div className="flex justify-between mt-2 text-xs text-gray-400">
-                <span>{analytics.charts.runs_by_day[0]?.date && new Date(analytics.charts.runs_by_day[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                <span>{analytics.charts.runs_by_day[analytics.charts.runs_by_day.length - 1]?.date && new Date(analytics.charts.runs_by_day[analytics.charts.runs_by_day.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span>{analytics.charts.runs_by_day[0]?.date && localDay(analytics.charts.runs_by_day[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span>{analytics.charts.runs_by_day[analytics.charts.runs_by_day.length - 1]?.date && localDay(analytics.charts.runs_by_day[analytics.charts.runs_by_day.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
               </div>
             </div>
           ) : (
@@ -167,8 +172,8 @@ export default function DashboardAnalytics({ onSelectAgent }) {
                 ))}
               </div>
               <div className="flex justify-between mt-2 text-xs text-gray-400">
-                <span>{analytics.charts.tokens_by_day[0]?.date && new Date(analytics.charts.tokens_by_day[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                <span>{analytics.charts.tokens_by_day[analytics.charts.tokens_by_day.length - 1]?.date && new Date(analytics.charts.tokens_by_day[analytics.charts.tokens_by_day.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span>{analytics.charts.tokens_by_day[0]?.date && localDay(analytics.charts.tokens_by_day[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span>{analytics.charts.tokens_by_day[analytics.charts.tokens_by_day.length - 1]?.date && localDay(analytics.charts.tokens_by_day[analytics.charts.tokens_by_day.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
               </div>
             </div>
           ) : (

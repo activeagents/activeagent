@@ -6,6 +6,11 @@ import TimeWindowSelector from './TimeWindowSelector';
 import TracesView from './TracesView';
 import InteractionsView from './InteractionsView';
 
+// A date-only string ("2026-08-26") parses as UTC midnight, which
+// toLocaleDateString then shifts back a day for every viewer west of UTC.
+// Parsing it as local midnight labels the bar with the day it is.
+const localDay = (date) => new Date(`${date}T00:00:00`);
+
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'traces', label: 'Traces' },
@@ -240,7 +245,7 @@ export default function AgentAnalytics({ agent, onBack, embedded = false }) {
                     </div>
                     {(i === 0 || i === analytics.runs_by_day.length - 1 || analytics.runs_by_day.length <= 7) && (
                       <span className="text-xs mt-2 transform -rotate-45 origin-left" style={{ color: colors.textMuted }}>
-                        {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {localDay(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </span>
                     )}
                   </div>

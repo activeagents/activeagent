@@ -36,14 +36,18 @@ module ActionAgent
     class TracesController < ActionController::API
       before_action :authenticate_api_key!, if: -> { ActionAgent.multi_tenant? }
       before_action :authenticate_ingest_key!, unless: -> { ActionAgent.multi_tenant? }
-
-      # Maximum traces accepted per request (mirrors
-      # ProcessTelemetryTracesJob::MAX_TRACES_PER_JOB).
-      MAX_TRACES_PER_REQUEST = 100
+      before_action :enforce_ingest_quota!
 
       # POST <mount>/api/traces  (e.g. /activeagents/api/traces)
+      #
+      # Every trace in the request is accepted. The reporter flushes its
+      # whole buffer once it reaches batch_size (which is configurable), so
+      # a single POST legitimately carries more than a hundred traces; this
+      # used to keep the first hundred and answer 202 for the rest, which
+      # were silently gone. ProcessTelemetryTracesJob bounds its own work by
+      # slicing and re-enqueueing the remainder.
       def create
-        traces = Array(params[:traces]).take(MAX_TRACES_PER_REQUEST)
+        traces = Array(params[:traces])
         sdk_info = params[:sdk] || {}
 
         return head :accepted if traces.empty?
@@ -104,6 +108,22 @@ module ActionAgent
         return if token.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected)
 
         render json: { error: "Invalid API key" }, status: :unauthorized
+      end
+
+      # The host app's quota checker, asked with kind :trace_ingest — the
+      # counterpart to Api::BaseController#enforce_quota!, which asks with
+      # :execution. Denials are 429 here rather than 402: a reporter that is
+      # over its ingest allowance should back off, not upgrade mid-flush.
+      # Same body shape, so a checker's message or Hash payload reads the
+      # same on both.
+      def enforce_ingest_quota!
+        denial = ActionAgent.quota_denial(@account, :trace_ingest)
+        return if denial.blank?
+
+        body = { error: "Trace ingest limit reached" }
+        body = denial.is_a?(Hash) ? body.merge(denial) : body.merge(message: denial)
+
+        render json: body, status: :too_many_requests
       end
 
       # Extracts Bearer token from Authorization header.

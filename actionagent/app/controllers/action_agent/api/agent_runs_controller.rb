@@ -63,13 +63,7 @@ module ActionAgent
       def interaction_messages(run)
         return [] if run.trace_id.blank?
 
-        context = AgentContext.for_agents(Agent.where(id: run.agent_id)).order(created_at: :desc).first
-        return [] unless context
-
-        messages = context.messages.chronological.to_a
-        start_index = messages.index do |message|
-          message.role == "user" && message.provenance&.dig("trace_id") == run.trace_id
-        end
+        messages, start_index = run_slice_start(run)
         return [] unless start_index
 
         slice = [ messages[start_index] ]
@@ -91,6 +85,30 @@ module ActionAgent
           )
         end
         serialized
+      end
+
+      # solid_agent keys the persisted context by action_name, so each action
+      # has its own stream. The run's own action is searched first; a run
+      # whose action is blank or legacy (or whose trace landed in another
+      # stream) falls back to every context of the agent, newest first.
+      # Picking only the newest context regardless of action left the
+      # conversation empty for every run of any other action.
+      def run_slice_start(run)
+        contexts = AgentContext.for_agents(Agent.where(id: run.agent_id)).order(created_at: :desc)
+        action = run.action_name.presence || run.output_metadata&.dig("action").presence || Agent::DEFAULT_ACTION
+
+        candidates = contexts.for_action(action).to_a
+        candidates += contexts.to_a.reject { |context| candidates.include?(context) }
+
+        candidates.each do |context|
+          messages = context.messages.chronological.to_a
+          start_index = messages.index do |message|
+            message.role == "user" && message.provenance&.dig("trace_id") == run.trace_id
+          end
+          return [ messages, start_index ] if start_index
+        end
+
+        [ [], nil ]
       end
 
       def run_json(run, include_agent: false)

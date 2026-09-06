@@ -24,10 +24,14 @@ module ActionAgent
       automation
     ].freeze
 
-    # Create an agent from this template for a user
-    def create_agent_for(user, name: nil)
-      agent = user.agents.build(
-        name: name || self.name,
+    # Build (unsaved) an agent from this template inside +relation+: a host
+    # user's agents association, or the engine's owner scope
+    # (Api::BaseController#owner_agents). The relation decides the owner —
+    # including no owner at all in a single-user install, where the old
+    # `user.agents.build` had no user to call it on and raised.
+    def build_agent_in(relation, name: nil)
+      relation.build(
+        name: name.presence || self.name,
         description: description,
         provider: provider,
         model: model,
@@ -40,6 +44,12 @@ module ActionAgent
         model_config: model_config,
         status: :draft
       )
+    end
+
+    # Create an agent from this template for a host user with an `agents`
+    # association.
+    def create_agent_for(user, name: nil)
+      agent = build_agent_in(user.agents, name: name)
 
       if agent.save
         increment!(:usage_count)
@@ -158,12 +168,17 @@ module ActionAgent
           appearance: { hat: "fedora", hatAccessory: "theaterMasks", heldItem: "browser" },
           instruction_sets: [],
           tools: %w[playwright],
-          mcp_servers: {
-            playwright: {
+          # An array of server entries, which is the shape agents.mcp_servers
+          # takes everywhere else (the builder's strong params permit an
+          # array). The old top-level Hash was copied onto agents verbatim and
+          # crashed ToolDiscovery for the whole workspace.
+          mcp_servers: [
+            {
+              name: "playwright",
               command: "npx",
               args: [ "-y", "@anthropic/mcp-server-playwright" ]
             }
-          },
+          ],
           model_config: { temperature: 0.2, max_tokens: 4096 },
           instructions: "You are a browser automation assistant using Playwright MCP.\n\nAvailable actions:\n- browser_navigate: Go to a URL\n- browser_snapshot: Get the accessibility tree\n- browser_click: Click on an element\n- browser_type: Type text into an input\n- browser_take_screenshot: Capture the page\n- browser_wait_for: Wait for text or element\n\nGuidelines:\n1. Always take a snapshot first to understand the page\n2. Use element refs from snapshots for interactions\n3. Wait for page loads before taking actions\n4. Handle errors gracefully\n5. Limit yourself to 10 steps maximum\n\nAlways describe what you see and what actions you're taking.",
           icon: "🎭",
