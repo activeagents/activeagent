@@ -68,11 +68,11 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
   def test_the_agent_name_appears_in_the_wording
     result = ActiveAgent::Evals::Diagnosis.call(
       scenario: scenario, replay: replay(answer: "I cannot access that."), scores: {}, score: 0.1,
-      available_tools: [], threshold: 0.7, agent_name: "Clara"
+      available_tools: [], threshold: 0.7, agent_name: "Assistant"
     )
 
-    assert_match(/\AClara said/, result.summary)
-    assert_match(/Clara has no tools/, result.recommendation)
+    assert_match(/\AAssistant said/, result.summary)
+    assert_match(/Assistant has no tools/, result.recommendation)
   end
 
   def test_an_expected_tool_that_exists_but_was_not_called_points_at_the_instructions

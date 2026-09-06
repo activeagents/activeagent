@@ -8,7 +8,7 @@ module ActiveAgent
     # suite. That is how an app keeps a shared suite and lets a deployment add or
     # reword questions.
     #
-    #   suite: clara_dashboard
+    #   suite: assistant_dashboard
     #   description: The V1 question catalog
     #   groups:
     #     - key: find_records

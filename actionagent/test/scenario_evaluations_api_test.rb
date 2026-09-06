@@ -11,7 +11,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
   end
 
   def create_agent
-    ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model", instructions: "Answer from data.")
+    ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model", instructions: "Answer from data.")
   end
 
   CATALOG = <<~TEXT

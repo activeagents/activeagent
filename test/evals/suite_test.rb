@@ -6,7 +6,7 @@ require "tmpdir"
 
 class EvalsSuiteTest < ActiveSupport::TestCase
   CORE = <<~YAML
-    suite: clara_dashboard
+    suite: assistant_dashboard
     description: The V1 question catalog
     groups:
       - key: find_records
@@ -43,8 +43,8 @@ class EvalsSuiteTest < ActiveSupport::TestCase
 
   def with_files
     Dir.mktmpdir do |dir|
-      core = File.join(dir, "clara_dashboard.yml")
-      client = File.join(dir, "client", "clara_dashboard.yml")
+      core = File.join(dir, "assistant_dashboard.yml")
+      client = File.join(dir, "client", "assistant_dashboard.yml")
       File.write(core, CORE)
       Dir.mkdir(File.dirname(client))
       File.write(client, CLIENT)
@@ -56,7 +56,7 @@ class EvalsSuiteTest < ActiveSupport::TestCase
     with_files do |core, _client|
       suite = ActiveAgent::Evals::Suite.load(core)
 
-      assert_equal "clara_dashboard", suite.name
+      assert_equal "assistant_dashboard", suite.name
       assert_equal "The V1 question catalog", suite.description
       assert_equal %w[find_records analytics], suite.group_keys
       assert_equal %w[find_records_1 find_records_2 analytics_1], suite.all_scenarios.map(&:key)
@@ -78,7 +78,7 @@ class EvalsSuiteTest < ActiveSupport::TestCase
 
   def test_missing_files_are_skipped_and_none_at_all_raises
     with_files do |core, _client|
-      suite = ActiveAgent::Evals::Suite.load(core, "/nowhere/clara_dashboard.yml")
+      suite = ActiveAgent::Evals::Suite.load(core, "/nowhere/assistant_dashboard.yml")
       assert_equal 3, suite.all_scenarios.size
     end
 
