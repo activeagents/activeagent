@@ -71,7 +71,7 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
       available_tools: [], threshold: 0.7, agent_name: "Assistant"
     )
 
-    assert_match(/\AnAssistant said/, result.summary)
+    assert_match(/\AAssistant said/, result.summary)
     assert_match(/Assistant has no tools/, result.recommendation)
   end
 
