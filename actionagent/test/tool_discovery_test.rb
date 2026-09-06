@@ -473,4 +473,51 @@ class MCPServersApiTest < ActionDispatch::IntegrationTest
     # An unknown key displays as itself rather than blank.
     assert_equal "acme", ActionAgent::MCPCatalog.display_name("acme")
   end
+
+  test "a host-registered server lists, resolves, and attributes its bare tool names" do
+    ActionAgent.mcp_catalog = [
+      {
+        "key" => "acme-crm",
+        "name" => "Acme CRM",
+        "description" => "The host app's own CRM tools.",
+        "transport" => "http",
+        "url" => "https://crm.example.com/mcp",
+        "first_party" => true,
+        "tool_hints" => %w[find_customer log_interaction]
+      }
+    ]
+
+    entry = ActionAgent::MCPCatalog.find("acme-crm")
+    assert_equal "Acme CRM", entry[:name]
+    assert entry[:first_party]
+    assert_equal %w[find_customer log_interaction], entry[:tools]
+    assert_includes ActionAgent::MCPCatalog.all.map { |server| server[:key] }, "acme-crm"
+    assert_includes ActionAgent::MCPCatalog.keys, "acme-crm"
+    assert_equal "acme-crm", ActionAgent::MCPCatalog.server_for_tool("find_customer")
+    assert_equal "Acme CRM", ActionAgent::MCPCatalog.display_name("acme-crm")
+    assert_not ActionAgent::MCPCatalog.launchable?("acme-crm")
+  ensure
+    ActionAgent.mcp_catalog = []
+  end
+
+  test "a built-in entry keeps its key when a host registration collides" do
+    ActionAgent.mcp_catalog = [ { key: "playwright", name: "Not Playwright" } ]
+
+    assert_equal "Playwright", ActionAgent::MCPCatalog.display_name("playwright")
+    assert_equal 1, ActionAgent::MCPCatalog.all.count { |server| server[:key] == "playwright" }
+  ensure
+    ActionAgent.mcp_catalog = []
+  end
+
+  test "a host-registered server appears in the MCP services inventory" do
+    ActionAgent.mcp_catalog = [
+      { key: "acme-crm", name: "Acme CRM", tool_hints: %w[find_customer] }
+    ]
+
+    row = servers_response["servers"].find { |server| server["key"] == "acme-crm" }
+    assert_equal "Acme CRM", row["name"]
+    assert_equal "available", row["status"]
+  ensure
+    ActionAgent.mcp_catalog = []
+  end
 end
