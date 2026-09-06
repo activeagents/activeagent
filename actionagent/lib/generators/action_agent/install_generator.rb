@@ -110,10 +110,15 @@ module ActionAgent
       say "\n"
       say "Next steps:"
       say "  1. Run migrations: rails db:migrate"
-      say "  2. Configure telemetry in config/active_agent.yml:"
-      say "     telemetry:"
-      say "       enabled: true"
-      say "       local_storage: true"
+      # Nested under the environment key: ActiveAgent::Configuration.load
+      # reads only the current environment's subtree when the file has one,
+      # and the framework's own generator writes an env-keyed file — so a
+      # top-level telemetry: block is silently ignored.
+      say "  2. Configure telemetry in config/active_agent.yml, under each environment key:"
+      say "     development:"
+      say "       telemetry:"
+      say "         enabled: true"
+      say "         local_storage: true"
       say "  3. Visit /activeagents to view the dashboard"
       unless options[:traces_only]
         say "\n"

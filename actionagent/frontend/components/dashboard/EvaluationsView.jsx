@@ -46,6 +46,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   const [expandedEval, setExpandedEval] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [runningId, setRunningId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [form, setForm] = useState({
     agent_id: agentId ? String(agentId) : '', name: '', sample_size: 20,
     criteria: RULE_CRITERIA.map((c) => c.key),
@@ -116,8 +117,10 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           },
         }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || 'Failed to create evaluation');
+      // A non-JSON body (an HTML error page, a sign-in redirect) used to
+      // surface as "Unexpected token <" in the form.
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || `Failed to create evaluation (HTTP ${response.status})`);
       setShowForm(false);
       setForm({ ...form, name: '', scenariosText: '' });
       await fetchEvaluations();
@@ -131,14 +134,38 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
 
   const handleRun = async (id) => {
     setRunningId(id);
+    setLoadError(null);
     try {
-      await fetch(`/api/evaluations/${id}/run`, {
+      const response = await fetch(`/api/evaluations/${id}/run`, {
         method: 'POST',
         headers: { 'X-CSRF-Token': csrfToken() },
       });
+      if (!response.ok) setLoadError(`Run failed (HTTP ${response.status})`);
       await fetchEvaluations();
     } finally {
       setRunningId(null);
+    }
+  };
+
+  // DELETE /api/evaluations/:id has always existed; nothing in the UI called
+  // it, so a mis-created evaluation permanently blocked reuse of its name.
+  const handleDelete = async (evaluation) => {
+    if (!window.confirm(`Delete "${evaluation.name}"? Its runs are deleted with it.`)) return;
+    setDeletingId(evaluation.id);
+    setLoadError(null);
+    try {
+      const response = await fetch(`/api/evaluations/${evaluation.id}`, {
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': csrfToken() },
+      });
+      if (response.ok || response.status === 404) {
+        setEvaluations((prev) => prev.filter((e) => e.id !== evaluation.id));
+        if (expandedEval === evaluation.id) setExpandedEval(null);
+      } else {
+        setLoadError(`Delete failed (HTTP ${response.status})`);
+      }
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -171,8 +198,11 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     : evaluations;
 
   const completedRuns = shownEvaluations.map((e) => e.latest_run).filter((r) => r && r.status === 'complete');
-  const avgScore = completedRuns.length
-    ? completedRuns.reduce((sum, r) => sum + (r.average_score || 0), 0) / completedRuns.length
+  // Only runs with a scored average: a comparison run stores per-model
+  // cohorts with no top-level score, so counting it as 0% halved the card.
+  const scoredRuns = completedRuns.filter((r) => r.average_score != null);
+  const avgScore = scoredRuns.length
+    ? scoredRuns.reduce((sum, r) => sum + r.average_score, 0) / scoredRuns.length
     : null;
   const samplesEvaluated = completedRuns.reduce((sum, r) => sum + (r.samples_evaluated || 0), 0);
 
@@ -569,6 +599,14 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                       >
                         {runningId === evaluation.id ? 'Running…' : 'Run again'}
                       </button>}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(evaluation); }}
+                        disabled={deletingId === evaluation.id}
+                        className="ml-2 px-3 py-1.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                        title="Delete this evaluation and its runs"
+                      >
+                        {deletingId === evaluation.id ? 'Deleting…' : 'Delete'}
+                      </button>
                     </div>
                   </div>
                 </div>

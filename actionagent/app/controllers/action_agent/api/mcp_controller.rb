@@ -22,7 +22,7 @@ module ActionAgent
     class MCPController < BaseController
       # Authenticated by API key rather than by the host app's sessions.
       allow_unauthenticated_access
-      before_action :authenticate_api_key!
+      before_action :authenticate_api_key!, except: [ :unsupported ]
 
       PROTOCOL_VERSION = "2025-03-26"
       JSONRPC_METHOD_NOT_FOUND = -32601
@@ -53,6 +53,16 @@ module ActionAgent
       rescue StandardError => e
         Rails.logger.error("[Api::MCPController] #{e.class}: #{e.message}")
         render_error(request_id, JSONRPC_SERVER_ERROR, "Internal error")
+      end
+
+      # GET (open an SSE stream) and DELETE (end a session) on the endpoint.
+      # Neither is offered: per Streamable HTTP a server that does not
+      # provide a stream MUST answer GET with 405, and an unsupported
+      # session DELETE likewise. Unauthenticated on purpose — a client
+      # probing for the stream should learn "not offered", not "sign in".
+      def unsupported
+        response.headers["Allow"] = "POST"
+        head :method_not_allowed
       end
 
       private

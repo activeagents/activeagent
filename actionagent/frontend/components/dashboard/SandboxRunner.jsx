@@ -348,14 +348,16 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
         setSession(data.sandbox);
       }
 
-      // ActionCable will handle the real-time updates
-      // Set a timeout fallback in case ActionCable doesn't work
-      setTimeout(() => {
-        // If still running after 60s, poll for status
-        if (runningProviders.length > 0) {
-          pollForCompletion();
-        }
-      }, 60000);
+      // Poll the session until every selected provider's run has finished —
+      // the same loop single runs use. The engine ships no SandboxChannel,
+      // so cable messages never arrive here, and the old 60s fallback read
+      // runningProviders from a stale closure ([]) and never fired: every
+      // comparison sat at "Processing..." forever.
+      pollComparison(
+        selectedProviders,
+        data.sandbox?.session_id || session?.session_id,
+        data.sandbox?.runs_count ?? session?.runs_count ?? 0
+      );
 
     } catch (err) {
       selectedProviders.forEach(provider => {
@@ -370,6 +372,45 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   };
 
   // Fallback polling if ActionCable doesn't deliver
+  // Polls one comparison to completion. `baseline` is the session's run
+  // count when the comparison started, so runs from earlier comparisons in
+  // the same session are not mistaken for this one's.
+  const pollComparison = (providers, sessionId, baseline) => {
+    if (!sessionId) return;
+
+    const check = async () => {
+      try {
+        const response = await fetch(`/api/sandboxes/${sessionId}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+
+        setSession(data.sandbox);
+        const sessionRuns = data.sandbox.runs || [];
+        setRuns(sessionRuns);
+
+        const finished = new Set();
+        sessionRuns.slice(baseline).forEach((run) => {
+          if (!run.provider) return;
+          setComparisonResults((prev) => ({ ...prev, [run.provider]: { ...run, provider: run.provider } }));
+          if (run.status === 'completed' || run.status === 'failed') finished.add(run.provider);
+        });
+
+        if (providers.every((provider) => finished.has(provider))) {
+          setIsRunning(false);
+          setRunningProviders([]);
+          return;
+        }
+        setTimeout(check, 1000);
+      } catch (err) {
+        console.error('Comparison polling failed:', err);
+        setIsRunning(false);
+        setRunningProviders([]);
+      }
+    };
+
+    setTimeout(check, 1000);
+  };
+
   const pollForCompletion = async () => {
     if (!session?.session_id) return;
 
@@ -778,11 +819,14 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
             {/* Usage & Plan Info */}
             <div className="bg-gradient-to-br from-rose-50 to-purple-50 rounded-xl border border-rose-200 p-4">
               <h4 className="font-medium text-gray-900 mb-3">
-                {usage?.plan === 'free' ? 'Free Tier' : `${usage?.plan?.toUpperCase() || 'FREE'} Plan`}
+                {usage?.unlimited
+                  ? 'Unlimited'
+                  : usage?.plan === 'free' ? 'Free Tier' : `${usage?.plan?.toUpperCase() || 'FREE'} Plan`}
               </h4>
 
-              {/* Usage Progress */}
-              {usage && (
+              {/* Usage Progress — only when the host meters runs; a bare
+                  engine mount reports unlimited with no limit to draw. */}
+              {usage && !usage.unlimited && usage.runs_limit != null && (
                 <div className="mb-4">
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-600">Agent Runs</span>

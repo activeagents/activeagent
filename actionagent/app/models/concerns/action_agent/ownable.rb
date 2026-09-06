@@ -71,16 +71,29 @@ module ActionAgent
     end
 
     # The record's owner under the current configuration, or nil.
+    #
+    # The belongs_to is declared when the class loads, from the
+    # configuration at that moment; an owner model configured afterwards
+    # (a test, or an initializer that ran late) has the column but not the
+    # association, so the foreign key is read directly in that case.
     def owner
       association = self.class.owner_association
-      association && public_send(association)
+      return nil unless association
+      return public_send(association) if respond_to?(association)
+
+      owner_class = ActionAgent.public_send(CLASS_FOR.fetch(association)).safe_constantize
+      owner_id = self[:"#{association}_id"]
+      owner_class.find_by(id: owner_id) if owner_class && owner_id
     end
 
     # Assigns +owner+ to whichever association this install uses. A no-op
     # when the host app configured no owner model.
     def owner=(record)
       association = self.class.owner_association
-      public_send(:"#{association}=", record) if association
+      return unless association
+      return public_send(:"#{association}=", record) if respond_to?(:"#{association}=")
+
+      self[:"#{association}_id"] = record&.id
     end
   end
 end

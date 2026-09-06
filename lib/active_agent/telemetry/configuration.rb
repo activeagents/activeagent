@@ -32,8 +32,19 @@ module ActiveAgent
         @local_storage = false
       end
 
+      # Under local storage traces never leave the process, and the
+      # dashboard's Interactions and Evaluations views are built from the
+      # message bodies — so bodies are captured unless the app said
+      # otherwise. An explicit capture_bodies setting wins whichever order
+      # the two options were given in.
       def local_storage=(value)
         @local_storage = value == true
+        @capture_bodies = true if @local_storage && !@capture_bodies_explicit
+      end
+
+      def capture_bodies=(value)
+        @capture_bodies_explicit = true
+        super
       end
 
       def local_storage?

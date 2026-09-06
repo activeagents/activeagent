@@ -13,6 +13,10 @@ Gem::Specification.new do |spec|
   spec.require_paths = "lib"
   spec.homepage = "https://activeagents.ai"
   spec.license = "MIT"
+  # activeagents-telemetry, a hard dependency, requires Ruby >= 3.2 in every
+  # released version; declaring the same floor here fails an install on an
+  # older Ruby with a clear message instead of a resolver conflict.
+  spec.required_ruby_version = ">= 3.2.0"
 
   spec.metadata = {
     "bug_tracker_uri" => "https://github.com/activeagents/activeagent/issues",

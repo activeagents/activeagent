@@ -351,13 +351,24 @@ end
 
 ### Message Bodies
 
-Message bodies are **not captured by default**. Enable with caution:
+Message bodies — the rendered system prompt (`prompt.input.instructions`),
+the outbound messages (`prompt.input.messages`), the completion
+(`llm.output.message`) and tool arguments and results (`tool.input.args`,
+`tool.output.result`) — are **not captured by default** when traces leave the
+process. Counts, tool names, token usage and finish reasons are always
+recorded. Enable bodies with caution:
 
 ```ruby
 ActiveAgent::Telemetry.configure do |config|
   config.capture_bodies = true  # Only in controlled environments
 end
 ```
+
+The one exception is `local_storage: true`: traces then persist in your own
+database and never leave the process, and the dashboard's Interactions and
+Evaluations views are built from the bodies, so `capture_bodies` defaults to
+`true` there. Set `capture_bodies: false` explicitly to keep bodies out of
+locally stored traces too.
 
 ## Troubleshooting
 

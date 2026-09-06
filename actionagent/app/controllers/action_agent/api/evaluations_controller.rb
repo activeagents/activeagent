@@ -161,11 +161,24 @@ module ActionAgent
       # model, so it runs in the background; a generation-sampling evaluation
       # scores recorded data and finishes inline.
       def start_run(evaluation, selection)
-        if evaluation.scenario_suite?
-          evaluation.run_later!(**selection)
-        else
-          evaluation.run!
-        end
+        return evaluation.run_later!(**selection) if evaluation.scenario_suite?
+
+        # EvaluationRunnerService marks the run failed with the error message
+        # and then re-raises. Letting that escape returned an HTML 500 for a
+        # request that had already persisted the evaluation and its failed
+        # run: the client saw a JSON parse error, the form stayed open, and a
+        # resubmit failed on the now-taken name. The failure is on the run
+        # record, which is what the response carries.
+        evaluation.run!
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[ActionAgent] evaluation #{evaluation.id} run failed: #{e.class}: #{e.message}"
+        )
+        # The service records the failure before re-raising; a failure that
+        # predates the run record (creating it, say) is recorded here so the
+        # response always carries one.
+        evaluation.evaluation_runs.recent.first ||
+          evaluation.evaluation_runs.create!(status: :failed, error_message: e.message, completed_at: Time.current)
       end
 
       def evaluations_scope
