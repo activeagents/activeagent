@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 6) do
+ActiveRecord::Schema[8.0].define(version: 7) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -311,6 +311,35 @@ ActiveRecord::Schema[8.0].define(version: 6) do
     t.index [ "agent_run_id" ], name: "index_active_agent_session_recordings_on_agent_run_id"
     t.index [ "sandbox_session_id" ], name: "index_active_agent_session_recordings_on_sandbox_session_id"
     t.index [ "user_id" ], name: "index_active_agent_session_recordings_on_user_id"
+  end
+
+  create_table "active_agent_telemetry_traces", force: :cascade do |t|
+    t.string "agent_action"
+    t.string "agent_class"
+    t.bigint "agent_id"
+    t.datetime "created_at", null: false
+    t.string "environment"
+    t.text "error_message"
+    t.json "resource_attributes", default: {}
+    t.json "sdk_info", default: {}
+    t.string "service_name"
+    t.json "spans", default: []
+    t.string "status"
+    t.datetime "timestamp"
+    t.decimal "total_duration_ms", precision: 12, scale: 3
+    t.integer "total_input_tokens", default: 0
+    t.integer "total_output_tokens", default: 0
+    t.integer "total_thinking_tokens", default: 0
+    t.string "trace_id", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "agent_class", "agent_action" ], name: "idx_on_agent_class_agent_action_c68bed0fe3"
+    t.index [ "agent_class" ], name: "index_active_agent_telemetry_traces_on_agent_class"
+    t.index [ "agent_id" ], name: "index_active_agent_telemetry_traces_on_agent_id"
+    t.index [ "created_at" ], name: "index_active_agent_telemetry_traces_on_created_at"
+    t.index [ "service_name", "environment" ], name: "idx_on_service_name_environment_aa52e7b090"
+    t.index [ "status" ], name: "index_active_agent_telemetry_traces_on_status"
+    t.index [ "timestamp" ], name: "index_active_agent_telemetry_traces_on_timestamp"
+    t.index [ "trace_id" ], name: "index_active_agent_telemetry_traces_on_trace_id", unique: true
   end
 
   create_table "active_storage_attachments", force: :cascade do |t|
