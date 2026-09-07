@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`actionagent`: the Run Agent page is a conversation workbench.** Testing
+  an agent used to mean one prompt in, one output out, with no way to see —
+  or shape — what the model was given. The page now works the way a user
+  would work the agent: it pins a persisted conversation (a solid_agent
+  context) and every run sends that conversation's user and assistant turns
+  ahead of the new message, so follow-up questions actually follow up. The
+  context is editable in place — edit or delete a turn, seed a user or
+  assistant message without running, start a new conversation — and every
+  run is a fresh `AgentRun` with its own trace, so Traces and Interactions
+  see exactly what the model saw. Files attach to a message and ride along
+  through Active Storage (`AgentRun has_many_attached :attachments`, guarded
+  for hosts without it): images reach the model as vision input, PDFs as
+  documents, and text-like files (CSV, Markdown, JSON, plain text) are
+  inlined into the message; the persisted user message keeps an attachment
+  manifest so the conversation shows thumbnails afterwards. Assistant replies
+  can render **generative UI** — cards, stats, tables, charts, lists,
+  progress, forms, choice buttons, images, callouts and code — from a fenced
+  ```` ```ui ```` JSON block in prose, a JSON reply whose top level is
+  `ui`/`blocks`, or the new `render_ui` tool (enable the **Generative UI**
+  tool on the agent). Forms and choices post their answer back into the
+  conversation as the next user message. New engine API: `GET/POST
+  /api/agents/:id/conversations`, message create/update/delete under
+  `/api/interactions/:id/messages`, multipart `POST /api/agents/:id/execute`
+  with `attachments[]` and `params[context_id]`, and attachment metadata on
+  run and message JSON. The reference host (`test/dummy`) gained the Active
+  Storage tables so the attachment path is exercised by the engine's tests.
+
 - **RubyLLM backend pinning via `platform:`.** RubyLLM resolves which of its
   providers serves a request from the model ID, and a model served by more
   than one — `gemini-2.5-flash` exists on both the Gemini API and Vertex
