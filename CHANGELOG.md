@@ -22,6 +22,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later`
+  perform.** The direct-generation proxy enqueued three keywords
+  (`direct_generation_type`, `direct_args`, `direct_options`) that
+  `GenerationJob#perform` did not accept, so every worker raised
+  `ArgumentError: unknown keywords` before generating; the synthetic
+  `__direct_prompt__` action name it enqueued was not a real method either.
+  The job now rebuilds the `DirectGeneration` from those arguments and runs
+  the same code path as `generate_now` / `embed_now`. Regression tests
+  perform the enqueued job instead of only asserting it was enqueued. (#346,
+  reported with a fix by @false200 in #347)
+- **The `"AI"` inflector acronym is configurable.** The railtie registered
+  `inflect.acronym "AI"` on every host application so `open_ai_agent.rb` can
+  define `OpenAIAgent`, but acronyms are global: a host that already had
+  `ai_assistant_controller.rb` defining `AiAssistantController` booted in
+  development and failed Zeitwerk eager loading in production with
+  `expected file ... to define constant AIAssistantController`. The acronym
+  list now lives in `config.active_agent.acronyms` (default `["AI"]`); set
+  it to `[]` in `config/application.rb` to opt out, or list the acronyms
+  your app wants. (#276, reported by @RayNawara)
+
 - **`service: "RubyLLM"` loads when the ruby_llm railtie has run.** The
   ruby_llm gem registers `RubyLLM` as an inflector acronym in Rails apps,
   which turns `"RubyLLM".underscore` into `rubyllm` — so provider loading

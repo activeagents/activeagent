@@ -31,6 +31,24 @@ end
 | `retries_on` | Array\<Class\> | Network errors | Exception classes that trigger retries |
 | `logger` | Logger | `Rails.logger` | Logger instance (Rails auto-configured) |
 
+### Rails inflections
+
+In a Rails application the railtie registers the `"AI"` inflector acronym so a
+file named `open_ai_agent.rb` can define `OpenAIAgent`. Acronyms are global:
+with `"AI"` registered, Zeitwerk expects `app/controllers/ai_assistant_controller.rb`
+to define `AIAssistantController`, and an app that already names that class
+`AiAssistantController` boots in development but fails to eager load in
+production. If your application uses `Ai`-prefixed constants, opt out (or
+supply your own list) in `config/application.rb`:
+
+```ruby
+# config/application.rb
+config.active_agent.acronyms = []          # register nothing
+# config.active_agent.acronyms = ["AI", "MCP"]  # or choose your own
+```
+
+The setting is read once at boot; changing it later has no effect.
+
 
 ## Flow and Precedence
 

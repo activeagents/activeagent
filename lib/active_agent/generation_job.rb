@@ -18,17 +18,48 @@ module ActiveAgent
 
     rescue_from StandardError, with: :handle_exception_with_agent_class
 
-    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil)
-      agent_class = params ? agent.constantize.with(params) : agent.constantize
-      prompt = if kwargs
-        agent_class.public_send(agent_method, *args, **kwargs)
+    # Performs a queued generation.
+    #
+    # Action generations (+Agent.with(...).action.generate_later+) call the
+    # action on the agent class and then the generation method on the result.
+    #
+    # Direct generations (+Agent.prompt(...).generate_later+ and
+    # +Agent.embed(...).embed_later+) have no action to call: the synthetic
+    # +agent_method+ they enqueue is not a real method. When
+    # +direct_generation_type+ is present the job rebuilds the
+    # {ActiveAgent::Parameterized::DirectGeneration} from the enqueued
+    # arguments and options instead, so the worker runs the same code path as
+    # +generate_now+ / +embed_now+.
+    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil,
+                direct_generation_type: nil, direct_args: nil, direct_options: nil)
+      generation = if direct_generation_type
+        direct_generation(agent, direct_generation_type, params, direct_args, direct_options)
       else
-        agent_class.public_send(agent_method, *args)
+        agent_class = params ? agent.constantize.with(params) : agent.constantize
+        if kwargs
+          agent_class.public_send(agent_method, *args, **kwargs)
+        else
+          agent_class.public_send(agent_method, *args)
+        end
       end
-      prompt.send(generation_method)
+
+      generation.send(generation_method)
     end
 
     private
+
+    # Rebuilds a direct prompt/embed generation from its serialized parts.
+    #
+    # Active Job round-trips symbols and symbol-keyed hashes, but the keys are
+    # normalized here anyway so a job enqueued by an older adapter (or a
+    # hand-built one) still performs.
+    def direct_generation(agent, generation_type, params, direct_args, direct_options)
+      options = (direct_options || {}).to_h.symbolize_keys
+
+      ActiveAgent::Parameterized::DirectGeneration.new(
+        agent.constantize, generation_type.to_sym, params || {}, *(direct_args || []), **options
+      )
+    end
 
     # "Deserialize" the agent class name by hand in case another argument
     # (like a Global ID reference) raised DeserializationError.

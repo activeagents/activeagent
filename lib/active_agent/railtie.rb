@@ -90,8 +90,9 @@ module ActiveAgent
           self.generation_job = generation_job.constantize
         end
 
-        # Skip telemetry config - it's handled separately above
-        options.except(:telemetry).each { |k, v| send(:"#{k}=", v) }
+        # Skip telemetry config (handled separately above) and acronyms
+        # (consumed by the "active_agent.inflections" initializer).
+        options.except(:telemetry, :acronyms).each { |k, v| send(:"#{k}=", v) }
       end
 
       ActiveSupport.on_load(:action_dispatch_integration_test) do
@@ -111,9 +112,22 @@ module ActiveAgent
       end
     end
 
-    initializer "active_agent.inflections" do
-      ActiveSupport::Inflector.inflections do |inflect|
-        inflect.acronym "AI"
+    # Registers inflector acronyms on the host application.
+    #
+    # Defaults to +["AI"]+ so a file named +open_ai_agent.rb+ can define
+    # +OpenAIAgent+. Acronyms are global: with "AI" registered, Zeitwerk expects
+    # +ai_assistant_controller.rb+ to define +AIAssistantController+, so a host
+    # that already names such constants +AiAssistantController+ fails to eager
+    # load in production. Those hosts opt out with
+    # +config.active_agent.acronyms = []+ (or supply their own list).
+    initializer "active_agent.inflections" do |app|
+      acronyms = app.config.active_agent.acronyms
+      acronyms = [ "AI" ] if acronyms.nil?
+
+      unless acronyms.empty?
+        ActiveSupport::Inflector.inflections do |inflect|
+          acronyms.each { |acronym| inflect.acronym(acronym.to_s) }
+        end
       end
     end
 
