@@ -121,6 +121,33 @@ module ActionAgent
           }
         }
       ],
+      # Generative UI. The call is the output: the runner renders the
+      # blocks straight from the persisted tool arguments, so the
+      # implementation only has to acknowledge them.
+      "ui" => [
+        {
+          name: "render_ui",
+          description: "Render interactive UI for the user instead of (or alongside) prose. Pass an array of blocks. Block types and fields: " \
+            "card {title, body (markdown), image_url?, footer?}; stat {label, value, delta?, tone? (positive|negative|neutral)}; " \
+            "stats {items: [stat...]}; table {columns: [string], rows: [[cell...]]}; " \
+            "chart {chart: bar|line|area|pie, title?, x (key), series: [key...], data: [{...}]}; " \
+            "list {title?, items: [string], ordered?}; progress {label, value (0-100)}; " \
+            "form {title?, submit? (button label), fields: [{name, label, type (text|textarea|number|select|checkbox), options?: [string], placeholder?, required?}]}; " \
+            "choices {prompt?, options: [string]}; image {url, alt?, caption?}; callout {tone (info|success|warning|danger), title?, body}; " \
+            "code {language?, code}. Blocks render top to bottom.",
+          parameters: {
+            type: "object",
+            properties: {
+              blocks: {
+                type: "array",
+                description: "UI blocks to render, in order",
+                items: { type: "object", properties: { type: { type: "string" } }, required: [ "type" ] }
+              }
+            },
+            required: [ "blocks" ]
+          }
+        }
+      ],
       # Memory tools mirror solid_agent's HasMemory contract. They are NOT in
       # FUNCTIONS below — execution is subject-bound, so AgentExecutionService
       # routes them to the run's AgentMemory instead of this module.
@@ -160,11 +187,14 @@ module ActionAgent
       "browse_page" => :browse_page,
       "browser_navigate" => :browser_navigate,
       "browser_snapshot" => :browser_snapshot,
-      "browser_click" => :browser_click
+      "browser_click" => :browser_click,
+      "render_ui" => :render_ui
     }.freeze
 
-    # Stateful tools whose results must never be replayed from cache.
-    UNCACHED_FUNCTIONS = %w[browser_navigate browser_snapshot browser_click].freeze
+    # Stateful tools whose results must never be replayed from cache — and
+    # render_ui, whose result is the call itself, so there is nothing to
+    # replay.
+    UNCACHED_FUNCTIONS = %w[browser_navigate browser_snapshot browser_click render_ui].freeze
 
     # Hosts browse_page may fetch — the platform's own trusted docs.
     BROWSE_ALLOWED_HOSTS = %w[docs.activeagents.ai].freeze
@@ -256,6 +286,18 @@ module ActionAgent
         { expression: expression, result: Calculator.evaluate(expression.to_s) }
       rescue Calculator::Error => e
         { error: e.message }
+      end
+
+      # No side effects: the blocks are rendered by the runner from the tool
+      # call's arguments. Malformed blocks are reported back so the model can
+      # fix its call rather than shipping UI the runner would drop.
+      def render_ui(blocks:)
+        valid = blocks.is_a?(Array) && blocks.all? do |block|
+          block.respond_to?(:key?) && (block[:type] || block["type"]).is_a?(String)
+        end
+        return { error: "blocks must be an array of objects, each with a string type" } unless valid
+
+        { rendered: true, blocks: blocks.size }
       end
 
       # Trusted-docs browser: fetch_url restricted to BROWSE_ALLOWED_HOSTS,

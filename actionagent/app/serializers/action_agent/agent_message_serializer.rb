@@ -15,6 +15,7 @@ module ActionAgent
         tool_arguments: message.tool_arguments.presence,
         tool_result: message.tool_result,
         duration_ms: message.metadata&.dig("duration_ms"),
+        attachments: message.attachments || [],
         content_checksum: message.content_checksum,
         created_at: message.created_at.iso8601(3)
       }

@@ -4,6 +4,49 @@ module ActionAgent
   class AgentRun < ApplicationRecord
     belongs_to :agent
 
+    # Raised when a caller hands a run files to attach in a host app that
+    # has nowhere to keep them.
+    class AttachmentsUnavailable < StandardError
+      def initialize(message = "Attachments need Active Storage in the host app (run `rails active_storage:install`)")
+        super
+      end
+    end
+
+    # Files uploaded with the run. The execution service delivers them to
+    # the model (images and PDFs as data URIs, text inlined) and the
+    # persisted user message keeps a manifest of them.
+    #
+    # Guarded like RecordingSnapshot: a host app created with
+    # --skip-active-storage has no has_many_attached to call.
+    has_many_attached :attachments if defined?(ActiveStorage)
+
+    # Whether runs can carry files in this host app: Active Storage loaded,
+    # the macro applied, and its tables migrated. Never raises — a host
+    # that skipped `rails active_storage:install` still runs agents, it
+    # just can't attach files to them.
+    def self.attachments_available?
+      defined?(ActiveStorage) && method_defined?(:attachments) && ActiveStorage::Blob.table_exists?
+    rescue StandardError
+      false
+    end
+
+    # How an attachment reaches the model, by MIME type with a filename
+    # fallback for the text formats browsers upload as octet-stream:
+    # images and documents ride along as data URIs, text is inlined into
+    # the prompt, anything else is only described.
+    TEXT_CONTENT_TYPES = %w[application/json application/xml application/x-yaml application/csv].freeze
+    TEXT_EXTENSIONS = %w[.csv .md .txt .json .yml .yaml].freeze
+
+    def self.attachment_kind(content_type, filename = nil)
+      type = content_type.to_s.downcase
+      return "image" if type.start_with?("image/")
+      return "document" if type == "application/pdf"
+      return "text" if type.start_with?("text/") || TEXT_CONTENT_TYPES.include?(type)
+      return "text" if TEXT_EXTENSIONS.include?(File.extname(filename.to_s).downcase)
+
+      "file"
+    end
+
     # Status enum
     enum :status, { pending: 0, running: 1, complete: 2, failed: 3, cancelled: 4 }
 
@@ -103,6 +146,33 @@ module ActionAgent
       complete? || failed? || cancelled?
     end
 
+    # The conversation the caller pinned this run to (input_params), if any.
+    def context_id
+      input_params&.dig("context_id")
+    end
+
+    # The run's files as the runner and the persisted user message show
+    # them: one hash per attachment, with the kind the execution service
+    # sorted it into and a blob URL for thumbnails (nil when the host app
+    # didn't draw Active Storage's routes). Empty without Active Storage.
+    def attachment_manifest
+      return [] unless self.class.attachments_available?
+
+      attachment_records.map do |attachment|
+        blob = attachment.blob
+        {
+          "id" => attachment.id,
+          "blob_id" => blob.id,
+          "signed_id" => blob.signed_id,
+          "filename" => blob.filename.to_s,
+          "content_type" => blob.content_type,
+          "byte_size" => blob.byte_size,
+          "kind" => self.class.attachment_kind(blob.content_type, blob.filename.to_s),
+          "url" => blob_path(blob)
+        }
+      end
+    end
+
     # Get a summary for display
     def summary
       {
@@ -118,6 +188,8 @@ module ActionAgent
         instructions_digest: instructions_digest,
         instructions_codename: instructions_codename,
         instructions_preview: output_metadata&.dig("instructions")&.truncate(120),
+        attachments: attachment_manifest,
+        context_id: context_id,
         created_at: created_at,
         error: error_message
       }
@@ -146,6 +218,29 @@ module ActionAgent
 
     def set_trace_id
       self.trace_id ||= SecureRandom.uuid
+    end
+
+    # Reads the association as loaded when a list preloaded it
+    # (with_attachments below), so serializing a page of runs costs two
+    # queries rather than two per run; a single run fetches its own.
+    def attachment_records
+      if attachments_attachments.loaded?
+        attachments_attachments.sort_by(&:id)
+      else
+        attachments_attachments.includes(:blob).order(:id).to_a
+      end
+    end
+
+    # Preloads attachments and blobs for a list of runs — a no-op scope in
+    # a host without Active Storage, so callers need no guard of their own.
+    def self.with_attachments
+      attachments_available? ? with_attached_attachments : all
+    end
+
+    def blob_path(blob)
+      Rails.application.routes.url_helpers.rails_blob_path(blob, only_path: true)
+    rescue StandardError
+      nil
     end
   end
 end

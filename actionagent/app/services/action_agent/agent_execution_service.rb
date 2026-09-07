@@ -23,6 +23,17 @@ module ActionAgent
 
     SERVICE_NAME = "activeagents-platform"
 
+    # Images and PDFs above this size are described rather than sent —
+    # a data URI of that size is most of a context window by itself.
+    ATTACHMENT_DATA_LIMIT = 8.megabytes
+    # Inlined text attachments are cut here: enough for a CSV or a config
+    # file, not enough for a log dump to crowd out the conversation.
+    ATTACHMENT_TEXT_LIMIT = 20_000
+    # Prior turns sent with a pinned conversation: the most recent ones,
+    # trimmed oldest-first to a character budget.
+    HISTORY_TURN_LIMIT = 40
+    HISTORY_CHAR_BUDGET = 60_000
+
     def self.call(agent_record, run)
       new(agent_record, run).call
     end
@@ -124,7 +135,9 @@ module ActionAgent
     # The outbound prompt as a span, in the SDK's attribute shape — gives the
     # Traces UI its System/User conversation rows and lets the context-pressure
     # meter attribute instructions and tool schemas instead of lumping the
-    # whole input into "messages".
+    # whole input into "messages". Messages are the text-only transcript:
+    # the same list the provider gets, with data URIs replaced by
+    # "[image: sales_chart.png]" placeholders.
     def record_prompt_span(root_span)
       span = root_span.add_span("agent.prompt", span_type: :prompt)
       if composed_instructions.present?
@@ -133,14 +146,35 @@ module ActionAgent
       if tool_schemas.present?
         span.set_attribute("prompt.input.tools", tool_schemas.to_json.byteslice(0, 6000).to_s.scrub)
       end
-      span.set_attribute(
-        "prompt.input.messages",
-        [ { role: "user", content: @run.input_prompt.to_s.byteslice(0, 4000).to_s.scrub } ].to_json
-      )
-      span.set_attribute("messages.count", 1)
+      transcript = prompt_turn[:transcript].map do |message|
+        { role: message[:role], content: message[:content].to_s.byteslice(0, 4000).to_s.scrub }
+      end
+      span.set_attribute("prompt.input.messages", transcript.to_json)
+      span.set_attribute("messages.count", transcript.size)
       span.finish
     rescue StandardError => e
       Rails.logger.warn("[AgentExecutionService] prompt span failed: #{e.message}")
+    end
+
+    # The list handed to prompt(messages:): the pinned conversation's prior
+    # turns, then the new user turn carrying the run's attachments — images
+    # and PDFs as data URIs in the provider-neutral {text:, image:} /
+    # {document:} shorthand, text files inlined, anything else described.
+    # Memoized, so the provider and the prompt span see one list.
+    def prompt_messages
+      prompt_turn[:messages]
+    end
+
+    # The person's own words for this turn — what the persisted user
+    # message says, without the file bodies inlined for the model.
+    def user_text
+      @run.input_prompt.to_s.presence || (attachment_records.any? ? "(see attached files)" : "")
+    end
+
+    # What was attached, as stored on the persisted user message so the
+    # conversation shows the files afterwards.
+    def attachment_manifest
+      @attachment_manifest ||= @run.attachment_manifest
     end
 
     # Per-run provider/model overrides (input_params) let callers replay the
@@ -341,7 +375,7 @@ module ActionAgent
       model_options.merge!(owner_provider_options(effective_provider))
       klass_name = agent_class_name
       agent_record = @agent_record
-      input = @run.input_prompt
+      pinned = pinned_context
       instructions = composed_instructions
       action = action_name
       run_trace_id = trace_id
@@ -395,19 +429,40 @@ module ActionAgent
 
         # One method per invokable action (the default plus each named action
         # prompt) — solid_agent keys the persisted context by action_name, so
-        # each action gets its own interaction stream.
+        # each action gets its own interaction stream. A run pinned to a
+        # conversation continues that context instead.
         define_method action do
           # Thread the run's telemetry trace_id through prompt_options so
           # SolidAgent's provenance (and AgentContext#record_generation_with_
           # provenance!) can correlate the persisted generation with its trace.
           prompt_options[:trace_id] = run_trace_id
-          load_context(contextable: agent_record)
+          if pinned
+            load_context(context_id: pinned.id)
+          else
+            load_context(contextable: agent_record)
+          end
 
-          options = { message: input }
+          options = { messages: service.prompt_messages }
           options[:instructions] = instructions if instructions.present?
           options[:tools] = tool_definitions if tool_definitions.present?
           prompt(**options)
         end
+
+        # solid_agent's after_prompt callback persists the last prompt
+        # message's content: string — so a turn that carries files (a
+        # {text:, image:} hash) would never be written, and the history
+        # replayed from the pinned context is not this run's to persist.
+        # Instead: exactly one user message per run, through the agent-level
+        # add_user_message that stamps provenance (its trace_id is how the
+        # run detail API finds the run's slice of the conversation), with
+        # the attachment manifest alongside.
+        define_method(:persist_prompt_to_context) do
+          text = service.user_text
+          return unless context && text.present?
+
+          add_user_message(text, attachments: service.attachment_manifest)
+        end
+        private :persist_prompt_to_context
       end
 
       agent_class.public_send(action).generate_now
@@ -530,10 +585,109 @@ module ActionAgent
       @trace_id ||= @run.trace_id.presence || SecureRandom.hex(16)
     end
 
-    # The solid_agent conversation context this execution persisted into
-    # (one per agent + action on this platform).
+    # The solid_agent conversation context this execution persisted into:
+    # the pinned one when the run continues a conversation, else the
+    # agent + action's default stream.
     def conversation_context
-      AgentContext.find_by(contextable: @agent_record, agent_name: agent_class_name, action_name: action_name)
+      pinned_context || AgentContext.find_by(contextable: @agent_record, agent_name: agent_class_name, action_name: action_name)
+    end
+
+    # The conversation the run was pinned to (input_params context_id). A
+    # context of another agent is ignored rather than continued: the run
+    # falls back to the default stream as if nothing had been pinned.
+    def pinned_context
+      return @pinned_context if defined?(@pinned_context)
+
+      id = run_params[:context_id]
+      @pinned_context = id.present? ? AgentContext.find_by(id: id, contextable: @agent_record) : nil
+    end
+
+    # The pinned conversation's prior turns as plain {role:, content:}
+    # messages — the conversation as the person saw it: tool rows and empty
+    # assistant rows (a turn that only carried a tool call) are skipped.
+    # The most recent turns, dropped oldest-first once the budget is spent.
+    def history_messages
+      context = pinned_context
+      return [] unless context
+
+      turns = context.messages.chronological
+        .where(role: %w[user assistant])
+        .where.not(content: [ nil, "" ])
+        .last(HISTORY_TURN_LIMIT)
+
+      budget = HISTORY_CHAR_BUDGET
+      turns.reverse_each.with_object([]) do |message, kept|
+        content = message.content.to_s
+        break kept if content.length > budget
+
+        budget -= content.length
+        kept.unshift(role: message.role, content: content)
+      end
+    end
+
+    # Builds the message list and, in the same pass, its text-only
+    # transcript for the prompt span (data URIs are too big to trace).
+    #
+    # The first image or document rides on the user's text as a
+    # {text:, image:} / {text:, document:} message; each further one is a
+    # message of its own, since the shorthand carries one part per key.
+    def prompt_turn
+      @prompt_turn ||= begin
+        # dup: the inlined file bodies must not land on the run's own
+        # input_prompt through in-place mutation.
+        text = user_text.dup
+        media = []
+
+        attachment_records.each do |attachment|
+          blob = attachment.blob
+          filename = blob.filename.to_s
+          descriptor = "#{filename} (#{blob.content_type}, #{human_size(blob.byte_size)})"
+
+          case AgentRun.attachment_kind(blob.content_type, filename)
+          when "text"
+            body = blob.download.force_encoding(Encoding::UTF_8).scrub[0, ATTACHMENT_TEXT_LIMIT]
+            text << "\n\n[Attached file: #{descriptor}]\n```\n#{body}\n```"
+          when "image", "document"
+            if blob.byte_size > ATTACHMENT_DATA_LIMIT
+              text << "\n\n[Attached file: #{descriptor} — not sent to the model]"
+            else
+              key = blob.content_type.to_s.start_with?("image/") ? :image : :document
+              media << { key => data_uri(blob), label: "[#{key}: #{filename}]" }
+            end
+          else
+            text << "\n\n[Attached file: #{descriptor} — not sent to the model]"
+          end
+        end
+
+        first, *rest = media
+        history = history_messages
+        # No prompt and no files sends no turn at all, which leaves the
+        # gem's template fallback in charge exactly as before.
+        turn =
+          if first
+            { role: "user", text: text }.merge(first.except(:label))
+          elsif text.present?
+            { role: "user", content: text }
+          end
+        {
+          messages: history + [ turn ].compact + rest.map { |item| { role: "user" }.merge(item.except(:label)) },
+          transcript: history +
+            [ turn && { role: "user", content: [ text, first&.dig(:label) ].compact.join("\n") } ].compact +
+            rest.map { |item| { role: "user", content: item[:label] } }
+        }
+      end
+    end
+
+    def attachment_records
+      @attachment_records ||= AgentRun.attachments_available? ? @run.attachments_attachments.includes(:blob).order(:id).to_a : []
+    end
+
+    def data_uri(blob)
+      "data:#{blob.content_type};base64,#{Base64.strict_encode64(blob.download)}"
+    end
+
+    def human_size(bytes)
+      ActiveSupport::NumberHelper.number_to_human_size(bytes, precision: 2)
     end
 
     # The agent's owner under the configured mode; nil when the install
