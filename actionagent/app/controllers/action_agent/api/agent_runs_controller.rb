@@ -28,7 +28,7 @@ module ActionAgent
       def index
         # Scoped to the caller's own agents: this listed (and counted) every
         # run in the database regardless of who owned it.
-        scope = AgentRun.includes(:agent).where(agent: owner_agents).recent
+        scope = AgentRun.includes(:agent).with_attachments.where(agent: owner_agents).recent
 
         scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
         scope = scope.where(status: params[:status]) if params[:status].present?
@@ -125,6 +125,8 @@ module ActionAgent
           total_tokens: run.total_tokens,
           error_message: run.error_message,
           trace_id: run.trace_id,
+          attachments: run.attachment_manifest,
+          context_id: run.context_id,
           logs: run.logs,
           started_at: run.started_at,
           completed_at: run.completed_at,

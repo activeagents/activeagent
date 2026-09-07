@@ -72,7 +72,7 @@ module ActionAgent
 
     # Available tools/MCPs
     AVAILABLE_TOOLS = %w[
-      terminal playwright filesystem code database slack fetch search edit translate memory agents
+      terminal playwright filesystem code database slack fetch search edit translate memory agents ui
     ].freeze
 
     # Available providers
@@ -201,15 +201,13 @@ module ActionAgent
       RUBY
     end
 
-    # Execute a run with this agent
-    def execute(input_prompt, action: nil, **params)
-      run = agent_runs.create!(
-        input_prompt: input_prompt,
-        action_name: normalized_action(action),
-        input_params: params,
-        status: :pending,
-        trace_id: SecureRandom.uuid
-      )
+    # Execute a run with this agent. Files in +attachments+ (uploaded files,
+    # {io:, filename:, content_type:} hashes or blobs) are stored on the run
+    # before the job is enqueued, so a worker on another machine finds them
+    # attached. +params+ (provider/model overrides, the context_id of a
+    # conversation to continue) are kept on the run as input_params.
+    def execute(input_prompt, action: nil, attachments: [], **params)
+      run = create_run(input_prompt, action: action, attachments: attachments, params: params, status: :pending)
 
       # Queue the execution job
       AgentExecutionJob.perform_later(run.id)
@@ -218,14 +216,10 @@ module ActionAgent
     end
 
     # Quick test execution (synchronous)
-    def test_execute(input_prompt, action: nil, **params)
-      run = agent_runs.create!(
-        input_prompt: input_prompt,
-        action_name: normalized_action(action),
-        input_params: params,
-        status: :running,
-        trace_id: SecureRandom.uuid,
-        started_at: Time.current
+    def test_execute(input_prompt, action: nil, attachments: [], **params)
+      run = create_run(
+        input_prompt, action: action, attachments: attachments, params: params,
+        status: :running, started_at: Time.current
       )
 
       begin
@@ -255,6 +249,23 @@ module ActionAgent
     end
 
     private
+
+    # Refuses files before creating anything: a run that exists but lost
+    # its attachments would execute against the wrong prompt.
+    def create_run(input_prompt, action:, attachments:, params:, **attributes)
+      files = Array.wrap(attachments).compact
+      raise AgentRun::AttachmentsUnavailable if files.any? && !AgentRun.attachments_available?
+
+      run = agent_runs.create!(
+        input_prompt: input_prompt,
+        action_name: normalized_action(action),
+        input_params: params,
+        trace_id: SecureRandom.uuid,
+        **attributes
+      )
+      run.attachments.attach(*files) if files.any?
+      run
+    end
 
     def slug_unique_within_owner
       return if slug.blank?
