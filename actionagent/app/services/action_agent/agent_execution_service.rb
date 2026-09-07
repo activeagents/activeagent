@@ -165,6 +165,31 @@ module ActionAgent
       prompt_turn[:messages]
     end
 
+    # Persists the tool calls this service executed when the provider's
+    # response carries no tool-role messages to persist them from (the
+    # OpenAI Responses API). With such messages present the usual path
+    # — solid_agent's, then #persist_tool_messages — already writes the
+    # rows, keyed by tool_call_id, and this is a no-op.
+    def persist_tool_invocations(context, response)
+      return unless context.respond_to?(:add_tool_message)
+      return if @tool_invocations.empty?
+      return if Array(response.respond_to?(:messages) ? response.messages : nil).any? do |message|
+        message.respond_to?(:role) && message.role.to_s == "tool"
+      end
+
+      @tool_invocations.each do |invocation|
+        context.add_tool_message(
+          tool_call_id: nil,
+          tool_name: invocation[:name],
+          result: invocation[:result],
+          arguments: invocation[:arguments],
+          duration_ms: invocation[:duration_ms]
+        )
+      end
+    rescue StandardError => e
+      Rails.logger.error("[AgentExecutionService] Failed to persist tool invocations: #{e.message}")
+    end
+
     # The person's own words for this turn — what the persisted user
     # message says, without the file bodies inlined for the model.
     def user_text
@@ -296,6 +321,7 @@ module ActionAgent
       @tool_invocations << {
         name: name.to_s,
         arguments: kwargs,
+        result: result,
         duration_ms: duration_ms,
         error: errored
       }
@@ -463,6 +489,18 @@ module ActionAgent
           add_user_message(text, attachments: service.attachment_manifest)
         end
         private :persist_prompt_to_context
+
+        # solid_agent persists the tool exchange from the response's
+        # tool-role messages. The Responses API carries function calls as
+        # items rather than messages, so that list is empty and the
+        # exchange — a render_ui call is the reply — would vanish from the
+        # conversation. The service saw every call go by; fall back to its
+        # own records, here so the rows land before the assistant turn.
+        define_method(:persist_tool_messages_to_context) do
+          super()
+          service.persist_tool_invocations(context, generation_response)
+        end
+        private :persist_tool_messages_to_context
       end
 
       agent_class.public_send(action).generate_now

@@ -373,6 +373,31 @@ class RunnerWorkbenchTest < ActionDispatch::IntegrationTest
 
   # --- Generative UI ---------------------------------------------------------
 
+  # The Responses API reports function calls as items, not tool-role
+  # messages, so solid_agent has nothing to persist the exchange from; the
+  # service's own invocation records stand in, and stand down when the
+  # provider did report tool messages.
+  test "tool calls are persisted from the service's records when the provider reports none" do
+    context = create_context
+    run = @agent.agent_runs.create!(input_prompt: "Give me a dashboard", status: :running, input_params: { context_id: context.id })
+    service = service_for(run)
+    blocks = [ { "type" => "stat", "label" => "Revenue", "value" => "$3.36M" } ]
+    service.execute_tool("render_ui", blocks: blocks)
+
+    tool_message = Struct.new(:role, :content)
+    service.persist_tool_invocations(context, Struct.new(:messages).new([ tool_message.new("tool", "{}") ]))
+    assert_equal 0, context.messages.where(role: "tool").count, "provider tool messages are persisted elsewhere"
+
+    service.persist_tool_invocations(context, Struct.new(:messages).new([]))
+
+    rows = context.messages.chronological.where(role: "tool").to_a
+    assert_equal 1, rows.size
+    assert_equal "render_ui", rows.first.tool_name
+    assert_equal blocks, rows.first.tool_arguments["blocks"]
+    assert_equal true, rows.first.tool_result["rendered"]
+    assert_nil rows.first.tool_call_id
+  end
+
   test "the ui tool offers render_ui and acknowledges well-formed blocks" do
     assert_includes ActionAgent::Agent::AVAILABLE_TOOLS, "ui"
 

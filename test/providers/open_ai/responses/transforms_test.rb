@@ -251,6 +251,45 @@ module Providers
           assert_nil result[:text]
         end
 
+        test "normalize_message keeps an image alongside text on a message with a role" do
+          message = { role: "user", text: "What's in this image?", image: "data:image/png;base64,iVBORw0KGgo=" }
+
+          result =  transforms.normalize_message(message)
+
+          assert_equal "user", result[:role]
+          assert_equal [
+            { type: "input_text", text: "What's in this image?" },
+            { type: "input_image", image_url: "data:image/png;base64,iVBORw0KGgo=" }
+          ], result[:content]
+          assert_nil result[:text]
+          assert_nil result[:image]
+        end
+
+        test "normalize_message builds content parts for a media-only message with a role" do
+          image_only = transforms.normalize_message({ role: "user", image: "http://example.com/image.jpg" })
+          document_only = transforms.normalize_message({ role: "user", document: "data:application/pdf;base64,JVBERi0xLjQ" })
+
+          assert_equal [ { type: "input_image", image_url: "http://example.com/image.jpg" } ], image_only[:content]
+          assert_equal [ { type: "input_file", filename: "document.pdf", file_data: "data:application/pdf;base64,JVBERi0xLjQ" } ],
+            document_only[:content]
+        end
+
+        test "normalize_input keeps history and a multimodal turn as separate messages" do
+          input = [
+            { role: "user", content: "hello" },
+            { role: "assistant", content: "hi" },
+            { role: "user", text: "and this?", document: "http://example.com/doc.pdf" }
+          ]
+
+          result =  transforms.normalize_input(input)
+
+          assert_equal 3, result.size
+          assert_equal "hello", result[0][:content]
+          assert_equal "input_text", result[2][:content][0][:type]
+          assert_equal "input_file", result[2][:content][1][:type]
+          assert_equal "http://example.com/doc.pdf", result[2][:content][1][:file_url]
+        end
+
         test "normalize_message handles image shorthand" do
           message = { image: "http://example.com/image.jpg" }
 
