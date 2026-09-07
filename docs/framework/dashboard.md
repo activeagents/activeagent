@@ -74,7 +74,7 @@ agents point telemetry at an `endpoint:` instead (see below).
 
 | Page | Path | Contents |
 |------|------|----------|
-| Agents | `/activeagents` | Your agents with per-agent request, token and error stats; build, edit, version and run them |
+| Agents | `/activeagents` | Your agents with per-agent request, token and error stats; build, edit, version them, and test them as a user in the Run Agent workbench (see below) |
 | Traces | `/activeagents/traces` | Every generation: agent + action, status, duration, tokens; expandable span timeline; All/Errors filter; 30s auto-refresh |
 | Metrics | `/activeagents/metrics` | Last-24h totals: traces, tokens, avg duration, error rate, active agents; per-agent statistics |
 | Interactions | `/activeagents/interactions` | The conversations behind the traces: messages, tool calls, generations |
@@ -101,6 +101,10 @@ showing exactly what the model saw.
 
 <video src="/dashboard/runner-messages.webm" controls muted playsinline width="100%"></video>
 
+The workbench follows the dashboard theme:
+
+![Run Agent in dark mode](/dashboard/runner-overview-dark.png)
+
 **Modify the context.** The conversation on the page is the persisted
 solid_agent context, and it is editable: hover a turn to **edit** or
 **delete** it, use **Add message** to seed a user or assistant turn without
@@ -108,6 +112,8 @@ running anything, and **New conversation** to start from an empty context.
 The system row shows the composed instructions the run executes under (edit
 those on the Instructions tab). Editing a previous question and asking a
 follow-up is the quickest way to see how an agent handles a changed history.
+
+![Context editing: the second question rewritten, and the follow-up answering the rewritten history](/dashboard/runner-context-editing.png)
 
 <video src="/dashboard/runner-context.webm" controls muted playsinline width="100%"></video>
 
@@ -120,7 +126,9 @@ persisted user message keeps an attachment manifest, so the conversation
 shows the thumbnails afterwards. A host app without Active Storage keeps
 everything else and answers attachment uploads with a clear 422.
 
-![Attachments: an image and a CSV attached to one user message](/dashboard/runner-attachments.png)
+![Attachments: a CSV attached to a message, answered with stats and a chart built from its rows](/dashboard/runner-attachments.png)
+
+![Attachments: an image described by the model, and a PDF summarised into a card](/dashboard/runner-attachments-image.png)
 
 <video src="/dashboard/runner-attachments.webm" controls muted playsinline width="100%"></video>
 
@@ -141,6 +149,15 @@ answer back into the conversation as the next user message, so a model can
 ask for input and continue.
 
 ![Generative UI: stats, a chart and a table rendered from a render_ui tool call](/dashboard/runner-generative-ui.png)
+
+![Generative UI: a form the model asked the user to fill in](/dashboard/runner-generative-ui-form.png)
+
+![Generative UI: the confirmation card and choice buttons after the form was submitted](/dashboard/runner-generative-ui-confirmation.png)
+
+While a run executes, the LLM and tool calls stream into the conversation
+as they happen — here a `calculate` call answered mid-run:
+
+![The live activity feed during a run, with a tool call already answered](/dashboard/runner-tool-call.png)
 
 <video src="/dashboard/runner-generative-ui.webm" controls muted playsinline width="100%"></video>
 
