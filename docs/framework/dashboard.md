@@ -82,6 +82,93 @@ agents point telemetry at an `endpoint:` instead (see below).
 | Console | `/activeagents/console/traces` | The same traces and metrics server-rendered, without JavaScript; span waterfall per trace at `/activeagents/console/traces/:id` |
 | Ingest API | `POST /activeagents/api/traces` | JSON trace ingestion from other apps and SDKs (`local_storage` writes through the model instead, no HTTP) |
 
+## Testing an agent as a user
+
+Every agent page has a **Run Agent** button. It opens a workbench that works
+the agent the way a user would — a conversation, not a one-shot prompt box —
+so you can watch what the model is given, change it, and run again.
+
+![Run Agent: a pinned conversation with the live activity feed and the composer](/dashboard/runner-overview.png)
+
+**Add user messages.** Type a message and press Run (or ⌘/Ctrl+Enter). The
+run executes under the agent's instructions and the selected action, and the
+reply streams into the conversation with the same LLM/tool activity feed the
+Interactions view shows. The conversation is *pinned*: the next message is
+sent with every user and assistant turn before it, so "and which one grew
+fastest?" means what it would mean to a person. Each run is still its own
+`AgentRun` with its own trace, which is how Traces and Interactions keep
+showing exactly what the model saw.
+
+<video src="/dashboard/runner-messages.webm" controls muted playsinline width="100%"></video>
+
+**Modify the context.** The conversation on the page is the persisted
+solid_agent context, and it is editable: hover a turn to **edit** or
+**delete** it, use **Add message** to seed a user or assistant turn without
+running anything, and **New conversation** to start from an empty context.
+The system row shows the composed instructions the run executes under (edit
+those on the Instructions tab). Editing a previous question and asking a
+follow-up is the quickest way to see how an agent handles a changed history.
+
+<video src="/dashboard/runner-context.webm" controls muted playsinline width="100%"></video>
+
+**Attach files.** Files attached to a message upload with the run through
+Active Storage (`AgentRun has_many_attached :attachments`), and reach the
+model according to their kind: images as vision input, PDFs as documents,
+and text-like files — CSV, Markdown, JSON, plain text — inlined into the
+message, with the filename and size in a header the model can cite. The
+persisted user message keeps an attachment manifest, so the conversation
+shows the thumbnails afterwards. A host app without Active Storage keeps
+everything else and answers attachment uploads with a clear 422.
+
+![Attachments: an image and a CSV attached to one user message](/dashboard/runner-attachments.png)
+
+<video src="/dashboard/runner-attachments.webm" controls muted playsinline width="100%"></video>
+
+**Generative UI.** An assistant reply can carry UI instead of, or alongside,
+prose: cards, stats, tables, charts, lists, progress bars, forms, choice
+buttons, images, callouts and code. Three ways in, all rendered by the same
+component:
+
+- a fenced ```` ```ui ```` block in a markdown reply whose body is JSON —
+  an array of blocks, or `{ "blocks": [...] }`;
+- a JSON reply whose top level is `{ "ui": [...] }` (a `response_format`
+  agent, say) — any other JSON object renders as a key/value block;
+- the **Generative UI** tool (`render_ui`) — enable it on the agent's Tools
+  tab and the model can call it with `{ "blocks": [...] }`.
+
+Forms and choices are live: submitting a form or clicking a choice posts the
+answer back into the conversation as the next user message, so a model can
+ask for input and continue.
+
+![Generative UI: stats, a chart and a table rendered from a render_ui tool call](/dashboard/runner-generative-ui.png)
+
+<video src="/dashboard/runner-generative-ui.webm" controls muted playsinline width="100%"></video>
+
+```json
+[
+  { "type": "stats", "items": [
+    { "label": "Revenue", "value": "$3.36M", "delta": "+11%", "tone": "positive" },
+    { "label": "Deals", "value": "113" }
+  ]},
+  { "type": "chart", "chart": "bar", "title": "Revenue by region",
+    "x": "region", "series": ["revenue"],
+    "data": [ { "region": "EMEA", "revenue": 1240000 }, { "region": "APAC", "revenue": 710000 } ] },
+  { "type": "form", "title": "Book a follow-up", "submit": "Book call",
+    "fields": [
+      { "name": "date", "label": "Date", "type": "text", "required": true },
+      { "name": "time", "label": "Time", "type": "select", "options": ["09:00", "11:00", "15:00"] }
+    ]}
+]
+```
+
+Block fields: `card {title, body, image_url, footer}`, `stat {label, value,
+delta, tone}`, `stats {items}`, `table {columns, rows}`, `chart {chart:
+bar|line|area|pie, title, x, series, data}`, `list {title, items, ordered}`,
+`progress {label, value}`, `form {title, submit, fields[{name, label, type:
+text|textarea|number|select|checkbox, options, placeholder, required}]}`,
+`choices {prompt, options}`, `image {url, alt, caption}`, `callout {tone,
+title, body}`, `code {language, code}`.
+
 Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
 degrade gracefully without it; the React metrics page does its own hourly
