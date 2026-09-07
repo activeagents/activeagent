@@ -1,8 +1,14 @@
 import React from 'react';
+import GenerativeUI from './GenerativeUI';
+import { uiFenceBlocks } from '../../utils/generativeUi';
 
 // Minimal, safe markdown renderer for agent message content: headings,
 // bold/italic, inline code, fenced code blocks, links, and lists. Renders
 // React elements only (no innerHTML), so untrusted model output stays inert.
+//
+// A fenced ```ui block (or ```json-ui / ```genui) whose body is JSON renders
+// as generative UI in place; `onUiAction` receives form submissions and
+// choice clicks from those blocks. An invalid body stays a code block.
 
 const INLINE_PATTERN = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`|\[[^\]]+\]\((?:https?:\/\/|\/)[^)\s]+\))/g;
 
@@ -33,7 +39,7 @@ const renderInline = (text, keyPrefix) =>
     return part;
   });
 
-export default function Markdown({ text }) {
+export default function Markdown({ text, onUiAction, darkMode }) {
   if (!text) return null;
 
   const blocks = [];
@@ -45,13 +51,24 @@ export default function Markdown({ text }) {
     const line = lines[i];
 
     if (line.startsWith('```')) {
+      const lang = line.slice(3).trim();
       const code = [];
       i += 1;
       while (i < lines.length && !lines[i].startsWith('```')) {
         code.push(lines[i]);
         i += 1;
       }
+      const closed = i < lines.length;
       i += 1;
+      const uiBlocks = closed ? uiFenceBlocks(lang, code.join('\n')) : null;
+      if (uiBlocks) {
+        blocks.push(
+          <div key={key++} className="my-2">
+            <GenerativeUI blocks={uiBlocks} onAction={onUiAction} darkMode={darkMode} />
+          </div>
+        );
+        continue;
+      }
       blocks.push(
         <pre
           key={key++}
