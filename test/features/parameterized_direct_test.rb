@@ -257,4 +257,55 @@ class ParameterizedDirectTest < ActiveSupport::TestCase
     generation = TestAgent.embed({})
     assert_instance_of ActiveAgent::Parameterized::DirectGeneration, generation
   end
+
+  # Regression coverage for #346: the enqueue-only tests above never perform
+  # the job, which is where direct generations used to raise ArgumentError.
+  class PerformsJobTest < ActiveJob::TestCase
+    class RecordingAgent < ActiveAgent::Base
+      generate_with :mock, model: "mock-model", instructions: "You are a helpful assistant."
+      embed_with :mock, model: "mock-embedding-model"
+
+      class << self
+        attr_accessor :generations_performed
+      end
+
+      after_generation { self.class.generations_performed += 1 }
+    end
+
+    setup { RecordingAgent.generations_performed = 0 }
+
+    test "Agent.prompt(...).generate_later performs the job" do
+      RecordingAgent.prompt(message: "Hello from a worker", temperature: 0.2).generate_later
+
+      assert_enqueued_jobs 1, only: ActiveAgent::GenerationJob
+      perform_enqueued_jobs
+
+      assert_performed_jobs 1, only: ActiveAgent::GenerationJob
+      assert_equal 1, RecordingAgent.generations_performed
+    end
+
+    test "Agent.embed(...).embed_later performs the job" do
+      RecordingAgent.embed(input: "Text to embed later").embed_later
+
+      assert_enqueued_jobs 1, only: ActiveAgent::GenerationJob
+      perform_enqueued_jobs
+
+      assert_performed_jobs 1, only: ActiveAgent::GenerationJob
+    end
+
+    test "Agent.prompt(...).generate_later enqueues with serializable arguments" do
+      RecordingAgent.prompt(message: "Serializable").generate_later
+
+      job = enqueued_jobs.last
+      assert_equal ActiveAgent::GenerationJob.name, job[:job].name
+
+      # The job carries what it needs to rebuild the direct generation and
+      # nothing the worker would have to call as a real action.
+      arguments = ActiveJob::Arguments.deserialize(job[:args])
+      options = arguments.last
+      assert_equal :prompt, options[:direct_generation_type]
+      assert_equal({ message: "Serializable" }, options[:direct_options])
+      assert_equal "prompt_now", arguments[2]
+    end
+  end
 end
