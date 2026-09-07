@@ -245,6 +245,19 @@ class RunnerWorkbenchTest < ActionDispatch::IntegrationTest
     assert_equal %w[quarterly_sales.csv sales_chart.png sample_resume.pdf], slice.first["attachments"].map { |a| a["filename"] }
   end
 
+  # The dashboard's own runs record traces; those must belong to the agent
+  # that ran, not register an "observed" twin of it.
+  test "a run's trace is attributed to its agent rather than registering an observed one" do
+    ActionAgent::TelemetryTrace.delete_all
+
+    run = @agent.test_execute("Hello there")
+
+    assert run.complete?, run.error_message
+    trace = ActionAgent::TelemetryTrace.find_by!(trace_id: run.trace_id)
+    assert_equal @agent.id, trace.agent_id
+    assert_equal 0, ActionAgent::Agent.observed_agents.count
+  end
+
   test "an unpinned run still lands in the agent's default stream" do
     run = @agent.test_execute("Hello there")
 

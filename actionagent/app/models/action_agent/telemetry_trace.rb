@@ -135,7 +135,28 @@ module ActionAgent
       # Add account if in multi-tenant mode
       attrs[:account] = account if ActionAgent.multi_tenant? && account
 
+      # A trace the dashboard recorded for one of its own runs names the
+      # agent it ran (AgentExecutionService's resource attributes). Attribute
+      # it up front: left to the registrar, the run's class and action match
+      # no authored record — those carry no service_name or agent_class_name
+      # — and every dashboard run would register an "observed" twin of the
+      # agent that produced it.
+      attrs[:agent_id] = platform_agent_id(trace["resource_attributes"], account)
+
       create!(attrs).tap { |record| AgentRegistrar.call(record) }
+    end
+
+    # The id of the dashboard agent a platform-recorded trace belongs to,
+    # when that agent still exists and, in multi-tenant mode, belongs to the
+    # trace's tenant. Nil for SDK-reported traces.
+    def self.platform_agent_id(resource_attributes, account)
+      id = resource_attributes.is_a?(Hash) && resource_attributes["platform.agent_id"]
+      return nil if id.blank?
+
+      agents = ActionAgent.multi_tenant? ? Agent.for_owner(account) : Agent.all
+      agents.where(id: id).pick(:id)
+    rescue StandardError
+      nil
     end
 
     # Sums a span's token counts (used to decide which spans carry the

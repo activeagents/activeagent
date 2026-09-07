@@ -49,6 +49,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The OpenAI Responses API keeps images and documents on a message with a
+  role.** `{ role: "user", text: "…", image: "…" }` — the shorthand the Chat
+  API and Anthropic transforms accept, and the only provider-neutral way to
+  send history followed by a multimodal turn — lost its `image:` or
+  `document:` on the provider the framework defaults to, because the
+  Responses transform kept only `content` from a role-bearing hash. It now
+  builds `input_text` / `input_image` / `input_file` parts for it, and a
+  media-only `{ role: "user", image: "…" }` becomes a message with one part.
+
 - **`service: "RubyLLM"` loads when the ruby_llm railtie has run.** The
   ruby_llm gem registers `RubyLLM` as an inflector acronym in Rails apps,
   which turns `"RubyLLM".underscore` into `rubyllm` — so provider loading
