@@ -2,6 +2,7 @@
    this directory, so the built stylesheet carries only what the dashboard
    uses and never collides with the host app's own CSS. */
 @import "tailwindcss";
+@import "./tokens.css";
 
 @source "./components";
 @source "./contexts";
