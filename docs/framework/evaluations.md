@@ -45,12 +45,15 @@ scenarios = ActiveAgent::Evals::ScenarioParser.scenarios(<<~TEXT)
 TEXT
 
 models = ActiveAgent::Evals::ModelSpec.parse_all(%w[claude-sonnet-5 ollama/qwen3:8b], default_provider: "openai")
+# The agent's system prompt, for the diagnosis and the judge — with
+# ActiveAgent, the instructions template.
+instructions = Rails.root.join("app/views/agents/support/instructions.md").read
 
 report = ActiveAgent::Evals::Runner.new(
   scenarios: scenarios,
   models: models,
   available_tools: { "lookup_order" => "Find an order by number" },
-  instructions: SupportAgent.instructions,
+  instructions: instructions,
   replay: ->(scenario, spec) { SupportAgent.evaluate(scenario.prompt, model: spec.model, provider: spec.provider) }
 ).call
 
@@ -67,18 +70,20 @@ module does not care.
 
 ```ruby
 judge = ActiveAgent::Evals::Judge.new(label: "claude-opus-5") do |instructions:, prompt:|
-  JudgeAgent.with(instructions: instructions).prompt(message: prompt).generate_now.message.content
+  JudgeAgent.prompt(message: prompt, instructions: instructions).generate_now.message.content
 end
 
-ActiveAgent::Evals::Runner.new(scenarios:, models:, replay:, judge: judge, instructions: SupportAgent.instructions).call
+ActiveAgent::Evals::Runner.new(scenarios:, models:, replay:, judge: judge, instructions: instructions).call
 ```
 
 With a judge, every answer also gets a `task_completion` score (unless the
-criteria already include an `llm_judge`), failing scenarios get a
-judge-written recommendation with a suggested tool where one is missing, and
-the verdict carries the judge's rationale. A judge that raises or answers
-unusably is skipped for that call, so an evaluation never fails because the
-judge did.
+criteria already include an `llm_judge`), scenarios failing on
+`missing_capability`, `expected_tool_not_called`, `missing_content` or
+`low_quality` get a judge-written recommendation with a suggested tool where
+one is missing (`refine_faults:` and `judge_limit:`, 25 calls per run by
+default, adjust that on `Runner.new`), and the verdict carries the judge's
+rationale. A judge that raises or answers unusably is skipped for that call,
+so an evaluation never fails because the judge did.
 
 ## Faults
 
@@ -98,7 +103,7 @@ judge, which tool to add.
 
 ## In a dashboard
 
-`Runner#call` takes `on_result:` (each `Result` as it lands) and
+`Runner.new` takes `on_result:` (each `Result` as it lands) and
 `Runner#evaluate(scenario, spec, replay)` scores a replay you already hold, so
 a dashboard can run replays in background jobs and persist one row per
 scenario × model. `Report#to_h` is JSON-ready. The ActionAgent engine's

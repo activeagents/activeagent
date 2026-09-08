@@ -34,6 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `evaluation_scenarios` and `evaluation_scenario_results` ship in
   `create_active_agent_evaluation_scenarios`, which
   `rails generate action_agent:install` emits for new and existing installs.
+- **`ActionAgent.mcp_catalog`.** A host app registers the MCP servers it
+  serves or connects itself — `[{ key:, name:, tool_hints: [...] }, …]` —
+  and they join the built-in catalog: listed in the MCP Services view, with
+  telemetry traffic for their bare tool names attributed to them.
+  `MCPCatalog.keys` lists built-ins and registrations together;
+  `MCPCatalog::BY_KEY` still holds the built-ins alone.
 
 - **RubyLLM backend pinning via `platform:`.** RubyLLM resolves which of its
   providers serves a request from the model ID, and a model served by more

@@ -58,6 +58,15 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
     assert_match(/don't have access/, result.evidence["refusal"])
   end
 
+  def test_a_negative_result_is_not_a_missing_capability
+    result = diagnose(
+      scenario: scenario,
+      replay: replay(answer: "I checked the physician table and can't find any providers without a license on file; all 15,043 have one.")
+    )
+
+    assert_nil result
+  end
+
   def test_a_refusal_names_the_expected_tool_when_the_agent_lacks_it
     result = diagnose(scenario: scenario(tools: [ "record_history" ]), replay: replay(answer: "I'm unable to retrieve edit history."), score: 0.4)
 

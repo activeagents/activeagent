@@ -149,4 +149,50 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal "gpt-5-mini", parsed["verdict"]["winner"]
     assert_equal 6, parsed["results"].size
   end
+
+  def test_an_argument_error_inside_the_replay_is_an_errored_result_not_an_aborted_run
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: scenarios.first(1), models: models,
+      replay: lambda { |_scenario, spec|
+        raise ArgumentError, "Invalid Ollama Chat request parameters" if spec.provider == "ollama"
+
+        Replay.new(answer: "12 providers match.")
+      }
+    ).call
+
+    assert_equal %w[passed errored], report.results.map(&:status)
+    assert_match(/ArgumentError: Invalid Ollama/, report.results.last.replay.error)
+  end
+
+  def test_a_replay_that_returns_neither_a_replay_nor_a_hash_is_the_callers_bug
+    runner = ActiveAgent::Evals::Runner.new(scenarios: scenarios.first(1), models: models.first(1), replay: ->(_scenario, _spec) { "nope" })
+
+    assert_raises(ArgumentError) { runner.call }
+  end
+
+  def test_the_verdict_ranks_a_model_with_no_cost_estimate_after_one_with_a_known_cost
+    # Both models pass everything; qwen3:8b reports no cost and gpt-5-mini
+    # does. Unknown is not free, so the priced model wins the tie-break
+    # whichever order the models were requested in.
+    replay = lambda do |_scenario, spec|
+      Replay.new(answer: "12 providers match.", cost: spec.provider == "openai" ? 0.001 : nil)
+    end
+
+    [ %w[qwen3:8b gpt-5-mini], %w[gpt-5-mini qwen3:8b] ].each do |names|
+      specs = ActiveAgent::Evals::ModelSpec.parse_all(names, default_provider: "openai")
+      report = ActiveAgent::Evals::Runner.new(scenarios: scenarios.first(1), models: specs, criteria: CRITERIA, replay: replay).call
+
+      assert_equal 2, report.results.count(&:passed?)
+      assert_nil report.summary_by_model["qwen3:8b"]["cost"]
+      assert_equal "gpt-5-mini", report.winner, "models requested as #{names.join(', ')}"
+    end
+  end
+
+  def test_a_prompt_containing_a_pipe_does_not_break_the_markdown_matrix
+    piped = [ scenario("s_1", "Compare A | B for price", group: "compare") ]
+    report = ActiveAgent::Evals::Runner.new(scenarios: piped, models: models.first(1), replay: ->(*) { Replay.new(answer: "ok") }).call
+    row = report.to_markdown.lines.find { |line| line.include?("`s_1`") }
+
+    assert_includes row, "Compare A \\| B for price | ✅ |"
+  end
 end

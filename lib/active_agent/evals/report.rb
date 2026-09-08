@@ -81,14 +81,15 @@ module ActiveAgent
       end
 
       # The best model when comparing: highest pass rate, then mean score, then
-      # lowest cost, with the judge's rationale when one is available.
+      # lowest cost (a model with no cost estimate ranks after one with),
+      # with the judge's rationale when one is available.
       # `{ "winner", "rationale", "judge" }`, or nil for a single model.
       def verdict
         return nil unless comparing?
 
         @verdict ||= begin
           ranked = summary_by_model.sort_by do |_label, stats|
-            [ -stats["pass_rate"].to_f, -stats["avg_score"].to_f, stats["cost"].to_f ]
+            [ -stats["pass_rate"].to_f, -stats["avg_score"].to_f, stats["cost"] || Float::INFINITY ]
           end
           winner, stats = ranked.first
           rationale = "Passed #{stats['passed']} of #{stats['scenarios']} scenarios" \
@@ -182,9 +183,15 @@ module ActiveAgent
             mark = result.passed? ? "✅" : (result.errored? ? "⚠️" : "❌")
             [ mark, result.score&.round(2), result.fault&.tr("_", " ") ].compact.join(" ")
           end
-          "| `#{key}` #{cohort.first.scenario.prompt.truncate(70)} | #{cells.join(' | ')} |"
+          "| `#{key}` #{cell(cohort.first.scenario.prompt.truncate(70))} | #{cells.join(' | ')} |"
         end
         header + rows
+      end
+
+      # A prompt may contain " | " (ScenarioParser keeps it), which would
+      # otherwise split the table cell.
+      def cell(text)
+        text.to_s.gsub("|") { "\\|" }
       end
 
       def recommendation_lines
