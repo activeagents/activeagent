@@ -174,4 +174,137 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  # A complete run over one scenario that expected `tool`, with its result
+  # diagnosed the way ScenarioEvaluationRunner records a tool the agent
+  # could not call — the shape a run's fix items are built from.
+  def create_missing_tool_run(agent, tool:)
+    evaluation = agent.evaluations.create!(name: "Tool coverage", judge_kind: "rules", criteria: [])
+    scenario = evaluation.scenarios.create!(
+      key: "match_slots", prompt: "Find the next available slot", group: "match", position: 0,
+      expectations: { "tools" => [ tool ] }
+    )
+    run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current, samples_evaluated: 1, samples_passed: 0)
+    recommendation = "The scenario expects #{tool}, which assistant does not have. Enable the tool (or add the server that provides it) and re-run."
+    run.scenario_results.create!(
+      scenario: scenario, model: "mock-model", provider: "mock", status: :failed, score: 0.5,
+      scores: { "expected_tools" => 0.0 }, output: "I can't look that up.", duration_ms: 10,
+      fault: "expected_tool_not_called", recommendation: recommendation,
+      diagnosis: {
+        "fault" => "expected_tool_not_called",
+        "summary" => "Expected #{tool} to be called; assistant called nothing.",
+        "recommendation" => recommendation,
+        "evidence" => { "expected" => [ tool ], "called" => [], "unavailable" => [ tool ] }
+      }
+    )
+    [ evaluation, run ]
+  end
+
+  test "a run's fix items name the catalog server behind a missing tool and whether the agent enabled it" do
+    agent = create_agent
+    evaluation, run = create_missing_tool_run(agent, tool: "browser_navigate")
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}"
+
+    assert_response :success
+    items = JSON.parse(response.body).dig("run", "fix_items")
+    assert_equal 1, items.size
+    item = items.first
+    assert_equal "fault", item["kind"]
+    assert_equal "expected_tool_not_called", item["fault"]
+    assert_equal 1, item["count"]
+    assert_equal [ "match_slots" ], item["scenario_keys"]
+    assert_equal [ "mock/mock-model" ], item["models"]
+    assert_equal "missing tools", item["tools_label"]
+    server = { "key" => "playwright", "name" => "Playwright", "status" => "available" }
+    assert_equal [ { "name" => "browser_navigate", "note" => "Playwright", "server" => server } ], item["tools"]
+    assert_equal server, item["server"]
+    # Paths are relative to the mount: the React app resolves them itself.
+    assert_equal({ "label" => "Enable Playwright for Assistant", "hint" => "MCP Services ->", "path" => "/mcp/playwright" }, item["action"])
+  end
+
+  test "a server the agent declares in mcp_servers resolves as enabled, so the fix points at Tools" do
+    agent = ActionAgent::Agent.create!(
+      name: "Assistant", provider: "mock", model: "mock-model",
+      mcp_servers: [ { "name" => "playwright", "transport" => "stdio", "command" => "npx @playwright/mcp@latest" } ]
+    )
+    evaluation, run = create_missing_tool_run(agent, tool: "browser_navigate")
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}"
+
+    assert_response :success
+    item = JSON.parse(response.body).dig("run", "fix_items").first
+    assert_equal "enabled", item.dig("server", "status")
+    assert_equal "enabled", item.dig("tools", 0, "server", "status")
+    assert_equal({ "label" => "Open tools", "hint" => "Tools ->", "path" => "/tools" }, item["action"])
+  end
+
+  test "a failing namespaced tool names its server even when nothing else knows it" do
+    agent = create_agent
+    evaluation = agent.evaluations.create!(name: "Tool coverage", judge_kind: "rules", criteria: [])
+    scenario = evaluation.scenarios.create!(
+      key: "sync", prompt: "Is sync healthy?", position: 0, expectations: { "tools" => [ "mcp__sparkle__sync_status" ] }
+    )
+    run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
+    run.scenario_results.create!(
+      scenario: scenario, model: "mock-model", provider: "mock", status: :failed, score: 0.5, fault: "tool_error",
+      tool_calls: [ { "name" => "mcp__sparkle__sync_status", "error" => true, "detail" => "no Physician with id=0" } ],
+      recommendation: "Fix the failing tool before judging the answer.",
+      diagnosis: {
+        "fault" => "tool_error", "summary" => "Tool mcp__sparkle__sync_status returned an error while answering.",
+        "recommendation" => "Fix the failing tool before judging the answer.",
+        "evidence" => { "tools" => [ "mcp__sparkle__sync_status" ], "detail" => "no Physician with id=0" }
+      }
+    )
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}"
+
+    assert_response :success
+    item = JSON.parse(response.body).dig("run", "fix_items").first
+    assert_equal "failing tools", item["tools_label"]
+    assert_equal(
+      [ { "name" => "mcp__sparkle__sync_status", "note" => "no Physician with id=0",
+          "server" => { "key" => "sparkle", "name" => "sparkle", "status" => "unknown" } } ],
+      item["tools"]
+    )
+    assert_nil item["server"]
+    assert_equal({ "label" => "Open failing tools", "hint" => "Tools ->", "path" => "/tools" }, item["action"])
+  end
+
+  test "a generation-sampling run serializes an empty fix list" do
+    agent = create_agent
+    evaluation = agent.evaluations.create!(
+      name: "Sampling", judge_kind: "rules",
+      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ]
+    )
+    run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}"
+
+    assert_response :success
+    assert_equal [], JSON.parse(response.body).dig("run", "fix_items")
+  end
+
+  test "the report page pins the theme from ?theme and links fix actions at the mount" do
+    agent = create_agent
+    evaluation, run = create_missing_tool_run(agent, tool: "browser_navigate")
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}/report", params: { theme: "dark" }
+
+    assert_response :success
+    assert_includes response.body, '<html lang="en" class="theme-dark">'
+    assert_includes response.body, 'href="/activeagents/mcp/playwright"'
+    assert_includes response.body, "Enable Playwright for Assistant"
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}/report", params: { theme: "light" }
+
+    assert_response :success
+    assert_includes response.body, '<html lang="en" class="theme-light">'
+
+    # No theme, or one the report does not know, follows the viewer's own.
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}/report", params: { theme: "neon" }
+
+    assert_response :success
+    assert_includes response.body, '<html lang="en">'
+  end
 end

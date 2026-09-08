@@ -64,12 +64,36 @@ module ActionAgent
       }
     end
 
+    # Route templates for the report's fix item actions, relative to the
+    # dashboard mount: `%{key}` is filled in per MCP server by the report.
+    # The JSON API leaves `mount` empty — the React app resolves paths
+    # against the mount itself (dashboardPath) — while the standalone HTML
+    # report page is served outside the app and needs the absolute path.
+    def report_links(mount: "")
+      base = mount.to_s.chomp("/")
+
+      {
+        "mcp" => "#{base}/mcp/%{key}",
+        "tools" => "#{base}/tools",
+        "instructions" => "#{base}/agents/#{evaluation.agent_id}/edit"
+      }
+    end
+
+    # What to fix, from the framework's Report: one item per fault plus one
+    # per instruction change the judge proposed, each naming the tools
+    # involved, the MCP server that serves them and whether this run's
+    # agent has it enabled (EvaluationToolResolver), and the dashboard
+    # action that addresses it. Empty for a generation-sampling run.
+    def fix_items(links: report_links)
+      to_report(links: links).fix_items
+    end
+
     # Rebuilds the framework's Report from this run's persisted results, so
     # the dashboard serves the same self-contained report page a CLI run
     # writes with Report#to_html. Raises ActiveRecord::RecordNotFound via the
     # caller for a run of a generation-sampling evaluation, which has no
     # scenario results to report on.
-    def to_report
+    def to_report(links: report_links)
       rows = scenario_results.includes(:scenario).joins(:scenario)
         .order(EvaluationScenario.arel_table[:position], EvaluationScenario.arel_table[:id], :model)
       specs = {}
@@ -97,7 +121,10 @@ module ActionAgent
           "agent" => evaluation.agent&.name,
           "run" => id,
           "finished" => completed_at&.iso8601
-        }.compact
+        }.compact,
+        tool_resolver: EvaluationToolResolver.new(evaluation.agent),
+        agent_name: evaluation.agent&.name,
+        links: links
       )
     end
 
