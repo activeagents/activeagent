@@ -249,10 +249,11 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
   end
 
   def create_run(agent)
-    evaluation = agent.evaluations.create!(name: "Tool coverage", judge_kind: "rules", criteria: [])
-    scenario = evaluation.scenarios.create!(
+    evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
+    scenario = evaluation.scenarios.build(
       key: "match_slots", prompt: "Find the next slot", position: 0, expectations: { "tools" => [ "browser_navigate" ] }
     )
+    evaluation.save!
     run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     run.scenario_results.create!(
       scenario: scenario, model: "mock-model", provider: "mock", status: :failed, score: 0.5,
