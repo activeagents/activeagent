@@ -4,7 +4,7 @@
 # shape). The reference host had every dashboard table but this one, so any
 # view that joins runs with reported traces — the agent's runs list, for
 # one — raised on a missing table.
-class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration[8.0]
+class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration[7.2]
   def change
     create_table :active_agent_telemetry_traces do |t|
       t.string :trace_id, null: false
