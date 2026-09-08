@@ -18,6 +18,17 @@ const TELEMETRY_CRITERIA = [
 
 const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
 
+const formatRunUsage = (usage) => {
+  if (!usage) return null;
+  const cost = usage.cost == null ? '—' : `$${Number(usage.cost).toFixed(4)}`;
+  const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
+  const tokenLabel = tokens >= 10000 ? `${(tokens / 1000).toFixed(1)}K` : `${tokens}`;
+  const runtime = usage.runtime_ms == null
+    ? null
+    : usage.runtime_ms >= 1000 ? `${(usage.runtime_ms / 1000).toFixed(1)}s` : `${usage.runtime_ms}ms`;
+  return `${cost} · ${tokenLabel} tok${runtime ? ` · ${runtime}` : ''}`;
+};
+
 const timeAgo = (iso) => {
   if (!iso) return '';
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -570,7 +581,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                   )}
 
                   {/* Details */}
-                  <div className="p-4 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm" style={{ background: colors.innerBg }}>
+                  <div className="p-4 grid grid-cols-2 md:grid-cols-6 gap-4 text-sm" style={{ background: colors.innerBg }}>
                     <div>
                       <div style={{ color: colors.textMuted }}>Judge</div>
                       <div className="font-medium" style={{ color: colors.textPrimary }}>
@@ -589,6 +600,12 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                       <div style={{ color: colors.textMuted }}>{evaluation.scenario_suite ? 'Scenario runs' : 'Samples'}</div>
                       <div className="font-medium" style={{ color: colors.textPrimary }}>
                         {run && run.status === 'complete' ? `${run.samples_passed} / ${run.samples_evaluated} passed` : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: colors.textMuted }}>Last run</div>
+                      <div className="font-medium" style={{ color: colors.textPrimary }} title="Estimated cost, tokens and wall-clock runtime of the latest run">
+                        {formatRunUsage(run?.usage) || '—'}
                       </div>
                     </div>
                     <div className="flex items-end justify-end">

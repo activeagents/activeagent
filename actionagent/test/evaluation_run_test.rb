@@ -131,4 +131,39 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     assert_in_delta 1.0, latest["average_score"], 0.0001
     assert_equal [ "no-such-model" ], latest.dig("scores", "_missing_models")
   end
+
+  test "a scenario run serializes its aggregated usage" do
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model")
+    evaluation = agent.evaluations.create!(
+      name: "Suite", judge_kind: "rules",
+      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ],
+      config: { "scenario_suite" => true }
+    )
+    scenario = evaluation.scenarios.create!(key: "s1", prompt: "Hello", position: 0)
+    run = evaluation.evaluation_runs.create!(status: :complete, created_at: 90.seconds.ago, completed_at: Time.current)
+    run.scenario_results.create!(
+      scenario: scenario, model: "mock-model", status: :passed, score: 1.0,
+      duration_ms: 1200, input_tokens: 100, output_tokens: 40, cost: 0.002
+    )
+    run.scenario_results.create!(
+      scenario: scenario, model: "mock-fast", status: :failed, score: 0.5,
+      duration_ms: 800, input_tokens: 60, output_tokens: 20, cost: 0.001
+    )
+
+    get "/activeagents/api/evaluations"
+
+    assert_response :success
+    usage = JSON.parse(response.body)["evaluations"].first.dig("latest_run", "usage")
+    assert_equal 2, usage["replays"]
+    assert_in_delta 0.003, usage["cost"], 0.00001
+    assert_equal 160, usage["input_tokens"]
+    assert_equal 60, usage["output_tokens"]
+    assert_equal 2000, usage["model_time_ms"]
+    assert_in_delta 90_000, usage["runtime_ms"], 2_000
+  end
+
+  test "a generation-sampling run reports no usage" do
+    run = ActionAgent::EvaluationRun.new
+    assert_nil run.usage
+  end
 end
