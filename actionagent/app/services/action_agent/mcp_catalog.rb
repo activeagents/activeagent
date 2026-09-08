@@ -177,11 +177,12 @@ module ActionAgent
     end.freeze
 
     class << self
-      # Every catalog entry, as API-shaped hashes.
+      # Every catalog entry — built-ins plus the host's
+      # +ActionAgent.mcp_catalog+ registrations — as API-shaped hashes.
       #
       # @return [Array<Hash>]
       def all
-        SERVERS.map { |server| present(server) }
+        entries.map { |server| present(server) }
       end
 
       # Entries that can be started inside a sandbox session.
@@ -194,14 +195,21 @@ module ActionAgent
       # @param key [String, Symbol]
       # @return [Hash, nil] the catalog entry, or nil when unknown
       def find(key)
-        entry = BY_KEY[key.to_s]
+        entry = index[key.to_s]
         present(entry) if entry
+      end
+
+      # Every catalog key, built-ins first.
+      #
+      # @return [Array<String>]
+      def keys
+        entries.map { |server| server[:key] }
       end
 
       # @param key [String, Symbol]
       # @return [Boolean] whether the server can be started in a sandbox
       def launchable?(key)
-        BY_KEY[key.to_s]&.fetch(:sandbox, false) || false
+        index[key.to_s]&.fetch(:sandbox, false) || false
       end
 
       # The catalog server a bare (non-namespaced) tool name belongs to.
@@ -213,7 +221,7 @@ module ActionAgent
       # @param tool_name [String, Symbol]
       # @return [String, nil] the server key
       def server_for_tool(tool_name)
-        TOOL_HINTS[tool_name.to_s]
+        tool_hints[tool_name.to_s]
       end
 
       # The display name for a server key, falling back to the key itself for
@@ -222,10 +230,35 @@ module ActionAgent
       # @param key [String, Symbol]
       # @return [String]
       def display_name(key)
-        BY_KEY[key.to_s]&.fetch(:name) || key.to_s
+        index[key.to_s]&.[](:name) || key.to_s
       end
 
       private
+
+      # Built-ins plus host registrations, deduplicated by key (first
+      # declaration wins, so a built-in keeps its key). Derived per call
+      # rather than memoized: the host list is tiny and tests reconfigure it.
+      def entries
+        (SERVERS + host_entries).uniq { |server| server[:key] }
+      end
+
+      def host_entries
+        Array(ActionAgent.mcp_catalog).filter_map do |entry|
+          normalized = entry.to_h.symbolize_keys
+          normalized[:key] = normalized[:key].to_s
+          normalized unless normalized[:key].blank?
+        end
+      end
+
+      def index
+        entries.index_by { |server| server[:key] }
+      end
+
+      def tool_hints
+        entries.each_with_object({}) do |server, map|
+          Array(server[:tool_hints]).each { |tool| map[tool.to_s] ||= server[:key] }
+        end
+      end
 
       # Drops the internal-only tool_hints and normalizes optional keys so
       # every entry serializes with the same shape.

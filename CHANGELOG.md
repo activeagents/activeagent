@@ -35,6 +35,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `attachments[]` and `params[context_id]`, and attachment metadata on
   run and message JSON. The reference host (`test/dummy`) gained the Active
   Storage tables so the attachment path is exercised by the engine's tests.
+- **`ActiveAgent::Evals`, the evaluation core, in the framework.** Pasted-list
+  and YAML suite parsing, model resolution, rule and expectation scoring, the
+  fault taxonomy with its recommendations, the optional judge, and the
+  per-model report live in `lib/active_agent/evals`, loadable on their own
+  with `require "active_agent/evals"`. Any app can replay a list of tasks
+  across models against its own agent through one `replay` callable and get
+  the same faults, recommendations and verdict the dashboard shows;
+  `actionagent` keeps only what the dashboard adds — persistence, the job,
+  the API and the UI.
+- **Scenario evaluations in the dashboard.** An evaluation can now carry a
+  suite of scenarios — a pasted list of user messages, grouped with
+  `# Heading` lines and annotated with the tool each should call — and a run
+  replays every selected scenario through the agent once per candidate model
+  (`compare_models`, or a per-run `models` selection) instead of sampling
+  recorded generations. Each scenario × model result records the answer, the
+  tools called, its score, and, when it falls short, one fault
+  (`run_error`, `tool_error`, `missing_capability`,
+  `expected_tool_not_called`, `forbidden_content`, `missing_content`,
+  `low_quality`) with a recommendation; a configured judge model refines the
+  recommendation with the tool to add or the instruction to change. Runs can
+  be narrowed to a group or to single scenarios, and the run summary ranks
+  the models by pass rate with a verdict. New tables
+  `evaluation_scenarios` and `evaluation_scenario_results` ship in
+  `create_active_agent_evaluation_scenarios`, which
+  `rails generate action_agent:install` emits for new and existing installs.
+- **`ActionAgent.mcp_catalog`.** A host app registers the MCP servers it
+  serves or connects itself — `[{ key:, name:, tool_hints: [...] }, …]` —
+  and they join the built-in catalog: listed in the MCP Services view, with
+  telemetry traffic for their bare tool names attributed to them.
+  `MCPCatalog.keys` lists built-ins and registrations together;
+  `MCPCatalog::BY_KEY` still holds the built-ins alone.
 
 - **RubyLLM backend pinning via `platform:`.** RubyLLM resolves which of its
   providers serves a request from the model ID, and a model served by more

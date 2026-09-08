@@ -294,6 +294,16 @@ module ActionAgent
     # @return [Boolean]
     attr_accessor :encrypt_credentials
 
+    # MCP servers the host app itself serves or connects, appended to the
+    # built-in catalog (MCPCatalog) so the MCP Services view lists them and
+    # telemetry traffic attributes to them. Each entry is a hash shaped like
+    # a catalog entry: +key+ and +name+ at minimum, plus any of the optional
+    # fields (+description+, +transport+, +url+, +categories+, +docs_url+,
+    # +first_party+); +tool_hints+ names the bare tool names that belong to
+    # the server. A built-in entry keeps its key on collision.
+    # @return [Array<Hash>]
+    attr_accessor :mcp_catalog
+
     # Value stored in polymorphic *_type columns for dashboard agents
     # (agent_memories.memorable_type, agent_contexts.contextable_type).
     # Unset means the class name. A host app whose existing rows were
@@ -444,6 +454,7 @@ module ActionAgent
       @usage_resolver = nil
       @upgrade_url = nil
       @sign_out_path = nil
+      @mcp_catalog = []
     end
   end
 
