@@ -16,6 +16,11 @@ module ActionAgent
         "tokens" => "Most tokens"
       }.freeze
       DEFAULT_LIST_SORT = "recent"
+      # Conversations returned to the runner's picker when no limit is asked for.
+      CONVERSATIONS_LIMIT = 50
+      # Keywords Agent#execute takes in its own right, which per-run overrides
+      # must never supply (see #execution_params).
+      RESERVED_EXECUTION_KEYS = [ :attachments, :action ].freeze
 
       before_action :set_agent, only: [
         :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics,
@@ -190,9 +195,13 @@ module ActionAgent
       # The agent's persisted contexts, newest first — the runner's
       # conversation picker, narrowed to one action when asked.
       def conversations
+        limit = params.fetch(:limit, CONVERSATIONS_LIMIT).to_i.clamp(1, 200)
         contexts = agent_contexts.order(created_at: :desc)
         contexts = contexts.for_action(params[:action_name]) if params[:action_name].present?
-        contexts = contexts.to_a
+        # The picker is refetched on every seeded or deleted message, and the
+        # list grows a row per New conversation, so it is bounded like every
+        # other collection this API serves.
+        contexts = contexts.limit(limit).to_a
         counts = AgentMessage.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
 
         render json: {
@@ -395,6 +404,11 @@ module ActionAgent
       # anything that isn't one is dropped rather than pinned to nothing.
       def execution_params
         extra = params.fetch(:params, {}).to_unsafe_h.symbolize_keys
+        # These reach Agent#execute as keywords, and a keyword splat wins over
+        # the arguments before it: left in, params[params][attachments] would
+        # replace the uploaded files with anything the caller names, and
+        # params[params][action] the action. They are the controller's to set.
+        extra.except!(*RESERVED_EXECUTION_KEYS)
         context_id = Integer(extra.delete(:context_id).presence || params[:context_id].presence || 0, exception: false)
         extra[:context_id] = context_id if context_id&.positive?
         extra

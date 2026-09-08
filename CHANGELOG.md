@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `attachments[]` and `params[context_id]`, and attachment metadata on
   run and message JSON. The reference host (`test/dummy`) gained the Active
   Storage tables so the attachment path is exercised by the engine's tests.
+  Two notes for anyone driving that API directly: `execute`/`test` now answer
+  422 unless the request carries a prompt or a file, and per-run overrides in
+  `params` can no longer name `attachments` or `action` — those stay the
+  controller's to set. Model-supplied images in generative UI load on sight
+  only when they are inline data or this app's own URL; any other host is
+  offered as a click-to-load, since fetching one tells that host whatever the
+  model put in the URL.
 - **`ActiveAgent::Evals`, the evaluation core, in the framework.** Pasted-list
   and YAML suite parsing, model resolution, rule and expectation scoring, the
   fault taxonomy with its recommendations, the optional judge, and the
@@ -88,6 +95,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Responses transform kept only `content` from a role-bearing hash. It now
   builds `input_text` / `input_image` / `input_file` parts for it, and a
   media-only `{ role: "user", image: "…" }` becomes a message with one part.
+  The shorthand keys always come off the message, so a hash that carries
+  `content` *and* `image:` no longer sends `image` as an unknown parameter,
+  and a blank `image:`/`document:` contributes no part rather than an empty
+  one (a nil `document:` used to raise).
 
 - **`service: "RubyLLM"` loads when the ruby_llm railtie has run.** The
   ruby_llm gem registers `RubyLLM` as an inflector acronym in Rails apps,

@@ -263,7 +263,19 @@ module ActionAgent
         trace_id: SecureRandom.uuid,
         **attributes
       )
-      run.attachments.attach(*files) if files.any?
+
+      if files.any?
+        begin
+          run.attachments.attach(*files)
+        rescue StandardError
+          # An attach that raises (an unwritable service, a value that is not
+          # a file) happens after the row exists, and the caller never reaches
+          # the enqueue: without this the run would sit pending forever.
+          run.destroy
+          raise
+        end
+      end
+
       run
     end
 

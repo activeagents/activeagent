@@ -146,9 +146,13 @@ module ActionAgent
       complete? || failed? || cancelled?
     end
 
-    # The conversation the caller pinned this run to (input_params), if any.
+    # The conversation this run belongs to: the one it actually wrote to
+    # once it has executed (output_metadata), else the one the caller asked
+    # to continue. A pinned id the run declined — another agent's context,
+    # or another action's — must not be the id the API reports, or the
+    # runner would open a conversation the turn is not in.
     def context_id
-      input_params&.dig("context_id")
+      output_metadata&.dig("context_id") || input_params&.dig("context_id")
     end
 
     # The run's files as the runner and the persisted user message show
