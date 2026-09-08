@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 7) do
+ActiveRecord::Schema[8.0].define(version: 8) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -196,9 +196,51 @@ ActiveRecord::Schema[8.0].define(version: 7) do
     t.integer "samples_evaluated", default: 0
     t.integer "samples_passed", default: 0
     t.json "scores", default: {}
+    t.json "selection"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index [ "evaluation_id" ], name: "index_active_agent_evaluation_runs_on_evaluation_id"
+  end
+
+  create_table "active_agent_evaluation_scenario_results", force: :cascade do |t|
+    t.bigint "agent_run_id"
+    t.decimal "cost", precision: 12, scale: 6
+    t.datetime "created_at", null: false
+    t.json "diagnosis"
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.bigint "evaluation_run_id", null: false
+    t.bigint "evaluation_scenario_id", null: false
+    t.string "fault"
+    t.integer "input_tokens"
+    t.string "model", null: false
+    t.text "output"
+    t.integer "output_tokens"
+    t.string "provider"
+    t.text "recommendation"
+    t.float "score"
+    t.json "scores"
+    t.integer "status", default: 0, null: false
+    t.json "tool_calls"
+    t.datetime "updated_at", null: false
+    t.index [ "evaluation_run_id", "model" ], name: "index_active_agent_evaluation_scenario_results_on_run_and_model"
+    t.index [ "evaluation_run_id" ], name: "index_active_agent_evaluation_scenario_results_on_run"
+    t.index [ "evaluation_scenario_id" ], name: "index_active_agent_evaluation_scenario_results_on_scenario"
+  end
+
+  create_table "active_agent_evaluation_scenarios", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.bigint "evaluation_id", null: false
+    t.json "expectations"
+    t.string "group"
+    t.string "key", null: false
+    t.text "notes"
+    t.integer "position", default: 0, null: false
+    t.text "prompt", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "evaluation_id", "group" ], name: "index_active_agent_evaluation_scenarios_on_evaluation_and_group"
+    t.index [ "evaluation_id", "key" ], name: "index_active_agent_evaluation_scenarios_on_evaluation_and_key", unique: true
   end
 
   create_table "active_agent_evaluations", force: :cascade do |t|

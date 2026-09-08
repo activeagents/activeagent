@@ -35,9 +35,11 @@ rails db:migrate
 
 The generator:
 
-- copies two migrations — `active_agent_telemetry_traces` (the trace store)
-  and `active_agent_dashboard_tables` (agents, runs, versions,
-  conversations, evaluations, sandboxes, recordings, keys); pass
+- copies three migrations — `active_agent_telemetry_traces` (the trace
+  store), `active_agent_dashboard_tables` (agents, runs, versions,
+  conversations, evaluations, sandboxes, recordings, keys) and
+  `active_agent_evaluation_scenarios` (scenario suites and their per-model
+  results; re-run the generator on an existing install to get it); pass
   `--traces_only` for a trace sink alone,
 - mounts the engine at `/activeagents`,
 - writes `config/initializers/action_agent.rb`.
@@ -78,7 +80,7 @@ agents point telemetry at an `endpoint:` instead (see below).
 | Traces | `/activeagents/traces` | Every generation: agent + action, status, duration, tokens; expandable span timeline; All/Errors filter; 30s auto-refresh |
 | Metrics | `/activeagents/metrics` | Last-24h totals: traces, tokens, avg duration, error rate, active agents; per-agent statistics |
 | Interactions | `/activeagents/interactions` | The conversations behind the traces: messages, tool calls, generations |
-| Evaluations | `/activeagents/evaluations` | Scored agent outputs |
+| Evaluations | `/activeagents/evaluations` | Scored agent outputs, and scenario suites replayed across models (see below) |
 | Console | `/activeagents/console/traces` | The same traces and metrics server-rendered, without JavaScript; span waterfall per trace at `/activeagents/console/traces/:id` |
 | Ingest API | `POST /activeagents/api/traces` | JSON trace ingestion from other apps and SDKs (`local_storage` writes through the model instead, no HTTP) |
 
@@ -190,6 +192,84 @@ Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
 degrade gracefully without it; the React metrics page does its own hourly
 bucketing and needs nothing extra.
+
+## Scenario evaluations
+
+An evaluation scores an agent one of two ways. Without scenarios it samples
+the agent's recent recorded generations and scores them against rule,
+telemetry and LLM-judge criteria. With scenarios it **replays** a list of
+user messages you paste in — one fresh run per scenario, per candidate model
+— and reports which tasks the agent completes, what the failures have in
+common, and what to change. That is how to answer "can this agent do these
+new tasks with the tools it has?" and "how does a frontier model compare with
+the latest open-weights model on my workload?" without waiting for traffic.
+
+Paste scenarios into the **Scenarios** field of the New Evaluation form, or
+through the API (`scenarios_text`, or a `scenarios` array). One message per
+line; `# Heading` lines group related tasks so a group can be run on its own;
+options after `|` set expectations:
+
+```text
+# Find records
+Which gynecologists in Charlotte have scheduling enabled? | tools: find_records
+Show me all providers with no license on file
+# Blame
+Who changed the biography for Dr. AbdelRazek? | contains: AbdelRazek
+```
+
+| Option | Meaning |
+|---|---|
+| `tools: a, b` | A passing answer calls at least one of these tools |
+| `contains: x, y` | The answer must contain each pattern (substring or regex) |
+| `not_contains: x` | The answer must not contain the pattern |
+| `key: k` | A stable key, so results line up across re-imports |
+| `group: g` | Overrides the heading for this line |
+
+**Compare models** takes the candidates as a comma-separated list. A bare
+name infers its provider from the family (`claude-*` → Anthropic, `gpt-*` →
+OpenAI, `name:tag` → Ollama); prefix it to be explicit
+(`ollama/qwen3:8b`, `openrouter/meta-llama/llama-3.3-70b-instruct`). Each
+candidate needs credentials the same way an agent run does — the owner's
+provider key or the host app's `config/active_agent.yml`.
+
+A run is queued (`EvaluationRunJob`) and its results land as each replay
+finishes. The expanded evaluation shows:
+
+- **Per model** — pass rate, mean score, mean latency, tokens, estimated
+  cost and fault counts, with the best model by pass rate (the judge writes
+  the rationale when one is configured).
+- **Recommendations** — the faults grouped across scenarios with the fix
+  each calls for, and any tool the judge suggested adding.
+- **The scenario × model matrix** — one row per scenario, one column per
+  model; click a row for each model's answer, tool calls and diagnosis, or
+  press *run* on the row to replay just that scenario.
+
+A scenario passes when the run completed, met its expectations, and scored
+at least 0.7 across the evaluation's criteria. Anything else carries exactly
+one fault, assigned from the evidence in this order:
+
+| Fault | Meaning | Typical fix |
+|---|---|---|
+| `run_error` | The replay raised, or the model returned nothing | Credentials, model name, throttling |
+| `tool_error` | A tool the agent called returned an error | Fix the tool, or its parameter descriptions |
+| `missing_capability` | The agent said no tool covers the task | Add the tool the recommendation names |
+| `expected_tool_not_called` | The scenario expects a tool the agent did not call | Enable the tool, or sharpen its description / the instructions |
+| `forbidden_content` / `missing_content` | A content expectation failed | Instructions, or the tool's output |
+| `low_quality` | Criteria scored the answer below 0.7 | Read the answer against the weakest criterion |
+
+`missing_capability` and `expected_tool_not_called` are the faults that
+turn a pasted list of new tasks into a backlog: they say which tasks the
+current toolset cannot reach and what to build.
+
+The parsing, scoring, diagnosis and report are the framework's
+[`ActiveAgent::Evals`](/framework/evaluations); the engine adds the
+persistence, the job, the API and the UI. An app can run the same
+evaluations against its own agent from Ruby with that module alone.
+
+The API: `POST /api/evaluations` with `scenarios_text`;
+`POST /api/evaluations/:id/run` with `group`, `keys[]`, `scenario_ids[]`
+and `models[]`; `GET /api/evaluations/:id/runs/:run_id` for the results;
+`GET`/`PUT /api/evaluations/:id/scenarios` to read or replace the suite.
 
 ## Authentication
 
