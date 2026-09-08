@@ -278,6 +278,7 @@ module ActionAgent
           average_score: safe_average_score(run),
           samples_evaluated: run.samples_evaluated,
           samples_passed: run.samples_passed,
+          usage: run.usage,
           error_message: run.error_message,
           completed_at: run.completed_at&.iso8601,
           created_at: run.created_at.iso8601

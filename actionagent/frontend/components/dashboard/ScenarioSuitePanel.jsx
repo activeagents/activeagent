@@ -41,6 +41,7 @@ function scenariosToText(scenarios) {
 
 const formatMs = (ms) => (ms == null ? '—' : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
 const formatCost = (cost) => (cost == null ? '—' : `$${Number(cost).toFixed(4)}`);
+const formatTokens = (n) => (n == null ? '—' : n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`);
 
 export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onChanged }) {
   const [scenarios, setScenarios] = useState([]);
@@ -240,6 +241,14 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
                 ? `Run failed: ${run.error_message}`
                 : `Last run: ${runScenarioKeys.length} scenario${runScenarioKeys.length === 1 ? '' : 's'}${run.selection?.group ? ` in ${run.selection.group}` : ''} × ${columns.length} model${columns.length === 1 ? '' : 's'} — ${run.samples_passed} passed`}
           </span>
+          {!inProgress && run.status !== 'failed' && run.usage && (
+            <span>
+              {formatCost(run.usage.cost)} · {formatTokens((run.usage.input_tokens || 0) + (run.usage.output_tokens || 0))} tokens
+              ({formatTokens(run.usage.input_tokens)} in / {formatTokens(run.usage.output_tokens)} out)
+              · model time {formatMs(run.usage.model_time_ms)}
+              {run.usage.runtime_ms != null ? ` · finished in ${formatMs(run.usage.runtime_ms)}` : ''}
+            </span>
+          )}
           {inProgress && <span className="animate-spin inline-block rounded-full h-3 w-3 border-b-2 border-red-500" />}
         </div>
       )}

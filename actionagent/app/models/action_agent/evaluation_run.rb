@@ -42,6 +42,28 @@ module ActionAgent
       (values.sum.to_f / values.size).round(3)
     end
 
+    # Aggregate usage over the run's scenario results, for display after a
+    # run: estimated cost, token totals, summed model time, and the run's
+    # wall-clock runtime. Returns nil for a generation-sampling run, which
+    # replays nothing itself.
+    def usage
+      totals = scenario_results.pick(
+        Arel.sql("COUNT(*)"), Arel.sql("SUM(cost)"), Arel.sql("SUM(input_tokens)"),
+        Arel.sql("SUM(output_tokens)"), Arel.sql("SUM(duration_ms)")
+      )
+      replays = totals&.first.to_i
+      return nil if replays.zero?
+
+      {
+        replays: replays,
+        cost: totals[1]&.to_f,
+        input_tokens: totals[2].to_i,
+        output_tokens: totals[3].to_i,
+        model_time_ms: totals[4].to_i,
+        runtime_ms: completed_at.present? ? ((completed_at - created_at) * 1000).round : nil
+      }
+    end
+
     private
 
     # A criterion is either scored directly ({ "score" => 0.8, ... }) or, on a
