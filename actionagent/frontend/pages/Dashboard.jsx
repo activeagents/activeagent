@@ -437,7 +437,9 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
   return (
     <div
-      className="min-h-screen flex"
+      // aa-dashboard scopes the design token layer (frontend/tokens.css); the
+      // theme class switches it to the dark palette for every descendant.
+      className={`aa-dashboard min-h-screen flex${darkMode ? ' theme-dark' : ''}`}
       style={{ backgroundColor: darkMode ? '#0f0f0f' : '#f9fafb' }}
     >
       <Sidebar

@@ -5,6 +5,9 @@ ENV["ANTHROPIC_GEM_VERSION"] = "1.14"
 gem "anthropic", "~> 1.14.0"
 gem "minitest", "~> 5.0"
 gem "rails", "~> 8.0.0"
+# json 3.0 made JSON.parse's options keyword-only; ActiveSupport still passes
+# them as a positional hash, so every schema load with a json column raises.
+gem "json", "< 3"
 gem "sqlite3", "~> 2.0"
 
 gemspec path: ".."
