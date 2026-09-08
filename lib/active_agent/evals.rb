@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "cgi"
 require "yaml"
 require "active_support"
 require "active_support/core_ext/object/blank"
@@ -20,6 +21,8 @@ require_relative "evals/scorer"
 require_relative "evals/diagnosis"
 require_relative "evals/judge"
 require_relative "evals/result"
+require_relative "evals/design_tokens"
+require_relative "evals/report_html"
 require_relative "evals/report"
 require_relative "evals/runner"
 

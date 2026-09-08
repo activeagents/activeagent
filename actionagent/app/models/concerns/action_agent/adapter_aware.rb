@@ -45,6 +45,25 @@ module ActionAgent
 
         Time.find_zone("UTC").parse(value.to_s).to_i
       end
+
+      # Epoch second of the +seconds+-wide bucket holding +value+. Buckets
+      # are aligned to the Unix epoch, so the same timestamp lands in the
+      # same bucket whatever form an adapter produced it in: a Time
+      # (PostgreSQL, or any adapter's type-cast pluck), the UTC string
+      # SQLite and MySQL return from raw SQL, or an epoch number.
+      def bucket_epoch(value, seconds)
+        epoch = value.is_a?(Numeric) ? value.to_i : hour_bucket_epoch(value)
+        epoch - (epoch % seconds.to_i)
+      end
+
+      # Start epochs of the +count+ consecutive +seconds+-wide buckets that
+      # end with the one containing +now+, oldest first. The last bucket is
+      # the live one, so the window these describe is
+      # [starts.first, starts.last + seconds) — it runs a little past now.
+      def bucket_starts(now, seconds, count)
+        last = bucket_epoch(now, seconds)
+        Array.new(count) { |index| last - ((count - 1 - index) * seconds) }
+      end
     end
   end
 end

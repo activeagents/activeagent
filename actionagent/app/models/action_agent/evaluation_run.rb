@@ -42,6 +42,92 @@ module ActionAgent
       (values.sum.to_f / values.size).round(3)
     end
 
+    # Aggregate usage over the run's scenario results, for display after a
+    # run: estimated cost, token totals, summed model time, and the run's
+    # wall-clock runtime. Returns nil for a generation-sampling run, which
+    # replays nothing itself.
+    def usage
+      totals = scenario_results.pick(
+        Arel.sql("COUNT(*)"), Arel.sql("SUM(cost)"), Arel.sql("SUM(input_tokens)"),
+        Arel.sql("SUM(output_tokens)"), Arel.sql("SUM(duration_ms)")
+      )
+      replays = totals&.first.to_i
+      return nil if replays.zero?
+
+      {
+        replays: replays,
+        cost: totals[1]&.to_f,
+        input_tokens: totals[2].to_i,
+        output_tokens: totals[3].to_i,
+        model_time_ms: totals[4].to_i,
+        runtime_ms: completed_at.present? ? ((completed_at - created_at) * 1000).round : nil
+      }
+    end
+
+    # Route templates for the report's fix item actions, relative to the
+    # dashboard mount: `%{key}` is filled in per MCP server by the report.
+    # The JSON API leaves `mount` empty — the React app resolves paths
+    # against the mount itself (dashboardPath) — while the standalone HTML
+    # report page is served outside the app and needs the absolute path.
+    def report_links(mount: "")
+      base = mount.to_s.chomp("/")
+
+      {
+        "mcp" => "#{base}/mcp/%{key}",
+        "tools" => "#{base}/tools",
+        "instructions" => "#{base}/agents/#{evaluation.agent_id}/edit"
+      }
+    end
+
+    # What to fix, from the framework's Report: one item per fault plus one
+    # per instruction change the judge proposed, each naming the tools
+    # involved, the MCP server that serves them and whether this run's
+    # agent has it enabled (EvaluationToolResolver), and the dashboard
+    # action that addresses it. Empty for a generation-sampling run.
+    def fix_items(links: report_links)
+      to_report(links: links).fix_items
+    end
+
+    # Rebuilds the framework's Report from this run's persisted results, so
+    # the dashboard serves the same self-contained report page a CLI run
+    # writes with Report#to_html. Raises ActiveRecord::RecordNotFound via the
+    # caller for a run of a generation-sampling evaluation, which has no
+    # scenario results to report on.
+    def to_report(links: report_links)
+      rows = scenario_results.includes(:scenario).joins(:scenario)
+        .order(EvaluationScenario.arel_table[:position], EvaluationScenario.arel_table[:id], :model)
+      specs = {}
+      results = rows.map do |row|
+        label = [ row.provider.presence, row.model ].compact.join("/")
+        spec = specs[label] ||= ActiveAgent::Evals::ModelSpec.new(label: label, provider: row.provider.to_s, model: row.model)
+        ActiveAgent::Evals::Result.new(
+          scenario: ActiveAgent::Evals::Scenario.from_hash(row.scenario.as_json_summary),
+          spec: spec,
+          replay: ActiveAgent::Evals::Replay.new(
+            answer: row.output, tool_calls: Array(row.tool_calls), duration_ms: row.duration_ms,
+            input_tokens: row.input_tokens, output_tokens: row.output_tokens,
+            cost: row.cost&.to_f, error: row.error_message
+          ),
+          scores: row.scores.to_h, score: row.score, status: row.status,
+          diagnosis: row.diagnosis.presence
+        )
+      end
+
+      ActiveAgent::Evals::Report.new(
+        results: results,
+        models: specs.values,
+        metadata: {
+          "evaluation" => evaluation.name,
+          "agent" => evaluation.agent&.name,
+          "run" => id,
+          "finished" => completed_at&.iso8601
+        }.compact,
+        tool_resolver: EvaluationToolResolver.new(evaluation.agent),
+        agent_name: evaluation.agent&.name,
+        links: links
+      )
+    end
+
     private
 
     # A criterion is either scored directly ({ "score" => 0.8, ... }) or, on a
