@@ -179,11 +179,12 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
   # diagnosed the way ScenarioEvaluationRunner records a tool the agent
   # could not call — the shape a run's fix items are built from.
   def create_missing_tool_run(agent, tool:)
-    evaluation = agent.evaluations.create!(name: "Tool coverage", judge_kind: "rules", criteria: [])
-    scenario = evaluation.scenarios.create!(
+    evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
+    scenario = evaluation.scenarios.build(
       key: "match_slots", prompt: "Find the next available slot", group: "match", position: 0,
       expectations: { "tools" => [ tool ] }
     )
+    evaluation.save!
     run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current, samples_evaluated: 1, samples_passed: 0)
     recommendation = "The scenario expects #{tool}, which assistant does not have. Enable the tool (or add the server that provides it) and re-run."
     run.scenario_results.create!(
@@ -241,10 +242,11 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
 
   test "a failing namespaced tool names its server even when nothing else knows it" do
     agent = create_agent
-    evaluation = agent.evaluations.create!(name: "Tool coverage", judge_kind: "rules", criteria: [])
-    scenario = evaluation.scenarios.create!(
+    evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
+    scenario = evaluation.scenarios.build(
       key: "sync", prompt: "Is sync healthy?", position: 0, expectations: { "tools" => [ "mcp__sparkle__sync_status" ] }
     )
+    evaluation.save!
     run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     run.scenario_results.create!(
       scenario: scenario, model: "mock-model", provider: "mock", status: :failed, score: 0.5, fault: "tool_error",

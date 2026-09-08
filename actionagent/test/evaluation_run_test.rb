@@ -249,10 +249,14 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
   end
 
   def create_run(agent)
-    evaluation = agent.evaluations.create!(name: "Tool coverage", judge_kind: "rules", criteria: [])
-    scenario = evaluation.scenarios.create!(
+    # A scenario suite carries no criteria of its own — it is scored by its
+    # scenarios' expectations — so the scenario is built before the first
+    # save, which is when that validation runs.
+    evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
+    scenario = evaluation.scenarios.build(
       key: "match_slots", prompt: "Find the next slot", position: 0, expectations: { "tools" => [ "browser_navigate" ] }
     )
+    evaluation.save!
     run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     run.scenario_results.create!(
       scenario: scenario, model: "mock-model", provider: "mock", status: :failed, score: 0.5,
