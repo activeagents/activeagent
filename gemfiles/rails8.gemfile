@@ -3,6 +3,9 @@ source "https://rubygems.org"
 gem "minitest", "~> 5.0"
 gem "sqlite3", "~> 2.0"
 gem "rails", "~> 8.1.1"
+# json 3.0 made JSON.parse's options keyword-only; ActiveSupport 8.1 still passes
+# them as a positional hash, so every schema load with a json column raises.
+gem "json", "< 3"
 gem "tzinfo-data"
 
 gemspec path: ".."
