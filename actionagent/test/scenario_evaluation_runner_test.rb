@@ -29,6 +29,19 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     evaluation
   end
 
+  # Runs the block with the host's credentials for +provider+ blanked, so a
+  # replay through it fails at the execution service's credential gate rather
+  # than at the network. CI decrypts the reference host's credentials, so
+  # without this the outcome depends on which keys the environment holds.
+  def without_provider_credentials(provider)
+    config = ActiveAgent.configuration
+    original = config[provider]
+    config[provider] = (original || {}).to_h.except("access_token", "api_key")
+    yield
+  ensure
+    config[provider] = original
+  end
+
   test "every enabled scenario is replayed once per model and written as a result" do
     evaluation = build_suite
 
@@ -132,7 +145,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   test "a failed replay is an errored result with a run_error fault, and the run still completes" do
     evaluation = build_suite(provider: "anthropic", model: "claude-sonnet-5")
 
-    run = evaluation.run!(keys: [ "find_1" ])
+    run = without_provider_credentials("anthropic") { evaluation.run!(keys: [ "find_1" ]) }
     result = run.scenario_results.first
 
     assert_equal "complete", run.status
