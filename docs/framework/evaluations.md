@@ -55,7 +55,13 @@ report = ActiveAgent::Evals::Runner.new(
 ).call
 
 puts report.to_markdown
+File.write("eval-report.html", report.to_html)
 ```
+
+The report renders three ways: `to_markdown` for terminals and PR comments,
+`to_json` for machines, and `to_html` — a self-contained page (inline styles,
+no external assets) you can archive next to a CI run or hand to a teammate,
+the way a test suite publishes its report.
 
 `SupportAgent.evaluate` is whatever runs your agent and returns an
 `ActiveAgent::Evals::Replay` (or a hash with the same keys). With ActiveAgent

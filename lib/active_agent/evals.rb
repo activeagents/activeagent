@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "cgi"
 require "yaml"
 require "active_support"
 require "active_support/core_ext/object/blank"
