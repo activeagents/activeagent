@@ -318,3 +318,148 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
     assert_equal [], run.fix_items
   end
 end
+
+# A report rebuilt from a run has to render the verdict that run recorded
+# rather than rank the rebuilt results again: the dashboard's suite panel
+# reads the same scores["_verdict"], and the report page and the panel
+# naming two different best models — or two different judges — is the
+# regression these cover.
+class ActionAgentEvaluationRunVerdictTest < ActiveSupport::TestCase
+  HOSTED = { "label" => "gpt-5-mini", "provider" => "openai", "model" => "gpt-5-mini" }.freeze
+  LOCAL = { "label" => "ollama/qwen3:8b", "provider" => "ollama", "model" => "qwen3:8b" }.freeze
+
+  # The model block the report badges as the judge's pick. Each block's
+  # headline is one line: name, provider, then the badge when it is picked.
+  PICKED = %r{<span class="name">([^<]+)</span>[^\n]*judge's pick}
+
+  def setup
+    ActionAgent::Agent.delete_all
+  end
+
+  # Two scenarios × two models where the local model passes both and
+  # gpt-5-mini only one, so ranking the rebuilt results by pass rate picks
+  # ollama/qwen3:8b: a report that still names gpt-5-mini can only have read
+  # the verdict the run recorded.
+  def create_comparison_run(verdict: nil, judge_model: nil, models: [ HOSTED, LOCAL ])
+    agent = ActionAgent::Agent.create!(name: "Clara", provider: "openai", model: "gpt-5-mini")
+    evaluation = agent.evaluations.new(name: "Bake-off", judge_kind: "rules", judge_model: judge_model, criteria: [])
+    evaluation.scenarios.build(key: "find_slots", prompt: "Find the next slot", position: 0)
+    evaluation.scenarios.build(key: "cancel_slot", prompt: "Cancel it", position: 1)
+    evaluation.save!
+
+    run = evaluation.evaluation_runs.create!(
+      status: :complete, completed_at: Time.current,
+      selection: { "scenario_ids" => evaluation.scenarios.map(&:id), "models" => models }.compact,
+      scores: {
+        "_models" => {
+          "gpt-5-mini" => { "scenarios" => 2, "passed" => 1, "pass_rate" => 0.5 },
+          "ollama/qwen3:8b" => { "scenarios" => 2, "passed" => 2, "pass_rate" => 1.0 }
+        },
+        "_verdict" => verdict
+      }.compact
+    )
+    evaluation.scenarios.ordered.each_with_index do |scenario, index|
+      run.scenario_results.create!(
+        scenario: scenario, model: "gpt-5-mini", provider: "openai", status: index.zero? ? :passed : :failed,
+        score: index.zero? ? 1.0 : 0.0, output: "answered", duration_ms: 900
+      )
+      run.scenario_results.create!(
+        scenario: scenario, model: "qwen3:8b", provider: "ollama", status: :passed, score: 1.0,
+        output: "answered", duration_ms: 2400
+      )
+    end
+    run
+  end
+
+  test "the report names the judge's pick and the judge the run recorded, not a fresh pass-rate ranking" do
+    verdict = { "winner" => "gpt-5-mini", "rationale" => "Called the right tool every time.", "judge" => "claude-sonnet-4-5" }
+    run = create_comparison_run(verdict: verdict, judge_model: "gpt-4o-mini")
+
+    report = run.to_report
+    html = report.to_html
+
+    assert_equal verdict, run.recorded_verdict
+    assert_equal "claude-sonnet-4-5", run.judge_label
+    assert_equal "gpt-5-mini", report.winner
+    assert_equal [ [ "gpt-5-mini" ] ], html.scan(PICKED)
+    assert_includes html, "judge&#39;s pick · gpt-5-mini"
+    assert_includes html, "judged by claude-sonnet-4-5"
+    assert_includes html, "Called the right tool every time."
+    assert_includes html, "judge claude-sonnet-4-5"
+  end
+
+  # "pass rate" is the framework's label for a ranking no judge ruled on, so
+  # it is not a judge to name — the panel falls through to the evaluation's
+  # judge model there, and so does the report.
+  test "a verdict the framework ranked itself is judged by the evaluation's judge model" do
+    run = create_comparison_run(
+      verdict: { "winner" => "gpt-5-mini", "rationale" => "Passed 1 of 2 scenarios.", "judge" => "pass rate" },
+      judge_model: "gpt-4o-mini"
+    )
+
+    html = run.to_report.to_html
+
+    assert_equal "gpt-4o-mini", run.judge_label
+    assert_equal [ [ "gpt-5-mini" ] ], html.scan(PICKED)
+    assert_includes html, "judged by gpt-4o-mini"
+    assert_includes html, "judge gpt-4o-mini"
+    refute_includes html, "judged by pass rate"
+  end
+
+  # Nothing to carry over: the report ranks the results itself, as a CLI run
+  # does, and names the rules that scored them.
+  test "a run that recorded no verdict still renders" do
+    run = create_comparison_run
+
+    assert_nil run.recorded_verdict
+    assert_nil run.judge_label
+
+    html = run.to_report.to_html
+
+    assert_includes html, "<!doctype html>"
+    assert_includes html, "judged by rules"
+    refute_includes html, "judged by pass rate"
+    assert_equal [ [ "qwen3:8b" ] ], html.scan(PICKED)
+  end
+
+  test "a verdict that is not a hash, or is empty, is ignored rather than raising" do
+    run = create_comparison_run(verdict: "gpt-5-mini", judge_model: "gpt-4o-mini")
+
+    assert_nil run.recorded_verdict
+    assert_nil create_comparison_run(verdict: {}).recorded_verdict
+    assert_equal "gpt-4o-mini", run.judge_label
+
+    html = run.to_report.to_html
+
+    assert_includes html, "<!doctype html>"
+    assert_includes html, "judged by gpt-4o-mini"
+  end
+
+  test "the rebuilt report labels its models the way the run's scores key them" do
+    run = create_comparison_run(verdict: { "winner" => "gpt-5-mini", "rationale" => "Faster.", "judge" => "claude-sonnet-4-5" })
+
+    report = run.to_report
+
+    assert_equal [ "gpt-5-mini", "ollama/qwen3:8b" ], report.models.map(&:label)
+    assert_equal run.models, report.summary_by_model.keys
+  end
+
+  # A run whose selection never recorded its specs (nothing writes one now)
+  # has only the results' own provider and model to label a cohort with. The
+  # report is still self-consistent — it just cannot match a recorded winner
+  # to a relabelled cohort, so no block is badged.
+  test "a run whose selection recorded no models labels its cohorts provider/model" do
+    run = create_comparison_run(
+      models: nil,
+      verdict: { "winner" => "gpt-5-mini", "rationale" => "Fewer empty answers.", "judge" => "claude-sonnet-4-5" }
+    )
+
+    report = run.to_report
+    html = report.to_html
+
+    assert_equal [ "openai/gpt-5-mini", "ollama/qwen3:8b" ], report.models.map(&:label)
+    assert_includes html, "<!doctype html>"
+    assert_includes html, "judged by claude-sonnet-4-5"
+    assert_includes html, "Fewer empty answers."
+  end
+end

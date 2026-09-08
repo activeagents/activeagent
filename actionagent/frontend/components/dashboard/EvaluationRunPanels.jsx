@@ -598,7 +598,7 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
               {group.rows.map((scenario) => {
                 const open = openKey === scenario.key;
                 const expects = scenario.expectations?.tools || [];
-                const inSelection = runKeys.has(scenario.key);
+                const inSelection = runKeys.has(scenario.key) || Boolean(resultsByKey[scenario.key]);
                 const disabled = scenario.enabled === false;
                 return (
                   <div key={scenario.key}>
@@ -738,11 +738,14 @@ function ResultCard({ label, run, result, expects, running }) {
   );
 }
 
-export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, onRerun, onToggleEnabled, canMutate = true }) {
+// `inRun` says whether the selected run covers this scenario: a scenario the
+// run skipped offers a replay instead of empty result cards, and a suite with
+// no run at all says so rather than blaming a run that never happened.
+export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, inRun = true, onRerun, onToggleEnabled, canMutate = true }) {
   const expects = scenario.expectations?.tools || [];
   const results = resultsByKey[scenario.key] || {};
   const anyResult = columns.some((label) => results[label]);
-  const inRun = anyResult || running;
+  const covered = inRun || anyResult;
   return (
     <div style={{ borderTop: '1px solid var(--color-border-light)', background: 'var(--color-background)', padding: '12px 12px 14px' }} data-testid="scenario-drilldown">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -766,7 +769,9 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
       {scenario.notes && (
         <div style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--color-text-secondary)', marginBottom: 10 }}>{scenario.notes}</div>
       )}
-      {!inRun ? (
+      {!run ? (
+        <div style={mono(11)}>No runs yet — use “re-run scenario” to replay this one on its own.</div>
+      ) : !covered ? (
         <div style={mono(11)}>Not part of this run — use “re-run scenario” to replay it.</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>

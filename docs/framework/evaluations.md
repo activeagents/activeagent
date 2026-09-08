@@ -30,8 +30,9 @@ your agent, and optionally one that asks a judge model for a completion.
    (`Diagnosis`); a `Judge` can refine it with the tool to add or the
    instruction to change.
 6. **Report** — per-model pass rate, mean score, latency, tokens, cost and
-   fault counts; criterion statistics; faults grouped across scenarios; a
-   verdict; Markdown or JSON (`Report`).
+   fault counts; criterion statistics; faults grouped across scenarios into
+   the fix each calls for; a verdict; Markdown, JSON or a self-contained
+   HTML page (`Report`).
 
 ## Minimal example
 
@@ -65,8 +66,13 @@ The report renders three ways: `to_markdown` for terminals and PR comments,
 `to_json` for machines, and `to_html(theme: nil)` — a self-contained page
 (inline styles, no external assets) on the dashboard's design system that you
 can archive next to a CI run or hand to a teammate, the way a test suite
-publishes its report. `theme:` pins `"light"` or `"dark"`; nil follows the
-viewer's system preference.
+publishes its report. It carries the same reading the dashboard's suite card
+does: stat tiles, a panel per model with the judge's pick and the verdict,
+the what-to-fix cards, the scenario × model matrix, and a disclosure per
+scenario holding every answer. `theme:` is its only argument — `"light"` or
+`"dark"` pins the palette, nil follows the viewer's system preference. It is
+the same page the dashboard serves at
+`/api/evaluations/:id/runs/:run_id/report`.
 
 `SupportAgent.evaluate` is whatever runs your agent and returns an
 `ActiveAgent::Evals::Replay` (or a hash with the same keys). With ActiveAgent
@@ -109,6 +115,42 @@ and `expected_tool_not_called` are what turn a pasted list of *new* tasks into
 a backlog: they say which tasks the current toolset cannot reach and, with a
 judge, which tool to add.
 
+## What to fix
+
+`Report#fix_items` is that backlog as data — one item per fault, in the same
+order as `recommendations`, plus one per distinct instruction change the judge
+proposed. Each names the scenarios and models it speaks for, the fix it calls
+for, and the tools involved: the missing tools a scenario expected, the tools
+that errored, or the tools the judge suggested adding, under a `tools_label`
+that says which.
+
+```ruby
+report.fix_items.first
+# => { "kind" => "fault", "fault" => "expected_tool_not_called", "count" => 3,
+#      "scenario_keys" => [...], "models" => ["gpt-5-mini", "ollama/qwen3:8b"],
+#      "recommendation" => "Enable search_slots for the agent…",
+#      "quote" => nil, "tools_label" => "missing tools",
+#      "tools" => [ { "name" => "search_slots", "note" => nil, "server" => {…} } ],
+#      "server" => { "key" => "scheduling", "name" => "Scheduling", "status" => "available" },
+#      "note" => nil,
+#      "action" => { "label" => "Enable Scheduling for BookingAgent",
+#                    "hint" => "MCP Services ->", "path" => "/mcp/scheduling" } }
+```
+
+Optional keywords on `Report.new` fill that in, and the HTML page renders
+whatever they supply:
+
+| Keyword | What it adds |
+|---|---|
+| `tool_resolver:` | A callable `name -> { "key", "name", "status" }` (`"enabled"`, `"available"` or `"unknown"`) naming the server behind a tool, so an item can say a tool exists but is not turned on |
+| `agent_name:` | How an item names the agent (`"the agent"` by default) |
+| `links:` | Route templates for the actions — `"mcp"` (`"/mcp/%{key}"`), `"tools"`, `"instructions"`. Without them an action still carries its label and hint, with `"path" => nil` |
+| `verdict:` / `judge_label:` | A verdict already recorded for these results, so a report rebuilt from stored results shows the pick that run made rather than ranking them again |
+
+Nothing here needs the dashboard: a CI job that hands `Report.new` a resolver
+over its own MCP configuration gets the same cards in its HTML report, and
+the same JSON to open issues from.
+
 ## In a dashboard
 
 `Runner.new` takes `on_result:` (each `Result` as it lands) and
@@ -132,7 +174,7 @@ judge credentials, and stores each result as an `EvaluationScenarioResult`.
 | `Diagnosis` | One fault per failing result, with an evidence-based recommendation |
 | `Judge` | Prompts and parsing for scoring, refining recommendations, and picking a winner; you supply the completion call |
 | `Runner` | scenarios × models → `Result`s, calling your `replay` and the judge |
-| `Report` | Per-model summary, criterion statistics, recommendations, verdict; Markdown / JSON |
+| `Report` | Per-model summary, criterion statistics, recommendations, fix items, verdict; Markdown / JSON / HTML |
 
 ## Suites
 
