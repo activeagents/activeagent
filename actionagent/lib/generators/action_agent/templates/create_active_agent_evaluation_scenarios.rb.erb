@@ -1,0 +1,79 @@
+# frozen_string_literal: true
+
+# Adds scenario suites to evaluations: the user-authored prompts an
+# evaluation replays through its agent (once per candidate model), and the
+# per-scenario, per-model result each replay produced. Emitted alongside the
+# dashboard tables on a fresh install, and on its own for an install that
+# predates scenario evaluations.
+#
+# Table names follow ActionAgent.table_name_prefix, and JSON columns are
+# jsonb on PostgreSQL and json elsewhere, the same way as
+# create_active_agent_dashboard_tables.
+class CreateActiveAgentEvaluationScenarios < ActiveRecord::Migration<%= migration_version %>
+  def change
+    prefix = ActionAgent.table_name_prefix
+
+    create_table "#{prefix}evaluation_scenarios" do |t|
+      t.bigint :evaluation_id, null: false
+      t.string :key, null: false
+      t.string :group
+      t.text :prompt, null: false
+      t.text :notes
+      t.column :expectations, json_type, **json_default({})
+      t.integer :position, default: 0, null: false
+      t.boolean :enabled, default: true, null: false
+      t.timestamps
+      t.index [ :evaluation_id, :key ], unique: true, name: "index_#{prefix}evaluation_scenarios_on_evaluation_and_key"
+      t.index [ :evaluation_id, :group ], name: "index_#{prefix}evaluation_scenarios_on_evaluation_and_group"
+    end
+
+    create_table "#{prefix}evaluation_scenario_results" do |t|
+      t.bigint :evaluation_run_id, null: false
+      t.bigint :evaluation_scenario_id, null: false
+      t.bigint :agent_run_id
+      t.string :model, null: false
+      t.string :provider
+      t.integer :status, default: 0, null: false
+      t.float :score
+      t.column :scores, json_type, **json_default({})
+      t.text :output
+      t.column :tool_calls, json_type, **json_default([])
+      t.integer :duration_ms
+      t.integer :input_tokens
+      t.integer :output_tokens
+      t.decimal :cost, precision: 12, scale: 6
+      t.string :fault
+      t.text :recommendation
+      t.column :diagnosis, json_type, **json_default({})
+      t.text :error_message
+      t.timestamps
+      t.index :evaluation_run_id, name: "index_#{prefix}evaluation_scenario_results_on_run"
+      t.index :evaluation_scenario_id, name: "index_#{prefix}evaluation_scenario_results_on_scenario"
+      t.index [ :evaluation_run_id, :model ], name: "index_#{prefix}evaluation_scenario_results_on_run_and_model"
+    end
+
+    # Which scenarios and models a run covered, so a partial run (one group,
+    # one question) reads as such rather than as the whole suite.
+    unless column_exists?("#{prefix}evaluation_runs", :selection)
+      add_column "#{prefix}evaluation_runs", :selection, json_type, **json_default({})
+    end
+  end
+
+  private
+
+  def json_type
+    @json_type ||= postgres? ? :jsonb : :json
+  end
+
+  # MySQL rejects a default on a JSON column outright, so the column is
+  # created without one there.
+  def json_default(value, null: nil)
+    return {} unless postgres?
+
+    null.nil? ? { default: value } : { default: value, null: null }
+  end
+
+  def postgres?
+    connection.adapter_name.to_s.downcase.include?("postgres")
+  end
+end
