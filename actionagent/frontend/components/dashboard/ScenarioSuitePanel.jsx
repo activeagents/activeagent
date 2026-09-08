@@ -5,7 +5,7 @@ import { fmtCost, fmtK, fmtMs, timeAgo } from '../../utils/format';
 import {
   FixList, ModelsPanel, RunsPanel, ScenarioDetail, ScenarioMatrix,
   fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, plural,
-  runScenarioCount, runScenarioKeys, runTotals,
+  runScenarioCount, runScenarioKeys, runTotalOf, runTotals,
 } from './EvaluationRunPanels';
 
 // The expanded body of a scenario-suite evaluation, leading with three
@@ -68,9 +68,15 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const evaluationId = evaluation.id;
   const agentName = evaluation.agent?.name || 'Agent';
 
+  // The suite's scenarios and run history land with the first fetch; until
+  // then the matrix shows a loading line rather than an empty suite.
+  const [loaded, setLoaded] = useState(false);
   const [scenarios, setScenarios] = useState([]);
   const [groups, setGroups] = useState(evaluation.scenario_groups || []);
   const [runs, setRuns] = useState(evaluation.latest_run ? [evaluation.latest_run] : []);
+  // The suite's total run count when the API reports it (`run_count`); the
+  // run list itself is capped at the most recent RUNS_PAGE.
+  const [runCount, setRunCount] = useState(null);
   const [selectedRunId, setSelectedRunId] = useState(evaluation.latest_run?.id ?? null);
   const [details, setDetails] = useState({});
   const [modelsInput, setModelsInput] = useState((evaluation.compare_models || []).join(', '));
@@ -93,16 +99,22 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     setGroups(data.groups || []);
   }, [evaluationId]);
 
-  // The suite with its scenarios and run history (last 20, newest first).
+  // The suite with its scenarios and run history (the most recent RUNS_PAGE,
+  // newest first, plus `run_count` — the total — when the API reports it).
   const fetchSuite = useCallback(async () => {
-    const response = await fetch(`/api/evaluations/${evaluationId}`);
-    if (!response.ok) return null;
-    const data = await response.json();
-    const suite = data.evaluation || {};
-    setScenarios(suite.scenarios || []);
-    setGroups(suite.scenario_groups || []);
-    setRuns(suite.runs || []);
-    return suite;
+    try {
+      const response = await fetch(`/api/evaluations/${evaluationId}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      const suite = data.evaluation || {};
+      setScenarios(suite.scenarios || []);
+      setGroups(suite.scenario_groups || []);
+      setRuns(suite.runs || []);
+      setRunCount(Number.isFinite(suite.run_count) ? suite.run_count : null);
+      return suite;
+    } finally {
+      setLoaded(true);
+    }
   }, [evaluationId]);
 
   const fetchRunDetail = useCallback(async (runId) => {
@@ -174,6 +186,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
       if (!response.ok) throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || 'Run failed to start');
       const run = data.run;
       setRuns((prev) => [run, ...prev.filter((r) => r.id !== run.id)]);
+      setRunCount((count) => (count == null ? null : count + 1));
       setDetails((prev) => ({ ...prev, [run.id]: { ...run, results: [] } }));
       setSelectedRunId(run.id);
       setOpenKey(null);
@@ -256,8 +269,8 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     .filter((s) => !failedOnly || failedOn(s));
 
   const runIndex = runs.findIndex((r) => r.id === run?.id);
-  const runNumber = runIndex >= 0 ? runs.length - runIndex : null;
-  const latestNumber = runs.length;
+  const latestNumber = runTotalOf(runs, runCount);
+  const runNumber = runIndex >= 0 ? latestNumber - runIndex : null;
   const groupCount = new Set(runScenarios.map((s) => s.group).filter(Boolean)).size;
   const settledCount = results.filter(isSettled).length;
   const expectedResults = scenarioCount * Math.max(columns.length, 1);
@@ -269,7 +282,12 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const criteriaText = (criteriaKeys.length ? criteriaKeys : (evaluation.criteria || []).map((c) => c.key))
     .map((key) => String(key).replace(/_/g, ' ')).join(' · ') || '—';
 
-  const enabledCount = scenarios.filter((s) => s.enabled !== false && (!groupFilter || (s.group || '') === groupFilter)).length;
+  // Until the suite has loaded, the counts the index already knows stand in
+  // for the scenario list.
+  const scenarioTotal = loaded ? scenarios.length : (evaluation.scenario_count ?? 0);
+  const enabledCount = loaded
+    ? scenarios.filter((s) => s.enabled !== false && (!groupFilter || (s.group || '') === groupFilter)).length
+    : scenarioTotal;
   const runLabel = `Run ${plural(enabledCount, 'scenario')}${selectedModels.length ? ` × ${plural(selectedModels.length, 'model')}` : ''}`;
 
   const summary = run
@@ -279,12 +297,14 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
       `${plural(scenarioCount, 'scenario')}${groupCount ? ` in ${plural(groupCount, 'group')}` : ''} × ${plural(columns.length, 'model')}`,
       run.status === 'failed' ? 'failed' : `${totals.passed}/${totals.total} passed`,
     ].join(' · ')
-    : `${agentName} · ${plural(scenarios.length, 'scenario')}${groups.length ? ` in ${plural(groups.length, 'group')}` : ''} · no runs yet`;
+    : `${agentName} · ${plural(scenarioTotal, 'scenario')}${groups.length ? ` in ${plural(groups.length, 'group')}` : ''} · ${loaded ? 'no runs yet' : 'loading…'}`;
 
   const reportPath = run && run.status === 'complete' ? `/evaluations/${evaluationId}/runs/${run.id}/report` : null;
 
-  const groupChips = [{ label: `All ${scenarios.length}`, value: null }]
-    .concat(groups.map((group) => ({ label: `${group} ${scenarios.filter((s) => s.group === group).length}`, value: group })));
+  const groupChips = [{ label: `All ${scenarioTotal}`, value: null }]
+    .concat(groups.map((group) => ({ label: loaded ? `${group} ${scenarios.filter((s) => s.group === group).length}` : group, value: group })));
+
+  const suiteEmpty = scenarios.length === 0 && runScenarios.length === 0;
 
   const emptyLabel = failedOnly
     ? '[+] nothing failed in this group'
@@ -317,7 +337,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
           <Button
             variant="primary"
             size="sm"
-            disabled={isRunning || enabledCount === 0}
+            disabled={isRunning || !loaded || enabledCount === 0}
             onClick={() => startRun(groupFilter ? { group: groupFilter } : {})}
             testId="suite-run-button"
           >
@@ -352,7 +372,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
 
       {/* Runs | Models */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 2fr) minmax(0, 3fr)', gap: 16, alignItems: 'start' }}>
-        <RunsPanel runs={runs} selectedId={run?.id ?? null} onSelect={selectRun} agentName={agentName} selectedResults={results} scenarios={scenarios} />
+        <RunsPanel runs={runs} runCount={runCount} selectedId={run?.id ?? null} onSelect={selectRun} agentName={agentName} selectedResults={results} scenarios={scenarios} />
         <ModelsPanel run={run} columns={run ? columns : []} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} />
       </div>
 
@@ -394,7 +414,9 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
           </Chip>
         </div>
 
-        {scenarios.length === 0 && runScenarios.length === 0 ? (
+        {suiteEmpty && !loaded ? (
+          <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>loading…</Empty>
+        ) : suiteEmpty ? (
           <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>No scenarios yet — paste some with “Edit scenarios”.</Empty>
         ) : (
           <ScenarioMatrix

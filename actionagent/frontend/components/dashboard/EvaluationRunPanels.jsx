@@ -148,17 +148,25 @@ const truncate = (text, max) => {
 // What to fix, from the API's `fix_items` when the run carries them, else
 // rebuilt from the run's `_recommendations` and the results' diagnoses in the
 // same shape (without server resolution, which only the backend can do).
+// An empty `fix_items` is only trusted when there is nothing to rebuild
+// from: show_run answers `[]` when the report cannot build them for an
+// older run, and such a run still carries the recommendations it persisted.
+const instructionChangeOf = (result) => result?.diagnosis?.judge?.instruction_change;
+
 export function fixItemsFor(run, results = []) {
-  if (Array.isArray(run?.fix_items)) return run.fix_items;
   const recommendations = run?.scores?._recommendations || [];
+  if (Array.isArray(run?.fix_items)) {
+    const rebuildable = recommendations.length > 0 || results.some(instructionChangeOf);
+    if (run.fix_items.length > 0 || !rebuildable) return run.fix_items;
+  }
   const items = recommendations.map((entry) => fallbackFixItem(entry, results));
 
   const seen = new Set();
   results.forEach((result) => {
-    const change = result?.diagnosis?.judge?.instruction_change;
+    const change = instructionChangeOf(result);
     if (!change || seen.has(change)) return;
     seen.add(change);
-    const peers = results.filter((r) => r?.diagnosis?.judge?.instruction_change === change);
+    const peers = results.filter((r) => instructionChangeOf(r) === change);
     items.push({
       kind: 'instruction',
       fault: 'instruction change',
@@ -256,10 +264,30 @@ function CallLine({ calls, empty, style }) {
 // ---------------------------------------------------------------------------
 // RUNS
 
+// GET /api/evaluations/:id serves at most this many runs, newest first.
+export const RUNS_PAGE = 20;
+
+// How many runs the suite has: `run_count` from the API when it reports it
+// (so `#n` stays stable once the run list is capped), else the runs fetched —
+// never fewer than the list, which can grow locally when a run starts.
+export const runTotalOf = (runs = [], runCount = null) =>
+  (Number.isFinite(runCount) ? Math.max(runCount, runs.length) : runs.length);
+
+// The panel's header meta: `3 runs`, or `24 runs · latest 20` when the list
+// is a page of a longer history (or may be, when the total is unknown).
+export const runsMeta = (runs = [], runCount = null) => {
+  const total = runTotalOf(runs, runCount);
+  const paged = runs.length < total || (!Number.isFinite(runCount) && runs.length >= RUNS_PAGE);
+  return `${plural(total, 'run')}${paged ? ` · latest ${runs.length}` : ''}`;
+};
+
 // One row per run, newest first. `runs` is the suite's run list (newest
-// first); `#n` counts from the oldest run in it.
-export function RunsPanel({ runs, selectedId, onSelect, agentName, selectedResults = [], scenarios = [] }) {
-  const numberOf = (index) => runs.length - index;
+// first); `#n` counts from the oldest run of the suite: `runCount` is the
+// suite's total when known, so the numbering does not shift once the list
+// is capped at the RUNS_PAGE most recent.
+export function RunsPanel({ runs, runCount = null, selectedId, onSelect, agentName, selectedResults = [], scenarios = [] }) {
+  const total = runTotalOf(runs, runCount);
+  const numberOf = (index) => total - index;
   const rows = runs.map((run, index) => {
     const columns = modelColumns(run, run.id === selectedId ? selectedResults : []);
     const results = run.id === selectedId ? selectedResults : [];
@@ -303,7 +331,7 @@ export function RunsPanel({ runs, selectedId, onSelect, agentName, selectedResul
   });
 
   return (
-    <Panel title="Runs" meta={plural(runs.length, 'run')} testId="suite-runs-panel">
+    <Panel title="Runs" meta={runsMeta(runs, runCount)} testId="suite-runs-panel">
       {rows.length === 0 && <Empty>[ ] no runs yet</Empty>}
       {rows.map((row) => (
         <div
@@ -704,7 +732,7 @@ function ResultCard({ label, run, result, expects, running }) {
       )}
     </>,
     <>
-      <Badge tone={statusTone}>{`${result.status} · ${fmtScore(result.score)}`}</Badge>
+      <Badge tone={statusTone}>{result.score == null ? result.status : `${result.status} · ${fmtScore(result.score)}`}</Badge>
       {meta && <span style={{ marginLeft: 'auto', ...mono(11) }}>{meta}</span>}
     </>
   );

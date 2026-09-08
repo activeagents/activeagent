@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { MONO, MicroLabel, Card } from './primitives';
 
 // Chart building blocks for the APM-style Metrics view: the golden-signal
@@ -27,6 +27,66 @@ export const niceMax = (v) => {
 
 // Five gridlines at 0/25/50/75/100% of the plot, labelled top-down.
 export const ticksFor = (max, fmt) => [0, 25, 50, 75, 100].map((t) => ({ top: t, label: fmt(max * (1 - t / 100)) }));
+
+// Count axes never go below this ceiling, so the five tick labels stay
+// distinct integers (4 3 2 1 0) when a window has one or two of something
+// per bucket; niceMax(1) alone would label them "2 2 1 1 0".
+export const MIN_COUNT_MAX = 4;
+export const countMax = (v) => Math.max(MIN_COUNT_MAX, niceMax(v));
+
+// Decimals for a money axis: the fewest (at least `min`) that label every
+// tick within 10% of a gridline step, so "$0.001 $0.001 $0.001 $0.000"
+// becomes "$0.00100 $0.00075 $0.00050 $0.00025" while a $1 axis keeps
+// "$1.00 $0.75 $0.50 $0.25". Labels that close to their value can never
+// collide.
+export const tickDecimals = (max, min = 2, cap = 5) => {
+  const step = max / 4;
+  for (let d = min; d < cap; d++) {
+    const fits = [1, 2, 3, 4].every((k) => Math.abs(step * k - Number((step * k).toFixed(d))) <= step * 0.1);
+    if (fits) return d;
+  }
+  return cap;
+};
+
+// Mono 9px advance and the label's own padding + offset, for deciding which
+// side of a marker line its label fits on.
+const MARKER_CHAR_PX = 5.5;
+const MARKER_LABEL_PAD_PX = 12;
+
+// Which side of the line a marker label goes: `mk.flip` (the 55% rule) is
+// the baseline, overridden once the plot is measured and the label would
+// not fit on that side while the other side has more room.
+export const markerFlip = (mk, plotWidth) => {
+  const flip = Boolean(mk.flip);
+  if (!(plotWidth > 0)) return flip;
+  const need = String(mk.label || '').length * MARKER_CHAR_PX + MARKER_LABEL_PAD_PX;
+  const leftRoom = (Number(mk.left) / 100) * plotWidth;
+  const rightRoom = plotWidth - leftRoom;
+  if (flip) return !(leftRoom < need && rightRoom > leftRoom);
+  return rightRoom < need && leftRoom > rightRoom;
+};
+
+// The plot's rendered width, kept current by a ResizeObserver (window
+// resize when the browser lacks one). 0 until measured — and always 0 in
+// a static render — which leaves marker labels on the 55% rule.
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+const useMeasuredWidth = (ref) => {
+  const [width, setWidth] = useState(0);
+  useIsoLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const measure = () => setWidth(el.clientWidth);
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return width;
+};
 
 // Polyline points in the 100×100 viewBox. Buckets without a value are
 // skipped so the line bridges the gap instead of plunging to zero.
@@ -107,12 +167,17 @@ export function SignalTile({ label, value, unit, sub, delta, deltaColor, deltaSu
 // buckets: [{ title, segs: [{ h (0-100), color }] }]
 // lines:   [{ points, color, width }]   areas: [{ points, color }]
 // markers: [{ left (0-100), label, flip }] — flip puts the label left of the
-// line so a marker past 55% of the width never leaves the card.
+// line (the 55% rule; see markerFlip for the measured override). The label
+// lives in a box that spans its side of the line and truncates with an
+// ellipsis, so it never paints past the plot into the next card.
 export function ChartPanel({
   title, sub, value, valueColor = 'var(--color-text-primary)',
   legend = [], ticks = [], buckets = [], lines = [], areas = [], markers = [], xLabels = [],
   height = CHART_HEIGHT,
 }) {
+  const plotRef = useRef(null);
+  const plotWidth = useMeasuredWidth(plotRef);
+  const dashed = '1px dashed var(--color-text-secondary)';
   return (
     <Card padding="14px 16px 12px" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -128,10 +193,11 @@ export function ChartPanel({
           </span>
         ))}
       </div>
-      <div style={{ position: 'relative', height, margin: '6px 0 0 40px' }}>
+      <div ref={plotRef} style={{ position: 'relative', height, margin: '6px 0 0 40px' }}>
         {ticks.map((tk) => (
           <div key={tk.top} style={{ position: 'absolute', left: 0, right: 0, top: `${tk.top}%`, borderTop: '1px solid var(--color-border-light)' }}>
-            <span style={{ position: 'absolute', left: -40, top: -6, width: 34, textAlign: 'right', fontFamily: MONO, fontSize: 10, lineHeight: '12px', color: 'var(--color-text-muted)' }}>{tk.label}</span>
+            {/* Right-aligned 6px into the gutter; a long label ("$0.00075") grows leftwards instead of over the plot. */}
+            <span style={{ position: 'absolute', right: 'calc(100% + 6px)', top: -6, whiteSpace: 'nowrap', fontFamily: MONO, fontSize: 10, lineHeight: '12px', color: 'var(--color-text-muted)' }}>{tk.label}</span>
           </div>
         ))}
         {buckets.length > 0 && (
@@ -155,13 +221,23 @@ export function ChartPanel({
             ))}
           </svg>
         )}
-        {markers.map((mk, i) => (
-          <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${mk.left.toFixed(2)}%`, borderLeft: '1px dashed var(--color-text-secondary)', pointerEvents: 'none' }}>
-            <span style={{ position: 'absolute', top: -4, left: mk.flip ? 'auto' : 4, right: mk.flip ? 4 : 'auto', fontFamily: MONO, fontSize: 9, lineHeight: '12px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', background: 'var(--color-card)', padding: '0 4px', borderRadius: 3 }}>
-              {mk.label}
-            </span>
-          </div>
-        ))}
+        {markers.map((mk, i) => {
+          const flip = markerFlip(mk, plotWidth);
+          const at = `${Number(mk.left).toFixed(2)}%`;
+          return (
+            <div
+              key={i}
+              style={{
+                position: 'absolute', top: 0, bottom: 0, pointerEvents: 'none',
+                ...(flip ? { left: 0, width: at, borderRight: dashed } : { left: at, right: 0, borderLeft: dashed }),
+              }}
+            >
+              <span style={{ position: 'absolute', top: -4, [flip ? 'right' : 'left']: 4, maxWidth: 'calc(100% - 8px)', boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: MONO, fontSize: 9, lineHeight: '12px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', background: 'var(--color-card)', padding: '0 4px', borderRadius: 3 }}>
+                {mk.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginLeft: 40, fontFamily: MONO, fontSize: 10, color: 'var(--color-text-muted)' }}>
         {xLabels.map((xl, i) => <span key={i}>{xl}</span>)}
