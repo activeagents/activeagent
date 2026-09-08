@@ -248,6 +248,13 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :sign_out_path
 
+    # Where a browser is sent when it asks for a dashboard page without a
+    # valid session — the host app's sign-in page. Unset, an unauthenticated
+    # page request gets a minimal session-expired page instead of a bare
+    # 401; API clients always get the 401.
+    # @return [String, nil]
+    attr_accessor :sign_in_path
+
     # Answers GET <mount>/api/usage — the plan meter the Organization view
     # and the Run Agents quota banner read. Receives (owner) and returns a
     # Hash in the platform's shape:
@@ -454,6 +461,7 @@ module ActionAgent
       @usage_resolver = nil
       @upgrade_url = nil
       @sign_out_path = nil
+      @sign_in_path = nil
       @mcp_catalog = []
     end
   end
