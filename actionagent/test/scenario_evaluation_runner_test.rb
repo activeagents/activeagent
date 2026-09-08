@@ -213,4 +213,38 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert_equal original.id, evaluation.scenarios.find_by!(key: "find_1").id
     assert_equal "A rewritten first question", original.reload.prompt
   end
+
+  test "replace_scenarios! keeps a surviving scenario's enabled flag" do
+    evaluation = build_suite
+    evaluation.scenarios.find_by!(key: "find_1").update!(enabled: false)
+
+    evaluation.replace_scenarios!(ActiveAgent::Evals::ScenarioParser.parse("# Find\nA rewritten first question | key: find_1\nA new one | key: find_9"))
+
+    assert_not evaluation.scenarios.find_by!(key: "find_1").enabled
+    assert evaluation.scenarios.find_by!(key: "find_9").enabled
+  end
+
+  test "each replay is reported to the host as one execution" do
+    evaluation = build_suite
+    recorded = []
+    ActionAgent.usage_recorder = ->(owner, kind) { recorded << [ owner, kind ] }
+
+    evaluation.run!(models: [ "mock/alpha", "mock/beta" ])
+
+    assert_equal [ [ nil, :execution ] ] * 6, recorded
+  ensure
+    ActionAgent.usage_recorder = nil
+  end
+
+  test "a pending run whose suite lost its scenarios before the job ran is failed, not left pending" do
+    evaluation = build_suite
+    run = evaluation.run_later!
+    evaluation.scenarios.destroy_all
+
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+
+    assert_equal "failed", run.reload.status
+    assert_match(/No scenarios selected/, run.error_message)
+    assert_equal [ run.id ], evaluation.evaluation_runs.ids
+  end
 end

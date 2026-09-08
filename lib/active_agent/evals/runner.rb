@@ -106,17 +106,23 @@ module ActiveAgent
         @judge && @judge_task && @criteria.none? { |criterion| criterion.to_h.stringify_keys["type"] == "llm_judge" }
       end
 
+      # Whatever the callable raises becomes an errored Replay, so one model
+      # rejecting a parameter fails its scenario rather than the whole run.
+      # A return value that is neither a Replay nor a Hash is the caller's
+      # bug and raises.
       def run_replay(scenario, spec)
-        value = @replay.call(scenario, spec)
+        value =
+          begin
+            @replay.call(scenario, spec)
+          rescue StandardError => e
+            return Replay.failed(e)
+          end
+
         case value
         when Replay then value
         when Hash then Replay.new(**value.to_h.symbolize_keys)
         else raise ArgumentError, "replay must return an ActiveAgent::Evals::Replay or a Hash, got #{value.class}"
         end
-      rescue ArgumentError
-        raise
-      rescue StandardError => e
-        Replay.failed(e)
       end
 
       def refine!(diagnosis, scenario, replay, result)

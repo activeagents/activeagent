@@ -33,6 +33,7 @@ function scenariosToText(scenarios) {
     if (expectations.tools?.length) options.push(`tools: ${expectations.tools.join(', ')}`);
     if (expectations.contains?.length) options.push(`contains: ${expectations.contains.join(', ')}`);
     if (expectations.not_contains?.length) options.push(`not_contains: ${expectations.not_contains.join(', ')}`);
+    if (scenario.notes) options.push(`notes: ${scenario.notes}`);
     options.push(`key: ${scenario.key}`);
     lines.push(`${scenario.prompt} | ${options.join(' | ')}`);
   });
@@ -54,6 +55,7 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
   const [editText, setEditText] = useState('');
   const [editError, setEditError] = useState(null);
   const [expandedKey, setExpandedKey] = useState(null);
+  const [pollTick, setPollTick] = useState(0);
   const pollTimer = useRef(null);
 
   const fetchScenarios = useCallback(async () => {
@@ -84,11 +86,19 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
     clearTimeout(pollTimer.current);
     if (!run || !['pending', 'running'].includes(run.status)) return undefined;
     pollTimer.current = setTimeout(async () => {
-      const latest = await fetchRun(run.id);
+      let latest = null;
+      try {
+        latest = await fetchRun(run.id);
+      } catch (_error) {
+        latest = null;
+      }
       if (latest && !['pending', 'running'].includes(latest.status)) onChanged?.();
+      // A fetch that failed or was refused changes no state, so re-arm the
+      // poll explicitly rather than leaving the run stuck on "Running…".
+      if (!latest) setPollTick((tick) => tick + 1);
     }, 3000);
     return () => clearTimeout(pollTimer.current);
-  }, [run, fetchRun, onChanged]);
+  }, [run, pollTick, fetchRun, onChanged]);
 
   const selectedModels = modelsInput.split(',').map((m) => m.trim()).filter(Boolean);
   const visibleScenarios = selectedGroup ? scenarios.filter((s) => s.group === selectedGroup) : scenarios;
@@ -145,17 +155,24 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
   const selectionModels = run?.selection?.models || [];
   const labelFor = (result) =>
     selectionModels.find((m) => m.model === result.model && m.provider === result.provider)?.label || result.model;
+  // Column labels: the summary's models once the run completes, the
+  // selection's model specs while it runs, and whatever has landed before
+  // the runner has written either.
+  const specLabels = selectionModels.filter((m) => m && typeof m === 'object' && m.label).map((m) => m.label);
   const columns = run?.models?.length
     ? run.models
-    : [...new Set(results.map(labelFor))];
+    : specLabels.length
+      ? specLabels
+      : [...new Set(results.map(labelFor))];
   const resultsByKey = results.reduce((acc, result) => {
     (acc[result.scenario_key] ||= {})[labelFor(result)] = result;
     return acc;
   }, {});
   const runScenarioKeys = run?.selection?.scenario_keys || [];
-  const matrixScenarios = run
-    ? scenarios.filter((s) => runScenarioKeys.includes(s.key) || resultsByKey[s.key])
-    : [];
+  // Every scenario stays listed whatever the last run covered, so a group
+  // can be filtered, toggled and replayed after a partial run; cells outside
+  // the run read "—".
+  const inRun = (scenario) => runScenarioKeys.includes(scenario.key) || Boolean(resultsByKey[scenario.key]);
   const inProgress = run && ['pending', 'running'].includes(run.status);
   const expectedResults = runScenarioKeys.length * Math.max(columns.length, 1);
   const modelSummaries = run?.scores?._models || {};
@@ -300,7 +317,7 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
             </tr>
           </thead>
           <tbody>
-            {(run ? matrixScenarios : visibleScenarios).flatMap((scenario) => {
+            {visibleScenarios.flatMap((scenario) => {
               const rows = [];
               if ((scenario.group || '') !== (groupHeader || '')) {
                 groupHeader = scenario.group;
@@ -343,7 +360,7 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
                             {result.fault && <span className="font-normal">· {FAULT_LABEL[result.fault]}</span>}
                           </span>
                         ) : (
-                          <span style={{ color: colors.textMuted }}>{inProgress && runScenarioKeys.includes(scenario.key) ? '…' : '—'}</span>
+                          <span style={{ color: colors.textMuted }}>{inProgress && inRun(scenario) ? '…' : '—'}</span>
                         )}
                       </td>
                     );
@@ -418,7 +435,7 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
                             </div>
                           );
                         })}
-                        {!resultsByKey[scenario.key] && (
+                        {run && !inRun(scenario) && (
                           <div className="text-xs" style={{ color: colors.textMuted }}>Not part of the last run — use “run” on this row to replay it.</div>
                         )}
                       </div>

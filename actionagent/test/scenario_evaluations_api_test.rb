@@ -10,8 +10,21 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     ActionAgent::Agent.delete_all
   end
 
-  def create_agent
-    ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model", instructions: "Answer from data.")
+  def teardown
+    ActionAgent.quota_checker = nil
+    ActionAgent.usage_recorder = nil
+    ActionAgent.execution_enabled = true
+  end
+
+  def create_agent(**attributes)
+    ActionAgent::Agent.create!({ name: "Assistant", provider: "mock", model: "mock-model", instructions: "Answer from data." }.merge(attributes))
+  end
+
+  def create_suite(agent, prompt: "First")
+    evaluation = agent.evaluations.new(name: "Catalog", judge_kind: "rules", criteria: [])
+    evaluation.scenarios.build(key: "a_1", prompt: prompt)
+    evaluation.save!
+    evaluation
   end
 
   CATALOG = <<~TEXT
@@ -43,7 +56,10 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_enqueued_jobs 1, only: ActionAgent::EvaluationRunJob
   end
 
-  test "a suite with no criteria is valid: the scenarios' expectations score it" do
+  # An empty criteria list is indistinguishable from an omitted one through
+  # the API, so the suite gets the rule-based defaults; only the model layer
+  # accepts a suite scored on its scenarios' expectations alone.
+  test "a suite posted with an empty criteria list gets the default rule criteria and no run when told not to" do
     agent = create_agent
 
     post "/activeagents/api/evaluations", params: {
@@ -53,7 +69,49 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_response :created
     evaluation = ActionAgent::Evaluation.find(JSON.parse(response.body).dig("evaluation", "id"))
     assert_equal 1, evaluation.scenarios.count
+    assert_equal %w[response_present response_length latency token_budget], evaluation.criteria.map { |criterion| criterion["key"] }
     assert_nil evaluation.latest_run
+  end
+
+  test "running a suite is agent execution: refused when the dashboard's execution is off" do
+    evaluation = create_suite(create_agent)
+    ActionAgent.execution_enabled = false
+
+    post "/activeagents/api/evaluations/#{evaluation.id}/run", params: { models: [ "mock/alpha" ] }, as: :json
+
+    assert_response :forbidden
+    assert_nil evaluation.latest_run
+    assert_no_enqueued_jobs only: ActionAgent::EvaluationRunJob
+  end
+
+  test "creating a suite that runs is subject to the host's execution quota; creating one that does not run is not" do
+    agent = create_agent
+    ActionAgent.quota_checker = ->(_owner, kind) { "Out of runs" if kind == :execution }
+
+    post "/activeagents/api/evaluations", params: { evaluation: { agent_id: agent.id, name: "Catalog", scenarios_text: "First" } }, as: :json
+    assert_response :payment_required
+    assert_equal 0, agent.evaluations.count
+
+    post "/activeagents/api/evaluations", params: { evaluation: { agent_id: agent.id, name: "Catalog", scenarios_text: "First", run: false } }, as: :json
+    assert_response :created
+  end
+
+  test "a generation-sampling evaluation is not gated: it scores recorded data rather than executing the agent" do
+    agent = create_agent
+    ActionAgent.execution_enabled = false
+
+    post "/activeagents/api/evaluations", params: { evaluation: { agent_id: agent.id, name: "Sampled" } }, as: :json
+
+    assert_response :created
+  end
+
+  test "an observed agent's suite cannot be run" do
+    evaluation = create_suite(create_agent(status: :observed))
+
+    post "/activeagents/api/evaluations/#{evaluation.id}/run", as: :json
+
+    assert_response :unprocessable_entity
+    assert_match(/read-only/, JSON.parse(response.body)["error"])
   end
 
   test "a run can be narrowed to a group and to models, and its results are readable" do
