@@ -69,6 +69,43 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
     assert_equal [ "a_1", "a_2" ], scenarios.map { |s| s["key"] }
   end
 
+  def test_a_named_key_that_repeats_an_earlier_line_is_reassigned
+    scenarios = parse("# A\nfirst | key: a_1\nsecond | key: a_1\nthird")
+
+    assert_equal %w[a_1 a_2 a_3], scenarios.map { |s| s["key"] }
+  end
+
+  def test_a_short_line_ending_in_a_colon_starts_a_group_unless_it_is_a_question_or_carries_options
+    scenarios = parse("Find records:\nWhich providers have no license?\nWho changed it? | notes:")
+
+    assert_equal [ "Which providers have no license?", "Who changed it?" ], scenarios.map { |s| s["prompt"] }
+    assert_equal [ "Find records", "Find records" ], scenarios.map { |s| s["group"] }
+    assert_nil scenarios.last["notes"]
+  end
+
+  def test_a_hash_that_opens_a_message_is_not_a_heading
+    scenarios = parse("#1 priority: who changed the biography?\n# Blame\nWho changed it?")
+
+    assert_equal [ "#1 priority: who changed the biography?", "Who changed it?" ], scenarios.map { |s| s["prompt"] }
+    assert_equal [ nil, "Blame" ], scenarios.map { |s| s["group"] }
+  end
+
+  def test_inline_code_in_a_message_is_kept_as_part_of_the_prompt
+    scenarios = parse("What does `count_records` return for Charlotte?\n`Show me all providers` — 314 locally")
+
+    assert_equal "What does count_records return for Charlotte?", scenarios.first["prompt"]
+    assert_nil scenarios.first["notes"]
+    assert_equal "Show me all providers", scenarios.last["prompt"]
+    assert_equal "314 locally", scenarios.last["notes"]
+  end
+
+  def test_a_single_json_object_and_an_expect_sub_hash_are_accepted
+    scenarios = parse('{"prompt": "Where is my order?", "expect": {"tools": ["lookup_order"]}}')
+
+    assert_equal [ "Where is my order?" ], scenarios.map { |s| s["prompt"] }
+    assert_equal [ "lookup_order" ], scenarios.first["expectations"]["tools"]
+  end
+
   def test_blank_input_parses_to_nothing
     assert_equal [], parse("  \n\n")
   end
