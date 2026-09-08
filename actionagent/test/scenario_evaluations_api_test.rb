@@ -137,4 +137,41 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_equal "pending", listed.dig("latest_run", "status")
     assert_nil listed.dig("latest_run", "average_score")
   end
+
+  test "a completed run renders as a self-contained HTML report page" do
+    agent = create_agent
+    evaluation = agent.evaluations.create!(
+      name: "Report suite", judge_kind: "rules",
+      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ],
+      config: { "scenario_suite" => true }
+    )
+    scenario = evaluation.scenarios.create!(key: "s1", prompt: "Who changed the <biography>?", group: "blame", position: 0)
+    run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
+    run.scenario_results.create!(
+      scenario: scenario, model: "mock-model", provider: "mock", status: :passed, score: 1.0,
+      scores: { "response_present" => 1.0 }, output: "<b>Alice</b> did.", duration_ms: 10
+    )
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}/report"
+
+    assert_response :success
+    assert_match %r{text/html}, response.content_type
+    assert_includes response.body, "<!doctype html>"
+    assert_includes response.body, "Who changed the &lt;biography&gt;?"
+    assert_includes response.body, "&lt;b&gt;Alice&lt;/b&gt; did."
+    assert_includes response.body, "Report suite"
+  end
+
+  test "a generation-sampling run has no report page" do
+    agent = create_agent
+    evaluation = agent.evaluations.create!(
+      name: "Sampling", judge_kind: "rules",
+      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ]
+    )
+    run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}/report"
+
+    assert_response :not_found
+  end
 end

@@ -1,3 +1,4 @@
+import { dashboardPath } from '../../utils/dashboardPath';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 // The expanded body of a scenario-suite evaluation: the suite's scenarios
@@ -241,6 +242,17 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
                 ? `Run failed: ${run.error_message}`
                 : `Last run: ${runScenarioKeys.length} scenario${runScenarioKeys.length === 1 ? '' : 's'}${run.selection?.group ? ` in ${run.selection.group}` : ''} × ${columns.length} model${columns.length === 1 ? '' : 's'} — ${run.samples_passed} passed`}
           </span>
+          {!inProgress && run.status !== 'failed' && (
+            <a
+              href={dashboardPath(`/api/evaluations/${evaluation.id}/runs/${run.id}/report`)}
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+              title="The run as a self-contained report page — save it to export"
+            >
+              View report
+            </a>
+          )}
           {!inProgress && run.status !== 'failed' && run.usage && (
             <span>
               {formatCost(run.usage.cost)} · {formatTokens((run.usage.input_tokens || 0) + (run.usage.output_tokens || 0))} tokens
