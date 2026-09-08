@@ -150,6 +150,36 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal 6, parsed["results"].size
   end
 
+  def test_the_report_renders_a_self_contained_html_page
+    report = runner.call
+    html = report.to_html
+
+    assert_includes html, "<!doctype html>"
+    assert_includes html, "<style>"
+    assert_no_match(%r{(?:src|href)=["']https?://}i, html, "the page must not reference external assets")
+    assert_includes html, "gpt-5-mini"
+    assert_includes html, "Recommendations"
+    assert_includes html, "<details>"
+    assert_includes html, "Who changed the biography?"
+  end
+
+  def test_html_report_escapes_answer_markup
+    report = ActiveAgent::Evals::Report.new(
+      results: [ ActiveAgent::Evals::Result.new(
+        scenario: scenario("xss_1", "<script>alert(1)</script> in a prompt"),
+        spec: spec("gpt-5-mini"),
+        replay: replay(answer: "<img src=x onerror=alert(1)>"),
+        scores: { "response_present" => 1.0 }, score: 1.0, status: "passed"
+      ) ],
+      models: [ spec("gpt-5-mini") ]
+    )
+    html = report.to_html
+
+    assert_not_includes html, "<script>alert(1)</script>"
+    assert_not_includes html, "<img src=x"
+    assert_includes html, "&lt;script&gt;"
+  end
+
   def test_an_argument_error_inside_the_replay_is_an_errored_result_not_an_aborted_run
     report = ActiveAgent::Evals::Runner.new(
       scenarios: scenarios.first(1), models: models,

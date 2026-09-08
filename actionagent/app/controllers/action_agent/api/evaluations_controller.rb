@@ -100,7 +100,10 @@ module ActionAgent
 
       # GET /api/evaluations/:id/runs/:run_id
       # One run in full: its per-scenario, per-model results alongside the
-      # scenarios, so the matrix and every answer can be rendered.
+      # scenarios, so the matrix and every answer can be rendered, and its
+      # fix items — the faults grouped with the tools, MCP server and
+      # dashboard action that address each. Fix item paths are relative to
+      # the mount: the React app resolves them itself (dashboardPath).
       def show_run
         evaluation = evaluations_scope.find(params[:id])
         run = evaluation.evaluation_runs.find(params[:run_id])
@@ -109,7 +112,7 @@ module ActionAgent
 
         render json: {
           evaluation: serialize(evaluation),
-          run: serialize_run(run).merge(results: results.map(&:as_json_summary))
+          run: serialize_run(run).merge(results: results.map(&:as_json_summary), fix_items: safe_fix_items(run))
         }
       end
 
@@ -154,6 +157,24 @@ module ActionAgent
         evaluation = evaluations_scope.find(params[:id])
         evaluation.scenarios.find(params[:scenario_id]).destroy!
         head :no_content
+      end
+
+      # GET /api/evaluations/:id/runs/:run_id/report?theme=dark
+      #
+      # The run as the framework's self-contained HTML report page — the
+      # in-dashboard view and, because the page is a single file, the export.
+      # `theme` (light|dark) pins the palette to the dashboard's; without it
+      # the page follows the viewer's own preference. The page is served
+      # outside the React app, so its fix item actions link at the absolute
+      # mount path (request.script_name) rather than relative to it.
+      def run_report
+        evaluation = evaluations_scope.find(params[:id])
+        run = evaluation.evaluation_runs.find(params[:run_id])
+        raise ActiveRecord::RecordNotFound unless evaluation.scenario_suite?
+
+        report = run.to_report(links: run.report_links(mount: request.script_name))
+
+        render html: report.to_html(theme: params[:theme]).html_safe, layout: false
       end
 
       # DELETE /api/evaluations/:id
@@ -322,10 +343,23 @@ module ActionAgent
           average_score: safe_average_score(run),
           samples_evaluated: run.samples_evaluated,
           samples_passed: run.samples_passed,
+          usage: run.usage,
           error_message: run.error_message,
           completed_at: run.completed_at&.iso8601,
           created_at: run.created_at.iso8601
         }
+      end
+
+      # The fix items are derived from every persisted result's diagnosis,
+      # which older runs recorded in earlier shapes; a run they cannot be
+      # built for still serves its results rather than 500-ing the panel.
+      def safe_fix_items(run)
+        run.fix_items
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[ActionAgent] evaluation run #{run.id} fix_items failed: #{e.class}: #{e.message}"
+        )
+        []
       end
 
       # index serializes the latest run of every listed evaluation, so an

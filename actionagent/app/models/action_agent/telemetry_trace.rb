@@ -81,6 +81,109 @@ module ActionAgent
       end
     end
 
+    # The trace columns the Metrics report reads, in the order
+    # pluck_metrics_rows returns them (before the span-derived fields).
+    METRICS_COLUMNS = %i[
+      timestamp agent_class agent_action total_duration_ms status error_message
+      total_input_tokens total_output_tokens
+    ].freeze
+
+    # Plucks one row per trace with everything the Metrics report needs, so
+    # a window is read once:
+    #
+    #   [timestamp, agent_class, agent_action, total_duration_ms, status,
+    #    error_message, total_input_tokens, total_output_tokens,
+    #    llm_model, llm_provider, tool_calls, tool_errors]
+    #
+    # llm_model and llm_provider come from the first llm span; tool_calls
+    # and tool_errors count the trace's tool spans and those whose status is
+    # ERROR. Same split as pluck_with_llm_model: PostgreSQL digs into the
+    # spans jsonb in SQL, other adapters read the column back and count in
+    # Ruby.
+    def self.pluck_metrics_rows(scope)
+      if postgres?
+        scope.pluck(
+          *METRICS_COLUMNS,
+          # spans is cast for the same reason as in pluck_with_llm_model:
+          # the column is json on older installs.
+          Arel.sql(
+            "(SELECT s.value -> 'attributes' ->> 'llm.model' " \
+            "FROM jsonb_array_elements(spans::jsonb) AS s " \
+            "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
+          ),
+          Arel.sql(
+            "(SELECT s.value -> 'attributes' ->> 'llm.provider' " \
+            "FROM jsonb_array_elements(spans::jsonb) AS s " \
+            "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
+          ),
+          Arel.sql(
+            "(SELECT COUNT(*) FROM jsonb_array_elements(spans::jsonb) AS s " \
+            "WHERE s.value ->> 'type' = 'tool')"
+          ),
+          Arel.sql(
+            "(SELECT COUNT(*) FROM jsonb_array_elements(spans::jsonb) AS s " \
+            "WHERE s.value ->> 'type' = 'tool' AND s.value ->> 'status' = '#{STATUS_ERROR}')"
+          )
+        )
+      else
+        scope.pluck(:spans, *METRICS_COLUMNS).map do |spans, *rest|
+          spans = Array(spans).grep(Hash)
+          llm = spans.find { |span| span["type"].to_s == "llm" }
+          tools = spans.select { |span| span["type"].to_s == "tool" }
+          [
+            *rest,
+            llm&.dig("attributes", "llm.model"),
+            llm&.dig("attributes", "llm.provider"),
+            tools.size,
+            tools.count { |span| span["status"].to_s == STATUS_ERROR }
+          ]
+        end
+      end
+    end
+
+    # Per-tool call count, error count and summed duration over the tool
+    # spans of every trace in +scope+:
+    #
+    #   { "web_search" => { calls: 12, errors: 1, total_ms: 7680.0 }, ... }
+    #
+    # A tool is named by its span's tool.name attribute, or by the span name
+    # minus its "tool." prefix — the same rule as #tool_usage. PostgreSQL
+    # groups in SQL over the unnested spans jsonb; other adapters read the
+    # spans back and tally in Ruby.
+    def self.tool_span_stats(scope)
+      if postgres?
+        name_sql = "COALESCE(s.value -> 'attributes' ->> 'tool.name', " \
+                   "regexp_replace(COALESCE(s.value ->> 'name', ''), '^tool\\.', ''))"
+
+        scope
+          .joins("CROSS JOIN LATERAL jsonb_array_elements(#{table_name}.spans::jsonb) AS s")
+          .where("s.value ->> 'type' = 'tool'")
+          .group(Arel.sql(name_sql))
+          .pluck(
+            Arel.sql(name_sql),
+            Arel.sql("COUNT(*)"),
+            Arel.sql("SUM(CASE WHEN s.value ->> 'status' = '#{STATUS_ERROR}' THEN 1 ELSE 0 END)"),
+            Arel.sql("SUM(COALESCE((s.value ->> 'duration_ms')::float, 0))")
+          )
+          .to_h do |name, calls, errors, total_ms|
+            [ name, { calls: calls.to_i, errors: errors.to_i, total_ms: total_ms.to_f } ]
+          end
+      else
+        scope.pluck(:spans).each_with_object({}) do |spans, stats|
+          Array(spans).each do |span|
+            next unless span.is_a?(Hash) && span["type"].to_s == "tool"
+
+            attributes = span["attributes"] || {}
+            name = attributes["tool.name"] || span["name"].to_s.delete_prefix("tool.")
+            entry = (stats[name] ||= { calls: 0, errors: 0, total_ms: 0.0 })
+            entry[:calls] += 1
+            entry[:errors] += 1 if span["status"].to_s == STATUS_ERROR
+            entry[:total_ms] += span["duration_ms"].to_f
+          end
+        end
+      end
+    end
+
     def self.create_from_payload(trace, sdk_info = {}, account: nil)
       spans = trace["spans"] || []
       root_span = spans.find { |s| s["parent_span_id"].nil? } || spans.first || {}

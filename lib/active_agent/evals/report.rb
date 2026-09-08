@@ -4,18 +4,31 @@ module ActiveAgent
   module Evals
     # The outcome of one evaluation run: every scenario × model Result, a summary
     # per model, criterion statistics, the faults grouped with the fix each
-    # calls for, and the model that did best. Renders as a hash, JSON, or
-    # Markdown.
+    # calls for, and the model that did best. Renders as a hash, JSON,
+    # Markdown, or a self-contained HTML page (ReportHtml).
     class Report
-      attr_reader :results, :models, :judge, :instructions, :metadata
+      include ReportHtml
 
-      def initialize(results:, models:, judge: nil, instructions: nil, threshold: PASS_THRESHOLD, metadata: {})
+      attr_reader :results, :models, :judge, :instructions, :metadata, :agent_name, :links, :tool_resolver
+
+      # @param tool_resolver [#call, nil] maps a tool name to the MCP server
+      #   that provides it — `{ "key", "name", "status" }` with status
+      #   "enabled", "available" or "unknown" — or nil; enriches +fix_items+
+      # @param agent_name [String, nil] how fix items name the agent
+      # @param links [Hash] route templates for fix item actions:
+      #   `"mcp"` (`"/mcp/%{key}"`), `"tools"`, `"instructions"`. An action
+      #   whose route is absent carries `"path" => nil`.
+      def initialize(results:, models:, judge: nil, instructions: nil, threshold: PASS_THRESHOLD, metadata: {},
+                     tool_resolver: nil, agent_name: nil, links: {})
         @results = results
         @models = models
         @judge = judge
         @instructions = instructions
         @threshold = threshold
         @metadata = metadata
+        @tool_resolver = tool_resolver
+        @agent_name = agent_name.presence || "the agent"
+        @links = (links || {}).to_h.stringify_keys
       end
 
       def comparing?
@@ -78,6 +91,22 @@ module ActiveAgent
             "suggested_tools" => faulted.filter_map(&:suggested_tool).uniq
           }
         end.sort_by { |entry| -entry["count"] }
+      end
+
+      # What to fix: one item per fault, in +recommendations+ order, plus one
+      # per distinct instruction change the judge proposed. Each item names
+      # the tools involved — the missing tools a scenario expected, the tools
+      # that errored, or the tools the judge suggested — the MCP server that
+      # provides them when +tool_resolver+ knows it, and the dashboard action
+      # that addresses it when +links+ carry the route:
+      #
+      #   { "kind" => "fault" | "instruction", "fault" => "expected_tool_not_called", "count" => 3,
+      #     "scenario_keys" => [...], "models" => [...], "recommendation" => "...", "quote" => nil,
+      #     "tools_label" => "missing tools", "tools" => [ { "name", "note", "server" } ],
+      #     "server" => { "key", "name", "status" } | nil, "note" => "..." | nil,
+      #     "action" => { "label", "hint", "path" } | nil }
+      def fix_items
+        @fix_items ||= fault_fix_items + instruction_fix_items
       end
 
       # The best model when comparing: highest pass rate, then mean score, then
@@ -158,6 +187,162 @@ module ActiveAgent
           "total" => scored.size
         }
       end
+
+      # --- fix items ---------------------------------------------------------
+
+      def fault_fix_items
+        by_fault = @results.select(&:fault).group_by(&:fault)
+        recommendations.map do |entry|
+          faulted = by_fault[entry["fault"]]
+          tools_label, tools = fix_tools(entry["fault"], faulted)
+          server = tools_label == "missing tools" ? shared_server(tools) : nil
+
+          {
+            "kind" => "fault",
+            "fault" => entry["fault"],
+            "count" => entry["count"],
+            "scenario_keys" => entry["scenario_keys"],
+            "models" => entry["models"],
+            "recommendation" => entry["recommendation"],
+            "quote" => nil,
+            "tools_label" => tools.any? ? tools_label : nil,
+            "tools" => tools,
+            "server" => server,
+            "note" => fix_note(entry["fault"], faulted, tools),
+            "action" => fix_action(tools_label, tools, server)
+          }
+        end
+      end
+
+      def instruction_fix_items
+        @results.select { |result| result.diagnosis&.dig("judge", "instruction_change").present? }
+                .group_by { |result| result.diagnosis.dig("judge", "instruction_change").to_s.strip }
+                .map do |sentence, cohort|
+          {
+            "kind" => "instruction",
+            "fault" => "instruction change",
+            "count" => cohort.size,
+            "scenario_keys" => cohort.map { |result| result.scenario.key }.uniq,
+            "models" => cohort.map(&:label).uniq,
+            "recommendation" => cohort.filter_map(&:recommendation).first,
+            "quote" => sentence,
+            "tools_label" => nil,
+            "tools" => [],
+            "server" => nil,
+            "note" => nil,
+            "action" => fix_action_for("Add to instructions", "Agent -> Instructions", link("instructions"))
+          }
+        end
+      end
+
+      # [label, tools] for a fault: the tools the scenarios expected but the
+      # agent could not call, the tools that errored, or the tools the judge
+      # suggested — deduplicated by name.
+      def fix_tools(fault, faulted)
+        case fault
+        when "expected_tool_not_called"
+          [ "missing tools", faulted.flat_map { |result| unavailable_tools(result) }.uniq.map { |name| tool_entry(name) } ]
+        when "missing_capability"
+          names = suggested_tool_names(faulted) + faulted.flat_map { |result| unavailable_tools(result) }
+          [ "suggested tools", names.uniq.map { |name| tool_entry(name) } ]
+        when "tool_error"
+          failed = faulted.flat_map { |result| result.replay.failed_tool_calls }.uniq { |call| call["name"].to_s }
+          [ "failing tools", failed.map { |call| tool_entry(call["name"], note: call["detail"].to_s.truncate(60).presence) } ]
+        else
+          [ "suggested tools", suggested_tool_names(faulted).uniq.map { |name| tool_entry(name) } ]
+        end
+      end
+
+      def suggested_tool_names(faulted)
+        faulted.filter_map { |result| result.suggested_tool&.dig("name").presence }
+      end
+
+      # Tools the scenario expects that the agent could not call: what the
+      # diagnosis recorded as unavailable or, for a diagnosis without that
+      # evidence, the expected tools outside its toolset (or, failing that,
+      # the ones it did not call).
+      def unavailable_tools(result)
+        evidence = result.diagnosis&.dig("evidence") || {}
+        return Array(evidence["unavailable"]).map(&:to_s) if evidence.key?("unavailable")
+        return result.scenario.expected_tools - Array(evidence["tools_available"]).map(&:to_s) if evidence.key?("tools_available")
+
+        result.scenario.expected_tools - result.replay.tool_names
+      end
+
+      def tool_entry(name, note: nil)
+        server = resolve_tool(name.to_s)
+        { "name" => name.to_s, "note" => note || server&.dig("name"), "server" => server }
+      end
+
+      def resolve_tool(name)
+        return nil unless @tool_resolver
+
+        @resolved_tools ||= {}
+        return @resolved_tools[name] if @resolved_tools.key?(name)
+
+        resolved = @tool_resolver.call(name)
+        @resolved_tools[name] =
+          if resolved
+            server = resolved.to_h.stringify_keys
+            { "key" => server["key"].to_s, "name" => server["name"].presence || server["key"].to_s,
+              "status" => server["status"].presence || "unknown" }
+          end
+      end
+
+      # The one server every tool resolves to, or nil when they differ or any
+      # is unknown.
+      def shared_server(tools)
+        servers = tools.map { |tool| tool["server"] }
+        return nil if servers.empty? || servers.any?(&:nil?)
+
+        servers.uniq { |server| server["key"] }.size == 1 ? servers.first : nil
+      end
+
+      # For missing tools, the scenarios whose expected tool was available
+      # but went uncalled — the fix for those is instructions, not enabling
+      # a server.
+      def fix_note(fault, faulted, tools)
+        return nil unless fault == "expected_tool_not_called" && tools.any?
+
+        exceptions = faulted.select { |result| unavailable_tools(result).empty? }
+        return nil if exceptions.empty?
+
+        exceptions.map { |result| "#{result.scenario.key} is the exception: #{result.summary} #{result.recommendation}".strip }.uniq.join(" ")
+      end
+
+      def fix_action(tools_label, tools, server)
+        return nil if tools.empty?
+
+        case tools_label
+        when "missing tools"
+          if server && server["status"] != "enabled"
+            fix_action_for("Enable #{server['name']} for #{@agent_name}", "MCP Services ->", link("mcp", key: server["key"]))
+          else
+            fix_action_for("Open tools", "Tools ->", link("tools"))
+          end
+        when "failing tools"
+          fix_action_for("Open failing tools", "Tools ->", link("tools"))
+        else
+          fix_action_for("Open suggested tools", "Tools ->", link("tools"))
+        end
+      end
+
+      def fix_action_for(label, hint, path)
+        { "label" => label, "hint" => hint, "path" => path }
+      end
+
+      # The route template for `name` with `%{key}`-style values filled in,
+      # or nil when the caller gave none.
+      def link(name, **values)
+        template = @links[name].to_s.presence
+        return template if template.nil? || values.empty?
+
+        format(template, **values)
+      rescue KeyError, ArgumentError
+        template
+      end
+
+      # --- Markdown ----------------------------------------------------------
 
       def summary_table
         header = [ "| Model | Pass rate | Passed | Mean score | Mean latency | Tokens in/out | Cost | Faults |",
