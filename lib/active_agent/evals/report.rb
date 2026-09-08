@@ -139,6 +139,39 @@ module ActiveAgent
         lines.join("\n")
       end
 
+      # A self-contained HTML report — inline styles, no external assets — so
+      # a run's outcome can be archived or shared the way a CI test report is.
+      # Same content as +to_markdown+: per-model summaries, the verdict, the
+      # scenario × model matrix grouped the way the suite groups its
+      # scenarios, recommendations, and every answer behind a disclosure.
+      def to_html
+        scenario_count = @results.map { |result| result.scenario.key }.uniq.size
+        title = "Evaluation — #{scenario_count} scenario#{'s' unless scenario_count == 1} × #{@models.size} model#{'s' unless @models.size == 1}"
+
+        <<~HTML
+          <!doctype html>
+          <html lang="en">
+          <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>#{h(title)}</title>
+          <style>#{HTML_STYLES}</style>
+          </head>
+          <body>
+          <div class="wrap">
+          <h1>#{h(title)}</h1>
+          <p class="judge-line">#{@judge ? "Judged by <code>#{h(@judge.label)}</code>" : 'No judge; scored on rules and expectations alone'}#{html_metadata}</p>
+          #{html_summary_cards}
+          #{html_verdict}
+          #{html_matrix}
+          #{html_recommendations}
+          #{html_details}
+          </div>
+          </body>
+          </html>
+        HTML
+      end
+
       private
 
       def criterion_keys
@@ -217,6 +250,146 @@ module ActiveAgent
           lines << ""
         end
         lines
+      end
+
+      # --- HTML rendering -------------------------------------------------
+
+      HTML_STYLES = <<~CSS.freeze
+        :root { color-scheme: light; }
+        body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 40px 80px; background: #fff; min-height: 100vh; }
+        h1 { font-size: 24px; border-bottom: 2px solid #ef4444; padding-bottom: 10px; }
+        h2 { font-size: 19px; margin-top: 36px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+        code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 12px; font-family: ui-monospace, monospace; }
+        .judge-line { color: #475569; }
+        .meta { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; font-size: 12px; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 16px 0; }
+        .card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+        .card.winner { border-color: #22c55e; }
+        .card .model { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
+        .card .rate { font-size: 26px; font-weight: 700; }
+        .rate.good { color: #16a34a; } .rate.mid { color: #ca8a04; } .rate.bad { color: #dc2626; }
+        .card .stats, .card .faults { font-size: 12px; color: #475569; }
+        .verdict { border-left: 3px solid #22c55e; background: #f0fdf4; border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 12px 0; }
+        .verdict .who { font-weight: 700; }
+        .verdict .via { color: #64748b; font-size: 12px; }
+        .scroll { overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        th, td { border: 1px solid #e2e8f0; padding: 6px 10px; text-align: left; vertical-align: top; }
+        th { background: #f8fafc; }
+        td.group { background: #f8fafc; font-weight: 600; }
+        .pass { color: #16a34a; } .fail { color: #dc2626; } .err { color: #ca8a04; }
+        .fault-label { color: #64748b; }
+        .prompt-key { font-family: ui-monospace, monospace; font-size: 11px; color: #64748b; margin-right: 6px; }
+        details { border: 1px solid #e2e8f0; border-radius: 8px; margin: 8px 0; padding: 0 12px; }
+        details summary { cursor: pointer; padding: 8px 0; font-family: ui-monospace, monospace; font-size: 12px; }
+        blockquote { border-left: 3px solid #cbd5e1; margin: 8px 0; padding: 2px 12px; color: #475569; }
+        .answer { white-space: pre-wrap; font-size: 13px; }
+        .recommendation { border-left: 3px solid #ef4444; background: #fef2f2; border-radius: 0 8px 8px 0; padding: 8px 12px; margin: 8px 0; }
+        .recommendation .count { font-weight: 700; }
+        .recommendation .scenarios { color: #64748b; font-size: 12px; }
+      CSS
+
+      def h(value)
+        CGI.escapeHTML(value.to_s)
+      end
+
+      def html_metadata
+        @metadata.to_h.map { |key, value| %( <span class="meta">#{h(key)}: #{h(value)}</span>) }.join
+      end
+
+      def html_summary_cards
+        cards = summary_by_model.map do |label, stats|
+          tone = stats["pass_rate"] >= 85 ? "good" : (stats["pass_rate"] >= 60 ? "mid" : "bad")
+          faults = stats["faults"].map { |fault, count| "#{h(fault.tr('_', ' '))} ×#{count}" }.join(" · ")
+          <<~CARD
+            <div class="card#{' winner' if winner == label}">
+              <div class="model">#{h(label)}</div>
+              <div class="rate #{tone}">#{stats['pass_rate']}%</div>
+              <div class="stats">#{stats['passed']}/#{stats['scenarios']} passed · score #{stats['avg_score'] || '—'} ·
+                #{stats['avg_duration_ms'] ? "#{stats['avg_duration_ms']} ms" : '—'} ·
+                #{stats['input_tokens']}/#{stats['output_tokens']} tok ·
+                #{stats['cost'] ? format('$%.4f', stats['cost']) : '—'}</div>
+              #{"<div class=\"faults\">#{faults}</div>" if faults.present?}
+            </div>
+          CARD
+        end
+        %(<div class="cards">#{cards.join}</div>)
+      end
+
+      def html_verdict
+        return "" unless verdict
+
+        <<~BANNER
+          <div class="verdict">
+            <span class="who">Winner: #{h(verdict['winner'])}</span>
+            <span class="via">judged by #{h(verdict['judge'])}</span>
+            <div>#{h(verdict['rationale'])}</div>
+          </div>
+        BANNER
+      end
+
+      def html_matrix
+        labels = @models.map(&:label)
+        head = "<tr><th>Scenario</th>#{labels.map { |label| "<th><code>#{h(label)}</code></th>" }.join}</tr>"
+        rows = +""
+        current_group = :none
+        @results.group_by { |result| result.scenario.key }.each_value do |cohort|
+          scenario = cohort.first.scenario
+          if scenario.group != current_group
+            current_group = scenario.group
+            group_name = scenario.group_name.presence || scenario.group
+            rows << %(<tr><td class="group" colspan="#{labels.size + 1}">#{h(group_name)}</td></tr>) if group_name
+          end
+          cells = labels.map do |label|
+            result = cohort.find { |candidate| candidate.label == label }
+            next "<td>—</td>" unless result
+
+            tone, mark = result.passed? ? %w[pass ✓] : (result.errored? ? %w[err ⚠] : %w[fail ✗])
+            fault = result.fault ? %( <span class="fault-label">· #{h(result.fault.tr('_', ' '))}</span>) : ""
+            %(<td><span class="#{tone}">#{mark} #{result.score&.round(2)}</span>#{fault}</td>)
+          end
+          rows << %(<tr><td><span class="prompt-key">#{h(scenario.key)}</span>#{h(scenario.prompt.truncate(90))}</td>#{cells.join}</tr>)
+        end
+        %(<div class="scroll"><table>#{head}#{rows}</table></div>)
+      end
+
+      def html_recommendations
+        return "" if recommendations.empty?
+
+        entries = recommendations.map do |entry|
+          tools = entry["suggested_tools"].map { |tool| "<li><code>#{h(tool['name'])}</code> — #{h(tool['description'])}</li>" }.join
+          <<~ENTRY
+            <div class="recommendation">
+              <span class="count">#{h(entry['fault'].tr('_', ' '))} ×#{entry['count']}</span>
+              <span class="scenarios">#{h(entry['scenario_keys'].join(', '))} · #{h(entry['models'].join(', '))}</span>
+              <div>#{h(entry['recommendation'])}</div>
+              #{"<ul>#{tools}</ul>" if tools.present?}
+            </div>
+          ENTRY
+        end
+        %(<h2>Recommendations</h2>#{entries.join})
+      end
+
+      def html_details
+        blocks = @results.map do |result|
+          tone = result.passed? ? "pass" : (result.errored? ? "err" : "fail")
+          tools = result.replay.tool_calls.map { |call| "<code>#{h(call['name'])}#{' ✗' if call['error']}</code>" }.join(" ")
+          fault = result.fault ? %(<div><strong>#{h(result.fault.tr('_', ' '))}</strong> — #{h(result.summary)} #{h(result.recommendation)}</div>) : ""
+          error = result.replay.error ? %(<div class="fail">Error: #{h(result.replay.error.to_s.truncate(500))}</div>) : ""
+          <<~BLOCK
+            <details>
+              <summary><span class="#{tone}">#{result.passed? ? '✓' : (result.errored? ? '⚠' : '✗')}</span>
+                #{h(result.scenario.key)} · #{h(result.label)}#{" · score #{result.score.round(2)}" if result.score}</summary>
+              <blockquote>#{h(result.scenario.prompt)}</blockquote>
+              #{"<div>Tools: #{tools}</div>" if tools.present?}
+              #{fault}
+              #{error}
+              <p class="answer">#{h((result.replay.answer.presence || '(no answer)').to_s.truncate(3_000))}</p>
+            </details>
+          BLOCK
+        end
+        %(<h2>Answers</h2>#{blocks.join})
       end
     end
   end
