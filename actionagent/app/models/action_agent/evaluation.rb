@@ -55,6 +55,10 @@ module ActionAgent
     end
 
     def scenario_groups
+      # The index preloads scenarios for a page of evaluations; read the
+      # loaded association there rather than querying once per suite.
+      return scenarios.filter_map { |scenario| scenario.group.presence }.uniq.sort if scenarios.loaded?
+
       scenarios.where.not(group: [ nil, "" ]).distinct.order(:group).pluck(:group)
     end
 
@@ -62,7 +66,10 @@ module ActionAgent
     # its scenarios (`scenario_ids`, `keys`, `group`) and/or to specific
     # `models`; it is ignored by a generation-sampling evaluation.
     def run!(run: nil, **selection)
-      if scenario_suite?
+      # A run created ahead of time (run_later!) is the scenario runner's even
+      # if the suite has since lost its scenarios: it fails that run with
+      # "No scenarios selected" rather than leaving it pending forever.
+      if run || scenario_suite?
         ScenarioEvaluationRunner.call(self, selection: selection, run: run)
       else
         EvaluationRunnerService.call(self)
@@ -80,7 +87,8 @@ module ActionAgent
 
     # Replaces the suite with the scenarios described by +attributes+ (the
     # ActiveAgent::Evals::ScenarioParser output). Keys already in the suite keep their records, so
-    # earlier runs' results still resolve to their scenario.
+    # earlier runs' results still resolve to their scenario, and keep their
+    # enabled flag unless the attributes set it (a paste cannot).
     def replace_scenarios!(attributes)
       transaction do
         keep = attributes.map { |attrs| attrs["key"] }
@@ -94,7 +102,7 @@ module ActionAgent
             notes: attrs["notes"],
             expectations: attrs["expectations"] || {},
             position: attrs.fetch("position", index),
-            enabled: attrs.fetch("enabled", true)
+            enabled: attrs.fetch("enabled") { scenario.new_record? || scenario.enabled }
           )
           scenario.save!
         end

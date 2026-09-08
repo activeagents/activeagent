@@ -6,9 +6,11 @@ module ActiveAgent
     # shapes people actually paste:
     #
     #   - one message per line, with or without list markers (`-`, `*`, `1.`)
-    #   - `# Heading` or `**Heading**` lines, which start a group
-    #   - a message in backticks followed by notes, as in an issue's question
-    #     catalog: `` 3. `Show me all providers with no license on file` — 1,060 locally ``
+    #   - `# Heading` or `**Heading**` lines, which start a group; so does a
+    #     short unmarked line ending in a colon (`Find records:`)
+    #   - a message in backticks at the start of the line, followed by notes,
+    #     as in an issue's question catalog:
+    #     `` 3. `Show me all providers with no license on file` — 1,060 locally ``
     #   - trailing ` | tools: a, b | contains: x | not_contains: y | key: k`
     #     options on a line
     #   - a JSON array of strings, or of objects with `prompt` (or `message`),
@@ -19,9 +21,11 @@ module ActiveAgent
     # array of string-keyed hashes; `Scenario.from_hash` builds the structs.
     class ScenarioParser
       LIST_MARKER = /\A\s*(?:[-*•]|\d+[.)])\s+/
-      HEADING = /\A\s*#+\s*(.+?)\s*\z/
+      HEADING = /\A\s*#+\s+(.+?)\s*\z/
       BOLD_HEADING = /\A\s*\*\*(.+?)\*\*:?\s*(?:—.*)?\z/
-      BACKTICK_PROMPT = /`([^`]+)`/
+      # Only a backticked span that opens the line is the prompt; a message
+      # that merely mentions `some_tool` is kept whole.
+      BACKTICK_PROMPT = /\A`([^`]+)`/
       OPTION_KEYS = %w[tools contains not_contains key group notes].freeze
 
       def self.parse(text)
@@ -55,6 +59,7 @@ module ActiveAgent
       def parse_json(text)
         parsed = JSON.parse(text)
         parsed = parsed["scenarios"] if parsed.is_a?(Hash) && parsed.key?("scenarios")
+        parsed = [ parsed ] if parsed.is_a?(Hash)
 
         Array(parsed).filter_map do |entry|
           case entry
@@ -71,7 +76,7 @@ module ActiveAgent
         prompt = entry["prompt"] || entry["message"] || entry["input"] || entry["question"]
         return nil if prompt.blank?
 
-        expectations = entry.fetch("expectations", {}).to_h.stringify_keys
+        expectations = (entry["expectations"] || entry["expect"] || {}).to_h.stringify_keys
         %w[tools contains not_contains].each do |field|
           expectations[field] = Array(entry[field]) if entry.key?(field)
         end
@@ -107,9 +112,16 @@ module ActiveAgent
       def heading_for(line)
         return Regexp.last_match(1).strip if line =~ HEADING
         return strip_markup(Regexp.last_match(1)) if line =~ BOLD_HEADING
-        return line.chomp(":").strip if line.end_with?(":") && !line.match?(LIST_MARKER) && line.length <= 80
+        return line.chomp(":").strip if colon_heading?(line)
 
         nil
+      end
+
+      # `Find records:` reads as a heading; a question, or a line carrying
+      # `| options`, does not, however it ends.
+      def colon_heading?(line)
+        line.end_with?(":") && line.length <= 80 && !line.match?(LIST_MARKER) &&
+          !line.include?("?") && !line.include?(" | ")
       end
 
       def parse_line(line, group)
@@ -170,21 +182,28 @@ module ActiveAgent
         }
       end
 
+      # A key named on a line is kept; a generated one never collides with a
+      # named key anywhere in the paste; and a named key that repeats an
+      # earlier line's is treated as missing, so no two scenarios share one.
       def assign_keys(scenarios)
-        taken = scenarios.filter_map { |s| s["key"] }.to_set
+        named = scenarios.filter_map { |s| s["key"].presence }.to_set
+        taken = Set.new
         counters = Hash.new(0)
 
         scenarios.each_with_index do |scenario, index|
           scenario["position"] = index
-          next if scenario["key"].present?
+          key = scenario["key"].presence
+          key = nil if key && taken.include?(key)
 
-          base = scenario["group"].to_s.parameterize(separator: "_").first(30).presence || "scenario"
-          key = nil
-          loop do
-            counters[base] += 1
-            key = "#{base}_#{counters[base]}"
-            break unless taken.include?(key)
+          unless key
+            base = scenario["group"].to_s.parameterize(separator: "_").first(30).presence || "scenario"
+            loop do
+              counters[base] += 1
+              key = "#{base}_#{counters[base]}"
+              break unless named.include?(key) || taken.include?(key)
+            end
           end
+
           taken << key
           scenario["key"] = key
         end

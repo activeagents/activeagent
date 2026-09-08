@@ -109,6 +109,11 @@ module ActionAgent
     # --- replay -----------------------------------------------------------
 
     def replay(scenario, spec)
+      # One execution per replay, reported to the host before the run starts
+      # (the order SandboxesController#compare uses), so it is counted even
+      # when the run fails.
+      ActionAgent.record_usage(owner, :execution)
+
       agent_run = @evaluation.agent.test_execute(
         scenario.prompt,
         model_override: spec.model,

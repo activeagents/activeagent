@@ -59,6 +59,9 @@ The generator creates:
 - `db/migrate/*_create_active_agent_dashboard_tables.rb` — everything else
   the dashboard reads and writes (agents, runs, versions, conversations,
   evaluations, sandboxes, recordings, keys),
+- `db/migrate/*_create_active_agent_evaluation_scenarios.rb` — scenario
+  suites and their per-scenario, per-model results (re-run the generator on
+  an existing install to get it),
 - `mount ActionAgent::Engine => "/activeagents"` in
   `config/routes.rb`,
 - `config/initializers/action_agent.rb` — authentication,

@@ -119,7 +119,11 @@ module ActiveAgent
            "instruction_change": "<the sentence to add or change>" or null}
         PROMPT
 
-        parsed&.slice("recommendation", "suggested_tool", "instruction_change")&.compact.presence
+        parsed = parsed&.slice("recommendation", "suggested_tool", "instruction_change")&.compact
+        return nil if parsed.blank?
+
+        parsed["suggested_tool"] = suggested_tool(parsed["suggested_tool"]) if parsed.key?("suggested_tool")
+        parsed.compact.presence
       end
 
       # Picks the model that best accomplishes the agent's goals from the
@@ -153,6 +157,18 @@ module ActiveAgent
       end
 
       private
+
+      # The judge is asked for `{ "name", "description" }`; a bare string is
+      # taken as the name, and anything else is dropped rather than rendered
+      # as an empty tool.
+      def suggested_tool(tool)
+        case tool
+        when Hash
+          { "name" => tool["name"].to_s, "description" => tool["description"].to_s } if tool["name"].present?
+        when String
+          { "name" => tool, "description" => "" } if tool.present?
+        end
+      end
 
       def ask(instructions, prompt)
         @generate.call(instructions: instructions, prompt: prompt).to_s

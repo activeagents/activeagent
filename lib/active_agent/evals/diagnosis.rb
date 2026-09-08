@@ -26,7 +26,9 @@ module ActiveAgent
       ].freeze
 
       # Phrasings an agent uses when nothing in its toolset covers the task.
-      REFUSED_VERBS = "have|access|retrieve|look up|query|check|see|find|view|search"
+      # "find" and "see" are deliberately absent: "I can't find any…" and
+      # "I don't see…" report a negative result, not a missing capability.
+      REFUSED_VERBS = "have|access|retrieve|look up|query|check|view|search"
       CAPABILITY_REFUSALS = [
         /\bI(?:'m| am)? (?:do not |don't |cannot |can't |unable to |not able to )(?:currently )?(?:#{REFUSED_VERBS})\b/i,
         /\b(?:no|don't have (?:a|any)) tools? (?:is |are )?(?:available|that can|to)\b/i,
