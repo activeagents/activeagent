@@ -250,6 +250,9 @@ export default function AgentRunner({ agent, onBack }) {
   // Bumped to abandon a poll loop when the run it belongs to is superseded
   // or the page unmounts.
   const pollTokenRef = useRef(0);
+  // False once the page is gone, so a request still in flight cannot start a
+  // poll loop the unmount has no way left to stop.
+  const mountedRef = useRef(true);
   // Mirrors of the two states that hold object URLs, so the code that
   // revokes them reads the current value outside a render.
   const pendingTurnRef = useRef(null);
@@ -265,8 +268,10 @@ export default function AgentRunner({ agent, onBack }) {
   useEffect(() => { pendingFilesRef.current = pendingFiles; }, [pendingFiles]);
 
   useEffect(() => {
+    mountedRef.current = true;
     loadRuns();
     return () => {
+      mountedRef.current = false;
       pollTokenRef.current += 1;
       // Thumbnails still in the composer or the in-flight turn hold object
       // URLs the browser only frees on revoke.
@@ -373,8 +378,18 @@ export default function AgentRunner({ agent, onBack }) {
     setActionName(name);
   };
 
+  // The run panel belongs to the conversation on screen: its status pill,
+  // activity feed and failure box would otherwise describe the last run of a
+  // conversation the user has navigated away from.
+  const clearRunPanel = () => {
+    setCurrentRun(null);
+    setRunError(null);
+    setExpandedEvents({});
+  };
+
   const pickConversation = (value) => {
     const id = value ? Number(value) : null;
+    if (id !== conversationIdRef.current) clearRunPanel();
     pinnedRef.current = id;
     setConversationId(id);
     setInspectedRun(null);
@@ -386,7 +401,8 @@ export default function AgentRunner({ agent, onBack }) {
       await createConversation();
       setConversationError(null);
       setInspectedRun(null);
-      setCurrentRun(null);
+      clearRunPanel();
+      releaseTurn(pendingTurnRef.current);
       setPendingTurn(null);
       setInlineRole(null);
     } catch (error) {
@@ -445,6 +461,9 @@ export default function AgentRunner({ agent, onBack }) {
   // Poll the run endpoint so the activity feed streams pending llm/tool/agent
   // events while the run executes; reload the conversation once it settles.
   const pollRun = (runId, contextId) => {
+    // Claiming a token after the unmount cleanup already bumped it would
+    // re-arm the loop against a tree that is gone.
+    if (!mountedRef.current) return;
     const token = ++pollTokenRef.current;
     const startedPolling = Date.now();
     const poll = async () => {
@@ -466,7 +485,12 @@ export default function AgentRunner({ agent, onBack }) {
       if (Date.now() - startedPolling < POLL_TIMEOUT_MS) {
         setTimeout(poll, POLL_INTERVAL_MS);
       } else {
+        // Same teardown as a finished run, minus the reload: the turn stops
+        // showing as in flight and its thumbnails give their URLs back.
         setIsRunning(false);
+        releaseTurn(pendingTurnRef.current);
+        setPendingTurn(null);
+        setCurrentRun((prev) => (prev ? { ...prev, status: 'failed', error_message: 'Timed out waiting for the run to finish.' } : prev));
         setRunError('Timed out waiting for the run to finish.');
       }
     };
@@ -475,7 +499,7 @@ export default function AgentRunner({ agent, onBack }) {
 
   // Kick off an async run: the prompt and files go up as multipart form data
   // together with the pinned conversation, then the run is polled.
-  const startRun = async ({ text, files }) => {
+  const startRun = async ({ text, files, fromComposer = false }) => {
     const trimmed = (text || '').trim();
     if ((!trimmed && files.length === 0) || isRunning) return;
 
@@ -485,9 +509,15 @@ export default function AgentRunner({ agent, onBack }) {
     setIsRunning(true);
     setExpandedEvents({});
     setCurrentRun({ status: 'pending', input_prompt: trimmed, output: '', logs: [], started_at: new Date().toISOString() });
+    releaseTurn(pendingTurnRef.current);
     setPendingTurn({ content: trimmed || '(see attached files)', attachments: files.map(({ file, ...chip }) => chip) });
-    setPrompt('');
-    setPendingFiles([]);
+    // Only a run the composer sent empties it: a form submission or a choice
+    // click would otherwise throw away a draft and its staged files, which
+    // are not part of that run and are never uploaded.
+    if (fromComposer) {
+      setPrompt('');
+      setPendingFiles([]);
+    }
 
     let contextId = conversationIdRef.current;
     if (!contextId) {
@@ -499,8 +529,10 @@ export default function AgentRunner({ agent, onBack }) {
     }
 
     const restoreComposer = () => {
-      setPrompt(trimmed);
-      setPendingFiles(files);
+      if (fromComposer) {
+        setPrompt(trimmed);
+        setPendingFiles(files);
+      }
       setPendingTurn(null);
     };
 
@@ -535,7 +567,7 @@ export default function AgentRunner({ agent, onBack }) {
     }
   };
 
-  const handleRun = () => startRun({ text: prompt, files: pendingFiles });
+  const handleRun = () => startRun({ text: prompt, files: pendingFiles, fromComposer: true });
 
   // A submitted form or clicked choice in the assistant's UI is the next
   // user message.
@@ -630,6 +662,7 @@ export default function AgentRunner({ agent, onBack }) {
     const contextId = contextIdOf(detail);
     if (contextId) {
       setInspectedRun(null);
+      if (contextId !== conversationIdRef.current) clearRunPanel();
       pinnedRef.current = contextId;
       const runAction = detail.action_name || run.action_name;
       if (runAction && actionNames.includes(runAction) && runAction !== actionName) setActionName(runAction);

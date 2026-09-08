@@ -165,3 +165,31 @@ export function blocksFromToolCall(message, { callId } = {}) {
 export function isSafeImageUrl(url) {
   return typeof url === 'string' && /^(https?:\/\/|data:image\/)/i.test(url.trim());
 }
+
+// ...and of those, the ones that may load without asking. A request to a
+// host the model named is a message to that host: everything the model can
+// see — instructions, the replayed conversation, an inlined file, a tool
+// result — fits in a query string, and an <img> sends it with no click. So
+// only image data and this app's own URLs (an Active Storage blob, say)
+// render straight away; anything else is offered as a click-to-load.
+export function isInlineImageUrl(url) {
+  if (typeof url !== 'string') return false;
+  const value = url.trim();
+  if (/^data:image\//i.test(value)) return true;
+  if (!/^https?:\/\//i.test(value)) return false;
+  if (typeof window === 'undefined' || !window.location) return false;
+  try {
+    return new URL(value, window.location.href).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+// The host an image would be fetched from, for the click-to-load prompt.
+export function imageUrlHost(url) {
+  try {
+    return new URL(String(url).trim()).host;
+  } catch {
+    return '';
+  }
+}

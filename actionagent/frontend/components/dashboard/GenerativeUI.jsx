@@ -6,7 +6,7 @@ import {
 import Markdown from './Markdown';
 import { paletteFor, ACCENT } from '../../utils/dashboardTheme';
 import { TYPOGRAPHY } from '../../utils/designTokens';
-import { isSafeImageUrl } from '../../utils/generativeUi';
+import { isSafeImageUrl, isInlineImageUrl, imageUrlHost } from '../../utils/generativeUi';
 
 // Re-exported so consumers that render blocks can also find them without a
 // second import; the parsing itself lives in utils/generativeUi.js so it can
@@ -18,6 +18,7 @@ export {
   structuredContent,
   uiFenceBlocks,
   isSafeImageUrl,
+  isInlineImageUrl,
   UI_TOOL_NAME,
   UI_FENCE_LANGS,
 } from '../../utils/generativeUi';
@@ -25,7 +26,8 @@ export {
 // Renders the block types the render_ui tool describes (see
 // AgentToolbox::DEFINITIONS["ui"]) as real components. Everything here is
 // built from model output, so it is rendered as React text only — no
-// innerHTML — and images load only from http(s)/data: URLs.
+// innerHTML — and images load only from inline data or this app's own
+// origin; any other host waits for a click.
 
 // Categorical series colors, in a fixed order that keeps adjacent pairs
 // distinguishable under color-vision deficiency on both surfaces. The dark
@@ -48,6 +50,13 @@ const compactNumber = (value) => {
   if (abs >= 1e4) return `${(value / 1e3).toFixed(1).replace(/\.0$/, '')}K`;
   return value.toLocaleString();
 };
+
+// Every one of these tables is keyed by a string the model chose, so each
+// lookup goes through own(): a plain index would resolve 'constructor' or
+// '__proto__' to something inherited from Object.prototype, and rendering
+// that throws — with no error boundary, taking the whole dashboard down.
+const own = (table, key) =>
+  (typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined);
 
 const CALLOUT_TONES = {
   info: { light: ['#eff6ff', '#1d4ed8'], dark: ['rgba(59,130,246,0.15)', '#93c5fd'] },
@@ -102,7 +111,9 @@ function Unsupported({ block, reason, colors, darkMode }) {
 }
 
 function CardBlock({ block, colors, darkMode, onAction }) {
-  const image = isSafeImageUrl(block.image_url) ? block.image_url : null;
+  // Same rule as ImageBlock: a card's picture is only fetched on sight when
+  // it is inline data or this app's own URL.
+  const image = isSafeImageUrl(block.image_url) && isInlineImageUrl(block.image_url) ? block.image_url.trim() : null;
   return (
     <div
       className="overflow-hidden"
@@ -131,7 +142,8 @@ function CardBlock({ block, colors, darkMode, onAction }) {
 function StatTile({ block, colors, darkMode }) {
   const delta = block.delta != null ? asText(block.delta) : null;
   const tone = block.tone || (delta && delta.trim().startsWith('-') ? 'negative' : delta ? 'positive' : 'neutral');
-  const deltaColor = DELTA_COLORS[tone] ? DELTA_COLORS[tone][darkMode ? 'dark' : 'light'] : colors.textMuted;
+  const deltaTone = own(DELTA_COLORS, tone);
+  const deltaColor = deltaTone ? deltaTone[darkMode ? 'dark' : 'light'] : colors.textMuted;
   const value = typeof block.value === 'number' ? compactNumber(block.value) : asText(block.value);
   return (
     <div style={{ background: colors.innerBg, border: `1px solid ${colors.cardBorder}`, borderRadius: '10px', padding: '10px 12px' }}>
@@ -381,6 +393,10 @@ function ProgressBlock({ block, colors }) {
 
 const FIELD_TYPES = ['text', 'textarea', 'number', 'select', 'checkbox'];
 const fieldKey = (field) => asText(field.name || field.label);
+// What the submitted message names each answer. The form shows label || name,
+// so the summary must read the same way round: naming a field by its hidden
+// `name` would put text the operator never saw into a user turn they sent.
+const fieldLabel = (field) => asText(field.label || field.name);
 const fieldType = (field) => (FIELD_TYPES.includes(field.type) ? field.type : 'text');
 
 // Submitting sends a user message back into the conversation:
@@ -400,9 +416,8 @@ function FormBlock({ block, colors, darkMode, onAction }) {
     event.preventDefault();
     const summary = fields
       .map((field) => {
-        const key = fieldKey(field);
-        const value = values[key];
-        return `${key}: ${typeof value === 'boolean' ? (value ? 'yes' : 'no') : asText(value)}`;
+        const value = values[fieldKey(field)];
+        return `${fieldLabel(field)}: ${typeof value === 'boolean' ? (value ? 'yes' : 'no') : asText(value)}`;
       })
       .join('; ');
     setSent(true);
@@ -419,7 +434,7 @@ function FormBlock({ block, colors, darkMode, onAction }) {
       {fields.map((field) => {
         const key = fieldKey(field);
         const type = fieldType(field);
-        const label = asText(field.label || field.name);
+        const label = fieldLabel(field);
         const id = `genui-field-${key.replace(/\W+/g, '-')}`;
         if (type === 'checkbox') {
           return (
@@ -530,18 +545,48 @@ function ChoicesBlock({ block, colors, darkMode, onAction }) {
   );
 }
 
+// An image the model pointed at another host is not fetched until the person
+// looking at it says so — the request itself would carry whatever the model
+// put in the URL to that host.
+function RemoteImage({ url, alt, colors, darkMode }) {
+  const [load, setLoad] = useState(false);
+  if (load) return <img src={url} alt={alt} style={{ maxWidth: '100%', borderRadius: '8px', display: 'block' }} />;
+  const host = imageUrlHost(url);
+  return (
+    <button
+      type="button"
+      onClick={() => setLoad(true)}
+      data-testid="genui-image-load"
+      className="text-xs w-full"
+      style={{
+        border: `1px dashed ${colors.cardBorder}`,
+        borderRadius: '8px',
+        padding: '14px 12px',
+        color: colors.textMuted,
+        background: darkMode ? 'rgba(255,255,255,0.03)' : '#f9fafb',
+      }}
+    >
+      Load image from {host || 'another site'}
+    </button>
+  );
+}
+
 function ImageBlock({ block, colors, darkMode }) {
   if (!isSafeImageUrl(block.url)) return <Unsupported block={block} reason="image URL must be http(s) or data:" colors={colors} darkMode={darkMode} />;
+  const url = block.url.trim();
+  const alt = block.alt != null ? asText(block.alt) : '';
   return (
     <figure style={{ margin: 0 }}>
-      <img src={block.url.trim()} alt={block.alt != null ? asText(block.alt) : ''} style={{ maxWidth: '100%', borderRadius: '8px', display: 'block' }} />
+      {isInlineImageUrl(url)
+        ? <img src={url} alt={alt} style={{ maxWidth: '100%', borderRadius: '8px', display: 'block' }} />
+        : <RemoteImage url={url} alt={alt} colors={colors} darkMode={darkMode} />}
       {block.caption != null && <figcaption className="text-xs mt-1" style={{ color: colors.textMuted }}>{asText(block.caption)}</figcaption>}
     </figure>
   );
 }
 
 function CalloutBlock({ block, colors, darkMode, onAction }) {
-  const [background, color] = (CALLOUT_TONES[block.tone] || CALLOUT_TONES.info)[darkMode ? 'dark' : 'light'];
+  const [background, color] = (own(CALLOUT_TONES, block.tone) || CALLOUT_TONES.info)[darkMode ? 'dark' : 'light'];
   return (
     <div style={{ background, borderLeft: `3px solid ${color}`, borderRadius: '8px', padding: '10px 12px' }}>
       {block.title != null && <div className="text-sm font-semibold mb-0.5" style={{ color }}>{asText(block.title)}</div>}
@@ -670,7 +715,7 @@ export default function GenerativeUI({ blocks, onAction, darkMode = false }) {
     <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
       {list.map((block, i) => {
         const type = typeof block.type === 'string' ? block.type.toLowerCase() : 'unknown';
-        const Renderer = RENDERERS[type];
+        const Renderer = own(RENDERERS, type);
         return (
           <div key={i} data-testid="genui-block" data-block-type={type}>
             {Renderer

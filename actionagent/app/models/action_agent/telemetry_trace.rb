@@ -147,14 +147,24 @@ module ActionAgent
     end
 
     # The id of the dashboard agent a platform-recorded trace belongs to,
-    # when that agent still exists and, in multi-tenant mode, belongs to the
-    # trace's tenant. Nil for SDK-reported traces.
+    # when that agent still exists and, in multi-tenant mode, sits in the
+    # trace's tenant. Nil when no agent claims the id — a trace reported by
+    # an SDK, or one naming an agent that has since been deleted.
+    #
+    # The tenancy check goes through ActionAgent.tenant_for, the mapping that
+    # produced the trace's own account in the first place: agents are owned
+    # per user on installs that configure a user class, so scoping the lookup
+    # by that ownership column would compare an account against a user id and
+    # match nothing.
     def self.platform_agent_id(resource_attributes, account)
       id = resource_attributes.is_a?(Hash) && resource_attributes["platform.agent_id"]
       return nil if id.blank?
 
-      agents = ActionAgent.multi_tenant? ? Agent.for_owner(account) : Agent.all
-      agents.where(id: id).pick(:id)
+      agent = Agent.find_by(id: id)
+      return nil if agent.nil?
+      return agent.id unless ActionAgent.multi_tenant?
+
+      agent.id if ActionAgent.tenant_for(agent.owner) == account
     rescue StandardError
       nil
     end

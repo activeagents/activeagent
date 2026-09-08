@@ -274,6 +274,30 @@ module Providers
             document_only[:content]
         end
 
+        test "normalize_message drops the shorthand keys even when content is already set" do
+          # Left on the message they reach the request body as unknown
+          # parameters, which the API rejects outright.
+          message = { role: "user", content: "What's in this?", image: "data:image/png;base64,iVBORw0KGgo=" }
+
+          result = transforms.normalize_message(message)
+
+          assert_equal "What's in this?", result[:content]
+          assert_nil result[:image]
+          assert_not result.key?(:image)
+        end
+
+        test "normalize_message ignores blank shorthand values rather than building empty parts" do
+          blank = transforms.normalize_message({ role: "user", text: "just text", image: nil, document: "" })
+
+          assert_equal "just text", blank[:content]
+          assert_not blank.key?(:image)
+          assert_not blank.key?(:document)
+
+          # A document key with nothing behind it used to raise here.
+          empty = transforms.normalize_message({ role: "user", document: nil })
+          assert_nil empty[:content]
+        end
+
         test "normalize_input keeps history and a multimodal turn as separate messages" do
           input = [
             { role: "user", content: "hello" },

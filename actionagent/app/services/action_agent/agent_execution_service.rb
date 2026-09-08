@@ -29,6 +29,13 @@ module ActionAgent
     # Inlined text attachments are cut here: enough for a CSV or a config
     # file, not enough for a log dump to crowd out the conversation.
     ATTACHMENT_TEXT_LIMIT = 20_000
+    # ...and only this many bytes are ever read to produce those characters,
+    # so a multi-gigabyte log named .csv costs a fixed slice of memory rather
+    # than its whole size. Four bytes per character is UTF-8's worst case.
+    ATTACHMENT_TEXT_BYTE_LIMIT = ATTACHMENT_TEXT_LIMIT * 4
+    # The prompt span records the transcript, not the data URIs; keep the
+    # whole serialized list within the same budget as the other attributes.
+    PROMPT_SPAN_MESSAGE_LIMIT = 6000
     # Prior turns sent with a pinned conversation: the most recent ones,
     # trimmed oldest-first to a character budget.
     HISTORY_TURN_LIMIT = 40
@@ -149,7 +156,14 @@ module ActionAgent
       transcript = prompt_turn[:transcript].map do |message|
         { role: message[:role], content: message[:content].to_s.byteslice(0, 4000).to_s.scrub }
       end
-      span.set_attribute("prompt.input.messages", transcript.to_json)
+      # A replayed conversation is re-sent every turn, so the span keeps the
+      # most recent messages that fit rather than the whole history again.
+      serialized = transcript.to_json
+      while serialized.bytesize > PROMPT_SPAN_MESSAGE_LIMIT && transcript.size > 1
+        transcript.shift
+        serialized = transcript.to_json
+      end
+      span.set_attribute("prompt.input.messages", serialized)
       span.set_attribute("messages.count", transcript.size)
       span.finish
     rescue StandardError => e
@@ -401,7 +415,10 @@ module ActionAgent
       model_options.merge!(owner_provider_options(effective_provider))
       klass_name = agent_class_name
       agent_record = @agent_record
-      pinned = pinned_context
+      # Pinned, or the default stream resolved here rather than left to
+      # solid_agent's unordered find_or_create_by!, which cannot tell the
+      # agent's original conversation from a later one on the same triple.
+      pinned = conversation_context
       instructions = composed_instructions
       action = action_name
       run_trace_id = trace_id
@@ -627,17 +644,35 @@ module ActionAgent
     # the pinned one when the run continues a conversation, else the
     # agent + action's default stream.
     def conversation_context
-      pinned_context || AgentContext.find_by(contextable: @agent_record, agent_name: agent_class_name, action_name: action_name)
+      pinned_context || default_stream_context
+    end
+
+    # The agent + action's default stream: the oldest context on the triple
+    # solid_agent keys by, so a second conversation the dashboard started for
+    # the same action cannot become the row an unpinned run appends to.
+    def default_stream_context
+      AgentContext.where(contextable: @agent_record, agent_name: agent_class_name, action_name: action_name)
+        .order(:id).first
     end
 
     # The conversation the run was pinned to (input_params context_id). A
-    # context of another agent is ignored rather than continued: the run
-    # falls back to the default stream as if nothing had been pinned.
+    # context belonging to another agent — or recorded under another action,
+    # whose instructions and stream are not this run's — is ignored rather
+    # than continued: the run falls back to the default stream as if nothing
+    # had been pinned, and reports the conversation it actually wrote to.
     def pinned_context
       return @pinned_context if defined?(@pinned_context)
 
       id = run_params[:context_id]
-      @pinned_context = id.present? ? AgentContext.find_by(id: id, contextable: @agent_record) : nil
+      @pinned_context =
+        if id.present?
+          # Matched on the action too, not just ownership: a run for another
+          # action would append to this conversation and rewrite the recorded
+          # instructions with its own. The agent_name is deliberately not part
+          # of it — renaming an agent changes that string, and the
+          # conversations it already has must stay pinnable.
+          AgentContext.find_by(id: id, contextable: @agent_record, action_name: action_name)
+        end
     end
 
     # The pinned conversation's prior turns as plain {role:, content:}
@@ -654,13 +689,20 @@ module ActionAgent
         .last(HISTORY_TURN_LIMIT)
 
       budget = HISTORY_CHAR_BUDGET
-      turns.reverse_each.with_object([]) do |message, kept|
+      kept = turns.reverse_each.with_object([]) do |message, collected|
         content = message.content.to_s
-        break kept if content.length > budget
+        break collected if content.length > budget
 
         budget -= content.length
-        kept.unshift(role: message.role, content: content)
+        collected.unshift(role: message.role, content: content)
       end
+
+      # Neither cut lands on a turn boundary, so the oldest survivor can be an
+      # assistant reply whose question was dropped. Anthropic rejects a
+      # conversation that opens on one, and every provider reads it as an
+      # answer to nothing.
+      kept.shift while kept.first && kept.first[:role] != "user"
+      kept
     end
 
     # Builds the message list and, in the same pass, its text-only
@@ -681,18 +723,27 @@ module ActionAgent
           filename = blob.filename.to_s
           descriptor = "#{filename} (#{blob.content_type}, #{human_size(blob.byte_size)})"
 
-          case AgentRun.attachment_kind(blob.content_type, filename)
-          when "text"
-            body = blob.download.force_encoding(Encoding::UTF_8).scrub[0, ATTACHMENT_TEXT_LIMIT]
-            text << "\n\n[Attached file: #{descriptor}]\n```\n#{body}\n```"
-          when "image", "document"
-            if blob.byte_size > ATTACHMENT_DATA_LIMIT
-              text << "\n\n[Attached file: #{descriptor} — not sent to the model]"
+          # A file the storage service can no longer produce costs the file,
+          # not the run: every branch below degrades to the same descriptor
+          # the unsupported kinds get.
+          begin
+            case AgentRun.attachment_kind(blob.content_type, filename)
+            when "text"
+              body = text_prefix(blob)
+              suffix = body.bytesize < blob.byte_size ? "\n… (truncated)" : ""
+              text << "\n\n[Attached file: #{descriptor}]\n```\n#{body}#{suffix}\n```"
+            when "image", "document"
+              if blob.byte_size > ATTACHMENT_DATA_LIMIT
+                text << "\n\n[Attached file: #{descriptor} — not sent to the model]"
+              else
+                key = blob.content_type.to_s.start_with?("image/") ? :image : :document
+                media << { key => data_uri(blob), label: "[#{key}: #{filename}]" }
+              end
             else
-              key = blob.content_type.to_s.start_with?("image/") ? :image : :document
-              media << { key => data_uri(blob), label: "[#{key}: #{filename}]" }
+              text << "\n\n[Attached file: #{descriptor} — not sent to the model]"
             end
-          else
+          rescue StandardError => e
+            Rails.logger.warn("[AgentExecutionService] attachment #{filename} unreadable: #{e.message}")
             text << "\n\n[Attached file: #{descriptor} — not sent to the model]"
           end
         end
@@ -722,6 +773,28 @@ module ActionAgent
 
     def data_uri(blob)
       "data:#{blob.content_type};base64,#{Base64.strict_encode64(blob.download)}"
+    end
+
+    # The head of a text attachment, reading a bounded number of bytes: only
+    # ATTACHMENT_TEXT_LIMIT characters are ever sent, so a huge file must not
+    # be materialised whole to produce them. The byte prefix can split a
+    # multibyte character, which scrub removes.
+    def text_prefix(blob)
+      bytes =
+        if blob.byte_size <= ATTACHMENT_TEXT_BYTE_LIMIT
+          blob.download
+        elsif blob.service.respond_to?(:download_chunk)
+          blob.service.download_chunk(blob.key, 0...ATTACHMENT_TEXT_BYTE_LIMIT)
+        else
+          buffer = +""
+          blob.download do |chunk|
+            buffer << chunk
+            break if buffer.bytesize >= ATTACHMENT_TEXT_BYTE_LIMIT
+          end
+          buffer
+        end
+
+      bytes.to_s.dup.force_encoding(Encoding::UTF_8).scrub[0, ATTACHMENT_TEXT_LIMIT]
     end
 
     def human_size(bytes)

@@ -188,6 +188,13 @@ text|textarea|number|select|checkbox, options, placeholder, required}]}`,
 `choices {prompt, options}`, `image {url, alt, caption}`, `callout {tone,
 title, body}`, `code {language, code}`.
 
+Blocks are rendered as React elements only, never as HTML. An `image` (or a
+card's `image_url`) is displayed straight away when it is a `data:image/…`
+URL or one of your own app's — an Active Storage blob, say. A URL on any
+other host is shown as a button naming that host instead: fetching an image
+is a request to whoever serves it, and the model chose the address, so the
+person reading the reply decides whether to make it.
+
 Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
 degrade gracefully without it; the React metrics page does its own hourly

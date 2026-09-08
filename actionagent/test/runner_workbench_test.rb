@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require "test_helper"
+# The mock provider's message types are referenced directly below; the engine's
+# compatibility shim does not autoload the framework's provider namespace.
+require "active_agent/providers/mock/messages/_types"
 
 # The agent runner as a conversation workbench: runs pinned to a persisted
 # conversation, files attached through Active Storage and delivered to the
@@ -168,6 +171,60 @@ class RunnerWorkbenchTest < ActionDispatch::IntegrationTest
     assert_includes messages.first[:content], "— not sent to the model]"
   end
 
+  test "a text attachment is read only as far as it is sent" do
+    body = "region,revenue\n" + ("EMEA,1240000\n" * 20_000)
+    assert_operator body.bytesize, :>, ActionAgent::AgentExecutionService::ATTACHMENT_TEXT_BYTE_LIMIT
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new(body), filename: "sales.csv", content_type: "text/csv"
+    )
+    run = @agent.agent_runs.create!(input_prompt: "summarize this", status: :pending)
+    run.attachments.attach(blob)
+    service = service_for(run)
+
+    # The whole-blob read is what the cap exists to prevent: only the head of
+    # the file may be fetched, however large the file is.
+    prefix = blob.stub(:download, ->(*) { flunk "the whole blob must not be read into memory" }) do
+      service.send(:text_prefix, blob)
+    end
+    assert_equal ActionAgent::AgentExecutionService::ATTACHMENT_TEXT_LIMIT, prefix.length
+    assert prefix.start_with?("region,revenue\n")
+
+    inlined = service.prompt_messages.first[:content]
+    assert_includes inlined, "[Attached file: sales.csv (text/csv, "
+    assert_includes inlined, "\n… (truncated)\n```"
+  end
+
+  test "a file the storage service cannot produce costs the file, not the run" do
+    # A blob row whose bytes were never uploaded: reading it raises.
+    missing = ActiveStorage::Blob.create_before_direct_upload!(
+      filename: "notes.csv", byte_size: 24, checksum: "none", content_type: "text/csv",
+      metadata: { identified: true }
+    )
+    run = @agent.agent_runs.create!(input_prompt: "read this", status: :pending)
+    run.attachments.attach(missing)
+
+    messages = service_for(run).prompt_messages
+
+    assert_equal 1, messages.size
+    assert_includes messages.first[:content], "[Attached file: notes.csv (text/csv, 24 Bytes) — not sent to the model]"
+  end
+
+  test "replayed history always begins on a user turn" do
+    context = create_context
+    context.add_user_message("q1 " * 20_000)
+    context.add_assistant_message("a1 " * 7_000)
+    context.add_user_message("q2")
+    context.add_assistant_message("a2")
+    run = @agent.agent_runs.create!(input_prompt: "and now?", status: :pending, input_params: { context_id: context.id })
+
+    messages = service_for(run).prompt_messages
+
+    # The oldest question does not fit the budget, so the answer that went
+    # with it must go too rather than opening the conversation.
+    assert_equal %w[user assistant user], messages.map { |m| m[:role] }
+    assert_equal "q2", messages.first[:content]
+  end
+
   test "a context of another agent is not continued" do
     other = ActionAgent::Agent.create!(name: "Other", provider: "mock", model: "mock")
     theirs = create_context(agent: other)
@@ -268,6 +325,21 @@ class RunnerWorkbenchTest < ActionDispatch::IntegrationTest
     assert_equal [ [] ], context.messages.where(role: "user").map(&:attachments)
   end
 
+  test "unpinned runs keep landing in the same stream once the dashboard has started other conversations" do
+    first = @agent.test_execute("Hello there")
+    default_stream = ActionAgent::AgentContext.find_by!(contextable: @agent, action_name: "ask")
+    # A conversation started from the runner sits on the same natural key.
+    post "/activeagents/api/agents/#{@agent.id}/conversations"
+    assert_response :created
+
+    second = @agent.test_execute("And again")
+
+    assert second.complete?, second.error_message
+    assert_equal default_stream.id, first.output_metadata["context_id"]
+    assert_equal default_stream.id, second.output_metadata["context_id"]
+    assert_equal [ "Hello there", "And again" ], default_stream.messages.where(role: "user").map(&:content)
+  end
+
   # --- Conversations ---------------------------------------------------------
 
   test "conversations are listed newest first and started per action" do
@@ -304,6 +376,51 @@ class RunnerWorkbenchTest < ActionDispatch::IntegrationTest
     post "/activeagents/api/agents/#{@agent.id}/conversations"
     assert_response :created
     assert_equal "ask", JSON.parse(response.body).dig("conversation", "action_name")
+  end
+
+  test "the conversations list is bounded" do
+    4.times { |i| create_context("ask", created_at: i.hours.ago) }
+
+    get "/activeagents/api/agents/#{@agent.id}/conversations", params: { limit: 2 }
+
+    assert_response :success
+    assert_equal 2, JSON.parse(response.body)["conversations"].size
+  end
+
+  test "per-run overrides cannot supply the files or the action" do
+    # These reach Agent#execute as a keyword splat, which would otherwise win
+    # over the arguments the controller passes itself.
+    post "/activeagents/api/agents/#{@agent.id}/execute", params: {
+      prompt: "hi", params: { attachments: [ "not-a-file" ], action: "elsewhere", context_id: "0" }
+    }
+
+    assert_response :accepted, response.body
+    run = ActionAgent::AgentRun.find(JSON.parse(response.body).dig("run", "id"))
+    assert_not run.attachments.attached?
+    assert_nil run.action_name, "the action stays the controller's to set"
+    assert_equal({}, run.input_params)
+  end
+
+  test "a run whose files cannot be stored leaves no run behind" do
+    assert_raises(StandardError) { @agent.execute("hi", attachments: [ "not-a-file" ]) }
+
+    assert_equal 0, @agent.agent_runs.count
+  end
+
+  test "a conversation recorded under another action is not continued, and the run reports where it landed" do
+    @agent.update!(action_prompts: [ { "name" => "summarize", "prompt" => "Summarize." } ])
+    summarize = create_context("summarize", instructions: "Answer as Acme's sales assistant.\n\nSummarize.")
+    summarize.add_user_message("summarize this")
+    instructions = summarize.instructions
+
+    run = @agent.test_execute("and our best region?", action: "ask", context_id: summarize.id)
+
+    assert run.complete?, run.error_message
+    landed = ActionAgent::AgentContext.find_by!(contextable: @agent, action_name: "ask")
+    assert_equal landed.id, run.output_metadata["context_id"]
+    assert_equal landed.id, run.context_id, "the API must report the conversation the turn is in"
+    assert_equal [ "summarize this" ], summarize.messages.where(role: "user").map(&:content)
+    assert_equal instructions, summarize.reload.instructions, "another action's run must not rewrite these"
   end
 
   # --- Editing the context ---------------------------------------------------
