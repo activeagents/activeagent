@@ -101,6 +101,7 @@ export default defineConfig({
           { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Telemetry', link: '/framework/telemetry' },
           { text: 'Dev Console (Dashboard Engine)', link: '/framework/dashboard' },
+          { text: 'Evaluations', link: '/framework/evaluations' },
           { text: 'Self-Hosted Dashboard', link: '/framework/self-hosted-observability' },
           { text: 'Retries', link: '/framework/retries' },
           { text: 'Rails Integration', link: '/framework/rails' },

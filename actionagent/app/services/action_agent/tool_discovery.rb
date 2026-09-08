@@ -500,7 +500,7 @@ module ActionAgent
         end
       end
 
-      keys = (MCPCatalog::BY_KEY.keys + detected.keys + configured_servers.keys).uniq
+      keys = (MCPCatalog.keys + detected.keys + configured_servers.keys).uniq
 
       # detected has a default block that would materialize a bucket on
       # lookup, so unseen servers are passed through as an explicit nil.

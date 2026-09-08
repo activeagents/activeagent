@@ -4,8 +4,20 @@ module ActionAgent
   module Api
     # CRUD + execution for agent evaluations, backing the dashboard
     # Evaluations view. Scoped to the current user's agents.
+    #
+    # An evaluation created with scenarios (a pasted list of user messages)
+    # is a scenario suite: runs replay the scenarios through the agent rather
+    # than sampling recorded generations, and can be narrowed to a group, to
+    # specific scenarios, or to specific models.
     class EvaluationsController < BaseController
       before_action :require_owner!
+      # A scenario suite replays its prompts through the provider, so creating
+      # one that runs, or running one, executes the agent and is gated the way
+      # AgentsController#execute is: the dashboard's execution switch, no
+      # observed (read-only) agents, and the owner's execution quota. Each
+      # replay then counts as one execution (ScenarioEvaluationRunner#replay).
+      before_action :require_execution_enabled!, :require_executable_scenario_agent!, :enforce_execution_quota!,
+                    only: [ :create, :run ], if: :replays_scenarios?
 
       # Default criteria used when none are supplied — all rule-based, so a
       # new evaluation produces real scores without provider credentials.
@@ -25,7 +37,7 @@ module ActionAgent
       def index
         scope = evaluations_scope
         scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
-        evaluations = scope.includes(:agent, :evaluation_runs).recent.limit(50)
+        evaluations = scope.includes(:agent, :evaluation_runs, :scenarios).recent.limit(50)
 
         render json: { evaluations: evaluations.map { |evaluation| serialize(evaluation) } }
       end
@@ -36,6 +48,7 @@ module ActionAgent
 
         render json: {
           evaluation: serialize(evaluation).merge(
+            scenarios: evaluation.scenarios.ordered.map(&:as_json_summary),
             runs: evaluation.evaluation_runs.recent.limit(20).map { |run| serialize_run(run) }
           )
         }
@@ -43,11 +56,12 @@ module ActionAgent
 
       # POST /api/evaluations
       def create
-        agent = owner_agents.find(params.require(:evaluation)[:agent_id])
+        agent = requested_agent
 
         judge_kind = evaluation_params[:judge_kind].presence || "rules"
         config = {}
         config["compare_models"] = compare_models_param if compare_models_param.any?
+        scenarios = scenario_attributes
 
         evaluation = agent.evaluations.new(
           name: evaluation_params[:name],
@@ -59,9 +73,15 @@ module ActionAgent
           criteria: judge_kind == "judge_defined" ? explicit_criteria : normalized_criteria,
           config: config
         )
+        scenarios.each_with_index do |attrs, index|
+          evaluation.scenarios.build(
+            key: attrs["key"], prompt: attrs["prompt"], group: attrs["group"], notes: attrs["notes"],
+            expectations: attrs["expectations"] || {}, position: attrs.fetch("position", index)
+          )
+        end
 
         if evaluation.save
-          run_evaluation(evaluation)
+          start_run(evaluation, selection_params) if run_requested?
           render json: { evaluation: serialize(evaluation.reload) }, status: :created
         else
           render json: { errors: evaluation.errors.full_messages }, status: :unprocessable_entity
@@ -69,11 +89,71 @@ module ActionAgent
       end
 
       # POST /api/evaluations/:id/run
+      # A scenario suite accepts a selection: scenario_ids[], keys[], group,
+      # models[] (or a comma-separated `models` string).
       def run
-        evaluation = evaluations_scope.find(params[:id])
-        run = run_evaluation(evaluation)
+        evaluation = current_evaluation
+        run = start_run(evaluation, selection_params)
 
         render json: { evaluation: serialize(evaluation.reload), run: serialize_run(run) }
+      end
+
+      # GET /api/evaluations/:id/runs/:run_id
+      # One run in full: its per-scenario, per-model results alongside the
+      # scenarios, so the matrix and every answer can be rendered.
+      def show_run
+        evaluation = evaluations_scope.find(params[:id])
+        run = evaluation.evaluation_runs.find(params[:run_id])
+        results = run.scenario_results.includes(:scenario).joins(:scenario)
+          .order(EvaluationScenario.arel_table[:position], EvaluationScenario.arel_table[:id], :model)
+
+        render json: {
+          evaluation: serialize(evaluation),
+          run: serialize_run(run).merge(results: results.map(&:as_json_summary))
+        }
+      end
+
+      # GET /api/evaluations/:id/scenarios
+      def scenarios
+        evaluation = evaluations_scope.find(params[:id])
+
+        render json: {
+          scenarios: evaluation.scenarios.ordered.map(&:as_json_summary),
+          groups: evaluation.scenario_groups
+        }
+      end
+
+      # PUT /api/evaluations/:id/scenarios
+      # Replaces the suite from pasted text (`scenarios_text`) or a list
+      # (`scenarios`). Scenarios whose key survives keep their results.
+      def replace_scenarios
+        evaluation = evaluations_scope.find(params[:id])
+        attributes = scenario_attributes
+        return render json: { errors: [ "No scenarios found in the pasted text" ] }, status: :unprocessable_entity if attributes.empty?
+
+        evaluation.replace_scenarios!(attributes)
+
+        render json: {
+          evaluation: serialize(evaluation.reload),
+          scenarios: evaluation.scenarios.ordered.map(&:as_json_summary),
+          groups: evaluation.scenario_groups
+        }
+      end
+
+      # PATCH /api/evaluations/:id/scenarios/:scenario_id
+      def update_scenario
+        evaluation = evaluations_scope.find(params[:id])
+        scenario = evaluation.scenarios.find(params[:scenario_id])
+        scenario.update!(scenario_params)
+
+        render json: { scenario: scenario.as_json_summary }
+      end
+
+      # DELETE /api/evaluations/:id/scenarios/:scenario_id
+      def destroy_scenario
+        evaluation = evaluations_scope.find(params[:id])
+        evaluation.scenarios.find(params[:scenario_id]).destroy!
+        head :no_content
       end
 
       # DELETE /api/evaluations/:id
@@ -84,13 +164,18 @@ module ActionAgent
 
       private
 
-      # EvaluationRunnerService marks the run failed with the error message
-      # and then re-raises. Letting that escape returned an HTML 500 for a
-      # request that had already persisted the evaluation and its failed
-      # run: the client saw a JSON parse error, the form stayed open, and a
-      # resubmit failed on the now-taken name. The failure is on the run
-      # record, which is what the response carries.
-      def run_evaluation(evaluation)
+      # A scenario suite replays through the provider once per scenario and
+      # model, so it runs in the background; a generation-sampling evaluation
+      # scores recorded data and finishes inline.
+      def start_run(evaluation, selection)
+        return evaluation.run_later!(**selection) if evaluation.scenario_suite?
+
+        # EvaluationRunnerService marks the run failed with the error message
+        # and then re-raises. Letting that escape returned an HTML 500 for a
+        # request that had already persisted the evaluation and its failed
+        # run: the client saw a JSON parse error, the form stayed open, and a
+        # resubmit failed on the now-taken name. The failure is on the run
+        # record, which is what the response carries.
         evaluation.run!
       rescue StandardError => e
         Rails.logger.warn(
@@ -107,8 +192,81 @@ module ActionAgent
         Evaluation.joins(:agent).where(agent: owner_agents)
       end
 
+      def current_evaluation
+        @current_evaluation ||= evaluations_scope.find(params[:id])
+      end
+
+      def requested_agent
+        @requested_agent ||= owner_agents.find(params.require(:evaluation)[:agent_id])
+      end
+
+      # create runs the new evaluation unless told not to.
+      def run_requested?
+        run = params.require(:evaluation)[:run]
+        run != false && run != "false"
+      end
+
+      # Whether this request replays scenarios through the agent: running a
+      # scenario suite, or creating an evaluation with scenarios that runs.
+      def replays_scenarios?
+        case action_name
+        when "run" then current_evaluation.scenario_suite?
+        when "create" then run_requested? && scenario_attributes.any?
+        else false
+        end
+      end
+
+      # The refusal AgentsController gives an observed agent: it was
+      # discovered from telemetry and has nothing to execute.
+      def require_executable_scenario_agent!
+        agent = action_name == "create" ? requested_agent : current_evaluation.agent
+        return unless agent.observed?
+
+        render json: {
+          error: "Observed agents are read-only — duplicate this agent to create an executable copy"
+        }, status: :unprocessable_entity
+      end
+
       def evaluation_params
         params.require(:evaluation).permit(:agent_id, :name, :judge_kind, :judge_model, :sample_size)
+      end
+
+      def scenario_params
+        params.require(:scenario).permit(:prompt, :group, :notes, :enabled, :key, expectations: {})
+      end
+
+      # scenario_ids, keys, group and models narrow a scenario run. `models`
+      # may arrive as an array or as the comma-separated field the form posts.
+      def selection_params
+        source = params[:evaluation].is_a?(ActionController::Parameters) && params[:evaluation].key?(:selection) ? params[:evaluation][:selection] : params
+        models = source[:models]
+        models = models.to_s.split(",") unless models.is_a?(Array)
+
+        {
+          scenario_ids: Array(source[:scenario_ids]).map(&:to_s).reject(&:blank?),
+          keys: Array(source[:keys]).map(&:to_s).reject(&:blank?),
+          group: source[:group].to_s.presence,
+          models: models.map(&:to_s).map(&:strip).reject(&:blank?)
+        }.compact_blank
+      end
+
+      # Scenarios from the request: a pasted text block, a list of objects, or
+      # nothing (a generation-sampling evaluation).
+      def scenario_attributes
+        @scenario_attributes ||= begin
+          source = params[:evaluation].presence || params
+          text = source[:scenarios_text].to_s
+          list = source[:scenarios]
+
+          if list.present?
+            list = list.to_unsafe_h.values if list.is_a?(ActionController::Parameters)
+            ActiveAgent::Evals::ScenarioParser.parse(Array(list).map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }.to_json)
+          elsif text.present?
+            ActiveAgent::Evals::ScenarioParser.parse(text)
+          else
+            []
+          end
+        end
       end
 
       def normalized_criteria
@@ -128,7 +286,9 @@ module ActionAgent
       end
 
       def compare_models_param
-        Array(params[:evaluation][:compare_models]).map(&:to_s).reject(&:blank?)
+        models = params[:evaluation][:compare_models]
+        models = models.to_s.split(",") unless models.is_a?(Array)
+        models.map(&:to_s).map(&:strip).reject(&:blank?)
       end
 
       def serialize(evaluation)
@@ -144,6 +304,9 @@ module ActionAgent
           compare_models: evaluation.compare_models,
           config: evaluation.config,
           sample_size: evaluation.sample_size,
+          scenario_suite: evaluation.scenario_suite?,
+          scenario_count: evaluation.scenarios.size,
+          scenario_groups: evaluation.scenario_suite? ? evaluation.scenario_groups : [],
           created_at: evaluation.created_at.iso8601,
           latest_run: latest ? serialize_run(latest) : nil
         }
@@ -154,6 +317,8 @@ module ActionAgent
           id: run.id,
           status: run.status,
           scores: run.scores,
+          selection: run.selection,
+          models: run.models,
           average_score: safe_average_score(run),
           samples_evaluated: run.samples_evaluated,
           samples_passed: run.samples_passed,

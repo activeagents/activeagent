@@ -113,10 +113,16 @@ ActionAgent::Engine.routes.draw do
     # Conversations (contexts, messages, generations) behind Interactions.
     resources :interactions, only: [ :index, :show ]
 
-    # Agent output evaluations.
+    # Agent output evaluations. A scenario suite also manages its scenarios
+    # here, and exposes each run's per-scenario, per-model results.
     resources :evaluations, only: [ :index, :show, :create, :destroy ] do
       member do
         post :run
+        get "runs/:run_id", action: :show_run, as: :run_result
+        get :scenarios
+        put :scenarios, action: :replace_scenarios
+        patch "scenarios/:scenario_id", action: :update_scenario, as: :scenario
+        delete "scenarios/:scenario_id", action: :destroy_scenario
       end
     end
 
