@@ -244,11 +244,15 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
           </span>
           {!inProgress && run.status !== 'failed' && (
             <a
-              href={dashboardPath(`/api/evaluations/${evaluation.id}/runs/${run.id}/report`)}
-              target="_blank"
-              rel="noreferrer"
+              href={dashboardPath(`/evaluations/${evaluation.id}/runs/${run.id}/report`)}
+              onClick={(event) => {
+                event.preventDefault();
+                const path = dashboardPath(`/evaluations/${evaluation.id}/runs/${run.id}/report`);
+                window.history.pushState({}, '', path);
+                window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path } }));
+              }}
               className="underline"
-              title="The run as a self-contained report page — save it to export"
+              title="The run rendered as a report page"
             >
               View report
             </a>

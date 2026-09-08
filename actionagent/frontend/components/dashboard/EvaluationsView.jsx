@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
 import { useTheme } from '../../contexts/ThemeContext';
 import ScenarioSuitePanel from './ScenarioSuitePanel';
 
@@ -44,12 +45,32 @@ const scoreStatus = (value) => {
   return 'low';
 };
 
+// The report sub-route under /evaluations, when the current URL names one.
+const reportRefFromPath = () => {
+  const match = dashboardRelativePath().match(/^\/evaluations\/(\d+)\/runs\/(\d+)\/report/);
+  return match ? { evaluationId: match[1], runId: match[2] } : null;
+};
+
 // embedded hides the page title when this renders inside the agent detail
 // page's Evals tab, which already carries the heading. agentId scopes every
 // number on the page to that agent — an account-wide average score under one
 // agent's name reads as that agent's score, which it is not.
 export default function EvaluationsView({ embedded = false, agentId = null }) {
   const { darkMode } = useTheme();
+  // Which run's report the URL asks for; the agent page's embedded Evals tab
+  // has no URL of its own, so it never routes.
+  const [reportRef, setReportRef] = useState(() => (embedded ? null : reportRefFromPath()));
+
+  useEffect(() => {
+    if (embedded) return undefined;
+    const applyPath = () => setReportRef(reportRefFromPath());
+    window.addEventListener('popstate', applyPath);
+    window.addEventListener('dashboard:navigate', applyPath);
+    return () => {
+      window.removeEventListener('popstate', applyPath);
+      window.removeEventListener('dashboard:navigate', applyPath);
+    };
+  }, [embedded]);
   const [evaluations, setEvaluations] = useState([]);
   const [agents, setAgents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -264,6 +285,42 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       )}
     </div>
   );
+
+  if (reportRef) {
+    const reportUrl = dashboardPath(`/api/evaluations/${reportRef.evaluationId}/runs/${reportRef.runId}/report`);
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { pushDashboardPath('/evaluations'); setReportRef(null); }}
+              className="px-3 py-1.5 text-sm rounded-lg border"
+              style={{ color: colors.textSecondary, borderColor: colors.cardBorder }}
+            >
+              ← Evaluations
+            </button>
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Run report</h1>
+          </div>
+          <a
+            href={reportUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-1.5 text-sm rounded-lg border"
+            style={{ color: colors.textSecondary, borderColor: colors.cardBorder }}
+            title="The report is one self-contained page — save it to export"
+          >
+            Open standalone ↗
+          </a>
+        </div>
+        <iframe
+          src={reportUrl}
+          title="Evaluation run report"
+          className="w-full rounded-xl border"
+          style={{ borderColor: colors.cardBorder, background: '#ffffff', height: 'calc(100vh - 180px)' }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
