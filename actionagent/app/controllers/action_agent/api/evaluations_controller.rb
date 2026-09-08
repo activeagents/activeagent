@@ -11,6 +11,13 @@ module ActionAgent
     # specific scenarios, or to specific models.
     class EvaluationsController < BaseController
       before_action :require_owner!
+      # A scenario suite replays its prompts through the provider, so creating
+      # one that runs, or running one, executes the agent and is gated the way
+      # AgentsController#execute is: the dashboard's execution switch, no
+      # observed (read-only) agents, and the owner's execution quota. Each
+      # replay then counts as one execution (ScenarioEvaluationRunner#replay).
+      before_action :require_execution_enabled!, :require_executable_scenario_agent!, :enforce_execution_quota!,
+                    only: [ :create, :run ], if: :replays_scenarios?
 
       # Default criteria used when none are supplied — all rule-based, so a
       # new evaluation produces real scores without provider credentials.
@@ -49,7 +56,7 @@ module ActionAgent
 
       # POST /api/evaluations
       def create
-        agent = owner_agents.find(params.require(:evaluation)[:agent_id])
+        agent = requested_agent
 
         judge_kind = evaluation_params[:judge_kind].presence || "rules"
         config = {}
@@ -74,7 +81,7 @@ module ActionAgent
         end
 
         if evaluation.save
-          start_run(evaluation, selection_params) unless params[:evaluation][:run] == false || params[:evaluation][:run] == "false"
+          start_run(evaluation, selection_params) if run_requested?
           render json: { evaluation: serialize(evaluation.reload) }, status: :created
         else
           render json: { errors: evaluation.errors.full_messages }, status: :unprocessable_entity
@@ -85,7 +92,7 @@ module ActionAgent
       # A scenario suite accepts a selection: scenario_ids[], keys[], group,
       # models[] (or a comma-separated `models` string).
       def run
-        evaluation = evaluations_scope.find(params[:id])
+        evaluation = current_evaluation
         run = start_run(evaluation, selection_params)
 
         render json: { evaluation: serialize(evaluation.reload), run: serialize_run(run) }
@@ -206,6 +213,41 @@ module ActionAgent
         Evaluation.joins(:agent).where(agent: owner_agents)
       end
 
+      def current_evaluation
+        @current_evaluation ||= evaluations_scope.find(params[:id])
+      end
+
+      def requested_agent
+        @requested_agent ||= owner_agents.find(params.require(:evaluation)[:agent_id])
+      end
+
+      # create runs the new evaluation unless told not to.
+      def run_requested?
+        run = params.require(:evaluation)[:run]
+        run != false && run != "false"
+      end
+
+      # Whether this request replays scenarios through the agent: running a
+      # scenario suite, or creating an evaluation with scenarios that runs.
+      def replays_scenarios?
+        case action_name
+        when "run" then current_evaluation.scenario_suite?
+        when "create" then run_requested? && scenario_attributes.any?
+        else false
+        end
+      end
+
+      # The refusal AgentsController gives an observed agent: it was
+      # discovered from telemetry and has nothing to execute.
+      def require_executable_scenario_agent!
+        agent = action_name == "create" ? requested_agent : current_evaluation.agent
+        return unless agent.observed?
+
+        render json: {
+          error: "Observed agents are read-only — duplicate this agent to create an executable copy"
+        }, status: :unprocessable_entity
+      end
+
       def evaluation_params
         params.require(:evaluation).permit(:agent_id, :name, :judge_kind, :judge_model, :sample_size)
       end
@@ -232,17 +274,19 @@ module ActionAgent
       # Scenarios from the request: a pasted text block, a list of objects, or
       # nothing (a generation-sampling evaluation).
       def scenario_attributes
-        source = params[:evaluation].presence || params
-        text = source[:scenarios_text].to_s
-        list = source[:scenarios]
+        @scenario_attributes ||= begin
+          source = params[:evaluation].presence || params
+          text = source[:scenarios_text].to_s
+          list = source[:scenarios]
 
-        if list.present?
-          list = list.to_unsafe_h.values if list.is_a?(ActionController::Parameters)
-          ActiveAgent::Evals::ScenarioParser.parse(Array(list).map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }.to_json)
-        elsif text.present?
-          ActiveAgent::Evals::ScenarioParser.parse(text)
-        else
-          []
+          if list.present?
+            list = list.to_unsafe_h.values if list.is_a?(ActionController::Parameters)
+            ActiveAgent::Evals::ScenarioParser.parse(Array(list).map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }.to_json)
+          elsif text.present?
+            ActiveAgent::Evals::ScenarioParser.parse(text)
+          else
+            []
+          end
         end
       end
 

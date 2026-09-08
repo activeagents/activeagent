@@ -68,7 +68,17 @@ class EvalsScorerTest < ActiveSupport::TestCase
     assert_nil ActiveAgent::Evals::Scorer.mean("c" => nil)
   end
 
-  def test_an_invalid_regex_falls_back_to_a_substring_match
-    assert ActiveAgent::Evals::Scorer.matches_pattern?("costs $5 (approx", "(approx")
+  def test_a_pattern_matches_as_a_substring_before_it_is_tried_as_a_regex
+    matches = ActiveAgent::Evals::Scorer.method(:matches_pattern?)
+
+    assert matches.call("costs $5 (approx", "(approx"), "an invalid regex is still a substring"
+    assert matches.call("It costs $5 today", "$5"), "a regex anchor is literal when the text contains it"
+    assert matches.call("1,060 (locally) have none", "1,060 (locally)")
+    assert matches.call("Alice changed it", "alice|bob"), "a regex still matches"
+    assert_not matches.call("Dr. Smith is here", "redacted")
+  end
+
+  def test_a_pathological_regex_times_out_instead_of_stalling_the_evaluation
+    assert_not ActiveAgent::Evals::Scorer.matches_pattern?("#{'a' * 40}!", "(a+)+\\1$")
   end
 end
