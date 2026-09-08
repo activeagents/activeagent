@@ -27,6 +27,30 @@ module ActionAgent
       Array(scores&.dig("_models")&.keys)
     end
 
+    # The label ActiveAgent::Evals::Report gives a verdict it ranked by pass
+    # rate itself, for a comparison no judge was available to rule on.
+    PASS_RATE_JUDGE = "pass rate"
+
+    # The verdict a comparison run recorded — the judge's pick and rationale
+    # when a judge wrote it, the framework's pass-rate ranking otherwise —
+    # as `{ "winner", "rationale", "judge" }`; nil for a single-model or
+    # generation-sampling run.
+    def recorded_verdict
+      verdict = scores&.dig("_verdict")
+      verdict.to_h.stringify_keys.presence if verdict.is_a?(Hash)
+    end
+
+    # How the report names the judge, the way the suite panel does: the
+    # judge the recorded verdict names — unless that is only the pass-rate
+    # ranking — else the evaluation's judge model. nil when neither is set,
+    # which the report reads as "rules".
+    def judge_label
+      recorded = recorded_verdict&.dig("judge").to_s
+      return recorded if recorded.present? && recorded != PASS_RATE_JUDGE
+
+      evaluation.judge_model.presence
+    end
+
     # scores is not uniformly { criterion => stats }: a comparison run also
     # records "_"-prefixed metadata (EvaluationRunnerService writes
     # "_missing_models" as an Array and "_verdict"), and each of its criteria
@@ -90,16 +114,21 @@ module ActionAgent
 
     # Rebuilds the framework's Report from this run's persisted results, so
     # the dashboard serves the same self-contained report page a CLI run
-    # writes with Report#to_html. Raises ActiveRecord::RecordNotFound via the
+    # writes with Report#to_html. The run's recorded verdict and judge go
+    # with it: the report is not to re-rank the rebuilt results by pass
+    # rate and show a different judge's pick, verdict or `judged by` than
+    # the suite panel does. Raises ActiveRecord::RecordNotFound via the
     # caller for a run of a generation-sampling evaluation, which has no
     # scenario results to report on.
     def to_report(links: report_links)
       rows = scenario_results.includes(:scenario).joins(:scenario)
         .order(EvaluationScenario.arel_table[:position], EvaluationScenario.arel_table[:id], :model)
+      selected = selected_specs
       specs = {}
       results = rows.map do |row|
-        label = [ row.provider.presence, row.model ].compact.join("/")
-        spec = specs[label] ||= ActiveAgent::Evals::ModelSpec.new(label: label, provider: row.provider.to_s, model: row.model)
+        spec = specs[[ row.provider.to_s, row.model ]] ||= selected[[ row.provider.to_s, row.model ]] || ModelSpec.new(
+          label: [ row.provider.presence, row.model ].compact.join("/"), provider: row.provider.to_s, model: row.model
+        )
         ActiveAgent::Evals::Result.new(
           scenario: ActiveAgent::Evals::Scenario.from_hash(row.scenario.as_json_summary),
           spec: spec,
@@ -115,13 +144,15 @@ module ActionAgent
 
       ActiveAgent::Evals::Report.new(
         results: results,
-        models: specs.values,
+        models: (selected.values & specs.values) + (specs.values - selected.values),
         metadata: {
           "evaluation" => evaluation.name,
           "agent" => evaluation.agent&.name,
           "run" => id,
           "finished" => completed_at&.iso8601
         }.compact,
+        verdict: recorded_verdict,
+        judge_label: judge_label,
         tool_resolver: EvaluationToolResolver.new(evaluation.agent),
         agent_name: evaluation.agent&.name,
         links: links
@@ -129,6 +160,26 @@ module ActionAgent
     end
 
     private
+
+    ModelSpec = ActiveAgent::Evals::ModelSpec
+    private_constant :ModelSpec
+
+    # The candidate specs the run was asked to compare, keyed by
+    # [provider, model] in the order requested. ScenarioEvaluationRunner
+    # persists each ModelSpec#to_h in `selection`, and it is that label —
+    # the string the user typed, e.g. "gpt-5-mini" — that keys the run's
+    # `_models` and names the verdict's winner, so the rebuilt report has
+    # to reuse it rather than relabel every model provider/model.
+    def selected_specs
+      Array(selection["models"]).filter_map do |entry|
+        next unless entry.is_a?(Hash)
+
+        entry = entry.stringify_keys
+        next if entry["model"].blank?
+
+        ModelSpec.new(label: entry["label"].presence || entry["model"], provider: entry["provider"].to_s, model: entry["model"])
+      end.index_by { |spec| [ spec.provider, spec.model ] }
+    end
 
     # A criterion is either scored directly ({ "score" => 0.8, ... }) or, on a
     # comparison run, a map of model => stats; that cohort's mean is the
