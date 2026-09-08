@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
 import { useTheme } from '../../contexts/ThemeContext';
 import ScenarioSuitePanel from './ScenarioSuitePanel';
@@ -96,6 +96,27 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // Which run's report the URL asks for; the agent page's embedded Evals tab
   // has no URL of its own, so it never routes.
   const [reportRef, setReportRef] = useState(() => (embedded ? null : reportRefFromPath()));
+  // The report page is one document of unknown length; framing it at a fixed
+  // height buried its fix items behind a nested scrollbar. The frame is
+  // same-origin, so it can be sized to its own content and the dashboard page
+  // scrolls as one.
+  const reportFrame = useRef(null);
+  const [reportHeight, setReportHeight] = useState(null);
+
+  const fitReportFrame = useCallback(() => {
+    const frame = reportFrame.current;
+    const body = frame?.contentDocument?.body;
+    if (!body) return undefined;
+
+    // Measure the body, never the documentElement: the <html> box grows to
+    // whatever height this effect just gave the frame, so measuring it feeds
+    // the resize back into itself and the frame grows on every navigation.
+    const measure = () => setReportHeight(body.scrollHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(body);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (embedded) return undefined;
@@ -317,9 +338,16 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           </a>
         </div>
         <iframe
+          ref={reportFrame}
           src={framedUrl}
           title="Evaluation run report"
-          style={{ width: '100%', borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-background)', height: 'calc(100vh - 180px)' }}
+          onLoad={fitReportFrame}
+          scrolling="no"
+          style={{
+            width: '100%', borderRadius: 12, border: '1px solid var(--color-border)',
+            background: 'var(--color-background)', display: 'block',
+            height: reportHeight ? `${reportHeight}px` : 'calc(100vh - 180px)',
+          }}
         />
       </div>
     );
