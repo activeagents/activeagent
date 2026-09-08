@@ -12,7 +12,7 @@ module ActiveAgent
     #   min_length        — `config.chars` characters (partial credit below)
     #   max_latency_ms    — `config.ms` budget (partial credit above)
     #   token_budget      — `config.output_tokens` budget (partial credit above)
-    #   contains          — `config.pattern` (regex, falling back to substring) is present
+    #   contains          — `config.pattern` (a substring, or a regex) is present
     #   not_contains      — `config.pattern` is absent
     #   llm_judge         — the judge scores the answer against `config.prompt`
     #
@@ -64,13 +64,25 @@ module ActiveAgent
         (scored.sum / scored.size).round(3)
       end
 
+      # How long one pattern may take to match one answer. Patterns are
+      # whatever the scenario's author typed, and a pathological one must not
+      # stall the evaluation.
+      PATTERN_TIMEOUT = 1.0
+
+      # Whether `pattern` occurs in `text`: as a plain substring, case
+      # insensitively, or else as a regex. A pattern that is not a valid
+      # regex, or that takes longer than PATTERN_TIMEOUT, only counts as a
+      # substring.
       def self.matches_pattern?(text, pattern)
         pattern = pattern.to_s
         return false if pattern.blank?
 
-        text.to_s.match?(Regexp.new(pattern, Regexp::IGNORECASE))
+        text = text.to_s
+        return true if text.downcase.include?(pattern.downcase)
+
+        text.match?(Regexp.new(pattern, Regexp::IGNORECASE, timeout: PATTERN_TIMEOUT))
       rescue RegexpError
-        text.to_s.downcase.include?(pattern.downcase)
+        false
       end
 
       private

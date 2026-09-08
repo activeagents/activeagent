@@ -35,9 +35,11 @@ rails db:migrate
 
 The generator:
 
-- copies two migrations — `active_agent_telemetry_traces` (the trace store)
-  and `active_agent_dashboard_tables` (agents, runs, versions,
-  conversations, evaluations, sandboxes, recordings, keys); pass
+- copies three migrations — `active_agent_telemetry_traces` (the trace
+  store), `active_agent_dashboard_tables` (agents, runs, versions,
+  conversations, evaluations, sandboxes, recordings, keys) and
+  `active_agent_evaluation_scenarios` (scenario suites and their per-model
+  results; re-run the generator on an existing install to get it); pass
   `--traces_only` for a trace sink alone,
 - mounts the engine at `/activeagents`,
 - writes `config/initializers/action_agent.rb`.
