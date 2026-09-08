@@ -156,7 +156,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
 
     assert_includes html, "<!doctype html>"
     assert_includes html, "<style>"
-    assert_not_includes html, "http://", "the page must not reference external assets"
+    assert_no_match(%r{(?:src|href)=["']https?://}i, html, "the page must not reference external assets")
     assert_includes html, "gpt-5-mini"
     assert_includes html, "Recommendations"
     assert_includes html, "<details>"
