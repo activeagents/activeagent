@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { MONO, Card, SegmentedControl } from './primitives';
 import { fmtK, fmtMs, fmtUSD, fmtCost, fmtDelta } from '../../utils/format';
 import {
-  CHART_HEIGHT, maxOf, niceMax, ticksFor, linePoints, areaPoints, sparklinePoints, stackBuckets,
+  CHART_HEIGHT, maxOf, niceMax, countMax, tickDecimals, ticksFor, linePoints, areaPoints, sparklinePoints, stackBuckets,
   SignalTile, ChartPanel, RailPanel, RailColumns, RailRow, RailFlexRow, RailEmpty, Swatch, ShareBar, MiniBar, Cell,
 } from './MetricsCharts';
 
@@ -31,12 +31,13 @@ const DEFAULT_RANGE = '24h';
 const AGENT_PALETTE = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-5)', 'var(--chart-4)'];
 
 // Error classes in the order the API reports them (MetricsReport::ERROR_TYPES).
+// `short` is the form an incident marker uses ("429 spike · Agent").
 const ERROR_TYPES = [
-  { type: '429 rate limit', color: 'var(--color-error)' },
-  { type: 'timeout', color: 'var(--color-warning)' },
-  { type: 'tool error', color: 'var(--span-tool)' },
-  { type: 'provider 5xx', color: 'var(--color-token-out)' },
-  { type: 'other', color: 'var(--color-text-muted)' },
+  { type: '429 rate limit', short: '429', color: 'var(--color-error)' },
+  { type: 'timeout', short: 'timeout', color: 'var(--color-warning)' },
+  { type: 'tool error', short: 'tool error', color: 'var(--span-tool)' },
+  { type: 'provider 5xx', short: '5xx', color: 'var(--color-token-out)' },
+  { type: 'other', short: 'error', color: 'var(--color-text-muted)' },
 ];
 const errorTypeColor = (type) => ERROR_TYPES.find((t) => t.type === type)?.color || 'var(--color-text-muted)';
 
@@ -52,8 +53,29 @@ const pad = (v) => String(v).padStart(2, '0');
 const num = (v) => (v == null || Number.isNaN(Number(v)) ? 0 : Number(v));
 const sum = (arr) => arr.reduce((a, b) => a + num(b), 0);
 const pct1 = (v) => `${num(v).toFixed(1)}%`;
+// "1 error", "8 errors", "1 call".
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // Axis ticks keep one decimal ("1.9s") so five of them fit the 34px gutter.
 const fmtMsTick = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${Math.round(v)}ms`);
+
+// Every agent row the rail should list while a filter is on: the unfiltered
+// ranking, plus any row the filtered payload knows that the ranking does not
+// (a race between the two requests), so the active row is always there.
+const railRows = (ranking, filtered) => {
+  const rows = Array.isArray(ranking) ? [...ranking] : [];
+  filtered.forEach((a) => { if (a.name && !rows.some((r) => r.name === a.name)) rows.push(a); });
+  return rows;
+};
+
+// An incident marker in the prototype's compact form: the API labels it
+// "<type> spike" ("429 rate limit spike"), the marker reads "429 spike ·
+// DocumentationAgent" so it fits beside the line in a two-up panel.
+const incidentLabel = (mk) => {
+  let label = String(mk.label || 'incident');
+  const known = ERROR_TYPES.find((t) => label.startsWith(t.type));
+  if (known) label = `${known.short}${label.slice(known.type.length)}`;
+  return mk.agent && !label.includes(mk.agent) ? `${label} · ${mk.agent}` : label;
+};
 
 // "15 min", "2 h", "90s" for a bucket length the RANGES table does not name.
 const bucketLabelFor = (seconds) => {
@@ -61,6 +83,13 @@ const bucketLabelFor = (seconds) => {
   if (s < 60) return `${s}s`;
   if (s < 3600) return `${+(s / 60).toFixed(1)} min`;
   return `${+(s / 3600).toFixed(1)} h`;
+};
+
+// One GET /api/metrics with the given query.
+const fetchJson = async (params) => {
+  const response = await fetch(`/api/metrics?${params.toString()}`);
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return response.json();
 };
 
 // Zero-filled buckets ending at "now", for a payload without `series`.
@@ -161,16 +190,27 @@ export default function MetricsView() {
   const requestSeq = useRef(0);
   const narrow = useNarrow(NARROW_BELOW_PX);
 
+  // The unfiltered agent ranking last seen, so a filtered load whose
+  // companion request failed still lists every agent in the rail.
+  const rankingRef = useRef(null);
+
   const fetchMetrics = useCallback(async () => {
     const seq = ++requestSeq.current;
     try {
       const params = new URLSearchParams({ range });
       if (agent) params.set('agent', agent);
-      const response = await fetch(`/api/metrics?${params.toString()}`);
-      if (!response.ok) throw new Error(`Request failed (${response.status})`);
-      const data = await response.json();
+      // The API scopes `agents` to the filter, but the AGENTS rail keeps
+      // listing every agent (the filtered one highlighted) so the user can
+      // hop between them — so a filtered load also fetches the unfiltered
+      // ranking for the same window.
+      const [data, unfiltered] = await Promise.all([
+        fetchJson(params),
+        agent ? fetchJson(new URLSearchParams({ range })).catch(() => null) : null,
+      ]);
       if (seq !== requestSeq.current) return;
-      setMetrics(data);
+      const fresh = agent ? unfiltered?.agents : data.agents;
+      if (Array.isArray(fresh)) rankingRef.current = fresh;
+      setMetrics({ data, ranking: Array.isArray(fresh) ? fresh : rankingRef.current });
       setLoadError(null);
     } catch (error) {
       if (seq !== requestSeq.current) return;
@@ -188,22 +228,17 @@ export default function MetricsView() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [fetchMetrics]);
 
-  const m = useMemo(() => (metrics ? normalize(metrics, range) : null), [metrics, range]);
+  const m = useMemo(() => (metrics ? normalize(metrics.data, range) : null), [metrics, range]);
 
-  // The agent ranking (select options, stacked-bar colors) is read from an
-  // unfiltered payload and remembered across filtered ones: a filtered
-  // payload only carries the one agent, and the options and colors must not
-  // change under the user when they filter.
-  const [rememberedNames, setRememberedNames] = useState([]);
-  useEffect(() => {
-    if (!m || m.agent) return;
-    const names = m.agents.map((a) => a.name).filter(Boolean);
-    setRememberedNames((prev) => (prev.length === names.length && prev.every((n, i) => n === names[i]) ? prev : names));
-  }, [m]);
-  const rankedNames = useMemo(
-    () => (m && !m.agent ? m.agents.map((a) => a.name).filter(Boolean) : rememberedNames),
-    [m, rememberedNames],
-  );
+  // The AGENTS rail rows: the payload's own agents when no filter is on,
+  // else the unfiltered ranking (all rows, the filtered one highlighted).
+  // The ranking also orders the select options and assigns the stacked-bar
+  // colors, so neither changes under the user when they filter.
+  const railAgents = useMemo(() => {
+    if (!m) return [];
+    return m.agent ? railRows(metrics.ranking, m.agents) : m.agents;
+  }, [m, metrics]);
+  const rankedNames = useMemo(() => railAgents.map((a) => a.name).filter(Boolean), [railAgents]);
 
   // Agent → color by rank; an agent the ranking has not seen yet takes the
   // next color.
@@ -241,6 +276,7 @@ export default function MetricsView() {
     <MetricsPage
       m={m}
       view={view}
+      railAgents={railAgents}
       range={RANGES[range] ? range : DEFAULT_RANGE}
       agent={agent}
       agentOptions={agent && !rankedNames.includes(agent) ? [...rankedNames, agent] : rankedNames}
@@ -255,9 +291,11 @@ export default function MetricsView() {
 
 // The loaded page, rendered from the normalized payload (`m`) and the values
 // derived from it (`view`). Pure — state and fetching live in MetricsView —
-// so it can also be rendered statically for a design check. `pending` dims
-// the numbers and the live dot while a filter change is in flight.
-export function MetricsPage({ m, view, range, agent, agentOptions, colorFor, narrow, pending = false, onRange, onAgent }) {
+// so it can also be rendered statically for a design check. `railAgents`
+// is what the AGENTS rail lists (every agent, even while `m` is filtered
+// to one); `pending` dims the numbers and the live dot while a filter
+// change is in flight.
+export function MetricsPage({ m, view, railAgents = m.agents, range, agent, agentOptions, colorFor, narrow, pending = false, onRange, onAgent }) {
   const R = rangeMeta(m);
   const isEmpty = m.totals.requests === 0;
   const toggleAgent = (name) => onAgent(agent === name ? '' : name);
@@ -318,8 +356,8 @@ export function MetricsPage({ m, view, range, agent, agentOptions, colorFor, nar
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
               <RailPanel label="Agents" qualifier="by requests · click to filter">
                 <RailColumns template="minmax(0, 1fr) 44px 44px 40px 52px" columns={['req', 'p95', 'err', 'cost']} />
-                {m.agents.length === 0 && <RailEmpty>no agents in this window</RailEmpty>}
-                {m.agents.map((a) => (
+                {railAgents.length === 0 && <RailEmpty>no agents in this window</RailEmpty>}
+                {railAgents.map((a) => (
                   <RailRow
                     key={a.name}
                     template="minmax(0, 1fr) 44px 44px 40px 52px"
@@ -460,17 +498,18 @@ function buildView(m, colorFor) {
     .map((mk) => markerAt(mk, mk.label))
     .filter(Boolean);
   const incident = m.markers.find((mk) => mk.kind === 'incident');
-  const incidentMarker = incident
-    ? markerAt(incident, incident.agent && !String(incident.label || '').includes(incident.agent) ? `${incident.label} · ${incident.agent}` : incident.label)
-    : null;
+  const incidentMarker = incident ? markerAt(incident, incidentLabel(incident)) : null;
   const incidentMarkers = incidentMarker ? [incidentMarker] : [];
 
-  const reqMax = niceMax(maxOf(req) * 1.1);
-  const errMax = niceMax(maxOf(errs) * 1.15);
-  const latMax = niceMax(Math.max(maxOf(p99), maxOf(p95), maxOf(p50)) * 1.05);
-  const tokMax = niceMax(Math.max(maxOf(tokIn), maxOf(tokOut)) * 1.1);
+  // Count axes floor at MIN_COUNT_MAX so their integer ticks stay distinct
+  // in a quiet window; the money axis picks its decimals per step instead.
+  const reqMax = countMax(maxOf(req) * 1.1);
+  const errMax = countMax(maxOf(errs) * 1.15);
+  const latMax = countMax(Math.max(maxOf(p99), maxOf(p95), maxOf(p50)) * 1.05);
+  const tokMax = countMax(Math.max(maxOf(tokIn), maxOf(tokOut)) * 1.1);
   const costMax = niceMax(maxOf(cost) * 1.1);
-  const toolMax = niceMax(maxOf(toolCalls) * 1.1);
+  const costDigits = tickDecimals(costMax);
+  const toolMax = countMax(maxOf(toolCalls) * 1.1);
 
   const requests = num(totals.requests);
   const rpm = num(totals.requests_per_minute);
@@ -511,11 +550,11 @@ function buildView(m, colorFor) {
     },
     {
       title: 'Errors', sub: `per ${R.bucket} · by type`,
-      value: `${errorRate.toFixed(2)}% · ${Math.round(errors)} errors`,
+      value: `${errorRate.toFixed(2)}% · ${plural(Math.round(errors), 'error')}`,
       valueColor: errorRate > 1 ? 'var(--color-error)' : INK,
       legend: errLayers.map((L) => ({ label: L.label, color: L.color })),
       ticks: ticksFor(errMax, (v) => String(Math.round(v))),
-      buckets: stackBuckets(errLayers, errMax, (i) => `${fmtT(times[i])} · ${Math.round(errs[i])} errors`),
+      buckets: stackBuckets(errLayers, errMax, (i) => `${fmtT(times[i])} · ${plural(Math.round(errs[i]), 'error')}`),
       markers: incidentMarkers,
     },
     {
@@ -536,9 +575,10 @@ function buildView(m, colorFor) {
       title: 'Cost', sub: `estimated · per ${R.bucket}`,
       value: `${fmtUSD(spend)} · ${fmtCost(costPerReq)}/req`,
       legend: [{ label: 'spend', color: 'var(--color-text-secondary)' }],
-      // Sub-cent buckets keep a third decimal so the ticks are not all "$0.00".
-      ticks: ticksFor(costMax, (v) => `$${v.toFixed(costMax < 0.1 ? 3 : 2)}`),
-      buckets: stackBuckets([{ color: 'var(--color-text-secondary)', data: cost }], costMax, (i) => `${fmtT(times[i])} · $${cost[i].toFixed(3)}`),
+      // Sub-cent buckets get as many decimals as the gridline step needs
+      // ("$0.0010 $0.0008 …"), so the five ticks never read the same.
+      ticks: ticksFor(costMax, (v) => fmtCost(v, costDigits)),
+      buckets: stackBuckets([{ color: 'var(--color-text-secondary)', data: cost }], costMax, (i) => `${fmtT(times[i])} · ${fmtCost(cost[i], costDigits)}`),
     },
     {
       title: 'Tool calls', sub: `per ${R.bucket} · MCP + agent-defined`,
@@ -553,7 +593,7 @@ function buildView(m, colorFor) {
           { color: 'var(--color-error)', data: toolErrs },
         ],
         toolMax,
-        (i) => `${fmtT(times[i])} · ${Math.round(toolCalls[i])} calls`,
+        (i) => `${fmtT(times[i])} · ${plural(Math.round(toolCalls[i]), 'call')}`,
       ),
     },
   ];
@@ -577,7 +617,7 @@ function buildView(m, colorFor) {
       fmtDelta(deltas.requests_pct), tone(deltas.requests_pct, (v) => v > 0, null), req, 'var(--color-token-in)'),
     signal('Latency', fmtMs(totals.p50_ms), 'p50', `p95 ${fmtMs(totals.p95_ms)} · p99 ${fmtMs(totals.p99_ms)}`,
       fmtDelta(deltas.p50_pct), tone(deltas.p50_pct, (v) => v < 0, (v) => v > 0), p50, 'var(--color-token-in)'),
-    signal('Error rate', errorRate.toFixed(2), '%', `${Math.round(errors)} errors · ${Math.round(rateLimited)} rate-limited`,
+    signal('Error rate', errorRate.toFixed(2), '%', `${plural(Math.round(errors), 'error')} · ${Math.round(rateLimited)} rate-limited`,
       fmtDelta(deltas.error_rate_pt, ' pt', 1), tone(deltas.error_rate_pt, (v) => v < 0, (v) => v > 0), errs, 'var(--color-error)'),
     signal('Tokens', fmtK(tokens), '', `in ${fmtK(totals.tokens_in)} · out ${fmtK(totals.tokens_out)}`,
       fmtDelta(deltas.tokens_pct), 'muted', tokIn.map((v, i) => v + tokOut[i]), 'var(--color-token-in)'),
