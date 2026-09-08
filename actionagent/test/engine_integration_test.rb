@@ -139,6 +139,42 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
   # The sandbox API used to opt out of authentication entirely for an
   # anonymous free tier, which made it an open proxy onto the host app's
   # provider credentials.
+  test "an unauthenticated page request redirects to the configured sign-in path" do
+    ActionAgent.authentication_method = ->(_controller) { false }
+    ActionAgent.sign_in_path = "/users/sign_in"
+
+    get "/activeagents/evaluations", headers: { "Accept" => "text/html" }
+
+    assert_redirected_to "/users/sign_in"
+  ensure
+    ActionAgent.authentication_method = nil
+    ActionAgent.sign_in_path = nil
+  end
+
+  test "an unauthenticated page request without a sign-in path gets a session-expired page" do
+    ActionAgent.authentication_method = ->(_controller) { false }
+
+    get "/activeagents/evaluations", headers: { "Accept" => "text/html" }
+
+    assert_response :unauthorized
+    assert_includes response.body, "Sign in required"
+  ensure
+    ActionAgent.authentication_method = nil
+  end
+
+  test "an unauthenticated API request keeps its bare 401 whatever sign_in_path says" do
+    ActionAgent.authentication_method = ->(_controller) { false }
+    ActionAgent.sign_in_path = "/users/sign_in"
+
+    get "/activeagents/api/evaluations", headers: { "Accept" => "application/json" }
+
+    assert_response :unauthorized
+    assert_empty response.body
+  ensure
+    ActionAgent.authentication_method = nil
+    ActionAgent.sign_in_path = nil
+  end
+
   test "the sandbox API is not anonymously reachable" do
     ActionAgent.authentication_method = ->(_controller) { false }
 

@@ -1,23 +1,21 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
+import { Button, Chip, Empty, MicroLabel, MonoLink, MONO } from './primitives';
+import { fmtCost, fmtK, fmtMs, timeAgo } from '../../utils/format';
+import {
+  FixList, ModelsPanel, RunsPanel, ScenarioDetail, ScenarioMatrix,
+  fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, plural,
+  runScenarioCount, runScenarioKeys, runTotals,
+} from './EvaluationRunPanels';
 
-// The expanded body of a scenario-suite evaluation: the suite's scenarios
-// grouped as they were pasted, controls to run a group / one scenario under
-// chosen models, and the latest run rendered as a scenario × model matrix
-// with each failing cell's fault and recommended fix.
+// The expanded body of a scenario-suite evaluation, leading with three
+// questions — is it getting better (Runs), which model (Models), what do I
+// fix (What to fix) — then the scenario × model matrix that carries the
+// evidence, a per-scenario drill-down, and the suite's controls: edit the
+// pasted scenarios, run a group / everything / one scenario under chosen
+// models, enable or disable a scenario, delete the suite.
 
 const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
-
-const STATUS_COLOR = { passed: '#22c55e', failed: '#ef4444', errored: '#f97316', pending: '#9ca3af' };
-
-const FAULT_LABEL = {
-  run_error: 'Run error',
-  tool_error: 'Tool error',
-  missing_capability: 'Missing capability',
-  expected_tool_not_called: 'Tool not called',
-  forbidden_content: 'Forbidden content',
-  missing_content: 'Missing content',
-  low_quality: 'Low quality',
-};
 
 // Rebuilds the pasted form of a suite so it can be edited in place.
 function scenariosToText(scenarios) {
@@ -33,90 +31,153 @@ function scenariosToText(scenarios) {
     if (expectations.tools?.length) options.push(`tools: ${expectations.tools.join(', ')}`);
     if (expectations.contains?.length) options.push(`contains: ${expectations.contains.join(', ')}`);
     if (expectations.not_contains?.length) options.push(`not_contains: ${expectations.not_contains.join(', ')}`);
-    if (scenario.notes) options.push(`notes: ${scenario.notes}`);
     options.push(`key: ${scenario.key}`);
     lines.push(`${scenario.prompt} | ${options.join(' | ')}`);
   });
   return lines.join('\n');
 }
 
-const formatMs = (ms) => (ms == null ? '—' : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
-const formatCost = (cost) => (cost == null ? '—' : `$${Number(cost).toFixed(4)}`);
+// In-app navigation to a dashboard route. Accepts a mount-relative path
+// ("/tools") or one that already carries the mount.
+export function navigateTo(path) {
+  if (!path) return;
+  const relative = dashboardRelativePath(path);
+  pushDashboardPath(relative);
+  window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path: dashboardPath(relative) } }));
+}
 
-export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onChanged }) {
+const stripResults = (run) => {
+  const { results, fix_items: fixItems, ...summary } = run;
+  return summary;
+};
+
+const usageText = (usage) => {
+  if (!usage) return null;
+  const parts = [fmtCost(usage.cost), `${fmtK((usage.input_tokens || 0) + (usage.output_tokens || 0))} tokens`];
+  if (usage.model_time_ms != null) parts.push(`model time ${fmtMs(usage.model_time_ms)}`);
+  if (usage.runtime_ms != null) parts.push(`finished in ${fmtMs(usage.runtime_ms)}`);
+  return parts.join(' · ');
+};
+
+const inputStyle = {
+  padding: '6px 10px', borderRadius: 8, fontSize: 12, fontFamily: MONO,
+  background: 'var(--color-card)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text-primary)',
+};
+
+export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, deleting = false }) {
+  const evaluationId = evaluation.id;
+  const agentName = evaluation.agent?.name || 'Agent';
+
   const [scenarios, setScenarios] = useState([]);
   const [groups, setGroups] = useState(evaluation.scenario_groups || []);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [runs, setRuns] = useState(evaluation.latest_run ? [evaluation.latest_run] : []);
+  const [selectedRunId, setSelectedRunId] = useState(evaluation.latest_run?.id ?? null);
+  const [details, setDetails] = useState({});
   const [modelsInput, setModelsInput] = useState((evaluation.compare_models || []).join(', '));
-  const [run, setRun] = useState(null);
   const [runError, setRunError] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [editError, setEditError] = useState(null);
-  const [expandedKey, setExpandedKey] = useState(null);
-  const [pollTick, setPollTick] = useState(0);
-  const pollTimer = useRef(null);
+  const [groupFilter, setGroupFilter] = useState(null);
+  const [failedOnly, setFailedOnly] = useState(false);
+  const [openKey, setOpenKey] = useState(null);
+
+  // --- data -------------------------------------------------------------
 
   const fetchScenarios = useCallback(async () => {
-    const response = await fetch(`/api/evaluations/${evaluation.id}/scenarios`);
+    const response = await fetch(`/api/evaluations/${evaluationId}/scenarios`);
     if (!response.ok) return;
     const data = await response.json();
     setScenarios(data.scenarios || []);
     setGroups(data.groups || []);
-  }, [evaluation.id]);
+  }, [evaluationId]);
 
-  const fetchRun = useCallback(async (runId) => {
-    if (!runId) return null;
-    const response = await fetch(`/api/evaluations/${evaluation.id}/runs/${runId}`);
+  // The suite with its scenarios and run history (last 20, newest first).
+  const fetchSuite = useCallback(async () => {
+    const response = await fetch(`/api/evaluations/${evaluationId}`);
     if (!response.ok) return null;
     const data = await response.json();
-    setRun(data.run);
-    return data.run;
-  }, [evaluation.id]);
+    const suite = data.evaluation || {};
+    setScenarios(suite.scenarios || []);
+    setGroups(suite.scenario_groups || []);
+    setRuns(suite.runs || []);
+    return suite;
+  }, [evaluationId]);
+
+  const fetchRunDetail = useCallback(async (runId) => {
+    if (!runId) return null;
+    const response = await fetch(`/api/evaluations/${evaluationId}/runs/${runId}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    const run = data.run;
+    if (!run) return null;
+    setDetails((prev) => ({ ...prev, [run.id]: run }));
+    setRuns((prev) => prev.map((r) => (r.id === run.id ? { ...r, ...stripResults(run) } : r)));
+    return run;
+  }, [evaluationId]);
 
   useEffect(() => {
-    fetchScenarios();
-    fetchRun(evaluation.latest_run?.id);
-  }, [fetchScenarios, fetchRun, evaluation.latest_run?.id]);
+    let cancelled = false;
+    (async () => {
+      const suite = await fetchSuite();
+      if (cancelled) return;
+      const latestId = suite?.runs?.[0]?.id ?? null;
+      setSelectedRunId((current) => (current && suite?.runs?.some((r) => r.id === current) ? current : latestId));
+      if (latestId) fetchRunDetail(latestId);
+    })();
+    return () => { cancelled = true; };
+  }, [fetchSuite, fetchRunDetail]);
+
+  // A run started elsewhere (the page header, another tab) shows up as a new
+  // latest run on the evaluation; pick it up.
+  const latestFromParent = evaluation.latest_run?.id ?? null;
+  useEffect(() => {
+    if (!latestFromParent || runs.some((r) => r.id === latestFromParent)) return;
+    fetchSuite();
+  }, [latestFromParent, runs, fetchSuite]);
+
+  const selectedRun = details[selectedRunId] || runs.find((r) => r.id === selectedRunId) || null;
+  const latestRun = runs[0] || null;
 
   // A run replays every scenario through the provider, so it finishes in the
-  // background; results appear as each replay lands.
+  // background; poll the run being viewed (or the latest, when that is the
+  // one still going) until it settles.
+  const pollId = inProgress(selectedRun) ? selectedRun.id : inProgress(latestRun) ? latestRun.id : null;
   useEffect(() => {
-    clearTimeout(pollTimer.current);
-    if (!run || !['pending', 'running'].includes(run.status)) return undefined;
-    pollTimer.current = setTimeout(async () => {
-      let latest = null;
-      try {
-        latest = await fetchRun(run.id);
-      } catch (_error) {
-        latest = null;
+    if (!pollId) return undefined;
+    const timer = setInterval(async () => {
+      const latest = await fetchRunDetail(pollId);
+      if (latest && !inProgress(latest)) {
+        clearInterval(timer);
+        await fetchSuite();
+        onChanged?.();
       }
-      if (latest && !['pending', 'running'].includes(latest.status)) onChanged?.();
-      // A fetch that failed or was refused changes no state, so re-arm the
-      // poll explicitly rather than leaving the run stuck on "Running…".
-      if (!latest) setPollTick((tick) => tick + 1);
     }, 3000);
-    return () => clearTimeout(pollTimer.current);
-  }, [run, pollTick, fetchRun, onChanged]);
+    return () => clearInterval(timer);
+  }, [pollId, fetchRunDetail, fetchSuite, onChanged]);
+
+  // --- actions ----------------------------------------------------------
 
   const selectedModels = modelsInput.split(',').map((m) => m.trim()).filter(Boolean);
-  const visibleScenarios = selectedGroup ? scenarios.filter((s) => s.group === selectedGroup) : scenarios;
-  const enabledCount = visibleScenarios.filter((s) => s.enabled).length;
 
   const startRun = async (selection) => {
     setIsRunning(true);
     setRunError(null);
     try {
-      const response = await fetch(`/api/evaluations/${evaluation.id}/run`, {
+      const response = await fetch(`/api/evaluations/${evaluationId}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
         body: JSON.stringify({ ...selection, models: selectedModels }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || 'Run failed to start');
-      setRun({ ...data.run, results: [] });
-      setExpandedKey(null);
+      const run = data.run;
+      setRuns((prev) => [run, ...prev.filter((r) => r.id !== run.id)]);
+      setDetails((prev) => ({ ...prev, [run.id]: { ...run, results: [] } }));
+      setSelectedRunId(run.id);
+      setOpenKey(null);
+      onChanged?.();
     } catch (error) {
       setRunError(error.message);
     } finally {
@@ -124,23 +185,30 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
     }
   };
 
+  const selectRun = (runId) => {
+    setSelectedRunId(runId);
+    setOpenKey(null);
+    if (!details[runId]) fetchRunDetail(runId);
+  };
+
   const toggleScenario = async (scenario) => {
-    await fetch(`/api/evaluations/${evaluation.id}/scenarios/${scenario.id}`, {
+    if (!scenario.id) return;
+    await fetch(`/api/evaluations/${evaluationId}/scenarios/${scenario.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
-      body: JSON.stringify({ scenario: { enabled: !scenario.enabled } }),
+      body: JSON.stringify({ scenario: { enabled: scenario.enabled === false } }),
     });
     await fetchScenarios();
   };
 
   const saveScenarios = async () => {
     setEditError(null);
-    const response = await fetch(`/api/evaluations/${evaluation.id}/scenarios`, {
+    const response = await fetch(`/api/evaluations/${evaluationId}/scenarios`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
       body: JSON.stringify({ scenarios_text: editText }),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       setEditError((data.errors || [data.error]).filter(Boolean).join(', ') || 'Could not save scenarios');
       return;
@@ -151,304 +219,228 @@ export default function ScenarioSuitePanel({ evaluation, colors, darkMode, onCha
     onChanged?.();
   };
 
-  const results = run?.results || [];
-  const selectionModels = run?.selection?.models || [];
-  const labelFor = (result) =>
-    selectionModels.find((m) => m.model === result.model && m.provider === result.provider)?.label || result.model;
-  // Column labels: the summary's models once the run completes, the
-  // selection's model specs while it runs, and whatever has landed before
-  // the runner has written either.
-  const specLabels = selectionModels.filter((m) => m && typeof m === 'object' && m.label).map((m) => m.label);
-  const columns = run?.models?.length
-    ? run.models
-    : specLabels.length
-      ? specLabels
-      : [...new Set(results.map(labelFor))];
-  const resultsByKey = results.reduce((acc, result) => {
-    (acc[result.scenario_key] ||= {})[labelFor(result)] = result;
+  // --- derivations ------------------------------------------------------
+
+  const run = selectedRun;
+  const results = useMemo(() => (run?.results || []).filter((r) => r && r.scenario_key), [run]);
+  const columns = useMemo(() => modelColumns(run, results, evaluation), [run, results, evaluation]);
+  const resultsByKey = useMemo(() => results.reduce((acc, result) => {
+    (acc[result.scenario_key] ||= {})[labelForResult(run, result)] = result;
     return acc;
-  }, {});
-  const runScenarioKeys = run?.selection?.scenario_keys || [];
-  // Every scenario stays listed whatever the last run covered, so a group
-  // can be filtered, toggled and replayed after a partial run; cells outside
-  // the run read "—".
-  const inRun = (scenario) => runScenarioKeys.includes(scenario.key) || Boolean(resultsByKey[scenario.key]);
-  const inProgress = run && ['pending', 'running'].includes(run.status);
-  const expectedResults = runScenarioKeys.length * Math.max(columns.length, 1);
-  const modelSummaries = run?.scores?._models || {};
-  const recommendations = run?.scores?._recommendations || [];
-  const verdict = run?.scores?._verdict;
+  }, {}), [results, run]);
+  const runKeys = useMemo(() => new Set(runScenarioKeys(run, scenarios)), [run, scenarios]);
+  const running = inProgress(run);
+  const scenarioCount = runScenarioCount(run, columns, scenarios);
+  const totals = runTotals(run, results, columns, scenarios);
 
-  const chipStyle = (active) => ({
-    padding: '4px 10px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer',
-    border: `1px solid ${active ? '#ef4444' : colors.cardBorder}`,
-    background: active ? (darkMode ? 'rgba(239,68,68,0.15)' : '#fef2f2') : 'transparent',
-    color: active ? '#ef4444' : colors.textSecondary,
+  // Scenarios the selected run covers, in suite order; a result whose
+  // scenario has since been removed from the suite still renders from what
+  // the result recorded about it.
+  const runScenarios = useMemo(() => {
+    if (!run) return scenarios;
+    const covered = scenarios.filter((s) => runKeys.has(s.key) || resultsByKey[s.key]);
+    const known = new Set(scenarios.map((s) => s.key));
+    const orphans = Object.keys(resultsByKey).filter((key) => !known.has(key)).map((key) => {
+      const first = Object.values(resultsByKey[key])[0];
+      return { id: null, key, prompt: first.prompt, group: first.group, expectations: {}, enabled: true, orphan: true };
+    });
+    return [...covered, ...orphans];
+  }, [run, scenarios, runKeys, resultsByKey]);
+
+  const failedOn = (scenario) => columns.some((label) => {
+    const result = resultsByKey[scenario.key]?.[label];
+    return isSettled(result) && !isPassed(result);
   });
-  const inputStyle = {
-    padding: '6px 10px', borderRadius: '8px', fontSize: '13px',
-    background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary,
-  };
-  const buttonStyle = 'px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50';
-  const subtleButton = 'px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50';
+  const visibleRows = runScenarios
+    .filter((s) => !groupFilter || (s.group || '') === groupFilter)
+    .filter((s) => !failedOnly || failedOn(s));
 
-  let groupHeader = null;
+  const runIndex = runs.findIndex((r) => r.id === run?.id);
+  const runNumber = runIndex >= 0 ? runs.length - runIndex : null;
+  const latestNumber = runs.length;
+  const groupCount = new Set(runScenarios.map((s) => s.group).filter(Boolean)).size;
+  const settledCount = results.filter(isSettled).length;
+  const expectedResults = scenarioCount * Math.max(columns.length, 1);
+  const faultScenarios = new Set(results.filter((r) => isSettled(r) && !isPassed(r)).map((r) => r.scenario_key)).size;
+  const verdict = run?.scores?._verdict || null;
+  const judgedBy = (verdict?.judge && verdict.judge !== 'pass rate') ? verdict.judge : (evaluation.judge_model || 'rules');
+  const fixItems = useMemo(() => (run ? fixItemsFor(run, results) : []), [run, results]);
+  const criteriaKeys = Object.keys(run?.scores || {}).filter((key) => !key.startsWith('_'));
+  const criteriaText = (criteriaKeys.length ? criteriaKeys : (evaluation.criteria || []).map((c) => c.key))
+    .map((key) => String(key).replace(/_/g, ' ')).join(' · ') || '—';
+
+  const enabledCount = scenarios.filter((s) => s.enabled !== false && (!groupFilter || (s.group || '') === groupFilter)).length;
+  const runLabel = `Run ${plural(enabledCount, 'scenario')}${selectedModels.length ? ` × ${plural(selectedModels.length, 'model')}` : ''}`;
+
+  const summary = run
+    ? [
+      runIndex > 0 ? `Viewing run #${runNumber} (latest is #${latestNumber})` : `Run #${runNumber ?? '?'} · ${timeAgo(run.completed_at || run.created_at)}`,
+      agentName,
+      `${plural(scenarioCount, 'scenario')}${groupCount ? ` in ${plural(groupCount, 'group')}` : ''} × ${plural(columns.length, 'model')}`,
+      run.status === 'failed' ? 'failed' : `${totals.passed}/${totals.total} passed`,
+    ].join(' · ')
+    : `${agentName} · ${plural(scenarios.length, 'scenario')}${groups.length ? ` in ${plural(groups.length, 'group')}` : ''} · no runs yet`;
+
+  const reportPath = run && run.status === 'complete' ? `/evaluations/${evaluationId}/runs/${run.id}/report` : null;
+
+  const groupChips = [{ label: `All ${scenarios.length}`, value: null }]
+    .concat(groups.map((group) => ({ label: `${group} ${scenarios.filter((s) => s.group === group).length}`, value: group })));
+
+  const emptyLabel = failedOnly
+    ? '[+] nothing failed in this group'
+    : groupFilter && run ? '[ ] not part of this run' : '[ ] no scenarios';
+
+  // --- render -----------------------------------------------------------
 
   return (
-    <div className="p-4 space-y-4" data-testid="scenario-suite-panel">
-      {/* Selection controls */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span style={chipStyle(!selectedGroup)} onClick={() => setSelectedGroup(null)}>All ({scenarios.length})</span>
-        {groups.map((group) => (
-          <span key={group} style={chipStyle(selectedGroup === group)} onClick={() => setSelectedGroup(group)}>
-            {group} ({scenarios.filter((s) => s.group === group).length})
+    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }} data-testid="scenario-suite-panel">
+      {/* Summary row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{summary}</span>
+        {running && (
+          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }} data-testid="suite-run-progress">
+            {`running · ${settledCount} of ${expectedResults} results in`}
           </span>
-        ))}
-        <div className="flex-1" />
-        <input
-          type="text"
-          value={modelsInput}
-          onChange={(e) => setModelsInput(e.target.value)}
-          placeholder={`models to compare, e.g. ${evaluation.agent?.name ? 'claude-sonnet-5, qwen3:8b' : ''}`}
-          style={{ ...inputStyle, minWidth: '260px' }}
-          title="Comma-separated. Prefix with a provider (ollama/qwen3:8b) when the name alone is ambiguous; blank runs the agent's own model."
-        />
-        <button
-          className={buttonStyle}
-          disabled={isRunning || enabledCount === 0}
-          onClick={() => startRun(selectedGroup ? { group: selectedGroup } : {})}
-        >
-          {isRunning ? 'Starting…' : `Run ${enabledCount} scenario${enabledCount === 1 ? '' : 's'}${selectedModels.length > 1 ? ` × ${selectedModels.length} models` : ''}`}
-        </button>
-        <button
-          className={subtleButton}
-          onClick={() => { setEditText(scenariosToText(scenarios)); setEditing(!editing); }}
-        >
-          {editing ? 'Cancel' : 'Edit scenarios'}
-        </button>
+        )}
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button size="sm" onClick={() => { setEditText(scenariosToText(scenarios)); setEditError(null); setEditing(!editing); }}>
+            {editing ? 'Cancel' : 'Edit scenarios'}
+          </Button>
+          <input
+            type="text"
+            value={modelsInput}
+            onChange={(e) => setModelsInput(e.target.value)}
+            placeholder="models, e.g. gpt-5-mini, ollama/qwen3:8b"
+            style={{ ...inputStyle, width: 250 }}
+            title="Comma-separated. Prefix with a provider (ollama/qwen3:8b) when the name alone is ambiguous; blank runs the agent's own model."
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={isRunning || enabledCount === 0}
+            onClick={() => startRun(groupFilter ? { group: groupFilter } : {})}
+            testId="suite-run-button"
+          >
+            {isRunning ? 'Starting…' : runLabel}
+          </Button>
+        </span>
       </div>
 
-      {runError && <div className="text-sm text-red-500">{runError}</div>}
+      {(runError || run?.status === 'failed') && (
+        <div style={{ fontSize: 13, color: 'var(--color-error-text)', background: 'var(--color-error-soft)', borderRadius: 8, padding: '8px 12px' }}>
+          {runError || `Run failed: ${run.error_message || 'unknown error'}`}
+        </div>
+      )}
 
       {editing && (
-        <div className="space-y-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <textarea
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             rows={Math.min(Math.max(scenarios.length + 4, 6), 24)}
-            style={{ ...inputStyle, width: '100%', fontFamily: 'monospace', fontSize: '12px' }}
+            style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', lineHeight: '18px' }}
           />
-          <div className="flex items-center gap-3 text-xs" style={{ color: colors.textMuted }}>
-            <span>One message per line. <code># Heading</code> starts a group; <code>| tools: a, b</code>, <code>| contains: x</code>, <code>| not_contains: y</code> set expectations. Keep a scenario's <code>key</code> to keep its history.</span>
-            <div className="flex-1" />
-            <button className={buttonStyle} onClick={saveScenarios}>Save scenarios</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--color-text-muted)', flexWrap: 'wrap' }}>
+            <span style={{ flex: 1, minWidth: 240 }}>
+              One message per line. <code style={{ fontFamily: MONO }}># Heading</code> starts a group; <code style={{ fontFamily: MONO }}>| tools: a, b</code>, <code style={{ fontFamily: MONO }}>| contains: x</code>, <code style={{ fontFamily: MONO }}>| not_contains: y</code> set expectations. Keep a scenario's <code style={{ fontFamily: MONO }}>key</code> to keep its history.
+            </span>
+            <Button variant="primary" size="sm" onClick={saveScenarios}>Save scenarios</Button>
           </div>
-          {editError && <div className="text-sm text-red-500">{editError}</div>}
+          {editError && <div style={{ fontSize: 13, color: 'var(--color-error-text)' }}>{editError}</div>}
         </div>
       )}
 
-      {/* Run status */}
-      {run && (
-        <div className="text-xs flex items-center gap-3" style={{ color: colors.textMuted }}>
-          <span>
-            {inProgress
-              ? `Running… ${results.length} of ${expectedResults} results in`
-              : run.status === 'failed'
-                ? `Run failed: ${run.error_message}`
-                : `Last run: ${runScenarioKeys.length} scenario${runScenarioKeys.length === 1 ? '' : 's'}${run.selection?.group ? ` in ${run.selection.group}` : ''} × ${columns.length} model${columns.length === 1 ? '' : 's'} — ${run.samples_passed} passed`}
-          </span>
-          {inProgress && <span className="animate-spin inline-block rounded-full h-3 w-3 border-b-2 border-red-500" />}
+      {/* Runs | Models */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 2fr) minmax(0, 3fr)', gap: 16, alignItems: 'start' }}>
+        <RunsPanel runs={runs} selectedId={run?.id ?? null} onSelect={selectRun} agentName={agentName} selectedResults={results} scenarios={scenarios} />
+        <ModelsPanel run={run} columns={run ? columns : []} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} />
+      </div>
+
+      {/* What to fix */}
+      {run && run.status !== 'failed' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <MicroLabel>What to fix</MicroLabel>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
+              {`${plural(fixItems.length, 'item')} · ${plural(Math.max(totals.total - totals.passed, 0), 'fault')} across ${plural(faultScenarios, 'scenario')}`}
+            </span>
+          </div>
+          {fixItems.length > 0 ? (
+            <FixList items={fixItems} columns={columns} agentName={agentName} onNavigate={navigateTo} />
+          ) : (
+            <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px' }}>
+              {running ? '[ ] scoring…' : '[+] nothing to fix'}
+            </Empty>
+          )}
         </div>
       )}
 
-      {/* Per-model summary */}
-      {Object.keys(modelSummaries).length > 0 && (
-        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(Object.keys(modelSummaries).length, 4)}, minmax(0, 1fr))` }}>
-          {Object.entries(modelSummaries).map(([label, stats]) => (
-            <div key={label} className="rounded-lg p-3 border" style={{ borderColor: verdict?.winner === label ? '#22c55e' : colors.cardBorder, background: colors.innerBg }}>
-              <div className="font-mono text-xs truncate" style={{ color: colors.textPrimary }} title={label}>{label}</div>
-              <div className="text-2xl font-bold" style={{ color: stats.pass_rate >= 85 ? '#22c55e' : stats.pass_rate >= 60 ? '#eab308' : '#ef4444' }}>
-                {stats.pass_rate}%
-              </div>
-              <div className="text-xs" style={{ color: colors.textSecondary }}>
-                {stats.passed}/{stats.scenarios} passed · score {stats.avg_score ?? '—'} · {formatMs(stats.avg_duration_ms)} · {formatCost(stats.cost)}
-              </div>
-              {Object.keys(stats.faults || {}).length > 0 && (
-                <div className="text-[11px] mt-1" style={{ color: colors.textMuted }}>
-                  {Object.entries(stats.faults).map(([fault, count]) => `${FAULT_LABEL[fault] || fault} ×${count}`).join(' · ')}
-                </div>
-              )}
-            </div>
+      {/* Scenarios */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <MicroLabel style={{ marginRight: 4 }}>Scenarios</MicroLabel>
+          {groupChips.map((chip) => (
+            <Chip key={chip.label} selected={groupFilter === chip.value} onClick={() => setGroupFilter(chip.value)}>{chip.label}</Chip>
           ))}
+          <Chip
+            square
+            mono
+            selected={failedOnly}
+            onClick={() => setFailedOnly(!failedOnly)}
+            style={{ marginLeft: 'auto', background: 'transparent' }}
+            title="Hide scenarios that passed on every model"
+          >
+            {failedOnly ? '[x] failed only' : '[ ] failed only'}
+          </Chip>
         </div>
-      )}
 
-      {/* Recommendations */}
-      {recommendations.length > 0 && (
-        <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: colors.cardBorder }}>
-          <div className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted }}>Recommendations</div>
-          {recommendations.map((entry) => (
-            <div key={entry.fault} className="text-sm" data-testid="scenario-recommendation">
-              <span className="px-2 py-0.5 rounded text-xs font-medium" style={{ background: darkMode ? 'rgba(239,68,68,0.15)' : '#fef2f2', color: '#ef4444' }}>
-                {FAULT_LABEL[entry.fault] || entry.fault} ×{entry.count}
-              </span>
-              <span className="ml-2" style={{ color: colors.textPrimary }}>{entry.recommendation}</span>
-              <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
-                {entry.scenario_keys.join(', ')}{entry.models?.length > 1 ? ` · ${entry.models.join(', ')}` : ''}
-                {entry.suggested_tools?.length > 0 && (
-                  <span> · suggested tool{entry.suggested_tools.length > 1 ? 's' : ''}: {entry.suggested_tools.map((t) => t.name).join(', ')}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        {scenarios.length === 0 && runScenarios.length === 0 ? (
+          <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>No scenarios yet — paste some with “Edit scenarios”.</Empty>
+        ) : (
+          <ScenarioMatrix
+            rows={visibleRows}
+            columns={run ? columns : []}
+            run={run}
+            resultsByKey={resultsByKey}
+            runKeys={runKeys}
+            running={running}
+            openKey={openKey}
+            onToggleRow={(key) => setOpenKey(openKey === key ? null : key)}
+            emptyLabel={emptyLabel}
+            renderDetail={(scenario) => (
+              <ScenarioDetail
+                scenario={scenario}
+                run={run}
+                columns={run ? columns : []}
+                resultsByKey={resultsByKey}
+                running={running}
+                canMutate={!scenario.orphan}
+                onRerun={(s) => startRun({ keys: [s.key] })}
+                onToggleEnabled={toggleScenario}
+              />
+            )}
+          />
+        )}
+      </div>
 
-      {/* Scenario × model matrix */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-          <thead>
-            <tr style={{ color: colors.textMuted }}>
-              <th className="text-left font-normal text-xs uppercase tracking-wide py-1 pr-2">Scenario</th>
-              {columns.map((label) => (
-                <th key={label} className="text-center font-mono text-xs py-1 px-2" title={label}>{label}</th>
-              ))}
-              <th className="w-16" />
-            </tr>
-          </thead>
-          <tbody>
-            {visibleScenarios.flatMap((scenario) => {
-              const rows = [];
-              if ((scenario.group || '') !== (groupHeader || '')) {
-                groupHeader = scenario.group;
-                if (groupHeader) {
-                  rows.push(
-                    <tr key={`group-${groupHeader}`}>
-                      <td colSpan={columns.length + 2} className="pt-3 pb-1 text-xs font-semibold" style={{ color: colors.textSecondary }}>{groupHeader}</td>
-                    </tr>
-                  );
-                }
-              }
-              const isExpanded = expandedKey === scenario.key;
-              rows.push(
-                <tr
-                  key={scenario.key}
-                  data-testid="scenario-row"
-                  className="cursor-pointer"
-                  style={{ opacity: scenario.enabled ? 1 : 0.45, background: isExpanded ? colors.innerBg : 'transparent' }}
-                  onClick={() => setExpandedKey(isExpanded ? null : scenario.key)}
-                >
-                  <td className="py-1.5 pr-2" style={{ color: colors.textPrimary }}>
-                    <span className="font-mono text-[11px] mr-2" style={{ color: colors.textMuted }}>{scenario.key}</span>
-                    {scenario.prompt}
-                    {scenario.expectations?.tools?.length > 0 && (
-                      <span className="ml-2 text-[11px]" style={{ color: colors.textMuted }}>expects {scenario.expectations.tools.join('/')}</span>
-                    )}
-                  </td>
-                  {columns.map((label) => {
-                    const result = resultsByKey[scenario.key]?.[label];
-                    return (
-                      <td key={label} className="text-center py-1.5 px-2">
-                        {result ? (
-                          <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
-                            style={{ color: STATUS_COLOR[result.status], background: `${STATUS_COLOR[result.status]}22` }}
-                            title={result.fault ? `${FAULT_LABEL[result.fault]}: ${result.recommendation || ''}` : 'Passed'}
-                          >
-                            {result.status === 'passed' ? '✓' : result.status === 'errored' ? '!' : '✗'}
-                            {result.score != null && <span>{result.score.toFixed(2)}</span>}
-                            {result.fault && <span className="font-normal">· {FAULT_LABEL[result.fault]}</span>}
-                          </span>
-                        ) : (
-                          <span style={{ color: colors.textMuted }}>{inProgress && inRun(scenario) ? '…' : '—'}</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="text-right py-1.5 whitespace-nowrap">
-                    <button
-                      className="text-xs px-2 py-0.5 rounded hover:bg-gray-200"
-                      style={{ color: colors.textSecondary }}
-                      title={scenario.enabled ? 'Disable this scenario' : 'Enable this scenario'}
-                      onClick={(e) => { e.stopPropagation(); toggleScenario(scenario); }}
-                    >
-                      {scenario.enabled ? 'on' : 'off'}
-                    </button>
-                    <button
-                      className="text-xs px-2 py-0.5 rounded hover:bg-gray-200"
-                      style={{ color: '#ef4444' }}
-                      disabled={isRunning}
-                      title="Run only this scenario under the selected models"
-                      onClick={(e) => { e.stopPropagation(); startRun({ keys: [scenario.key] }); }}
-                    >
-                      run
-                    </button>
-                  </td>
-                </tr>
-              );
-              if (isExpanded) {
-                rows.push(
-                  <tr key={`${scenario.key}-detail`}>
-                    <td colSpan={columns.length + 2} className="pb-3">
-                      <div className="rounded-lg border p-3 space-y-3" style={{ borderColor: colors.cardBorder }}>
-                        {scenario.notes && <div className="text-xs italic" style={{ color: colors.textMuted }}>{scenario.notes}</div>}
-                        {columns.map((label) => {
-                          const result = resultsByKey[scenario.key]?.[label];
-                          if (!result) return null;
-                          return (
-                            <div key={label} className="space-y-1" data-testid="scenario-result-detail">
-                              <div className="flex items-center gap-2 text-xs">
-                                <span className="font-mono" style={{ color: colors.textPrimary }}>{label}</span>
-                                <span style={{ color: STATUS_COLOR[result.status] }}>{result.status}</span>
-                                <span style={{ color: colors.textMuted }}>
-                                  {formatMs(result.duration_ms)} · {(result.input_tokens || 0) + (result.output_tokens || 0)} tokens · {formatCost(result.cost)}
-                                </span>
-                                {result.tool_calls?.length > 0 && (
-                                  <span style={{ color: colors.textMuted }}>
-                                    tools: {result.tool_calls.map((call) => `${call.name}${call.error ? ' ✗' : ''}`).join(', ')}
-                                  </span>
-                                )}
-                              </div>
-                              {result.fault && (
-                                <div className="text-xs p-2 rounded" style={{ background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2', color: colors.textPrimary }}>
-                                  <span className="font-semibold" style={{ color: '#ef4444' }}>{FAULT_LABEL[result.fault]}.</span>{' '}
-                                  {result.diagnosis?.summary}{' '}
-                                  <span style={{ color: colors.textSecondary }}>{result.recommendation}</span>
-                                  {result.diagnosis?.judge?.suggested_tool && (
-                                    <div className="mt-1 font-mono">
-                                      suggested tool: {result.diagnosis.judge.suggested_tool.name} — {result.diagnosis.judge.suggested_tool.description}
-                                    </div>
-                                  )}
-                                  {result.diagnosis?.judge?.instruction_change && (
-                                    <div className="mt-1">instruction change: “{result.diagnosis.judge.instruction_change}”</div>
-                                  )}
-                                </div>
-                              )}
-                              <pre className="text-xs whitespace-pre-wrap p-2 rounded" style={{ background: colors.innerBg, color: colors.textSecondary, maxHeight: '240px', overflow: 'auto' }}>
-                                {result.output || result.error_message || '(no answer)'}
-                              </pre>
-                              {result.scores && Object.keys(result.scores).length > 0 && (
-                                <div className="text-[11px]" style={{ color: colors.textMuted }}>
-                                  {Object.entries(result.scores).map(([key, value]) => `${key.replace(/_/g, ' ')} ${value == null ? 'skipped' : Number(value).toFixed(2)}`).join(' · ')}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {run && !inRun(scenario) && (
-                          <div className="text-xs" style={{ color: colors.textMuted }}>Not part of the last run — use “run” on this row to replay it.</div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              }
-              return rows;
-            })}
-          </tbody>
-        </table>
-        {scenarios.length === 0 && (
-          <div className="text-sm py-4" style={{ color: colors.textMuted }}>No scenarios yet — paste some with “Edit scenarios”.</div>
+      {/* Footer */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid var(--color-border-light)', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
+        <span style={{ whiteSpace: 'nowrap' }}>{`judge ${judgedBy}`}</span>
+        <span style={{ minWidth: 0, textWrap: 'pretty' }}>{`criteria ${criteriaText}`}</span>
+        {run?.usage && <span style={{ whiteSpace: 'nowrap' }} title="Estimated cost, tokens and model time of this run">{usageText(run.usage)}</span>}
+        {reportPath && (
+          <MonoLink href={dashboardPath(reportPath)} onClick={() => navigateTo(reportPath)} title="The run rendered as a report page">run report</MonoLink>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={deleting}
+            title="Delete this suite and its runs"
+            style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-error)', opacity: deleting ? 0.5 : 1 }}
+          >
+            {deleting ? 'Deleting…' : 'Delete suite'}
+          </button>
         )}
       </div>
     </div>

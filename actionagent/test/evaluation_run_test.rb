@@ -131,4 +131,190 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     assert_in_delta 1.0, latest["average_score"], 0.0001
     assert_equal [ "no-such-model" ], latest.dig("scores", "_missing_models")
   end
+
+  test "a scenario run serializes its aggregated usage" do
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model")
+    evaluation = agent.evaluations.create!(
+      name: "Suite", judge_kind: "rules",
+      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ],
+      config: { "scenario_suite" => true }
+    )
+    scenario = evaluation.scenarios.create!(key: "s1", prompt: "Hello", position: 0)
+    run = evaluation.evaluation_runs.create!(status: :complete, created_at: 90.seconds.ago, completed_at: Time.current)
+    run.scenario_results.create!(
+      scenario: scenario, model: "mock-model", status: :passed, score: 1.0,
+      duration_ms: 1200, input_tokens: 100, output_tokens: 40, cost: 0.002
+    )
+    run.scenario_results.create!(
+      scenario: scenario, model: "mock-fast", status: :failed, score: 0.5,
+      duration_ms: 800, input_tokens: 60, output_tokens: 20, cost: 0.001
+    )
+
+    get "/activeagents/api/evaluations"
+
+    assert_response :success
+    usage = JSON.parse(response.body)["evaluations"].first.dig("latest_run", "usage")
+    assert_equal 2, usage["replays"]
+    assert_in_delta 0.003, usage["cost"], 0.00001
+    assert_equal 160, usage["input_tokens"]
+    assert_equal 60, usage["output_tokens"]
+    assert_equal 2000, usage["model_time_ms"]
+    assert_in_delta 90_000, usage["runtime_ms"], 2_000
+  end
+
+  test "a generation-sampling run reports no usage" do
+    run = ActionAgent::EvaluationRun.new
+    assert_nil run.usage
+  end
+end
+
+# EvaluationToolResolver names the MCP server behind a tool a run's fix
+# items mention, and whether the evaluated agent has that server enabled.
+class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
+  def resolver(agent = ActionAgent::Agent.new(name: "Assistant"))
+    ActionAgent::EvaluationToolResolver.new(agent)
+  end
+
+  test "a namespaced tool names its server outright" do
+    assert_equal(
+      { "key" => "playwright", "name" => "Playwright", "status" => "available" },
+      resolver.call("mcp__playwright__browser_click")
+    )
+  end
+
+  test "a namespaced server nothing else knows is named, with no status" do
+    assert_equal(
+      { "key" => "sparkle-match", "name" => "sparkle-match", "status" => nil },
+      resolver.call("mcp__sparkle-match__search_slots")
+    )
+  end
+
+  test "a bare tool the catalog hints at maps to that server" do
+    assert_equal({ "key" => "filesystem", "name" => "Filesystem", "status" => "available" }, resolver.call("read_file"))
+  end
+
+  test "a host-registered catalog server is available for the tools it hints" do
+    ActionAgent.mcp_catalog = [ { key: "sparkle-match", name: "Sparkle Match", tool_hints: %w[search_slots] } ]
+
+    assert_equal({ "key" => "sparkle-match", "name" => "Sparkle Match", "status" => "available" }, resolver.call("search_slots"))
+  ensure
+    ActionAgent.mcp_catalog = []
+  end
+
+  test "a server the agent declares by name is enabled, whatever the case" do
+    agent = ActionAgent::Agent.new(name: "Assistant", mcp_servers: [ "Playwright" ])
+
+    assert_equal({ "key" => "playwright", "name" => "Playwright", "status" => "enabled" }, resolver(agent).call("browser_navigate"))
+    assert_equal "enabled", resolver(agent).call("mcp__playwright__browser_click")["status"]
+  end
+
+  test "a configured server hash that lists its tools resolves them under its own display name" do
+    agent = ActionAgent::Agent.new(
+      name: "Assistant",
+      mcp_servers: [ {
+        "key" => "sparkle", "name" => "Sparkle Match", "url" => "https://sparkle.test/mcp",
+        "tools" => [ "search_slots", { "name" => "book_appointment" } ]
+      } ]
+    )
+
+    assert_equal({ "key" => "sparkle", "name" => "Sparkle Match", "status" => "enabled" }, resolver(agent).call("search_slots"))
+    assert_equal "sparkle", resolver(agent).call("book_appointment")["key"]
+  end
+
+  test "the older hash-keyed configuration is read the same way" do
+    agent = ActionAgent::Agent.new(
+      name: "Assistant",
+      mcp_servers: { "playwright" => { "command" => "npx @playwright/mcp@latest" }, "sparkle" => { "tools" => [ "search_slots" ] } }
+    )
+
+    assert_equal "enabled", resolver(agent).call("mcp__playwright__browser_click")["status"]
+    assert_equal({ "key" => "sparkle", "name" => "sparkle", "status" => "enabled" }, resolver(agent).call("search_slots"))
+  end
+
+  test "an agent-defined tool, a blank name and malformed entries resolve to nothing" do
+    agent = ActionAgent::Agent.new(name: "Assistant", mcp_servers: [ 42, [ "playwright" ], nil, { "url" => "https://x.test" } ])
+
+    assert_nil resolver(agent).call("lookup_order")
+    assert_nil resolver(agent).call("")
+    assert_nil resolver(nil).call("lookup_order")
+  end
+end
+
+# EvaluationRun#to_report hands the framework's Report what its fix items
+# need from the dashboard: the agent's name, a resolver for its MCP servers
+# and the dashboard's routes.
+class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
+  def setup
+    ActionAgent::Agent.delete_all
+  end
+
+  def create_run(agent)
+    # A scenario suite carries no criteria of its own — it is scored by its
+    # scenarios' expectations — so the scenario is built before the first
+    # save, which is when that validation runs.
+    evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
+    scenario = evaluation.scenarios.build(
+      key: "match_slots", prompt: "Find the next slot", position: 0, expectations: { "tools" => [ "browser_navigate" ] }
+    )
+    evaluation.save!
+    run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
+    run.scenario_results.create!(
+      scenario: scenario, model: "mock-model", provider: "mock", status: :failed, score: 0.5,
+      fault: "expected_tool_not_called", recommendation: "Enable the tool and re-run.",
+      diagnosis: {
+        "fault" => "expected_tool_not_called",
+        "summary" => "Expected browser_navigate to be called; clara called nothing.",
+        "recommendation" => "Enable the tool and re-run.",
+        "evidence" => { "expected" => [ "browser_navigate" ], "called" => [], "unavailable" => [ "browser_navigate" ] }
+      }
+    )
+    run
+  end
+
+  test "the report carries the agent, its tool resolver and mount-relative links" do
+    agent = ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model", mcp_servers: [ "playwright" ])
+    run = create_run(agent)
+
+    report = run.to_report
+
+    assert_equal "Clara", report.agent_name
+    assert_kind_of ActionAgent::EvaluationToolResolver, report.tool_resolver
+    assert_equal({ "mcp" => "/mcp/%{key}", "tools" => "/tools", "instructions" => "/agents/#{agent.id}/edit" }, report.links)
+    assert_equal "Clara", report.metadata["agent"]
+  end
+
+  test "fix_items delegates to the report with the agent's servers resolved" do
+    agent = ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model", mcp_servers: [ "playwright" ])
+    run = create_run(agent)
+
+    item = run.fix_items.first
+
+    assert_equal "expected_tool_not_called", item["fault"]
+    assert_equal({ "key" => "playwright", "name" => "Playwright", "status" => "enabled" }, item["server"])
+    assert_equal "/tools", item.dig("action", "path")
+  end
+
+  test "report_links prefixes the dashboard mount for the standalone report page" do
+    agent = ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model")
+    run = create_run(agent)
+
+    links = run.report_links(mount: "/activeagents/")
+
+    assert_equal "/activeagents/mcp/%{key}", links["mcp"]
+    assert_equal "/activeagents/tools", links["tools"]
+    assert_equal "/activeagents/agents/#{agent.id}/edit", links["instructions"]
+    assert_equal "Enable Playwright for Clara", run.fix_items(links: links).first.dig("action", "label")
+    assert_equal "/activeagents/mcp/playwright", run.fix_items(links: links).first.dig("action", "path")
+  end
+
+  test "a run without scenario results has no fix items" do
+    agent = ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model")
+    evaluation = agent.evaluations.create!(
+      name: "Sampling", judge_kind: "rules",
+      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ]
+    )
+    run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
+
+    assert_equal [], run.fix_items
+  end
 end

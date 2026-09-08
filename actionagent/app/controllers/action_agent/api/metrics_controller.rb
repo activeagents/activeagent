@@ -4,16 +4,16 @@ module ActionAgent
   module Api
     # Read API for telemetry metrics, backing the dashboard Metrics view.
     #
-    # Exposes the same aggregates as the gem dashboard's metrics page
+    # Two generations of keys share the response. The legacy keys expose
+    # the same aggregates as the gem dashboard's metrics page
     # (ActionAgent::TracesController#metrics / #calculate_metrics /
-    # #agent_statistics): trace counts, token totals, average duration, error
-    # rate, active agents and per-agent statistics — account-scoped, plus
-    # previous-period deltas for trend indicators.
+    # #agent_statistics): trace counts, token totals, average duration,
+    # error rate, active agents and per-agent statistics — account-scoped,
+    # plus previous-period deltas for trend indicators. The APM keys
+    # (series, totals, deltas, rails, markers) come from MetricsReport and
+    # drive the service-overview layout; see that class for their shape.
     class MetricsController < BaseController
       before_action :require_owner!
-
-      DEFAULT_WINDOW_HOURS = 24
-      MAX_WINDOW_HOURS = 24 * 30
 
       # How to rank the per-agent table. Cost is applied after the grouped
       # query because pricing happens in Ruby (rates vary per model), so all
@@ -28,12 +28,34 @@ module ActionAgent
       DEFAULT_AGENT_SORT = "popular"
 
       # GET /api/metrics
+      #
+      # Params:
+      #   range  "1h" | "24h" (default) | "7d" — the APM window and its
+      #          bucket size (MetricsReport::RANGES). A named range also
+      #          sets the legacy window (1, 24 or 168 hours) so both halves
+      #          of the response describe the same period.
+      #   hours  the legacy window; without `range` it makes a "custom"
+      #          range bucketed to about 96 points. Ignored when `range` is
+      #          a known value.
+      #   agent  an agent_class. When given, EVERY key is scoped to that
+      #          agent — the legacy summary, hourly buckets and per-agent
+      #          table included — so the page never shows a filtered chart
+      #          next to an unfiltered tile.
+      #   sort   ranks the legacy per-agent table (AGENT_SORTS).
       def show
-        hours = params.fetch(:hours, DEFAULT_WINDOW_HOURS).to_i.clamp(1, MAX_WINDOW_HOURS)
         now = Time.current
+        report = MetricsReport.new(
+          traces: traces_scope,
+          agents: owner_agents,
+          range: params[:range],
+          hours: params[:hours],
+          agent: agent_filter,
+          now: now
+        )
+        hours = report.window_hours
 
-        current = traces_scope.for_date_range(hours.hours.ago(now), now)
-        previous = traces_scope.for_date_range((hours * 2).hours.ago(now), hours.hours.ago(now))
+        current = legacy_scope.for_date_range(hours.hours.ago(now), now)
+        previous = legacy_scope.for_date_range((hours * 2).hours.ago(now), hours.hours.ago(now))
 
         costs = cost_statistics(current)
         priced = agent_statistics(current).map { |row| row.merge(cost: costs[:by_agent][row[:name]] || 0.0) }
@@ -45,7 +67,7 @@ module ActionAgent
           window_hours: hours,
           sorts: AGENT_SORTS,
           sort: agent_sort(params[:sort])
-        }
+        }.merge(report.to_h)
       end
 
       private
@@ -68,8 +90,19 @@ module ActionAgent
         rows.sort_by { |row| [ -row[key].to_f, -row[:requests].to_i ] }
       end
 
+      def agent_filter
+        params[:agent].presence
+      end
+
+      # Every trace the caller can see — what MetricsReport starts from
+      # (it applies the agent filter itself).
       def traces_scope
         ActionAgent.trace_model.for_account(current_account)
+      end
+
+      # The legacy keys' scope: traces_scope narrowed to the filtered agent.
+      def legacy_scope
+        agent_filter ? traces_scope.where(agent_class: agent_filter) : traces_scope
       end
 
       # Same definitions as the gem dashboard's calculate_metrics, with

@@ -119,6 +119,7 @@ ActionAgent::Engine.routes.draw do
       member do
         post :run
         get "runs/:run_id", action: :show_run, as: :run_result
+        get "runs/:run_id/report", action: :run_report, as: :run_report
         get :scenarios
         put :scenarios, action: :replace_scenarios
         patch "scenarios/:scenario_id", action: :update_scenario, as: :scenario
