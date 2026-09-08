@@ -39,10 +39,33 @@ module ActionAgent
       end
 
       result = ActionAgent.authentication_method.call(self)
-      head :unauthorized unless result
+      deny_access unless result
     rescue StandardError => e
       Rails.logger.error("[ActionAgent] Authentication error: #{e.message}")
-      head :unauthorized
+      deny_access
+    end
+
+    # A browser asking for a page is sent to the host's sign-in page when one
+    # is configured, and otherwise shown a minimal session-expired page — a
+    # bare 401 with no body renders as a browser error screen. API and MCP
+    # clients get the bare 401 they expect.
+    def deny_access
+      return head :unauthorized unless Engine.html_request?(request)
+
+      if ActionAgent.sign_in_path.present?
+        redirect_to ActionAgent.sign_in_path, allow_other_host: false
+      else
+        render html: <<~HTML.html_safe, status: :unauthorized, layout: false
+          <!doctype html>
+          <html><head><meta charset="utf-8"><title>Sign in required</title></head>
+          <body style="font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; color: #0f172a; background: #f8fafc;">
+          <div style="text-align: center;">
+            <h1 style="font-size: 20px;">Sign in required</h1>
+            <p style="color: #475569;">Your session has expired or you are not signed in.<br>Sign in to the host application, then reload this page.</p>
+          </div>
+          </body></html>
+        HTML
+      end
     end
 
     # Returns the current user from the host application.
