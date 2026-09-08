@@ -149,6 +149,18 @@ module ActionAgent
         head :no_content
       end
 
+      # GET /api/evaluations/:id/runs/:run_id/report
+      #
+      # The run as the framework's self-contained HTML report page — the
+      # in-dashboard view and, because the page is a single file, the export.
+      def run_report
+        evaluation = evaluations_scope.find(params[:id])
+        run = evaluation.evaluation_runs.find(params[:run_id])
+        raise ActiveRecord::RecordNotFound unless evaluation.scenario_suite?
+
+        render html: run.to_report.to_html.html_safe, layout: false
+      end
+
       # DELETE /api/evaluations/:id
       def destroy
         evaluations_scope.find(params[:id]).destroy!

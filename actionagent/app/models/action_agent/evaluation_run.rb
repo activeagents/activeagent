@@ -64,6 +64,43 @@ module ActionAgent
       }
     end
 
+    # Rebuilds the framework's Report from this run's persisted results, so
+    # the dashboard serves the same self-contained report page a CLI run
+    # writes with Report#to_html. Raises ActiveRecord::RecordNotFound via the
+    # caller for a run of a generation-sampling evaluation, which has no
+    # scenario results to report on.
+    def to_report
+      rows = scenario_results.includes(:scenario).joins(:scenario)
+        .order(EvaluationScenario.arel_table[:position], EvaluationScenario.arel_table[:id], :model)
+      specs = {}
+      results = rows.map do |row|
+        label = [ row.provider.presence, row.model ].compact.join("/")
+        spec = specs[label] ||= ActiveAgent::Evals::ModelSpec.new(label: label, provider: row.provider.to_s, model: row.model)
+        ActiveAgent::Evals::Result.new(
+          scenario: ActiveAgent::Evals::Scenario.from_hash(row.scenario.as_json_summary),
+          spec: spec,
+          replay: ActiveAgent::Evals::Replay.new(
+            answer: row.output, tool_calls: Array(row.tool_calls), duration_ms: row.duration_ms,
+            input_tokens: row.input_tokens, output_tokens: row.output_tokens,
+            cost: row.cost&.to_f, error: row.error_message
+          ),
+          scores: row.scores.to_h, score: row.score, status: row.status,
+          diagnosis: row.diagnosis.presence
+        )
+      end
+
+      ActiveAgent::Evals::Report.new(
+        results: results,
+        models: specs.values,
+        metadata: {
+          "evaluation" => evaluation.name,
+          "agent" => evaluation.agent&.name,
+          "run" => id,
+          "finished" => completed_at&.iso8601
+        }.compact
+      )
+    end
+
     private
 
     # A criterion is either scored directly ({ "score" => 0.8, ... }) or, on a
