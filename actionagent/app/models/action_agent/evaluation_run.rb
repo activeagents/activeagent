@@ -28,8 +28,10 @@ module ActionAgent
     end
 
     # The label ActiveAgent::Evals::Report gives a verdict it ranked by pass
-    # rate itself, for a comparison no judge was available to rule on.
-    PASS_RATE_JUDGE = "pass rate"
+    # rate itself, for a comparison no judge was available to rule on. Read
+    # from the framework rather than restated: the report reads it back when
+    # it names the judge, so the two have to agree on the string.
+    PASS_RATE_JUDGE = ActiveAgent::Evals::Report::PASS_RATE_JUDGE
 
     # The verdict a comparison run recorded — the judge's pick and rationale
     # when a judge wrote it, the framework's pass-rate ranking otherwise —

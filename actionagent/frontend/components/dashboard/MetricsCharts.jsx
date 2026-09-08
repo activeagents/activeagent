@@ -38,8 +38,11 @@ export const countMax = (v) => Math.max(MIN_COUNT_MAX, niceMax(v));
 // tick within 10% of a gridline step, so "$0.001 $0.001 $0.001 $0.000"
 // becomes "$0.00100 $0.00075 $0.00050 $0.00025" while a $1 axis keeps
 // "$1.00 $0.75 $0.50 $0.25". Labels that close to their value can never
-// collide.
-export const tickDecimals = (max, min = 2, cap = 5) => {
+// collide. `cap` is where the gutter runs out: "$0.000025" is nine mono 10px
+// characters, all the 40px gutter plus the card's padding holds — a window
+// whose busiest bucket spends less than that reads "$0.000001" ticks and a
+// flat plot either way.
+export const tickDecimals = (max, min = 2, cap = 6) => {
   const step = max / 4;
   for (let d = min; d < cap; d++) {
     const fits = [1, 2, 3, 4].every((k) => Math.abs(step * k - Number((step * k).toFixed(d))) <= step * 0.1);

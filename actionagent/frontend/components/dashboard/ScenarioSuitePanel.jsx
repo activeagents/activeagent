@@ -31,6 +31,7 @@ function scenariosToText(scenarios) {
     if (expectations.tools?.length) options.push(`tools: ${expectations.tools.join(', ')}`);
     if (expectations.contains?.length) options.push(`contains: ${expectations.contains.join(', ')}`);
     if (expectations.not_contains?.length) options.push(`not_contains: ${expectations.not_contains.join(', ')}`);
+    if (scenario.notes) options.push(`notes: ${scenario.notes}`);
     options.push(`key: ${scenario.key}`);
     lines.push(`${scenario.prompt} | ${options.join(' | ')}`);
   });
@@ -88,6 +89,9 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const [groupFilter, setGroupFilter] = useState(null);
   const [failedOnly, setFailedOnly] = useState(false);
   const [openKey, setOpenKey] = useState(null);
+  // Bumped after every poll that leaves the run unfinished, so the next poll
+  // is scheduled even when nothing else about the run changed.
+  const [pollTick, setPollTick] = useState(0);
 
   // --- data -------------------------------------------------------------
 
@@ -158,16 +162,27 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const pollId = inProgress(selectedRun) ? selectedRun.id : inProgress(latestRun) ? latestRun.id : null;
   useEffect(() => {
     if (!pollId) return undefined;
-    const timer = setInterval(async () => {
-      const latest = await fetchRunDetail(pollId);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      let latest = null;
+      try {
+        latest = await fetchRunDetail(pollId);
+      } catch (_error) {
+        latest = null;
+      }
+      if (cancelled) return;
       if (latest && !inProgress(latest)) {
-        clearInterval(timer);
         await fetchSuite();
         onChanged?.();
+        return;
       }
+      // A poll that failed, was refused, or found the run still going leaves
+      // this effect's inputs untouched, so re-arm it explicitly rather than
+      // leaving the run stuck on "running".
+      setPollTick((tick) => tick + 1);
     }, 3000);
-    return () => clearInterval(timer);
-  }, [pollId, fetchRunDetail, fetchSuite, onChanged]);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [pollId, pollTick, fetchRunDetail, fetchSuite, onChanged]);
 
   // --- actions ----------------------------------------------------------
 
@@ -246,32 +261,38 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const scenarioCount = runScenarioCount(run, columns, scenarios);
   const totals = runTotals(run, results, columns, scenarios);
 
-  // Scenarios the selected run covers, in suite order; a result whose
-  // scenario has since been removed from the suite still renders from what
-  // the result recorded about it.
-  const runScenarios = useMemo(() => {
-    if (!run) return scenarios;
-    const covered = scenarios.filter((s) => runKeys.has(s.key) || resultsByKey[s.key]);
+  // Whether the selected run covers a scenario at all — a cell outside the
+  // run reads "—", and its drill-down offers a replay instead of results.
+  const inRun = useCallback(
+    (scenario) => runKeys.has(scenario.key) || Boolean(resultsByKey[scenario.key]),
+    [runKeys, resultsByKey],
+  );
+
+  // Every scenario of the suite stays listed whatever the last run covered,
+  // so a group can be filtered, toggled and replayed after a partial run; a
+  // result whose scenario has since been removed from the suite still
+  // renders from what the result recorded about it.
+  const matrixScenarios = useMemo(() => {
     const known = new Set(scenarios.map((s) => s.key));
     const orphans = Object.keys(resultsByKey).filter((key) => !known.has(key)).map((key) => {
       const first = Object.values(resultsByKey[key])[0];
       return { id: null, key, prompt: first.prompt, group: first.group, expectations: {}, enabled: true, orphan: true };
     });
-    return [...covered, ...orphans];
-  }, [run, scenarios, runKeys, resultsByKey]);
+    return [...scenarios, ...orphans];
+  }, [scenarios, resultsByKey]);
 
   const failedOn = (scenario) => columns.some((label) => {
     const result = resultsByKey[scenario.key]?.[label];
     return isSettled(result) && !isPassed(result);
   });
-  const visibleRows = runScenarios
+  const visibleRows = matrixScenarios
     .filter((s) => !groupFilter || (s.group || '') === groupFilter)
     .filter((s) => !failedOnly || failedOn(s));
 
   const runIndex = runs.findIndex((r) => r.id === run?.id);
   const latestNumber = runTotalOf(runs, runCount);
   const runNumber = runIndex >= 0 ? latestNumber - runIndex : null;
-  const groupCount = new Set(runScenarios.map((s) => s.group).filter(Boolean)).size;
+  const groupCount = new Set(matrixScenarios.filter(inRun).map((s) => s.group).filter(Boolean)).size;
   const settledCount = results.filter(isSettled).length;
   const expectedResults = scenarioCount * Math.max(columns.length, 1);
   const faultScenarios = new Set(results.filter((r) => isSettled(r) && !isPassed(r)).map((r) => r.scenario_key)).size;
@@ -304,11 +325,9 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const groupChips = [{ label: `All ${scenarioTotal}`, value: null }]
     .concat(groups.map((group) => ({ label: loaded ? `${group} ${scenarios.filter((s) => s.group === group).length}` : group, value: group })));
 
-  const suiteEmpty = scenarios.length === 0 && runScenarios.length === 0;
+  const suiteEmpty = matrixScenarios.length === 0;
 
-  const emptyLabel = failedOnly
-    ? '[+] nothing failed in this group'
-    : groupFilter && run ? '[ ] not part of this run' : '[ ] no scenarios';
+  const emptyLabel = failedOnly ? '[+] nothing failed in this group' : '[ ] no scenarios';
 
   // --- render -----------------------------------------------------------
 
@@ -436,6 +455,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
                 columns={run ? columns : []}
                 resultsByKey={resultsByKey}
                 running={running}
+                inRun={inRun(scenario)}
                 canMutate={!scenario.orphan}
                 onRerun={(s) => startRun({ keys: [s.key] })}
                 onToggleEnabled={toggleScenario}

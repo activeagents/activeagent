@@ -71,5 +71,3 @@ export const splitModelLabel = (label, provider = null) => {
   if (slash > 0) return { short: text.slice(slash + 1), provider: text.slice(0, slash) };
   return { short: text, provider: provider || '' };
 };
-
-export const shortModel = (label) => splitModelLabel(label).short;

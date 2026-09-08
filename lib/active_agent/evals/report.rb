@@ -9,7 +9,11 @@ module ActiveAgent
     class Report
       include ReportHtml
 
-      attr_reader :results, :models, :judge, :instructions, :metadata, :agent_name, :links, :tool_resolver
+      # The judge a verdict names when the framework ranked the models by
+      # pass rate itself, no judge having been available to rule on them.
+      PASS_RATE_JUDGE = "pass rate"
+
+      attr_reader :results, :models, :judge, :judge_label, :instructions, :metadata, :agent_name, :links, :tool_resolver
 
       # @param tool_resolver [#call, nil] maps a tool name to the MCP server
       #   that provides it — `{ "key", "name", "status" }` with status
@@ -18,17 +22,26 @@ module ActiveAgent
       # @param links [Hash] route templates for fix item actions:
       #   `"mcp"` (`"/mcp/%{key}"`), `"tools"`, `"instructions"`. An action
       #   whose route is absent carries `"path" => nil`.
+      # @param verdict [Hash, nil] a verdict already recorded for these
+      #   results — `{ "winner", "rationale", "judge" }`. A report rebuilt
+      #   from a persisted run renders the pick that run recorded instead of
+      #   ranking the results again (and re-asking the judge), so the page
+      #   and the dashboard never name two different best models.
+      # @param judge_label [String, nil] how to name the judge when no Judge
+      #   instance is at hand — a rebuilt run knows only its label.
       def initialize(results:, models:, judge: nil, instructions: nil, threshold: PASS_THRESHOLD, metadata: {},
-                     tool_resolver: nil, agent_name: nil, links: {})
+                     tool_resolver: nil, agent_name: nil, links: {}, verdict: nil, judge_label: nil)
         @results = results
         @models = models
         @judge = judge
+        @judge_label = judge_label.presence
         @instructions = instructions
         @threshold = threshold
         @metadata = metadata
         @tool_resolver = tool_resolver
         @agent_name = agent_name.presence || "the agent"
         @links = (links || {}).to_h.stringify_keys
+        @recorded_verdict = verdict.is_a?(Hash) ? verdict.to_h.stringify_keys.presence : nil
       end
 
       def comparing?
@@ -109,11 +122,13 @@ module ActiveAgent
         @fix_items ||= fault_fix_items + instruction_fix_items
       end
 
-      # The best model when comparing: highest pass rate, then mean score, then
-      # lowest cost (a model with no cost estimate ranks after one with),
-      # with the judge's rationale when one is available.
+      # The best model when comparing: the verdict the run recorded when one
+      # was handed in, else highest pass rate, then mean score, then lowest
+      # cost (a model with no cost estimate ranks after one with), with the
+      # judge's rationale when one is available.
       # `{ "winner", "rationale", "judge" }`, or nil for a single model.
       def verdict
+        return @recorded_verdict if @recorded_verdict
         return nil unless comparing?
 
         @verdict ||= begin
@@ -129,7 +144,7 @@ module ActiveAgent
           {
             "winner" => judged&.dig("winner").presence || winner,
             "rationale" => judged&.dig("rationale").presence || rationale,
-            "judge" => judged ? @judge.label : "pass rate"
+            "judge" => judged ? @judge.label : PASS_RATE_JUDGE
           }
         end
       end
@@ -203,7 +218,7 @@ module ActiveAgent
             "count" => entry["count"],
             "scenario_keys" => entry["scenario_keys"],
             "models" => entry["models"],
-            "recommendation" => entry["recommendation"],
+            "recommendation" => fix_recommendation(entry, faulted, tools),
             "quote" => nil,
             "tools_label" => tools.any? ? tools_label : nil,
             "tools" => tools,
@@ -224,7 +239,10 @@ module ActiveAgent
             "count" => cohort.size,
             "scenario_keys" => cohort.map { |result| result.scenario.key }.uniq,
             "models" => cohort.map(&:label).uniq,
-            "recommendation" => cohort.filter_map(&:recommendation).first,
+            # The judge writes one recommendation per result and Runner#refine!
+            # puts it on the diagnosis, so it is already the text of the fault
+            # card built from the same result: the quote is what this card adds.
+            "recommendation" => nil,
             "quote" => sentence,
             "tools_label" => nil,
             "tools" => [],
@@ -233,6 +251,20 @@ module ActiveAgent
             "action" => fix_action_for("Add to instructions", "Agent -> Instructions", link("instructions"))
           }
         end
+      end
+
+      # The fix the card asks for: the fault's most frequent recommendation,
+      # except on an `expected_tool_not_called` card that names missing tools.
+      # That card speaks for the scenarios whose tool was unavailable, so its
+      # text comes from those alone — the most frequent recommendation may be
+      # a scenario whose tool was there all along (a tie is won by whichever
+      # was seen first), whose wording contradicts the card's own tools,
+      # server and "Enable …" button. That exception keeps its say in +note+.
+      def fix_recommendation(entry, faulted, tools)
+        return entry["recommendation"] unless entry["fault"] == "expected_tool_not_called" && tools.any?
+
+        blocked = faulted.select { |result| unavailable_tools(result).any? }
+        blocked.filter_map(&:recommendation).tally.max_by(&:last)&.first || entry["recommendation"]
       end
 
       # [label, tools] for a fault: the tools the scenarios expected but the
