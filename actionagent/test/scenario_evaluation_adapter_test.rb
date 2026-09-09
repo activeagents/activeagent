@@ -95,6 +95,51 @@ class ActionAgentScenarioEvaluationAdapterTest < ActiveSupport::TestCase
     assert_equal "trace-alpha", run.scenario_results.first.replay_metadata["trace_id"]
   end
 
+  test "refreshing a catalog and judge preserves earlier report questions expectations and ordering" do
+    ActionAgent.scenario_evaluation_adapter_resolver = ->(*) {
+      ->(scenarios:, models:, on_result:, **) { host_report(scenarios: scenarios, models: models, on_result: on_result) }
+    }
+    order = @evaluation.scenarios.find_by!(key: "order_1")
+    order.update!(notes: "Use the original order lookup", position: 0)
+    @evaluation.scenarios.find_by!(key: "help_1").update!(position: 1)
+    run = @evaluation.run!(models: [ "mock/alpha" ])
+
+    order.update!(prompt: "Cancel order DEF-456", group: "cancellations", notes: "Use the new cancellation tool",
+      expectations: { "tools" => [ "cancel_order" ], "contains" => [ "cancelled" ] }, position: 9)
+    @evaluation.update!(judge_model: "replacement-judge")
+
+    historical = run.reload.to_report
+    assert_equal %w[order_1 help_1], historical.results.map { |result| result.scenario.key }
+    scenario = historical.results.first.scenario
+    assert_equal "Where is order ABC-123?", scenario.prompt
+    assert_equal "orders", scenario.group
+    assert_equal "Use the original order lookup", scenario.notes
+    assert_equal [ "lookup_order" ], scenario.expected_tools
+    assert_empty scenario.expected_patterns
+    assert_equal "host-judge", historical.judge_label
+    assert_includes historical.to_html, "Where is order ABC-123?"
+    refute_includes historical.to_html, "Cancel order DEF-456"
+    summary = run.scenario_results.find_by!(evaluation_scenario_id: order.id).as_json_summary
+    assert_equal "Where is order ABC-123?", summary[:prompt]
+    assert_equal "orders", summary[:group]
+    assert_equal [ "lookup_order" ], summary[:scenario]["expectations"]["tools"]
+    assert_empty summary[:diagnosis]
+
+    current = @evaluation.run!(keys: [ "order_1" ], models: [ "mock/alpha" ]).to_report.results.first.scenario
+    assert_equal "Cancel order DEF-456", current.prompt
+    assert_equal [ "cancel_order" ], current.expected_tools
+  end
+
+  test "legacy results without a scenario snapshot remain readable" do
+    run = @evaluation.evaluation_runs.create!(status: :complete)
+    scenario = @evaluation.scenarios.find_by!(key: "order_1")
+    row = run.scenario_results.create!(scenario: scenario, provider: "mock", model: "alpha", status: :passed,
+      score: 1, scores: {}, diagnosis: {}, output: "An earlier answer")
+
+    assert_equal scenario.prompt, row.as_json_summary[:prompt]
+    assert_equal scenario.expected_tools, run.to_report.results.first.scenario.expected_tools
+  end
+
   test "an adapter that returns an incomplete or unpersisted report fails instead of showing a completed empty dashboard" do
     ActionAgent.scenario_evaluation_adapter_resolver = ->(*) {
       ->(scenarios:, models:, **options) { host_report(scenarios: scenarios, models: models, on_result: nil) }

@@ -52,6 +52,8 @@ module ActionAgent
     # ranking — else the evaluation's judge model. nil when neither is set,
     # which the report reads as "rules".
     def judge_label
+      return scores["_judge_label"] if scores&.key?("_judge_label")
+
       recorded = recorded_verdict&.dig("judge").to_s
       return recorded if recorded.present? && recorded != PASS_RATE_JUDGE
 
@@ -128,8 +130,9 @@ module ActionAgent
     # caller for a run of a generation-sampling evaluation, which has no
     # scenario results to report on.
     def to_report(links: report_links)
-      rows = scenario_results.includes(:scenario).joins(:scenario)
-        .order(EvaluationScenario.arel_table[:position], EvaluationScenario.arel_table[:id], :model)
+      rows = scenario_results.includes(:scenario).sort_by do |row|
+        [ row.evaluated_scenario["position"].to_i, row.evaluation_scenario_id, row.model ]
+      end
       selected = selected_specs
       specs = {}
       results = rows.map do |row|
@@ -137,7 +140,7 @@ module ActionAgent
           label: [ row.provider.presence, row.model ].compact.join("/"), provider: row.provider.to_s, model: row.model
         )
         ActiveAgent::Evals::Result.new(
-          scenario: ActiveAgent::Evals::Scenario.from_hash(row.scenario.as_json_summary),
+          scenario: ActiveAgent::Evals::Scenario.from_hash(row.evaluated_scenario),
           spec: spec,
           replay: ActiveAgent::Evals::Replay.new(
             answer: row.output, tool_calls: Array(row.tool_calls), duration_ms: row.duration_ms,

@@ -3,6 +3,7 @@
   "private": true,
   "description": "Build for the ActionAgent dashboard. Output is committed to app/assets/builds so host apps never run this.",
   "scripts": {
+    "test": "node --test test/*.test.mjs",
     "build": "npm run build:js && npm run build:css",
     "build:js": "esbuild index.jsx --bundle --minify --format=esm --outfile=../app/assets/builds/action_agent.js --loader:.jsx=jsx --define:process.env.NODE_ENV=\\\"production\\\"",
     "build:css": "tailwindcss -i ./dashboard.css -o ../app/assets/builds/action_agent.css --minify"

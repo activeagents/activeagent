@@ -292,10 +292,17 @@ then use the regular evaluation run endpoint.
 Run metadata persists in the reserved `scores["_metadata"]` JSON key.
 Per-result replay metadata persists in `diagnosis["_replay_metadata"]`,
 is exposed separately as `metadata` in result API responses, and is restored
-by `EvaluationRun#to_report`. The public diagnosis excludes that storage key.
+by `EvaluationRun#to_report`. Each result also records its evaluated scenario
+in `diagnosis["_scenario_snapshot"]`; the public diagnosis excludes these
+storage keys. Report reconstruction and the result matrix use that snapshot,
+so refreshing a catalog cannot rewrite old questions, expectations, or notes.
+The run records its judge label in `scores["_judge_label"]` as well. Legacy
+results without snapshots remain readable using the current catalog.
 This preserves host run/result IDs and response/judge trace IDs without a
 schema migration. Existing result and report URLs continue to work:
 
 - `<mount>/api/evaluations/:id/runs/:run_id` returns persisted result JSON.
 - `<mount>/api/evaluations/:id/runs/:run_id/report` serves the HTML report.
 - `<mount>/evaluations/:id/runs/:run_id/report` opens it within the dashboard.
+- `<mount>/evaluations?evaluation=:id` opens a specific evaluation, including
+  one outside the first index page. Add `&run=:run_id` to open its saved report.
