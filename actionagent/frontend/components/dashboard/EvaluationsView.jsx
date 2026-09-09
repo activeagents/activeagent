@@ -101,11 +101,16 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // same-origin, so it can be sized to its own content and the dashboard page
   // scrolls as one.
   const reportFrame = useRef(null);
+  // Bumped when the framed document loads, so the sizing effect re-runs
+  // against the new document rather than the one it replaced.
+  const [reportLoads, setReportLoads] = useState(0);
   const [reportHeight, setReportHeight] = useState(null);
 
-  const fitReportFrame = useCallback(() => {
-    const frame = reportFrame.current;
-    const body = frame?.contentDocument?.body;
+  // Observing lives in an effect rather than the load handler: React discards
+  // what a handler returns, so an observer created there is never disconnected
+  // and outlives every navigation away from the report.
+  useEffect(() => {
+    const body = reportFrame.current?.contentDocument?.body;
     if (!body) return undefined;
 
     // Measure the body, never the documentElement: the <html> box grows to
@@ -116,7 +121,11 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     const observer = new ResizeObserver(measure);
     observer.observe(body);
     return () => observer.disconnect();
-  }, []);
+  }, [reportLoads, reportRef]);
+
+  // A new report is framed at the fallback height until its own is measured;
+  // keeping the stale one would size the next report to the last one.
+  useEffect(() => setReportHeight(null), [reportRef]);
 
   useEffect(() => {
     if (embedded) return undefined;
@@ -341,7 +350,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           ref={reportFrame}
           src={framedUrl}
           title="Evaluation run report"
-          onLoad={fitReportFrame}
+          onLoad={() => setReportLoads((n) => n + 1)}
           scrolling="no"
           style={{
             width: '100%', borderRadius: 12, border: '1px solid var(--color-border)',
