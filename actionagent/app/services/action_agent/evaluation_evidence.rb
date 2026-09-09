@@ -17,6 +17,7 @@ module ActionAgent
     REPORT_CAVEAT = "The linked report may display current scenario text and configuration. This card uses the recorded replay prompt when available."
     WEAK_CHECK_CAVEAT = "Recorded scores show only response shape or runtime checks; they do not establish answer correctness."
     CONTEXT_CAVEAT = "No matching recorded replay from this evaluation's agent supplies prompt context."
+    REDACTED_ERROR = "Recorded error details withheld because they may contain credentials. Open the report for details."
 
     SHAPE_SCORE_KEYS = %w[response_present response_length min_length latency max_latency_ms token_budget tools_succeeded].freeze
     EXPECTATION_SCORE_KEYS = %w[expected_tools expected_content forbidden_content].freeze
@@ -181,7 +182,7 @@ module ActionAgent
         recorded_scores: bounded_scores(result.scores), check_strength: strength,
         instructions_digest: instructions_digest(replay),
         tool_names: result.tool_names.first(20).map { |name| text(name, limit: 100) },
-        fault: text(result.fault), error: text(result.error_message), recommendation: text(result.recommendation),
+        fault: text(result.fault), error: safe_error(result.error_message), recommendation: text(result.recommendation),
         caveats: caveats
       }
     end
@@ -191,7 +192,7 @@ module ActionAgent
         evaluation_id: run.evaluation_id, run_id: run.id, status: run.status,
         samples_evaluated: run.samples_evaluated, samples_passed: run.samples_passed,
         created_at: run.created_at&.iso8601, completed_at: run.completed_at&.iso8601,
-        error: text(run.error_message),
+        error: safe_error(run.error_message),
         path: report ? "/evaluations/#{run.evaluation_id}/runs/#{run.id}/report" : "/evaluations"
       }
     end
@@ -202,6 +203,13 @@ module ActionAgent
       return "shape_or_runtime_checks_only" if keys.any? && (keys - SHAPE_SCORE_KEYS).empty?
 
       "unknown_rubric"
+    end
+
+    # Stored exceptions are arbitrary provider text, sometimes including keys,
+    # authenticated URLs or entire request bodies. Keep status/fault categories
+    # and the report link, but never export the exception to another provider.
+    def safe_error(value)
+      REDACTED_ERROR if value.present?
     end
 
     def bounded_scores(scores)

@@ -77,6 +77,64 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     assert_empty result[:cards]
   end
 
+  test "global inherited and owner provider options cannot add remote tools or conversation state" do
+    original_options = ActiveAgent::Base.prompt_options
+    remote = { type: "mcp", server_label: "synthetic-admin", server_url: "https://tools.example.test/mcp", require_approval: "never" }
+    ActiveAgent::Base.prompt_options = { mcp_servers: [ remote ], conversation: "inherited-conversation" }
+    ActiveAgent.instance_variable_set(:@configuration, { openai: {
+      mcps: [ remote ], previous_response_id: "global-response", stream: true, background: true,
+      max_tool_turns: 999, max_output_tokens: 999_999
+    } }.with_indifferent_access)
+    ActionAgent.provider_credentials_resolver = ->(*) {
+      { access_token: "synthetic-fixture-key", mcp_servers: [ remote ],
+        request_options: { extra_body: { tools: [ remote ] } } }
+    }
+    body = nil
+    stub_request(:post, "https://api.openai.com/v1/responses")
+      .with(headers: { "Authorization" => "Bearer synthetic-fixture-key" })
+      .to_return { |request| body = JSON.parse(request.body); json_response([ response_message("Ready to inspect evaluations.") ]) }
+
+    assistant.call
+
+    assert_equal ActionAgent::DashboardAssistantService::TOOL_DEFINITIONS.map { |tool| tool[:name] }.sort,
+      body.fetch("tools").map { |tool| tool.fetch("name") }.sort
+    assert body["tools"].all? { |tool| tool["type"] == "function" }
+    assert_not_includes body.to_json, "synthetic-admin"
+    assert_not body.key?("previous_response_id")
+    assert_not body.key?("conversation")
+    assert_not body["stream"]
+    assert_not body["background"]
+    assert_equal 2_000, body["max_output_tokens"]
+    assert_equal [ remote ], ActiveAgent::Base.prompt_options[:mcp_servers]
+  ensure
+    ActiveAgent::Base.prompt_options = original_options
+  end
+
+  test "historical exception details never enter provider requests or assistant cards" do
+    secret = "synthetic-credential-https://user:password@example.test/private?token=fixture"
+    run = @evaluation.evaluation_runs.create!(status: :failed, error_message: secret)
+    scenario = @evaluation.scenarios.create!(key: "failure", prompt: "Read the public catalog")
+    run.scenario_results.create!(scenario: scenario, provider: "openai", model: "fixture-model",
+      status: :errored, fault: "run_error", error_message: secret)
+    requests = []
+    responses = [
+      json_response([ function_call("list_evaluations", {}) ]),
+      json_response([ function_call("read_evaluation_run", { evaluation_id: @evaluation.id, run_id: run.id }) ]),
+      json_response([ response_message("The recorded run failed. Open its report for details.") ])
+    ]
+    stub_request(:post, "https://api.openai.com/v1/responses")
+      .to_return { |request| requests << JSON.parse(request.body); responses.shift }
+
+    result = assistant.call
+
+    assert_equal 3, requests.size
+    assert_not_includes requests.to_json, secret
+    assert_not_includes result.to_json, secret
+    assert_includes requests.to_json, ActionAgent::EvaluationEvidence::REDACTED_ERROR
+    assert_includes result[:cards].map { |card| card[:fault] }, "run_error"
+    assert_equal secret, run.reload.error_message
+  end
+
   test "draft proposals use server ids validate tools and never save or execute" do
     service = assistant
     assert_no_difference [ "ActionAgent::Agent.count", "ActionAgent::AgentRun.count" ] do
@@ -250,6 +308,43 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
       service.execute_tool("list_evaluations")
       result = service.execute_tool("read_evaluation_run", evaluation_id: 1, run_id: 2)
       assert_equal "evaluation-run-2", result[:cards].sole[:id]
+    end
+  end
+
+  test "a multi report answer retains references after earlier excerpts are evicted" do
+    evidence = Object.new
+    evidence.define_singleton_method(:read_evaluation_run) do |evaluation_id:, run_id:|
+      { cards: Array.new(12) { |index| {
+        id: "evaluation-result-#{run_id * 100 + index}", type: "evaluation_result",
+        path: "/evaluations/#{evaluation_id}/runs/#{run_id}/report", output_excerpt: "Report #{run_id} excerpt"
+      } }, coverage: {}, caveats: [] }
+    end
+    requests = []
+    responses = [
+      json_response([ function_call("read_evaluation_run", { evaluation_id: 1, run_id: 1 }) ]),
+      json_response([ function_call("read_evaluation_run", { evaluation_id: 1, run_id: 2 }) ]),
+      json_response([ response_message("Compare evaluation-result-100 with evaluation-result-200.") ])
+    ]
+    stub_request(:post, "https://api.openai.com/v1/responses")
+      .to_return { |request| requests << JSON.parse(request.body); responses.shift }
+
+    result = ActionAgent::EvaluationEvidence.stub(:new, evidence) { assistant.call }
+
+    assert_equal 12, result[:cards].size
+    assert_not_includes result[:cards].map { |card| card[:id] }, "evaluation-result-100"
+    assert_equal 24, result[:references].size
+    assert_equal "/evaluations/1/runs/1/report", result[:references].find { |ref| ref[:id] == "evaluation-result-100" }[:path]
+    assert_equal "/evaluations/1/runs/2/report", result[:references].find { |ref| ref[:id] == "evaluation-result-200" }[:path]
+    assert result[:references].all? { |ref| ref.keys.sort == %i[id path] }
+    assert result[:limitations].any? { |message| message.include?("Earlier evidence excerpts were replaced") }
+    assert_includes requests.last.to_json, "evaluation-result-100"
+  end
+
+  test "answers cannot cite invented or history only evidence references" do
+    stub_request(:post, "https://api.openai.com/v1/responses")
+      .to_return(json_response([ response_message("See evaluation-result-999999.") ]))
+    assert_raises(ActionAgent::DashboardAssistantService::GenerationFailed) do
+      assistant(history: [ { role: "assistant", content: "See evaluation-result-999999." } ]).call
     end
   end
 

@@ -131,7 +131,7 @@ export default function DashboardAssistant({ session, onSessionChange, onReviewD
         return;
       }
       onSessionChange({ ...session, messages: [...updated, {
-        role: 'assistant', content: data.answer, cards: data.cards || [], drafts: data.drafts || [], limitations: data.limitations || [],
+        role: 'assistant', content: data.answer, cards: data.cards || [], references: data.references || [], drafts: data.drafts || [], limitations: data.limitations || [],
       }] });
     } catch (e) {
       if (e.name !== 'AbortError') {
@@ -170,6 +170,14 @@ export default function DashboardAssistant({ session, onSessionChange, onReviewD
             <MicroLabel color={message.role === 'user' ? 'var(--color-text-muted)' : 'var(--color-accent-ui)'}>{message.role === 'user' ? 'You' : 'ActiveAgents'}</MicroLabel>
             <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.7, fontSize: 14 }}>{message.content}</div>
             {message.cards?.map(card => <EvidenceCard key={card.id} card={card} onAsk={text => { setInput(text); formRef.current?.querySelector('textarea')?.focus(); }} busy={busy} />)}
+            {message.references?.length > 0 && (
+              <div aria-label="Evidence references" style={{ ...muted, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {message.references.map(reference => {
+                  const path = evidencePath(reference);
+                  return path && <a key={reference.id} href={path} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent-ui)' }}>{reference.id}</a>;
+                })}
+              </div>
+            )}
             {message.drafts?.map(draft => <AgentDraft key={draft.id} draft={draft} onReview={onReviewDraft} />)}
             {message.limitations?.length > 0 && (
               <details style={muted}><summary style={{ cursor: 'pointer' }}>Scope of this answer</summary><ul style={{ paddingLeft: 18 }}>{message.limitations.map((item, i) => <li key={i}>{item}</li>)}</ul></details>

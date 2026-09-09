@@ -114,11 +114,15 @@ agent scope, execution policy and quota hooks.
 Ask which demo questions passed, why an evaluation failed, or describe an agent
 to build. Report cards link to recorded evidence and disclose weak checks and
 missing provenance. Historical passes cannot establish that current main works.
+Compact report references remain available when earlier excerpts are replaced.
+Raw recorded exceptions are withheld from assistant evidence because they may
+contain credentials; open the authorized report to inspect those details.
 Agent drafts open in the builder for review; they are not saved or run by chat.
 
 Conversation state resets on reload. Assistant generations disable framework
-traces and provider notifications; provider retention and host request logging
-policies still apply. Repository connections, COI execution, Claude Code sessions
+traces and provider notifications, and message/history parameters are filtered
+before Rails request logging. Provider retention and any host middleware that
+records raw HTTP bodies still follow the host's policies. Repository connections, COI execution, Claude Code sessions
 and PR checks remain [planned work](/plans/dashboard-assistant/PLAN).
 
 ## Metrics
