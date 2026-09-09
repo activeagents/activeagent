@@ -99,6 +99,28 @@ default, adjust that on `Runner.new`), and the verdict carries the judge's
 rationale. A judge that raises or answers unusably is skipped for that call,
 so an evaluation never fails because the judge did.
 
+A scorable `task_completion` grade must independently meet the run's
+`threshold` (0.7 by default). Successful tool and content checks cannot turn
+a failing task-completion grade into a pass. `score` and `avg_score` remain
+the aggregate across scored criteria; `avg_task_completion` in each model's
+summary reports the judge's task-completion mean separately. Invalid judge
+scores are unscorable, and unusable recommendation fields are discarded.
+
+Hosts can correlate the replay and its judge calls with one trace context by
+passing `around_evaluation:` to `Runner.new`. The callable receives the
+scenario and model spec, yields the evaluation, and returns its result:
+
+```ruby
+around_evaluation = ->(scenario, spec, &evaluate) do
+  TraceContext.with(scenario_key: scenario.key, model: spec.label) { evaluate.call }
+end
+```
+
+The wrapper covers replay, scoring and recommendations. `on_result` runs
+after the wrapper finishes; wrapper errors propagate. Direct
+`Runner#evaluate` calls bypass the wrapper so a host doing its own scheduling
+can establish context itself.
+
 ## Faults
 
 | Fault | Meaning |
@@ -166,7 +188,7 @@ judge credentials, and stores each result as an `EvaluationScenarioResult`.
 | Class | Role |
 |---|---|
 | `Scenario` | One task: prompt, group, expected tools, content that must / must not appear, notes |
-| `ScenarioParser` | Pasted text or JSON → scenarios. Lines, `# Heading` groups, backticked prompts with notes, `\| tools: a, b \| contains: x` options |
+| `ScenarioParser` | Pasted text, JSON, or grouped YAML suites → scenarios. Lines, `# Heading` groups, backticked prompts with notes, `\| tools: a, b \| contains: x` options |
 | `Suite` | A YAML suite with groups; later documents override by key, so a deployment can add or reword tasks |
 | `ModelSpec` | `provider/model` or a bare name with provider inference (`claude-*` → anthropic, `gpt-*` → openai, `name:tag` → ollama, `vendor/model` → openrouter) |
 | `Replay` | What your agent produced: answer, tool calls, timing, tokens, cost, error |
@@ -200,3 +222,25 @@ groups:
 suite = ActiveAgent::Evals::Suite.load("config/evals/support_bot.yml", "config/evals/acme/support_bot.yml")
 suite.scenarios(groups: %w[orders], include_production_only: false)
 ```
+
+The same grouped document can be pasted into `ScenarioParser` as YAML or
+JSON. It retains scenario keys, group keys and display names, expectations,
+notes and production-only flags:
+
+```ruby
+scenarios = ActiveAgent::Evals::ScenarioParser.scenarios(
+  File.read("config/evals/support_bot.yml"),
+  include_production_only: false
+)
+```
+
+The parser includes production-only scenarios by default for compatibility
+with `Suite`; the dashboard's create and replace APIs exclude them by
+default. Post the YAML/JSON document as `scenarios_text` and set
+`include_production_only: true` alongside it to include those questions.
+For creation both fields belong in `evaluation`; replacement accepts them
+at the top level. Production selection happens during import: the dashboard
+stores only the selected scenarios and their group keys, not the original
+document, group display names, or environment flags. Re-import the source
+document to change that selection. Invalid YAML or a selection containing
+no scenarios returns an import error without creating a sampled evaluation.

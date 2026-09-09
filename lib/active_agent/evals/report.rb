@@ -54,6 +54,7 @@ module ActiveAgent
         @summary_by_model ||= @models.to_h do |spec|
           cohort = @results.select { |result| result.label == spec.label }
           scored = cohort.filter_map(&:score)
+          task_scores = cohort.filter_map { |result| result.scores["task_completion"] }
           durations = cohort.filter_map { |result| result.replay.duration_ms }
           costs = cohort.filter_map { |result| result.replay.cost }
 
@@ -65,6 +66,7 @@ module ActiveAgent
             "errored" => cohort.count(&:errored?),
             "pass_rate" => cohort.any? ? (cohort.count(&:passed?) * 100.0 / cohort.size).round(1) : 0.0,
             "avg_score" => scored.any? ? (scored.sum / scored.size).round(3) : nil,
+            "avg_task_completion" => task_scores.any? ? (task_scores.sum / task_scores.size).round(3) : nil,
             "avg_duration_ms" => durations.any? ? (durations.sum.to_f / durations.size).round : nil,
             "input_tokens" => cohort.sum { |result| result.replay.input_tokens.to_i },
             "output_tokens" => cohort.sum { |result| result.replay.output_tokens.to_i },

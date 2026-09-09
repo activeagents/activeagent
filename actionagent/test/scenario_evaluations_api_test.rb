@@ -6,6 +6,66 @@ require "test_helper"
 # from pasted messages, managing its scenarios, running a selection under
 # chosen models, and reading a run's per-scenario results.
 class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
+  SUPPORT_SUITE = File.expand_path("../../test/evals/fixtures/support_suite.yml", __dir__)
+
+  test "a grouped YAML suite imports its keys and expectations and excludes production questions by default" do
+    agent = create_agent
+
+    post "/activeagents/api/evaluations", params: {
+      evaluation: { agent_id: agent.id, name: "Support catalog", scenarios_text: File.read(SUPPORT_SUITE), run: false }
+    }, as: :json
+
+    assert_response :created
+    evaluation = agent.evaluations.last
+    assert_equal %w[order_lookup help_cancel], evaluation.scenarios.ordered.map(&:key)
+    assert_equal %w[orders help], evaluation.scenarios.ordered.map(&:group)
+    assert_equal({ "tools" => [ "lookup_order" ], "contains" => [ "ABC-123" ], "not_contains" => [ "password" ] },
+                 evaluation.scenarios.find_by!(key: "order_lookup").expectations)
+    assert_equal "Use the synthetic test order.", evaluation.scenarios.find_by!(key: "order_lookup").notes
+    assert_nil evaluation.latest_run
+  end
+
+  test "production questions can be explicitly included when creating or replacing a suite" do
+    agent = create_agent
+
+    post "/activeagents/api/evaluations", params: {
+      evaluation: { agent_id: agent.id, name: "Support catalog", scenarios_text: File.read(SUPPORT_SUITE),
+                    include_production_only: true, run: false }
+    }, as: :json
+
+    assert_response :created
+    evaluation = agent.evaluations.last
+    assert_equal %w[order_lookup live_volume help_cancel], evaluation.scenarios.ordered.map(&:key)
+    assert_equal [ "count_orders" ], evaluation.scenarios.find_by!(key: "live_volume").expected_tools
+
+    put "/activeagents/api/evaluations/#{evaluation.id}/scenarios",
+        params: { scenarios_text: File.read(SUPPORT_SUITE), include_production_only: "false" }, as: :json
+    assert_response :success
+    assert_equal %w[order_lookup help_cancel], evaluation.scenarios.ordered.map(&:key)
+
+    put "/activeagents/api/evaluations/#{evaluation.id}/scenarios",
+        params: { scenarios_text: File.read(SUPPORT_SUITE), include_production_only: "true" }, as: :json
+    assert_response :success
+    assert_equal %w[order_lookup live_volume help_cancel], evaluation.scenarios.ordered.map(&:key)
+  end
+
+  test "invalid YAML and fully excluded suites return an import error without creating a sampling evaluation" do
+    agent = create_agent
+    production = { suite: "live", groups: [ { key: "orders", scenarios: [
+      { key: "live_1", prompt: "Count orders today.", production_only: true }
+    ] } ] }.to_json
+
+    [ "suite: support\ngroups: [", production ].each do |text|
+      assert_no_difference -> { agent.evaluations.count } do
+        post "/activeagents/api/evaluations", params: {
+          evaluation: { agent_id: agent.id, name: "Support catalog", scenarios_text: text, run: false }
+        }, as: :json
+      end
+      assert_response :unprocessable_entity
+      assert JSON.parse(response.body)["errors"].present?
+    end
+  end
+
   def setup
     ActionAgent::Agent.delete_all
   end

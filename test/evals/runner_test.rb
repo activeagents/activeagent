@@ -6,6 +6,83 @@ require_relative "evals_test_support"
 class EvalsRunnerTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
+  def test_context_wrapper_covers_replay_judging_and_recommendation_before_on_result
+    events = []
+    current = nil
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders")
+    model = spec("test-model")
+    wrapper = lambda do |scenario, spec, &evaluate|
+      current = [ scenario.key, spec.label ]
+      events << :enter
+      evaluate.call
+    ensure
+      events << :leave
+      current = nil
+    end
+    judge = fake_judge do |*|
+      assert_equal [ task.key, model.label ], current
+      events << :judge
+      '{"score": 0.2, "recommendation": "Use the actual order status."}'
+    end
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ model ], judge: judge, around_evaluation: wrapper,
+      replay: ->(*) { assert_equal [ task.key, model.label ], current; events << :replay; replay(answer: "It may have shipped.") },
+      on_result: ->(result) { assert_nil current; assert_equal "failed", result.status; events << :result }
+    ).call
+
+    assert_equal [ :enter, :replay, :judge, :judge, :leave, :result ], events
+    assert_equal 1, report.results.size
+  end
+
+  def test_wrapper_errors_propagate_and_direct_evaluate_does_not_use_the_wrapper
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders")
+    model = spec("test-model")
+    runner = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ model ],
+      around_evaluation: ->(*) { raise "context unavailable" },
+      replay: ->(*) { flunk "the wrapper should fail before replay" }
+    )
+
+    assert_equal "context unavailable", assert_raises(RuntimeError) { runner.call }.message
+    assert runner.evaluate(task, model, replay(answer: "The order shipped.")).passed?
+  end
+
+  def test_successful_tool_and_content_checks_cannot_override_failing_task_completion
+    [ [ 0.2, {} ], [ 0.0, { contains: [ "ABC-123" ] } ] ].each do |grade, expectations|
+      task = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ], **expectations)
+      judge = fake_judge { |*| { score: grade, recommendation: "Use the actual order status." }.to_json }
+      report = ActiveAgent::Evals::Runner.new(
+        scenarios: [ task ], models: [ spec("test-model") ], judge: judge,
+        available_tools: [ "lookup_order" ],
+        replay: ->(*) { replay(answer: "ABC-123 probably shipped.", tool_calls: [ { name: "lookup_order" } ]) }
+      ).call
+      result = report.results.first
+
+      assert_operator result.score, :>=, ActiveAgent::Evals::PASS_THRESHOLD
+      assert_equal grade, result.scores["task_completion"]
+      assert_equal "failed", result.status
+      assert_equal "low_quality", result.fault
+      assert_includes result.summary, "Task completion scored #{grade}"
+      assert_equal "Use the actual order status.", result.recommendation
+      assert_equal 0.0, report.summary_by_model["test-model"]["pass_rate"]
+      assert_equal grade, report.summary_by_model["test-model"]["avg_task_completion"]
+      assert_includes report.to_markdown, "low quality"
+    end
+  end
+
+  def test_task_completion_uses_the_configured_threshold_and_preserves_unscorable_fallback
+    [ [ 0.8, "passed" ], [ 0.79, "failed" ], [ nil, "passed" ] ].each do |grade, status|
+      judge = fake_judge { |*| { score: grade }.to_json }
+      report = ActiveAgent::Evals::Runner.new(
+        scenarios: [ scenario("order_1", "Where is order ABC-123?", tools: [ "lookup_order" ]) ],
+        models: [ spec("test-model") ], judge: judge, threshold: 0.8,
+        replay: ->(*) { replay(answer: "The order shipped.", tool_calls: [ { name: "lookup_order" } ]) }
+      ).call
+
+      assert_equal status, report.results.first.status
+    end
+  end
+
   CRITERIA = [ { "key" => "response_present", "type" => "response_present" } ].freeze
 
   def scenarios
