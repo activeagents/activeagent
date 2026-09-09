@@ -85,6 +85,39 @@ class EvalsRunnerTest < ActiveSupport::TestCase
 
   CRITERIA = [ { "key" => "response_present", "type" => "response_present" } ].freeze
 
+  def test_required_judge_scores_cannot_silently_pass_on_rules
+    [ ->(*) { raise "judge offline" }, ->(*) { '{"score": false}' } ].each do |completion|
+      report = ActiveAgent::Evals::Runner.new(
+        scenarios: [ scenario("order_1", "Where is order ABC-123?", tools: [ "lookup_order" ]) ],
+        models: [ spec("test-model") ], judge: fake_judge(&completion), require_judge_scores: true,
+        replay: ->(*) { replay(answer: "The order shipped.", tool_calls: [ { name: "lookup_order" } ]) }
+      ).call
+
+      result = report.results.first
+      assert_equal "failed", result.status
+      assert_equal "judge_unavailable", result.fault
+      assert_nil result.scores["task_completion"]
+      assert_equal 0.0, report.summary_by_model["test-model"]["pass_rate"]
+      assert_includes report.to_markdown, "judge unavailable"
+    end
+  end
+
+  def test_required_judge_scores_cover_explicit_llm_criteria_without_affecting_rules
+    criteria = CRITERIA + [ { "key" => "accuracy", "type" => "llm_judge" } ]
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ scenario ], models: [ spec("test-model") ], criteria: criteria,
+      require_judge_scores: true, replay: ->(*) { replay }
+    ).call
+    assert_equal "judge_unavailable", report.results.first.fault
+    assert_equal [ "accuracy" ], report.results.first.diagnosis.dig("evidence", "unscored_criteria")
+
+    rules = ActiveAgent::Evals::Runner.new(
+      scenarios: [ scenario ], models: [ spec("test-model") ], criteria: CRITERIA,
+      require_judge_scores: true, replay: ->(*) { replay }
+    ).call
+    assert rules.results.first.passed?
+  end
+
   def scenarios
     [
       scenario("find_1", "Which gynecologists in Charlotte have scheduling enabled?", group: "find"),
