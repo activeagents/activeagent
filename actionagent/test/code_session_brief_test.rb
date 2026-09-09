@@ -191,7 +191,12 @@ class CodeSessionBriefTest < ActiveSupport::TestCase
     instruction = needs.find { |need| need["kind"] == "instruction" }
     assert instruction, "no need came from the judge's instruction change: #{needs.inspect}"
     assert_equal "Change the agent's instructions", instruction["title"]
-    assert_equal "Answer with the record count before any caveat.", instruction["detail"]
+    # The judge's own sentence, not the diagnosis recommendation beside it:
+    # Report#instruction_fix_items carries the instruction change in "quote"
+    # and leaves "recommendation" nil, because the fault card built from the
+    # same result already says it. The coding agent needs the literal
+    # sentence to add.
+    assert_equal "Always answer with the record count before any caveat.", instruction["detail"]
     assert_equal "instruction change", instruction.dig("evidence", "fault")
     assert_equal [ "tone" ], instruction.dig("evidence", "scenario_keys")
     assert_equal [ "mock/alpha" ], instruction.dig("evidence", "models")

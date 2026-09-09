@@ -9,37 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`ActiveAgent::Evals`, the evaluation core, in the framework.** Pasted-list
-  and YAML suite parsing, model resolution, rule and expectation scoring, the
-  fault taxonomy with its recommendations, the optional judge, and the
-  per-model report live in `lib/active_agent/evals`, loadable on their own
-  with `require "active_agent/evals"`. Any app can replay a list of tasks
-  across models against its own agent through one `replay` callable and get
-  the same faults, recommendations and verdict the dashboard shows;
-  `actionagent` keeps only what the dashboard adds — persistence, the job,
-  the API and the UI.
-- **Scenario evaluations in the dashboard.** An evaluation can now carry a
-  suite of scenarios — a pasted list of user messages, grouped with
-  `# Heading` lines and annotated with the tool each should call — and a run
-  replays every selected scenario through the agent once per candidate model
-  (`compare_models`, or a per-run `models` selection) instead of sampling
-  recorded generations. Each scenario × model result records the answer, the
-  tools called, its score, and, when it falls short, one fault
-  (`run_error`, `tool_error`, `missing_capability`,
-  `expected_tool_not_called`, `forbidden_content`, `missing_content`,
-  `low_quality`) with a recommendation; a configured judge model refines the
-  recommendation with the tool to add or the instruction to change. Runs can
-  be narrowed to a group or to single scenarios, and the run summary ranks
-  the models by pass rate with a verdict. New tables
-  `evaluation_scenarios` and `evaluation_scenario_results` ship in
-  `create_active_agent_evaluation_scenarios`, which
-  `rails generate action_agent:install` emits for new and existing installs.
-- **`ActionAgent.mcp_catalog`.** A host app registers the MCP servers it
-  serves or connects itself — `[{ key:, name:, tool_hints: [...] }, …]` —
-  and they join the built-in catalog: listed in the MCP Services view, with
-  telemetry traffic for their bare tool names attributed to them.
-  `MCPCatalog.keys` lists built-ins and registrations together;
-  `MCPCatalog::BY_KEY` still holds the built-ins alone.
 - **Code sessions in the dashboard.** A new **Code Sessions** view hands an
   agent to a coding agent (Claude Code, Codex CLI, GitHub Copilot CLI,
   opencode, pi, Oh My Pi or aider) running in a
@@ -73,6 +42,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ActionAgent.reset!`; `:github_token` joins the engine's
   `filter_parameters`.
 
+## [1.4.0] - 2026-09-09
+
+Releases `activeagent` 1.4.0 and `actionagent` 1.3.0 from one tag.
+
+### Added
+
+- **`ActiveAgent::Evals`, the evaluation core, in the framework.** Pasted-list
+  and YAML suite parsing, model resolution, rule and expectation scoring, the
+  fault taxonomy with its recommendations, the optional judge, and the
+  per-model report live in `lib/active_agent/evals`, loadable on their own
+  with `require "active_agent/evals"`. Any app can replay a list of tasks
+  across models against its own agent through one `replay` callable and get
+  the same faults, recommendations and verdict the dashboard shows;
+  `actionagent` keeps only what the dashboard adds — persistence, the job,
+  the API and the UI.
+- **Scenario evaluations in the dashboard.** An evaluation can now carry a
+  suite of scenarios — a pasted list of user messages, grouped with
+  `# Heading` lines and annotated with the tool each should call — and a run
+  replays every selected scenario through the agent once per candidate model
+  (`compare_models`, or a per-run `models` selection) instead of sampling
+  recorded generations. Each scenario × model result records the answer, the
+  tools called, its score, and, when it falls short, one fault
+  (`run_error`, `tool_error`, `missing_capability`,
+  `expected_tool_not_called`, `forbidden_content`, `missing_content`,
+  `low_quality`) with a recommendation; a configured judge model refines the
+  recommendation with the tool to add or the instruction to change. Runs can
+  be narrowed to a group or to single scenarios, and the run summary ranks
+  the models by pass rate with a verdict. New tables
+  `evaluation_scenarios` and `evaluation_scenario_results` ship in
+  `create_active_agent_evaluation_scenarios`, which
+  `rails generate action_agent:install` emits for new and existing installs.
+- **`ActionAgent.mcp_catalog`.** A host app registers the MCP servers it
+  serves or connects itself — `[{ key:, name:, tool_hints: [...] }, …]` —
+  and they join the built-in catalog: listed in the MCP Services view, with
+  telemetry traffic for their bare tool names attributed to them.
+  `MCPCatalog.keys` lists built-ins and registrations together;
+  `MCPCatalog::BY_KEY` still holds the built-ins alone.
+- **Suite results rebuilt around what to do next.** An expanded scenario
+  suite used to be a summary and a matrix; it now opens on the three
+  questions a run is actually asked. **Runs** numbers every run of the suite
+  from the oldest and scores it against the one before — `+3 passed vs #7`,
+  or `partial run` when the two covered different scenarios or models and the
+  numbers do not compare — so progress is legible without reading two runs
+  side by side; selecting an older run re-derives the models, the fix list,
+  the matrix and every drill-down, and the collapsed header keeps reporting
+  the latest. **Models** marks the best candidate with an info-toned
+  `judge's pick` badge and the verdict that justifies it, rather than a green
+  *winner* — losing a comparison by one scenario is not a failing grade.
+  **What to fix** turns each fault into a card with the tools involved
+  (deduplicated to one chip each), the MCP server that serves them, whether
+  this agent has it enabled, and a button that deep-links to MCP Services,
+  Tools or the agent's instructions: the fix, not just the finding. The
+  scenario × model matrix shows the tools each model actually called against
+  the tools the scenario expected, coloured by whether they match, and a row
+  opens onto every model's answer, timing, cost and diagnosis.
+- **The evaluation report is a designed page.** `Report#to_html(theme:)`
+  renders a run on the dashboard's design system — stat tiles, a panel per
+  model with the judge's pick and verdict, the what-to-fix cards, the
+  scenario × model matrix and a disclosure per scenario — still one
+  self-contained file with inline styles and no external assets, so it
+  archives next to a CI run. `theme:` pins `"light"` or `"dark"`; without it
+  the page follows the viewer's `prefers-color-scheme`, and the dashboard
+  passes its own theme through when it frames the report at
+  `/api/evaluations/:id/runs/:run_id/report`. The new `Report#fix_items`
+  builds the what-to-fix list — faults grouped with the tools each implicates
+  and the action that addresses it — for the page, the engine's API and any
+  app that wants the backlog as JSON; `tool_resolver:`, `agent_name:` and
+  `links:` on `Report.new` let a host name the MCP server behind a tool, the
+  agent, and the routes an action should point at, so a CI job gets the same
+  cards the dashboard shows.
+- **An APM-style service overview on the Metrics page.** The page answered
+  "how much traffic in the last 24 hours"; it now answers "is this healthy
+  right now, and since when". A `1h` / `24h` / `7d` range fixes the bucket
+  size the whole page is drawn at (60 × 1 min, 96 × 15 min, 84 × 2 h); five
+  golden signals — requests, latency, error rate, tokens, cost — carry a
+  sparkline and a delta against the period just before the window; six panels
+  plot requests stacked by agent, latency percentiles, errors by class,
+  tokens, spend and tool calls, with markers for the agent versions deployed
+  inside the window and for an error spike when one stands out; and a rail
+  ranks the agents, models, slowest actions, tools and error classes behind
+  them. Filtering to an agent — from the select, or by clicking its rail
+  row — narrows every one of those together. `GET /api/metrics` gains
+  `range` and `agent` params and the keys that feed it (`totals`, `deltas`,
+  `series`, `agents`, `models`, `actions`, `tools`, `errors_by_type`,
+  `markers`) from the new `ActionAgent::MetricsReport`: one pass over the
+  window, with bucketing, nearest-rank percentiles and error classification
+  done in Ruby so PostgreSQL and SQLite report the same numbers. Every
+  earlier key and param still means what it did.
+- **A design token layer under the dashboard.** Colors, fonts and the type
+  scale live in `actionagent/frontend/tokens.css` as CSS variables scoped to
+  the mounted dashboard (`.aa-dashboard`, with the dark palette under
+  `.theme-dark`), and the views draw from a set of shared primitives —
+  badges, chips, panels, cards, pass bars, stat tiles, segmented controls —
+  instead of each restating the same hex codes and paddings. Dark mode is
+  then one class rather than a conditional at every call site, and a host
+  app's own stylesheet cannot bleed into the engine's. The framework carries
+  the same values in `ActiveAgent::Evals::DesignTokens` so the standalone
+  HTML report matches the dashboard it came from, with a test that fails when
+  the two drift apart.
+
 - **RubyLLM backend pinning via `platform:`.** RubyLLM resolves which of its
   providers serves a request from the model ID, and a model served by more
   than one — `gemini-2.5-flash` exists on both the Gemini API and Vertex
@@ -85,6 +154,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   model-based routing unchanged. (#373)
 
 ### Fixed
+
+- **A run report is readable in the dashboard.** The report was framed at a
+  fixed viewport height, so everything past the first screen — including
+  every fix item — sat behind a nested scrollbar. The frame is sized to the
+  report's own content, and a fix action targets the top window so it
+  navigates the dashboard instead of loading it into the frame. (#410, #411)
+
+- **Provider credentials store on a host that skipped `db:encryption:init`.**
+  Encryption keys derived from `secret_key_base` were installed after Rails
+  had already configured `ActiveRecord::Encryption`, so the config read back
+  correct while every credential write raised `Errors::Configuration` — in
+  the dashboard, the Settings API Keys tab failed to render and provider
+  keys failed to save. (#412)
 
 - **`service: "RubyLLM"` loads when the ruby_llm railtie has run.** The
   ruby_llm gem registers `RubyLLM` as an inflector acronym in Rails apps,
