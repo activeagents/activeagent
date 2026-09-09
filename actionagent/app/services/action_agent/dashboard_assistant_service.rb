@@ -95,6 +95,7 @@ module ActionAgent
       @drafts = []
       @limitations = LIMITATIONS.dup
       @tool_calls = 0
+      @validated = false
     end
 
     def configuration
@@ -108,7 +109,12 @@ module ActionAgent
       }
     end
 
+    # Callers validate before recording usage, and #call validates again so the
+    # service is safe to use on its own. The work runs once: a second pass would
+    # re-normalize an already normalized history for nothing.
     def validate!
+      return self if @validated
+
       require_processing_consent!
       validate_text!(@message, "Message", 1, MAX_MESSAGE_CHARACTERS)
       validate_provider_model!(@provider, @model)
@@ -128,6 +134,7 @@ module ActionAgent
       unless provider_configured?(@provider)
         raise SetupRequired, "Configure #{@provider} credentials in Settings before using the assistant"
       end
+      @validated = true
       self
     end
 
