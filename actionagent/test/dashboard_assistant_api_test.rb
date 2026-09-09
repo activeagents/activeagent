@@ -10,6 +10,7 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     @original_user = ActionAgent.current_user_resolver
     @original_account = ActionAgent.current_account_resolver
     @original_multi_tenant = ActionAgent.multi_tenant
+    @original_assistant = ActionAgent.assistant_enabled
     ActiveAgent.instance_variable_set(:@configuration, {})
     ActionAgent.provider_credentials_resolver = ->(_owner, _provider) { {} }
     @usage = []
@@ -26,6 +27,7 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     ActionAgent.quota_checker = nil
     ActionAgent.usage_recorder = nil
     ActionAgent.execution_enabled = true
+    ActionAgent.assistant_enabled = @original_assistant
   end
 
   test "metadata discloses provider processing and unavailable integrations without selecting a provider" do
@@ -102,6 +104,35 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     assert_nil response.parsed_body["answer"]
   end
 
+  test "both endpoints refuse where the assistant is not a development or CI tool" do
+    ActionAgent.assistant_enabled = false
+    get "/activeagents/api/dashboard_assistant"
+    assert_response :forbidden
+    assert_equal "assistant_disabled", response.parsed_body["code"]
+    post "/activeagents/api/dashboard_assistant", params: input, as: :json
+    assert_response :forbidden
+    assert_equal "assistant_disabled", response.parsed_body["code"]
+    assert_empty @usage
+    # An explicit true carries the decision into an environment that would
+    # otherwise be refused; nil follows Rails.env, which is test here.
+    ActionAgent.assistant_enabled = true
+    get "/activeagents/api/dashboard_assistant"
+    assert_response :success
+    ActionAgent.assistant_enabled = nil
+    get "/activeagents/api/dashboard_assistant"
+    assert_response :success
+  end
+
+  test "the dashboard page tells the browser whether it has an assistant" do
+    get "/activeagents"
+    assert_response :success
+    assert_equal true, dashboard_props.dig("meta", "assistantEnabled")
+    ActionAgent.assistant_enabled = false
+    get "/activeagents"
+    assert_response :success
+    assert_equal false, dashboard_props.dig("meta", "assistantEnabled")
+  end
+
   test "assistant POST requires a real dashboard CSRF token when protection is enabled" do
     original = ActionController::Base.allow_forgery_protection
     ActionController::Base.allow_forgery_protection = true
@@ -123,6 +154,11 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  # The dashboard page hands the React app its props in a data attribute.
+  def dashboard_props
+    JSON.parse(Nokogiri::HTML(response.body).at_css("#active-agent-dashboard")["data-props"])
+  end
 
   def input
     { message: "Prepare a catalog helper", history: [], provider: "openai", model: "gpt-5.1", allow_provider_processing: true }

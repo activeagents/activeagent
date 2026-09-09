@@ -5,6 +5,7 @@ module ActionAgent
     class DashboardAssistantController < BaseController
       protect_from_forgery with: :exception
 
+      before_action :require_assistant_enabled!
       before_action :require_owner!
       before_action :require_execution_enabled!, only: :create
       before_action :enforce_execution_quota!, only: :create
@@ -44,6 +45,20 @@ module ActionAgent
       end
 
       private
+
+      # The assistant ships as a development and CI tool (see
+      # ActionAgent.assistant_enabled). Where it is off, it is not a view a
+      # caller can reach by knowing the route: the dashboard omits it, and
+      # both endpoints refuse.
+      def require_assistant_enabled!
+        return if ActionAgent.assistant_enabled?
+
+        render json: {
+          error: "The dashboard assistant is available in development and test. " \
+            "Set ActionAgent.assistant_enabled = true to enable it in this environment.",
+          code: "assistant_disabled"
+        }, status: :forbidden
+      end
 
       def invalid_input(exception)
         render json: { error: exception.message, code: "invalid_input" }, status: :unprocessable_entity

@@ -236,6 +236,17 @@ module ActionAgent
     # @return [Boolean]
     attr_accessor :execution_enabled
 
+    # Whether the "Ask ActiveAgents" assistant is available.
+    #
+    # The assistant is a tool for developing and CI-ing agents: it sends
+    # recorded prompts, outputs and evaluation report excerpts to a model
+    # provider, which is the right trade in a development or CI workspace
+    # and a decision nobody should inherit by default in production. Left
+    # unset it is on in development and test only. Set it to true to run it
+    # somewhere else deliberately, or false to remove it everywhere.
+    # @return [Boolean, nil]
+    attr_accessor :assistant_enabled
+
     # Where the dashboard's upgrade CTAs should send people. Unset in a
     # self-hosted install, where there is nothing to upgrade, and the CTAs
     # say so instead of linking nowhere.
@@ -330,6 +341,16 @@ module ActionAgent
     # @return [Boolean]
     def execution_enabled?
       @execution_enabled != false
+    end
+
+    # Returns whether the dashboard assistant is available. Unconfigured, it
+    # follows the environment: development and test yes, everywhere else no.
+    #
+    # @return [Boolean]
+    def assistant_enabled?
+      return @assistant_enabled == true unless @assistant_enabled.nil?
+
+      Rails.env.local?
     end
 
     # Tells the host app that +owner+ performed +kind+. Never raises: a
@@ -452,6 +473,7 @@ module ActionAgent
       @provider_credentials_resolver = nil
       @sandbox_backends = {}
       @execution_enabled = true
+      @assistant_enabled = nil
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
