@@ -118,6 +118,12 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     // the resize back into itself and the frame grows on every navigation.
     const measure = () => setReportHeight(body.scrollHeight);
     measure();
+    // Same fallback the chart width hook uses: a runtime without
+    // ResizeObserver still resizes with the window rather than throwing.
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
     const observer = new ResizeObserver(measure);
     observer.observe(body);
     return () => observer.disconnect();
