@@ -25,6 +25,7 @@ require_relative "evals/design_tokens"
 require_relative "evals/report_html"
 require_relative "evals/report"
 require_relative "evals/runner"
+require_relative "evals/publisher"
 
 # Scenario evaluations for agents that answer with tools.
 #
