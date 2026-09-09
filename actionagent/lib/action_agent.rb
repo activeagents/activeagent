@@ -87,6 +87,10 @@ require "action_agent/compatibility"
 #     # backend (see sandbox_backends) and names it here:
 #     config.sandbox_backends = { "incus" => "IncusSandboxService" }
 #     config.sandbox_service = :incus
+#     # Code sessions hand an agent to a coding agent in a code-on-incus
+#     # container; the in-memory mock is used until a backend is named:
+#     config.code_session_backend = :code_on_incus
+#     config.code_on_incus.ssh_target = "coi@incus-host"
 #   end
 #
 # == Multi-tenant Mode
@@ -318,6 +322,75 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :agent_polymorphic_name
 
+    # Code session backends contributed by the host app, as
+    # { "firecracker" => "FirecrackerCodeBackend" }, alongside the two the
+    # engine ships: "mock" (in-memory, runs nothing) and "code_on_incus"
+    # (shells out to the coi CLI, locally or over ssh). A backend is any
+    # object answering the protocol CodeSessionOrchestrator documents.
+    # @return [Hash{String => String}]
+    attr_accessor :code_session_backends
+
+    # Which code session backend to launch coding agents with: :mock by
+    # default, so a fresh install can exercise the Code Sessions view without
+    # an Incus host. The CODE_SESSION_BACKEND environment variable overrides
+    # it (see CodeSessionOrchestrator.default_backend), and an unregistered
+    # name falls back to :mock with a logged warning rather than raising.
+    # @return [Symbol, String]
+    attr_accessor :code_session_backend
+
+    # Guardrails for code sessions, merged over DEFAULT_CODE_SESSION_LIMITS
+    # so a host app overrides only the keys it cares about:
+    #
+    #   session_duration_minutes: how long a sandbox lives before it expires
+    #   run_timeout_seconds:      how long one headless run may take
+    #   max_sessions_per_owner:   concurrent active sessions per owner
+    #
+    # @return [Hash{Symbol => Integer}]
+    attr_writer :code_session_limits
+
+    DEFAULT_CODE_SESSION_LIMITS = {
+      session_duration_minutes: 240,
+      run_timeout_seconds: 3600,
+      max_sessions_per_owner: 5
+    }.freeze
+
+    def code_session_limits
+      DEFAULT_CODE_SESSION_LIMITS.merge((@code_session_limits || {}).to_h.symbolize_keys)
+    end
+
+    # Resolves the GitHub token a code session clones and pushes with.
+    # Receives (owner, session) and returns the token String, or nil to fall
+    # back to a stored "github" ProviderKey and then (single-tenant only) to
+    # ENV["GITHUB_TOKEN"] — see github_token_for. The token is handed to the
+    # backend for the life of the sandbox and never written to the database.
+    # @return [Proc, nil]
+    attr_accessor :github_token_resolver
+
+    # Settings for the code_on_incus backend, an OrderedOptions so an
+    # initializer can write `config.code_on_incus.ssh_target = "coi@host"`:
+    #
+    #   binary:       the coi executable ("coi")
+    #   ssh_target:   run coi on another host over ssh (nil runs it locally)
+    #   state_dir:    where per-session profiles, briefs and secrets live;
+    #                 nil means tmp/action_agent/code_sessions under Rails.root
+    #                 (on the ssh host when ssh_target is set)
+    #   base_profile: the coi profile every session inherits ("hardened")
+    #   image:        a container image override for coi (nil keeps coi's)
+    #   cpu_limit / memory_limit: coi [limits] values
+    #   allowlist:    hosts reachable under network_mode "allowlist"
+    #
+    # @return [ActiveSupport::OrderedOptions]
+    attr_reader :code_on_incus
+
+    # Hosts a sandbox may reach in "allowlist" network mode: GitHub for the
+    # clone and push, the package registries a test suite needs, and the
+    # coding agents' own provider APIs.
+    DEFAULT_CODE_ON_INCUS_ALLOWLIST = %w[
+      github.com api.github.com codeload.github.com objects.githubusercontent.com
+      rubygems.org index.rubygems.org registry.npmjs.org pypi.org files.pythonhosted.org
+      api.anthropic.com api.openai.com api.githubcopilot.com
+    ].freeze
+
     # Returns whether multi-tenant mode is enabled.
     #
     # @return [Boolean]
@@ -361,6 +434,38 @@ module ActionAgent
       return nil if quota_checker.nil?
 
       quota_checker.call(owner, kind)
+    end
+
+    # The GitHub token a code session for +owner+ should clone with, or nil
+    # when none is configured: the host app's github_token_resolver first,
+    # then a "github" ProviderKey the owner stored under Settings, then
+    # ENV["GITHUB_TOKEN"] — but only in single-tenant mode, where the
+    # process environment belongs to the one operator rather than to every
+    # tenant at once. Never raises, and the value must not be logged or
+    # persisted by the caller: it exists only to be handed to a backend.
+    #
+    # @return [String, nil]
+    def github_token_for(owner, session = nil)
+      if github_token_resolver
+        begin
+          token = github_token_resolver.call(owner, session)
+          return token if token.present?
+        rescue StandardError => e
+          Rails.logger.warn("[ActionAgent] GitHub token lookup failed: #{e.message}")
+          return nil
+        end
+      end
+
+      stored = ActionAgent::ProviderKey.for_owner(owner).find_by(provider: "github")&.credential
+      return stored if stored.present?
+      return nil if multi_tenant?
+
+      ENV["GITHUB_TOKEN"].presence
+    rescue StandardError => e
+      # A missing table (install without the dashboard migrations) is not a
+      # reason to fail the session; it just has no token.
+      Rails.logger.warn("[ActionAgent] GitHub token lookup failed: #{e.message}")
+      nil
     end
 
     # Provider options for +owner+, or {} when the host app has none and
@@ -463,6 +568,20 @@ module ActionAgent
       @sign_out_path = nil
       @sign_in_path = nil
       @mcp_catalog = []
+      @code_session_backends = {}
+      @code_session_backend = :mock
+      @code_session_limits = nil
+      @github_token_resolver = nil
+      @code_on_incus = ActiveSupport::OrderedOptions.new.merge!(
+        binary: "coi",
+        ssh_target: nil,
+        state_dir: nil,
+        base_profile: "hardened",
+        image: nil,
+        cpu_limit: "4",
+        memory_limit: "8GB",
+        allowlist: DEFAULT_CODE_ON_INCUS_ALLOWLIST.dup
+      )
     end
   end
 

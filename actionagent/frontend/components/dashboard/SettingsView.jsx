@@ -6,6 +6,13 @@ const PROVIDER_META = {
   anthropic: { label: 'Anthropic', icon: '🧠', placeholder: 'sk-ant-…' },
   openrouter: { label: 'OpenRouter', icon: '🔀', placeholder: 'sk-or-…' },
   ollama: { label: 'Ollama', icon: '🦙', placeholder: 'http://localhost:11434/v1' },
+  // Not an LLM provider: the token code sessions use to clone (and, with
+  // write access, push) inside the sandbox. Mono glyph rather than an emoji,
+  // matching the TUI icon set the rest of the dashboard uses.
+  github: {
+    label: 'GitHub (code sessions)', icon: '>_', mono: true, placeholder: 'ghp_… or github_pat_…',
+    note: 'A personal access token with repo scope. Code sessions read it when they clone; a write session also pushes and opens pull requests with it. It is never shown to the coding agent as text.',
+  },
 };
 
 export default function SettingsView({ user, account }) {
@@ -380,7 +387,7 @@ export default function SettingsView({ user, account }) {
                   <div key={provider} className="p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <span className="text-xl">{meta.icon}</span>
+                        <span className="text-xl" style={meta.mono ? { fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700 } : undefined}>{meta.icon}</span>
                         <div>
                           <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{meta.label}</p>
                           <p className={`text-sm ${configured ? (darkMode ? 'text-green-400' : 'text-green-600') : (darkMode ? 'text-gray-400' : 'text-gray-500')}`}>
@@ -431,6 +438,9 @@ export default function SettingsView({ user, account }) {
                           {savingProvider ? 'Saving…' : 'Save'}
                         </button>
                       </div>
+                    )}
+                    {meta.note && editing && (
+                      <p className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{meta.note}</p>
                     )}
                     {hostBased && editing && (
                       <p className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>

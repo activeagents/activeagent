@@ -14,6 +14,7 @@ import InteractionsView from '../components/dashboard/InteractionsView';
 import ToolsView from '../components/dashboard/ToolsView';
 import McpServersView from '../components/dashboard/McpServersView';
 import EvaluationsView from '../components/dashboard/EvaluationsView';
+import CodeSessionsView from '../components/dashboard/CodeSessionsView';
 import SandboxRunner from '../components/dashboard/SandboxRunner';
 import SessionReplayView from '../components/dashboard/SessionReplayView';
 import OrganizationView from '../components/dashboard/OrganizationView';
@@ -65,6 +66,9 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       setCurrentView('mcp');
     } else if (path.startsWith('/evaluations')) {
       setCurrentView('evaluations');
+    } else if (path.startsWith('/code')) {
+      // /code, /code/new and /code/:id: the view reads the sub-route itself.
+      setCurrentView('code');
     } else if (path.startsWith('/analytics')) {
       setCurrentView('analytics');
     } else if (path.startsWith('/agents/new')) {
@@ -286,12 +290,18 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     else if (view === 'tools') path = dashboardPath('/tools');
     else if (view === 'mcp') path = dashboardPath('/mcp');
     else if (view === 'evaluations') path = dashboardPath('/evaluations');
+    else if (view === 'code') path = dashboardPath('/code');
     else if (view === 'replay') path = dashboardPath('/replay');
     else if (view === 'sandbox') path = dashboardPath('/sandbox');
     else if (view === 'organization') path = dashboardPath('/organization');
     else if (view === 'settings') path = dashboardPath('/settings');
 
     window.history.pushState({}, '', path);
+    // Code Sessions routes its own sub-pages from the URL, so a sidebar click
+    // while it is already mounted (on /code/:id, say) has to tell it the URL
+    // moved; pushState alone fires no event. Only this view: re-running
+    // applyPath for the agent views would refetch the agent a second time.
+    if (view === 'code') window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path } }));
   };
 
   const renderContent = () => {
@@ -387,6 +397,10 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         );
       case 'evaluations':
         return <EvaluationsView />;
+      case 'code':
+        // The list-serialized agents are enough for the form's select; the
+        // view fetches /api/agents itself when it mounts before they load.
+        return <CodeSessionsView agents={agents} />;
       case 'replay':
         return (
           <SessionReplayView

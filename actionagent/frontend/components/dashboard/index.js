@@ -8,3 +8,5 @@ export { default as TracesView } from './TracesView';
 export { default as MetricsView } from './MetricsView';
 export { default as InteractionsView } from './InteractionsView';
 export { default as EvaluationsView } from './EvaluationsView';
+export { default as CodeSessionsView } from './CodeSessionsView';
+export { default as CodeSessionBrief } from './CodeSessionBrief';

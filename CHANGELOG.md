@@ -40,6 +40,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   telemetry traffic for their bare tool names attributed to them.
   `MCPCatalog.keys` lists built-ins and registrations together;
   `MCPCatalog::BY_KEY` still holds the built-ins alone.
+- **Code sessions in the dashboard.** A new **Code Sessions** view hands an
+  agent to a coding agent (Claude Code, Codex CLI, GitHub Copilot CLI,
+  opencode, pi, Oh My Pi or aider) running in a
+  [code-on-incus](https://github.com/mensfeld/code-on-incus) container with a
+  checkout of the agent's repository and a brief compiled from the agent's
+  newest scenario evaluation run (`Report#fix_items`, the failing
+  `EvaluationScenarioResult` rows, `EvaluationToolResolver`) and its last 24
+  hours of `MetricsReport` totals: what the agent needs, what it cannot do,
+  and what the sandbox itself permits. Runs are headless (confirmed for
+  Claude Code; the other tools are marked experimental), the transcript and
+  exit code are stored, and *Attach* copies a `coi attach` command for a
+  shell in the same container. Ships `ActionAgent::CodeSession`, the
+  `code_sessions` table in `create_active_agent_code_sessions` (emitted by
+  `rails generate action_agent:install` for new and existing installs),
+  `CodeAgentCatalog`, `CodeSessionBrief`, `CodeSessionOrchestrator` with a
+  `mock` and a `code_on_incus` backend, three `sandboxes`-queue jobs and
+  `/api/code_sessions`. A run's fix list gains *Hand to a coding agent*.
+- **`github` provider key.** `ProviderKey` accepts provider `"github"`
+  (a token, masked like the other key providers) and Settings -> Provider
+  API Keys lists it as *GitHub (code sessions)*. It is what
+  `ActionAgent.github_token_for` falls back to when no
+  `github_token_resolver` is configured, ahead of `ENV["GITHUB_TOKEN"]`
+  (single-tenant only).
+- **Configuration seams for code sessions.** `ActionAgent.code_session_backend`
+  (default `:mock`, `ENV["CODE_SESSION_BACKEND"]` overrides),
+  `code_session_backends` (host-registered backends, `name => class`),
+  `code_session_limits` (`session_duration_minutes`, `run_timeout_seconds`,
+  `max_sessions_per_owner`), `github_token_resolver` (`->(owner, session)`)
+  and `code_on_incus` (`binary`, `ssh_target`, `state_dir`, `base_profile`,
+  `image`, `cpu_limit`, `memory_limit`, `allowlist`). All reset with
+  `ActionAgent.reset!`; `:github_token` joins the engine's
+  `filter_parameters`.
 
 - **RubyLLM backend pinning via `platform:`.** RubyLLM resolves which of its
   providers serves a request from the model ID, and a model served by more

@@ -77,6 +77,23 @@ Once `user_class` (or `account_class`) is set, a request whose owner does not
 resolve sees nothing rather than everything. If a signed-in user gets an empty
 dashboard, the resolver above returned `nil`.
 
+Code sessions hand an agent, with what its evaluations found, to a coding
+agent (Claude Code, Codex CLI, Copilot CLI, or an open-source agent) inside a
+[code-on-incus](https://github.com/mensfeld/code-on-incus) container that has
+a checkout of your repository. The engine ships an in-memory mock so the view
+works without infrastructure; the real backend needs an Incus host with `coi`:
+
+```ruby
+ActionAgent.configure do |config|
+  config.code_session_backend = "code_on_incus"          # default :mock
+  config.code_on_incus.ssh_target = ENV["COI_SSH_TARGET"] # nil when coi runs on this host
+  config.github_token_resolver = ->(owner, session) { owner.github_token }
+end
+```
+
+See [Code Sessions](https://docs.activeagents.ai/framework/code-sessions) for
+the GitHub access modes, the brief and the security notes.
+
 See [the self-hosted observability guide](https://docs.activeagents.ai/framework/self-hosted-observability)
 for the full list.
 

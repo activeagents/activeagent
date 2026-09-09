@@ -11,8 +11,11 @@ module ActionAgent
   # keys are never rendered back to the client — only a masked hint; ollama
   # hosts are not secret and are shown in full (see #display_hint).
   class ProviderKey < ApplicationRecord
-    # Providers that authenticate with an API key.
-    KEY_PROVIDERS = %w[openai anthropic openrouter].freeze
+    # Providers that authenticate with an API key. "github" is the one entry
+    # that is not an LLM provider: it is the token a code session clones and
+    # pushes with, read through ActionAgent.github_token_for rather than
+    # through #generation_options, which no generation would ever want.
+    KEY_PROVIDERS = %w[openai anthropic openrouter github].freeze
     # Providers addressed by host URL instead of a key.
     HOST_PROVIDERS = %w[ollama].freeze
     PROVIDERS = (KEY_PROVIDERS + HOST_PROVIDERS).freeze

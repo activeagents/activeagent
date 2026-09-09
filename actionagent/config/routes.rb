@@ -127,6 +127,22 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # Code sessions: an agent, its evaluation findings and a repository
+    # handed to a coding agent in a sandbox (see
+    # ActionAgent.code_session_backends).
+    resources :code_sessions, only: [ :index, :show, :create, :destroy ] do
+      member do
+        post :run
+        post :stop
+        get :brief
+        get :events
+      end
+      collection do
+        get :catalog
+        post :preview_brief
+      end
+    end
+
     # Credentials: dashboard API keys (token shown once on create) and the
     # owner's own LLM provider credentials, both encrypted at rest.
     resources :api_keys, only: [ :index, :create, :destroy ]
