@@ -72,6 +72,10 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   // The suite's scenarios and run history land with the first fetch; until
   // then the matrix shows a loading line rather than an empty suite.
   const [loaded, setLoaded] = useState(false);
+  // Why the last suite fetch failed, when it did. A suite that could not be
+  // loaded is not an empty suite: reporting one as the other hides the
+  // failure and invites a paste over scenarios that are still there.
+  const [loadError, setLoadError] = useState(null);
   const [scenarios, setScenarios] = useState([]);
   const [groups, setGroups] = useState(evaluation.scenario_groups || []);
   const [runs, setRuns] = useState(evaluation.latest_run ? [evaluation.latest_run] : []);
@@ -105,17 +109,29 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
 
   // The suite with its scenarios and run history (the most recent RUNS_PAGE,
   // newest first, plus `run_count` — the total — when the API reports it).
+  // A refused or failed fetch records why rather than leaving the panel to
+  // render what it already has as the whole suite — see loadError.
   const fetchSuite = useCallback(async () => {
     try {
       const response = await fetch(`/api/evaluations/${evaluationId}`);
-      if (!response.ok) return null;
+      if (!response.ok) {
+        setLoadError(`Could not load this suite (HTTP ${response.status})`);
+        return null;
+      }
       const data = await response.json();
       const suite = data.evaluation || {};
       setScenarios(suite.scenarios || []);
       setGroups(suite.scenario_groups || []);
       setRuns(suite.runs || []);
       setRunCount(Number.isFinite(suite.run_count) ? suite.run_count : null);
+      setLoadError(null);
       return suite;
+    } catch (error) {
+      // Caught rather than propagated: the callers await this from an effect
+      // and from the poll, where a rejection would surface as an unhandled
+      // one instead of as the message below.
+      setLoadError(`Could not load this suite: ${error.message}`);
+      return null;
     } finally {
       setLoaded(true);
     }
@@ -318,7 +334,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
       `${plural(scenarioCount, 'scenario')}${groupCount ? ` in ${plural(groupCount, 'group')}` : ''} × ${plural(columns.length, 'model')}`,
       run.status === 'failed' ? 'failed' : `${totals.passed}/${totals.total} passed`,
     ].join(' · ')
-    : `${agentName} · ${plural(scenarioTotal, 'scenario')}${groups.length ? ` in ${plural(groups.length, 'group')}` : ''} · ${loaded ? 'no runs yet' : 'loading…'}`;
+    : `${agentName} · ${plural(scenarioTotal, 'scenario')}${groups.length ? ` in ${plural(groups.length, 'group')}` : ''} · ${loadError ? 'not loaded' : loaded ? 'no runs yet' : 'loading…'}`;
 
   const reportPath = run && run.status === 'complete' ? `/evaluations/${evaluationId}/runs/${run.id}/report` : null;
 
@@ -365,9 +381,9 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
         </span>
       </div>
 
-      {(runError || run?.status === 'failed') && (
+      {(loadError || runError || run?.status === 'failed') && (
         <div style={{ fontSize: 13, color: 'var(--color-error-text)', background: 'var(--color-error-soft)', borderRadius: 8, padding: '8px 12px' }}>
-          {runError || `Run failed: ${run.error_message || 'unknown error'}`}
+          {loadError || runError || `Run failed: ${run.error_message || 'unknown error'}`}
         </div>
       )}
 
@@ -433,7 +449,11 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
           </Chip>
         </div>
 
-        {suiteEmpty && !loaded ? (
+        {suiteEmpty && loadError ? (
+          // The banner above carries the reason; this slot only has to stop
+          // short of calling a suite that never loaded an empty one.
+          <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>[!] suite not loaded</Empty>
+        ) : suiteEmpty && !loaded ? (
           <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>loading…</Empty>
         ) : suiteEmpty ? (
           <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>No scenarios yet — paste some with “Edit scenarios”.</Empty>
