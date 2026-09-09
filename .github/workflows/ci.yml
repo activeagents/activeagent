@@ -58,10 +58,7 @@ jobs:
           gemfile: "gemfiles/rails7.gemfile"
     steps:
     - uses: actions/checkout@v6
-    - name: Install system deps
-      run: |
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config
+    - uses: ./.github/actions/system-deps
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}
@@ -110,10 +107,7 @@ jobs:
             test-glob: "test/integration/open_ai/**/*_test.rb test/providers/usage_test.rb test/docs/providers/open_ai_examples_test.rb"
     steps:
     - uses: actions/checkout@v6
-    - name: Install system deps
-      run: |
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config
+    - uses: ./.github/actions/system-deps
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}
