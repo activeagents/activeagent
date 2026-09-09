@@ -9,7 +9,8 @@ module ActiveAgent
     # `replay` is a callable `(scenario, model_spec) → Replay` (a Hash with the
     # same keys is accepted, and an exception becomes an errored Replay). A
     # scenario passes when its replay completed, met its expectations, and its
-    # mean score reached `threshold`; anything else carries exactly one fault
+    # mean score and any task-completion judge score reached `threshold`;
+    # anything else carries exactly one fault
     # and a recommendation from Diagnosis, refined by the `judge` for the
     # faults in `refine_faults` (up to `judge_limit` calls per run).
     #
@@ -42,9 +43,14 @@ module ActiveAgent
       # @param instructions [String, nil] the agent's instructions, for the judge
       # @param agent_name [String] how recommendations refer to the agent
       # @param on_result [#call, nil] called with each Result as it lands
+      # @param around_evaluation [#call, nil] called with (scenario, spec) and a
+      #   block that returns the Result. Establishes context for replay, scoring
+      #   and recommendations; must return the block's result. Wrapper errors
+      #   propagate to the caller. Applies to #call, not direct #evaluate calls.
       def initialize(scenarios:, models:, replay:, criteria: [], judge: nil, judge_task: true, available_tools: {},
                      instructions: nil, agent_name: "The agent", threshold: PASS_THRESHOLD,
-                     refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil, metadata: {})
+                     refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil,
+                     around_evaluation: nil, metadata: {})
         @scenarios = scenarios
         @models = models
         @replay = replay
@@ -58,6 +64,7 @@ module ActiveAgent
         @refine_faults = refine_faults
         @judge_limit = judge_limit
         @on_result = on_result
+        @around_evaluation = around_evaluation
         @metadata = metadata
         @judge_calls = 0
         @scorer = Scorer.new(criteria: criteria, judge: judge)
@@ -66,7 +73,7 @@ module ActiveAgent
       def call
         results = @scenarios.flat_map do |scenario|
           @models.map do |spec|
-            evaluate(scenario, spec).tap { |result| @on_result&.call(result) }
+            evaluate_with_context(scenario, spec).tap { |result| @on_result&.call(result) }
           end
         end
 
@@ -101,6 +108,12 @@ module ActiveAgent
       end
 
       private
+
+      def evaluate_with_context(scenario, spec)
+        return evaluate(scenario, spec) unless @around_evaluation
+
+        @around_evaluation.call(scenario, spec) { evaluate(scenario, spec) }
+      end
 
       def judge_task?
         @judge && @judge_task && @criteria.none? { |criterion| criterion.to_h.stringify_keys["type"] == "llm_judge" }

@@ -4,6 +4,55 @@ require "test_helper"
 require_relative "evals_test_support"
 
 class EvalsScenarioParserTest < ActiveSupport::TestCase
+  SUPPORT_SUITE = File.expand_path("fixtures/support_suite.yml", __dir__)
+
+  def test_yaml_suite_import_retains_catalog_metadata_and_expectations
+    parsed = ActiveAgent::Evals::ScenarioParser.scenarios(File.read(SUPPORT_SUITE))
+
+    assert_equal %w[order_lookup live_volume help_cancel], parsed.map(&:key)
+    assert_equal %w[orders orders help], parsed.map(&:group)
+    assert_equal [ "Order support", "Order support", "Product help" ], parsed.map(&:group_name)
+    assert_equal [ "lookup_order" ], parsed.first.expected_tools
+    assert_equal [ "ABC-123" ], parsed.first.expected_patterns
+    assert_equal [ "password" ], parsed.first.forbidden_patterns
+    assert_equal "Use the synthetic test order.", parsed.first.notes
+    assert parsed.second.production_only?
+    assert_not parsed.first.production_only?
+  end
+
+  def test_suite_import_can_exclude_production_scenarios_without_changing_remaining_keys
+    parsed = ActiveAgent::Evals::ScenarioParser.parse(File.read(SUPPORT_SUITE), include_production_only: false)
+
+    assert_equal %w[order_lookup help_cancel], parsed.map { |entry| entry["key"] }
+    assert_equal [ 0, 2 ], parsed.map { |entry| entry["position"] }
+  end
+
+  def test_json_suite_has_the_same_import_contract_as_yaml
+    yaml = File.read(SUPPORT_SUITE)
+    json = YAML.safe_load(yaml).to_json
+
+    assert_equal parse(yaml), parse(json)
+    assert_equal %w[order_lookup help_cancel],
+                 ActiveAgent::Evals::ScenarioParser.scenarios(json, include_production_only: false).map(&:key)
+  end
+
+  def test_json_scenario_attributes_preserve_group_name_and_production_selection
+    text = [ { key: "live_1", prompt: "Count orders today.", group: "orders",
+               group_name: "Order support", production_only: true } ].to_json
+
+    assert_equal "Order support", parse(text).first["group_name"]
+    assert parse(text).first["production_only"]
+    assert_empty ActiveAgent::Evals::ScenarioParser.parse(text, include_production_only: false)
+  end
+
+  def test_broken_yaml_suites_raise_instead_of_becoming_line_scenarios
+    [ "suite: support\ngroups: [", "suite: support\ngroups: wrong", "suite: support\ngroups: !ruby/object:Object {}",
+      "groups:\n  - invalid", "groups:\n  - scenarios: wrong", "groups:\n  - scenarios: [invalid]",
+      "groups:\n  - scenarios:\n      - prompt: Valid question\n        expect: wrong" ].each do |text|
+      assert_raises(ArgumentError) { parse(text) }
+    end
+  end
+
   def parse(text)
     ActiveAgent::Evals::ScenarioParser.parse(text)
   end

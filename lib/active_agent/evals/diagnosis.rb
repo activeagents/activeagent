@@ -213,10 +213,16 @@ module ActiveAgent
       end
 
       def low_quality
-        return nil if @score.nil? || @score >= @threshold
+        task_score = @scores["task_completion"]
+        failed_task = task_score && task_score < @threshold
+        return nil unless failed_task || (@score && @score < @threshold)
 
-        weakest = @scores.compact.min_by { |_, value| value }
-        summary = "Scored #{@score.round(2)} against a pass threshold of #{@threshold}"
+        weakest = failed_task ? [ "task_completion", task_score ] : @scores.compact.min_by { |_, value| value }
+        summary = if failed_task
+          "Task completion scored #{task_score.round(2)} against a pass threshold of #{@threshold}"
+        else
+          "Scored #{@score.round(2)} against a pass threshold of #{@threshold}"
+        end
         summary += ", weakest on #{weakest.first} (#{weakest.last.round(2)})" if weakest
         recommendation =
           if weakest
