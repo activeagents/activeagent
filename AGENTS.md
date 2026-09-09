@@ -2,6 +2,18 @@
 
 > This file helps AI code generation tools (GitHub Copilot, Claude Code, Cursor, Codex, etc.) understand and work with the ActiveAgent codebase effectively.
 
+## Public content boundary
+
+This is a public framework repository. Keep code, examples, tests, documentation,
+issues, and PRs generic. Use independently written reproductions and synthetic
+fixtures for behavior discovered while integrating a private application.
+
+Do not include customer names, organization mappings, private repository URLs,
+client source or business rules, agent instructions, evaluation prompts or
+reports, records, credentials, screenshots, or logs from private projects.
+Renaming identifiers in a copied customer artifact does not make it generic.
+Keep each private customer's material within its own organization context.
+
 ## Quick Reference
 
 | What | Where |
@@ -262,7 +274,7 @@ See `docs/actions/delegation.md` and `lib/active_agent/concerns/delegation.rb`.
 ## Testing
 
 ```bash
-# Run the framework's tests (bare bin/test collects test/**/*_test.rb only)
+# Run the framework and dashboard engine tests
 bin/test
 
 # Run specific test file
@@ -275,8 +287,8 @@ bin/test test/integration/open_ai/
 bundle exec rake test
 ```
 
-The engine's tests live in `actionagent/test/` and are outside `bin/test`'s
-default glob; the Rakefile's `test` task is what sweeps both.
+The engine's tests live in `actionagent/test/`. Both `bin/test` and the
+Rakefile's `test` task collect the framework and engine suites by default.
 
 ### Test Fixtures
 

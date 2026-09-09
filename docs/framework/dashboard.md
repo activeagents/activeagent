@@ -76,6 +76,7 @@ agents point telemetry at an `endpoint:` instead (see below).
 
 | Page | Path | Contents |
 |------|------|----------|
+| Ask ActiveAgents | `/activeagents/assistant` | Ask about recorded evaluations and prepare an agent draft for review |
 | Agents | `/activeagents` | Your agents with per-agent request, token and error stats; build, edit, version and run them |
 | Traces | `/activeagents/traces` | Every generation: agent + action, status, duration, tokens; expandable span timeline; All/Errors filter; 30s auto-refresh |
 | Metrics | `/activeagents/metrics` | The service overview: golden signals, six time series over 1h/24h/7d, and the top agents, models, actions, tools and error types (see below) |
@@ -88,6 +89,23 @@ Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
 degrade gracefully without it; the React metrics page reads buckets the
 API already aggregated and needs nothing extra.
+
+## Ask ActiveAgents
+
+Choose a provider and model, then allow that provider to process your message,
+recent conversation history and authorized report excerpts. Configure a provider
+credential in Settings first. The assistant uses the host's authentication,
+agent scope, execution policy and quota hooks.
+
+Ask which demo questions passed, why an evaluation failed, or describe an agent
+to build. Report cards link to recorded evidence and disclose weak checks and
+missing provenance. Historical passes cannot establish that current main works.
+Agent drafts open in the builder for review; they are not saved or run by chat.
+
+Conversation state resets on reload. Assistant generations disable framework
+traces and provider notifications; provider retention and host request logging
+policies still apply. Repository connections, COI execution, Claude Code sessions
+and PR checks remain [planned work](/plans/dashboard-assistant/PLAN).
 
 ## Metrics
 

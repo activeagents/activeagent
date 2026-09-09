@@ -23,6 +23,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const userName = user?.name || user?.email?.split('@')[0] || 'User';
 
   const agentItems = [
+    { id: 'assistant', label: 'Ask ActiveAgents', icon: '>' },
     { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
     { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
     { id: 'sandbox', label: 'Run Agents', icon: ICONS.nav.demo, highlight: true },
