@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "cgi"
+
 module ActiveAgent
   module Evals
     # Report#to_html: the run as one self-contained page on the dashboard's
@@ -16,7 +18,6 @@ module ActiveAgent
       THEMES = %w[light dark].freeze
       ANSWER_LIMIT = 3_000
       ERROR_LIMIT = 500
-      PROMPT_LIMIT = 200
 
       # @param theme [String, nil] "light" or "dark" pins the palette by putting
       #   `theme-light` / `theme-dark` on `<html>`; nil follows the viewer's
@@ -98,12 +99,18 @@ module ActiveAgent
         @models.find { |spec| spec.label == label } || ModelSpec.new(label: label, provider: "", model: label)
       end
 
+      # The judge to name in the header chip and the footer: the judge that
+      # ran, the label a rebuilt run recorded, or the rules that scored it.
       def judge_name
-        @judge&.label || "rules"
+        @judge_label || @judge&.label || "rules"
       end
 
+      # Who picked the best model, the way the dashboard's suite panel reads
+      # it: the verdict's judge — unless that is only the framework's
+      # pass-rate ranking, which is not a judge.
       def judged_by
-        verdict&.dig("judge").presence || judge_name
+        judge = verdict&.dig("judge").presence
+        judge && judge != Report::PASS_RATE_JUDGE ? judge : judge_name
       end
 
       # Results per scenario, in run order.
@@ -244,7 +251,7 @@ module ActiveAgent
         <<~BLOCK
           <div class="model">
           <div class="line"><span class="name">#{h(short)}</span><span class="provider">#{h(provider)}</span>#{pick}<span class="pass"><span class="bar bar-#{tone}"><span style="width:#{(ratio * 100).round}%"></span></span><span class="ratio tone-#{tone}">#{stats['passed']}/#{total}</span></span></div>
-          <div class="stats-line"><span>score <b>#{h(fmt_mean_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> <b>#{h(fmt_k(stats['input_tokens']))}</b> · <span class="out">out</span> <b>#{h(fmt_k(stats['output_tokens']))}</b></span><span>cost <b>#{h(fmt_cost(stats['cost']))}</b></span></div>
+          <div class="stats-line"><span>score <b>#{h(fmt_mean_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span>cost <b>#{h(fmt_cost(stats['cost']))}</b></span></div>
           <div class="faults">#{faults_html}</div>
           </div>
         BLOCK
@@ -252,18 +259,27 @@ module ActiveAgent
 
       # --- WHAT TO FIX -----------------------------------------------------
 
+      # The section stands even for a run with nothing to fix — the dashboard
+      # keeps it too, so a clean run reads as clean rather than as a page
+      # missing a section. A report over no results at all has nothing to say.
       def html_fixes
-        items = fix_items
-        return "" if items.empty?
+        return "" if @results.empty?
 
+        items = fix_items
         faulted = @results.reject(&:passed?)
         meta = "#{plural(items.size, 'item')} · #{plural(faulted.size, 'fault')} across " \
                "#{plural(faulted.map { |result| result.scenario.key }.uniq.size, 'scenario')}"
+        body =
+          if items.any?
+            %(<div class="fixes">#{items.map { |item| html_fix_card(item) }.join}</div>)
+          else
+            %(<div class="nothing">[+] nothing to fix</div>)
+          end
 
         <<~FIXES
           <section class="section" aria-label="Recommendations">
           <div class="section-head"><span class="micro">What to fix</span><span class="meta">#{h(meta)}</span></div>
-          <div class="fixes">#{items.map { |item| html_fix_card(item) }.join}</div>
+          #{body}
           </section>
         FIXES
       end
@@ -292,34 +308,44 @@ module ActiveAgent
         %(<div class="tools"><span class="micro sm">#{h(item['tools_label'])}</span><div class="list">#{chips.join}</div></div>)
       end
 
+      # "available · not enabled for Clara", "unknown · not enabled for
+      # Clara" — every status but "enabled" leads with the status word, the
+      # way the dashboard's fix list reads it.
       def html_fix_server(server)
         badge =
-          case server["status"]
-          when "enabled" then %(<span class="badge success xs">enabled for #{h(@agent_name)}</span>)
-          when "available" then %(<span class="badge warning xs">available · not enabled for #{h(@agent_name)}</span>)
-          else %(<span class="badge warning xs">not enabled for #{h(@agent_name)}</span>)
+          if server["status"] == "enabled"
+            %(<span class="badge success xs">enabled for #{h(@agent_name)}</span>)
+          else
+            %(<span class="badge warning xs">#{h(server['status'].presence || 'unknown')} · not enabled for #{h(@agent_name)}</span>)
           end
         %(<div class="served"><span>served by</span><b>#{h(server['name'].presence || server['key'])}</b>#{badge}</div>)
       end
 
       # With a route the action is a button; without one, the page can only
-      # say where in the dashboard the fix lives.
+      # say where in the dashboard the fix lives. The link targets the top
+      # window: served in the dashboard's report iframe it would otherwise
+      # open the whole dashboard inside the frame.
       def html_fix_action(action)
-        button = action["path"].present? ? %(<a class="btn" href="#{h(action['path'])}">#{h(action['label'])}</a>) : ""
+        button = action["path"].present? ? %(<a class="btn" target="_top" href="#{h(action['path'])}">#{h(action['label'])}</a>) : ""
         %(<div class="action">#{button}<span class="hint">#{h(action['hint'])}</span></div>)
       end
 
+      # "3 scenarios · both models" — the models are worth naming only on a
+      # comparison run; on a single-model run the count says it all.
       def fix_scope(item)
         return "#{item['scenario_keys'].join(', ')} · judge suggestion" if item["kind"] == "instruction"
 
-        labels = item["models"]
+        scenarios = plural(item["scenario_keys"].size, "scenario")
+        labels = Array(item["models"])
+        return scenarios unless comparing? && labels.any?
+
         models =
-          if comparing? && labels.size == @models.size
+          if labels.size >= @models.size
             @models.size == 2 ? "both models" : "all models"
           else
             labels.map { |label| short_name(model_by_label(label)) }.join(", ")
           end
-        "#{plural(item['scenario_keys'].size, 'scenario')} · #{models}"
+        "#{scenarios} · #{models}"
       end
 
       # --- SCENARIOS matrix ------------------------------------------------
@@ -371,7 +397,7 @@ module ActiveAgent
           result ? html_result_cell(result) : %(<div class="cell"><div class="top"><span class="muted">—</span></div></div>)
         end
         %(<div class="mx"><div><div class="key"><a href="##{h(anchor(scenario))}">#{h(scenario.key)}</a></div>) +
-          %(<div class="prompt">#{h(scenario.prompt.truncate(PROMPT_LIMIT))}</div></div><div class="expects">#{expects}</div>#{cells.join}</div>)
+          %(<div class="prompt">#{h(scenario.prompt)}</div></div><div class="expects">#{expects}</div>#{cells.join}</div>)
       end
 
       def html_result_cell(result)
@@ -535,6 +561,7 @@ module ActiveAgent
         .verdict { padding: 10px 12px; border-top: 1px solid var(--color-border-light); font-size: 12px; line-height: 18px; color: var(--color-text-cell); }
         .verdict .micro { margin-right: 8px; }
         .fixes { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+        .nothing { border: 1px solid var(--color-border-light); border-radius: 10px; padding: 14px 12px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
         .fix { border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
         .fix .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .fix .glyph { font-family: var(--font-mono); font-size: 12px; font-weight: 700; }

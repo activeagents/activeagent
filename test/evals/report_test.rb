@@ -97,6 +97,9 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_equal "missing tools", missing["tools_label"]
     assert_equal %w[search_slots], missing["tools"].map { |tool| tool["name"] }
     assert_match(/\As_jobs is the exception: Expected healthcheck to be called; the agent called find_records\./, missing["note"])
+    assert_match(/expects search_slots, which the agent does not have/, missing["recommendation"],
+                 "the card speaks for the scenarios whose tool was missing, not for the exception it notes")
+    assert_no_match(/answered with find_records/, missing["recommendation"])
     assert_nil missing["quote"]
 
     failing = by_fault["tool_error"]
@@ -123,6 +126,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_equal [ "s_slots" ], instruction["scenario_keys"]
     assert_equal [ llama.label ], instruction["models"]
     assert_equal [], instruction["tools"]
+    assert_nil instruction["recommendation"], "the judge's recommendation is already the fault card's text"
     assert_equal({ "label" => "Add to instructions", "hint" => "Agent -> Instructions", "path" => nil }, instruction["action"])
   end
 
@@ -221,7 +225,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, "4 / 10 passed"
     assert_includes html, %(<div class="value tone-error">40%</div>)
     assert_includes html, "5 fix items"
-    assert_includes html, "judged by pass rate"
+    assert_includes html, "judged by rules", "a pass-rate ranking is not a judge — the dashboard reads it the same way"
     assert_includes html, "judge's pick"
     assert_not_includes html, "Winner"
     assert_includes html, %(<span class="name">llama-3.1-8b</span><span class="provider">openrouter/meta-llama</span>)
@@ -231,6 +235,8 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, "<b>2.5s</b>"
     assert_includes html, "<b>900ms</b>"
     assert_includes html, "<b>$0.0012</b>"
+    assert_includes html, %(<span class="tok"><span class="in">in</span> 80 · <span class="out">out</span> 9</span>),
+                    "token counts stay plain in the secondary line, as they are on the dashboard"
     assert_includes html, %(<span class="micro sm">Verdict</span>)
   end
 
@@ -249,7 +255,8 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, %(<b>search_slots</b><span class="note">Sparkle Match</span>)
     assert_includes html, %(<span>served by</span><b>Sparkle Match</b><span class="badge warning xs">available · not enabled for Clara</span>)
     assert_includes html, "s_jobs is the exception"
-    assert_includes html, %(<a class="btn" href="/activeagents/mcp/sparkle_match">Enable Sparkle Match for Clara</a><span class="hint">MCP Services -&gt;</span>)
+    assert_includes html, %(<a class="btn" target="_top" href="/activeagents/mcp/sparkle_match">Enable Sparkle Match for Clara</a><span class="hint">MCP Services -&gt;</span>),
+                    "the action leaves the dashboard's report iframe rather than nesting the dashboard in it"
     assert_includes html, "“Use search_slots for appointment questions.”"
     assert_not_includes html, "expected_tool_not_called"
   end
@@ -321,7 +328,29 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, %(<span class="badge error">errored</span>)
     assert_includes html, "Error: RuntimeError: provider down"
     assert_includes html, "answer not retained for this run"
-    assert_includes html, "1 scenario · gpt-5-mini"
+    assert_includes html, %(<span class="scope">1 scenario</span>), "one model column is no comparison to scope a fix to"
+    assert_not_includes html, "1 scenario · gpt-5-mini"
+  end
+
+  def test_the_matrix_renders_the_whole_prompt
+    prompt = "Find the next available dermatology slot, #{([ 'check it is not double booked' ] * 8).join(', ')}."
+    html = Report.new(models: models.first(1), results: [
+      result(scenario("s_long", prompt), gpt, replay(answer: "Booked."))
+    ]).to_html
+
+    assert_operator prompt.length, :>, 200
+    assert_includes html, %(<div class="prompt">#{prompt}</div>), "the matrix cell wraps; it does not truncate"
+    assert_not_includes html, "…"
+  end
+
+  def test_a_clean_run_keeps_the_what_to_fix_section
+    html = Report.new(models: models.first(1), results: [
+      result(scenario("s_1", "Who changed the biography?"), gpt, replay(answer: "Alice did, on Monday."))
+    ]).to_html
+
+    assert_includes html, "What to fix"
+    assert_includes html, "0 items · 0 faults across 0 scenarios"
+    assert_includes html, %(<div class="nothing">[+] nothing to fix</div>)
   end
 
   def test_an_empty_report_still_renders
@@ -329,6 +358,37 @@ class EvalsReportTest < ActiveSupport::TestCase
 
     assert_includes html, "<title>Evaluation — 0 scenarios × 2 models</title>"
     assert_includes html, "0 / 0 passed"
-    assert_not_includes html, "What to fix"
+    assert_not_includes html, "What to fix", "a report over no results has nothing to fix and nothing to say about it"
+  end
+
+  # --- a rebuilt run's verdict ------------------------------------------------
+
+  def test_a_recorded_verdict_is_rendered_as_recorded_rather_than_ranked_again
+    recorded = { "winner" => gpt.label, "rationale" => "Slower, but it never claimed a tool it did not have.", "judge" => "gpt-4o-mini" }
+    rebuilt = report(verdict: recorded, judge_label: "gpt-4o-mini")
+    html = rebuilt.to_html
+
+    assert_equal recorded, rebuilt.verdict
+    assert_equal gpt.label, rebuilt.winner, "the pass-rate ranking would have picked the other model"
+    assert_includes html, %(<span class="name">gpt-5-mini</span><span class="provider">openai</span><span class="badge info xs">judge's pick</span>)
+    assert_not_includes html, %(<span class="provider">openrouter/meta-llama</span><span class="badge info xs">judge's pick</span>)
+    assert_includes html, "Slower, but it never claimed a tool it did not have."
+    assert_includes html, "pick · gpt-5-mini", "the MODELS tile names the recorded pick too"
+    assert_includes html, "judged by gpt-4o-mini"
+    assert_includes html, %(<span class="chip"><b>judge</b>gpt-4o-mini</span>)
+    assert_includes html, %(<span class="nowrap">judge gpt-4o-mini</span>)
+  end
+
+  def test_a_recorded_verdict_does_not_ask_the_judge_again
+    asked = 0
+    judge = fake_judge(label: "gpt-4o-mini") do
+      asked += 1
+      %({"winner": "gpt-5-mini", "rationale": "Asked again."})
+    end
+    rebuilt = report(judge: judge, verdict: { "winner" => llama.label, "rationale" => "Recorded.", "judge" => "gpt-4o-mini" })
+
+    assert_equal "Recorded.", rebuilt.verdict["rationale"]
+    assert_includes rebuilt.to_html, "judged by gpt-4o-mini"
+    assert_equal 0, asked, "a run that was already ruled on is not re-litigated"
   end
 end

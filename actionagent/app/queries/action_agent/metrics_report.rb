@@ -152,8 +152,9 @@ module ActionAgent
 
       window_hours = hours.to_i.clamp(1, MAX_WINDOW_HOURS)
       window_seconds = window_hours * 3600
-      seconds = BUCKET_SIZES.find { |size| window_seconds / size <= TARGET_BUCKETS } || BUCKET_SIZES.last
-      [ CUSTOM_RANGE, seconds, (window_seconds.to_f / seconds).ceil, window_hours ]
+      bucket_count = ->(size) { (window_seconds.to_f / size).ceil }
+      seconds = BUCKET_SIZES.find { |size| bucket_count.call(size) <= TARGET_BUCKETS } || BUCKET_SIZES.last
+      [ CUSTOM_RANGE, seconds, bucket_count.call(seconds), window_hours ]
     end
 
     attr_reader :range, :bucket_seconds, :bucket_count, :window_hours, :agent
@@ -420,19 +421,29 @@ module ActionAgent
     # filter is on). A version that changed the instructions is labelled
     # as such — that is the deploy a latency or error shift most often
     # traces back to.
+    #
+    # The comparison needs each version's predecessor. Two reads cover
+    # them all: the window's versions, then the predecessors that fall
+    # before the window (a predecessor inside it is already loaded).
+    # Version numbers are sequential per agent — Agent creates each one
+    # as latest + 1 and they are only destroyed with their agent — so the
+    # predecessor of version n is version n - 1.
     def deploy_markers
       agent_ids = @agents.respond_to?(:pluck) ? @agents.pluck(:id) : Array(@agents).map(&:id)
       versions = AgentVersion
         .includes(:agent)
         .where(agent_id: agent_ids, created_at: window_start...window_end)
         .order(:created_at, :id)
+        .to_a
+      predecessors = predecessors_of(versions)
 
       versions.filter_map do |version|
         agent = version.agent
         next if agent.nil?
         next if @agent && agent.telemetry_agent_class != @agent
 
-        instructions_changed = snapshot_of(version)["instructions"].to_s != snapshot_of(version.previous)["instructions"].to_s
+        previous = predecessors[[ version.agent_id, version.version_number - 1 ]]
+        instructions_changed = snapshot_of(version)["instructions"].to_s != snapshot_of(previous)["instructions"].to_s
         {
           kind: "deploy",
           ts: version.created_at.utc.iso8601,
@@ -440,6 +451,23 @@ module ActionAgent
           agent: agent.name
         }
       end
+    end
+
+    # { [agent_id, version_number] => version } holding the predecessor of
+    # every version in +versions+: the ones among them, plus one read for
+    # the rest.
+    def predecessors_of(versions)
+      loaded = versions.index_by { |version| [ version.agent_id, version.version_number ] }
+      missing = versions
+        .map { |version| [ version.agent_id, version.version_number - 1 ] }
+        .reject { |key| key.last < 1 || loaded.key?(key) }
+      return loaded if missing.empty?
+
+      missing
+        .group_by(&:first)
+        .map { |agent_id, keys| AgentVersion.where(agent_id: agent_id, version_number: keys.map(&:last)) }
+        .reduce(:or)
+        .each_with_object(loaded) { |version, map| map[[ version.agent_id, version.version_number ]] = version }
     end
 
     # Snapshots are written with symbol keys and read back with strings.
