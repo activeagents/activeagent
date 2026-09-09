@@ -26,10 +26,16 @@ class CredentialsTest < ActionDispatch::IntegrationTest
     key = ActionAgent::ProviderKey.create!(provider: "openrouter", credential: "sk-or-v1-roundtrip")
 
     assert_equal "sk-or-v1-roundtrip", key.reload.generation_options[:access_token]
-    assert_not_equal "sk-or-v1-roundtrip",
-      ActionAgent::ProviderKey.connection.select_value(
-        "SELECT credential FROM #{ActionAgent::ProviderKey.table_name} WHERE id = #{key.id}"
-      ),
+    # Read the column through the connection, not the model: an AR read
+    # decrypts the attribute, so only the raw row shows whether the stored
+    # value is ciphertext.
+    connection = ActionAgent::ProviderKey.connection
+    stored = connection.select_value(
+      "SELECT credential FROM #{connection.quote_table_name(ActionAgent::ProviderKey.table_name)} " \
+      "WHERE id = #{connection.quote(key.id)}"
+    )
+
+    assert_not_equal "sk-or-v1-roundtrip", stored,
       "the stored column must not hold the plain credential"
   end
 
