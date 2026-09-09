@@ -42,6 +42,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only when they are inline data or this app's own URL; any other host is
   offered as a click-to-load, since fetching one tells that host whatever the
   model put in the URL.
+
+### Fixed
+
+- **The OpenAI Responses API keeps images and documents on a message with a
+  role.** `{ role: "user", text: "…", image: "…" }` — the shorthand the Chat
+  API and Anthropic transforms accept, and the only provider-neutral way to
+  send history followed by a multimodal turn — lost its `image:` or
+  `document:` on the provider the framework defaults to, because the
+  Responses transform kept only `content` from a role-bearing hash. It now
+  builds `input_text` / `input_image` / `input_file` parts for it, and a
+  media-only `{ role: "user", image: "…" }` becomes a message with one part.
+  The shorthand keys always come off the message, so a hash that carries
+  `content` *and* `image:` no longer sends `image` as an unknown parameter,
+  and a blank `image:`/`document:` contributes no part rather than an empty
+  one (a nil `document:` used to raise).
+
+## [1.4.0] - 2026-09-09
+
+Releases `activeagent` 1.4.0 and `actionagent` 1.3.0 from one tag.
+
+### Added
+
 - **`ActiveAgent::Evals`, the evaluation core, in the framework.** Pasted-list
   and YAML suite parsing, model resolution, rule and expectation scoring, the
   fault taxonomy with its recommendations, the optional judge, and the
@@ -149,18 +171,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **The OpenAI Responses API keeps images and documents on a message with a
-  role.** `{ role: "user", text: "…", image: "…" }` — the shorthand the Chat
-  API and Anthropic transforms accept, and the only provider-neutral way to
-  send history followed by a multimodal turn — lost its `image:` or
-  `document:` on the provider the framework defaults to, because the
-  Responses transform kept only `content` from a role-bearing hash. It now
-  builds `input_text` / `input_image` / `input_file` parts for it, and a
-  media-only `{ role: "user", image: "…" }` becomes a message with one part.
-  The shorthand keys always come off the message, so a hash that carries
-  `content` *and* `image:` no longer sends `image` as an unknown parameter,
-  and a blank `image:`/`document:` contributes no part rather than an empty
-  one (a nil `document:` used to raise).
+- **A run report is readable in the dashboard.** The report was framed at a
+  fixed viewport height, so everything past the first screen — including
+  every fix item — sat behind a nested scrollbar. The frame is sized to the
+  report's own content, and a fix action targets the top window so it
+  navigates the dashboard instead of loading it into the frame. (#410, #411)
+
+- **Provider credentials store on a host that skipped `db:encryption:init`.**
+  Encryption keys derived from `secret_key_base` were installed after Rails
+  had already configured `ActiveRecord::Encryption`, so the config read back
+  correct while every credential write raised `Errors::Configuration` — in
+  the dashboard, the Settings API Keys tab failed to render and provider
+  keys failed to save. (#412)
 
 - **`service: "RubyLLM"` loads when the ruby_llm railtie has run.** The
   ruby_llm gem registers `RubyLLM` as an inflector acronym in Rails apps,
