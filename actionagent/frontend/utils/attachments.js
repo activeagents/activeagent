@@ -26,6 +26,19 @@ export function formatBytes(bytes) {
 
 // Thumbnails come from the host's Active Storage routes (root-relative), the
 // composer's object URLs, or inline data — never from a bare model string.
+// An absolute URL is allowed only on this app's own origin: "//host/x.png"
+// and "/\host/x.png" wear a root-relative look but load from elsewhere.
 export function isRenderableAttachmentUrl(url) {
-  return typeof url === 'string' && /^(https?:\/\/|data:image\/|blob:|\/)/i.test(url.trim());
+  if (typeof url !== 'string') return false;
+  const value = url.trim();
+  if (/^(data:image\/|blob:)/i.test(value)) return true;
+  if (/^\/[\\/]/.test(value)) return false;
+  if (value.startsWith('/')) return true;
+  if (!/^https?:\/\//i.test(value)) return false;
+  if (typeof window === 'undefined' || !window.location) return false;
+  try {
+    return new URL(value, window.location.href).origin === window.location.origin;
+  } catch {
+    return false;
+  }
 }

@@ -147,7 +147,10 @@ export function blocksFromToolCall(message, { callId } = {}) {
     const anyIds = calls.some((call) => isPlainObject(call) && call.id != null);
     calls.forEach((call) => {
       if (callName(call) !== UI_TOOL_NAME) return;
-      if (callId != null && anyIds && call.id != null && call.id !== callId) return;
+      // Once any call in the row carries an id, an id-less one is not the
+      // call this tool row answers either: keeping it would hang another
+      // call's blocks on this result.
+      if (callId != null && anyIds && call.id !== callId) return;
       const found = blocksFromValue(callArguments(call));
       if (found) out.push(...found);
     });
