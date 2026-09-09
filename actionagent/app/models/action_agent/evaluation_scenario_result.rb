@@ -45,16 +45,24 @@ module ActionAgent
     end
 
     def evaluation_diagnosis
-      (diagnosis || {}).except("_replay_metadata")
+      (diagnosis || {}).except("_replay_metadata", "_scenario_snapshot")
+    end
+
+    # A catalog can be refreshed without changing what an earlier run asked
+    # or expected. Older results did not record this snapshot.
+    def evaluated_scenario
+      snapshot = diagnosis&.dig("_scenario_snapshot")
+      snapshot.is_a?(Hash) ? snapshot : scenario.as_json_summary.stringify_keys
     end
 
     def as_json_summary
       {
         id: id,
         scenario_id: evaluation_scenario_id,
-        scenario_key: scenario.key,
-        group: scenario.group,
-        prompt: scenario.prompt,
+        scenario_key: evaluated_scenario["key"],
+        group: evaluated_scenario["group"],
+        prompt: evaluated_scenario["prompt"],
+        scenario: evaluated_scenario,
         model: model,
         provider: provider,
         status: status,

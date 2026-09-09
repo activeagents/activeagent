@@ -209,7 +209,10 @@ module ActionAgent
         cost: result.replay.cost,
         fault: result.fault,
         recommendation: result.recommendation,
-        diagnosis: (result.diagnosis || {}).merge("_replay_metadata" => result.replay.metadata),
+        diagnosis: (result.diagnosis || {}).merge(
+          "_replay_metadata" => result.replay.metadata,
+          "_scenario_snapshot" => result.scenario.to_h.merge(expectations: result.scenario.expectations)
+        ),
         error_message: result.replay.error
       )
     end
@@ -221,6 +224,7 @@ module ActionAgent
       scores["_verdict"] = report.verdict if report.comparing?
       scores["_selection"] = run.selection
       scores["_metadata"] = report.metadata
+      scores["_judge_label"] = report.judge_label || report.judge&.label
       scores
     end
 

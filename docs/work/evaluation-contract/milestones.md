@@ -20,3 +20,11 @@ includes two-model host replay, actual owner and judge configuration delivery,
 selection, metadata/report reconstruction, partial failure retention,
 default-runtime fallback, and the observed-agent API gate. Logs are under
 `tmp/host-evaluation-adapter/`.
+
+Historical catalog validation: 73 mounted-engine tests / 351 assertions and
+five Node frontend tests passed. Four changed Ruby files passed lint. The
+regression changes a catalog prompt, expected tool, notes, group, ordering,
+and judge after a run and verifies the old report remains unchanged while a
+new run uses the refreshed question. Frontend tests cover snapshot matrix
+rows and authorized detail lookup for links outside the index page. Logs are
+under `tmp/scenario-history/`.

@@ -23,3 +23,9 @@ persists results via the engine callback, and returns the same report type.
 Run and replay metadata survive reconstruction without new schema columns.
 Observed agents run only evaluations explicitly routed to a host adapter.
 The expanded regression suite passes 176 tests and 1,009 assertions.
+
+Catalog refresh now preserves historical prompts, expectations, notes, and
+judge labels in both reports and the result matrix. Dashboard links can open
+a specified evaluation or saved report without depending on index ordering.
+This adds 73 mounted-engine checks / 351 assertions and five frontend checks
+covering historical evidence, current reruns, and scoped links.

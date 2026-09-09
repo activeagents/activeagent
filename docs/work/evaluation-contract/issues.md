@@ -40,3 +40,14 @@ agent remains read-only.
 Host report/replay metadata now survives persistence and report
 reconstruction, including stable IDs and response/judge trace references.
 Incomplete adapter reports fail rather than showing an empty completed run.
+
+## Catalog refresh rewrote historical evidence
+
+Persisted results previously joined the current scenario for their prompt and
+expectations, and a single-model report borrowed the evaluation's current
+judge model. Refreshing those records changed the meaning of an older report.
+New results snapshot their scenario and runs record their judge label. Both
+the report and matrix use the recorded evidence; rerunning still uses the
+current catalog. Explicit evaluation deep links now focus the requested
+suite, including one outside the index's first page, instead of opening an
+unrelated recent evaluation.
