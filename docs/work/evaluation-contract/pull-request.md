@@ -29,3 +29,8 @@ judge labels in both reports and the result matrix. Dashboard links can open
 a specified evaluation or saved report without depending on index ordering.
 This adds 73 mounted-engine checks / 351 assertions and five frontend checks
 covering historical evidence, current reruns, and scoped links.
+
+Observed agents also reject API configuration/status changes and restoration,
+and direct or queued execution cannot bypass their read-only state. Explicit
+duplicates remain executable drafts and registered host adapters retain their
+evaluation path. Related execution/API regressions pass 67 tests / 326 assertions.

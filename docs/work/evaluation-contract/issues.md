@@ -51,3 +51,13 @@ the report and matrix use the recorded evidence; rerunning still uses the
 current catalog. Explicit evaluation deep links now focus the requested
 suite, including one outside the index's first page, instead of opening an
 unrelated recent evaluation.
+
+## Observed agent status could bypass the host runtime
+
+An observed agent's execute/test endpoints were blocked, but its update
+endpoint accepted a change to executable status and its restore endpoint
+still changed configuration. These mutations now return the same read-only
+error. Direct Ruby execution and queued execution also reject observed
+agents before invoking a provider. Explicit duplication produces a separate
+draft that can be configured and run; registered evaluation adapters still
+use the host runtime.
