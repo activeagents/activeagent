@@ -71,10 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config
+      - uses: ./.github/actions/system-deps
 
       - uses: ruby/setup-ruby@v1
         with:

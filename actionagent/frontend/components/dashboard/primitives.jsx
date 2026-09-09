@@ -8,7 +8,6 @@ import { ICONS } from '../../utils/designTokens';
 // every number.
 
 export const MONO = 'var(--font-mono)';
-export const TEXT = 'var(--font-text)';
 
 // Pass-ratio tone thresholds, used everywhere a pass ratio is colored.
 export const toneFor = (ratio) => (ratio >= 1 ? 'success' : ratio >= 0.7 ? 'warning' : 'error');
@@ -138,7 +137,7 @@ export function Button({ variant = 'secondary', size = 'md', children, onClick, 
   const pad = size === 'sm' ? '6px 12px' : '8px 14px';
   const base = { padding: pad, borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 500, opacity: disabled ? 0.5 : 1, whiteSpace: 'nowrap', fontFamily: 'inherit' };
   const variants = {
-    primary: { background: 'var(--color-accent-ui)', color: '#fff', border: '1px solid transparent' },
+    primary: { background: 'var(--color-accent-ui)', color: 'var(--color-on-accent)', border: '1px solid transparent' },
     secondary: { background: 'transparent', color: 'var(--color-text-cell)', border: '1px solid var(--color-border-strong)' },
     danger: { background: 'transparent', color: 'var(--color-error)', border: '1px solid transparent' },
     ghost: { background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid transparent' },
@@ -220,10 +219,6 @@ export function MonoLink({ children, onClick, href = '#', color = 'var(--color-i
       {children} {GLYPH.link}
     </a>
   );
-}
-
-export function Divider({ style }) {
-  return <div style={{ borderTop: '1px solid var(--color-border-light)', ...style }} />;
 }
 
 // Mono muted empty-state line, e.g. "[+] nothing failed in this group".

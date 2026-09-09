@@ -367,4 +367,44 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, '<html lang="en">'
   end
+  # The report page is rebuilt from the run's persisted results rather than
+  # re-ranked, so it names the same best model and judge the suite panel
+  # does — the panel reads scores["_verdict"]. Here the recorded winner is
+  # the model that failed its only scenario: ranking again would pick the
+  # other one.
+  test "the report page names the judge's pick and the judge the run recorded" do
+    agent = create_agent
+    evaluation = agent.evaluations.new(name: "Bake-off", judge_kind: "rules", judge_model: "gpt-4o-mini", criteria: [])
+    scenario = evaluation.scenarios.build(key: "find_slots", prompt: "Which slots are open?", position: 0)
+    evaluation.save!
+    run = evaluation.evaluation_runs.create!(
+      status: :complete, completed_at: Time.current,
+      selection: {
+        "scenario_ids" => [ scenario.id ],
+        "models" => [
+          { "label" => "gpt-5-mini", "provider" => "openai", "model" => "gpt-5-mini" },
+          { "label" => "ollama/qwen3:8b", "provider" => "ollama", "model" => "qwen3:8b" }
+        ]
+      },
+      scores: {
+        "_verdict" => { "winner" => "gpt-5-mini", "rationale" => "Called find_records every time.", "judge" => "claude-sonnet-4-5" }
+      }
+    )
+    run.scenario_results.create!(
+      scenario: scenario, model: "gpt-5-mini", provider: "openai", status: :failed, score: 0.0,
+      output: "No idea.", duration_ms: 700
+    )
+    run.scenario_results.create!(
+      scenario: scenario, model: "qwen3:8b", provider: "ollama", status: :passed, score: 1.0,
+      output: "Next Tuesday.", duration_ms: 2400
+    )
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}/report"
+
+    assert_response :success
+    assert_equal [ [ "gpt-5-mini" ] ], response.body.scan(%r{<span class="name">([^<]+)</span>[^\n]*judge's pick})
+    assert_includes response.body, "judged by claude-sonnet-4-5"
+    assert_includes response.body, "Called find_records every time."
+    refute_includes response.body, "judged by pass rate"
+  end
 end
