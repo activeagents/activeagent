@@ -363,6 +363,14 @@ class EvalsReportTest < ActiveSupport::TestCase
 
   # --- a rebuilt run's verdict ------------------------------------------------
 
+  def test_a_rebuilt_report_keeps_its_judge_identity_in_json_and_markdown
+    rebuilt = Report.new(results: [], models: [], judge_label: "recorded-support-judge")
+
+    assert_equal "recorded-support-judge", JSON.parse(rebuilt.to_json)["judge"]
+    assert_includes rebuilt.to_markdown, "Judged by `recorded-support-judge`."
+    assert_not_includes rebuilt.to_markdown, "No judge"
+  end
+
   def test_a_recorded_verdict_is_rendered_as_recorded_rather_than_ranked_again
     recorded = { "winner" => gpt.label, "rationale" => "Slower, but it never claimed a tool it did not have.", "judge" => "gpt-4o-mini" }
     rebuilt = report(verdict: recorded, judge_label: "gpt-4o-mini")

@@ -1,5 +1,22 @@
 # Evaluation contract milestones
 
+Final consolidated validation on Ruby 4.0.2: **246 tests, 1,336 assertions**,
+zero failures, errors, or skips. This includes all core evaluation tests and
+the mounted engine's evaluation, adapter, history, execution, API, and engine
+integration tests. **Five frontend tests** passed; rebuilding the production
+JS/CSS produced no changes to committed assets.
+
+A separate synthetic cross-repository contract smoke passed **one test,
+28 assertions**: replay a three-scenario/two-model report, publish through
+the real Publisher to a mocked transport, validate the exact captured envelope
+using the hosted dashboard importer, then retry a saved report with identical
+content. Passed, failed, and errored results, scores, judge identity, and
+response/judge trace IDs all survived. This validates payload compatibility;
+it does not exercise a live collector, database import, or provider call.
+Final logs and the standalone smoke script are in ignored `tmp/final-validation/`.
+
+Earlier bounded validation follows for traceability.
+
 - [x] Reproduce task-completion false passes with synthetic expectations.
 - [x] Require task completion to pass independently of tool/content scores.
 - [x] Parse finite JSON scores and verify malformed recommendations cannot abort reports.

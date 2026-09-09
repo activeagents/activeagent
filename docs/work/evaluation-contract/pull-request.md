@@ -1,36 +1,33 @@
-# Draft pull request: preserve evaluation scoring and import contracts
+# Draft pull request: preserve evaluation scoring and report contracts
 
-An expected tool call could turn an answer graded 0.2 into a passing
-evaluation. Require task completion to meet the run threshold separately,
-parse judge scores as JSON numbers, and tolerate malformed recommendation
-fields across report formats.
+An answer graded 0.2 could pass when tool and content checks raised its
+aggregate score. Task completion now must meet the threshold independently.
+Judge scores use finite JSON numbers, malformed recommendations cannot abort
+reports, and optional strict judge scoring reports unavailable grades as a
+failure. An `around_evaluation` callback supports correlation across replay
+and judging.
 
-Grouped YAML/JSON imports retain scenario expectations and keys.
-Dashboard create/replace imports select production-only questions only
-when `include_production_only` is true and reject empty or invalid imports.
-An optional `around_evaluation` callback lets hosts correlate replay and
-judge calls. Existing aggregate report scores remain available alongside
-`avg_task_completion`.
+Grouped YAML/JSON imports retain scenario keys and expectations, with explicit
+production-only selection. Mounted evaluations can dispatch selected scenarios
+and models through a host-owned runtime using the actual evaluation owner.
+Run/result metadata and trace IDs survive persistence. Scenario and judge
+snapshots preserve historical evidence after a catalog refresh; dashboard
+links open the requested evaluation or saved report. Observed agents cannot
+bypass the host adapter through configuration changes or direct/queued
+execution; explicit duplicates remain executable drafts.
 
-Validation: 135 core/dashboard tests / 840 assertions; the combined run with
-publication tests passes 142 tests / 867 assertions. Eleven changed Ruby files
-lint clean.
-This change uses only synthetic public catalog data.
+A generic Publisher sends saved reports in the versioned collector envelope
+with bounded delivery, validated receipts, and stable run IDs for retries.
+Reconstructed JSON, Markdown, and HTML retain their recorded judge identity.
 
-The mounted dashboard also supports a host-provided scenario evaluation
-adapter. It receives selected scenarios/models and the evaluation owner,
-persists results via the engine callback, and returns the same report type.
-Run and replay metadata survive reconstruction without new schema columns.
-Observed agents run only evaluations explicitly routed to a host adapter.
-The expanded regression suite passes 176 tests and 1,009 assertions.
+Validation:
 
-Catalog refresh now preserves historical prompts, expectations, notes, and
-judge labels in both reports and the result matrix. Dashboard links can open
-a specified evaluation or saved report without depending on index ordering.
-This adds 73 mounted-engine checks / 351 assertions and five frontend checks
-covering historical evidence, current reruns, and scoped links.
+- 246 core/engine tests, 1,336 assertions; zero failures/errors/skips.
+- Five frontend tests; production JS/CSS rebuild matches committed assets.
+- Separate synthetic cross-repository contract smoke: one test, 28 assertions,
+  validating replay → Publisher → hosted importer payload shape and saved retry.
+- Changed Ruby files pass lint; patch whitespace checks pass.
 
-Observed agents also reject API configuration/status changes and restoration,
-and direct or queued execution cannot bypass their read-only state. Explicit
-duplicates remain executable drafts and registered host adapters retain their
-evaluation path. Related execution/API regressions pass 67 tests / 326 assertions.
+The contract smoke uses mocked HTTP and does not exercise live providers,
+collector authentication, or database persistence. Added fixtures use generic
+synthetic data. Logs remain in ignored `tmp/` directories.
