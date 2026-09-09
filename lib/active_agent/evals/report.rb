@@ -161,7 +161,7 @@ module ActiveAgent
           "criteria" => criterion_scores,
           "recommendations" => recommendations,
           "verdict" => verdict,
-          "judge" => @judge&.label,
+          "judge" => @judge_label || @judge&.label,
           "metadata" => @metadata.presence,
           "results" => @results.map(&:to_h)
         }.compact
@@ -174,7 +174,8 @@ module ActiveAgent
       def to_markdown
         scenario_count = @results.map { |result| result.scenario.key }.uniq.size
         lines = [ "# Evaluation — #{scenario_count} scenario#{'s' unless scenario_count == 1} × #{@models.size} model#{'s' unless @models.size == 1}", "" ]
-        lines << (@judge ? "Judged by `#{@judge.label}`." : "No judge; scored on rules and expectations alone.")
+        label = @judge_label || @judge&.label
+        lines << (label ? "Judged by `#{label}`." : "No judge; scored on rules and expectations alone.")
         lines << ""
         lines.concat(summary_table)
         lines << ""

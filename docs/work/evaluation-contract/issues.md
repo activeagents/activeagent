@@ -61,3 +61,10 @@ error. Direct Ruby execution and queued execution also reject observed
 agents before invoking a provider. Explicit duplication produces a separate
 draft that can be configured and run; registered evaluation adapters still
 use the host runtime.
+
+## Reconstructed report exports lost the judge identity
+
+HTML already honored a persisted judge label, but JSON only read a live judge
+object and Markdown incorrectly said no judge had been used. Both exports now
+honor the recorded label, allowing a reconstructed report to retain its judge
+identity when saved or published.
