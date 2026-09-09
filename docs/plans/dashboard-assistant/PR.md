@@ -4,7 +4,9 @@ Date: 2026-09-09.
 Repository: [activeagents/activeagent](https://github.com/activeagents/activeagent).
 Branch: `codex/dashboard-evidence-assistant` → `main`.
 Base: `1ab417d721b1d636144d0e83f38a4f0f48943dd6` (ActiveAgent 1.4.0).
-Publication: approved by the repository owner; PR creation in progress.
+PR: [#415 — Add dashboard evaluation assistant and reviewable agent drafts](https://github.com/activeagents/activeagent/pull/415).
+Status: open for review; not merged.
+Implementation commit: `89d982f`.
 
 ## Repository choice
 
