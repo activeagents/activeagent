@@ -71,6 +71,29 @@ ActionAgent.configure do |config|
   # means the resolver above returned nil.
 
   # ==========================================================================
+  # Code sessions
+  # ==========================================================================
+  #
+  # Hand an agent, with its evaluation findings, to a coding agent (Claude
+  # Code, Codex CLI, Copilot CLI, opencode, ...) in a code-on-incus container.
+  # The default backend is an in-memory mock; the real one shells out to the
+  # `coi` CLI on an Incus host, locally or over SSH.
+  #
+  # config.code_session_backend = ENV.fetch("CODE_SESSION_BACKEND", "code_on_incus")
+  # config.code_on_incus.ssh_target = ENV["COI_SSH_TARGET"].presence  # user@host, nil when coi runs here
+  # config.code_on_incus.state_dir = ENV["COI_STATE_DIR"].presence    # default tmp/action_agent/code_sessions
+  # config.code_on_incus.base_profile = "hardened"
+  # config.code_session_limits = { session_duration_minutes: 240, run_timeout_seconds: 3600, max_sessions_per_owner: 5 }
+  #
+  # GitHub access for the clone and, with write access, the pull request.
+  # Without a resolver the engine uses the owner's "github" provider key,
+  # then ENV["GITHUB_TOKEN"] in single-tenant mode. The token is written to a
+  # 0600 file the container reads and is deleted with the session; it is
+  # never stored or logged.
+  #
+  # config.github_token_resolver = ->(owner, session) { owner.github_token }
+
+  # ==========================================================================
   # UI
   # ==========================================================================
   #

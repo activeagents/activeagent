@@ -52,8 +52,10 @@ module ActionAgent
     # Provider credentials and API keys are posted to the dashboard in the
     # clear and encrypted at rest — filtering keeps them out of the request
     # logs in between, where the gem would otherwise print them verbatim.
+    # github_token is the one secret a code session carries that is never
+    # stored at all, so the request log is the only place it could leak.
     initializer "action_agent.filter_parameters" do |app|
-      app.config.filter_parameters += [ :credential, :api_key, :access_token ]
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, :github_token ]
     end
 
     # This engine's constants are spelled the way Zeitwerk's own inflector

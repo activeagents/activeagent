@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 6) do
+ActiveRecord::Schema[8.0].define(version: 7) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -186,6 +186,46 @@ ActiveRecord::Schema[8.0].define(version: 6) do
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index [ "token" ], name: "index_active_agent_api_keys_on_token", unique: true
+  end
+
+  create_table "active_agent_code_sessions", force: :cascade do |t|
+    t.bigint "account_id"
+    t.bigint "agent_id"
+    t.string "backend", null: false
+    t.string "branch"
+    t.json "brief"
+    t.datetime "completed_at"
+    t.string "container_id"
+    t.decimal "cost", precision: 12, scale: 6
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.bigint "evaluation_run_id"
+    t.json "events"
+    t.integer "exit_code"
+    t.datetime "expires_at"
+    t.string "github_access", default: "none", null: false
+    t.integer "input_tokens", default: 0
+    t.datetime "last_activity_at"
+    t.string "model"
+    t.string "network_mode", default: "restricted", null: false
+    t.integer "output_tokens", default: 0
+    t.string "profile"
+    t.string "repository"
+    t.string "session_id", null: false
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.text "task"
+    t.string "tool", null: false
+    t.text "transcript"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.string "workspace_path"
+    t.index [ "account_id" ], name: "index_active_agent_code_sessions_on_account_id"
+    t.index [ "agent_id", "created_at" ], name: "index_active_agent_code_sessions_on_agent_and_created_at"
+    t.index [ "agent_id" ], name: "index_active_agent_code_sessions_on_agent_id"
+    t.index [ "session_id" ], name: "index_active_agent_code_sessions_on_session_id", unique: true
+    t.index [ "status" ], name: "index_active_agent_code_sessions_on_status"
+    t.index [ "user_id" ], name: "index_active_agent_code_sessions_on_user_id"
   end
 
   create_table "active_agent_evaluation_runs", force: :cascade do |t|

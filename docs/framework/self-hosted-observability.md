@@ -300,3 +300,29 @@ agents in real containers:
 ActionAgent.sandbox_backends = { "cloud_run" => "CloudRunService" }
 ActionAgent.sandbox_service = "cloud_run"
 ```
+
+## Code sessions
+
+Code sessions hand an agent, with the findings of its evaluations, to a
+coding agent in a [code-on-incus](https://github.com/mensfeld/code-on-incus)
+container. The engine defaults to an in-memory mock; a real backend needs an
+Incus host with `coi` installed, reachable either locally or over SSH:
+
+```ruby
+ActionAgent.configure do |config|
+  config.code_session_backend = ENV.fetch("CODE_SESSION_BACKEND", "code_on_incus")
+  config.code_on_incus.ssh_target = ENV["COI_SSH_TARGET"].presence   # user@incus-host, or nil when coi runs locally
+  config.code_on_incus.state_dir = ENV["COI_STATE_DIR"].presence     # per-session profiles, briefs and secrets; 0700
+  config.code_on_incus.base_profile = "hardened"
+  config.code_session_limits = { session_duration_minutes: 240, run_timeout_seconds: 3600, max_sessions_per_owner: 5 }
+
+  # Where the GitHub token for a session comes from. Without a resolver the
+  # engine uses the owner's "github" provider key, then (single-tenant only)
+  # ENV["GITHUB_TOKEN"]. The token is written to a 0600 file for the
+  # container and deleted with the session; it is never stored.
+  config.github_token_resolver = ->(owner, session) { GitHubIntegration.token_for(owner) }
+end
+```
+
+The full reference, the GitHub access modes and the security notes are in
+[Code Sessions](/framework/code-sessions).

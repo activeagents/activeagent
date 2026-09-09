@@ -26,6 +26,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
     { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
     { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
     { id: 'sandbox', label: 'Run Agents', icon: ICONS.nav.demo, highlight: true },
+    { id: 'code', label: 'Code Sessions', icon: ICONS.nav.code },
   ];
 
   const observabilityItems = [

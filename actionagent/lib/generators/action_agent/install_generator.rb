@@ -73,11 +73,20 @@ module ActionAgent
 
       # Scenario suites arrived after the dashboard tables shipped, so an
       # install that already has those still needs this one.
-      return if existing_migration?("create_active_agent_evaluation_scenarios")
+      unless existing_migration?("create_active_agent_evaluation_scenarios")
+        migration_template(
+          "create_active_agent_evaluation_scenarios.rb.erb",
+          "db/migrate/create_active_agent_evaluation_scenarios.rb"
+        )
+      end
+
+      # Code sessions (the sandboxed coding-agent hand-off) arrived later
+      # still, so the same applies to an install that has scenarios.
+      return if existing_migration?("create_active_agent_code_sessions")
 
       migration_template(
-        "create_active_agent_evaluation_scenarios.rb.erb",
-        "db/migrate/create_active_agent_evaluation_scenarios.rb"
+        "create_active_agent_code_sessions.rb.erb",
+        "db/migrate/create_active_agent_code_sessions.rb"
       )
     end
 

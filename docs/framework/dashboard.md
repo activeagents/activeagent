@@ -81,6 +81,7 @@ agents point telemetry at an `endpoint:` instead (see below).
 | Metrics | `/activeagents/metrics` | Last-24h totals: traces, tokens, avg duration, error rate, active agents; per-agent statistics |
 | Interactions | `/activeagents/interactions` | The conversations behind the traces: messages, tool calls, generations |
 | Evaluations | `/activeagents/evaluations` | Scored agent outputs, and scenario suites replayed across models (see below) |
+| Code Sessions | `/activeagents/code` | Hand an agent and its evaluation findings to a sandboxed coding agent (Claude Code, Codex, Copilot, open-source) |
 | Console | `/activeagents/console/traces` | The same traces and metrics server-rendered, without JavaScript; span waterfall per trace at `/activeagents/console/traces/:id` |
 | Ingest API | `POST /activeagents/api/traces` | JSON trace ingestion from other apps and SDKs (`local_storage` writes through the model instead, no HTTP) |
 
@@ -166,6 +167,19 @@ The API: `POST /api/evaluations` with `scenarios_text`;
 `POST /api/evaluations/:id/run` with `group`, `keys[]`, `scenario_ids[]`
 and `models[]`; `GET /api/evaluations/:id/runs/:run_id` for the results;
 `GET`/`PUT /api/evaluations/:id/scenarios` to read or replace the suite.
+
+## Code sessions
+
+Once an evaluation has said what an agent cannot do, a code session hands the
+agent to a coding agent (Claude Code, Codex CLI, GitHub Copilot CLI, or an
+open-source agent) running in a [code-on-incus](https://github.com/mensfeld/code-on-incus)
+sandbox with a checkout of your repository and a brief compiled from the
+evaluation's fix items, its failing scenarios and the agent's last 24 hours
+of metrics. Press *Hand to a coding agent* on a run's fix list, or open
+**Code Sessions** in the sidebar. The engine ships a mock backend; running a
+real coding agent needs an Incus host you operate. Setup, the GitHub token
+seam, what the brief contains and the API are in
+[Code Sessions](/framework/code-sessions).
 
 ## Authentication
 

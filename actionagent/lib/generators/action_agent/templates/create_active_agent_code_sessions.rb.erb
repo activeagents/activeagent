@@ -1,0 +1,79 @@
+# frozen_string_literal: true
+
+# Adds code sessions: one row per time a dashboard agent is handed to a
+# sandboxed coding agent (Claude Code, Codex, Copilot, an open-source agent)
+# running in a code-on-incus container, together with the brief compiled from
+# the agent's evaluations and metrics, the task the coding agent received,
+# its progress events and the transcript of its last headless run. Emitted
+# alongside the dashboard tables on a fresh install, and on its own for an
+# install that predates code sessions.
+#
+# The GitHub token and provider credentials a session runs with are NOT
+# columns here on purpose: they travel from the host app to the backend for
+# the life of the sandbox and are deleted with it.
+#
+# Table names follow ActionAgent.table_name_prefix, and JSON columns are
+# jsonb on PostgreSQL and json elsewhere, the same way as
+# create_active_agent_dashboard_tables.
+class CreateActiveAgentCodeSessions < ActiveRecord::Migration<%= migration_version %>
+  def change
+    prefix = ActionAgent.table_name_prefix
+
+    create_table "#{prefix}code_sessions" do |t|
+      t.bigint :user_id
+      t.bigint :account_id
+      t.bigint :agent_id
+      t.bigint :evaluation_run_id
+      t.string :session_id, null: false
+      t.string :tool, null: false
+      t.string :backend, null: false
+      t.integer :status, default: 0, null: false
+      t.string :repository
+      t.string :branch
+      t.string :github_access, default: "none", null: false
+      t.string :network_mode, default: "restricted", null: false
+      t.string :profile
+      t.string :model
+      t.text :task
+      t.column :brief, json_type, **json_default({})
+      t.column :events, json_type, **json_default([])
+      t.text :transcript
+      t.integer :exit_code
+      t.string :container_id
+      t.string :workspace_path
+      t.integer :input_tokens, default: 0
+      t.integer :output_tokens, default: 0
+      t.decimal :cost, precision: 12, scale: 6
+      t.text :error_message
+      t.datetime :started_at
+      t.datetime :completed_at
+      t.datetime :last_activity_at
+      t.datetime :expires_at
+      t.timestamps
+      t.index :session_id, unique: true
+      t.index :user_id
+      t.index :account_id
+      t.index :agent_id
+      t.index :status
+      t.index [ :agent_id, :created_at ], name: "index_#{prefix}code_sessions_on_agent_and_created_at"
+    end
+  end
+
+  private
+
+  def json_type
+    @json_type ||= postgres? ? :jsonb : :json
+  end
+
+  # MySQL rejects a default on a JSON column outright, so the column is
+  # created without one there.
+  def json_default(value, null: nil)
+    return {} unless postgres?
+
+    null.nil? ? { default: value } : { default: value, null: null }
+  end
+
+  def postgres?
+    connection.adapter_name.to_s.downcase.include?("postgres")
+  end
+end

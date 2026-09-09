@@ -398,7 +398,15 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
 // ---------------------------------------------------------------------------
 // WHAT TO FIX
 
-export function FixList({ items, columns = [], agentName, onNavigate }) {
+// `agentId` + `runId` enable the header action that hands this run's findings
+// to a sandboxed coding agent: the Code Sessions form compiles its brief from
+// exactly these fix items, so the link carries both ids rather than making
+// the user pick the run again.
+export function FixList({ items, columns = [], agentName, agentId = null, runId = null, onNavigate }) {
+  const handoffPath = agentId && runId
+    ? `/code/new?agent_id=${encodeURIComponent(agentId)}&evaluation_run_id=${encodeURIComponent(runId)}`
+    : null;
+
   const scopeFor = (item) => {
     const scenarios = plural((item.scenario_keys || []).length, 'scenario');
     if (item.kind === 'instruction') return `${(item.scenario_keys || []).join(', ')} · judge suggestion`;
@@ -410,76 +418,94 @@ export function FixList({ items, columns = [], agentName, onNavigate }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-      {items.map((item, index) => {
-        const info = item.kind === 'instruction';
-        const tone = info ? 'info' : 'error';
-        const tools = [];
-        const seen = new Set();
-        (item.tools || []).forEach((tool) => {
-          const name = typeof tool === 'string' ? tool : tool?.name;
-          if (!name || seen.has(name)) return;
-          seen.add(name);
-          tools.push({ name, note: (typeof tool === 'object' && (tool.note || tool.server?.name)) || null });
-        });
-        const server = item.server;
-        const enabled = server?.status === 'enabled';
-        const agent = agentName || 'the agent';
-        return (
-          <div
-            key={`${item.fault}-${index}`}
-            data-testid="scenario-recommendation"
-            style={{ border: '1px solid var(--color-border)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {handoffPath && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ ...mono(11), minWidth: 0, textWrap: 'pretty' }}>
+            {`Hand these ${plural(items.length, 'item')} to a sandboxed coding agent as a brief`}
+          </span>
+          <Button
+            size="sm"
+            testId="handoff-code-session"
+            title="Open a new code session seeded with this run's findings"
+            onClick={() => onNavigate?.(handoffPath)}
+            style={{ marginLeft: 'auto' }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <Glyph kind={info ? 'info' : 'fault'} />
-              <Badge tone={tone}>{`${faultName(item.fault)}${item.count > 1 ? ` ×${item.count}` : ''}`}</Badge>
-              <span style={mono(11)}>{scopeFor(item)}</span>
-            </div>
-            {item.recommendation && (
-              <p style={{ margin: 0, fontSize: 13, lineHeight: '19px', color: 'var(--color-text-cell)', textWrap: 'pretty' }}>{item.recommendation}</p>
-            )}
-            {item.quote && (
-              <div style={{ background: 'var(--color-muted)', borderRadius: 8, padding: '8px 10px', fontSize: 12, lineHeight: '18px', color: 'var(--color-text-cell)', fontStyle: 'italic' }}>
-                “{item.quote}”
+            Hand to a coding agent <span style={{ fontFamily: MONO }}>{'->'}</span>
+          </Button>
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+        {items.map((item, index) => {
+          const info = item.kind === 'instruction';
+          const tone = info ? 'info' : 'error';
+          const tools = [];
+          const seen = new Set();
+          (item.tools || []).forEach((tool) => {
+            const name = typeof tool === 'string' ? tool : tool?.name;
+            if (!name || seen.has(name)) return;
+            seen.add(name);
+            tools.push({ name, note: (typeof tool === 'object' && (tool.note || tool.server?.name)) || null });
+          });
+          const server = item.server;
+          const enabled = server?.status === 'enabled';
+          const agent = agentName || 'the agent';
+          return (
+            <div
+              key={`${item.fault}-${index}`}
+              data-testid="scenario-recommendation"
+              style={{ border: '1px solid var(--color-border)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Glyph kind={info ? 'info' : 'fault'} />
+                <Badge tone={tone}>{`${faultName(item.fault)}${item.count > 1 ? ` ×${item.count}` : ''}`}</Badge>
+                <span style={mono(11)}>{scopeFor(item)}</span>
               </div>
-            )}
-            {tools.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <MicroLabel size={10} color="var(--color-text-muted)">{item.tools_label || 'tools'}</MicroLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {tools.map((tool) => (
-                    <span key={tool.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--color-border)', fontFamily: MONO, fontSize: 11, maxWidth: '100%' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{tool.name}</span>
-                      {tool.note && <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={tool.note}>{tool.note}</span>}
-                    </span>
-                  ))}
+              {item.recommendation && (
+                <p style={{ margin: 0, fontSize: 13, lineHeight: '19px', color: 'var(--color-text-cell)', textWrap: 'pretty' }}>{item.recommendation}</p>
+              )}
+              {item.quote && (
+                <div style={{ background: 'var(--color-muted)', borderRadius: 8, padding: '8px 10px', fontSize: 12, lineHeight: '18px', color: 'var(--color-text-cell)', fontStyle: 'italic' }}>
+                  “{item.quote}”
                 </div>
-              </div>
-            )}
-            {server && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--color-text-cell)' }}>
-                <span>served by</span>
-                <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{server.name || server.key}</span>
-                <Badge tone={enabled ? 'success' : 'warning'} size={10} style={{ padding: '1px 6px' }}>
-                  {enabled ? `enabled for ${agent}` : `${server.status || 'unknown'} · not enabled for ${agent}`}
-                </Badge>
-              </div>
-            )}
-            {item.note && (
-              <div style={{ fontSize: 12, lineHeight: '18px', color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>{item.note}</div>
-            )}
-            {item.action && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto', paddingTop: 2, flexWrap: 'wrap' }}>
-                {item.action.path && (
-                  <Button size="sm" onClick={() => onNavigate?.(item.action.path)}>{item.action.label}</Button>
-                )}
-                {item.action.hint && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
-              </div>
-            )}
-          </div>
-        );
-      })}
+              )}
+              {tools.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <MicroLabel size={10} color="var(--color-text-muted)">{item.tools_label || 'tools'}</MicroLabel>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {tools.map((tool) => (
+                      <span key={tool.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--color-border)', fontFamily: MONO, fontSize: 11, maxWidth: '100%' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{tool.name}</span>
+                        {tool.note && <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={tool.note}>{tool.note}</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {server && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--color-text-cell)' }}>
+                  <span>served by</span>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{server.name || server.key}</span>
+                  <Badge tone={enabled ? 'success' : 'warning'} size={10} style={{ padding: '1px 6px' }}>
+                    {enabled ? `enabled for ${agent}` : `${server.status || 'unknown'} · not enabled for ${agent}`}
+                  </Badge>
+                </div>
+              )}
+              {item.note && (
+                <div style={{ fontSize: 12, lineHeight: '18px', color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>{item.note}</div>
+              )}
+              {item.action && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto', paddingTop: 2, flexWrap: 'wrap' }}>
+                  {item.action.path && (
+                    <Button size="sm" onClick={() => onNavigate?.(item.action.path)}>{item.action.label}</Button>
+                  )}
+                  {item.action.hint && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

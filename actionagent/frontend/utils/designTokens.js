@@ -58,6 +58,7 @@ export const ICONS = {
     agents: '@',
     newAgent: '+',
     demo: '>',
+    code: '>_',
     traces: '->',
     metrics: '#',
     evaluations: '=',
