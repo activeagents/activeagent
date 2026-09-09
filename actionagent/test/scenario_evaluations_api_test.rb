@@ -174,6 +174,39 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_match(/read-only/, JSON.parse(response.body)["error"])
   end
 
+  test "an observed agent evaluation runs only through its explicitly configured host adapter" do
+    evaluation = create_suite(create_agent(status: :observed))
+    previous = ActionAgent.scenario_evaluation_adapter_resolver
+    ActionAgent.scenario_evaluation_adapter_resolver = lambda do |candidate|
+      next unless candidate.id == evaluation.id
+
+      lambda do |scenarios:, models:, on_result:, **|
+        ActiveAgent::Evals::Runner.new(
+          scenarios: scenarios, models: models, on_result: on_result,
+          replay: ->(*) { ActiveAgent::Evals::Replay.new(answer: "The host answered.", metadata: { "trace_id" => "host-trace" }) },
+          metadata: { "run_id" => "host-evaluation" }
+        ).call
+      end
+    end
+
+    assert_no_difference "ActionAgent::AgentRun.count" do
+      perform_enqueued_jobs do
+        post "/activeagents/api/evaluations/#{evaluation.id}/run", as: :json
+      end
+    end
+    assert_response :success
+    run = evaluation.evaluation_runs.recent.first
+    assert_equal "complete", run.status
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}"
+    assert_response :success
+    assert_equal "host-trace", JSON.parse(response.body).dig("run", "results", 0, "metadata", "trace_id")
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}/report"
+    assert_response :success
+    assert_includes response.body, "The host answered."
+  ensure
+    ActionAgent.scenario_evaluation_adapter_resolver = previous
+  end
+
   test "a run can be narrowed to a group and to models, and its results are readable" do
     agent = create_agent
     evaluation = agent.evaluations.new(name: "Catalog", judge_kind: "rules", criteria: [])

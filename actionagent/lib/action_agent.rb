@@ -236,6 +236,14 @@ module ActionAgent
     # @return [Boolean]
     attr_accessor :execution_enabled
 
+    # Resolves a host application's runner for one scenario evaluation.
+    # Return nil for the engine's normal Agent#test_execute path, or a callable
+    # accepting evaluation:, owner:, scenarios:, models:, on_result: and
+    # returning an ActiveAgent::Evals::Report. The host runs its own agent and
+    # judge and yields every result to on_result for dashboard persistence.
+    # @return [Proc, nil]
+    attr_accessor :scenario_evaluation_adapter_resolver
+
     # Where the dashboard's upgrade CTAs should send people. Unset in a
     # self-hosted install, where there is nothing to upgrade, and the CTAs
     # say so instead of linking nowhere.
@@ -452,6 +460,7 @@ module ActionAgent
       @provider_credentials_resolver = nil
       @sandbox_backends = {}
       @execution_enabled = true
+      @scenario_evaluation_adapter_resolver = nil
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true

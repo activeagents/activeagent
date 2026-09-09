@@ -16,3 +16,10 @@ Validation: 135 core/dashboard tests / 840 assertions; the combined run with
 publication tests passes 142 tests / 867 assertions. Eleven changed Ruby files
 lint clean.
 This change uses only synthetic public catalog data.
+
+The mounted dashboard also supports a host-provided scenario evaluation
+adapter. It receives selected scenarios/models and the evaluation owner,
+persists results via the engine callback, and returns the same report type.
+Run and replay metadata survive reconstruction without new schema columns.
+Observed agents run only evaluations explicitly routed to a host adapter.
+The expanded regression suite passes 176 tests and 1,009 assertions.

@@ -37,6 +37,17 @@ module ActionAgent
       tool_calls.select { |call| call.is_a?(Hash) && (call["error"] || call[:error]) }
     end
 
+    # Adapter-provided correlation and context are stored alongside diagnosis
+    # in a reserved JSON key, leaving the public diagnosis contract unchanged.
+    def replay_metadata
+      value = diagnosis&.dig("_replay_metadata")
+      value.is_a?(Hash) ? value : {}
+    end
+
+    def evaluation_diagnosis
+      (diagnosis || {}).except("_replay_metadata")
+    end
+
     def as_json_summary
       {
         id: id,
@@ -57,7 +68,8 @@ module ActionAgent
         cost: cost&.to_f,
         fault: fault,
         recommendation: recommendation,
-        diagnosis: diagnosis,
+        diagnosis: evaluation_diagnosis,
+        metadata: replay_metadata,
         error_message: error_message,
         agent_run_id: agent_run_id
       }

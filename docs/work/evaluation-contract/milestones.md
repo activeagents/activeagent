@@ -13,3 +13,10 @@ errors, or skips. The combined run including report publication coverage
 passed 142 tests and 867 assertions. Eleven changed Ruby files passed RuboCop.
 Test and lint logs are in
 the ignored `tmp/evaluation-contract/` directory.
+
+Additional mounted-host adapter validation: 176 tests, 1,009 assertions,
+zero failures/errors/skips; seven changed Ruby files lint clean. Coverage
+includes two-model host replay, actual owner and judge configuration delivery,
+selection, metadata/report reconstruction, partial failure retention,
+default-runtime fallback, and the observed-agent API gate. Logs are under
+`tmp/host-evaluation-adapter/`.
