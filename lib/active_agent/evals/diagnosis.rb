@@ -22,7 +22,7 @@ module ActiveAgent
     class Diagnosis
       FAULTS = %w[
         run_error tool_error missing_capability expected_tool_not_called
-        forbidden_content missing_content low_quality
+        forbidden_content missing_content low_quality judge_unavailable
       ].freeze
 
       # Phrasings an agent uses when nothing in its toolset covers the task.

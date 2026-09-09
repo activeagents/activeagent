@@ -47,10 +47,13 @@ module ActiveAgent
       #   block that returns the Result. Establishes context for replay, scoring
       #   and recommendations; must return the block's result. Wrapper errors
       #   propagate to the caller. Applies to #call, not direct #evaluate calls.
+      # @param require_judge_scores [Boolean] fail an otherwise passing result
+      #   when a requested task/LLM grade is unavailable, rather than falling
+      #   back to rule scores. Does not require a judge for rules-only runs.
       def initialize(scenarios:, models:, replay:, criteria: [], judge: nil, judge_task: true, available_tools: {},
                      instructions: nil, agent_name: "The agent", threshold: PASS_THRESHOLD,
                      refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil,
-                     around_evaluation: nil, metadata: {})
+                     around_evaluation: nil, require_judge_scores: false, metadata: {})
         @scenarios = scenarios
         @models = models
         @replay = replay
@@ -65,6 +68,7 @@ module ActiveAgent
         @judge_limit = judge_limit
         @on_result = on_result
         @around_evaluation = around_evaluation
+        @require_judge_scores = require_judge_scores
         @metadata = metadata
         @judge_calls = 0
         @scorer = Scorer.new(criteria: criteria, judge: judge)
@@ -93,6 +97,7 @@ module ActiveAgent
 
         diagnosis = Diagnosis.call(scenario: scenario, replay: replay, scores: scores, score: score,
                                    available_tools: @available_tools.keys, threshold: @threshold, agent_name: @agent_name)
+        diagnosis ||= unavailable_judge_diagnosis(scores)
         diagnosis_hash = diagnosis&.to_h
         refine!(diagnosis_hash, scenario, replay, diagnosis) if diagnosis_hash
 
@@ -117,6 +122,26 @@ module ActiveAgent
 
       def judge_task?
         @judge && @judge_task && @criteria.none? { |criterion| criterion.to_h.stringify_keys["type"] == "llm_judge" }
+      end
+
+      def unavailable_judge_diagnosis(scores)
+        return unless @require_judge_scores
+
+        keys = @criteria.filter_map do |criterion|
+          value = criterion.to_h.stringify_keys
+          value["key"] if value["type"] == "llm_judge"
+        end
+        keys << "task_completion" if judge_task?
+        missing = keys.select { |key| scores[key].nil? }
+        return if missing.empty?
+
+        Diagnosis::Result.new(
+          fault: "judge_unavailable",
+          summary: "The evaluation judge did not return a usable score for #{missing.join(', ')}.",
+          recommendation: "Check the judge's credentials, model availability and JSON response, then re-run this evaluation. " \
+                          "The available rule scores do not establish answer quality.",
+          evidence: { "unscored_criteria" => missing }
+        )
       end
 
       # Whatever the callable raises becomes an errored Replay, so one model
