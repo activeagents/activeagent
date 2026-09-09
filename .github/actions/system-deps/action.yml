@@ -1,0 +1,29 @@
+name: Install system deps
+description: Install the Ubuntu packages the Ruby toolchain needs to build native gems.
+
+runs:
+  using: composite
+  steps:
+    - name: Drop apt repositories nothing here installs from
+      shell: bash
+      run: |
+        # The runner image ships vendor apt repositories — Google Chrome,
+        # Microsoft — that none of the packages below come from. A broken index
+        # on any one of them fails `apt-get update` for the whole job: a Hash
+        # Sum mismatch on dl.google.com took every job in this repository red
+        # on 2026-09-09, while apt had already fetched the Ubuntu archives it
+        # actually needed.
+        #
+        # Ubuntu's own sources stay — noble keeps them in ubuntu.sources, older
+        # images in /etc/apt/sources.list, which this does not touch — so the
+        # update below is still strict about the archives that matter.
+        if [ -d /etc/apt/sources.list.d ]; then
+          sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \
+            ! -name 'ubuntu.sources' ! -name 'ubuntu.list' -delete
+        fi
+
+    - name: Install
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config
