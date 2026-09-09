@@ -131,6 +131,18 @@ class MetricsApiTest < ActionDispatch::IntegrationTest
     assert_equal 48, body["hourly_requests"].size
   end
 
+  test "a custom window takes the smallest bucket size that keeps it within the target" do
+    # 48h: 1800s x 96 exactly. 193h: 7200s would need 97 buckets, so 10800s x 65.
+    assert_equal [ "custom", 1800, 96, 48 ], ActionAgent::MetricsReport.resolve_range(nil, "48")
+    assert_equal [ "custom", 10_800, 65, 193 ], ActionAgent::MetricsReport.resolve_range(nil, "193")
+    assert_equal [ "custom", 60, 60, 1 ], ActionAgent::MetricsReport.resolve_range(nil, "1")
+    assert_equal [ "custom", 43_200, 60, 720 ], ActionAgent::MetricsReport.resolve_range(nil, "9999"), "clamped to 30 days"
+
+    body = metrics(hours: 193)
+    assert_equal 65, body["series"].size
+    assert_operator body["series"].size, :<=, ActionAgent::MetricsReport::TARGET_BUCKETS
+  end
+
   test "a named range wins over hours and sets the legacy window to match" do
     body = metrics(range: "1h", hours: 48)
 
@@ -451,6 +463,30 @@ class MetricsApiTest < ActionDispatch::IntegrationTest
       { "kind" => "deploy", "ts" => NOW.iso8601, "label" => "instructions v2 · Support", "agent" => "Support" },
       { "kind" => "deploy", "ts" => NOW.iso8601, "label" => "v3 · Support", "agent" => "Support" }
     ], markers
+  end
+
+  test "deploy markers read the window's versions and their predecessors in two queries" do
+    # v1 of each agent sits outside the window, so v2's predecessor must be
+    # fetched; v3's predecessor (v2) is already among the window's versions.
+    agents = 3.times.map { |i| travel_to(NOW - 2.days) { create_agent(name: "Agent #{i}") } }
+    agents.each do |agent|
+      agent.update!(instructions: "Be brief.")
+      agent.update!(tools: [ "fetch" ])
+    end
+
+    queries = []
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+      queries << payload[:sql] if payload[:name] != "SCHEMA" && payload[:sql].include?("active_agent_agent_versions")
+    end
+    markers = ActionAgent::MetricsReport.new(traces: ActionAgent::TelemetryTrace.all, agents: ActionAgent::Agent.all).markers
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+
+    assert_equal [
+      "instructions v2 · Agent 0", "v3 · Agent 0",
+      "instructions v2 · Agent 1", "v3 · Agent 1",
+      "instructions v2 · Agent 2", "v3 · Agent 2"
+    ], markers.map { |marker| marker[:label] }
+    assert_equal 2, queries.size, queries.join("\n")
   end
 
   test "deploy markers follow the agent filter" do

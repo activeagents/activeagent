@@ -259,7 +259,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderBottomColor: 'var(--color-accent-ui)' }} />
       </div>
     );
   }
@@ -309,7 +309,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           <a
             href={reportUrl}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             title="The report is one self-contained page — save it to export"
             style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-cell)', border: '1px solid var(--color-border-strong)', textDecoration: 'none' }}
           >

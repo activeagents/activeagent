@@ -78,7 +78,7 @@ agents point telemetry at an `endpoint:` instead (see below).
 |------|------|----------|
 | Agents | `/activeagents` | Your agents with per-agent request, token and error stats; build, edit, version and run them |
 | Traces | `/activeagents/traces` | Every generation: agent + action, status, duration, tokens; expandable span timeline; All/Errors filter; 30s auto-refresh |
-| Metrics | `/activeagents/metrics` | Last-24h totals: traces, tokens, avg duration, error rate, active agents; per-agent statistics |
+| Metrics | `/activeagents/metrics` | The service overview: golden signals, six time series over 1h/24h/7d, and the top agents, models, actions, tools and error types (see below) |
 | Interactions | `/activeagents/interactions` | The conversations behind the traces: messages, tool calls, generations |
 | Evaluations | `/activeagents/evaluations` | Scored agent outputs, and scenario suites replayed across models (see below) |
 | Console | `/activeagents/console/traces` | The same traces and metrics server-rendered, without JavaScript; span waterfall per trace at `/activeagents/console/traces/:id` |
@@ -86,8 +86,102 @@ agents point telemetry at an `endpoint:` instead (see below).
 
 Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
-degrade gracefully without it; the React metrics page does its own hourly
-bucketing and needs nothing extra.
+degrade gracefully without it; the React metrics page reads buckets the
+API already aggregated and needs nothing extra.
+
+## Metrics
+
+`/activeagents/metrics` answers the question an on-call tab is open for:
+is this service healthy right now, and if not, since when. It is laid out
+the way an APM overview is — golden signals across the top, one grid of
+time series under them, top-N lists down the right — because the point is
+to see a change and then find what moved, not to read a table.
+
+Pick a window with the `1h` / `24h` / `7d` control. The window fixes the
+bucket size the whole page is drawn at — 60 buckets of a minute, 96 of 15
+minutes, 84 of two hours — so the charts stay the same shape whatever the
+traffic, and the indicator beside the control says which (`live · 15 min
+buckets`, refreshed every 60 seconds).
+
+Five golden signals lead: **Requests** (with requests per minute),
+**Latency** (p50, with p95 and p99 under it), **Error rate** (with the
+error count and how many were rate-limited), **Tokens** (input and output)
+and **Cost** (with cost per request). Each carries a 24-point sparkline of
+its own series and a delta against the period of the same length just
+before the window — more traffic and falling latency read as success, a
+rising error rate as error, volume and spend stay neutral, because a
+bigger number is not by itself good or bad.
+
+Six panels plot the window:
+
+| Panel | What it shows |
+|---|---|
+| Requests | Bars per bucket, stacked by agent, with deploy markers |
+| Latency | p50 / p95 / p99 lines, with the incident marker |
+| Errors | Bars stacked by error class, with the incident marker |
+| Tokens | Input and output lines |
+| Cost | Estimated spend per bucket |
+| Tool calls | Calls per bucket, errored calls stacked on top |
+
+The right rail ranks what is behind them: **Agents** by requests (with
+p95, error rate and cost), **Models** by tokens, **Slowest actions** by
+p95, **Tools** by calls (with average duration and error rate) and
+**Errors by type** — `429 rate limit`, `timeout`, `tool error`,
+`provider 5xx`, `other`, always all five so the shape of a spike is
+readable at a glance.
+
+Filter to one agent from the select, or by clicking its row in the Agents
+rail; clicking it again clears the filter. Everything narrows together —
+signals, charts and rails — so the page never shows a filtered chart next
+to an unfiltered tile. The rail keeps listing every agent while a filter
+is on, with the active one highlighted, so it stays the way to hop
+between them. An `env` chip names the environment most of the window's
+traces report.
+
+Two kinds of marker sit on the plots. A **deploy** is an agent version
+saved inside the window (`v4 · SupportAgent`, or `instructions v4 ·
+SupportAgent` when that version changed the instructions — the deploy a
+latency or error shift most often traces back to); at most the three most
+recent are drawn, because more than that is a picket fence. An
+**incident** is the bucket with the most errors when it is a real spike —
+at least five errors and at least twice the window's error rate — labelled
+by its dominant error class and the agent that errored most in it.
+
+Empty windows say so (`No traffic yet — run an agent, or point your app's
+ActiveAgent telemetry at this workspace`) rather than drawing five flat
+lines.
+
+### The metrics API
+
+`GET /api/metrics` is what the page reads, and what to point your own
+alerting or reporting at:
+
+| Param | Meaning |
+|---|---|
+| `range` | `1h`, `24h` (default) or `7d` — the window and its bucket size |
+| `hours` | A custom window instead, bucketed to about 96 points (`range` then reads `custom`) |
+| `agent` | An `agent_class`; every key in the response is scoped to it |
+| `sort` | Ranks the per-agent table: `popular`, `longest`, `cost`, `tokens`, `errors` |
+
+The response carries `range`, `bucket_seconds`, `window_minutes`, `agent`
+and `environment`, then `totals` (requests, requests per minute, p50 / p95
+/ p99 in ms, errors, error rate, tokens in / out / total, cost, cost per
+request, tool calls, tool errors, tool error rate), `deltas` against the
+previous period (`requests_pct`, `p50_pct`, `error_rate_pt`, `tokens_pct`,
+`cost_pct`; null when there is nothing to compare against), `series` (one
+entry per bucket, oldest first, zero-filled, each with `ts`, `requests`,
+`requests_by_agent`, the three percentiles, `errors`, `errors_by_type`,
+`tokens_in`, `tokens_out`, `cost`, `tool_calls`, `tool_errors`), the
+`agents`, `models`, `actions` and `tools` rails, `errors_by_type` and
+`markers`. The earlier keys — `summary`, `hourly_requests`, `by_agent`,
+`window_hours`, `sorts`, `sort` — are still there and still mean what they
+did, so anything already reading them keeps working.
+
+Percentiles are nearest-rank over each trace's total duration and are
+computed in Ruby from one pass over the window, so PostgreSQL and SQLite
+return the same numbers; cost is `ModelPricing`'s estimate per trace from
+the model on its first LLM span. `ActionAgent::MetricsReport` is the whole
+of it if you would rather call it directly.
 
 ## Scenario evaluations
 
@@ -129,16 +223,60 @@ candidate needs credentials the same way an agent run does — the owner's
 provider key or the host app's `config/active_agent.yml`.
 
 A run is queued (`EvaluationRunJob`) and its results land as each replay
-finishes. The expanded evaluation shows:
+finishes. The suite card opens onto the three questions asked of a run, in
+that order — is it getting better, which model, what do I fix — and then
+the evidence behind them.
 
-- **Per model** — pass rate, mean score, mean latency, tokens, estimated
-  cost and fault counts, with the best model by pass rate (the judge writes
-  the rationale when one is configured).
-- **Recommendations** — the faults grouped across scenarios with the fix
-  each calls for, and any tool the judge suggested adding.
-- **The scenario × model matrix** — one row per scenario, one column per
-  model; click a row for each model's answer, tool calls and diagnosis, or
-  press *run* on the row to replay just that scenario.
+**Runs** lists the suite's history, newest first, numbered `#n` from the
+oldest so a number keeps naming the same run once the list is capped. A row
+carries when the run finished, a pass bar per model, and its delta against
+the previous complete run — `+3 passed vs #7`, green when it moved up, red
+when it moved down. A run over a different number of scenarios or models
+reads `partial run` instead: those two totals are not comparable and a
+delta would lie about it. Selecting an older run re-derives everything below —
+models, what to fix, the matrix, the drill-downs — so the whole card
+describes the run you are reading, while the collapsed header keeps
+reporting the latest.
+
+**Models** gives each candidate its pass bar and `k/n`, mean score, mean
+latency, input and output tokens, estimated cost, and the faults it hit as
+badges (or `[+] no faults`). The model that did best carries an
+info-toned `judge's pick` badge — never a green *winner*, because losing a
+comparison by one scenario is not a failing grade — and the **verdict**
+line under the panel is the rationale for the pick. The panel says who made
+it: the judge model, or `rules` when the run was scored without one and the
+ranking is pass rate alone.
+
+**What to fix** turns the faults into work. One card per fault, plus one
+per instruction change the judge proposed, each naming the scope it speaks
+for (`3 scenarios · both models`), the fix it calls for, and the tools
+involved — deduplicated to one chip per tool, whatever the number of
+scenarios that hit it: the missing tools a scenario expected, the tools
+that errored, or the tools the judge suggested adding. When every missing
+tool resolves to the same MCP server the card names it (`served by
+Playwright`) and says whether this agent has it enabled or merely has it
+available, which is usually the whole diagnosis. The action follows from
+that: **Enable *server* for *Agent*** deep-links to MCP Services, failing
+or suggested tools to Tools, an instruction change to the agent's
+instructions — in-app, with the run still open behind it.
+
+**Scenarios** is the matrix: one row per scenario, one column per model,
+filtered by group chips or `[ ] failed only`. Each row shows the tools the
+scenario expects as chips, and each cell the `[+]`/`[!]` glyph, the score,
+the fault, and the tools that model actually called — coloured against the
+expectation, so a call that satisfies it reads green, one that errored red
+with `✗`, and anything else stays muted (`no tools called` when there were
+none). Group rows carry `k/n passed` per model. Opening a row drills into
+it: each model's answer, its tool calls, its timing, tokens and cost, and
+the diagnosis behind its fault, with `re-run scenario ->` to replay that
+one on its own and a `[x] enabled` toggle to keep it out of later runs.
+
+The footer states the run's terms — the judge, the criteria it scored on,
+what it cost — and links to `run report ->`: the same self-contained page
+`Report#to_html` writes for a CLI run, framed in the dashboard's own theme
+so it does not flash white inside a dark console. *Open standalone* opens
+the unframed page, which is the copy to archive next to a CI run.
+`Delete suite`, on the right, takes the suite and its runs with it.
 
 A scenario passes when the run completed, met its expectations, and scored
 at least 0.7 across the evaluation's criteria. Anything else carries exactly
@@ -164,8 +302,12 @@ evaluations against its own agent from Ruby with that module alone.
 
 The API: `POST /api/evaluations` with `scenarios_text`;
 `POST /api/evaluations/:id/run` with `group`, `keys[]`, `scenario_ids[]`
-and `models[]`; `GET /api/evaluations/:id/runs/:run_id` for the results;
-`GET`/`PUT /api/evaluations/:id/scenarios` to read or replace the suite.
+and `models[]`; `GET /api/evaluations/:id/runs/:run_id` for the results,
+which carry the same `fix_items` the What-to-fix cards are built from,
+server resolution included; `GET`/`PUT /api/evaluations/:id/scenarios` to
+read or replace the suite; and
+`GET /api/evaluations/:id/runs/:run_id/report` for the HTML report, with
+`?theme=dark` or `?theme=light` to pin its palette.
 
 ## Authentication
 
