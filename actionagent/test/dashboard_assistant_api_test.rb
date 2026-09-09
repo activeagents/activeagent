@@ -105,7 +105,12 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
   test "assistant POST requires a real dashboard CSRF token when protection is enabled" do
     original = ActionController::Base.allow_forgery_protection
     ActionController::Base.allow_forgery_protection = true
-    post "/activeagents/api/dashboard_assistant", params: input, as: :json
+    # A cross-site POST with no token is rejected by both forgery protection
+    # schemes: the token check Rails verifies through 8.1, and the
+    # Sec-Fetch-Site check Rails 8.2 verifies instead. Rails 8.2 accepts a
+    # header-less plain-HTTP request as a non-browser caller, so a request
+    # missing only the token would pass there and prove nothing.
+    post "/activeagents/api/dashboard_assistant", params: input, headers: { "Sec-Fetch-Site" => "cross-site" }, as: :json
     assert_response :unprocessable_entity
     assert_equal "invalid_csrf_token", response.parsed_body["code"]
     get "/activeagents"
