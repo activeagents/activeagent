@@ -244,3 +244,58 @@ stores only the selected scenarios and their group keys, not the original
 document, group display names, or environment flags. Re-import the source
 document to change that selection. Invalid YAML or a selection containing
 no scenarios returns an import error without creating a sampled evaluation.
+
+## Running a host application's agent from the mounted dashboard
+
+The engine normally replays scenarios with `ActionAgent::Agent#test_execute`.
+A host with its own chat or agent runtime can opt individual evaluations
+into an adapter without replacing the engine's catalog, selection, jobs,
+result persistence, or report pages:
+
+```ruby
+ActionAgent.configure do |config|
+  config.scenario_evaluation_adapter_resolver = ->(evaluation) do
+    next unless evaluation.config["runtime"] == "host_support"
+
+    ->(evaluation:, owner:, scenarios:, models:, on_result:) do
+      HostSupportEvaluation.call(
+        evaluation: evaluation, owner: owner, scenarios: scenarios,
+        models: models, on_result: on_result
+      )
+    end
+  end
+end
+```
+
+The resolver receives the persisted evaluation and returns a callable or
+`nil` for the engine's default runtime. The callable receives the engine's
+resolved owner, already-selected core `Scenario` and `ModelSpec` objects,
+and an `on_result` callback. It must return an `ActiveAgent::Evals::Report`
+and call `on_result` once for every selected scenario/model result. Missing
+or duplicate results fail the run instead of leaving a completed report
+with missing rows. Exceptions also mark the run failed and retain results
+already written.
+
+The host owns provider execution, usage accounting, tool definitions, and
+judge configuration. Use the supplied owner rather than a global current
+user in background jobs; honor `evaluation.judge_kind`,
+`evaluation.judge_model`, and the evaluation's tenant/role configuration.
+The adapter path does not build the engine's judge or execute its agent.
+It still passes through dashboard authentication, execution enablement,
+and quota checks.
+
+An observed agent can run a persisted evaluation only when its resolver
+returns an adapter. Direct agent execution remains read-only. A host
+catalog importer should register that evaluation without an immediate run,
+then use the regular evaluation run endpoint.
+
+Run metadata persists in the reserved `scores["_metadata"]` JSON key.
+Per-result replay metadata persists in `diagnosis["_replay_metadata"]`,
+is exposed separately as `metadata` in result API responses, and is restored
+by `EvaluationRun#to_report`. The public diagnosis excludes that storage key.
+This preserves host run/result IDs and response/judge trace IDs without a
+schema migration. Existing result and report URLs continue to work:
+
+- `<mount>/api/evaluations/:id/runs/:run_id` returns persisted result JSON.
+- `<mount>/api/evaluations/:id/runs/:run_id/report` serves the HTML report.
+- `<mount>/evaluations/:id/runs/:run_id/report` opens it within the dashboard.

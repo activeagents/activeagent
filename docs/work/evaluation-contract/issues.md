@@ -27,3 +27,16 @@ the selected scenarios rather than the original source document.
 
 `Runner#call` accepts an `around_evaluation` callable so hosts can establish
 one context around the replay, task scoring, and judge recommendations.
+
+## Mounted dashboard replayed its own runtime instead of the host's agent
+
+`ActionAgent.scenario_evaluation_adapter_resolver` now lets a host dispatch
+selected scenarios/models through its actual application runtime while the
+engine retains scheduling, authorization, persistence, and report rendering.
+The supplied owner is suitable for a background job. A registered adapter
+can run an observed agent's persisted evaluation; an unregistered observed
+agent remains read-only.
+
+Host report/replay metadata now survives persistence and report
+reconstruction, including stable IDs and response/judge trace references.
+Incomplete adapter reports fail rather than showing an empty completed run.

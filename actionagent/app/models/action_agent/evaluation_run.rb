@@ -27,6 +27,11 @@ module ActionAgent
       Array(scores&.dig("_models")&.keys)
     end
 
+    def report_metadata
+      value = scores&.dig("_metadata")
+      value.is_a?(Hash) ? value : {}
+    end
+
     # The label ActiveAgent::Evals::Report gives a verdict it ranked by pass
     # rate itself, for a comparison no judge was available to rule on. Read
     # from the framework rather than restated: the report reads it back when
@@ -137,10 +142,10 @@ module ActionAgent
           replay: ActiveAgent::Evals::Replay.new(
             answer: row.output, tool_calls: Array(row.tool_calls), duration_ms: row.duration_ms,
             input_tokens: row.input_tokens, output_tokens: row.output_tokens,
-            cost: row.cost&.to_f, error: row.error_message
+            cost: row.cost&.to_f, error: row.error_message, metadata: row.replay_metadata
           ),
           scores: row.scores.to_h, score: row.score, status: row.status,
-          diagnosis: row.diagnosis.presence
+          diagnosis: row.evaluation_diagnosis.presence
         )
       end
 
@@ -152,7 +157,7 @@ module ActionAgent
           "agent" => evaluation.agent&.name,
           "run" => id,
           "finished" => completed_at&.iso8601
-        }.compact,
+        }.compact.merge(report_metadata),
         verdict: recorded_verdict,
         judge_label: judge_label,
         tool_resolver: EvaluationToolResolver.new(evaluation.agent),

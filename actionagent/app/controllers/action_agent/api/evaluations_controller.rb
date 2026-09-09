@@ -241,11 +241,15 @@ module ActionAgent
         end
       end
 
-      # The refusal AgentsController gives an observed agent: it was
-      # discovered from telemetry and has nothing to execute.
+      # Observed agents cannot use the engine's execution service. A persisted
+      # evaluation with an explicit host adapter runs in that source instead.
       def require_executable_scenario_agent!
         agent = action_name == "create" ? requested_agent : current_evaluation.agent
         return unless agent.observed?
+        if action_name == "run"
+          adapter = ActionAgent.scenario_evaluation_adapter_resolver&.call(current_evaluation)
+          return if adapter.respond_to?(:call)
+        end
 
         render json: {
           error: "Observed agents are read-only — duplicate this agent to create an executable copy"
