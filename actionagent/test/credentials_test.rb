@@ -22,6 +22,17 @@ class CredentialsTest < ActionDispatch::IntegrationTest
     assert ActiveRecord::Encryption.config.primary_key.present?
   end
 
+  test "a credential round-trips through encryption" do
+    key = ActionAgent::ProviderKey.create!(provider: "openrouter", credential: "sk-or-v1-roundtrip")
+
+    assert_equal "sk-or-v1-roundtrip", key.reload.generation_options[:access_token]
+    assert_not_equal "sk-or-v1-roundtrip",
+      ActionAgent::ProviderKey.connection.select_value(
+        "SELECT credential FROM #{ActionAgent::ProviderKey.table_name} WHERE id = #{key.id}"
+      ),
+      "the stored column must not hold the plain credential"
+  end
+
   test "an API key can be created and authenticates the MCP facade" do
     post "/activeagents/api/api_keys", params: { name: "mcp-probe" }
 
