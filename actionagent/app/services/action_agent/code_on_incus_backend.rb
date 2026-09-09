@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "shellwords"
 
 module ActionAgent
   # Runs a code session in a code-on-incus container, through the `coi` CLI
@@ -294,7 +295,12 @@ module ActionAgent
       secrets = File.join(state, "secrets")
 
       if session.github_access?
-        read = "cat #{Shellwords.escape(File.join(secrets, "github_token"))}"
+        # 2>/dev/null because the profile is written before we know whether a
+        # token resolved: a session granted access whose owner has no token
+        # configured gets an empty GH_TOKEN and an anonymous clone (see
+        # CLONE_SCRIPT's own guard), rather than an error on every command
+        # coi runs in the container.
+        read = "cat #{Shellwords.escape(File.join(secrets, "github_token"))} 2>/dev/null"
         commands["GH_TOKEN"] = read
         commands["GITHUB_TOKEN"] = read
       end

@@ -160,8 +160,11 @@ class ActionAgentCodeOnIncusBackendTest < ActiveSupport::TestCase
     token_file = File.join(state_dir(session), "secrets", "github_token")
 
     assert_includes profile, "[env_commands]"
-    assert_includes profile, %(GH_TOKEN = "cat #{token_file}")
-    assert_includes profile, %(GITHUB_TOKEN = "cat #{token_file}")
+    # 2>/dev/null so a session granted access whose owner configured no token
+    # gets an empty variable and an anonymous clone, not an error on every
+    # command the container runs.
+    assert_includes profile, %(GH_TOKEN = "cat #{token_file} 2>/dev/null")
+    assert_includes profile, %(GITHUB_TOKEN = "cat #{token_file} 2>/dev/null")
     # The coding agent's own provider key travels the same way.
     assert_includes profile, "ANTHROPIC_API_KEY = "
 
