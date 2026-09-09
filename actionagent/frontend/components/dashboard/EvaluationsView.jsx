@@ -477,7 +477,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                 value={form.scenariosText}
                 onChange={(e) => setForm({ ...form, scenariosText: e.target.value })}
                 rows={form.scenariosText ? 8 : 3}
-                placeholder={'# Find records\nWhich gynecologists in Charlotte have scheduling enabled? | tools: find_records\n# Blame\nWho changed the biography for Dr. AbdelRazek?'}
+                placeholder={'# Find records\nWhich catalog items are available? | tools: find_records\n# Change history\nWho updated the description for the sample notebook?'}
                 style={{ ...inputStyle, width: '100%', fontFamily: MONO, fontSize: 12, lineHeight: '18px' }}
               />
               <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)', textWrap: 'pretty' }}>

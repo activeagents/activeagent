@@ -39,6 +39,7 @@ module ActiveAgent
       module GenerationInstrumentation
         # Wraps process_prompt with telemetry tracing.
         def process_prompt
+          return super if respond_to?(:prompt_options) && prompt_options.is_a?(Hash) && prompt_options[:instrumentation] == false
           return super unless Telemetry.enabled?
 
           # Reuse (or mint) the generation's trace id so the telemetry trace
@@ -210,6 +211,7 @@ module ActiveAgent
         # don't expose tool calls.
         def tools_function
           base = super
+          return base if respond_to?(:prompt_options) && prompt_options.is_a?(Hash) && prompt_options[:instrumentation] == false
           return base unless Telemetry.enabled?
 
           agent = self
@@ -247,6 +249,7 @@ module ActiveAgent
 
         # Wraps process_embed with telemetry tracing.
         def process_embed
+          return super if respond_to?(:embed_options) && embed_options.is_a?(Hash) && embed_options[:instrumentation] == false
           return super unless Telemetry.enabled?
 
           Telemetry.trace("#{self.class.name}.embed", span_type: :embedding) do |span|
