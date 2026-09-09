@@ -9,10 +9,6 @@ require "test_helper"
 # carries no credential, so what it serializes matters as much as what it
 # stores.
 class ActionAgentCodeSessionTest < ActiveSupport::TestCase
-  def setup
-    ActionAgent::CodeSession.delete_all
-  end
-
   # Both are process-wide configuration seams a test below rewrites; left
   # set, they would leak into every test that ran afterwards.
   def teardown

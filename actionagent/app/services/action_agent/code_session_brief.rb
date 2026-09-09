@@ -248,10 +248,13 @@ module ActionAgent
       server = item["server"]
 
       if kind == "instruction"
+        # The sentence the judge wants added lives in "quote": the fault card
+        # built from the same result already carries the recommendation, so
+        # Report#instruction_fix_items leaves that field nil on purpose.
         return {
           "kind" => "instruction",
           "title" => "Change the agent's instructions",
-          "detail" => item["recommendation"].to_s,
+          "detail" => item["quote"].presence || item["recommendation"].to_s,
           "tools" => [],
           "server" => nil,
           "evidence" => evidence_for(item),

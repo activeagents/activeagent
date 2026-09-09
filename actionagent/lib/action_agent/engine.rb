@@ -141,13 +141,19 @@ module ActionAgent
     # skipped it too. Without keys, every credential write and every
     # authenticated MCP request raised Errors::Configuration as an HTML 500.
     #
-    # Rails reads config.active_record.encryption in after_initialize, so an
-    # initializer can still supply keys. When the host set none — neither
-    # here nor in credentials — derive stable ones from secret_key_base,
-    # overridable through the ACTIVE_RECORD_ENCRYPTION_* variables, exactly
-    # as the activeagents.ai platform does. Host-provided keys are never
+    # Rails seeds ActiveRecord::Encryption from credentials and
+    # config.active_record.encryption in its own
+    # "active_record_encryption.configuration" initializer. Keys derived
+    # after that one land in config but never reach the encryptor, so the
+    # config reads back correct while every credential write raises
+    # Errors::Configuration — which is what a host that skipped
+    # db:encryption:init actually hits. Naming it in `before:` is what puts
+    # the derivation ahead of it. When the host set no keys — neither here
+    # nor in credentials — derive stable ones from secret_key_base, overridable
+    # through the ACTIVE_RECORD_ENCRYPTION_* variables, exactly as the
+    # activeagents.ai platform does. Host-provided keys are never
     # overridden, and the derivation is stable as long as secret_key_base is.
-    initializer "action_agent.active_record_encryption", after: :load_config_initializers do |app|
+    initializer "action_agent.active_record_encryption", before: "active_record_encryption.configuration" do |app|
       next unless ActionAgent.encrypt_credentials
       next unless app.config.respond_to?(:active_record)
 
