@@ -209,7 +209,7 @@ class ActionAgentEvaluationEvidenceTest < ActiveSupport::TestCase
     cards = response[:cards].drop(1)
     assert_equal [ error.id, failure.id, pending.id ], cards.first(3).map { |card| card[:result_id] }
     assert_equal %w[errored failed pending passed], cards.first(4).map { |card| card[:status] }
-    assert_equal "Provider unavailable", cards.first[:error]
+    assert_equal ActionAgent::EvaluationEvidence::REDACTED_ERROR, cards.first[:error]
     assert_equal "failures_first", response[:coverage][:selection]
     assert_equal({ "passed" => 21, "failed" => 1, "errored" => 1, "pending" => 1 }, response[:coverage][:recorded_status_counts])
     assert response[:coverage][:truncated]

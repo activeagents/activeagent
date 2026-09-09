@@ -63,11 +63,34 @@ inventory.
 
 Conversation state lives in the browser tab. Each generation disables framework
 traces and provider notifications to avoid a separate unscoped evidence store.
-Provider retention and host HTTP logging policies still apply. Durable tasks, reconnectable
+The assistant filters message/history parameters before Rails request logging,
+including rejected requests. Provider retention and host middleware that records
+raw HTTP bodies still follow the host's policies. Durable tasks, reconnectable
 progress and distributed cancellation are not implemented. The assistant does
 not run evaluations, check out repositories, execute repairs or publish PRs.
 GitHub authentication, COI execution and Claude Code session authentication are
 not implemented; connection capability responses report them as unsupported.
+
+## Follow-up review fixes
+
+- Assistant runtime options are restricted to connection settings plus its own
+  generation policy after `generate_with` merges configuration. Global, inherited
+  and owner-provided MCP tools, request overrides and conversation state cannot
+  enter the assistant request. Agent delegation is disabled for these turns.
+- Evidence cards replace raw historical exceptions with a fixed disclosure;
+  status, fault category and report links remain available. Stored reports are
+  unchanged, and free-form prompts/outputs still require processing consent.
+- An endpoint-scoped middleware filters message/history parameters before Rails'
+  request logger and controller notifications, under any engine mount.
+- Compact server-issued report references survive excerpt eviction. The final
+  answer rejects evidence IDs not supplied to the model during the current turn;
+  the UI keeps reference links available alongside the bounded excerpt cards.
+
+Validation for these fixes: the dashboard engine suite passed on Ruby 3.4.5 with
+**283 tests, 1,426 assertions**, no failures, errors or skips. The focused assistant
+tests account for **44 tests, 358 assertions**. All eight changed/new Ruby files
+passed RuboCop, and the packaged frontend build passed. A React rendering check
+verified retained references under a custom mount and rejection of external URLs.
 
 ## Remaining milestones
 

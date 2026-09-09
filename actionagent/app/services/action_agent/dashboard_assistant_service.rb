@@ -20,6 +20,9 @@ module ActionAgent
     MAX_ANSWER_CHARACTERS = 8_000
     MAX_TOOL_RESULT_BYTES = 32_000
     MAX_CARD_BYTES = 64_000
+    # Connection settings only. Provider-wide tools, conversation IDs and
+    # request overrides must not add capabilities or state to this assistant.
+    CONNECTION_OPTIONS = %i[access_token api_key host base_url uri_base organization organization_id project project_id api_version].freeze
     DRAFT_TOOLS = (Agent::AVAILABLE_TOOLS & AgentToolbox::DEFINITIONS.keys).freeze
     DEFAULT_MODELS = {
       "openai" => "gpt-5.1", "anthropic" => "claude-haiku-4-5",
@@ -92,6 +95,7 @@ module ActionAgent
       @model = model
       @allow_provider_processing = allow_provider_processing
       @cards = []
+      @references = {}
       @drafts = []
       @limitations = LIMITATIONS.dup
       @tool_calls = 0
@@ -148,7 +152,11 @@ module ActionAgent
       if answer.length > MAX_ANSWER_CHARACTERS
         @limitations << "The provider answer was shortened to #{MAX_ANSWER_CHARACTERS} characters."
       end
-      { answer: answer.first(MAX_ANSWER_CHARACTERS), cards: @cards, drafts: @drafts, limitations: @limitations.uniq }
+      cited_ids = answer.scan(/\bevaluation-(?:run-|result-)?\d+\b/).uniq
+      if (cited_ids - @references.keys).any?
+        raise GenerationFailed, "The provider cited evidence that was not returned in this turn."
+      end
+      { answer: answer.first(MAX_ANSWER_CHARACTERS), cards: @cards, references: @references.values, drafts: @drafts, limitations: @limitations.uniq }
     end
 
     # Caller ownership is captured by this service, never supplied by model args.
@@ -192,11 +200,10 @@ module ActionAgent
     def generate
       service = self
       messages = @history + [ { role: "user", content: @message } ]
-      options = generation_options.merge(model: @model, max_tool_turns: MAX_TOOL_CALLS, timeout: 15, max_retries: 0, instrumentation: false)
+      options = generation_options.merge(model: @model, max_tool_turns: MAX_TOOL_CALLS, timeout: 15, max_retries: 0, instrumentation: false, delegations: false)
       provider = @provider
-      configuration = ActiveAgent::Base.provider_config_load(provider.to_sym).merge(options)
       token_option = if provider == "openai"
-        configuration[:api_version].to_s == "chat" ? :max_completion_tokens : :max_output_tokens
+        options[:api_version].to_s == "chat" ? :max_completion_tokens : :max_output_tokens
       else
         :max_tokens
       end
@@ -206,8 +213,9 @@ module ActionAgent
         define_method(:tools_function) { ->(name, **arguments) { service.execute_tool(name, **arguments) } }
         define_method(:answer) { prompt(messages: messages, instructions: INSTRUCTIONS, tools: TOOL_DEFINITIONS) }
       end
-      runtime.prompt_options.except!(:max_tokens, :max_completion_tokens, :max_output_tokens)
-      runtime.prompt_options[token_option] = 2_000
+      # generate_with merges global and inherited options again. Replace that
+      # final collection, rather than only filtering the options passed to it.
+      runtime.prompt_options = options.merge(token_option => 2_000)
       runtime.answer.generate_now
     end
 
@@ -217,11 +225,12 @@ module ActionAgent
     def generation_options
       configured = ActiveAgent::Base.provider_config_load(@provider.to_sym)
       supplied = provider_options(@provider)
-      options = configured.merge(supplied)
+      options = configured.merge(supplied).slice(*CONNECTION_OPTIONS)
       token = supplied[:access_token].presence || supplied[:api_key].presence || configured[:access_token].presence || configured[:api_key].presence
       options.merge!(access_token: token, api_key: token) if token
-      host = supplied[:host].presence || supplied[:base_url].presence
-      options.merge!(host: host, base_url: host) if host
+      host = supplied[:host].presence || supplied[:base_url].presence || supplied[:uri_base].presence
+      options.merge!(host: host, base_url: host, uri_base: host) if host
+      options[:api_version] = options[:api_version].to_sym if options[:api_version].present?
       options
     end
 
@@ -278,6 +287,7 @@ module ActionAgent
 
     def collect_evidence(evidence)
       cards = Array(evidence[:cards])
+      previous_ids = @cards.map { |card| card[:id] }
       desired_cards = (cards + @cards).uniq { |card| card[:id] }.first(MAX_CARDS)
       @cards = []
       desired_cards.each do |card|
@@ -286,6 +296,9 @@ module ActionAgent
         @cards << card
       end
       @limitations.concat(Array(evidence[:caveats]))
+      if (previous_ids - @cards.map { |card| card[:id] }).any?
+        @limitations << "Earlier evidence excerpts were replaced; their report references remain available below."
+      end
       if cards.any? { |card| @cards.none? { |shown| shown[:id] == card[:id] } }
         @limitations << "Evidence cards were limited to #{MAX_CARDS} cards and #{MAX_CARD_BYTES} bytes."
       end
@@ -299,6 +312,11 @@ module ActionAgent
           result[:cards].pop
           result[:coverage][:assistant_returned_cards] = result[:cards].size
         end
+      end
+      # Only retain references actually sent to the model. At most six calls
+      # return twelve cards each; IDs and server paths retain no report bodies.
+      result[:cards].each do |card|
+        @references[card[:id]] = { id: card[:id], path: card.dig(:latest_run, :path) || card[:path] }
       end
       result
     end

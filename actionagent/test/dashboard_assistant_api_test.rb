@@ -104,6 +104,52 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     assert_nil response.parsed_body["answer"]
   end
 
+  test "assistant request bodies are filtered before controller notifications on success and rejection" do
+    original_logger = ActionController::Base.logger
+    original_forgery_protection = ActionController::Base.allow_forgery_protection
+    log = StringIO.new
+    ActionController::Base.logger = ActiveSupport::Logger.new(log)
+    events = []
+    subscriber = ActiveSupport::Notifications.subscribe(/(?:start_processing|process_action)\.action_controller/) do |*args|
+      events << args.last[:params]
+    end
+    fake = Object.new
+    captured = nil
+    fake.define_singleton_method(:validate!) { self }
+    fake.define_singleton_method(:call) { { answer: "Safe reply", cards: [], references: [], drafts: [], limitations: [] } }
+    constructor = ->(**arguments) { captured = arguments; fake }
+    confidential = input.merge(message: "synthetic-private-question", history: [ { role: "assistant", content: "synthetic-private-report" } ])
+    ActionAgent::DashboardAssistantService.stub(:new, constructor) do
+      post "/activeagents/api/dashboard_assistant", params: confidential, as: :json
+      assert_response :success
+    end
+    assert_equal confidential[:message], captured[:message]
+    assert_equal "synthetic-private-report", captured[:history].first["content"]
+    ActionAgent.authentication_method = ->(*) { false }
+    post "/activeagents/api/dashboard_assistant", params: confidential, as: :json
+    assert_response :unauthorized
+    ActionAgent.authentication_method = nil
+    post "/activeagents/api/dashboard_assistant", params: confidential.except(:allow_provider_processing), as: :json
+    assert_response :unprocessable_entity
+    ActionController::Base.allow_forgery_protection = true
+    post "/activeagents/api/dashboard_assistant", params: confidential, headers: { "Sec-Fetch-Site" => "cross-site" }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "invalid_csrf_token", response.parsed_body["code"]
+
+    assert_operator events.size, :>=, 8
+    events.each do |params|
+      assert_equal "[FILTERED]", params["message"]
+      assert_equal "[FILTERED]", params["history"]
+      assert_not_includes params.to_json, "synthetic-private"
+    end
+    assert_includes log.string, "[FILTERED]"
+    assert_not_includes log.string, "synthetic-private"
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+    ActionController::Base.logger = original_logger
+    ActionController::Base.allow_forgery_protection = original_forgery_protection
+  end
+
   test "both endpoints refuse where the assistant is not a development or CI tool" do
     ActionAgent.assistant_enabled = false
     get "/activeagents/api/dashboard_assistant"
