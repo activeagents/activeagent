@@ -2,6 +2,8 @@
 
 Closes [#419](https://github.com/activeagents/activeagent/issues/419).
 
+Published PR: [#421 — Execute host MCP tools in dashboard runs and evaluations](https://github.com/activeagents/activeagent/pull/421).
+
 Previously, a dashboard agent declaring only host tools could send the model
 an empty tool roster and record an invented healthcheck as a successful run.
 The engine now resolves every declared tool before generation, obtains MCP
@@ -30,4 +32,5 @@ traces, and evaluation evidence. Native replay requires no host adapter.
 - Native Anthropic replay over simulated HTTP verifies the offered live
   schema, actual MCP call, persisted trace, and saved scenario result.
 
-The published PR URL will be recorded after creation.
+Local implementation review completed with no remaining blocking findings.
+GitHub CI is tracked on the PR; no merge or deployment was requested.
