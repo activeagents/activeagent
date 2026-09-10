@@ -63,8 +63,10 @@ export function Badge({ tone = 'neutral', mono = false, darkMode, children }) {
   );
 }
 
-// One primary per view — the primary here is Run Agent.
-function Button({ variant = 'secondary', size = 'md', onClick, disabled, colors, children }) {
+// One primary per view — the primary here is Run Agent. Shared with the
+// runner so both agent pages use the same control; `testId` lets that page
+// mark the buttons its browser tests drive.
+export function Button({ variant = 'secondary', size = 'md', onClick, disabled, colors, title, testId, children }) {
   const pad = size === 'sm' ? '5px 10px' : '7px 14px';
   const base = {
     padding: pad,
@@ -81,7 +83,14 @@ function Button({ variant = 'secondary', size = 'md', onClick, disabled, colors,
     danger: { background: 'transparent', color: '#dc2626', border: '1px solid rgba(220,38,38,0.4)' }
   };
   return (
-    <button type="button" onClick={onClick} disabled={disabled} style={{ ...base, ...(variants[variant] || variants.secondary) }}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      data-testid={testId}
+      style={{ ...base, ...(variants[variant] || variants.secondary) }}
+    >
       {children}
     </button>
   );
@@ -697,7 +706,7 @@ function ToolsTab({ formData, meta, toggleArrayItem, colors }) {
     const icons = {
       terminal: '$', playwright: '>', filesystem: '/', code: '<>',
       database: '#', slack: '@', fetch: '~', search: '?',
-      edit: '*', translate: '[]', memory: 'M'
+      edit: '*', translate: '[]', memory: 'M', ui: '[=]'
     };
     return icons[tool] || '[]';
   };

@@ -107,7 +107,9 @@ jobs:
       # The engine's own suite runs here too, not just the integration
       # directory: ActionAgent::AgentExecutionService builds an agent class
       # around SolidAgent::HasContext, and that path is only exercised by
-      # actionagent/test.
+      # actionagent/test. The workbench file carries the rest of that
+      # coupling — load_context(context_id:), add_user_message's attachments,
+      # and the two persist_*_to_context overrides.
       - name: Run the integration suite
         env:
           BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
@@ -116,7 +118,8 @@ jobs:
           RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: |
           bin/test test/integration/solid_agent/*_test.rb \
-                   actionagent/test/agent_execution_service_test.rb 2>&1 | tee integration.log
+                   actionagent/test/agent_execution_service_test.rb \
+                   actionagent/test/runner_workbench_test.rb 2>&1 | tee integration.log
 
       # Skips are the report: on the released combination they name every
       # API the published gem is missing, which is the cue to cut a

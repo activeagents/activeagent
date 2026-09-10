@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 6) do
+ActiveRecord::Schema[8.0].define(version: 8) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -355,6 +355,63 @@ ActiveRecord::Schema[8.0].define(version: 6) do
     t.index [ "user_id" ], name: "index_active_agent_session_recordings_on_user_id"
   end
 
+  create_table "active_agent_telemetry_traces", force: :cascade do |t|
+    t.string "agent_action"
+    t.string "agent_class"
+    t.bigint "agent_id"
+    t.datetime "created_at", null: false
+    t.string "environment"
+    t.text "error_message"
+    t.json "resource_attributes", default: {}
+    t.json "sdk_info", default: {}
+    t.string "service_name"
+    t.json "spans", default: []
+    t.string "status"
+    t.datetime "timestamp"
+    t.decimal "total_duration_ms", precision: 12, scale: 3
+    t.integer "total_input_tokens", default: 0
+    t.integer "total_output_tokens", default: 0
+    t.integer "total_thinking_tokens", default: 0
+    t.string "trace_id", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "agent_class", "agent_action" ], name: "idx_on_agent_class_agent_action_c68bed0fe3"
+    t.index [ "agent_class" ], name: "index_active_agent_telemetry_traces_on_agent_class"
+    t.index [ "agent_id" ], name: "index_active_agent_telemetry_traces_on_agent_id"
+    t.index [ "created_at" ], name: "index_active_agent_telemetry_traces_on_created_at"
+    t.index [ "service_name", "environment" ], name: "idx_on_service_name_environment_aa52e7b090"
+    t.index [ "status" ], name: "index_active_agent_telemetry_traces_on_status"
+    t.index [ "timestamp" ], name: "index_active_agent_telemetry_traces_on_timestamp"
+    t.index [ "trace_id" ], name: "index_active_agent_telemetry_traces_on_trace_id", unique: true
+  end
+
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.bigint "record_id", null: false
+    t.string "record_type", null: false
+    t.index [ "blob_id" ], name: "index_active_storage_attachments_on_blob_id"
+    t.index [ "record_type", "record_id", "name", "blob_id" ], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index [ "key" ], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index [ "blob_id", "variation_digest" ], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
   create_table "agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -494,6 +551,8 @@ ActiveRecord::Schema[8.0].define(version: 6) do
     t.index [ "email" ], name: "index_users_on_email", unique: true
   end
 
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "agent_generations", "agent_contexts"
   add_foreign_key "agent_memory_entries", "agent_memories"
   add_foreign_key "agent_messages", "agent_contexts"

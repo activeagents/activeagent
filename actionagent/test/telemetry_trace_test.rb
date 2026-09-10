@@ -232,6 +232,51 @@ class TelemetryTraceTest < ActiveSupport::TestCase
       assert_nil trace.reload.agent_id
     end
   end
+
+  def authored_agent
+    ActionAgent::Agent.create!(
+      name: "Sales Copilot", provider: "mock", model: "mock",
+      instructions: "Answer as Acme's sales assistant."
+    )
+  end
+
+  # A dashboard run's trace names the agent that ran it, but only the caller
+  # that ran it may say so. resource_attributes on an ingested trace are
+  # client-supplied — single-tenant ingest is unauthenticated unless
+  # ActionAgent.ingest_api_key is set — so an id read from the payload would
+  # let any reporter bind its trace to any authored agent by guessing a
+  # primary key.
+  test "a payload's platform.agent_id cannot bind a trace to an authored agent" do
+    ActionAgent::Agent.delete_all
+    authored = authored_agent
+
+    spoofed = payload(spans: [ root_span ]).merge(
+      "resource_attributes" => { "platform.agent_id" => authored.id }
+    )
+    trace = ActionAgent::TelemetryTrace.create_from_payload(spoofed)
+
+    refute_equal authored.id, trace.reload.agent_id,
+      "an ingest payload bound its trace to a dashboard-authored agent"
+    assert_equal 0, ActionAgent::TelemetryTrace.where(agent_id: authored.id).count
+    assert_equal "observed", ActionAgent::Agent.find(trace.agent_id).status,
+      "the trace should be registered as an observed agent, as any SDK trace is"
+  end
+
+  # The legitimate attribution: AgentExecutionService records its run's trace
+  # in process and names the agent it ran, so the registrar stands down instead
+  # of registering an "observed" twin of every dashboard-run agent.
+  test "a run recorded by the dashboard is attributed to the agent it names" do
+    ActionAgent::Agent.delete_all
+    authored = authored_agent
+
+    trace = ActionAgent::TelemetryTrace.create_from_payload(
+      payload(spans: [ root_span ]), {}, agent: authored
+    )
+
+    assert_equal authored.id, trace.reload.agent_id
+    assert_equal 0, ActionAgent::Agent.observed_agents.count,
+      "naming the agent should keep the registrar from registering a twin of it"
+  end
 end
 
 TelemetryTraceTest.ensure_table!
