@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-10
+
 ### Added
+
+- **`actionagent`: the dashboard calls a host's MCP tools instead of only
+  describing them.** An agent whose tools come from the host application's own
+  MCP servers could be attributed but not executed: `AgentExecutionService`
+  routed every call through `AgentToolbox`, and `tool_schemas` described only
+  the toolbox's own tools — so a host tool was never offered to the model,
+  which then answered from memory rather than calling it. A scenario asking an
+  agent to run a healthcheck returned a confident summary of services it never
+  contacted. `MCPToolDispatcher` now resolves the servers an agent declares,
+  offers their live `tools/list` schemas alongside the toolbox's, and
+  dispatches a call to the server that serves it. `MCPClient` generalizes the
+  Playwright client into a Streamable HTTP client for any server: TLS,
+  JSON and SSE responses, optional sessions, and stateless servers that answer
+  the handshake with no session id. An observed agent may execute once it names
+  a reachable server, since it carries the instructions, model and servers a
+  run needs. Set `ACTIONAGENT_MCP_ORIGIN` to the origin a host's relative
+  server paths ("/mcp/diagnostic") are served under.
 
 - **`ActiveAgent::Evals::Publisher` delivers a finished report to a
   collector.** A run that already happened — in CI, in a host app's own
