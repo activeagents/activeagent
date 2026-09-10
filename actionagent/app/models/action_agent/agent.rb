@@ -252,8 +252,19 @@ module ActionAgent
       run
     end
 
+    # An observed agent was reconstructed from telemetry, so it is read-only:
+    # editing it would rewrite a record of what ran. Executing it is a
+    # different question — it carries the instructions, model and MCP servers a
+    # run needs, and evaluating the agent that actually served production is
+    # the case operators ask for. So a run is allowed once the agent names a
+    # server the dashboard can reach, and refused when it would have nothing to
+    # call.
     def ensure_executable!
-      raise ObservedAgentError, "Observed agents are read-only — duplicate this agent to create an executable copy" if observed?
+      return unless observed?
+      return if MCPToolDispatcher.new(self).any_reachable_server?
+
+      raise ObservedAgentError,
+            "This agent was observed from telemetry and is read-only: it names no reachable MCP server — duplicate it to create an executable copy"
     end
 
     private

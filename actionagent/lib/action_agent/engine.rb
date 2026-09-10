@@ -21,6 +21,8 @@ module ActionAgent
     # rather than relying on the host to register one.
     INFLECTION_OVERRIDES = {
       "mcp_catalog" => "MCPCatalog",
+      "mcp_client" => "MCPClient",
+      "mcp_tool_dispatcher" => "MCPToolDispatcher",
       "mcp_controller" => "MCPController",
       "mcp_recording_middleware" => "MCPRecordingMiddleware",
       "mcp_servers_controller" => "MCPServersController",

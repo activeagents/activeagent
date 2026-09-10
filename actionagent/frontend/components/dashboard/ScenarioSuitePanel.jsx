@@ -311,6 +311,24 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     ? (run.scores._judge_label || 'rules')
     : ((verdict?.judge && verdict.judge !== 'pass rate') ? verdict.judge : (evaluation.judge_model || 'rules'));
   const fixItems = useMemo(() => (run ? fixItemsFor(run, results) : []), [run, results]);
+
+  // A fix card names the scenarios its fault came from; clicking that scope
+  // opens the first one so the question, the answer and the tools it called are
+  // on screen. Filters are cleared first — the row is often one a group chip or
+  // "failed only" is currently hiding.
+  const openScenario = useCallback((keys) => {
+    const key = Array.isArray(keys) ? keys[0] : keys;
+    if (!key) return;
+
+    setGroupFilter(null);
+    setFailedOnly(false);
+    setOpenKey(key);
+    // The row renders after the filters clear, so the scroll waits a frame.
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-scenario-key="${CSS.escape(key)}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, []);
   const criteriaKeys = Object.keys(run?.scores || {}).filter((key) => !key.startsWith('_'));
   const criteriaText = (criteriaKeys.length ? criteriaKeys : (evaluation.criteria || []).map((c) => c.key))
     .map((key) => String(key).replace(/_/g, ' ')).join(' · ') || '—';
@@ -418,7 +436,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
             </span>
           </div>
           {fixItems.length > 0 ? (
-            <FixList items={fixItems} columns={columns} agentName={agentName} onNavigate={navigateTo} />
+            <FixList items={fixItems} columns={columns} agentName={agentName} onNavigate={navigateTo} onOpenScenario={openScenario} />
           ) : (
             <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px' }}>
               {running ? '[ ] scoring…' : '[+] nothing to fix'}

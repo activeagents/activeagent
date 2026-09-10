@@ -169,6 +169,10 @@ export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12p
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                // Without this the line grows to fit an unbreakable value — a
+                // tool's JSON arguments — instead of ellipsing, and widens
+                // every flex ancestor up to the page.
+                minWidth: 0,
               }}
             >
               {/* The marker keeps its column even when a line can't open, so

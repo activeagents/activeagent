@@ -479,7 +479,11 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         assistantEnabled={assistantEnabled}
       />
 
-      <div className="flex-1 flex flex-col">
+      {/* min-w-0: a flex item defaults to min-width:auto, so a view whose
+          content is wider than the viewport — a long toolbar, a wide table —
+          stretches this column instead of scrolling inside it, and the whole
+          page scrolls sideways. */}
+      <div className="flex-1 flex flex-col min-w-0">
         <Header
           user={user}
           account={account}
