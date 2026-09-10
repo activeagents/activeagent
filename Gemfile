@@ -6,7 +6,7 @@ gem "rubocop-rails-omakase"
 # keyword-only; the released Rails (7.2 through 8.1.3.1) still passes them
 # positionally, so every boot aborts in db:migrate. Rails main has adapted,
 # which is why railsmain.gemfile carries no pin.
-gem "json", "< 3"
+gem "json", "< 4"
 
 gemspec
 
