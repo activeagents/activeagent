@@ -18,6 +18,7 @@ import SandboxRunner from '../components/dashboard/SandboxRunner';
 import SessionReplayView from '../components/dashboard/SessionReplayView';
 import OrganizationView from '../components/dashboard/OrganizationView';
 import SettingsView from '../components/dashboard/SettingsView';
+import DashboardAssistant from '../components/dashboard/DashboardAssistant';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 import { dashboardPath, dashboardRelativePath } from '../utils/dashboardPath';
@@ -37,6 +38,12 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const [notification, setNotification] = useState(null);
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [agentSort, setAgentSort] = useState('recent');
+  const [assistantSession, setAssistantSession] = useState({ messages: [] });
+  const [builderDraft, setBuilderDraft] = useState(null);
+  // The assistant is a development and CI tool. A dashboard without one has
+  // no nav item, no route and no view: the server is the authority, and the
+  // API refuses the same way.
+  const assistantEnabled = meta.assistantEnabled !== false;
   // Which MCP service the MCP view should open expanded — set when a tool
   // row links to the server that serves it, or from a /mcp/:server URL.
   const [focusServer, setFocusServer] = useState(null);
@@ -50,7 +57,9 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     // raw pathname, a mount like /admin/agents made '/agents/' true for
     // every URL and a mount like /demo rendered the sandbox everywhere.
     const path = dashboardRelativePath();
-    if (path.startsWith('/traces')) {
+    if (path === '/assistant' && assistantEnabled) {
+      setCurrentView('assistant');
+    } else if (path.startsWith('/traces')) {
       setCurrentView('traces');
     } else if (path.startsWith('/metrics')) {
       setCurrentView('metrics');
@@ -265,6 +274,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const AGENT_DETAIL_VIEWS = ['editor', 'runner', 'agent-analytics', 'history'];
 
   const navigateTo = (view, agent = null) => {
+    if (view === 'assistant' && !assistantEnabled) return;
+    if (view === 'builder') setBuilderDraft(null);
     if (agent?.id && AGENT_DETAIL_VIEWS.includes(view) && agent.instructions === undefined) {
       loadAgent(agent.id, view);
     } else {
@@ -274,7 +285,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
     // Update URL
     let path = dashboardPath();
-    if (view === 'builder') path = dashboardPath('/agents/new');
+    if (view === 'assistant') path = dashboardPath('/assistant');
+    else if (view === 'builder') path = dashboardPath('/agents/new');
     else if (view === 'editor' && agent) path = dashboardPath(`/agents/${agent.id}/edit`);
     else if (view === 'runner' && agent) path = dashboardPath(`/agents/${agent.id}/run`);
     else if (view === 'agent-analytics' && agent) path = dashboardPath(`/agents/${agent.id}/analytics`);
@@ -296,12 +308,27 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
   const renderContent = () => {
     switch (currentView) {
+      case 'assistant':
+        if (!assistantEnabled) return null;
+        return <DashboardAssistant
+          session={assistantSession}
+          onSessionChange={setAssistantSession}
+          executionEnabled={meta.executionEnabled !== false}
+          onOpenSettings={() => navigateTo('settings')}
+          onReviewDraft={draft => {
+            setBuilderDraft(draft);
+            setCurrentView('builder');
+            window.history.pushState({}, '', dashboardPath('/agents/new'));
+          }}
+        />;
       case 'builder':
         return (
           <AgentBuilder
+            key={builderDraft?.id || 'new-agent'}
+            initialDraft={builderDraft}
             meta={meta}
             onSave={handleCreateAgent}
-            onCancel={() => navigateTo('list')}
+            onCancel={() => navigateTo(builderDraft ? 'assistant' : 'list')}
             isLoading={isLoading}
           />
         );
@@ -449,6 +476,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         account={account}
         user={user}
         gemVersion={meta.activeagentVersion}
+        assistantEnabled={assistantEnabled}
       />
 
       <div className="flex-1 flex flex-col">

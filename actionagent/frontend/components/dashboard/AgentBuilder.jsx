@@ -9,7 +9,7 @@ const STEPS = [
   { id: 'review', label: 'Review', icon: '3' }
 ];
 
-export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
+export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initialDraft = null }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [providerModels, setProviderModels] = useState(FALLBACK_PROVIDER_MODELS);
   const [formData, setFormData] = useState({
@@ -23,7 +23,17 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
     tools: ['terminal', 'code'],
     model_config: {
       temperature: 0.7
-    }
+    },
+    ...(initialDraft ? {
+      name: initialDraft.name,
+      description: initialDraft.description || '',
+      instructions: initialDraft.instructions,
+      provider: initialDraft.provider,
+      model: initialDraft.model,
+      tools: initialDraft.tools || [],
+      instruction_sets: [],
+      mcp_servers: [],
+    } : {})
   });
 
   // Load the provider's current model catalog (Ollama/OpenRouter live,
@@ -32,8 +42,10 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
     let cancelled = false;
     fetchProviderModels(formData.provider).then(models => {
       if (cancelled || models.length === 0) return;
-      setProviderModels(prev => ({ ...prev, [formData.provider]: models }));
-      setFormData(prev => models.includes(prev.model) ? prev : { ...prev, model: models[0] });
+      const available = initialDraft?.provider === formData.provider && initialDraft.model
+        ? [...new Set([initialDraft.model, ...models])] : models;
+      setProviderModels(prev => ({ ...prev, [formData.provider]: available }));
+      setFormData(prev => available.includes(prev.model) ? prev : { ...prev, model: available[0] });
     });
     return () => { cancelled = true; };
   }, [formData.provider]);
@@ -76,6 +88,7 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {initialDraft && <div className="mb-4 p-4 rounded-lg border border-red-200 bg-red-50 text-sm text-gray-700">Prepared by your workspace assistant. Review the instructions, model, and tools before creating this agent.</div>}
       {/* Progress Steps */}
       <div className="mb-8">
         <div className="flex items-center justify-between">

@@ -2,6 +2,8 @@
 
 module ActionAgent
   class Agent < ApplicationRecord
+    class ObservedAgentError < StandardError; end
+
     include Ownable
     owned_by :user, :account
 
@@ -207,6 +209,7 @@ module ActionAgent
     # attached. +params+ (provider/model overrides, the context_id of a
     # conversation to continue) are kept on the run as input_params.
     def execute(input_prompt, action: nil, attachments: [], **params)
+      ensure_executable!
       run = create_run(input_prompt, action: action, attachments: attachments, params: params, status: :pending)
 
       # Queue the execution job
@@ -217,6 +220,7 @@ module ActionAgent
 
     # Quick test execution (synchronous)
     def test_execute(input_prompt, action: nil, attachments: [], **params)
+      ensure_executable!
       run = create_run(
         input_prompt, action: action, attachments: attachments, params: params,
         status: :running, started_at: Time.current
@@ -246,6 +250,10 @@ module ActionAgent
       end
 
       run
+    end
+
+    def ensure_executable!
+      raise ObservedAgentError, "Observed agents are read-only — duplicate this agent to create an executable copy" if observed?
     end
 
     private

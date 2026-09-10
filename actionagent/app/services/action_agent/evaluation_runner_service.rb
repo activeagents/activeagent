@@ -417,11 +417,21 @@ module ActionAgent
       PROMPT
     end
 
+    # The judge answers with a JSON number, so "9e-2" is 0.09; a digit-only
+    # regex read that as 9 and clamped a near-zero score to a perfect 1.0.
+    # Mirrors ActiveAgent::Evals::Judge#parse_score, which is private there
+    # and may be the older, unfixed one when the host pins activeagent 1.4.0.
     def parse_judge_score(content)
-      match = content.to_s.match(/"score"\s*:\s*(\d+(?:\.\d+)?)/)
-      return nil unless match
+      json = content.to_s[/\{.*\}/m]
+      return nil unless json
 
-      match[1].to_f.clamp(0.0, 1.0)
+      parsed = JSON.parse(json)
+      value = parsed.is_a?(Hash) ? parsed["score"] : nil
+      return nil unless value.is_a?(Numeric) && value.finite?
+
+      value.to_f.clamp(0.0, 1.0)
+    rescue JSON::ParserError
+      nil
     end
 
     # The judge needs real provider credentials; scoring with the mock

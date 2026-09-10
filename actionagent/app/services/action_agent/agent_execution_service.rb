@@ -77,6 +77,7 @@ module ActionAgent
     end
 
     def call
+      @agent_record.ensure_executable!
       root_span = @root_span = build_root_span
       record_prompt_span(root_span)
       llm_span = root_span.add_span(

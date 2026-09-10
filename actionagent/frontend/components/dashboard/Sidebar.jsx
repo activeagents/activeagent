@@ -3,7 +3,7 @@ import AgentAvatar from '../AgentAvatar';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 
-export default function Sidebar({ currentView, onNavigate, agentCount, account, user, gemVersion }) {
+export default function Sidebar({ currentView, onNavigate, agentCount, account, user, gemVersion, assistantEnabled = true }) {
   const { darkMode } = useTheme();
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const menuRef = useRef(null);
@@ -23,6 +23,9 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const userName = user?.name || user?.email?.split('@')[0] || 'User';
 
   const agentItems = [
+    // The assistant is a development and CI tool; the server decides whether
+    // this dashboard has one at all.
+    ...(assistantEnabled ? [{ id: 'assistant', label: 'Ask ActiveAgents', icon: '>' }] : []),
     { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
     { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
     { id: 'sandbox', label: 'Run Agents', icon: ICONS.nav.demo, highlight: true },
