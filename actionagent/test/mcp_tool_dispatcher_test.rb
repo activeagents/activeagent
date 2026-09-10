@@ -43,48 +43,54 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
     assert_not dispatcher.dispatchable?("read_file")
   end
 
+  # The four tests below drive the real Net::HTTP path with stubbed responses
+  # rather than stubbing MCPClient, so the JSON-RPC framing is covered too.
+
+  # An MCP endpoint answering the initialize handshake, then `body` for the
+  # request under test. A stateless server sends no Mcp-Session-Id.
+  def stub_mcp(body, session: nil, status: 200)
+    headers = { "Content-Type" => "application/json" }
+    headers["Mcp-Session-Id"] = session if session
+
+    responses = [
+      { status: 200, headers: headers, body: { jsonrpc: "2.0", id: 1, result: {} }.to_json },
+      { status: 200, headers: headers, body: "null" },
+      { status: status, headers: headers, body: body }
+    ]
+
+    stub_request(:post, "https://host.example/mcp/records").to_return(responses)
+  end
+
   test "an unreachable server returns a scoreable error rather than raising" do
+    stub_request(:post, "https://host.example/mcp/records").to_return(status: 502, body: "nope")
     dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(%w[records]))
-    ActionAgent::MCPClient.any_instance.stubs(:call_tool)
-                          .raises(ActionAgent::MCPClient::Error, "boom")
 
     result = dispatcher.call("count_records", { "model" => "Physician" })
 
-    assert_match(/count_records failed: boom/, result[:error])
+    assert_match(/count_records failed/, result[:error])
   end
 
   test "a server's own tools/list becomes the schemas the model is offered" do
+    stub_mcp({ jsonrpc: "2.0", id: 2,
+               result: { tools: [ { name: "count_records", description: "Counts rows.",
+                                    inputSchema: { type: "object" } } ] } }.to_json)
     dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(%w[records]))
-    ActionAgent::MCPClient.any_instance.stubs(:list_tools).returns(
-      [ { name: "count_records", description: "Counts rows.", parameters: { type: "object" } } ]
-    )
 
     assert_equal %w[count_records], dispatcher.tool_definitions.map { |tool| tool[:name] }
   end
 
   test "a server whose tools/list fails contributes no schemas" do
+    stub_request(:post, "https://host.example/mcp/records").to_return(status: 401, body: "denied")
     dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(%w[records]))
-    ActionAgent::MCPClient.any_instance.stubs(:list_tools)
-                          .raises(ActionAgent::MCPClient::Error, "unreachable")
 
     assert_empty dispatcher.tool_definitions
   end
 
   test "a stateless server, which returns no session id, still completes the handshake" do
-    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp", label: "Stateless")
-    client.stubs(:post_raw).returns([ { "result" => {} }, {} ])
-    client.stubs(:post).returns({ "result" => { "tools" => [] } })
+    stub_mcp({ jsonrpc: "2.0", id: 2, result: { tools: [] } }.to_json)
+    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp/records", label: "Stateless")
 
     assert_empty client.list_tools
-  end
-
-  test "a notification answered with a bare null body is not an error" do
-    response = mock
-    response.stubs(:body).returns("null")
-    response.stubs(:[]).with("Content-Type").returns("application/json")
-    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp")
-
-    assert_equal({}, client.send(:parse_body, response))
   end
 
   test "an observed agent with a reachable server may execute" do
