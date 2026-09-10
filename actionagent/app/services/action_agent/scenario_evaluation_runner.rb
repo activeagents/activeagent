@@ -48,10 +48,14 @@ module ActionAgent
       records = scenarios.index_by(&:key)
       tasks = scenarios.map { |scenario| Evals::Scenario.from_hash(scenario.as_json_summary) }
       expected = tasks.product(specs).map { |task, spec| [ task.key, spec.label ] }
-      persisted = []
+      # Every result tests membership twice, so look the pairs up in a set;
+      # `expected` stays an array for the completeness comparison below, and
+      # `persisted` sorts the same way either way.
+      allowed = expected.to_set
+      persisted = Set.new
       on_result = lambda do |result|
         pair = [ result.scenario.key, result.label ]
-        raise ArgumentError, "unexpected or duplicate scenario evaluation result" unless expected.include?(pair) && !persisted.include?(pair)
+        raise ArgumentError, "unexpected or duplicate scenario evaluation result" unless allowed.include?(pair) && !persisted.include?(pair)
 
         persist(run, records.fetch(result.scenario.key), result)
         persisted << pair

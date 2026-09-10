@@ -2,6 +2,7 @@
 
 require "json"
 require "net/http"
+require "openssl"
 require "uri"
 
 module ActiveAgent
@@ -67,7 +68,7 @@ module ActiveAgent
         receipt
       rescue JSON::ParserError
         raise Error, "Evaluation collector returned invalid JSON; retain the report and run_id for retry"
-      rescue IOError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError => e
+      rescue IOError, SocketError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError => e
         raise Error, "Evaluation delivery failed (#{e.class}); retain the report and run_id for retry"
       end
     end
