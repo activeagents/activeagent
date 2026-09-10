@@ -30,8 +30,8 @@ module ActionAgent
 
     # Status enum
     # `observed` agents were discovered from reported telemetry rather than
-    # authored here. They can't be executed by the platform — we can't push
-    # instructions into someone else's app — so they're read-only until forked.
+    # authored here. Their status records that origin; execution uses the
+    # same provider credentials and executable tool bindings as authored agents.
     enum :status, { draft: 0, active: 1, archived: 2, observed: 3 }
 
     scope :observed_agents, -> { where(status: :observed) }

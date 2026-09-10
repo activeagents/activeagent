@@ -20,6 +20,7 @@ module ActionAgent
     # Raised when the requested provider has no usable credentials. The run is
     # marked failed with this message — never silently degraded to mock output.
     class ProviderNotConfiguredError < StandardError; end
+    class ToolNotConfiguredError < StandardError; end
 
     SERVICE_NAME = "activeagents-platform"
 
@@ -60,7 +61,6 @@ module ActionAgent
 
     def call
       root_span = @root_span = build_root_span
-      record_prompt_span(root_span)
       llm_span = root_span.add_span(
         "llm.generate",
         span_type: :llm,
@@ -73,6 +73,11 @@ module ActionAgent
       emit_event(eid: llm_eid, kind: "llm", label: "#{provider}/#{model} generating", status: "started")
 
       begin
+        # Resolve the entire declared roster before a provider can answer.
+        # Missing host tools must fail the run, even if the model would never
+        # have requested them (or this is an offline mock replay).
+        resolved_tool_schemas
+        record_prompt_span(root_span)
         response = generate!
         usage = response.usage
         input = usage&.input_tokens.to_i
@@ -184,20 +189,27 @@ module ActionAgent
       @composed_instructions ||= @agent_record.composed_instructions_for(action_name)
     end
 
-    # Routes a provider tool call to its implementation: memory tools bind to
-    # the agent record's AgentMemory (the solid_agent HasMemory contract);
-    # everything else is stateless and lives in AgentToolbox.
+    # Enabled MCP servers take precedence over the engine's implementations.
+    # The binding and schema come from the same per-run discovery, so dispatch
+    # uses the server whose contract was actually offered to the model.
     #
     # Each call is wrapped in a live :tool span (real start/end around the
     # execution) and recorded in @tool_invocations so tool names, arguments
     # and durations reach Traces and the persisted conversation.
     def execute_tool(name, **kwargs)
+      binding = resolved_tool_bindings.fetch(name.to_s) do
+        raise ToolNotConfiguredError, "Tool '#{name}' is not enabled for agent '#{@agent_record.name}'"
+      end
+      mcp = binding[:mcp]
       # Record the absolute URL browse_page will actually fetch, not the bare
       # path the model passed — spans/events/persisted args stay unambiguous.
-      kwargs[:url] = AgentToolbox.resolve_browse_url(kwargs[:url]) if name.to_s == "browse_page" && kwargs[:url]
+      kwargs[:url] = AgentToolbox.resolve_browse_url(kwargs[:url]) if !mcp && name.to_s == "browse_page" && kwargs[:url]
 
       span = @root_span&.add_span("tool.#{name}", span_type: :tool)
       span&.set_attribute("tool.name", name.to_s)
+      span&.set_attribute("tool.mcp_server", mcp[:server]) if mcp
+      span&.set_attribute("tool.base_name", mcp[:name]) if mcp
+      span&.set_attribute("tool.origin", "mcp") if mcp
       # tool.input.args is the key the Traces UI and TraceInteractionSerializer
       # read — the call's in: side.
       span&.set_attribute("tool.input.args", kwargs.to_json.byteslice(0, 500).to_s.scrub) if kwargs.present?
@@ -209,31 +221,10 @@ module ActionAgent
       emit_event(eid: event_id, kind: event_kind, label: event_label, status: "started", detail: kwargs.to_json)
 
       result = begin
-        case name.to_s
-        when "save_memory"
-          entry = agent_memory.remember(
-            kwargs[:content].to_s,
-            source_agent: agent_class_name,
-            category: kwargs[:category]
-          )
-          { saved: true, id: entry.id, content: entry.content }
-        when "recall_memory"
-          entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
-          {
-            count: entries.size,
-            entries: entries.map do |entry|
-              {
-                content: entry.content,
-                category: entry.category,
-                source_agent: entry.source_agent,
-                created_at: entry.created_at&.iso8601
-              }.compact
-            end
-          }
-        when "call_agent"
-          call_agent(slug: kwargs[:slug], message: kwargs[:message])
+        if mcp
+          mcp[:client].call_tool(mcp[:name], kwargs)
         else
-          AgentToolbox.call(name, **kwargs)
+          execute_builtin_tool(name, **kwargs)
         end
       rescue StandardError => e
         Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
@@ -241,7 +232,8 @@ module ActionAgent
       end
 
       duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round(2)
-      errored = result.respond_to?(:key?) && (result.key?(:error) || result.key?("error"))
+      errored = result.respond_to?(:key?) &&
+        (result.key?(:error) || result.key?("error") || result[:is_error] == true || result["is_error"] == true)
       span&.set_attribute("tool.error", true) if errored
       # Record the readable side of the result (most tools wrap one long text
       # field); byteslicing whole-JSON breaks it mid-string and the UI can't
@@ -257,7 +249,7 @@ module ActionAgent
       emit_event(
         eid: event_id, kind: event_kind, label: event_label,
         status: errored ? "error" : "done", duration_ms: duration_ms,
-        detail: errored ? (result[:error] || result["error"]).to_s : event_result_preview(result)
+        detail: errored ? (result[:error] || result["error"] || result_text).to_s : event_result_preview(result)
       )
       @tool_invocations << {
         name: name.to_s,
@@ -269,7 +261,76 @@ module ActionAgent
       result
     end
 
+    # Provider-independent roster, also useful to callers inspecting a run's
+    # executable contract. Categories retain their builder expansion; exact
+    # function names support agents reconstructed from telemetry.
+    def resolved_tool_schemas
+      resolved_tool_bindings.values.map { |binding| binding[:definition] }
+    end
+
     private
+
+    def resolved_tool_bindings
+      @resolved_tool_bindings ||= begin
+        builtin = AgentToolbox::DEFINITIONS.values.flatten.index_by { |definition| definition[:name].to_s }
+        resolver = MCPToolBinding.new(@agent_record)
+        unresolved = []
+        bindings = Array(@agent_record.tools).each_with_object({}) do |declared, entries|
+          name = declared.to_s
+          if (mcp = resolver.resolve(name))
+            entries[name] = { definition: mcp[:definition], mcp: mcp }
+            next
+          end
+
+          category = AgentToolbox::DEFINITIONS[name]
+          names = category ? category.map { |definition| definition[:name].to_s } : [ name ]
+          names.each do |tool_name|
+            if (mcp = resolver.resolve(tool_name))
+              entries[tool_name] = { definition: mcp[:definition], mcp: mcp }
+            elsif (definition = builtin[tool_name])
+              entries[tool_name] = { definition: definition }
+            else
+              unresolved << tool_name
+            end
+          end
+        end
+        if unresolved.any?
+          raise ToolNotConfiguredError,
+            "Agent '#{@agent_record.name}' has tools with no executable binding: #{unresolved.join(', ')}. " \
+            "Configure an enabled MCP server with an HTTP URL that lists these tools, or remove them from the agent."
+        end
+        bindings
+      end
+    end
+
+    def execute_builtin_tool(name, **kwargs)
+      case name.to_s
+      when "save_memory"
+        entry = agent_memory.remember(
+          kwargs[:content].to_s,
+          source_agent: agent_class_name,
+          category: kwargs[:category]
+        )
+        { saved: true, id: entry.id, content: entry.content }
+      when "recall_memory"
+        entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
+        {
+          count: entries.size,
+          entries: entries.map do |entry|
+            {
+              content: entry.content,
+              category: entry.category,
+              source_agent: entry.source_agent,
+              created_at: entry.created_at&.iso8601
+            }.compact
+          end
+        }
+      when "call_agent"
+        call_agent(slug: kwargs[:slug], message: kwargs[:message])
+      else
+        AgentToolbox.call(name, **kwargs)
+      end
+    end
 
     # Maximum agent-to-agent delegation depth for the call_agent tool. A
     # thread-local counter guards it because the sub-agent runs synchronously
@@ -383,14 +444,11 @@ module ActionAgent
           generate_with effective_provider, model: provider_model, **model_options
         end
 
-        # Expose the agent's server-executable tools as public methods so the
-        # gem's tools_function can route provider tool calls to them. The
-        # service routes each call to AgentToolbox or, for memory tools, to
-        # the run's AgentMemory.
-        tool_definitions.each do |definition|
-          define_method(definition[:name]) do |**kwargs|
-            service.execute_tool(definition[:name], **kwargs)
-          end
+        # Route through the selected roster directly. MCP names such as
+        # "prompt" or "ask" are valid tools, but defining them as methods
+        # would overwrite framework methods or the action below.
+        define_method(:tools_function) do
+          proc { |name, **kwargs| service.execute_tool(name, **kwargs) }
         end
 
         # One method per invokable action (the default plus each named action
@@ -417,9 +475,10 @@ module ActionAgent
     # server-side implementations (none for mock runs — the mock provider
     # doesn't do tool calling).
     def tool_schemas
+      definitions = resolved_tool_schemas
       return [] if provider == :mock
 
-      AgentToolbox.definitions_for(@agent_record.tools)
+      definitions
     end
 
     # Persists the tool interaction stream to the solid_agent conversation

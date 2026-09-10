@@ -7,6 +7,7 @@ require "test_helper"
 # chosen models, and reading a run's per-scenario results.
 class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
   def setup
+    @original_multi_tenant = ActionAgent.multi_tenant
     ActionAgent::Agent.delete_all
   end
 
@@ -14,6 +15,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     ActionAgent.quota_checker = nil
     ActionAgent.usage_recorder = nil
     ActionAgent.execution_enabled = true
+    ActionAgent.multi_tenant = @original_multi_tenant
   end
 
   def create_agent(**attributes)
@@ -105,13 +107,58 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_response :created
   end
 
-  test "an observed agent's suite cannot be run" do
+  test "an observed agent's suite can be run without duplicating it" do
     evaluation = create_suite(create_agent(status: :observed))
+
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob) do
+      post "/activeagents/api/evaluations/#{evaluation.id}/run", as: :json
+    end
+
+    assert_response :success
+    assert_equal "complete", evaluation.latest_run.status
+    assert_equal "passed", evaluation.latest_run.scenario_results.first.status
+    assert evaluation.agent.reload.observed?
+  end
+
+  test "an observed agent's suite still respects execution and quota gates" do
+    evaluation = create_suite(create_agent(status: :observed))
+    ActionAgent.execution_enabled = false
+
+    post "/activeagents/api/evaluations/#{evaluation.id}/run", as: :json
+    assert_response :forbidden
+
+    ActionAgent.execution_enabled = true
+    ActionAgent.quota_checker = ->(_owner, kind) { "Out of runs" if kind == :execution }
+
+    post "/activeagents/api/evaluations/#{evaluation.id}/run", as: :json
+    assert_response :payment_required
+    assert_nil evaluation.latest_run
+    assert_no_enqueued_jobs only: ActionAgent::EvaluationRunJob
+  end
+
+  test "a scenario suite can be created and replayed for an observed agent" do
+    agent = create_agent(status: :observed)
+
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob) do
+      post "/activeagents/api/evaluations", params: {
+        evaluation: { agent_id: agent.id, name: "Observed suite", scenarios_text: "Hello" }
+      }, as: :json
+    end
+
+    assert_response :created
+    assert_equal "complete", agent.evaluations.last.latest_run.status
+    assert agent.reload.observed?
+  end
+
+  test "an observed agent's suite still requires an owner in a multi-tenant dashboard" do
+    evaluation = create_suite(create_agent(status: :observed))
+    ActionAgent.multi_tenant = true
 
     post "/activeagents/api/evaluations/#{evaluation.id}/run", as: :json
 
-    assert_response :unprocessable_entity
-    assert_match(/read-only/, JSON.parse(response.body)["error"])
+    assert_response :unauthorized
+    assert_nil evaluation.latest_run
+    assert_no_enqueued_jobs only: ActionAgent::EvaluationRunJob
   end
 
   test "a run can be narrowed to a group and to models, and its results are readable" do

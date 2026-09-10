@@ -80,6 +80,61 @@ dashboard, the resolver above returned `nil`.
 See [the self-hosted observability guide](https://docs.activeagents.ai/framework/self-hosted-observability)
 for the full list.
 
+## Execute host MCP tools
+
+Register a Streamable HTTP endpoint, then enable it and select tools on the
+dashboard agent:
+
+```ruby
+ActionAgent.configure do |config|
+  config.mcp_catalog = [
+    {
+      key: "operations",
+      name: "Host operations",
+      transport: "http",
+      url: ENV.fetch("OPERATIONS_MCP_URL"),
+      tool_hints: [ "healthcheck" ]
+    }
+  ]
+end
+
+agent.update!(mcp_servers: [ "operations" ], tools: [ "healthcheck" ])
+agent.test_execute("Check database health")
+```
+
+The engine reads `tools/list` for the selected tools' descriptions and JSON
+schemas and calls `tools/call` on the same connection session. Catalog hints
+help identify a server; they do not substitute for its live tool definitions.
+Only tools selected in `agent.tools` are offered to the model. A catalog entry
+alone does not enable its server.
+
+An agent's `mcp_servers` accepts bare catalog keys, builder hashes such as
+`[{ key: "operations", url: "https://host.example/mcp", transport: "http" }]`,
+or legacy name-keyed hashes. Inline connection settings override the catalog.
+Use `mcp__operations__healthcheck` to select a particular server when multiple
+enabled servers claim the same bare tool name. The namespace is removed from
+the name sent to the MCP server.
+
+Enabled MCP tools take precedence over built-in tools, including builder
+category names. Otherwise, supported categories such as `code` and `memory`
+still expand to their built-in functions, and exact built-in function names
+such as `calculate` are accepted. A declared tool with no executable binding
+fails the run before provider generation, with the tool or server to fix.
+MCP tool failures appear in run events, traces, and scenario results; they
+never fall back to a similarly named toolbox function.
+
+Observed agents can run and participate in scenario evaluations using their
+stored instructions, model, and enabled servers. The normal owner, quota,
+provider-credential, and dashboard execution settings still apply. Evaluations
+use this native execution path without a host-specific evaluation runner.
+
+Supported transports are `http`, `streamable_http`, and `streamable-http`,
+over absolute HTTP or HTTPS URLs. The client supports JSON and SSE responses,
+paginated discovery, and optional MCP sessions. `stdio` commands and legacy
+SSE transports are not launched by dashboard execution; configure their
+Streamable HTTP endpoint instead. The existing Playwright toolbox client
+keeps its `PLAYWRIGHT_MCP_URL` default.
+
 ## Assets
 
 The dashboard's JavaScript and CSS ship prebuilt in the gem, under
