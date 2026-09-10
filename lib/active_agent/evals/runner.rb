@@ -117,7 +117,16 @@ module ActiveAgent
       def evaluate_with_context(scenario, spec)
         return evaluate(scenario, spec) unless @around_evaluation
 
-        @around_evaluation.call(scenario, spec) { evaluate(scenario, spec) }
+        result = @around_evaluation.call(scenario, spec) { evaluate(scenario, spec) }
+        # A wrapper written the natural way — do something, yield, do something
+        # after — returns that last value rather than the Result. Left alone it
+        # reaches on_result and the Report, and fails somewhere far from the
+        # wrapper that caused it. Name the wrapper here instead.
+        unless result.is_a?(Result)
+          raise ArgumentError, "around_evaluation must return the Result its block yields, got #{result.class}"
+        end
+
+        result
       end
 
       def judge_task?

@@ -47,6 +47,25 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert runner.evaluate(task, model, replay(answer: "The order shipped.")).passed?
   end
 
+  def test_a_wrapper_that_does_not_return_the_result_is_named_rather_than_corrupting_the_report
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders")
+    model = spec("test-model")
+    # The natural mistake: finish some work after yielding, so the wrapper
+    # returns that value instead of the Result it was handed.
+    trailing = []
+    runner = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ model ],
+      around_evaluation: lambda { |*, &evaluate| evaluate.call; trailing << :done },
+      replay: ->(*) { replay(answer: "The order shipped.") },
+      on_result: ->(*) { flunk "a bad wrapper return must be caught before on_result" }
+    )
+
+    error = assert_raises(ArgumentError) { runner.call }
+    assert_includes error.message, "around_evaluation must return the Result"
+    assert_includes error.message, "Array"
+    assert_equal [ :done ], trailing
+  end
+
   def test_successful_tool_and_content_checks_cannot_override_failing_task_completion
     [ [ 0.2, {} ], [ 0.0, { contains: [ "ABC-123" ] } ] ].each do |grade, expectations|
       task = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ], **expectations)

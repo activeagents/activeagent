@@ -64,6 +64,15 @@ class EvalsPublisherTest < Minitest::Test
     end
   end
 
+  def test_a_name_that_does_not_resolve_fails_as_a_delivery_failure
+    # SocketError is not a SystemCallError, so a DNS failure would otherwise
+    # escape the documented Publisher::Error contract.
+    stub_request(:post, ENDPOINT).to_raise(SocketError.new("Failed to open TCP connection"))
+    error = assert_raises(Publisher::Error) { publisher.call(**arguments) }
+    assert_includes error.message, "SocketError"
+    assert_includes error.message, "retain the report and run_id for retry"
+  end
+
   def test_oversized_report_never_leaves_the_process
     args = arguments.merge(report: { "answer" => "x" * Publisher::MAX_BYTES })
     assert_raises(Publisher::Error) { publisher.call(**args) }
