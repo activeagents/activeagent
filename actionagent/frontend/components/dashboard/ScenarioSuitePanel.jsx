@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
 import { Button, Chip, Empty, MicroLabel, MonoLink, MONO } from './primitives';
 import { fmtCost, fmtK, fmtMs, timeAgo } from '../../utils/format';
+import { scenarioRowsForRun } from '../../utils/evaluationHistory.mjs';
 import {
   FixList, ModelsPanel, RunsPanel, ScenarioDetail, ScenarioMatrix,
   fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, plural,
@@ -288,14 +289,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   // so a group can be filtered, toggled and replayed after a partial run; a
   // result whose scenario has since been removed from the suite still
   // renders from what the result recorded about it.
-  const matrixScenarios = useMemo(() => {
-    const known = new Set(scenarios.map((s) => s.key));
-    const orphans = Object.keys(resultsByKey).filter((key) => !known.has(key)).map((key) => {
-      const first = Object.values(resultsByKey[key])[0];
-      return { id: null, key, prompt: first.prompt, group: first.group, expectations: {}, enabled: true, orphan: true };
-    });
-    return [...scenarios, ...orphans];
-  }, [scenarios, resultsByKey]);
+  const matrixScenarios = useMemo(() => scenarioRowsForRun(scenarios, resultsByKey), [scenarios, resultsByKey]);
 
   const failedOn = (scenario) => columns.some((label) => {
     const result = resultsByKey[scenario.key]?.[label];
@@ -313,7 +307,9 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const expectedResults = scenarioCount * Math.max(columns.length, 1);
   const faultScenarios = new Set(results.filter((r) => isSettled(r) && !isPassed(r)).map((r) => r.scenario_key)).size;
   const verdict = run?.scores?._verdict || null;
-  const judgedBy = (verdict?.judge && verdict.judge !== 'pass rate') ? verdict.judge : (evaluation.judge_model || 'rules');
+  const judgedBy = Object.prototype.hasOwnProperty.call(run?.scores || {}, '_judge_label')
+    ? (run.scores._judge_label || 'rules')
+    : ((verdict?.judge && verdict.judge !== 'pass rate') ? verdict.judge : (evaluation.judge_model || 'rules'));
   const fixItems = useMemo(() => (run ? fixItemsFor(run, results) : []), [run, results]);
   const criteriaKeys = Object.keys(run?.scores || {}).filter((key) => !key.startsWith('_'));
   const criteriaText = (criteriaKeys.length ? criteriaKeys : (evaluation.criteria || []).map((c) => c.key))
@@ -338,8 +334,9 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
 
   const reportPath = run && run.status === 'complete' ? `/evaluations/${evaluationId}/runs/${run.id}/report` : null;
 
-  const groupChips = [{ label: `All ${scenarioTotal}`, value: null }]
-    .concat(groups.map((group) => ({ label: loaded ? `${group} ${scenarios.filter((s) => s.group === group).length}` : group, value: group })));
+  const visibleGroups = [...new Set([...groups, ...matrixScenarios.map((s) => s.group).filter(Boolean)])];
+  const groupChips = [{ label: `All ${matrixScenarios.length || scenarioTotal}`, value: null }]
+    .concat(visibleGroups.map((group) => ({ label: loaded ? `${group} ${matrixScenarios.filter((s) => s.group === group).length}` : group, value: group })));
 
   const suiteEmpty = matrixScenarios.length === 0;
 

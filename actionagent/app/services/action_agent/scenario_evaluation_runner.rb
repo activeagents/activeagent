@@ -45,21 +45,35 @@ module ActionAgent
         return run
       end
 
-      ensure_judge_defined_kpis! if @evaluation.judge_defined?
-
       records = scenarios.index_by(&:key)
-      report = Evals::Runner.new(
-        scenarios: scenarios.map { |scenario| Evals::Scenario.from_hash(scenario.as_json_summary) },
-        models: specs,
-        criteria: sample_criteria,
-        judge: evals_judge,
-        available_tools: tool_roster,
-        instructions: @evaluation.agent.instructions,
-        agent_name: @evaluation.agent.name,
-        threshold: PASS_THRESHOLD,
-        replay: ->(scenario, spec) { replay(scenario, spec) },
-        on_result: ->(result) { persist(run, records.fetch(result.scenario.key), result) }
-      ).call
+      tasks = scenarios.map { |scenario| Evals::Scenario.from_hash(scenario.as_json_summary) }
+      expected = tasks.product(specs).map { |task, spec| [ task.key, spec.label ] }
+      # Every result tests membership twice, so look the pairs up in a set;
+      # `expected` stays an array for the completeness comparison below, and
+      # `persisted` sorts the same way either way.
+      allowed = expected.to_set
+      persisted = Set.new
+      on_result = lambda do |result|
+        pair = [ result.scenario.key, result.label ]
+        raise ArgumentError, "unexpected or duplicate scenario evaluation result" unless allowed.include?(pair) && !persisted.include?(pair)
+
+        persist(run, records.fetch(result.scenario.key), result)
+        persisted << pair
+      end
+      adapter = ActionAgent.scenario_evaluation_adapter_resolver&.call(@evaluation)
+      report = if adapter
+        raise ArgumentError, "scenario evaluation adapter must be callable" unless adapter.respond_to?(:call)
+
+        adapter.call(evaluation: @evaluation, owner: owner, scenarios: tasks, models: specs, on_result: on_result)
+      else
+        ensure_judge_defined_kpis! if @evaluation.judge_defined?
+        default_report(tasks, specs, on_result)
+      end
+      raise ArgumentError, "scenario evaluation adapter must return an ActiveAgent::Evals::Report" unless report.is_a?(Evals::Report)
+      reported = report.results.map { |result| [ result.scenario.key, result.label ] }
+      unless reported.sort == expected.sort && persisted.sort == expected.sort
+        raise ArgumentError, "scenario evaluation adapter must report and persist every selected scenario and model"
+      end
 
       run.update!(
         status: :complete,
@@ -75,6 +89,21 @@ module ActionAgent
     end
 
     private
+
+    def default_report(tasks, specs, on_result)
+      Evals::Runner.new(
+        scenarios: tasks,
+        models: specs,
+        criteria: sample_criteria,
+        judge: evals_judge,
+        available_tools: tool_roster,
+        instructions: @evaluation.agent.instructions,
+        agent_name: @evaluation.agent.name,
+        threshold: PASS_THRESHOLD,
+        replay: ->(scenario, spec) { replay(scenario, spec) },
+        on_result: on_result
+      ).call
+    end
 
     # --- selection --------------------------------------------------------
 
@@ -184,7 +213,10 @@ module ActionAgent
         cost: result.replay.cost,
         fault: result.fault,
         recommendation: result.recommendation,
-        diagnosis: result.diagnosis || {},
+        diagnosis: (result.diagnosis || {}).merge(
+          "_replay_metadata" => result.replay.metadata,
+          "_scenario_snapshot" => result.scenario.to_h.merge(expectations: result.scenario.expectations)
+        ),
         error_message: result.replay.error
       )
     end
@@ -195,6 +227,8 @@ module ActionAgent
       scores["_recommendations"] = report.recommendations
       scores["_verdict"] = report.verdict if report.comparing?
       scores["_selection"] = run.selection
+      scores["_metadata"] = report.metadata
+      scores["_judge_label"] = report.judge_label || report.judge&.label
       scores
     end
 

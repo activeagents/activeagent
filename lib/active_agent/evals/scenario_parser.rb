@@ -15,11 +15,15 @@ module ActiveAgent
     #     options on a line
     #   - a JSON array of strings, or of objects with `prompt` (or `message`),
     #     `group`, `key`, `notes`, `tools`, `contains`, `not_contains`
+    #   - a grouped Suite document in YAML or JSON, retaining its expectations,
+    #     group names, stable keys, notes and production-only flags
     #
     # Every scenario gets a key unique within the paste, derived from its group
     # and position ("blame_3"), unless the line names one. The result is an
     # array of string-keyed hashes; `Scenario.from_hash` builds the structs.
     class ScenarioParser
+      class ParseError < ArgumentError; end
+
       LIST_MARKER = /\A\s*(?:[-*•]|\d+[.)])\s+/
       HEADING = /\A\s*#+\s+(.+?)\s*\z/
       BOLD_HEADING = /\A\s*\*\*(.+?)\*\*:?\s*(?:—.*)?\z/
@@ -28,13 +32,13 @@ module ActiveAgent
       BACKTICK_PROMPT = /\A`([^`]+)`/
       OPTION_KEYS = %w[tools contains not_contains key group notes].freeze
 
-      def self.parse(text)
-        new(text).parse
+      def self.parse(text, include_production_only: true)
+        new(text).parse(include_production_only: include_production_only)
       end
 
       # Parses and builds Scenario structs in one step.
-      def self.scenarios(text)
-        parse(text).map { |attrs| Scenario.from_hash(attrs) }
+      def self.scenarios(text, include_production_only: true)
+        parse(text, include_production_only: include_production_only).map { |attrs| Scenario.from_hash(attrs) }
       end
 
       def initialize(text)
@@ -42,12 +46,19 @@ module ActiveAgent
       end
 
       # @return [Array<Hash>] scenario attributes with string keys
-      def parse
+      def parse(include_production_only: true)
         stripped = @text.strip
         return [] if stripped.empty?
 
-        scenarios = json?(stripped) ? parse_json(stripped) : parse_lines(stripped)
-        assign_keys(scenarios)
+        scenarios = if json?(stripped)
+          parse_json(stripped)
+        elsif stripped.match?(/^(?:suite|groups):(?:\s|$)/)
+          parse_suite_yaml(stripped)
+        else
+          parse_lines(stripped)
+        end
+        assigned = assign_keys(scenarios)
+        include_production_only ? assigned : assigned.reject { |entry| entry["production_only"] }
       end
 
       private
@@ -58,6 +69,8 @@ module ActiveAgent
 
       def parse_json(text)
         parsed = JSON.parse(text)
+        return parse_suite(parsed) if parsed.is_a?(Hash) && parsed.key?("groups")
+
         parsed = parsed["scenarios"] if parsed.is_a?(Hash) && parsed.key?("scenarios")
         parsed = [ parsed ] if parsed.is_a?(Hash)
 
@@ -69,6 +82,39 @@ module ActiveAgent
         end
       rescue JSON::ParserError
         parse_lines(text)
+      end
+
+      def parse_suite_yaml(text)
+        document = YAML.safe_load(text, aliases: true)
+        raise ParseError, "evaluation suite must contain a groups array" unless document.is_a?(Hash) && document["groups"].is_a?(Array)
+
+        parse_suite(document)
+      rescue Psych::Exception => e
+        raise ParseError, "invalid evaluation suite YAML: #{e.message}"
+      end
+
+      def parse_suite(document)
+        raise ParseError, "evaluation suite must contain a groups array" unless document["groups"].is_a?(Array)
+
+        document["groups"].each do |group|
+          unless group.is_a?(Hash) && (group["scenarios"].nil? || group["scenarios"].is_a?(Array))
+            raise ParseError, "each evaluation group must contain a scenarios array"
+          end
+          Array(group["scenarios"]).each do |entry|
+            unless entry.is_a?(Hash) && entry["prompt"].is_a?(String) && entry["prompt"].present?
+              raise ParseError, "each evaluation scenario must contain a prompt"
+            end
+            expectations = entry["expectations"] || entry["expect"]
+            if expectations && !expectations.is_a?(Hash)
+              raise ParseError, "scenario expectations must be an object"
+            end
+          end
+        end
+
+        Suite.new([ document ]).all_scenarios.map do |item|
+          scenario(prompt: item.prompt, group: item.group, group_name: item.group_name, key: item.key,
+                   notes: item.notes, expectations: item.expectations, production_only: item.production_only?)
+        end
       end
 
       def scenario_from_hash(entry)
@@ -84,9 +130,11 @@ module ActiveAgent
         scenario(
           prompt: prompt,
           group: entry["group"],
+          group_name: entry["group_name"],
           key: entry["key"],
           notes: entry["notes"],
-          expectations: expectations
+          expectations: expectations,
+          production_only: entry["production_only"] == true
         )
       end
 
@@ -172,13 +220,15 @@ module ActiveAgent
         text.to_s.gsub(/\*\*|__|`/, "").strip
       end
 
-      def scenario(prompt:, group: nil, key: nil, notes: nil, expectations: {})
+      def scenario(prompt:, group: nil, group_name: nil, key: nil, notes: nil, expectations: {}, production_only: false)
         {
           "prompt" => prompt.to_s.strip,
           "group" => group.presence&.to_s&.strip,
+          "group_name" => group_name.presence&.to_s&.strip,
           "key" => key.presence&.to_s&.strip,
           "notes" => notes.presence,
-          "expectations" => (expectations || {}).reject { |_, value| value.blank? }
+          "expectations" => (expectations || {}).reject { |_, value| value.blank? },
+          "production_only" => production_only
         }
       end
 

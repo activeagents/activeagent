@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "telemetry_trace_test"
 
 # The agent-execution job's terminal states (#377): a failed run is never
 # re-executed, and a cancel that lands mid-execution is not overwritten by
@@ -117,6 +118,8 @@ end
 
 # Observed agents are read-only until forked (#379).
 class ObservedAgentExecutionTest < ActionDispatch::IntegrationTest
+  TelemetryTraceTest.ensure_table!
+
   def setup
     ActionAgent::AgentRun.delete_all
     ActionAgent::Agent.delete_all
@@ -135,5 +138,49 @@ class ObservedAgentExecutionTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
 
     assert_equal 0, agent.agent_runs.count, "a refused execution must not leave a failed run on the scorecard"
+  end
+
+  test "observed agents cannot be changed into executable agents or restored through the API" do
+    agent = ActionAgent::Agent.create!(name: "External support", provider: "mock", model: "support", status: :observed)
+    version = agent.latest_version
+
+    patch "/activeagents/api/agents/#{agent.id}", params: { agent: { status: "active", instructions: "Changed" } }, as: :json
+    assert_response :unprocessable_entity
+    assert agent.reload.observed?
+    assert_nil agent.instructions
+    post "/activeagents/api/agents/#{agent.id}/restore", params: { version_id: version.id }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal 1, agent.agent_versions.count
+
+    post "/activeagents/api/agents/#{agent.id}/duplicate", as: :json
+    assert_response :created
+    copy = ActionAgent::Agent.find(JSON.parse(response.body).dig("agent", "id"))
+    assert copy.draft?
+    refute_equal agent.id, copy.id
+    post "/activeagents/api/agents/#{copy.id}/execute", params: { prompt: "Find order ABC-123" }, as: :json
+    assert_response :accepted
+    assert_equal 1, copy.agent_runs.count
+    assert_equal 0, agent.agent_runs.count
+  end
+
+  test "direct observed agent execution cannot create a run" do
+    agent = ActionAgent::Agent.create!(name: "External support", provider: "mock", model: "support", status: :observed)
+
+    assert_no_difference "ActionAgent::AgentRun.count" do
+      assert_raises(ActionAgent::Agent::ObservedAgentError) { agent.execute("Find order ABC-123") }
+      assert_raises(ActionAgent::Agent::ObservedAgentError) { agent.test_execute("Find order ABC-123") }
+    end
+  end
+
+  test "a queued execution fails without a provider call when its agent becomes observed" do
+    agent = ActionAgent::Agent.create!(name: "External support", provider: "mock", model: "support")
+    run = agent.agent_runs.create!(input_prompt: "Find order ABC-123", status: :pending)
+    agent.update!(status: :observed)
+
+    assert_no_difference "ActionAgent::TelemetryTrace.count" do
+      assert_raises(ActionAgent::Agent::ObservedAgentError) { ActionAgent::AgentExecutionJob.perform_now(run.id) }
+    end
+    assert run.reload.failed?
+    assert_match(/read-only/, run.error_message)
   end
 end

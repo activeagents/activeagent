@@ -2,6 +2,8 @@
 
 module ActionAgent
   class Agent < ApplicationRecord
+    class ObservedAgentError < StandardError; end
+
     include Ownable
     owned_by :user, :account
 
@@ -203,6 +205,7 @@ module ActionAgent
 
     # Execute a run with this agent
     def execute(input_prompt, action: nil, **params)
+      ensure_executable!
       run = agent_runs.create!(
         input_prompt: input_prompt,
         action_name: normalized_action(action),
@@ -219,6 +222,7 @@ module ActionAgent
 
     # Quick test execution (synchronous)
     def test_execute(input_prompt, action: nil, **params)
+      ensure_executable!
       run = agent_runs.create!(
         input_prompt: input_prompt,
         action_name: normalized_action(action),
@@ -252,6 +256,10 @@ module ActionAgent
       end
 
       run
+    end
+
+    def ensure_executable!
+      raise ObservedAgentError, "Observed agents are read-only — duplicate this agent to create an executable copy" if observed?
     end
 
     private

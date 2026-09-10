@@ -122,6 +122,9 @@ module ActiveAgent
         parsed = parsed&.slice("recommendation", "suggested_tool", "instruction_change")&.compact
         return nil if parsed.blank?
 
+        %w[recommendation instruction_change].each do |key|
+          parsed.delete(key) unless parsed[key].is_a?(String) && parsed[key].present?
+        end
         parsed["suggested_tool"] = suggested_tool(parsed["suggested_tool"]) if parsed.key?("suggested_tool")
         parsed.compact.presence
       end
@@ -164,7 +167,9 @@ module ActiveAgent
       def suggested_tool(tool)
         case tool
         when Hash
-          { "name" => tool["name"].to_s, "description" => tool["description"].to_s } if tool["name"].present?
+          if tool["name"].is_a?(String) && tool["name"].present?
+            { "name" => tool["name"], "description" => tool["description"].is_a?(String) ? tool["description"] : "" }
+          end
         when String
           { "name" => tool, "description" => "" } if tool.present?
         end
@@ -187,8 +192,10 @@ module ActiveAgent
       end
 
       def parse_score(content)
-        match = content.to_s.match(/"score"\s*:\s*(\d+(?:\.\d+)?)/)
-        match && match[1].to_f.clamp(0.0, 1.0)
+        value = parse_object(content)&.dig("score")
+        return nil unless value.is_a?(Numeric) && value.finite?
+
+        value.to_f.clamp(0.0, 1.0)
       end
 
       def parse_object(content)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
+import { evaluationLink, includeLinkedEvaluation } from '../../utils/evaluationHistory.mjs';
 import { useTheme } from '../../contexts/ThemeContext';
 import ScenarioSuitePanel from './ScenarioSuitePanel';
 import { Badge, Button, Card, Glyph, MicroLabel, StatCard, MONO, TONE, toneFor } from './primitives';
@@ -36,7 +37,9 @@ const scoreTone = (value) => (value >= 0.85 ? 'success' : value >= 0.7 ? 'warnin
 // The report sub-route under /evaluations, when the current URL names one.
 const reportRefFromPath = () => {
   const match = dashboardRelativePath().match(/^\/evaluations\/(\d+)\/runs\/(\d+)\/report/);
-  return match ? { evaluationId: match[1], runId: match[2] } : null;
+  if (match) return { evaluationId: match[1], runId: match[2] };
+  const query = evaluationLink(window.location.search);
+  return query?.runId ? query : null;
 };
 
 const inputStyle = {
@@ -149,6 +152,21 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   const [loadError, setLoadError] = useState(null);
   // Accordion state per evaluation; the first suite opens by default.
   const [openIds, setOpenIds] = useState(null);
+  const [linkedEvaluationId, setLinkedEvaluationId] = useState(() => embedded ? null : evaluationLink(window.location.search)?.evaluationId);
+  useEffect(() => {
+    if (embedded) return undefined;
+    const applyLink = () => {
+      const id = evaluationLink(window.location.search)?.evaluationId;
+      setLinkedEvaluationId(id);
+      if (id) setOpenIds(new Set([Number(id)]));
+    };
+    window.addEventListener('popstate', applyLink);
+    window.addEventListener('dashboard:navigate', applyLink);
+    return () => {
+      window.removeEventListener('popstate', applyLink);
+      window.removeEventListener('dashboard:navigate', applyLink);
+    };
+  }, [embedded]);
   const [showForm, setShowForm] = useState(false);
   const [runningId, setRunningId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -169,20 +187,28 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       const response = await fetch(`/api/evaluations${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
-      const list = data.evaluations || [];
+      let list = data.evaluations || [];
+      let linkError = null;
+      try {
+        list = await includeLinkedEvaluation(list, linkedEvaluationId, fetch);
+      } catch (error) {
+        linkError = error.message;
+      }
       setEvaluations(list);
       setOpenIds((current) => {
         if (current) return current;
-        const first = list.find((e) => e.scenario_suite) || list[0];
+        const first = linkedEvaluationId
+          ? list.find((e) => String(e.id) === linkedEvaluationId)
+          : (list.find((e) => e.scenario_suite) || list[0]);
         return new Set(first ? [first.id] : []);
       });
-      setLoadError(null);
+      setLoadError(linkError);
     } catch (error) {
       setLoadError(error.message);
     } finally {
       setIsLoading(false);
     }
-  }, [agentId]);
+  }, [agentId, linkedEvaluationId]);
 
   useEffect(() => {
     fetchEvaluations();

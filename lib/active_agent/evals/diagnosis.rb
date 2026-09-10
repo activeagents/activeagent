@@ -22,7 +22,7 @@ module ActiveAgent
     class Diagnosis
       FAULTS = %w[
         run_error tool_error missing_capability expected_tool_not_called
-        forbidden_content missing_content low_quality
+        forbidden_content missing_content low_quality judge_unavailable
       ].freeze
 
       # Phrasings an agent uses when nothing in its toolset covers the task.
@@ -56,11 +56,15 @@ module ActiveAgent
       # @param available_tools [Array<String>] tool names the agent could call
       # @param threshold [Float] the pass threshold for `score`
       # @param agent_name [String] how the recommendations refer to the agent
-      def self.call(scenario:, replay:, scores:, score:, available_tools:, threshold: PASS_THRESHOLD, agent_name: "The agent")
-        new(scenario:, replay:, scores:, score:, available_tools:, threshold:, agent_name:).call
+      # @param judge_keys [Array] keys in `scores` a judge graded the answer on
+      #   (llm_judge criteria); `task_completion` always counts as one
+      def self.call(scenario:, replay:, scores:, score:, available_tools:, threshold: PASS_THRESHOLD, agent_name: "The agent",
+                    judge_keys: [])
+        new(scenario:, replay:, scores:, score:, available_tools:, threshold:, agent_name:, judge_keys:).call
       end
 
-      def initialize(scenario:, replay:, scores:, score:, available_tools:, threshold: PASS_THRESHOLD, agent_name: "The agent")
+      def initialize(scenario:, replay:, scores:, score:, available_tools:, threshold: PASS_THRESHOLD, agent_name: "The agent",
+                     judge_keys: [])
         @scenario = scenario
         @replay = replay
         @scores = scores || {}
@@ -68,6 +72,7 @@ module ActiveAgent
         @available_tools = Array(available_tools).map(&:to_s)
         @threshold = threshold
         @agent_name = agent_name
+        @judge_keys = Array(judge_keys) | [ "task_completion" ]
       end
 
       def call
@@ -212,11 +217,22 @@ module ActiveAgent
                "missing" => missing)
       end
 
+      # A judge grade — the implicit task_completion score, or the llm_judge
+      # criteria the evaluation configured — measures the answer itself, so
+      # its mean has to reach the threshold on its own. Rule checks (a tool
+      # was called, a phrase is present) cannot carry a badly graded answer.
       def low_quality
-        return nil if @score.nil? || @score >= @threshold
+        grades = @scores.slice(*@judge_keys).compact
+        grade = grades.any? ? (grades.values.sum / grades.size).round(3) : nil
+        failed_grade = grade && grade < @threshold
+        return nil unless failed_grade || (@score && @score < @threshold)
 
-        weakest = @scores.compact.min_by { |_, value| value }
-        summary = "Scored #{@score.round(2)} against a pass threshold of #{@threshold}"
+        weakest = (failed_grade ? grades : @scores.compact).min_by { |_, value| value }
+        summary = if failed_grade
+          "#{graded_label(grades)} scored #{grade.round(2)} against a pass threshold of #{@threshold}"
+        else
+          "Scored #{@score.round(2)} against a pass threshold of #{@threshold}"
+        end
         summary += ", weakest on #{weakest.first} (#{weakest.last.round(2)})" if weakest
         recommendation =
           if weakest
@@ -228,6 +244,10 @@ module ActiveAgent
           end
 
         result("low_quality", "#{summary}.", recommendation, "scores" => @scores)
+      end
+
+      def graded_label(grades)
+        grades.keys == [ "task_completion" ] ? "Task completion" : "Judged quality"
       end
 
       def result(fault, summary, recommendation, evidence = {})
