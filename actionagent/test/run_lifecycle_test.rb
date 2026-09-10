@@ -121,8 +121,18 @@ class ObservedAgentExecutionTest < ActionDispatch::IntegrationTest
   TelemetryTraceTest.ensure_table!
 
   def setup
+    ActionAgent::AgentMessage.delete_all
+    ActionAgent::AgentContext.delete_all
     ActionAgent::AgentRun.delete_all
     ActionAgent::Agent.delete_all
+  end
+
+  def observed_agent_with_reported_turn
+    agent = ActionAgent::Agent.create!(name: "External support", provider: "mock", model: "support", status: :observed)
+    context = ActionAgent::AgentContext.create!(
+      contextable: agent, agent_name: agent.telemetry_agent_class, action_name: "ask"
+    )
+    [ agent, context, context.add_assistant_message("Order ABC-123 shipped on Tuesday.") ]
   end
 
   test "execute and test refuse a telemetry-observed agent" do
@@ -182,5 +192,73 @@ class ObservedAgentExecutionTest < ActionDispatch::IntegrationTest
     end
     assert run.reload.failed?
     assert_match(/read-only/, run.error_message)
+  end
+
+  # The runner's conversation workbench writes an agent's history without
+  # running it (#405): a context, and turns typed into it. Same policy as
+  # execution — an observed agent is a telemetry mirror, so a fabricated
+  # assistant turn attributed to it is history we have no business authoring.
+  # The two gates are separate controllers, so they get separate tests: one
+  # reopening without the other has to fail visibly.
+  test "starting a conversation refuses a telemetry-observed agent" do
+    agent, _context, _reported = observed_agent_with_reported_turn
+
+    post "/activeagents/api/agents/#{agent.id}/conversations", as: :json
+
+    assert_response :unprocessable_entity
+    assert_match(/read-only/, JSON.parse(response.body)["error"])
+    assert_equal 1, ActionAgent::AgentContext.where(contextable: agent).count
+  end
+
+  test "writing a turn refuses a telemetry-observed agent" do
+    _agent, context, reported = observed_agent_with_reported_turn
+    base = "/activeagents/api/interactions/#{context.id}/messages"
+
+    post base, params: { role: "assistant", content: "We can refund that for you." }, as: :json
+    assert_response :unprocessable_entity
+    assert_match(/read-only/, JSON.parse(response.body)["error"])
+
+    patch "#{base}/#{reported.id}", params: { content: "Rewritten" }, as: :json
+    assert_response :unprocessable_entity
+
+    delete "#{base}/#{reported.id}", as: :json
+    assert_response :unprocessable_entity
+
+    assert_equal [ "Order ABC-123 shipped on Tuesday." ], context.messages.reload.map(&:content)
+  end
+
+  test "an observed agent's conversations stay readable" do
+    agent, context, _reported = observed_agent_with_reported_turn
+
+    get "/activeagents/api/agents/#{agent.id}/conversations"
+
+    assert_response :success
+    rows = JSON.parse(response.body)["conversations"]
+    assert_equal [ context.id ], rows.map { |row| row["id"] }
+
+    get "/activeagents/api/interactions/#{context.id}"
+    assert_response :success
+  end
+
+  test "conversations of an executable agent are unaffected" do
+    agent = ActionAgent::Agent.create!(name: "Support", provider: "mock", model: "mock", status: :active)
+
+    post "/activeagents/api/agents/#{agent.id}/conversations", as: :json
+
+    assert_response :created
+    context = ActionAgent::AgentContext.find(JSON.parse(response.body).dig("conversation", "id"))
+    base = "/activeagents/api/interactions/#{context.id}/messages"
+
+    post base, params: { role: "assistant", content: "Seeded reply" }, as: :json
+    assert_response :created
+    message_id = JSON.parse(response.body).dig("message", "id")
+
+    patch "#{base}/#{message_id}", params: { content: "Edited reply" }, as: :json
+    assert_response :success
+    assert_equal "Edited reply", ActionAgent::AgentMessage.find(message_id).content
+
+    delete "#{base}/#{message_id}", as: :json
+    assert_response :no_content
+    assert_equal 0, context.messages.count
   end
 end

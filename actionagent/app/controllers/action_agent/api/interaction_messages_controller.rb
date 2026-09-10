@@ -16,8 +16,11 @@ module ActionAgent
       # provenance SolidAgent stamps on turns a run produced.
       MANUAL_PROVENANCE = { "source" => "dashboard", "manual" => true }.freeze
 
+      rescue_from Agent::ObservedAgentError, with: :observed_agent_read_only
+
       before_action :require_owner!
       before_action :set_context
+      before_action :require_executable_agent!, only: [ :create, :update, :destroy ]
       before_action :set_message, only: [ :update, :destroy ]
 
       # POST /api/interactions/:interaction_id/messages
@@ -64,6 +67,22 @@ module ActionAgent
 
       def set_context
         @context = AgentContext.for_agents(owner_agents).find(params[:interaction_id])
+      end
+
+      # Seeding, fixing or dropping a turn writes the agent's own history, so
+      # it answers to the same read-only policy execution does (#414): an
+      # observed agent is a mirror of someone else's telemetry, and a turn
+      # typed in here would be a fabrication attributed to it. Asked of the
+      # agent rather than re-tested here, so `observed` has one definition and
+      # one message. Reads are left open — every action this controller has is
+      # a write; the conversation itself is still listed and shown.
+      def require_executable_agent!
+        agent = @context.contextable
+        agent.ensure_executable! if agent.respond_to?(:ensure_executable!)
+      end
+
+      def observed_agent_read_only(exception)
+        render json: { error: exception.message }, status: :unprocessable_entity
       end
 
       # Looked up through the context, so a message id from another
