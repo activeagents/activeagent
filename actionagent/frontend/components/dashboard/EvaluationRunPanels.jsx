@@ -426,7 +426,7 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
 // ---------------------------------------------------------------------------
 // WHAT TO FIX
 
-export function FixList({ items, columns = [], agentName, onNavigate }) {
+export function FixList({ items, columns = [], agentName, onNavigate, onOpenScenario }) {
   const scopeFor = (item) => {
     const scenarios = plural((item.scenario_keys || []).length, 'scenario');
     if (item.kind === 'instruction') return `${(item.scenario_keys || []).join(', ')} · judge suggestion`;
@@ -462,7 +462,18 @@ export function FixList({ items, columns = [], agentName, onNavigate }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Glyph kind={info ? 'info' : 'fault'} />
               <Badge tone={tone}>{`${faultName(item.fault)}${item.count > 1 ? ` ×${item.count}` : ''}`}</Badge>
-              <span style={mono(11)}>{scopeFor(item)}</span>
+              {onOpenScenario && (item.scenario_keys || []).length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenScenario(item.scenario_keys)}
+                  title={`Show ${(item.scenario_keys || []).join(', ')} — the question, the answer and the tools it called`}
+                  style={{ ...mono(11), background: 'none', border: 0, padding: 0, cursor: 'pointer', color: 'var(--color-text-link, var(--color-text-primary))', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                >
+                  {scopeFor(item)}
+                </button>
+              ) : (
+                <span style={mono(11)}>{scopeFor(item)}</span>
+              )}
             </div>
             {item.recommendation && (
               <p style={{ margin: 0, fontSize: 13, lineHeight: '19px', color: 'var(--color-text-cell)', textWrap: 'pretty' }}>{item.recommendation}</p>
