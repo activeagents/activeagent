@@ -62,17 +62,23 @@ module ActionAgent
 
     private
 
+    # Opens the session once. A server that keeps per-session state answers
+    # initialize with an Mcp-Session-Id and expects it on every later request;
+    # a stateless server (the shape a multi-worker Rails host serves) returns
+    # none, and later requests carry no session header. Both are the protocol's
+    # own contract, so an absent id is not an error — @initialized records that
+    # the handshake happened either way.
     def ensure_session!
       @mutex.synchronize do
-        next if @session_id
+        next if @initialized
 
         _body, response = post_raw(
           { jsonrpc: "2.0", id: next_id, method: "initialize",
             params: { protocolVersion: "2025-03-26", capabilities: {},
                       clientInfo: { name: "activeagents", version: "1.0" } } }
         )
-        @session_id = response["mcp-session-id"]
-        raise Error, "MCP server did not return a session id" unless @session_id
+        @session_id = response["mcp-session-id"].presence
+        @initialized = true
 
         post({ jsonrpc: "2.0", method: "notifications/initialized" }, session: @session_id)
       end
@@ -136,7 +142,9 @@ module ActionAgent
             .filter_map { |line| JSON.parse(line.delete_prefix("data:").strip) rescue nil }
             .find { |json| json["result"] || json["error"] } || {}
       else
-        JSON.parse(body)
+        # A notification carries no id, and a server may answer it with a bare
+        # `null` body — JSON, but not an object.
+        JSON.parse(body) || {}
       end
     rescue JSON::ParserError
       {}
