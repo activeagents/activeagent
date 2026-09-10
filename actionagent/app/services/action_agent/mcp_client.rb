@@ -99,6 +99,8 @@ module ActionAgent
 
     def blocking_post_raw(payload, session: nil)
       http = Net::HTTP.new(@uri.host, @uri.port)
+      # Without this an https:// endpoint is sent as plaintext to port 443.
+      http.use_ssl = @uri.scheme == "https"
       # Container->host bridge hostnames (host.orb.internal) publish an IPv6
       # address whose path doesn't reach the server; dual-stack connects then
       # fail intermittently. Pin to IPv4 while keeping the Host header.
