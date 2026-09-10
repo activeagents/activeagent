@@ -106,7 +106,11 @@ module ActionAgent
       origin = ENV["ACTIONAGENT_MCP_ORIGIN"].presence
       raise MCPClient::Error, "set ACTIONAGENT_MCP_ORIGIN to reach #{url}" if origin.blank?
 
-      File.join(origin, url)
+      # URI.join, not File.join: a path is a URL reference, and only URI
+      # resolves one against an origin that carries its own path.
+      URI.join(origin, url).to_s
+    rescue URI::Error => e
+      raise MCPClient::Error, "ACTIONAGENT_MCP_ORIGIN #{origin.inspect} cannot reach #{url}: #{e.message}"
     end
   end
 end
