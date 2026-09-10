@@ -184,7 +184,7 @@ module ActionAgent
       end
     end
 
-    def self.create_from_payload(trace, sdk_info = {}, account: nil)
+    def self.create_from_payload(trace, sdk_info = {}, account: nil, agent: nil)
       spans = trace["spans"] || []
       root_span = spans.find { |s| s["parent_span_id"].nil? } || spans.first || {}
 
@@ -238,39 +238,23 @@ module ActionAgent
       # Add account if in multi-tenant mode
       attrs[:account] = account if ActionAgent.multi_tenant? && account
 
-      # A trace the dashboard recorded for one of its own runs names the
-      # agent it ran (AgentExecutionService's resource attributes). Attribute
-      # it up front: left to the registrar, the run's class and action match
-      # no authored record — those carry no service_name or agent_class_name
-      # — and every dashboard run would register an "observed" twin of the
-      # agent that produced it.
-      attrs[:agent_id] = platform_agent_id(trace["resource_attributes"], account)
+      # A trace the dashboard recorded for one of its own runs belongs to the
+      # agent it ran, which only the caller that ran it may name (+agent+,
+      # passed by AgentExecutionService). Attribute it up front: left to the
+      # registrar, the run's class and action match no authored record —
+      # those carry no service_name or agent_class_name — and every dashboard
+      # run would register an "observed" twin of the agent that produced it.
+      #
+      # Never taken from the trace itself. A payload's resource attributes are
+      # whatever the reporter sent, and ingest is unauthenticated on a
+      # single-tenant install with no ActionAgent.ingest_api_key, so trusting
+      # an id from there would let any reporter bind its traces to any
+      # dashboard-authored agent by guessing a primary key.
+      attrs[:agent_id] = agent&.id
 
       create!(attrs).tap { |record| AgentRegistrar.call(record) }
     end
 
-    # The id of the dashboard agent a platform-recorded trace belongs to,
-    # when that agent still exists and, in multi-tenant mode, sits in the
-    # trace's tenant. Nil when no agent claims the id — a trace reported by
-    # an SDK, or one naming an agent that has since been deleted.
-    #
-    # The tenancy check goes through ActionAgent.tenant_for, the mapping that
-    # produced the trace's own account in the first place: agents are owned
-    # per user on installs that configure a user class, so scoping the lookup
-    # by that ownership column would compare an account against a user id and
-    # match nothing.
-    def self.platform_agent_id(resource_attributes, account)
-      id = resource_attributes.is_a?(Hash) && resource_attributes["platform.agent_id"]
-      return nil if id.blank?
-
-      agent = Agent.find_by(id: id)
-      return nil if agent.nil?
-      return agent.id unless ActionAgent.multi_tenant?
-
-      agent.id if ActionAgent.tenant_for(agent.owner) == account
-    rescue StandardError
-      nil
-    end
 
     # Sums a span's token counts (used to decide which spans carry the
     # authoritative token data during ingestion).

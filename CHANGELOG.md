@@ -228,6 +228,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   crash needed the role-less `{ document: nil }` inside a content array, which
   called `start_with?` on nil.
 
+- **`actionagent`: a dashboard run's trace is attributed to the agent that
+  ran it.** Every locally stored run used to register an "observed" twin of
+  its own agent, because a run's class and action match no authored record.
+  The service that ran the agent now names it when it records the trace.
+  It is named by that caller and never read from the payload: resource
+  attributes are whatever the reporter sent, and single-tenant ingest is
+  unauthenticated unless `ActionAgent.ingest_api_key` is set, so an id taken
+  from there would let any reporter bind its traces to any authored agent by
+  guessing a primary key. A host that swaps in its own `trace_model` should
+  add the `agent:` keyword to its `create_from_payload`; without it the
+  dashboard logs the error and records no trace for its own runs. (#405)
+
+- **`actionagent`: an observed agent's history cannot be authored.** The
+  runner's conversation workbench writes an agent's history without running
+  it, and those two endpoints — starting a conversation, and seeding, editing
+  or deleting a turn — did not answer to the read-only rule execution does.
+  A turn typed into a telemetry mirror would be a fabrication attributed to
+  an agent whose whole point is that it only reports what really happened.
+  Both refuse an observed agent now, with the same message and status
+  `execute` gives. Reading that history is unchanged. (#405)
+
 ### Note on upgrading from 1.4.0
 
 A scenario suite that passed on 1.4.0 can fail on this release with nothing

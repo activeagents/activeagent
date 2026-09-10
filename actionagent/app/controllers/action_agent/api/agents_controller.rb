@@ -28,7 +28,7 @@ module ActionAgent
       ]
       before_action :require_execution_enabled!, only: [ :execute, :test ]
       before_action :require_owner!, only: [ :execute, :test ]
-      before_action :require_executable_agent!, only: [ :execute, :test, :update, :restore ]
+      before_action :require_executable_agent!, only: [ :execute, :test, :update, :restore, :create_conversation ]
       before_action :enforce_execution_quota!, only: [ :execute, :test ]
       before_action :require_prompt!, only: [ :execute, :test ]
 

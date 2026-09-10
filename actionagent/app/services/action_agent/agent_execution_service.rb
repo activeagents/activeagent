@@ -829,7 +829,7 @@ module ActionAgent
       tenant = ActionAgent.tenant_for(owner)
       return if trace_model.for_account(tenant).exists?(trace_id: root_span.trace_id)
 
-      trace_model.create_from_payload(payload, sdk_info, account: tenant)
+      trace_model.create_from_payload(payload, sdk_info, account: tenant, agent: @agent_record)
     rescue StandardError => e
       Rails.logger.error("[AgentExecutionService] Failed to record trace #{root_span.trace_id}: #{e.class} - #{e.message}")
       nil
