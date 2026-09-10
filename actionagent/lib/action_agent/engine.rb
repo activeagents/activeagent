@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "assistant_request_filter"
+
 module ActionAgent
   # Rails engine for the Active Agent dashboard: the agent builder, runs,
   # conversations, evaluations, traces, metrics, sandboxes and session
@@ -35,6 +37,7 @@ module ActionAgent
     }.freeze
 
     config.action_agent = ActiveSupport::OrderedOptions.new
+    config.app_middleware.insert_before Rails::Rack::Logger, ActionAgent::AssistantRequestFilter
 
     # Whether a request is a browser asking for a page, as opposed to an API
     # or MCP client: the routes use it to tell the dashboard's client-side

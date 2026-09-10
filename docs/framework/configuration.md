@@ -341,6 +341,10 @@ ActionAgent.configure do |config|
 
   # Run the mount as a read-only observability surface:
   # config.execution_enabled = false
+
+  # The Ask ActiveAgents assistant is a development and CI tool, on in
+  # development and test only. Turn it on elsewhere deliberately:
+  # config.assistant_enabled = true
 end
 ```
 
@@ -354,7 +358,7 @@ dashboard's own per-owner keys layer on top of it rather than replacing it.
 `multi_tenant`, `account_class` and `trace_model_class`;
 **[Self-Hosted Dashboard](/framework/self-hosted-observability)** adds
 `ingest_api_key`, `current_account_resolver`, `trace_retention`,
-`execution_enabled`, `sandbox_backends` and `layout`. The host-app
+`execution_enabled`, `assistant_enabled`, `sandbox_backends` and `layout`. The host-app
 integration seams — `quota_checker`, `usage_recorder`,
 `agent_scope_resolver`, `tenant_resolver`, `trace_owner_resolver`,
 `provider_credentials_resolver` and the rest — are documented on
