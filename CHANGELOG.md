@@ -75,6 +75,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   authentication, execution enablement and the host's execution quota still
   apply. (#414)
 
+- **`actionagent`: the Run Agent page is a conversation workbench.** Testing
+  an agent used to mean one prompt in, one output out, with no way to see —
+  or shape — what the model was given. The page now works the way a user
+  would work the agent: it pins a persisted conversation (a solid_agent
+  context) and every run sends that conversation's user and assistant turns
+  ahead of the new message, so follow-up questions actually follow up. The
+  context is editable in place — edit or delete a turn, seed a user or
+  assistant message without running, start a new conversation — and every
+  run is a fresh `AgentRun` with its own trace, so Traces and Interactions
+  see exactly what the model saw. Files attach to a message and ride along
+  through Active Storage (`AgentRun has_many_attached :attachments`, guarded
+  for hosts without it): images reach the model as vision input, PDFs as
+  documents, and text-like files (CSV, Markdown, JSON, plain text) are
+  inlined into the message; the persisted user message keeps an attachment
+  manifest so the conversation shows thumbnails afterwards. Assistant replies
+  can render **generative UI** — cards, stats, tables, charts, lists,
+  progress, forms, choice buttons, images, callouts and code — from a fenced
+  ```` ```ui ```` JSON block in prose, a JSON reply whose top level is
+  `ui`/`blocks`, or the new `render_ui` tool (enable the **Generative UI**
+  tool on the agent). Forms and choices post their answer back into the
+  conversation as the next user message. New engine API: `GET/POST
+  /api/agents/:id/conversations`, message create/update/delete under
+  `/api/interactions/:id/messages`, multipart `POST /api/agents/:id/execute`
+  with `attachments[]` and `params[context_id]`, and attachment metadata on
+  run and message JSON. The reference host (`test/dummy`) gained the Active
+  Storage tables so the attachment path is exercised by the engine's tests.
+  Two notes for anyone driving that API directly: `execute`/`test` now answer
+  422 unless the request carries a prompt or a file, and per-run overrides in
+  `params` can no longer name `attachments` or `action` — those stay the
+  controller's to set. Model-supplied images in generative UI load on sight
+  only when they are inline data or this app's own URL; any other host is
+  offered as a click-to-load, since fetching one tells that host whatever the
+  model put in the URL.
+
 ### Fixed
 
 - **A scenario passes only if it completed the task.** A scenario's verdict
@@ -178,6 +212,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an executable copy, and an evaluation whose host explicitly resolves an
   adapter for it remains the one path that replays an observed agent's
   scenarios. (#414)
+
+- **The OpenAI Responses API keeps images and documents on a message with a
+  role.** `{ role: "user", text: "…", image: "…" }` — the shorthand the Chat
+  API and Anthropic transforms accept, and the only provider-neutral way to
+  send history followed by a multimodal turn — lost its `image:` or
+  `document:` on the provider the framework defaults to, because the
+  Responses transform kept only `content` from a role-bearing hash. It now
+  builds `input_text` / `input_image` / `input_file` parts for it, and a
+  media-only `{ role: "user", image: "…" }` becomes a message with one part.
+  The shorthand keys always come off the message, so a hash that carries
+  `content` *and* `image:` no longer sends `image` as an unknown parameter,
+  and a blank `image:`/`document:` contributes no part rather than an empty
+  one. A nil `document:` alongside a role was the unknown-parameter case; the
+  crash needed the role-less `{ document: nil }` inside a content array, which
+  called `start_with?` on nil.
+
+- **`actionagent`: a dashboard run's trace is attributed to the agent that
+  ran it.** Every locally stored run used to register an "observed" twin of
+  its own agent, because a run's class and action match no authored record.
+  The service that ran the agent now names it when it records the trace.
+  It is named by that caller and never read from the payload: resource
+  attributes are whatever the reporter sent, and single-tenant ingest is
+  unauthenticated unless `ActionAgent.ingest_api_key` is set, so an id taken
+  from there would let any reporter bind its traces to any authored agent by
+  guessing a primary key. A host that swaps in its own `trace_model` should
+  add the `agent:` keyword to its `create_from_payload`; without it the
+  dashboard logs the error and records no trace for its own runs. (#405)
+
+- **`actionagent`: an observed agent's history cannot be authored.** The
+  runner's conversation workbench writes an agent's history without running
+  it, and those two endpoints — starting a conversation, and seeding, editing
+  or deleting a turn — did not answer to the read-only rule execution does.
+  A turn typed into a telemetry mirror would be a fabrication attributed to
+  an agent whose whole point is that it only reports what really happened.
+  Both refuse an observed agent now, with the same message and status
+  `execute` gives. Reading that history is unchanged. (#405)
 
 ### Note on upgrading from 1.4.0
 

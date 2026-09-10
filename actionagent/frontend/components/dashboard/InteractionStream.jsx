@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import Markdown from './Markdown';
+import GenerativeUI from './GenerativeUI';
 import { ToolDetails } from './ToolRoster';
+import { paletteFor } from '../../utils/dashboardTheme';
+import { blocksFromToolCall, structuredContent, UI_TOOL_NAME } from '../../utils/generativeUi';
+import { formatBytes, isRenderableAttachmentUrl } from '../../utils/attachments';
 
 // Shared conversation stream renderer: role-labeled messages with
 // click-to-expand details (tool name/arguments/results, durations,
@@ -223,10 +227,118 @@ export const roleBubble = (role, darkMode) => {
   }
 };
 
+// Files a user message carried, as chips: image thumbnails from the
+// manifest URL, filename and size for everything else. The runner's composer
+// renders its not-yet-uploaded files through the same chip (with `onRemove`)
+// so an attachment looks the same before and after the run.
+const KIND_GLYPHS = { image: 'IMG', document: 'PDF', text: 'TXT', file: 'FILE' };
+
+export function AttachmentChips({ attachments, darkMode, testId, onRemove, removeTestId }) {
+  const list = (attachments || []).filter(Boolean);
+  if (list.length === 0) return null;
+  const palette = paletteFor(darkMode);
+  return (
+    <div className="flex flex-wrap gap-2 mt-1.5">
+      {list.map((attachment, index) => {
+        const contentType = String(attachment.content_type || '');
+        const isImage = (attachment.kind === 'image' || contentType.startsWith('image/')) && isRenderableAttachmentUrl(attachment.url);
+        const size = formatBytes(attachment.byte_size);
+        return (
+          <span
+            key={attachment.id ?? `${attachment.filename}-${index}`}
+            data-testid={testId}
+            title={[attachment.filename, contentType, size].filter(Boolean).join(' · ')}
+            className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-xs"
+            style={{ background: palette.mutedBg, border: `1px solid ${palette.cardBorder}`, color: palette.textCell, maxWidth: '260px' }}
+          >
+            {isImage ? (
+              <img
+                src={attachment.url}
+                alt={attachment.filename || ''}
+                style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }}
+              />
+            ) : (
+              <span className="font-mono" style={{ color: palette.textMuted, flexShrink: 0 }}>
+                {KIND_GLYPHS[attachment.kind] || KIND_GLYPHS.file}
+              </span>
+            )}
+            <span className="min-w-0">
+              <span className="block truncate">{attachment.filename || 'attachment'}</span>
+              {size && <span className="block font-mono" style={{ color: palette.textMuted }}>{size}</span>}
+            </span>
+            {onRemove && (
+              <button
+                type="button"
+                data-testid={removeTestId}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRemove(attachment, index);
+                }}
+                title="Remove"
+                aria-label={`Remove ${attachment.filename || 'attachment'}`}
+                className="font-mono"
+                style={{ color: palette.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
+              >
+                ✕
+              </button>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// The ids of the tool calls an assistant row issued.
+const callIdsOf = (message) => {
+  const ids = new Set();
+  if (Array.isArray(message.tool_calls)) {
+    message.tool_calls.forEach((call) => call && call.id != null && ids.add(call.id));
+  } else if (message.tool_call_id) {
+    ids.add(message.tool_call_id);
+  }
+  return ids;
+};
+
+// A render_ui tool row usually carries its arguments (persisted, or merged
+// in from the calling turn). When it doesn't, the assistant row that issued
+// the call still has them.
+const uiBlocksForToolRow = (message, stream) => {
+  const own = blocksFromToolCall(message);
+  if (own) return own;
+  const caller = stream.find(
+    (m) =>
+      m && m.role === 'assistant' &&
+      (message.tool_call_id ? callIdsOf(m).has(message.tool_call_id) : blocksFromToolCall(m))
+  );
+  return caller ? blocksFromToolCall(caller, { callId: message.tool_call_id }) : null;
+};
+
+// Whether a tool row in the stream renders this assistant row's render_ui
+// call, so the UI appears once — on the result row, not twice.
+const uiRenderedByToolRow = (message, stream) => {
+  const ids = callIdsOf(message);
+  return stream.some(
+    (m) => m && m.role === 'tool' && m.tool_name === UI_TOOL_NAME && (!m.tool_call_id || ids.size === 0 || ids.has(m.tool_call_id))
+  );
+};
+
 // `tools` (optional): the tool schemas in play for this conversation, so an
 // expanded tool message can show where its tool comes from and what it does.
-export default function InteractionStream({ messages, darkMode, tools }) {
+//
+// The runner's context panel adds three optional behaviours: `onUiAction`
+// receives generative-UI form submissions and choice clicks; `onEditMessage`
+// / `onDeleteMessage` (when given) put Edit/Delete controls on user and
+// assistant rows, with an inline editor whose Save awaits
+// `onEditMessage(message, content)`; `testIdPrefix` stamps rows and those
+// controls with data-testids for browser tests. Without them the stream
+// looks exactly as it does in the Interactions and Traces views.
+export default function InteractionStream({ messages, darkMode, tools, onUiAction, onEditMessage, onDeleteMessage, testIdPrefix }) {
   const [expandedMessages, setExpandedMessages] = useState({});
+  const [editingId, setEditingId] = useState(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState(null);
 
   const toggleMessage = (id) =>
     setExpandedMessages((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -237,6 +349,34 @@ export default function InteractionStream({ messages, darkMode, tools }) {
     textMuted: darkMode ? 'rgba(255,255,255,0.4)' : '#9ca3af',
   };
 
+  const testId = (suffix) => (testIdPrefix ? `${testIdPrefix}-${suffix}` : undefined);
+  const stopRowClick = (event) => event.stopPropagation();
+
+  const startEdit = (message) => {
+    setEditingId(message.id);
+    setEditDraft(message.content || '');
+    setEditError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditError(null);
+  };
+
+  const saveEdit = async (message) => {
+    if (editBusy) return;
+    setEditBusy(true);
+    setEditError(null);
+    try {
+      await onEditMessage(message, editDraft);
+      setEditingId(null);
+    } catch (error) {
+      setEditError(error.message || 'Could not save the message');
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
   const stream = mergeToolTurns(messages);
 
   return (
@@ -244,6 +384,11 @@ export default function InteractionStream({ messages, darkMode, tools }) {
       {stream.map((message) => {
         const bubble = roleBubble(message.role, darkMode);
         const isExpanded = !!expandedMessages[message.id];
+        const isEditing = editingId === message.id;
+        const editable = Boolean((onEditMessage || onDeleteMessage) && ['user', 'assistant'].includes(message.role));
+        const uiBlocks = message.role === 'tool' && message.tool_name === UI_TOOL_NAME ? uiBlocksForToolRow(message, stream) : null;
+        const structured = message.role === 'assistant' && !isEditing ? structuredContent(message.content) : null;
+        const assistantUi = message.role === 'assistant' && !uiRenderedByToolRow(message, stream) ? blocksFromToolCall(message) : null;
         const collapsed = collapsesWhenLong(message) && !isExpanded;
         const expandable = hasDetails(message) || collapsesWhenLong(message);
         const argsJson = prettyJson(message.tool_arguments);
@@ -279,7 +424,13 @@ export default function InteractionStream({ messages, darkMode, tools }) {
           message.role === 'assistant' && !hasText(message.content) ? callInputs(message) : [];
         const preStyle = streamPreStyle(darkMode);
         return (
-          <div key={message.id}>
+          <div
+            key={message.id}
+            className="group"
+            data-testid={testIdPrefix}
+            data-message-id={testIdPrefix ? message.id : undefined}
+            data-role={testIdPrefix ? message.role : undefined}
+          >
             <div
               className={`flex gap-3 items-start rounded-lg -mx-2 px-2 py-1 ${expandable ? 'cursor-pointer' : ''}`}
               onClick={expandable ? () => toggleMessage(message.id) : undefined}
@@ -298,7 +449,64 @@ export default function InteractionStream({ messages, darkMode, tools }) {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm break-words" style={{ color: colors.textPrimary }}>
-                  {message.role === 'tool' ? (
+                  {isEditing ? (
+                    // Inline editor: the row's content becomes a textarea;
+                    // Save hands the draft to the owner, Cancel discards it.
+                    <div className="space-y-2" onClick={stopRowClick}>
+                      <textarea
+                        data-testid={testId('editor')}
+                        value={editDraft}
+                        onChange={(event) => setEditDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') cancelEdit();
+                          if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) saveEdit(message);
+                        }}
+                        rows={Math.min(12, Math.max(3, editDraft.split('\n').length))}
+                        autoFocus
+                        className="aa-field w-full"
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: `1px solid ${darkMode ? 'rgba(255,255,255,0.2)' : '#d1d5db'}`,
+                          background: darkMode ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                          color: colors.textPrimary,
+                          fontFamily: 'inherit',
+                          fontSize: '13px',
+                          resize: 'vertical',
+                        }}
+                      />
+                      <div className="flex items-center gap-2 text-xs">
+                        <button
+                          type="button"
+                          data-testid={testId('save')}
+                          onClick={() => saveEdit(message)}
+                          disabled={editBusy}
+                          style={{ padding: '4px 10px', borderRadius: '6px', background: '#ef4444', color: '#ffffff', border: 'none', cursor: editBusy ? 'wait' : 'pointer', fontWeight: 500 }}
+                        >
+                          {editBusy ? 'Saving…' : 'Save'}
+                        </button>
+                        <button
+                          type="button"
+                          data-testid={testId('cancel')}
+                          onClick={cancelEdit}
+                          disabled={editBusy}
+                          style={{ padding: '4px 10px', borderRadius: '6px', background: 'transparent', color: colors.textSecondary, border: `1px solid ${darkMode ? 'rgba(255,255,255,0.2)' : '#d1d5db'}`, cursor: 'pointer' }}
+                        >
+                          Cancel
+                        </button>
+                        {editError && <span style={{ color: '#dc2626' }}>{editError}</span>}
+                      </div>
+                    </div>
+                  ) : uiBlocks ? (
+                    // A render_ui call is the UI itself, not a JSON result;
+                    // the raw arguments stay in the expanded details.
+                    <div>
+                      <div className="font-mono text-xs mb-1" style={{ color: toolTone.color }}>
+                        ⚙ {message.tool_name} · {uiBlocks.length} block{uiBlocks.length === 1 ? '' : 's'}
+                      </div>
+                      <GenerativeUI blocks={uiBlocks} onAction={onUiAction} darkMode={darkMode} />
+                    </div>
+                  ) : message.role === 'tool' ? (
                     // Tool rows always read as a compact in/out summary — the
                     // full arguments and result live in the expanded details
                     // below, in that order.
@@ -369,11 +577,58 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                         </span>
                       ))}
                     </span>
+                  ) : structured && structured.blocks ? (
+                    // The whole reply is a UI container: render it, not its JSON.
+                    <GenerativeUI blocks={structured.blocks} onAction={onUiAction} darkMode={darkMode} />
+                  ) : structured && structured.object ? (
+                    // Structured output: a key/value view instead of raw JSON
+                    // (the parsed JSON is still in the expanded details).
+                    <GenerativeUI blocks={[{ type: 'object', value: structured.object }]} darkMode={darkMode} />
                   ) : (
-                    <Markdown text={message.content || '—'} />
+                    <Markdown text={message.content || '—'} darkMode={darkMode} onUiAction={onUiAction} />
+                  )}
+                  {assistantUi && !isEditing && (
+                    // The call has no result row yet (still streaming, or it
+                    // errored), so the requested UI shows here instead.
+                    <div className="mt-2">
+                      <GenerativeUI blocks={assistantUi} onAction={onUiAction} darkMode={darkMode} />
+                    </div>
+                  )}
+                  {message.role === 'user' && (
+                    <AttachmentChips attachments={message.attachments} darkMode={darkMode} testId={testId('attachment')} />
                   )}
                 </div>
                 <div className="text-xs mt-0.5 font-mono flex items-center gap-2 flex-wrap" style={{ color: colors.textMuted }}>
+                  {editable && !isEditing && (
+                    // Hover controls; keyboard focus reveals them too.
+                    <span
+                      className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                      onClick={stopRowClick}
+                    >
+                      {onEditMessage && (
+                        <button
+                          type="button"
+                          data-testid={testId('edit')}
+                          onClick={() => startEdit(message)}
+                          className="hover:underline"
+                          style={{ color: colors.textSecondary, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {onDeleteMessage && (
+                        <button
+                          type="button"
+                          data-testid={testId('delete')}
+                          onClick={() => onDeleteMessage(message)}
+                          className="hover:underline"
+                          style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </span>
+                  )}
                   {message.created_at && <span>{new Date(message.created_at).toLocaleTimeString()}</span>}
                   {message.tool_name && message.role !== 'tool' && (
                     <span

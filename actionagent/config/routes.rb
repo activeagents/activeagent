@@ -38,6 +38,10 @@ ActionAgent::Engine.routes.draw do
         post :duplicate
         get :export
         get :analytics
+        # The runner's conversation picker: this agent's persisted contexts,
+        # and a fresh one to pin a first message to.
+        get :conversations
+        post :conversations, action: :create_conversation
       end
       collection do
         get :presets
@@ -113,7 +117,11 @@ ActionAgent::Engine.routes.draw do
     resource :metrics, only: [ :show ], controller: "metrics"
 
     # Conversations (contexts, messages, generations) behind Interactions.
-    resources :interactions, only: [ :index, :show ]
+    # The runner edits a conversation in place — seeds, fixes or drops a
+    # turn — so the next run sees exactly the history it should.
+    resources :interactions, only: [ :index, :show ] do
+      resources :messages, only: [ :create, :update, :destroy ], controller: "interaction_messages"
+    end
 
     # Agent output evaluations. A scenario suite also manages its scenarios
     # here, and exposes each run's per-scenario, per-model results.

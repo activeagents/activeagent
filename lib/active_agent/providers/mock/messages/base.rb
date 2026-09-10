@@ -21,8 +21,10 @@ module ActiveAgent
               if content_type == :text
                 self.content = value
               else
-                # For image/document, MockProvider doesn't support these, so ignore
-                # (or could raise an error)
+                # No vision here: an image/document stands in as a text
+                # marker, so a media-only turn still has content to validate
+                # and to concatenate with its neighbours when serialized.
+                self.content ||= "[#{content_type}]"
               end
             end
           end

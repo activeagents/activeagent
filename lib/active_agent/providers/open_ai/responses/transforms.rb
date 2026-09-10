@@ -295,25 +295,43 @@ module ActiveAgent
               if message.respond_to?(:serialize)
                 message.serialize
               elsif message.is_a?(Hash)
-                # If it has a role, it's a message - convert :text to :content
+                # If it has a role, it's a message. Its :text becomes :content,
+                # and an :image / :document alongside it becomes a content
+                # part — the same `{role:, text:, image:}` shorthand the Chat
+                # API and Anthropic transforms accept, so a caller sending
+                # history plus a multimodal turn gets the same request shape
+                # from every provider.
                 if message.key?(:role)
                   normalized = message.dup
-                  if normalized.key?(:text) && !normalized.key?(:content)
-                    normalized[:content] = normalized.delete(:text)
+                  # The shorthand keys always come off the message: left on,
+                  # they reach the request body as unknown parameters and the
+                  # API rejects the whole call. A blank one contributes no
+                  # part rather than an empty input_image the API would
+                  # refuse (or a nil document, which has no URL to send).
+                  text = normalized.delete(:text)
+                  image = normalized.delete(:image)
+                  document = normalized.delete(:document)
+
+                  unless normalized.key?(:content)
+                    parts = []
+                    parts << { type: "input_text", text: text } if text.present?
+                    parts << { type: "input_image", image_url: image } if image.present?
+                    parts << document_part(document) if document.present?
+
+                    if parts.size == 1 && parts.first[:type] == "input_text"
+                      normalized[:content] = parts.first[:text]
+                    elsif parts.any?
+                      normalized[:content] = parts
+                    end
                   end
                   return normalized
                 end
 
                 # Expand shorthand formats to full structures for content items
-                if message.key?(:image)
+                if message[:image].present?
                   { type: "input_image", image_url: message[:image] }
-                elsif message.key?(:document)
-                  document_value = message[:document]
-                  if document_value.start_with?("data:")
-                    { type: "input_file", filename: "document.pdf", file_data: document_value }
-                  else
-                    { type: "input_file", file_url: document_value }
-                  end
+                elsif message[:document].present?
+                  document_part(message[:document])
                 elsif message.key?(:text) && message.size == 1
                   # Single :text key without :role - treat as user message
                   { role: "user", content: message[:text] }
@@ -333,6 +351,19 @@ module ActiveAgent
               else
                 # Pass through anything else
                 message
+              end
+            end
+
+            # An input_file part for a document given as a URL or a data URI.
+            #
+            # @param document_value [String] URL or data URI
+            # @return [Hash] input_file content part
+            def document_part(document_value)
+              document_value = document_value.to_s
+              if document_value.start_with?("data:")
+                { type: "input_file", filename: "document.pdf", file_data: document_value }
+              else
+                { type: "input_file", file_url: document_value }
               end
             end
 

@@ -38,6 +38,7 @@ export const TOOLS = {
   edit: { emoji: '\u270F\uFE0F', label: 'Edit' },
   translate: { emoji: '\u{1F30D}', label: 'Translate' },
   memory: { emoji: '\u{1F9E0}', label: 'Memory' },
+  ui: { emoji: '\u{1F9E9}', label: 'Generative UI' },
 };
 
 // Preset configurations matching the lander's agent builder presets

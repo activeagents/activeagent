@@ -16,12 +16,23 @@ module ActionAgent
         "tokens" => "Most tokens"
       }.freeze
       DEFAULT_LIST_SORT = "recent"
+      # Conversations returned to the runner's picker when no limit is asked for.
+      CONVERSATIONS_LIMIT = 50
+      # Keywords Agent#execute takes in its own right, which per-run overrides
+      # must never supply (see #execution_params).
+      RESERVED_EXECUTION_KEYS = [ :attachments, :action ].freeze
 
-      before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
+      before_action :set_agent, only: [
+        :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics,
+        :conversations, :create_conversation
+      ]
       before_action :require_execution_enabled!, only: [ :execute, :test ]
       before_action :require_owner!, only: [ :execute, :test ]
-      before_action :require_executable_agent!, only: [ :execute, :test, :update, :restore ]
+      before_action :require_executable_agent!, only: [ :execute, :test, :update, :restore, :create_conversation ]
       before_action :enforce_execution_quota!, only: [ :execute, :test ]
+      before_action :require_prompt!, only: [ :execute, :test ]
+
+      rescue_from AgentRun::AttachmentsUnavailable, with: :attachments_unavailable
 
       # GET /api/agents
       def index
@@ -65,7 +76,7 @@ module ActionAgent
         render json: {
           agent: agent_json(@agent, include_details: true),
           versions: @agent.agent_versions.recent.limit(10).map { |v| version_json(v) },
-          recent_runs: @agent.agent_runs.recent.limit(5).map(&:summary)
+          recent_runs: @agent.agent_runs.with_attachments.recent.limit(5).map(&:summary)
         }
       end
 
@@ -134,7 +145,7 @@ module ActionAgent
         # One digest->version map for the page; labels each run's instructions
         # with the agent version that introduced them where one matches.
         digest_versions = @agent.instructions_digest_versions
-        runs_by_id = AgentRun.where(id: executions[:rows].select { |r| r.source == "dashboard" }.map(&:id))
+        runs_by_id = AgentRun.with_attachments.where(id: executions[:rows].select { |r| r.source == "dashboard" }.map(&:id))
           .index_by(&:id)
 
         render json: {
@@ -150,11 +161,16 @@ module ActionAgent
       end
 
       # POST /api/agents/:id/execute
+      #
+      # JSON as before, or multipart from the runner's composer: the new
+      # user message, its files (attachments[]) and the conversation to
+      # continue (params[context_id], or a top-level context_id).
       def execute
         run = @agent.execute(
-          params[:prompt],
+          execution_prompt,
           action: params[:action_name],
-          **params.fetch(:params, {}).to_unsafe_h.symbolize_keys
+          attachments: uploaded_attachments,
+          **execution_params
         )
         record_execution_usage
 
@@ -164,13 +180,52 @@ module ActionAgent
       # POST /api/agents/:id/test
       def test
         run = @agent.test_execute(
-          params[:prompt],
+          execution_prompt,
           action: params[:action_name],
-          **params.fetch(:params, {}).to_unsafe_h.symbolize_keys
+          attachments: uploaded_attachments,
+          **execution_params
         )
         record_execution_usage
 
         render json: { run: run.summary, output: run.output }
+      end
+
+      # GET /api/agents/:id/conversations
+      #
+      # The agent's persisted contexts, newest first — the runner's
+      # conversation picker, narrowed to one action when asked.
+      def conversations
+        limit = params.fetch(:limit, CONVERSATIONS_LIMIT).to_i.clamp(1, 200)
+        contexts = agent_contexts.order(created_at: :desc)
+        contexts = contexts.for_action(params[:action_name]) if params[:action_name].present?
+        # The picker is refetched on every seeded or deleted message, and the
+        # list grows a row per New conversation, so it is bounded like every
+        # other collection this API serves.
+        contexts = contexts.limit(limit).to_a
+        counts = AgentMessage.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
+
+        render json: {
+          conversations: contexts.map { |context| conversation_json(context, counts[context.id] || 0) }
+        }
+      end
+
+      # POST /api/agents/:id/conversations
+      #
+      # Starts an empty context for an action, so the runner's very first
+      # message already lands in a pinned conversation rather than in the
+      # agent's default stream.
+      def create_conversation
+        action = params[:action_name].presence || Agent::DEFAULT_ACTION
+        action = Agent::DEFAULT_ACTION unless @agent.available_actions.include?(action)
+
+        context = AgentContext.create!(
+          contextable: @agent,
+          agent_name: @agent.telemetry_agent_class,
+          action_name: action,
+          instructions: @agent.composed_instructions_for(action)
+        )
+
+        render json: { conversation: conversation_json(context, 0) }, status: :created
       end
 
       # POST /api/agents/:id/duplicate
@@ -324,6 +379,58 @@ module ActionAgent
         render json: {
           error: "Observed agents are read-only — duplicate this agent to create an executable copy"
         }, status: :unprocessable_entity
+      end
+
+      # A message may be empty only when files carry the request.
+      def require_prompt!
+        return if params[:prompt].present? || uploaded_attachments.any?
+
+        render json: { error: "Prompt can't be blank unless files are attached" }, status: :unprocessable_entity
+      end
+
+      def execution_prompt
+        params[:prompt].presence || "(see attached files)"
+      end
+
+      # Multipart files only: a JSON body can't carry one, and an empty file
+      # input arrives as a blank string.
+      def uploaded_attachments
+        @uploaded_attachments ||= Array(params[:attachments]).select { |file| file.respond_to?(:original_filename) }
+      end
+
+      # Per-run overrides (provider/model overrides, the pinned context)
+      # for input_params. context_id is stored as an integer so the JSON
+      # column reads the same whether a form or a JSON body delivered it;
+      # anything that isn't one is dropped rather than pinned to nothing.
+      def execution_params
+        extra = params.fetch(:params, {}).to_unsafe_h.symbolize_keys
+        # These reach Agent#execute as keywords, and a keyword splat wins over
+        # the arguments before it: left in, params[params][attachments] would
+        # replace the uploaded files with anything the caller names, and
+        # params[params][action] the action. They are the controller's to set.
+        extra.except!(*RESERVED_EXECUTION_KEYS)
+        context_id = Integer(extra.delete(:context_id).presence || params[:context_id].presence || 0, exception: false)
+        extra[:context_id] = context_id if context_id&.positive?
+        extra
+      end
+
+      def attachments_unavailable(exception)
+        render json: { error: exception.message }, status: :unprocessable_entity
+      end
+
+      def agent_contexts
+        AgentContext.where(contextable: @agent)
+      end
+
+      def conversation_json(context, message_count)
+        {
+          id: context.id,
+          action_name: context.action_name,
+          agent_name: context.agent_name,
+          message_count: message_count,
+          last_activity_at: context.updated_at.iso8601,
+          created_at: context.created_at.iso8601
+        }
       end
 
       def list_sort(requested)
