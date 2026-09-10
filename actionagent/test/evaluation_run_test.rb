@@ -184,8 +184,8 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
 
   test "a namespaced server nothing else knows is named, with no status" do
     assert_equal(
-      { "key" => "demo-match", "name" => "demo-match", "status" => nil },
-      resolver.call("mcp__demo-match__search_slots")
+      { "key" => "booking-match", "name" => "booking-match", "status" => nil },
+      resolver.call("mcp__booking-match__search_slots")
     )
   end
 
@@ -194,9 +194,9 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
   end
 
   test "a host-registered catalog server is available for the tools it hints" do
-    ActionAgent.mcp_catalog = [ { key: "demo-match", name: "the client app Match", tool_hints: %w[search_slots] } ]
+    ActionAgent.mcp_catalog = [ { key: "booking-match", name: "Booking Match", tool_hints: %w[search_slots] } ]
 
-    assert_equal({ "key" => "demo-match", "name" => "the client app Match", "status" => "available" }, resolver.call("search_slots"))
+    assert_equal({ "key" => "booking-match", "name" => "Booking Match", "status" => "available" }, resolver.call("search_slots"))
   ensure
     ActionAgent.mcp_catalog = []
   end
@@ -212,23 +212,23 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
     agent = ActionAgent::Agent.new(
       name: "Assistant",
       mcp_servers: [ {
-        "key" => "client-app", "name" => "the client app Match", "url" => "https://demo-app.test/mcp",
+        "key" => "booking", "name" => "Booking Match", "url" => "https://booking.test/mcp",
         "tools" => [ "search_slots", { "name" => "book_appointment" } ]
       } ]
     )
 
-    assert_equal({ "key" => "client-app", "name" => "the client app Match", "status" => "enabled" }, resolver(agent).call("search_slots"))
-    assert_equal "client-app", resolver(agent).call("book_appointment")["key"]
+    assert_equal({ "key" => "booking", "name" => "Booking Match", "status" => "enabled" }, resolver(agent).call("search_slots"))
+    assert_equal "booking", resolver(agent).call("book_appointment")["key"]
   end
 
   test "the older hash-keyed configuration is read the same way" do
     agent = ActionAgent::Agent.new(
       name: "Assistant",
-      mcp_servers: { "playwright" => { "command" => "npx @playwright/mcp@latest" }, "client-app" => { "tools" => [ "search_slots" ] } }
+      mcp_servers: { "playwright" => { "command" => "npx @playwright/mcp@latest" }, "booking" => { "tools" => [ "search_slots" ] } }
     )
 
     assert_equal "enabled", resolver(agent).call("mcp__playwright__browser_click")["status"]
-    assert_equal({ "key" => "client-app", "name" => "client-app", "status" => "enabled" }, resolver(agent).call("search_slots"))
+    assert_equal({ "key" => "booking", "name" => "booking", "status" => "enabled" }, resolver(agent).call("search_slots"))
   end
 
   test "an agent-defined tool, a blank name and malformed entries resolve to nothing" do
