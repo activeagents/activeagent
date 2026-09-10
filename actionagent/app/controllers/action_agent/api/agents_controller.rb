@@ -20,7 +20,7 @@ module ActionAgent
       before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
       before_action :require_execution_enabled!, only: [ :execute, :test ]
       before_action :require_owner!, only: [ :execute, :test ]
-      before_action :require_executable_agent!, only: [ :execute, :test ]
+      before_action :require_executable_agent!, only: [ :execute, :test, :update, :restore ]
       before_action :enforce_execution_quota!, only: [ :execute, :test ]
 
       # GET /api/agents

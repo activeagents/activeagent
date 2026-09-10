@@ -37,13 +37,32 @@ module ActionAgent
       tool_calls.select { |call| call.is_a?(Hash) && (call["error"] || call[:error]) }
     end
 
+    # Adapter-provided correlation and context are stored alongside diagnosis
+    # in a reserved JSON key, leaving the public diagnosis contract unchanged.
+    def replay_metadata
+      value = diagnosis&.dig("_replay_metadata")
+      value.is_a?(Hash) ? value : {}
+    end
+
+    def evaluation_diagnosis
+      (diagnosis || {}).except("_replay_metadata", "_scenario_snapshot")
+    end
+
+    # A catalog can be refreshed without changing what an earlier run asked
+    # or expected. Older results did not record this snapshot.
+    def evaluated_scenario
+      snapshot = diagnosis&.dig("_scenario_snapshot")
+      snapshot.is_a?(Hash) ? snapshot : scenario.as_json_summary.stringify_keys
+    end
+
     def as_json_summary
       {
         id: id,
         scenario_id: evaluation_scenario_id,
-        scenario_key: scenario.key,
-        group: scenario.group,
-        prompt: scenario.prompt,
+        scenario_key: evaluated_scenario["key"],
+        group: evaluated_scenario["group"],
+        prompt: evaluated_scenario["prompt"],
+        scenario: evaluated_scenario,
         model: model,
         provider: provider,
         status: status,
@@ -57,7 +76,8 @@ module ActionAgent
         cost: cost&.to_f,
         fault: fault,
         recommendation: recommendation,
-        diagnosis: diagnosis,
+        diagnosis: evaluation_diagnosis,
+        metadata: replay_metadata,
         error_message: error_message,
         agent_run_id: agent_run_id
       }
