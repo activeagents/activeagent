@@ -81,7 +81,7 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
   end
 
   def test_a_backticked_message_keeps_the_rest_of_the_line_as_notes
-    scenarios = parse("3. `Show me all providers with no license on file` — ✏️ reworded: 1,060 of 15,043 physicians have no license row")
+    scenarios = parse("3. `Show me all providers with no license on file` — ✏️ reworded: 1,060 of 15,043 providers have no license row")
 
     assert_equal "Show me all providers with no license on file", scenarios.first["prompt"]
     assert_match(/reworded/, scenarios.first["notes"])

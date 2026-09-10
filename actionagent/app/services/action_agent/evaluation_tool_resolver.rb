@@ -97,7 +97,7 @@ module ActionAgent
     end
 
     # normalized key => the display name a configured hash entry carries
-    # alongside its key ({"key" => "sparkle", "name" => "Sparkle Match"}).
+    # alongside its key ({"key" => "booking", "name" => "Booking Service"}).
     def configured_names
       @configured_names ||= configured_entries.each_with_object({}) do |entry, map|
         next unless entry.respond_to?(:key?)
@@ -111,7 +111,7 @@ module ActionAgent
     end
 
     # bare tool name => server key, from configured entries that list the
-    # tools they serve ({"name" => "sparkle", "tools" => ["search_slots"]}),
+    # tools they serve ({"name" => "booking", "tools" => ["search_slots"]}),
     # in the catalog's own +tool_hints+ spelling or as tool hashes.
     def configured_tools
       @configured_tools ||= configured_entries.each_with_object({}) do |entry, map|

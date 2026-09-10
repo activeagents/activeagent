@@ -76,7 +76,7 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
   test "an unreachable server returns a scoreable error rather than raising" do
     dispatcher = dispatcher_with_client(StubClient.new(raises: "boom"))
 
-    result = dispatcher.call("count_records", { "model" => "Physician" })
+    result = dispatcher.call("count_records", { "model" => "Provider" })
 
     assert_match(/count_records failed: boom/, result[:error])
   end

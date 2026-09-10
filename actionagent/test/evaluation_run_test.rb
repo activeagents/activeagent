@@ -184,8 +184,8 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
 
   test "a namespaced server nothing else knows is named, with no status" do
     assert_equal(
-      { "key" => "sparkle-match", "name" => "sparkle-match", "status" => nil },
-      resolver.call("mcp__sparkle-match__search_slots")
+      { "key" => "booking-match", "name" => "booking-match", "status" => nil },
+      resolver.call("mcp__booking-match__search_slots")
     )
   end
 
@@ -194,9 +194,9 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
   end
 
   test "a host-registered catalog server is available for the tools it hints" do
-    ActionAgent.mcp_catalog = [ { key: "sparkle-match", name: "Sparkle Match", tool_hints: %w[search_slots] } ]
+    ActionAgent.mcp_catalog = [ { key: "booking-match", name: "Booking Match", tool_hints: %w[search_slots] } ]
 
-    assert_equal({ "key" => "sparkle-match", "name" => "Sparkle Match", "status" => "available" }, resolver.call("search_slots"))
+    assert_equal({ "key" => "booking-match", "name" => "Booking Match", "status" => "available" }, resolver.call("search_slots"))
   ensure
     ActionAgent.mcp_catalog = []
   end
@@ -212,23 +212,23 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
     agent = ActionAgent::Agent.new(
       name: "Assistant",
       mcp_servers: [ {
-        "key" => "sparkle", "name" => "Sparkle Match", "url" => "https://sparkle.test/mcp",
+        "key" => "booking", "name" => "Booking Match", "url" => "https://booking.test/mcp",
         "tools" => [ "search_slots", { "name" => "book_appointment" } ]
       } ]
     )
 
-    assert_equal({ "key" => "sparkle", "name" => "Sparkle Match", "status" => "enabled" }, resolver(agent).call("search_slots"))
-    assert_equal "sparkle", resolver(agent).call("book_appointment")["key"]
+    assert_equal({ "key" => "booking", "name" => "Booking Match", "status" => "enabled" }, resolver(agent).call("search_slots"))
+    assert_equal "booking", resolver(agent).call("book_appointment")["key"]
   end
 
   test "the older hash-keyed configuration is read the same way" do
     agent = ActionAgent::Agent.new(
       name: "Assistant",
-      mcp_servers: { "playwright" => { "command" => "npx @playwright/mcp@latest" }, "sparkle" => { "tools" => [ "search_slots" ] } }
+      mcp_servers: { "playwright" => { "command" => "npx @playwright/mcp@latest" }, "booking" => { "tools" => [ "search_slots" ] } }
     )
 
     assert_equal "enabled", resolver(agent).call("mcp__playwright__browser_click")["status"]
-    assert_equal({ "key" => "sparkle", "name" => "sparkle", "status" => "enabled" }, resolver(agent).call("search_slots"))
+    assert_equal({ "key" => "booking", "name" => "booking", "status" => "enabled" }, resolver(agent).call("search_slots"))
   end
 
   test "an agent-defined tool, a blank name and malformed entries resolve to nothing" do
@@ -263,7 +263,7 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
       fault: "expected_tool_not_called", recommendation: "Enable the tool and re-run.",
       diagnosis: {
         "fault" => "expected_tool_not_called",
-        "summary" => "Expected browser_navigate to be called; clara called nothing.",
+        "summary" => "Expected browser_navigate to be called; assistant called nothing.",
         "recommendation" => "Enable the tool and re-run.",
         "evidence" => { "expected" => [ "browser_navigate" ], "called" => [], "unavailable" => [ "browser_navigate" ] }
       }
@@ -272,19 +272,19 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
   end
 
   test "the report carries the agent, its tool resolver and mount-relative links" do
-    agent = ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model", mcp_servers: [ "playwright" ])
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model", mcp_servers: [ "playwright" ])
     run = create_run(agent)
 
     report = run.to_report
 
-    assert_equal "Clara", report.agent_name
+    assert_equal "Assistant", report.agent_name
     assert_kind_of ActionAgent::EvaluationToolResolver, report.tool_resolver
     assert_equal({ "mcp" => "/mcp/%{key}", "tools" => "/tools", "instructions" => "/agents/#{agent.id}/edit" }, report.links)
-    assert_equal "Clara", report.metadata["agent"]
+    assert_equal "Assistant", report.metadata["agent"]
   end
 
   test "fix_items delegates to the report with the agent's servers resolved" do
-    agent = ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model", mcp_servers: [ "playwright" ])
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model", mcp_servers: [ "playwright" ])
     run = create_run(agent)
 
     item = run.fix_items.first
@@ -295,7 +295,7 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
   end
 
   test "report_links prefixes the dashboard mount for the standalone report page" do
-    agent = ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model")
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model")
     run = create_run(agent)
 
     links = run.report_links(mount: "/activeagents/")
@@ -303,12 +303,12 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
     assert_equal "/activeagents/mcp/%{key}", links["mcp"]
     assert_equal "/activeagents/tools", links["tools"]
     assert_equal "/activeagents/agents/#{agent.id}/edit", links["instructions"]
-    assert_equal "Enable Playwright for Clara", run.fix_items(links: links).first.dig("action", "label")
+    assert_equal "Enable Playwright for Assistant", run.fix_items(links: links).first.dig("action", "label")
     assert_equal "/activeagents/mcp/playwright", run.fix_items(links: links).first.dig("action", "path")
   end
 
   test "a run without scenario results has no fix items" do
-    agent = ActionAgent::Agent.create!(name: "Clara", provider: "mock", model: "mock-model")
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model")
     evaluation = agent.evaluations.create!(
       name: "Sampling", judge_kind: "rules",
       criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ]
@@ -341,7 +341,7 @@ class ActionAgentEvaluationRunVerdictTest < ActiveSupport::TestCase
   # ollama/qwen3:8b: a report that still names gpt-5-mini can only have read
   # the verdict the run recorded.
   def create_comparison_run(verdict: nil, judge_model: nil, models: [ HOSTED, LOCAL ])
-    agent = ActionAgent::Agent.create!(name: "Clara", provider: "openai", model: "gpt-5-mini")
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "openai", model: "gpt-5-mini")
     evaluation = agent.evaluations.new(name: "Bake-off", judge_kind: "rules", judge_model: judge_model, criteria: [])
     evaluation.scenarios.build(key: "find_slots", prompt: "Find the next slot", position: 0)
     evaluation.scenarios.build(key: "cancel_slot", prompt: "Cancel it", position: 1)

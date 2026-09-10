@@ -188,7 +188,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
   def replay_agent(scenario, spec)
     return Replay.new(answer: "I don't have access to change history.", duration_ms: 100) if scenario.group == "blame" && spec.provider == "ollama"
 
-    calls = scenario.prompt.include?("license") && spec.provider == "openai" ? [ { "name" => "find_records", "arguments" => { "model" => "Physician" } } ] : []
+    calls = scenario.prompt.include?("license") && spec.provider == "openai" ? [ { "name" => "find_records", "arguments" => { "model" => "Provider" } } ] : []
     Replay.new(answer: "#{spec.model} says: 12 providers match.", tool_calls: calls, duration_ms: 250, input_tokens: 10, output_tokens: 5, cost: 0.001)
   end
 
