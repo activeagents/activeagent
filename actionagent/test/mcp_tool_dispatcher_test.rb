@@ -70,6 +70,23 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
     assert_empty dispatcher.tool_definitions
   end
 
+  test "a stateless server, which returns no session id, still completes the handshake" do
+    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp", label: "Stateless")
+    client.stubs(:post_raw).returns([ { "result" => {} }, {} ])
+    client.stubs(:post).returns({ "result" => { "tools" => [] } })
+
+    assert_empty client.list_tools
+  end
+
+  test "a notification answered with a bare null body is not an error" do
+    response = mock
+    response.stubs(:body).returns("null")
+    response.stubs(:[]).with("Content-Type").returns("application/json")
+    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp")
+
+    assert_equal({}, client.send(:parse_body, response))
+  end
+
   test "an observed agent with a reachable server may execute" do
     agent = agent_with(%w[records])
     agent.status = :observed
