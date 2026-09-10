@@ -9,7 +9,7 @@
 - [x] Exercise a native provider/MCP replay and persist its evaluation evidence.
 - [x] Cover tool errors, session handling, config shapes, namespaces, and collisions.
 - [x] Complete final engine, integration, and lint validation.
-- [ ] Publish the branch and open the issue-linked PR.
+- [x] Publish the branch and open [PR #421](https://github.com/activeagents/activeagent/pull/421).
 
 ## Scope decisions
 
