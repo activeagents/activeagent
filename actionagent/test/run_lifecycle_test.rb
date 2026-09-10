@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "telemetry_trace_test"
 
 # The agent-execution job's terminal states (#377): a failed run is never
 # re-executed, and a cancel that lands mid-execution is not overwritten by
@@ -117,6 +118,8 @@ end
 
 # Observed agents are read-only until forked (#379).
 class ObservedAgentExecutionTest < ActionDispatch::IntegrationTest
+  TelemetryTraceTest.ensure_table!
+
   def setup
     ActionAgent::AgentRun.delete_all
     ActionAgent::Agent.delete_all
