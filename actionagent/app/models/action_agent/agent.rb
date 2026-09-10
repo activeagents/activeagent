@@ -264,7 +264,7 @@ module ActionAgent
       return if MCPToolDispatcher.new(self).any_reachable_server?
 
       raise ObservedAgentError,
-            "This agent was observed from telemetry and names no reachable MCP server — duplicate it to create an executable copy"
+            "This agent was observed from telemetry and is read-only: it names no reachable MCP server — duplicate it to create an executable copy"
     end
 
     private
