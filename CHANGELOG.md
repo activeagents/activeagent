@@ -7,6 +7,210 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ActiveAgent::Evals::Publisher` delivers a finished report to a
+  collector.** A run that already happened — in CI, in a host app's own
+  runtime, anywhere the evaluation core runs — can be sent to an
+  ActiveAgents-compatible collector without replaying the agent:
+  `Publisher.new(api_key:, endpoint:).call(report:, run_id:, source:,
+  agent_name:, suite:)` posts a version-1 envelope wrapping `Report#to_h`
+  (or the saved JSON hash of an earlier run) and returns the collector's
+  receipt. Delivery is synchronous, requires HTTPS outside loopback, does
+  not follow a redirect carrying the bearer credential, caps a request at
+  2 MiB, and raises `Publisher::Error` on anything but a receipt naming the
+  same `run_id` — so a retry with that same `run_id` and the saved report
+  re-delivers rather than re-runs. Publication is strictly opt-in and
+  happens only where an application writes the call: no configuration flag,
+  no callback, no default credential, and `api_key:` supplied explicitly at
+  the call site. That is deliberate, because the payload is the report
+  itself — every scenario's prompt, the agent's answers, and the tool calls
+  and their results — and whether that may leave the application is the
+  application's decision to make. Installing the gem sends nothing
+  anywhere. `docs/evals/publication.md` documents the envelope, the receipt
+  and the retry rules. (#414)
+
+- **`Runner` takes `around_evaluation:` and `require_judge_scores:`.**
+  `around_evaluation:` is called with `(scenario, spec)` and a block, and
+  wraps the whole evaluation — the replay, the scoring, the judge calls
+  behind a recommendation — so a host can establish one trace context
+  across all of it and correlate a replay with the judging it triggered. It
+  must return the block's result; `on_result` runs after it returns, an
+  error it raises propagates to the caller, and `#evaluate` called directly
+  bypasses it, for a host doing its own scheduling. `require_judge_scores:`
+  (default `false`) settles what an unusable judge means. A judge that
+  raises or answers unscorably is skipped, and the scenario is then decided
+  on its rule scores alone — which reads as "the agent passed" when the
+  truth is "nobody graded the answer". Set it, and an otherwise passing
+  result whose `task_completion` or declared `llm_judge` criterion has no
+  usable score fails instead, with the new `judge_unavailable` fault naming
+  the unscored criteria and pointing at the judge's credentials, model and
+  JSON reply. A run with no judged criteria is unaffected. (#414)
+
+- **A grouped suite imports as YAML or JSON, whole.** `ScenarioParser` read
+  a pasted list or a JSON array of scenarios; it now also reads the grouped
+  document `Suite` loads — `groups:` with per-group keys and display names,
+  scenarios carrying `key`, `prompt`, `notes`, `expect` and
+  `production_only` — from YAML or JSON, keeping every part of it.
+  `ScenarioParser.parse` and `.scenarios` gain `include_production_only:`,
+  which defaults to `true` to match `Suite`. The dashboard defaults it the
+  other way: post the document as `scenarios_text` and the production-only
+  questions stay out unless `include_production_only` is sent alongside it,
+  because those prompts run against a live agent. The choice is made at
+  import — the engine stores the scenarios it selected, not the source
+  document — so changing it means importing the document again. (#414)
+
+- **`actionagent`: `ActionAgent.scenario_evaluation_adapter_resolver`.** A
+  host application with its own agent runtime can now run an evaluation
+  itself while keeping the dashboard's catalog, selection, jobs, result
+  persistence and report pages. The resolver is called with the persisted
+  evaluation and returns `nil` for the engine's normal `Agent#test_execute`
+  path, or a callable — `evaluation:`, `owner:`, `scenarios:`, `models:`,
+  `on_result:` — that runs the host's own agent and judge, yields every
+  result as it lands, and returns an `ActiveAgent::Evals::Report`. The
+  engine holds it to that contract: anything other than a `Report`, or a
+  report that omits or duplicates one of the selected scenario × model
+  pairs, fails the run rather than completing it with rows missing, and an
+  exception leaves the results already written in place. Dashboard
+  authentication, execution enablement and the host's execution quota still
+  apply. (#414)
+
+### Fixed
+
+- **A scenario passes only if it completed the task.** A scenario's verdict
+  was the mean of everything scored for it, and the judge's
+  `task_completion` grade was one number in that mean: an answer that
+  called the expected tool and contained the expected string could carry a
+  task grade of 0.2 to a mean of 0.73 and pass at the default threshold of
+  0.7. `task_completion` is a gate now — it has to reach `threshold` on its
+  own, and no number of passing tool and content checks can lift it — and
+  the fault names the number that failed: "Task completion scored 0.2
+  against a pass threshold of 0.7". An evaluation that configures its own
+  `llm_judge` criteria rather than relying on the implicit grade — which is
+  what the dashboard does — is gated the same way, on the mean of those
+  grades, so one soft dimension among strong ones still passes while an
+  answer the judge marked down cannot be carried by its mechanics. A
+  scenario the judge could not grade at all is unchanged, still falling
+  back to the rule scores. `score` and `avg_score` still mean the aggregate
+  they always did, and each model's
+  summary gains `avg_task_completion` so the judge's grade reads separately
+  from it. **This can turn a suite that passed on 1.4.0 red; see the note
+  on upgrading below.** (#414)
+
+- **A judge's score is read as a JSON number.** The score was pulled out of
+  the judge's reply by regular expression, matching the first run of digits
+  after `"score":`. It read `{"score": 9e-2}` — 0.09 — as 9, clamped to a
+  perfect 1.0; it read the string `{"score": "0.9"}` and the truncated
+  `{"score": 0.9oops}` as a confident 0.9 rather than as unusable. The
+  score now comes from the parsed JSON object and has to be a finite
+  number, so exponent notation is read as written and a string, a boolean,
+  `null`, `NaN` or `1e999` is unscorable — which the runner already knows
+  how to handle. Fenced ```` ```json ```` replies still parse. The
+  dashboard's generation-sampling evaluations score through the engine's own
+  judge rather than the framework's, and read a score by the same rule now,
+  so the two halves of the dashboard no longer disagree about the same
+  reply. (#414)
+
+- **A judge that answers with the wrong types cannot put junk in the fix
+  list.** `suggested_tool` and `instruction_change` were coerced rather
+  than checked, so a reply of `"suggested_tool": {"name": true}` added a
+  tool literally named `true` to the report's suggested tools, and
+  `"instruction_change": ["invalid"]` became a fix card asking someone to
+  add `["invalid"]` to the agent's instructions. Both fields must now be
+  nonempty strings and are dropped when they are not, so a malformed reply
+  loses only the malformed part: the judge's recommendation still reaches
+  the result, the report and every rendering of it. (#414)
+
+- **A grouped suite pasted into the dashboard keeps its keys and
+  expectations.** Only a pasted list or JSON was recognised, so a YAML suite
+  went to the line parser and was read as prose: a document describing three
+  scenarios became eighteen, with prompts like `tools: [lookup_order]` and
+  `production_only: true`, groups named `expect`, generated keys in place of
+  the document's own, and every expectation dropped — a suite that looked
+  imported and scored nothing real. Such a document is now parsed as the
+  suite it is, and one that is not valid, or a selection that matches no
+  scenarios, returns an import error (`ScenarioParser::ParseError`, HTTP
+  422) instead of a suite of nonsense or a sampling evaluation nobody asked
+  for. (#414)
+
+- **`actionagent`: run and result metadata survive persistence.** A run
+  rebuilt from the database was rebuilt without it: `Report#metadata` came
+  back holding only the four keys the engine writes itself, and each
+  result's replay metadata was gone entirely, so a host's own run and result
+  IDs, response trace IDs and judge trace IDs did not survive the round trip
+  and its reports could not be joined to its telemetry. Run metadata is now
+  kept in `scores["_metadata"]` and per-result metadata in
+  `diagnosis["_replay_metadata"]`, restored by `EvaluationRun#to_report` and
+  served as `metadata` on result JSON. Both are reserved storage keys that
+  the public diagnosis excludes, so nothing migrates and `diagnosis` still
+  means what it did. (#414)
+
+- **`actionagent`: refreshing a catalog does not rewrite what an earlier run
+  asked.** A saved run rendered its scenarios from the catalog rows as they
+  are now, so rewording a question, retagging its group or changing its
+  expectations silently rewrote history — last month's report showed this
+  month's prompt above last month's answers, and judged them against
+  expectations that were not in force when they were given. Each result now
+  records the scenario it was actually evaluated against in
+  `diagnosis["_scenario_snapshot"]`, and the report, the API and the
+  scenario matrix read that snapshot, in the order the run itself used, with
+  the dashboard noting on a scenario whose catalog entry has since changed
+  that re-running uses the current one. A run records its judge the same
+  way, in `scores["_judge_label"]`: `Report#to_h` and `#to_markdown` now
+  name the judge a rebuilt run was given instead of reporting "No judge" for
+  every run reconstructed from the database. Results saved before this
+  release carry no snapshot and still render from the current catalog, and a
+  link to a saved report (`?evaluation=:id&run=:run_id`) now opens its
+  evaluation even when it is no longer on the first page of the index.
+  (#414)
+
+- **`actionagent`: an observed agent cannot be made executable.** An agent
+  discovered from telemetry has no configuration to run, and `execute` and
+  `test` refused one — but `update` and `restore` did not, so an observed
+  record could be flipped to `active`, given instructions and then run; and
+  a run queued against an agent that became observed afterwards still
+  reached a provider when its job came up. The refusal now covers `update`
+  and `restore` as well, and it is enforced under the API rather than only
+  in front of it: `Agent#execute`, `#test_execute` and
+  `AgentExecutionService#call` raise
+  `ActionAgent::Agent::ObservedAgentError`, so that queued job fails its run
+  without a provider call or a trace. Duplicating the agent still gives you
+  an executable copy, and an evaluation whose host explicitly resolves an
+  adapter for it remains the one path that replays an observed agent's
+  scenarios. (#414)
+
+### Note on upgrading from 1.4.0
+
+A scenario suite that passed on 1.4.0 can fail on this release with nothing
+about your agent, your models or your suite having changed. Nothing has
+regressed: the numbers those runs passed on were wrong, and this release
+stops averaging them away.
+
+A scenario's score was the mean of every criterion scored for it, and the
+judge's `task_completion` grade — its answer to "did this actually do what
+was asked" — was one term in that mean, alongside the rule checks. An answer
+that called the expected tool, called it successfully, and contained the
+expected string scored 1.0, 1.0 and 0.2 for a mean of 0.73, and passed at
+the default threshold of 0.7: the mechanics carried the answer. That is the
+wrong answer to the question an evaluation exists to ask. The agent called
+`lookup_order`, said "ABC-123", and still never told the customer where the
+order was — and the suite went green.
+
+From this release `task_completion` has to clear `threshold` on its own.
+Expect the first run after upgrading to show fewer passes than the run
+before it, concentrated in the scenarios whose answers were thin, evasive or
+wrong while their mechanics were right. Each of those now carries the
+`low_quality` fault with a summary naming the grade that failed — "Task
+completion scored 0.2 against a pass threshold of 0.7" — and the judge's
+recommendation for it, and each model's summary reports
+`avg_task_completion` beside `avg_score`, so a drop in pass rate can be read
+against the grade that caused it. Nothing else about scoring moved: a
+scenario the judge could not grade still falls back to its rule scores
+unless you opt into `require_judge_scores: true`, and a suite meant to be
+scored on mechanics alone can run without a judge or at a lower `threshold`.
+Read that first run as a new baseline rather than a regression — it is
+measuring something the runs before it were not.
+
 ## [1.4.0] - 2026-09-09
 
 Releases `activeagent` 1.4.0 and `actionagent` 1.3.0 from one tag.

@@ -99,6 +99,28 @@ default, adjust that on `Runner.new`), and the verdict carries the judge's
 rationale. A judge that raises or answers unusably is skipped for that call,
 so an evaluation never fails because the judge did.
 
+A scorable `task_completion` grade must independently meet the run's
+`threshold` (0.7 by default). Successful tool and content checks cannot turn
+a failing task-completion grade into a pass. `score` and `avg_score` remain
+the aggregate across scored criteria; `avg_task_completion` in each model's
+summary reports the judge's task-completion mean separately. Invalid judge
+scores are unscorable, and unusable recommendation fields are discarded.
+
+Hosts can correlate the replay and its judge calls with one trace context by
+passing `around_evaluation:` to `Runner.new`. The callable receives the
+scenario and model spec, yields the evaluation, and returns its result:
+
+```ruby
+around_evaluation = ->(scenario, spec, &evaluate) do
+  TraceContext.with(scenario_key: scenario.key, model: spec.label) { evaluate.call }
+end
+```
+
+The wrapper covers replay, scoring and recommendations. `on_result` runs
+after the wrapper finishes; wrapper errors propagate. Direct
+`Runner#evaluate` calls bypass the wrapper so a host doing its own scheduling
+can establish context itself.
+
 ## Faults
 
 | Fault | Meaning |
@@ -166,7 +188,7 @@ judge credentials, and stores each result as an `EvaluationScenarioResult`.
 | Class | Role |
 |---|---|
 | `Scenario` | One task: prompt, group, expected tools, content that must / must not appear, notes |
-| `ScenarioParser` | Pasted text or JSON → scenarios. Lines, `# Heading` groups, backticked prompts with notes, `\| tools: a, b \| contains: x` options |
+| `ScenarioParser` | Pasted text, JSON, or grouped YAML suites → scenarios. Lines, `# Heading` groups, backticked prompts with notes, `\| tools: a, b \| contains: x` options |
 | `Suite` | A YAML suite with groups; later documents override by key, so a deployment can add or reword tasks |
 | `ModelSpec` | `provider/model` or a bare name with provider inference (`claude-*` → anthropic, `gpt-*` → openai, `name:tag` → ollama, `vendor/model` → openrouter) |
 | `Replay` | What your agent produced: answer, tool calls, timing, tokens, cost, error |
@@ -200,3 +222,87 @@ groups:
 suite = ActiveAgent::Evals::Suite.load("config/evals/support_bot.yml", "config/evals/acme/support_bot.yml")
 suite.scenarios(groups: %w[orders], include_production_only: false)
 ```
+
+The same grouped document can be pasted into `ScenarioParser` as YAML or
+JSON. It retains scenario keys, group keys and display names, expectations,
+notes and production-only flags:
+
+```ruby
+scenarios = ActiveAgent::Evals::ScenarioParser.scenarios(
+  File.read("config/evals/support_bot.yml"),
+  include_production_only: false
+)
+```
+
+The parser includes production-only scenarios by default for compatibility
+with `Suite`; the dashboard's create and replace APIs exclude them by
+default. Post the YAML/JSON document as `scenarios_text` and set
+`include_production_only: true` alongside it to include those questions.
+For creation both fields belong in `evaluation`; replacement accepts them
+at the top level. Production selection happens during import: the dashboard
+stores only the selected scenarios and their group keys, not the original
+document, group display names, or environment flags. Re-import the source
+document to change that selection. Invalid YAML or a selection containing
+no scenarios returns an import error without creating a sampled evaluation.
+
+## Running a host application's agent from the mounted dashboard
+
+The engine normally replays scenarios with `ActionAgent::Agent#test_execute`.
+A host with its own chat or agent runtime can opt individual evaluations
+into an adapter without replacing the engine's catalog, selection, jobs,
+result persistence, or report pages:
+
+```ruby
+ActionAgent.configure do |config|
+  config.scenario_evaluation_adapter_resolver = ->(evaluation) do
+    next unless evaluation.config["runtime"] == "host_support"
+
+    ->(evaluation:, owner:, scenarios:, models:, on_result:) do
+      HostSupportEvaluation.call(
+        evaluation: evaluation, owner: owner, scenarios: scenarios,
+        models: models, on_result: on_result
+      )
+    end
+  end
+end
+```
+
+The resolver receives the persisted evaluation and returns a callable or
+`nil` for the engine's default runtime. The callable receives the engine's
+resolved owner, already-selected core `Scenario` and `ModelSpec` objects,
+and an `on_result` callback. It must return an `ActiveAgent::Evals::Report`
+and call `on_result` once for every selected scenario/model result. Missing
+or duplicate results fail the run instead of leaving a completed report
+with missing rows. Exceptions also mark the run failed and retain results
+already written.
+
+The host owns provider execution, usage accounting, tool definitions, and
+judge configuration. Use the supplied owner rather than a global current
+user in background jobs; honor `evaluation.judge_kind`,
+`evaluation.judge_model`, and the evaluation's tenant/role configuration.
+The adapter path does not build the engine's judge or execute its agent.
+It still passes through dashboard authentication, execution enablement,
+and quota checks.
+
+An observed agent can run a persisted evaluation only when its resolver
+returns an adapter. Direct agent execution remains read-only. A host
+catalog importer should register that evaluation without an immediate run,
+then use the regular evaluation run endpoint.
+
+Run metadata persists in the reserved `scores["_metadata"]` JSON key.
+Per-result replay metadata persists in `diagnosis["_replay_metadata"]`,
+is exposed separately as `metadata` in result API responses, and is restored
+by `EvaluationRun#to_report`. Each result also records its evaluated scenario
+in `diagnosis["_scenario_snapshot"]`; the public diagnosis excludes these
+storage keys. Report reconstruction and the result matrix use that snapshot,
+so refreshing a catalog cannot rewrite old questions, expectations, or notes.
+The run records its judge label in `scores["_judge_label"]` as well. Legacy
+results without snapshots remain readable using the current catalog.
+This preserves host run/result IDs and response/judge trace IDs without a
+schema migration. Existing result and report URLs continue to work:
+
+- `<mount>/api/evaluations/:id/runs/:run_id` returns persisted result JSON.
+- `<mount>/api/evaluations/:id/runs/:run_id/report` serves the HTML report.
+- `<mount>/evaluations/:id/runs/:run_id/report` opens it within the dashboard.
+- `<mount>/evaluations?evaluation=:id` opens a specific evaluation, including
+  one outside the first index page. Add `&run=:run_id` to open its saved report.

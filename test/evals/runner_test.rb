@@ -6,7 +6,170 @@ require_relative "evals_test_support"
 class EvalsRunnerTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
+  def test_context_wrapper_covers_replay_judging_and_recommendation_before_on_result
+    events = []
+    current = nil
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders")
+    model = spec("test-model")
+    wrapper = lambda do |scenario, spec, &evaluate|
+      current = [ scenario.key, spec.label ]
+      events << :enter
+      evaluate.call
+    ensure
+      events << :leave
+      current = nil
+    end
+    judge = fake_judge do |*|
+      assert_equal [ task.key, model.label ], current
+      events << :judge
+      '{"score": 0.2, "recommendation": "Use the actual order status."}'
+    end
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ model ], judge: judge, around_evaluation: wrapper,
+      replay: ->(*) { assert_equal [ task.key, model.label ], current; events << :replay; replay(answer: "It may have shipped.") },
+      on_result: ->(result) { assert_nil current; assert_equal "failed", result.status; events << :result }
+    ).call
+
+    assert_equal [ :enter, :replay, :judge, :judge, :leave, :result ], events
+    assert_equal 1, report.results.size
+  end
+
+  def test_wrapper_errors_propagate_and_direct_evaluate_does_not_use_the_wrapper
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders")
+    model = spec("test-model")
+    runner = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ model ],
+      around_evaluation: ->(*) { raise "context unavailable" },
+      replay: ->(*) { flunk "the wrapper should fail before replay" }
+    )
+
+    assert_equal "context unavailable", assert_raises(RuntimeError) { runner.call }.message
+    assert runner.evaluate(task, model, replay(answer: "The order shipped.")).passed?
+  end
+
+  def test_a_wrapper_that_does_not_return_the_result_is_named_rather_than_corrupting_the_report
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders")
+    model = spec("test-model")
+    # The natural mistake: finish some work after yielding, so the wrapper
+    # returns that value instead of the Result it was handed.
+    trailing = []
+    runner = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ model ],
+      around_evaluation: lambda { |*, &evaluate| evaluate.call; trailing << :done },
+      replay: ->(*) { replay(answer: "The order shipped.") },
+      on_result: ->(*) { flunk "a bad wrapper return must be caught before on_result" }
+    )
+
+    error = assert_raises(ArgumentError) { runner.call }
+    assert_includes error.message, "around_evaluation must return the Result"
+    assert_includes error.message, "Array"
+    assert_equal [ :done ], trailing
+  end
+
+  def test_successful_tool_and_content_checks_cannot_override_failing_task_completion
+    [ [ 0.2, {} ], [ 0.0, { contains: [ "ABC-123" ] } ] ].each do |grade, expectations|
+      task = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ], **expectations)
+      judge = fake_judge { |*| { score: grade, recommendation: "Use the actual order status." }.to_json }
+      report = ActiveAgent::Evals::Runner.new(
+        scenarios: [ task ], models: [ spec("test-model") ], judge: judge,
+        available_tools: [ "lookup_order" ],
+        replay: ->(*) { replay(answer: "ABC-123 probably shipped.", tool_calls: [ { name: "lookup_order" } ]) }
+      ).call
+      result = report.results.first
+
+      assert_operator result.score, :>=, ActiveAgent::Evals::PASS_THRESHOLD
+      assert_equal grade, result.scores["task_completion"]
+      assert_equal "failed", result.status
+      assert_equal "low_quality", result.fault
+      assert_includes result.summary, "Task completion scored #{grade}"
+      assert_equal "Use the actual order status.", result.recommendation
+      assert_equal 0.0, report.summary_by_model["test-model"]["pass_rate"]
+      assert_equal grade, report.summary_by_model["test-model"]["avg_task_completion"]
+      assert_includes report.to_markdown, "low quality"
+    end
+  end
+
+  def test_task_completion_uses_the_configured_threshold_and_preserves_unscorable_fallback
+    [ [ 0.8, "passed" ], [ 0.79, "failed" ], [ nil, "passed" ] ].each do |grade, status|
+      judge = fake_judge { |*| { score: grade }.to_json }
+      report = ActiveAgent::Evals::Runner.new(
+        scenarios: [ scenario("order_1", "Where is order ABC-123?", tools: [ "lookup_order" ]) ],
+        models: [ spec("test-model") ], judge: judge, threshold: 0.8,
+        replay: ->(*) { replay(answer: "The order shipped.", tool_calls: [ { name: "lookup_order" } ]) }
+      ).call
+
+      assert_equal status, report.results.first.status
+    end
+  end
+
   CRITERIA = [ { "key" => "response_present", "type" => "response_present" } ].freeze
+
+  def test_required_judge_scores_cannot_silently_pass_on_rules
+    [ ->(*) { raise "judge offline" }, ->(*) { '{"score": false}' } ].each do |completion|
+      report = ActiveAgent::Evals::Runner.new(
+        scenarios: [ scenario("order_1", "Where is order ABC-123?", tools: [ "lookup_order" ]) ],
+        models: [ spec("test-model") ], judge: fake_judge(&completion), require_judge_scores: true,
+        replay: ->(*) { replay(answer: "The order shipped.", tool_calls: [ { name: "lookup_order" } ]) }
+      ).call
+
+      result = report.results.first
+      assert_equal "failed", result.status
+      assert_equal "judge_unavailable", result.fault
+      assert_nil result.scores["task_completion"]
+      assert_equal 0.0, report.summary_by_model["test-model"]["pass_rate"]
+      assert_includes report.to_markdown, "judge unavailable"
+    end
+  end
+
+  def test_configured_judge_criteria_gate_a_pass_the_way_task_completion_does
+    # The dashboard always configures an explicit llm_judge criterion, which
+    # suppresses the implicit task_completion grade — so before this, its
+    # evaluations kept the dilution bug the task-completion gate fixes.
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ], contains: [ "ABC-123" ])
+    criteria = [ { "key" => "quality", "type" => "llm_judge" } ]
+    judge = fake_judge { |*| '{"score": 0.0, "recommendation": "Tell the customer where the order is."}' }
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ spec("test-model") ], criteria: criteria, judge: judge,
+      available_tools: [ "lookup_order" ],
+      replay: ->(*) { replay(answer: "ABC-123 is in the system.", tool_calls: [ { name: "lookup_order" } ]) }
+    ).call
+    result = report.results.first
+
+    assert_operator result.score, :>=, ActiveAgent::Evals::PASS_THRESHOLD
+    assert_equal "failed", result.status
+    assert_equal "low_quality", result.fault
+    assert_includes result.diagnosis["summary"], "Judged quality scored 0.0"
+  end
+
+  def test_a_soft_grade_among_strong_ones_still_passes
+    # Gating each judge criterion on its own would fail this; the gate is the
+    # mean, so a suite with one soft dimension out of four stays green.
+    grades = [ 0.95, 0.90, 0.85, 0.65 ].each
+    criteria = %w[accuracy tone actionability completeness].map { |key| { "key" => key, "type" => "llm_judge" } }
+    judge = fake_judge { |*| %({"score": #{grades.next}}) }
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ scenario ], models: [ spec("test-model") ], criteria: criteria, judge: judge,
+      replay: ->(*) { replay }
+    ).call
+
+    assert_equal "passed", report.results.first.status
+  end
+
+  def test_required_judge_scores_cover_explicit_llm_criteria_without_affecting_rules
+    criteria = CRITERIA + [ { "key" => "accuracy", "type" => "llm_judge" } ]
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ scenario ], models: [ spec("test-model") ], criteria: criteria,
+      require_judge_scores: true, replay: ->(*) { replay }
+    ).call
+    assert_equal "judge_unavailable", report.results.first.fault
+    assert_equal [ "accuracy" ], report.results.first.diagnosis.dig("evidence", "unscored_criteria")
+
+    rules = ActiveAgent::Evals::Runner.new(
+      scenarios: [ scenario ], models: [ spec("test-model") ], criteria: CRITERIA,
+      require_judge_scores: true, replay: ->(*) { replay }
+    ).call
+    assert rules.results.first.passed?
+  end
 
   def scenarios
     [
