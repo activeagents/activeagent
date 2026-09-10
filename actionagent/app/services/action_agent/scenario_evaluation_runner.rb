@@ -207,8 +207,16 @@ module ActionAgent
     end
 
     def tool_roster
-      @tool_roster ||= AgentToolbox.definitions_for(@evaluation.agent.tools).to_h do |definition|
-        [ definition[:name].to_s, definition[:description].to_s ]
+      # Use the same contract as execution, including MCP tools named like
+      # builder categories (e.g. "memory"). Discovery failures are retried
+      # inside each replay, where they become persisted run_error results
+      # rather than aborting the suite while preparing the judge's context.
+      @tool_roster ||= begin
+        AgentExecutionService.new(@evaluation.agent, nil).resolved_tool_schemas.to_h do |definition|
+          [ definition[:name].to_s, definition[:description].to_s ]
+        end
+      rescue AgentExecutionService::ToolNotConfiguredError, MCPToolBinding::Error
+        Array(@evaluation.agent.tools).to_h { |name| [ name.to_s, "" ] }
       end
     end
 

@@ -13,10 +13,10 @@ module ActionAgent
       before_action :require_owner!
       # A scenario suite replays its prompts through the provider, so creating
       # one that runs, or running one, executes the agent and is gated the way
-      # AgentsController#execute is: the dashboard's execution switch, no
-      # observed (read-only) agents, and the owner's execution quota. Each
+      # AgentsController#execute is: the dashboard's execution switch and
+      # the owner's execution quota. Each
       # replay then counts as one execution (ScenarioEvaluationRunner#replay).
-      before_action :require_execution_enabled!, :require_executable_scenario_agent!, :enforce_execution_quota!,
+      before_action :require_execution_enabled!, :enforce_execution_quota!,
                     only: [ :create, :run ], if: :replays_scenarios?
 
       # Default criteria used when none are supplied — all rule-based, so a
@@ -235,17 +235,6 @@ module ActionAgent
         when "create" then run_requested? && scenario_attributes.any?
         else false
         end
-      end
-
-      # The refusal AgentsController gives an observed agent: it was
-      # discovered from telemetry and has nothing to execute.
-      def require_executable_scenario_agent!
-        agent = action_name == "create" ? requested_agent : current_evaluation.agent
-        return unless agent.observed?
-
-        render json: {
-          error: "Observed agents are read-only — duplicate this agent to create an executable copy"
-        }, status: :unprocessable_entity
       end
 
       def evaluation_params

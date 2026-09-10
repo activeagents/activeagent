@@ -115,25 +115,75 @@ class RunConversationTest < ActionDispatch::IntegrationTest
   end
 end
 
-# Observed agents are read-only until forked (#379).
+# Observed status records provenance rather than blocking execution (#419).
 class ObservedAgentExecutionTest < ActionDispatch::IntegrationTest
   def setup
+    @original_multi_tenant = ActionAgent.multi_tenant
     ActionAgent::AgentRun.delete_all
     ActionAgent::Agent.delete_all
+    @agent = ActionAgent::Agent.create!(
+      name: "Telemetry Only", agent_class_name: "TelemetryOnlyAgent", provider: "mock", model: "mock-model", status: :observed
+    )
   end
 
-  test "execute and test refuse a telemetry-observed agent" do
-    agent = ActionAgent::Agent.create!(
-      name: "Telemetry Only", agent_class_name: "TelemetryOnlyAgent", provider: "openai", model: "unknown", status: :observed
-    )
+  def teardown
+    ActionAgent.quota_checker = nil
+    ActionAgent.usage_recorder = nil
+    ActionAgent.execution_enabled = true
+    ActionAgent.multi_tenant = @original_multi_tenant
+  end
 
-    post "/activeagents/api/agents/#{agent.id}/execute", params: { prompt: "hello" }
-    assert_response :unprocessable_entity
-    assert_match(/read-only/, JSON.parse(response.body)["error"])
+  test "execute and test run a telemetry-observed agent and report usage" do
+    recorded = []
+    ActionAgent.usage_recorder = ->(owner, kind) { recorded << [ owner, kind ] }
 
-    post "/activeagents/api/agents/#{agent.id}/test", params: { prompt: "hello" }
-    assert_response :unprocessable_entity
+    perform_enqueued_jobs(only: ActionAgent::AgentExecutionJob) do
+      post "/activeagents/api/agents/#{@agent.id}/execute", params: { prompt: "hello" }
+    end
+    assert_response :accepted
 
-    assert_equal 0, agent.agent_runs.count, "a refused execution must not leave a failed run on the scorecard"
+    post "/activeagents/api/agents/#{@agent.id}/test", params: { prompt: "hello" }
+    assert_response :success
+
+    assert_equal [ "complete", "complete" ], @agent.agent_runs.pluck(:status)
+    assert_equal [ [ nil, :execution ], [ nil, :execution ] ], recorded
+    assert @agent.reload.observed?
+  end
+
+  test "observed execution still respects the dashboard execution switch" do
+    ActionAgent.execution_enabled = false
+
+    %w[execute test].each do |endpoint|
+      post "/activeagents/api/agents/#{@agent.id}/#{endpoint}", params: { prompt: "hello" }
+      assert_response :forbidden
+    end
+
+    assert_empty @agent.agent_runs
+    assert_no_enqueued_jobs only: ActionAgent::AgentExecutionJob
+  end
+
+  test "observed execution still respects the owner's execution quota" do
+    ActionAgent.quota_checker = ->(_owner, kind) { "Out of runs" if kind == :execution }
+
+    %w[execute test].each do |endpoint|
+      post "/activeagents/api/agents/#{@agent.id}/#{endpoint}", params: { prompt: "hello" }
+      assert_response :payment_required
+      assert_equal "Out of runs", JSON.parse(response.body)["message"]
+    end
+
+    assert_empty @agent.agent_runs
+    assert_no_enqueued_jobs only: ActionAgent::AgentExecutionJob
+  end
+
+  test "observed execution still requires an owner in a multi-tenant dashboard" do
+    ActionAgent.multi_tenant = true
+
+    %w[execute test].each do |endpoint|
+      post "/activeagents/api/agents/#{@agent.id}/#{endpoint}", params: { prompt: "hello" }
+      assert_response :unauthorized
+    end
+
+    assert_empty @agent.agent_runs
+    assert_no_enqueued_jobs only: ActionAgent::AgentExecutionJob
   end
 end

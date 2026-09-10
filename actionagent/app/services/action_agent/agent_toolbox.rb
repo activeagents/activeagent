@@ -11,9 +11,8 @@ module ActionAgent
   # tool-call roundtrips that show up as :tool spans in Traces, tool messages
   # in Interactions, and tool counts in Metrics.
   #
-  # Only tools with a safe server-side implementation are mapped; anything
-  # else an agent enables (terminal, playwright, ...) is ignored for platform
-  # execution.
+  # Only tools with server-side implementations are mapped here. Execution
+  # also binds host MCP tools, and rejects declarations neither can execute.
   class AgentToolbox
     FETCH_LIMIT_BYTES = 50_000
     FETCH_TIMEOUT_SECONDS = 5

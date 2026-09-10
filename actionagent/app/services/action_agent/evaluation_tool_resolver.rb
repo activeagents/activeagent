@@ -72,6 +72,18 @@ module ActionAgent
       nil
     end
 
+    # The agent's enabled servers in a common shape, shared with execution.
+    # This deliberately does not add available-but-disabled catalog servers.
+    def configured_servers
+      configured_entries.filter_map do |entry|
+        key = normalize(entry_key(entry))
+        next unless key
+
+        attributes = entry.respond_to?(:key?) ? entry.to_h.symbolize_keys : {}
+        attributes.merge(key: key)
+      end
+    end
+
     private
 
     # The catalog's name when it has one; otherwise the name the agent's
