@@ -8,8 +8,9 @@ module ActiveAgent
     # The one thing the runner does not know is how to talk to your agent;
     # `replay` is a callable `(scenario, model_spec) → Replay` (a Hash with the
     # same keys is accepted, and an exception becomes an errored Replay). A
-    # scenario passes when its replay completed, met its expectations, and its
-    # mean score and any task-completion judge score reached `threshold`;
+    # scenario passes when its replay completed, met its expectations, and both
+    # its mean score and the mean of its judge grades (task completion, or the
+    # configured llm_judge criteria) reached `threshold`;
     # anything else carries exactly one fault
     # and a recommendation from Diagnosis, refined by the `judge` for the
     # faults in `refine_faults` (up to `judge_limit` calls per run).
@@ -96,7 +97,8 @@ module ActiveAgent
         score = Scorer.mean(scores)
 
         diagnosis = Diagnosis.call(scenario: scenario, replay: replay, scores: scores, score: score,
-                                   available_tools: @available_tools.keys, threshold: @threshold, agent_name: @agent_name)
+                                   available_tools: @available_tools.keys, threshold: @threshold, agent_name: @agent_name,
+                                   judge_keys: llm_judge_keys)
         diagnosis ||= unavailable_judge_diagnosis(scores)
         diagnosis_hash = diagnosis&.to_h
         refine!(diagnosis_hash, scenario, replay, diagnosis) if diagnosis_hash
@@ -133,13 +135,19 @@ module ActiveAgent
         @judge && @judge_task && @criteria.none? { |criterion| criterion.to_h.stringify_keys["type"] == "llm_judge" }
       end
 
-      def unavailable_judge_diagnosis(scores)
-        return unless @require_judge_scores
-
-        keys = @criteria.filter_map do |criterion|
+      # The keys in `scores` a judge graded, so a low grade is not averaged
+      # away against rule checks.
+      def llm_judge_keys
+        @llm_judge_keys ||= @criteria.filter_map do |criterion|
           value = criterion.to_h.stringify_keys
           value["key"] if value["type"] == "llm_judge"
         end
+      end
+
+      def unavailable_judge_diagnosis(scores)
+        return unless @require_judge_scores
+
+        keys = llm_judge_keys.dup
         keys << "task_completion" if judge_task?
         missing = keys.select { |key| scores[key].nil? }
         return if missing.empty?

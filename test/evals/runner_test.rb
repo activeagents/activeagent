@@ -121,6 +121,40 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     end
   end
 
+  def test_configured_judge_criteria_gate_a_pass_the_way_task_completion_does
+    # The dashboard always configures an explicit llm_judge criterion, which
+    # suppresses the implicit task_completion grade — so before this, its
+    # evaluations kept the dilution bug the task-completion gate fixes.
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ], contains: [ "ABC-123" ])
+    criteria = [ { "key" => "quality", "type" => "llm_judge" } ]
+    judge = fake_judge { |*| '{"score": 0.0, "recommendation": "Tell the customer where the order is."}' }
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ spec("test-model") ], criteria: criteria, judge: judge,
+      available_tools: [ "lookup_order" ],
+      replay: ->(*) { replay(answer: "ABC-123 is in the system.", tool_calls: [ { name: "lookup_order" } ]) }
+    ).call
+    result = report.results.first
+
+    assert_operator result.score, :>=, ActiveAgent::Evals::PASS_THRESHOLD
+    assert_equal "failed", result.status
+    assert_equal "low_quality", result.fault
+    assert_includes result.diagnosis["summary"], "Judged quality scored 0.0"
+  end
+
+  def test_a_soft_grade_among_strong_ones_still_passes
+    # Gating each judge criterion on its own would fail this; the gate is the
+    # mean, so a suite with one soft dimension out of four stays green.
+    grades = [ 0.95, 0.90, 0.85, 0.65 ].each
+    criteria = %w[accuracy tone actionability completeness].map { |key| { "key" => key, "type" => "llm_judge" } }
+    judge = fake_judge { |*| %({"score": #{grades.next}}) }
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ scenario ], models: [ spec("test-model") ], criteria: criteria, judge: judge,
+      replay: ->(*) { replay }
+    ).call
+
+    assert_equal "passed", report.results.first.status
+  end
+
   def test_required_judge_scores_cover_explicit_llm_criteria_without_affecting_rules
     criteria = CRITERIA + [ { "key" => "accuracy", "type" => "llm_judge" } ]
     report = ActiveAgent::Evals::Runner.new(
