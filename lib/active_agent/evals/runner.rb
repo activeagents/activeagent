@@ -8,8 +8,10 @@ module ActiveAgent
     # The one thing the runner does not know is how to talk to your agent;
     # `replay` is a callable `(scenario, model_spec) → Replay` (a Hash with the
     # same keys is accepted, and an exception becomes an errored Replay). A
-    # scenario passes when its replay completed, met its expectations, and its
-    # mean score reached `threshold`; anything else carries exactly one fault
+    # scenario passes when its replay completed, met its expectations, and both
+    # its mean score and the mean of its judge grades (task completion, or the
+    # configured llm_judge criteria) reached `threshold`;
+    # anything else carries exactly one fault
     # and a recommendation from Diagnosis, refined by the `judge` for the
     # faults in `refine_faults` (up to `judge_limit` calls per run).
     #
@@ -42,9 +44,17 @@ module ActiveAgent
       # @param instructions [String, nil] the agent's instructions, for the judge
       # @param agent_name [String] how recommendations refer to the agent
       # @param on_result [#call, nil] called with each Result as it lands
+      # @param around_evaluation [#call, nil] called with (scenario, spec) and a
+      #   block that returns the Result. Establishes context for replay, scoring
+      #   and recommendations; must return the block's result. Wrapper errors
+      #   propagate to the caller. Applies to #call, not direct #evaluate calls.
+      # @param require_judge_scores [Boolean] fail an otherwise passing result
+      #   when a requested task/LLM grade is unavailable, rather than falling
+      #   back to rule scores. Does not require a judge for rules-only runs.
       def initialize(scenarios:, models:, replay:, criteria: [], judge: nil, judge_task: true, available_tools: {},
                      instructions: nil, agent_name: "The agent", threshold: PASS_THRESHOLD,
-                     refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil, metadata: {})
+                     refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil,
+                     around_evaluation: nil, require_judge_scores: false, metadata: {})
         @scenarios = scenarios
         @models = models
         @replay = replay
@@ -58,6 +68,8 @@ module ActiveAgent
         @refine_faults = refine_faults
         @judge_limit = judge_limit
         @on_result = on_result
+        @around_evaluation = around_evaluation
+        @require_judge_scores = require_judge_scores
         @metadata = metadata
         @judge_calls = 0
         @scorer = Scorer.new(criteria: criteria, judge: judge)
@@ -66,7 +78,7 @@ module ActiveAgent
       def call
         results = @scenarios.flat_map do |scenario|
           @models.map do |spec|
-            evaluate(scenario, spec).tap { |result| @on_result&.call(result) }
+            evaluate_with_context(scenario, spec).tap { |result| @on_result&.call(result) }
           end
         end
 
@@ -85,7 +97,9 @@ module ActiveAgent
         score = Scorer.mean(scores)
 
         diagnosis = Diagnosis.call(scenario: scenario, replay: replay, scores: scores, score: score,
-                                   available_tools: @available_tools.keys, threshold: @threshold, agent_name: @agent_name)
+                                   available_tools: @available_tools.keys, threshold: @threshold, agent_name: @agent_name,
+                                   judge_keys: llm_judge_keys)
+        diagnosis ||= unavailable_judge_diagnosis(scores)
         diagnosis_hash = diagnosis&.to_h
         refine!(diagnosis_hash, scenario, replay, diagnosis) if diagnosis_hash
 
@@ -102,8 +116,49 @@ module ActiveAgent
 
       private
 
+      def evaluate_with_context(scenario, spec)
+        return evaluate(scenario, spec) unless @around_evaluation
+
+        result = @around_evaluation.call(scenario, spec) { evaluate(scenario, spec) }
+        # A wrapper written the natural way — do something, yield, do something
+        # after — returns that last value rather than the Result. Left alone it
+        # reaches on_result and the Report, and fails somewhere far from the
+        # wrapper that caused it. Name the wrapper here instead.
+        unless result.is_a?(Result)
+          raise ArgumentError, "around_evaluation must return the Result its block yields, got #{result.class}"
+        end
+
+        result
+      end
+
       def judge_task?
         @judge && @judge_task && @criteria.none? { |criterion| criterion.to_h.stringify_keys["type"] == "llm_judge" }
+      end
+
+      # The keys in `scores` a judge graded, so a low grade is not averaged
+      # away against rule checks.
+      def llm_judge_keys
+        @llm_judge_keys ||= @criteria.filter_map do |criterion|
+          value = criterion.to_h.stringify_keys
+          value["key"] if value["type"] == "llm_judge"
+        end
+      end
+
+      def unavailable_judge_diagnosis(scores)
+        return unless @require_judge_scores
+
+        keys = llm_judge_keys.dup
+        keys << "task_completion" if judge_task?
+        missing = keys.select { |key| scores[key].nil? }
+        return if missing.empty?
+
+        Diagnosis::Result.new(
+          fault: "judge_unavailable",
+          summary: "The evaluation judge did not return a usable score for #{missing.join(', ')}.",
+          recommendation: "Check the judge's credentials, model availability and JSON response, then re-run this evaluation. " \
+                          "The available rule scores do not establish answer quality.",
+          evidence: { "unscored_criteria" => missing }
+        )
       end
 
       # Whatever the callable raises becomes an errored Replay, so one model

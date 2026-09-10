@@ -20,6 +20,8 @@ ActionAgent::Engine.routes.draw do
 
   # The dashboard's own JSON API, read and written by the React app.
   namespace :api do
+    resource :dashboard_assistant, only: [ :show, :create ], controller: "dashboard_assistant"
+
     # Telemetry ingestion, relative to wherever the engine is mounted:
     # <mount>/api/traces (e.g. /activeagents/api/traces at the default mount).
     # Authenticated with a bearer token, not a session.
