@@ -59,7 +59,8 @@ module ActiveAgent
                     :tools_function,                 # Callback (Tools)
                     :usage_stack,                    # Usage Tracking
                     :stream_usage_index,             # Usage Tracking (Streams)
-                    :max_tool_turns, :tool_turns     # Tool-loop safety
+                    :max_tool_turns, :tool_turns,    # Tool-loop safety
+                    :instrumentation_enabled        # Per-generation privacy
 
       # Upper bound on tool-calling round-trips within one generation. A
       # model that keeps emitting tool calls otherwise recurses until the
@@ -117,6 +118,7 @@ module ActiveAgent
         self.tools_function     = kwargs.delete(:tools_function)
         self.max_tool_turns     = kwargs.delete(:max_tool_turns) || DEFAULT_MAX_TOOL_TURNS
         self.tool_turns         = 0
+        self.instrumentation_enabled = kwargs.delete(:instrumentation) != false
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context            = kwargs
         self.message_stack      = []
@@ -175,6 +177,8 @@ module ActiveAgent
       # @yield block to instrument
       # @return [Object] block result
       def instrument(name, payload = {}, &block)
+        return block&.call(payload) unless instrumentation_enabled
+
         full_payload = { provider: service_name, provider_module: tag_name, trace_id: }.merge(payload)
         ActiveSupport::Notifications.instrument(name, full_payload, &block)
       end

@@ -43,6 +43,7 @@ module ActionAgent
         instructionSets: Agent::INSTRUCTION_SETS,
         availableTools: Agent::AVAILABLE_TOOLS,
         executionEnabled: ActionAgent.execution_enabled?,
+        assistantEnabled: ActionAgent.assistant_enabled?,
         multiTenant: ActionAgent.multi_tenant?,
         upgradeUrl: ActionAgent.upgrade_url,
         signOutPath: ActionAgent.sign_out_path

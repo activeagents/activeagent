@@ -71,6 +71,18 @@ ActionAgent.configure do |config|
   # means the resolver above returned nil.
 
   # ==========================================================================
+  # Ask ActiveAgents assistant
+  # ==========================================================================
+  #
+  # A tool for developing and CI-ing agents. Answering a question sends
+  # recorded prompts, outputs and evaluation report excerpts to a model
+  # provider, so the page and its API are on in development and test only.
+  # Set it to true to run it in another environment deliberately, or false
+  # to remove it everywhere.
+  #
+  # config.assistant_enabled = true
+
+  # ==========================================================================
   # UI
   # ==========================================================================
   #
