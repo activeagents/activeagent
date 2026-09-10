@@ -72,6 +72,14 @@ module ActionAgent
       nil
     end
 
+    # The server keys the agent declares, normalized. Callers that need to know
+    # what an agent is wired to — rather than where one tool lives — read this.
+    #
+    # @return [Array<String>]
+    def declared_server_keys
+      configured_keys.to_a
+    end
+
     private
 
     # The catalog's name when it has one; otherwise the name the agent's

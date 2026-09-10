@@ -307,7 +307,9 @@ module ActionAgent
         when "call_agent"
           call_agent(slug: kwargs[:slug], message: kwargs[:message])
         else
-          AgentToolbox.call(name, **kwargs)
+          # A tool one of the agent's own MCP servers serves is called there;
+          # AgentToolbox answers the rest.
+          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, **kwargs)
         end
       rescue StandardError => e
         Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
@@ -354,6 +356,12 @@ module ActionAgent
     # Executes another agent of the same account synchronously and returns
     # its reply, so agents can delegate to each other as a tool call. The
     # sub-run is a real AgentRun with its own trace.
+    # One dispatcher per run, so every tool call shares the MCP sessions the
+    # first call opens.
+    def mcp_dispatcher
+      @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record)
+    end
+
     def call_agent(slug:, message:)
       depth = Thread.current[:agent_call_depth].to_i
       return { error: "call_agent depth limit (#{MAX_CALL_DEPTH}) reached" } if depth >= MAX_CALL_DEPTH
@@ -530,7 +538,11 @@ module ActionAgent
     def tool_schemas
       return [] if provider == :mock
 
-      AgentToolbox.definitions_for(@agent_record.tools)
+      # The agent's own MCP servers describe their tools; the toolbox describes
+      # the rest. Without the first half a tool the agent declares is never
+      # offered to the model, which then answers from memory instead of calling
+      # it.
+      mcp_dispatcher.tool_definitions + AgentToolbox.definitions_for(@agent_record.tools)
     end
 
     # Persists the tool interaction stream to the solid_agent conversation
