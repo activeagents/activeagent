@@ -769,6 +769,11 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
       {scenario.notes && (
         <div style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--color-text-secondary)', marginBottom: 10 }}>{scenario.notes}</div>
       )}
+      {scenario.catalogChanged && (
+        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>
+          This run used an earlier version of this question. Re-running uses the current catalog.
+        </div>
+      )}
       {!run ? (
         <div style={mono(11)}>No runs yet — use “re-run scenario” to replay this one on its own.</div>
       ) : !covered ? (

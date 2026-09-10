@@ -1,0 +1,24 @@
+# Synthetic catalog for the public evaluation parser tests.
+suite: support_tasks
+description: Support tasks across environments
+groups:
+  - key: orders
+    name: Order support
+    scenarios:
+      - key: order_lookup
+        prompt: Where is order ABC-123?
+        expect:
+          tools: [lookup_order]
+          contains: [ABC-123]
+          not_contains: [password]
+        notes: Use the synthetic test order.
+      - key: live_volume
+        prompt: How many orders arrived today?
+        production_only: true
+        expect:
+          tools: [count_orders]
+  - key: help
+    name: Product help
+    scenarios:
+      - key: help_cancel
+        prompt: How do I cancel my order?

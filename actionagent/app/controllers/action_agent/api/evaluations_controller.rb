@@ -10,6 +10,10 @@ module ActionAgent
     # than sampling recorded generations, and can be narrowed to a group, to
     # specific scenarios, or to specific models.
     class EvaluationsController < BaseController
+      rescue_from ActiveAgent::Evals::ScenarioParser::ParseError do |error|
+        render json: { errors: [ error.message ] }, status: :unprocessable_entity
+      end
+
       before_action :require_owner!
       # A scenario suite replays its prompts through the provider, so creating
       # one that runs, or running one, executes the agent and is gated the way
@@ -237,11 +241,15 @@ module ActionAgent
         end
       end
 
-      # The refusal AgentsController gives an observed agent: it was
-      # discovered from telemetry and has nothing to execute.
+      # Observed agents cannot use the engine's execution service. A persisted
+      # evaluation with an explicit host adapter runs in that source instead.
       def require_executable_scenario_agent!
         agent = action_name == "create" ? requested_agent : current_evaluation.agent
         return unless agent.observed?
+        if action_name == "run"
+          adapter = ActionAgent.scenario_evaluation_adapter_resolver&.call(current_evaluation)
+          return if adapter.respond_to?(:call)
+        end
 
         render json: {
           error: "Observed agents are read-only — duplicate this agent to create an executable copy"
@@ -271,22 +279,29 @@ module ActionAgent
         }.compact_blank
       end
 
-      # Scenarios from the request: a pasted text block, a list of objects, or
-      # nothing (a generation-sampling evaluation).
+      # Scenarios from text, a YAML/JSON suite, or a list of objects. Production
+      # questions are selected at import time, only on explicit opt-in; the
+      # persisted scenario records do not store an environment flag.
       def scenario_attributes
         @scenario_attributes ||= begin
           source = params[:evaluation].presence || params
           text = source[:scenarios_text].to_s
           list = source[:scenarios]
+          include_production_only = ActiveModel::Type::Boolean.new.cast(source[:include_production_only]) == true
 
-          if list.present?
+          imported = if list.present?
             list = list.to_unsafe_h.values if list.is_a?(ActionController::Parameters)
-            ActiveAgent::Evals::ScenarioParser.parse(Array(list).map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }.to_json)
+            serialized = Array(list).map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }.to_json
+            ActiveAgent::Evals::ScenarioParser.parse(serialized, include_production_only: include_production_only)
           elsif text.present?
-            ActiveAgent::Evals::ScenarioParser.parse(text)
+            ActiveAgent::Evals::ScenarioParser.parse(text, include_production_only: include_production_only)
           else
             []
           end
+          if (list.present? || text.present?) && imported.empty?
+            raise ActiveAgent::Evals::ScenarioParser::ParseError, "No scenarios matched the import. Check the catalog or include_production_only selection."
+          end
+          imported
         end
       end
 
