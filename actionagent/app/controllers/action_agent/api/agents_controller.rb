@@ -24,7 +24,7 @@ module ActionAgent
 
       before_action :set_agent, only: [
         :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics,
-        :conversations, :create_conversation
+        :tool_roster, :conversations, :create_conversation
       ]
       before_action :require_execution_enabled!, only: [ :execute, :test ]
       before_action :require_owner!, only: [ :execute, :test ]
@@ -256,6 +256,19 @@ module ActionAgent
         }
       end
 
+      # GET /api/agents/:id/tool_roster
+      #
+      # What the Tools tab edits: the MCP services this agent can be given
+      # and the tools it can be offered, each with the calls, errors and
+      # latency recorded for it in the window.
+      def tool_roster
+        render json: AgentToolRoster.new(
+          agent: @agent,
+          traces: owned_traces,
+          hours: params.fetch(:hours, ToolDiscovery::DEFAULT_WINDOW_HOURS).to_i
+        ).as_json
+      end
+
       # GET /api/agents/:id/analytics
       #
       # Every execution of this agent, whoever ran it — the same merged model
@@ -478,17 +491,33 @@ module ActionAgent
       end
 
       def agent_params
-        params.require(:agent).permit(
+        permitted = params.require(:agent).permit(
           :name, :description, :provider, :model, :instructions,
           :preset_type, :agent_class_name, :status,
           appearance: {},
           action_prompts: [ :name, :prompt, :expose_as_tool ],
           instruction_sets: [],
           tools: [],
-          mcp_servers: [],
           model_config: {},
           response_format: {}
         )
+        permitted[:mcp_servers] = mcp_server_params if params[:agent].key?(:mcp_servers)
+        permitted
+      end
+
+      # An agent names its MCP servers either as bare strings or as hashes —
+      # the Tools tab writes { key, name, tools } so a service can be enabled
+      # with only some of what it serves. Both shapes are permitted, because
+      # every agent saved before the tab existed carries the first one and a
+      # round-trip through the editor must not rewrite it.
+      def mcp_server_params
+        Array(params[:agent][:mcp_servers]).map do |entry|
+          if entry.respond_to?(:permit)
+            entry.permit(:key, :name, :url, :command, :transport, tools: []).to_h
+          else
+            entry.to_s
+          end
+        end
       end
 
       def version_json(version, include_diff: false)

@@ -8,6 +8,7 @@ import TracesView from './TracesView';
 import InteractionsView from './InteractionsView';
 import EvaluationsView from './EvaluationsView';
 import AgentAnalytics from './AgentAnalytics';
+import AgentToolsTab from './AgentToolsTab';
 
 // The agent detail page carries two tab groups on one row: how the agent is
 // configured on the left, how it behaves in production on the right. Both
@@ -241,6 +242,9 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
   };
 
   const isObservability = OBSERVABILITY_TAB_IDS.includes(activeTab);
+  // The Tools tab brings its own cards and its own action bar, the way the
+  // observability panels do — a roster is a pair of lists, not a form.
+  const isTools = activeTab === 'tools';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -307,7 +311,16 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
       </div>
 
       {/* Observability panels bring their own cards; config panels get one. */}
-      {isObservability ? (
+      {isTools ? (
+        <AgentToolsTab
+          agent={agent}
+          formData={formData}
+          updateField={updateField}
+          onSave={handleSave}
+          hasChanges={hasChanges}
+          isLoading={isLoading}
+        />
+      ) : isObservability ? (
         <div>
           {activeTab === 'traces' && <TracesView agentClass={telemetryAgentClass} embedded />}
           {activeTab === 'metrics' && <AgentAnalytics agent={agent} embedded />}
@@ -361,9 +374,6 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
           {activeTab === 'instructions' && (
             <InstructionsTab formData={formData} updateField={updateField} meta={meta} toggleArrayItem={toggleArrayItem} colors={colors} />
           )}
-          {activeTab === 'tools' && (
-            <ToolsTab formData={formData} meta={meta} toggleArrayItem={toggleArrayItem} colors={colors} />
-          )}
           {activeTab === 'versions' && (
             <VersionsTab versions={versions} agentId={agent.id} onRestore={loadVersions} colors={colors} darkMode={darkMode} />
           )}
@@ -376,7 +386,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
       {/* Surfaces once something actually changed, on every tab: the header
           badge reports "unsaved" from anywhere, so the control has to follow
           it or an edit made on Configuration looks unsavable from Traces. */}
-      {hasChanges && (
+      {hasChanges && !isTools && (
         <div
           style={{
             position: 'sticky',
@@ -697,75 +707,6 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem, colors 
           })}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ToolsTab({ formData, meta, toggleArrayItem, colors }) {
-  const getToolIcon = (tool) => {
-    const icons = {
-      terminal: '$', playwright: '>', filesystem: '/', code: '<>',
-      database: '#', slack: '@', fetch: '~', search: '?',
-      edit: '*', translate: '[]', memory: 'M', ui: '[=]'
-    };
-    return icons[tool] || '[]';
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <p style={{ fontSize: '13px', color: colors.textSecondary, margin: 0 }}>Select the tools your agent can use.</p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
-        {meta.availableTools?.map(tool => {
-          const on = formData.tools.includes(tool);
-          return (
-            <button
-              key={tool}
-              type="button"
-              onClick={() => toggleArrayItem('tools', tool)}
-              style={{
-                padding: '14px',
-                borderRadius: '12px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                border: `1px solid ${on ? ACCENT : colors.cardBorder}`,
-                background: on ? 'rgba(239,68,68,0.08)' : 'transparent',
-                color: on ? ACCENT : colors.textCell
-              }}
-            >
-              <span style={{ display: 'block', fontFamily: TYPOGRAPHY.mono, fontSize: '20px', marginBottom: '6px' }}>
-                {getToolIcon(tool)}
-              </span>
-              <span style={{ fontSize: '13px', fontWeight: 500, textTransform: 'capitalize' }}>{tool}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {formData.tools.length > 0 && (
-        <div style={{ background: colors.innerBg, borderRadius: '10px', padding: '14px' }}>
-          <div style={{ ...microLabel(colors), marginBottom: '10px' }}>
-            Selected tools · {formData.tools.length}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {formData.tools.map(tool => (
-              <span
-                key={tool}
-                style={{
-                  fontFamily: TYPOGRAPHY.mono,
-                  fontSize: '11px',
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  border: `1px solid ${colors.inputBorder}`,
-                  color: colors.textCell
-                }}
-              >
-                {getToolIcon(tool)} {tool}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
