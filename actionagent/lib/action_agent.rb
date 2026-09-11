@@ -341,8 +341,18 @@ module ActionAgent
     #
     # Accepts classes or class-name strings; strings are resolved lazily so a
     # host can declare them from an initializer before autoloading has run.
-    # @return [Array<Class, String>]
+    #
+    # Leave it unset and every ActiveAgent::SchemaTools subclass found in
+    # {#schema_tools_path} is offered instead — a host adds a tool by adding a
+    # file, without naming it twice.
+    # @return [Array<Class, String>, nil]
     attr_accessor :schema_tools
+
+    # Directory scanned for SchemaTools subclasses when {#schema_tools} is
+    # unset. Relative to the host's root. Set to nil to disable discovery and
+    # require an explicit declaration.
+    # @return [String, nil]
+    attr_accessor :schema_tools_path
 
     # Value stored in polymorphic *_type columns for dashboard agents
     # (agent_memories.memorable_type, agent_contexts.contextable_type).
@@ -509,7 +519,8 @@ module ActionAgent
       @sign_out_path = nil
       @sign_in_path = nil
       @mcp_catalog = []
-      @schema_tools = []
+      @schema_tools = nil
+      @schema_tools_path = "app/agent_tools"
     end
 
     # Host-declared schema tool classes, resolved from names and filtered to
@@ -519,10 +530,15 @@ module ActionAgent
     # declares these in an initializer, before its own classes are autoloaded.
     # @return [Array<Class>]
     def schema_tool_classes
-      Array(@schema_tools).filter_map do |entry|
+      declared = @schema_tools.nil? ? discovered_schema_tools : Array(@schema_tools)
+
+      declared.filter_map do |entry|
         klass = entry.is_a?(String) ? entry.safe_constantize : entry
         next unless klass.respond_to?(:tool_definitions) && klass.respond_to?(:model)
         next if klass.model.blank?
+        # An anonymous class built at runtime is usable but not discoverable —
+        # it would accumulate across reloads with no way to supersede itself.
+        next if entry.is_a?(Class) && klass.name.blank? && @schema_tools.nil?
 
         klass
       end
@@ -532,6 +548,28 @@ module ActionAgent
     # @return [Array<String>]
     def schema_tool_names
       schema_tool_classes.flat_map(&:tool_names).map(&:to_s)
+    end
+
+    # SchemaTools subclasses defined under {#schema_tools_path}.
+    #
+    # The files are loaded before reading +descendants+: in development nothing
+    # has referenced those constants yet, so the list would otherwise be empty
+    # at boot and fill in only once something happened to touch them.
+    # @return [Array<Class>]
+    def discovered_schema_tools
+      return [] if @schema_tools_path.blank? || !defined?(ActiveAgent::SchemaTools)
+      return [] unless defined?(Rails) && Rails.respond_to?(:root) && Rails.root
+
+      root = Rails.root.join(@schema_tools_path)
+      return [] unless Dir.exist?(root)
+
+      Dir[root.join("**/*.rb")].sort.each do |path|
+        require_dependency path
+      rescue StandardError, ScriptError => e
+        warn "[ActionAgent] could not load #{path}: #{e.class} - #{e.message}"
+      end
+
+      ActiveAgent::SchemaTools.descendants.select { |klass| klass.name.present? }
     end
 
     # The schema tool class that generated +name+, or nil.

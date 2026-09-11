@@ -133,6 +133,35 @@ module ActiveAgent
       # @yieldparam actor [Object] whatever the host passes as +actor:+
       # @yieldreturn [ActiveRecord::Relation]
       # @return [Proc, nil]
+      # Scopes reads through the host's policy for this model, found by name:
+      # Reservation -> ReservationPolicy::Scope, called as
+      # `Scope.new(actor, model).resolve`.
+      #
+      #   class ReservationTools < ActiveAgent::SchemaTools
+      #     model Reservation
+      #     scope_by_policy
+      #   end
+      #
+      # Opt-in rather than automatic: silently scoping a class that declared no
+      # scope would change what an existing tool returns, and a host may run
+      # its authorization somewhere other than a Pundit-shaped policy.
+      #
+      # Raises if the policy cannot be found, so a typo or a missing policy
+      # fails at declaration rather than quietly reading the whole table.
+      def scope_by_policy(policy = nil, method: :resolve)
+        raise MissingModel, "Declare `model` before `scope_by_policy`." unless @model
+
+        resolved = policy || "#{@model.name}Policy::Scope".safe_constantize
+        if resolved.nil?
+          raise ArgumentError,
+            "No policy found for #{@model.name}. Expected #{@model.name}Policy::Scope, " \
+            "or pass one: `scope_by_policy MyScope`."
+        end
+
+        model_class = @model
+        scope { |actor| resolved.new(actor, model_class).public_send(method) }
+      end
+
       def scope(&block)
         return @scope unless block
 
