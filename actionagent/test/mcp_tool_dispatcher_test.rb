@@ -94,6 +94,57 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
     assert_empty dispatcher.tool_definitions
   end
 
+  # #425: contributing nothing keeps the run alive, but a silent [] is
+  # indistinguishable from a server that serves no tools. The agent then runs
+  # tool-less and the model fabricates, while the run reports a plausible score.
+  test "a failed tools/list records why, naming the server and its url" do
+    dispatcher = dispatcher_with_client(StubClient.new(raises: "401 Unauthorized"))
+    dispatcher.tool_definitions
+
+    assert_equal %w[records], dispatcher.discovery_errors.keys
+    error = dispatcher.discovery_errors["records"]
+    assert_includes error, "records"
+    assert_includes error, "https://host.example/mcp/records"
+    assert_includes error, "401 Unauthorized"
+  end
+
+  test "a server that answers records no discovery error" do
+    dispatcher = dispatcher_with_client(StubClient.new)
+    dispatcher.tool_definitions
+
+    assert_empty dispatcher.discovery_errors
+    assert_not dispatcher.all_servers_failed?
+  end
+
+  test "every declared server failing is distinguishable from having no tools" do
+    dispatcher = dispatcher_with_client(StubClient.new(raises: "unreachable"))
+    dispatcher.tool_definitions
+
+    assert dispatcher.all_servers_failed?
+  end
+
+  # An agent naming no server has nothing to fail: its tool-less execution is
+  # the configured behaviour, not a transport problem.
+  test "an agent with no declared servers has not failed discovery" do
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([]))
+    dispatcher.tool_definitions
+
+    assert_empty dispatcher.discovery_errors
+    assert_not dispatcher.all_servers_failed?
+  end
+
+  test "discovery errors from an earlier call do not leak into a later one" do
+    dispatcher = dispatcher_with_client(StubClient.new(raises: "unreachable"))
+    dispatcher.tool_definitions
+    assert dispatcher.all_servers_failed?
+
+    dispatcher.instance_variable_get(:@clients)["records"] = StubClient.new
+    dispatcher.tool_definitions
+
+    assert_empty dispatcher.discovery_errors
+    assert_not dispatcher.all_servers_failed?
+  end
+
   # A stateless server answers the initialize handshake with no Mcp-Session-Id,
   # and its notification body is a bare `null` — which JSON.parse returns as nil
   # rather than a hash.
