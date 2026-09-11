@@ -155,22 +155,38 @@ VCR.configure do |config|
     config.allow_http_connections_when_no_cassette = false
   end
 
-  config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["OPEN_AI_ACCESS_TOKEN"] }
-  config.filter_sensitive_data("ORGANIZATION_ID")  { ENV["OPEN_AI_ORGANIZATION_ID"] }
-  config.filter_sensitive_data("PROJECT_ID")       { ENV["OPEN_AI_PROJECT_ID"] }
-  config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["OPEN_ROUTER_ACCESS_TOKEN"] }
-  config.filter_sensitive_data("ACCESS_TOKEN")     { ENV["ANTHROPIC_ACCESS_TOKEN"] }
-  config.filter_sensitive_data("GITHUB_MCP_TOKEN") { ENV["GITHUB_MCP_TOKEN"] }
+  # A filter whose block returns nil or "" still registers, and VCR then tries
+  # to substitute an empty string throughout every request and response it
+  # handles. That surfaces far from here as an intermittent
+  # `undefined method 'each_key' for nil` inside WebMock while it builds a
+  # stubbed response, which reads as a flaky replay rather than a
+  # configuration problem.
+  #
+  # CI sets none of these variables — cassettes replay without credentials —
+  # so on CI every one of these blocks is nil. Registering a filter only when
+  # there is something to redact keeps replay deterministic there, and keeps
+  # the redaction for whoever records with real keys.
+  def config.filter_env(placeholder, name)
+    value = ENV[name]
+    return if value.nil? || value.empty?
+
+    filter_sensitive_data(placeholder) { value }
+  end
+
+  config.filter_env("ACCESS_TOKEN",     "OPEN_AI_ACCESS_TOKEN")
+  config.filter_env("ORGANIZATION_ID",  "OPEN_AI_ORGANIZATION_ID")
+  config.filter_env("PROJECT_ID",       "OPEN_AI_PROJECT_ID")
+  config.filter_env("ACCESS_TOKEN",     "OPEN_ROUTER_ACCESS_TOKEN")
+  config.filter_env("ACCESS_TOKEN",     "ANTHROPIC_ACCESS_TOKEN")
+  config.filter_env("GITHUB_MCP_TOKEN", "GITHUB_MCP_TOKEN")
 
   # Azure OpenAI credentials
-  config.filter_sensitive_data("AZURE_API_KEY")      { ENV["AZURE_OPENAI_API_KEY"] }
-  config.filter_sensitive_data("AZURE_RESOURCE")     { ENV["AZURE_OPENAI_RESOURCE"] }
-  config.filter_sensitive_data("AZURE_DEPLOYMENT")   { ENV["AZURE_OPENAI_DEPLOYMENT_ID"] }
+  config.filter_env("AZURE_API_KEY",    "AZURE_OPENAI_API_KEY")
+  config.filter_env("AZURE_RESOURCE",   "AZURE_OPENAI_RESOURCE")
+  config.filter_env("AZURE_DEPLOYMENT", "AZURE_OPENAI_DEPLOYMENT_ID")
 
   # Filter Azure resource name from URLs
-  if ENV["AZURE_OPENAI_RESOURCE"]
-    config.filter_sensitive_data("azure-resource") { ENV["AZURE_OPENAI_RESOURCE"] }
-  end
+  config.filter_env("azure-resource",   "AZURE_OPENAI_RESOURCE")
 end
 
 # Load fixtures from the engine
