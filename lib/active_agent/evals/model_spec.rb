@@ -46,8 +46,22 @@ module ActiveAgent
       # duplicates by label.
       def self.parse_all(values, **options)
         values = values.to_s.split(",") unless values.is_a?(Array)
-        values.map { |value| value.to_s.strip }.reject(&:blank?).uniq.map { |value| parse(value, **options) }
+        values.map { |value| coerce(value) }.reject(&:blank?).uniq.map { |value| parse(value, **options) }
       end
+
+      # The label of one requested model. A caller that round-trips a spec —
+      # the dashboard persists `specs.map(&:to_h)` and hands it back on a
+      # re-run — sends a Hash, whose `to_s` is the inspected Hash and reaches
+      # the provider as the model ID: `{"label" => "openrouter/gpt-4o-mini",
+      # ...} is not a valid model ID`.
+      #
+      # @return [String, nil] nil when the value names no model
+      def self.coerce(value)
+        return value.to_h.stringify_keys.values_at("label", "model").compact.first.to_s.strip if value.respond_to?(:to_h) && !value.is_a?(String)
+
+        value.to_s.strip
+      end
+      private_class_method :coerce
 
       # The provider a bare model name runs under. A rule whose provider the
       # caller does not offer is skipped, so an app without Ollama does not
