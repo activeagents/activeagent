@@ -27,6 +27,34 @@ class SchemaToolsRegistrationTest < ActiveSupport::TestCase
 
   teardown { ActionAgent.schema_tools = @previous }
 
+  test "discovery is skipped when tools are declared explicitly" do
+    ActionAgent.schema_tools = [ FakeTools ]
+
+    assert_equal [ FakeTools ], ActionAgent.schema_tool_classes
+  end
+
+  test "an anonymous class is usable when declared but never discovered" do
+    anonymous = Class.new(FakeTools)
+
+    ActionAgent.schema_tools = [ anonymous ]
+    assert_equal [ anonymous ], ActionAgent.schema_tool_classes
+
+    # Left to discovery it is skipped: a runtime-built class cannot supersede
+    # itself, so it would accumulate across reloads.
+    ActionAgent.schema_tools = nil
+    assert_not_includes ActionAgent.schema_tool_classes, anonymous
+  end
+
+  test "discovery is disabled by a blank path" do
+    ActionAgent.schema_tools = nil
+    previous_path = ActionAgent.schema_tools_path
+    ActionAgent.schema_tools_path = nil
+
+    assert_empty ActionAgent.schema_tool_classes
+  ensure
+    ActionAgent.schema_tools_path = previous_path
+  end
+
   test "declared classes resolve, including from a class-name string" do
     assert_equal [ FakeTools ], ActionAgent.schema_tool_classes
 

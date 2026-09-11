@@ -369,4 +369,38 @@ class SchemaToolsTest < ActiveSupport::TestCase
     assert_includes child.filterable, :age
     refute_includes UserTools.filterable, :age
   end
+  class ScopedByPolicyPost < ActiveAgent::SchemaTools
+    class FakePolicyScope
+      def initialize(actor, scope) = (@actor, @scope = actor, scope)
+      def resolve = @actor ? @scope.all : @scope.none
+    end
+
+    model Post
+    filterable :title
+    returns :id, :title
+    scope_by_policy FakePolicyScope
+  end
+
+  test "scope_by_policy routes reads through the given policy scope" do
+    assert_equal Post.count, ScopedByPolicyPost.call("count_posts", actor: :someone)[:count]
+    assert_equal 0, ScopedByPolicyPost.call("count_posts", actor: nil)[:count]
+  end
+
+  test "scope_by_policy raises when no policy can be found" do
+    error = assert_raises(ArgumentError) do
+      Class.new(ActiveAgent::SchemaTools) do
+        model Post
+        scope_by_policy
+      end
+    end
+
+    assert_match(/No policy found for Post/, error.message)
+  end
+
+  test "scope_by_policy requires a model first" do
+    assert_raises(ActiveAgent::SchemaTools::MissingModel) do
+      Class.new(ActiveAgent::SchemaTools) { scope_by_policy }
+    end
+  end
+
 end
