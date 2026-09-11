@@ -158,6 +158,9 @@ ActionAgent::Engine.routes.draw do
   # dashboard API key rather than a session, so it sits outside the api
   # namespace's session-authenticated controllers.
   post "mcp", to: "api/mcp#create"
+  match "mcp", to: ->(_env) { [ 405, { "Allow" => "POST" }, [] ] },
+    via: [ :get, :delete ],
+    constraints: ->(request) { request.delete? || !request.format.html? }
 
   # MCP Streamable HTTP (2025-03-26): a client MAY open the server-to-client
   # SSE stream with GET, and ends a session with DELETE. This facade offers
