@@ -402,5 +402,4 @@ class SchemaToolsTest < ActiveSupport::TestCase
       Class.new(ActiveAgent::SchemaTools) { scope_by_policy }
     end
   end
-
 end
