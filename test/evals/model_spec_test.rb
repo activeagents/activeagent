@@ -58,6 +58,35 @@ class EvalsModelSpecTest < ActiveSupport::TestCase
     assert_equal [ "gpt-5-mini", "qwen3:8b" ], specs.map(&:label)
   end
 
+  # The dashboard persists a run's models as `specs.map(&:to_h)` and hands that
+  # back on a re-run, so parse_all receives Hashes. `to_s` on one is the
+  # inspected Hash, which reached the provider as the model ID and failed every
+  # scenario with "... is not a valid model ID".
+  def test_parse_all_names_the_model_of_a_spec_hash
+    specs = ActiveAgent::Evals::ModelSpec.parse_all(
+      [ { "label" => "openrouter/openai/gpt-4o-mini", "model" => "openai/gpt-4o-mini", "provider" => "openrouter" } ],
+      default_provider: "openai"
+    )
+
+    assert_equal 1, specs.size
+    assert_equal "openrouter", specs.first.provider
+    assert_equal "openai/gpt-4o-mini", specs.first.model
+  end
+
+  def test_parse_all_names_the_model_of_a_symbol_keyed_spec_hash
+    specs = ActiveAgent::Evals::ModelSpec.parse_all(
+      [ { label: "openrouter/openai/gpt-4o-mini", model: "openai/gpt-4o-mini" } ], default_provider: "openai"
+    )
+
+    assert_equal "openai/gpt-4o-mini", specs.first.model
+  end
+
+  def test_parse_all_names_the_model_of_a_spec_hash_without_a_label
+    specs = ActiveAgent::Evals::ModelSpec.parse_all([ { "model" => "gpt-4o-mini" } ], default_provider: "openai")
+
+    assert_equal "gpt-4o-mini", specs.first.model
+  end
+
   def test_a_blank_name_is_rejected
     assert_raises(ArgumentError) { parse("  ") }
   end
