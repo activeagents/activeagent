@@ -711,6 +711,12 @@ function ToolsTab({ formData, meta, toggleArrayItem, colors }) {
     return icons[tool] || '[]';
   };
 
+  // Schema-derived tools arrive as bare function names (find_tickets); the
+  // built-ins are single words. Label them readably rather than capitalising
+  // the raw identifier into "Find_tickets".
+  const isSchemaTool = (tool) => tool.includes('_');
+  const toolLabel = (tool) => (isSchemaTool(tool) ? tool.replace(/_/g, ' ') : tool);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <p style={{ fontSize: '13px', color: colors.textSecondary, margin: 0 }}>Select the tools your agent can use.</p>
@@ -736,7 +742,12 @@ function ToolsTab({ formData, meta, toggleArrayItem, colors }) {
               <span style={{ display: 'block', fontFamily: TYPOGRAPHY.mono, fontSize: '20px', marginBottom: '6px' }}>
                 {getToolIcon(tool)}
               </span>
-              <span style={{ fontSize: '13px', fontWeight: 500, textTransform: 'capitalize' }}>{tool}</span>
+              <span style={{
+                fontSize: isSchemaTool(tool) ? '12px' : '13px',
+                fontWeight: 500,
+                textTransform: 'capitalize',
+                fontFamily: isSchemaTool(tool) ? TYPOGRAPHY.mono : 'inherit'
+              }}>{toolLabel(tool)}</span>
             </button>
           );
         })}
