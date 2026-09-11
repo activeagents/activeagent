@@ -80,6 +80,7 @@ module ActionAgent
         scores: scores_for(report, run),
         samples_evaluated: report.results.size,
         samples_passed: report.results.count(&:passed?),
+        error_message: discovery_warning,
         completed_at: Time.current
       )
       run
@@ -240,10 +241,48 @@ module ActionAgent
       end
     end
 
+    # Every tool the agent could actually call, for the diagnosis roster: the
+    # engine's own toolbox plus whatever its MCP servers serve.
+    #
+    # Listing only the toolbox understated the roster, so a diagnosis could
+    # report "none of the available tools covers this task" while naming a list
+    # the agent's MCP tools were missing from.
     def tool_roster
-      @tool_roster ||= AgentToolbox.definitions_for(@evaluation.agent.tools).to_h do |definition|
-        [ definition[:name].to_s, definition[:description].to_s ]
+      @tool_roster ||= begin
+        definitions = mcp_dispatcher.tool_definitions +
+          AgentToolbox.definitions_for(@evaluation.agent.tools)
+
+        definitions.to_h { |definition| [ definition[:name].to_s, definition[:description].to_s ] }
       end
+    end
+
+    # Discovery failures from the roster above, keyed by server. Reading them
+    # requires tool_definitions to have run, which tool_roster does.
+    def mcp_discovery_errors
+      tool_roster
+      mcp_dispatcher.discovery_errors
+    end
+
+    def mcp_dispatcher
+      @mcp_dispatcher ||= MCPToolDispatcher.new(@evaluation.agent)
+    end
+
+    # A run whose every declared MCP server failed discovery scored an agent
+    # that had no tools to call. The scores are real but meaningless — the
+    # model answered from its own weights — so the run says so rather than
+    # leaving the cause in a log line (#425).
+    def discovery_warning
+      errors = mcp_discovery_errors
+      return nil if errors.empty?
+
+      prefix = if mcp_dispatcher.all_servers_failed?
+        "Every MCP server this agent declares failed tool discovery, so it ran with no MCP tools " \
+        "and any specifics in its answers are unverified."
+      else
+        "Some of this agent's MCP servers failed tool discovery, so part of its toolset was unavailable."
+      end
+
+      "#{prefix} #{errors.values.join(' ')}"
     end
 
     # The judge the evaluation's owner has credentials for, wrapped for the
