@@ -114,6 +114,16 @@ module ActiveAgent
     initializer "active_agent.inflections" do
       ActiveSupport::Inflector.inflections do |inflect|
         inflect.acronym "AI"
+
+        # "MCP" alone does not give the plural: an acronym only matches the
+        # whole word, so `mcps` still camelizes to `Mcps`, and a constant
+        # spelled `MCPs` underscores back to `mc_ps` — a name that round-trips
+        # to something no file is called.
+        #
+        # Registering the plural as its own acronym makes both directions
+        # agree: mcps <-> MCPs, alongside mcp_catalog <-> MCPCatalog.
+        inflect.acronym "MCP"
+        inflect.acronym "MCPs"
       end
     end
 
