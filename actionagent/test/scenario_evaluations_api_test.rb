@@ -395,18 +395,18 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     agent = create_agent
     evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
     scenario = evaluation.scenarios.build(
-      key: "sync", prompt: "Is sync healthy?", position: 0, expectations: { "tools" => [ "mcp__sparkle__sync_status" ] }
+      key: "sync", prompt: "Is sync healthy?", position: 0, expectations: { "tools" => [ "mcp__booking__sync_status" ] }
     )
     evaluation.save!
     run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     run.scenario_results.create!(
       scenario: scenario, model: "mock-model", provider: "mock", status: :failed, score: 0.5, fault: "tool_error",
-      tool_calls: [ { "name" => "mcp__sparkle__sync_status", "error" => true, "detail" => "no Physician with id=0" } ],
+      tool_calls: [ { "name" => "mcp__booking__sync_status", "error" => true, "detail" => "no Provider with id=0" } ],
       recommendation: "Fix the failing tool before judging the answer.",
       diagnosis: {
-        "fault" => "tool_error", "summary" => "Tool mcp__sparkle__sync_status returned an error while answering.",
+        "fault" => "tool_error", "summary" => "Tool mcp__booking__sync_status returned an error while answering.",
         "recommendation" => "Fix the failing tool before judging the answer.",
-        "evidence" => { "tools" => [ "mcp__sparkle__sync_status" ], "detail" => "no Physician with id=0" }
+        "evidence" => { "tools" => [ "mcp__booking__sync_status" ], "detail" => "no Provider with id=0" }
       }
     )
 
@@ -416,8 +416,8 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     item = JSON.parse(response.body).dig("run", "fix_items").first
     assert_equal "failing tools", item["tools_label"]
     assert_equal(
-      [ { "name" => "mcp__sparkle__sync_status", "note" => "no Physician with id=0",
-          "server" => { "key" => "sparkle", "name" => "sparkle", "status" => "unknown" } } ],
+      [ { "name" => "mcp__booking__sync_status", "note" => "no Provider with id=0",
+          "server" => { "key" => "booking", "name" => "booking", "status" => "unknown" } } ],
       item["tools"]
     )
     assert_nil item["server"]

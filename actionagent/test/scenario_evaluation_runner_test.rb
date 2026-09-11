@@ -162,7 +162,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
       status: :complete, trace_id: SecureRandom.uuid, input_prompt: "x", output: "Found 3 providers.",
       duration_ms: 120, input_tokens: 10, output_tokens: 5,
       logs: [
-        { "eid" => "1-1", "kind" => "tool", "label" => "find_records", "status" => "started", "detail" => { "model" => "Physician" }.to_json },
+        { "eid" => "1-1", "kind" => "tool", "label" => "find_records", "status" => "started", "detail" => { "model" => "Provider" }.to_json },
         { "eid" => "1-1", "kind" => "tool", "label" => "find_records", "status" => "done", "duration_ms" => 40, "detail" => "3 rows" }
       ]
     )
@@ -172,7 +172,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     result = run.scenario_results.first
 
     assert_equal "passed", result.status
-    assert_equal [ { "name" => "find_records", "arguments" => { "model" => "Physician" }, "error" => false, "detail" => "3 rows", "duration_ms" => 40 } ],
+    assert_equal [ { "name" => "find_records", "arguments" => { "model" => "Provider" }, "error" => false, "detail" => "3 rows", "duration_ms" => 40 } ],
       result.tool_calls
     assert_equal 1.0, result.scores["expected_tools"]
     assert_equal 1.0, result.scores["tools_succeeded"]

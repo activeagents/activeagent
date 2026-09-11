@@ -13,9 +13,9 @@ class EvalsReportTest < ActiveSupport::TestCase
   AVAILABLE = %w[find_records healthcheck sync_status].freeze
   LINKS = { "mcp" => "/activeagents/mcp/%{key}", "tools" => "/activeagents/tools", "instructions" => "/activeagents/agents/1/edit" }.freeze
   SERVERS = {
-    "sync_status" => { "key" => "sparkle_diagnostic", "name" => "Sparkle Diagnostic", "status" => "enabled" },
-    "search_slots" => { "key" => "sparkle_match", "name" => "Sparkle Match", "status" => "available" },
-    "book_slot" => { "key" => "sparkle_match", "name" => "Sparkle Match", "status" => "available" }
+    "sync_status" => { "key" => "booking_diagnostic", "name" => "Booking Diagnostic", "status" => "enabled" },
+    "search_slots" => { "key" => "booking_match", "name" => "Booking Match", "status" => "available" },
+    "book_slot" => { "key" => "booking_match", "name" => "Booking Match", "status" => "available" }
   }.freeze
 
   def models
@@ -55,7 +55,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     sync = scenario("s_sync", "Is content sync healthy?", group: "diag", tools: [ "sync_status" ])
     slots = scenario("s_slots", "Find the next available <b>slots</b> for a dermatologist", group: "match", tools: [ "search_slots" ])
     blame = scenario("s_blame", "Who changed the biography?", group: "blame")
-    long_error = "no Physician with id=0 — the record was deleted before the tool ran, try again with a valid id"
+    long_error = "no Provider with id=0 — the record was deleted before the tool ran, try again with a valid id"
 
     [
       result(health, gpt, replay(answer: "All healthy.", tool_calls: [ { "name" => "healthcheck" } ], duration_ms: 2_500, input_tokens: 80, output_tokens: 9, cost: 0.0012)),
@@ -76,7 +76,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   def report(**options)
-    Report.new(results: results, models: models, metadata: { "evaluation" => "Sparkle suite", "run" => 3 }, **options)
+    Report.new(results: results, models: models, metadata: { "evaluation" => "Booking suite", "run" => 3 }, **options)
   end
 
   # --- fix items -------------------------------------------------------------
@@ -143,16 +143,16 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   def test_a_tool_resolver_attaches_servers_and_links_fill_the_action_paths
-    items = report(tool_resolver: resolver, agent_name: "Clara", links: LINKS).fix_items
+    items = report(tool_resolver: resolver, agent_name: "Assistant", links: LINKS).fix_items
     by_fault = items.to_h { |item| [ item["fault"], item ] }
 
     missing = by_fault["expected_tool_not_called"]
-    assert_equal({ "key" => "sparkle_match", "name" => "Sparkle Match", "status" => "available" }, missing["server"])
-    assert_equal "Sparkle Match", missing["tools"].first["note"], "a missing tool's note is its server"
-    assert_equal({ "label" => "Enable Sparkle Match for Clara", "hint" => "MCP Services ->", "path" => "/activeagents/mcp/sparkle_match" }, missing["action"])
+    assert_equal({ "key" => "booking_match", "name" => "Booking Match", "status" => "available" }, missing["server"])
+    assert_equal "Booking Match", missing["tools"].first["note"], "a missing tool's note is its server"
+    assert_equal({ "label" => "Enable Booking Match for Assistant", "hint" => "MCP Services ->", "path" => "/activeagents/mcp/booking_match" }, missing["action"])
 
     failing = by_fault["tool_error"]
-    assert_equal "sparkle_diagnostic", failing["tools"].first.dig("server", "key")
+    assert_equal "booking_diagnostic", failing["tools"].first.dig("server", "key")
     assert_equal "/activeagents/tools", failing["action"]["path"]
     assert_nil failing["server"], "only missing tools resolve to a shared server"
 
@@ -161,7 +161,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   def test_missing_tools_on_an_enabled_server_or_across_servers_fall_back_to_the_tools_page
-    enabled = ->(_name) { { "key" => "sparkle_match", "name" => "Sparkle Match", "status" => "enabled" } }
+    enabled = ->(_name) { { "key" => "booking_match", "name" => "Booking Match", "status" => "enabled" } }
     item = report(tool_resolver: enabled, links: LINKS).fix_items.first
 
     assert_equal "enabled", item.dig("server", "status")
@@ -241,7 +241,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   def test_html_renders_fix_cards_with_tools_server_note_and_actions
-    html = report(tool_resolver: resolver, agent_name: "Clara", links: LINKS).to_html
+    html = report(tool_resolver: resolver, agent_name: "Assistant", links: LINKS).to_html
 
     assert_includes html, "What to fix"
     assert_includes html, "5 items · 6 faults across 4 scenarios"
@@ -252,10 +252,10 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, "3 scenarios · gpt-5-mini"
     assert_includes html, "s_slots · judge suggestion"
     assert_includes html, "missing tools"
-    assert_includes html, %(<b>search_slots</b><span class="note">Sparkle Match</span>)
-    assert_includes html, %(<span>served by</span><b>Sparkle Match</b><span class="badge warning xs">available · not enabled for Clara</span>)
+    assert_includes html, %(<b>search_slots</b><span class="note">Booking Match</span>)
+    assert_includes html, %(<span>served by</span><b>Booking Match</b><span class="badge warning xs">available · not enabled for Assistant</span>)
     assert_includes html, "s_jobs is the exception"
-    assert_includes html, %(<a class="btn" target="_top" href="/activeagents/mcp/sparkle_match">Enable Sparkle Match for Clara</a><span class="hint">MCP Services -&gt;</span>),
+    assert_includes html, %(<a class="btn" target="_top" href="/activeagents/mcp/booking_match">Enable Booking Match for Assistant</a><span class="hint">MCP Services -&gt;</span>),
                     "the action leaves the dashboard's report iframe rather than nesting the dashboard in it"
     assert_includes html, "“Use search_slots for appointment questions.”"
     assert_not_includes html, "expected_tool_not_called"
@@ -291,7 +291,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, "<footer>"
     assert_includes html, "judge rules"
     assert_includes html, "criteria response present"
-    assert_includes html, "evaluation Sparkle suite"
+    assert_includes html, "evaluation Booking suite"
   end
 
   def test_html_escapes_prompts_answers_tool_names_and_metadata

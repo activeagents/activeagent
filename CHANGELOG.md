@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-10
+
+Releases `activeagent` 1.5.0 and `actionagent` 1.5.0 from one tag.
+
+`actionagent` goes from 1.3.0 to 1.5.0, skipping 1.4: the two gems are
+released together from this repository and from one tag, and carrying one
+version number across both is less confusing than explaining which
+dashboard version pairs with which framework. `actionagent` 1.4 does not
+exist and never will. The engine's floor on the framework
+(`activeagent >= 1.4`) is unchanged and still correct.
+
 ### Added
 
 - **`ActiveAgent::Evals::Publisher` delivers a finished report to a

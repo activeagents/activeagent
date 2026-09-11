@@ -10,9 +10,10 @@ module ActionAgent
   # metrics can hang off.
   #
   # Identity is (account, service_name, agent_class, agent_action) — one agent
-  # per action, not per class. Clara.respond (admin assistant, every MCP tool,
-  # ~$0.03/run) and Clara.title (no tools, temperature 0.2, ~$0.0004/run) are
-  # different agents that share a class name because one app method spawns both.
+  # per action, not per class. Assistant.respond (admin assistant, every MCP
+  # tool, ~$0.03/run) and Assistant.title (no tools, temperature 0.2,
+  # ~$0.0004/run) are different agents that share a class name because one app
+  # method spawns both.
   # Collapsing them would blend a $0.03 agent with a $0.0004 one into a single
   # meaningless cost-per-run.
   #
@@ -60,7 +61,7 @@ module ActionAgent
       @trace.agent_action.presence
     end
 
-    # Name carries the action so the two Claras are distinguishable anywhere a
+    # Name carries the action so the two agents are distinguishable anywhere a
     # bare agent name is shown.
     def display_name
       action_name ? "#{agent_class}.#{action_name}" : agent_class
@@ -138,8 +139,8 @@ module ActionAgent
 
     # Config we can only learn by watching: the model actually used, the
     # instructions actually sent (when content capture is on), and the tools
-    # actually called — which is how Clara.respond acquires a tool list while
-    # Clara.title correctly stays empty.
+    # actually called — which is how Assistant.respond acquires a tool list while
+    # Assistant.title correctly stays empty.
     def llm_attribute(key)
       spans.filter_map { |span| span.dig("attributes", key).presence }.first
     end

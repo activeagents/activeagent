@@ -308,8 +308,8 @@ module ActiveAgent
         %(<div class="tools"><span class="micro sm">#{h(item['tools_label'])}</span><div class="list">#{chips.join}</div></div>)
       end
 
-      # "available · not enabled for Clara", "unknown · not enabled for
-      # Clara" — every status but "enabled" leads with the status word, the
+      # "available · not enabled for Assistant", "unknown · not enabled for
+      # Assistant" — every status but "enabled" leads with the status word, the
       # way the dashboard's fix list reads it.
       def html_fix_server(server)
         badge =

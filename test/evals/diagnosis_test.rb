@@ -37,7 +37,7 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
     result = diagnose(
       scenario: scenario(contains: [ "Alice" ]),
       replay: replay(answer: "I could not look that up.",
-                     tool_calls: [ { "name" => "find_records", "error" => true, "detail" => "timeout", "arguments" => { "model" => "Physician" } } ]),
+                     tool_calls: [ { "name" => "find_records", "error" => true, "detail" => "timeout", "arguments" => { "model" => "Provider" } } ]),
       score: 0.2
     )
 
@@ -61,7 +61,7 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
   def test_a_negative_result_is_not_a_missing_capability
     result = diagnose(
       scenario: scenario,
-      replay: replay(answer: "I checked the physician table and can't find any providers without a license on file; all 15,043 have one.")
+      replay: replay(answer: "I checked the provider table and can't find any providers without a license on file; all 15,043 have one.")
     )
 
     assert_nil result
