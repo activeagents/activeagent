@@ -10,9 +10,10 @@ module ActionAgent
   # metrics can hang off.
   #
   # Identity is (account, service_name, agent_class, agent_action) — one agent
-  # per action, not per class. Assistant.respond (admin assistant, every MCP tool,
-  # ~$0.03/run) and Assistant.title (no tools, temperature 0.2, ~$0.0004/run) are
-  # different agents that share a class name because one app method spawns both.
+  # per action, not per class. Assistant.respond (admin assistant, every MCP
+  # tool, ~$0.03/run) and Assistant.title (no tools, temperature 0.2,
+  # ~$0.0004/run) are different agents that share a class name because one app
+  # method spawns both.
   # Collapsing them would blend a $0.03 agent with a $0.0004 one into a single
   # meaningless cost-per-run.
   #
@@ -60,7 +61,7 @@ module ActionAgent
       @trace.agent_action.presence
     end
 
-    # Name carries the action so the two Assistants are distinguishable anywhere a
+    # Name carries the action so the two agents are distinguishable anywhere a
     # bare agent name is shown.
     def display_name
       action_name ? "#{agent_class}.#{action_name}" : agent_class
