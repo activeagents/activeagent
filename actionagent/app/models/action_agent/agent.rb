@@ -77,6 +77,25 @@ module ActionAgent
       terminal playwright filesystem code database slack fetch search edit translate memory agents ui
     ].freeze
 
+    # One line per capability, for the roster rows that offer them. A name
+    # alone ("ui", "agents") doesn't say what enabling it gives the model,
+    # and the Tools tab is where that question gets asked.
+    TOOL_DESCRIPTIONS = {
+      "terminal" => "Runs a shell command in the workspace sandbox.",
+      "playwright" => "Drives a headless browser: navigate, click, read the page.",
+      "filesystem" => "Reads and writes files under an allow-listed set of directories.",
+      "code" => "Reads and edits files in the connected repository.",
+      "database" => "Runs read-only SQL against the app database.",
+      "slack" => "Reads channels and posts messages as the workspace bot.",
+      "fetch" => "Fetches a URL and converts the page to markdown for the model to read.",
+      "search" => "Web search through the workspace provider.",
+      "edit" => "Applies a structured edit to a document.",
+      "translate" => "Translates text through the translation agent.",
+      "memory" => "Reads and writes durable notes across runs of this agent.",
+      "agents" => "Delegates a task to another agent in this workspace.",
+      "ui" => "Renders a form or table back into the chat surface."
+    }.freeze
+
     # Available providers
     PROVIDERS = %w[openai anthropic ollama openrouter].freeze
 
