@@ -2,7 +2,7 @@ require "test_helper"
 
 module Docs
   module Actions
-    class McpsExamplesTest < ActiveSupport::TestCase
+    class MCPsExamplesTest < ActiveSupport::TestCase
       class QuickStartExample < ActiveSupport::TestCase
         # region quick_start_weather_agent
         class WeatherAgent < ActiveAgent::Base
