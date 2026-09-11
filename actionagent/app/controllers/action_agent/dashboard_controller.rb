@@ -41,7 +41,7 @@ module ActionAgent
         providers: Agent::PROVIDERS,
         presetTypes: Agent::PRESET_TYPES,
         instructionSets: Agent::INSTRUCTION_SETS,
-        availableTools: Agent::AVAILABLE_TOOLS,
+        availableTools: Agent.available_tools,
         executionEnabled: ActionAgent.execution_enabled?,
         assistantEnabled: ActionAgent.assistant_enabled?,
         multiTenant: ActionAgent.multi_tenant?,
