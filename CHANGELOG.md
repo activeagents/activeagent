@@ -7,9 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.1] - 2026-09-11
+## [1.5.2] - 2026-09-11
 
-Releases `activeagent` 1.5.1. `actionagent` is unchanged and stays at 1.5.0.
+Releases `activeagent` and `actionagent` 1.5.2 from one tag.
+
+**1.5.1 was never tagged.** Its version bump reached `main`, but three PRs
+that change `actionagent` merged alongside it, and that release deliberately
+held `actionagent` at 1.5.0 — publishing it would have shipped the fix below
+while leaving every dashboard change of this cycle unpublished, because
+`release.yml` skips a version already on RubyGems. 1.5.2 supersedes it and
+carries both gems. The 1.5.1 notes are kept below as the record of what that
+bump contained.
+
+### Added
+
+- **Schema-derived agent tools.** `ActiveAgent::SchemaTools` turns an
+  ActiveRecord model plus a declared boundary into a bounded, enumerable tool
+  roster — `find_*`, `count_*`, `get_*` — with `filterable` and `returns`
+  allowlists. An undeclared column is rejected rather than silently dropped:
+  ignoring an unknown filter answers a broader question than was asked while
+  still looking like success. Results are capped (25 default, 100 max) with a
+  truncation marker the model can see. (#435)
+
+- **Host tools reach the dashboard.** `ActionAgent.schema_tools` offers each
+  generated tool beside `AgentToolbox`'s built-ins: individually selectable in
+  the agent editor, dispatched by name at execution, and nameable in an
+  evaluation's `tools:` expectation. Previously a declared schema tool was
+  invisible — `definitions_for` returned nothing, the model received no
+  schemas and invented tool names in prose while the run scored 0.0 for what
+  looked like a model failure. (#435, closes #438)
+
+- **Tools are discovered, not declared twice.** Leave `schema_tools` unset and
+  every subclass under `schema_tools_path` (`app/agent_tools`) is offered.
+  Adding a tool is adding a file. Anonymous classes are excluded from
+  discovery: a runtime-built class cannot supersede itself, so it would
+  accumulate one per reload. (#435, refs #440)
+
+- **`scope_by_policy`** resolves a model's policy by name —
+  `Reservation` → `ReservationPolicy::Scope` — instead of hand-writing the
+  block. Opt-in, because silently scoping a class that declared none would
+  change what an existing tool returns; a missing policy raises at declaration
+  rather than quietly reading the whole table. (#435)
+
+- **A model's agent starts with that model's tools.** `ReservationAgent` is
+  seeded from `ReservationTools` on create. A default, never a restriction:
+  any agent may enable any tool, and an explicit selection — including a
+  deliberate empty one — is never overwritten. (#435)
+
+### Fixed
+
+- **MCP tool-discovery failures are reported instead of running tool-less and
+  silent.** `MCPToolDispatcher#tool_definitions` rescued a failed `tools/list`
+  to `[]`, so a server that 401s and one that legitimately serves no tools
+  were indistinguishable: the agent ran without tools, the model fabricated,
+  and the report offered prompt advice for what was a transport failure.
+  `discovery_errors` now names the server, its URL and the underlying error,
+  and `all_servers_failed?` lets a caller fail loudly rather than grade an
+  invented answer. (#434, closes #425)
+
+- **Nil VCR filters no longer flake replays**, and the MCP plural is spelled
+  correctly. (#436)
+
+## [1.5.1] - 2026-09-11 [UNRELEASED — superseded by 1.5.2]
+
+Bumped `activeagent` to 1.5.1 and held `actionagent` at 1.5.0. Never tagged;
+its contents ship in 1.5.2.
 
 ### Fixed
 
