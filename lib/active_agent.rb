@@ -103,6 +103,8 @@ module ActiveAgent
   autoload :Previews, "active_agent/concerns/preview"
   autoload :GenerationJob
   autoload :ModelCapabilities
+  autoload :SchemaGenerator
+  autoload :SchemaTools
   autoload :Observers, "active_agent/concerns/observers"
   autoload :Provider, "active_agent/concerns/provider"
   autoload :Rescue, "active_agent/concerns/rescue"
