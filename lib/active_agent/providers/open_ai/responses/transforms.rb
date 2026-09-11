@@ -96,6 +96,14 @@ module ActiveAgent
                   server_url: server_hash[:url] || server_hash[:server_url]
                 }
 
+                if server_hash[:require_approval]
+                  result[:require_approval] = server_hash[:require_approval]
+                end
+
+                if server_hash[:allowed_tools]
+                  result[:allowed_tools] = server_hash[:allowed_tools]
+                end
+
                 # Keep authorization field (OpenAI uses 'authorization', not 'authorization_token')
                 if server_hash[:authorization]
                   result[:authorization] = server_hash[:authorization]
