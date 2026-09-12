@@ -1,0 +1,22 @@
+Description:
+    Writes a starter ActiveAgent::SchemaTools class for a model under
+    app/agent_tools. The class generates find_<records>, count_<records> and
+    get_<record> tools, and exposes nothing beyond `id` until you move a
+    column into `filterable` or `returns` — every column the model has is
+    listed, commented out, so the allowlist is a review step rather than a
+    blank page. Columns that look like secrets are left out of the list.
+
+    When <Model>Policy::Scope exists the class scopes every read through it
+    (`scope_by_policy`); otherwise a `scope` block is suggested. Pass
+    --policy or --no-policy to decide explicitly.
+
+Examples:
+    `bin/rails generate active_agent:schema_tools Reservation`
+
+    creates:
+        app/agent_tools/reservation_tools.rb
+
+    `bin/rails generate active_agent:schema_tools Reservation --policy`
+
+    scopes reads through ReservationPolicy::Scope even if it cannot be
+    found from here.
