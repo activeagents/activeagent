@@ -9,32 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A delegated run inherits its parent's caller.** `delegate_to` hands the
-  sub-agent the parent's `current_user` before its action runs, so its own
-  `before_action` callbacks and any scope its tools read through decide
-  against the same person. A parent authorized as one user no longer hands
-  its specialists an unattributed run — which a correctly written host scope
-  reads as "no access", a wrong answer wearing a right one's clothes. A
-  parent with no caller still delegates an unattributed run, never someone
-  else's.
-- **An agent knows who it is running for, so an authorization gem has
-  something to decide against.** `ActiveAgent::Base#current_user` carries the
-  caller, assigned by whatever authenticated the call
-  (`MyAgent.as(current_user).ask(...)`) and readable from every
-  `before_action`, so Pundit, CanCanCan or Action Policy authorize an agent
-  the way they authorize a controller. A refusal inside a tool call is
-  returned to the model as `{ error: ... }` so it can say it is not allowed;
-  a refusal anywhere else is raised to the caller. `denies_with` names a
-  gem's own error as a refusal.
-- **The dashboard fills that seam.** A run records the caller that started it
-  (a Global ID, so a worker on another machine authorizes as the same
-  person), passes it to every tool as `actor:`, and runs the agent through
-  `as(actor)` — which is what a `SchemaTools` `scope` block has been waiting
-  for since 1.5.0. `ActionAgent.agent_actor_resolver` overrides who that is.
-- **Agents reached over MCP run as the key's caller** rather than
-  unattributed, and an agent that refuses answers as a JSON-RPC error
-  (`-32003`) instead of as an empty result.
-
 ### Fixed
 
 - **The caller can no longer be named by the model, or by the client.**
@@ -45,6 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   run, set once by whatever authenticated it. Scoped `SchemaTools` reads are
   also excluded from the tool-result cache, so one caller's rows are never
   replayed for the next.
+- **A superseded runtime tool class is no longer offered twice.** Discovery
+  read every `SchemaTools` subclass out of `descendants`, where a class built
+  at runtime stays until it is collected, so rebuilding a model's tools
+  accumulated stale duplicates. Runtime-built classes are now read from the
+  registry only. (#441)
+- **A persisted model selection re-runs under the provider it ran under.**
+  `Evals::ModelSpec.parse_all` re-parsed a round-tripped spec from its label,
+  so `anthropic/claude-sonnet-4.5` run through OpenRouter came back as
+  Anthropic's own `claude-sonnet-4.5` as soon as that provider's gem was
+  installed — and the re-run failed for want of an Anthropic credential. A
+  hash naming both `provider` and `model` is now rebuilt as it was; a bare
+  label is still parsed. The dashboard's "re-run" of a saved selection is
+  the path this fixes.
 
 ## [1.5.2] - 2026-09-11
 
