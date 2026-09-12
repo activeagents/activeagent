@@ -8,6 +8,32 @@ class EvalsModelSpecTest < ActiveSupport::TestCase
     ActiveAgent::Evals::ModelSpec.parse(value, default_provider: "openai", **options)
   end
 
+  def test_a_persisted_spec_keeps_the_provider_it_ran_under
+    specs = ActiveAgent::Evals::ModelSpec.parse_all(
+      [ { "label" => "anthropic/claude-sonnet-4.5", "provider" => "openrouter", "model" => "anthropic/claude-sonnet-4.5" } ],
+      default_provider: "openrouter"
+    )
+
+    assert_equal [ [ "openrouter", "anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-4.5" ] ],
+      specs.map { |spec| [ spec.provider, spec.model, spec.label ] }
+  end
+
+  def test_a_persisted_spec_without_a_provider_is_parsed_from_its_label
+    specs = ActiveAgent::Evals::ModelSpec.parse_all([ { "label" => "anthropic/claude-sonnet-4.5" } ], default_provider: "openai")
+
+    assert_equal [ "anthropic" ], specs.map(&:provider)
+    assert_equal [ "claude-sonnet-4.5" ], specs.map(&:model)
+  end
+
+  def test_a_round_tripped_spec_is_not_duplicated_beside_its_own_label
+    spec = ActiveAgent::Evals::ModelSpec.new(label: "anthropic/claude-sonnet-4.5", provider: "openrouter", model: "anthropic/claude-sonnet-4.5")
+
+    specs = ActiveAgent::Evals::ModelSpec.parse_all([ spec.to_h, "anthropic/claude-sonnet-4.5" ], default_provider: "openrouter")
+
+    assert_equal 1, specs.size
+    assert_equal "openrouter", specs.first.provider
+  end
+
   def test_a_provider_prefix_names_the_provider
     spec = parse("anthropic/claude-sonnet-5")
 
