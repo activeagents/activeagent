@@ -381,6 +381,57 @@ class SchemaToolsTest < ActiveSupport::TestCase
     scope_by_policy FakePolicyScope
   end
 
+  # --- Runtime definitions ------------------------------------------------
+
+  test "define builds a named, registered tool class from a declaration" do
+    tools = ActiveAgent::SchemaTools.define(
+      Post, filterable: %i[published], returns: %i[id title],
+      scope: ->(actor) { actor ? actor.posts : Post.none }
+    )
+
+    assert_equal "PostTools", tools.name
+    assert tools.runtime?
+    assert_not UserTools.runtime?
+    assert_equal %w[find_posts count_posts get_post], tools.tool_names
+    assert_equal 1, tools.call("count_posts", actor: @alice)[:count]
+    assert_equal 0, tools.call("count_posts", actor: nil)[:count]
+    assert_same tools, ActiveAgent::SchemaTools.registry["Post"]
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+  end
+
+  test "redefining a model's tools replaces the previous class instead of adding one" do
+    first = ActiveAgent::SchemaTools.define(Post, filterable: %i[published], returns: %i[id])
+    second = ActiveAgent::SchemaTools.define(Post, filterable: %i[published], returns: %i[id title])
+
+    assert_same second, ActiveAgent::SchemaTools.registry["Post"]
+    assert_equal 1, ActiveAgent::SchemaTools.registry.count { |model_name, _| model_name == "Post" }
+    assert_equal %w[id title], second.returns.map(&:to_s)
+    assert first.runtime?, "a superseded class stays runtime-built, so discovery never reads it from descendants"
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+  end
+
+  test "define accepts a policy class and undefine drops the registration" do
+    tools = ActiveAgent::SchemaTools.define(Post, returns: %i[id], policy: ScopedByPolicyPost::FakePolicyScope)
+
+    assert_equal Post.count, tools.call("count_posts", actor: :someone)[:count]
+    assert_equal 0, tools.call("count_posts", actor: nil)[:count]
+
+    assert_same tools, ActiveAgent::SchemaTools.undefine(Post)
+    assert_nil ActiveAgent::SchemaTools.registry["Post"]
+    assert_nil ActiveAgent::SchemaTools.undefine("Post")
+  end
+
+  test "a runtime class enforces the same boundary as a file-defined one" do
+    tools = ActiveAgent::SchemaTools.define(Post, filterable: %i[published], returns: %i[id title])
+
+    assert_match(/not a filterable attribute/, tools.call("find_posts", user_id: 1)[:error])
+    assert_equal %w[id title], tools.call("find_posts")[:results].first.keys.map(&:to_s)
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+  end
+
   test "scope_by_policy routes reads through the given policy scope" do
     assert_equal Post.count, ScopedByPolicyPost.call("count_posts", actor: :someone)[:count]
     assert_equal 0, ScopedByPolicyPost.call("count_posts", actor: nil)[:count]

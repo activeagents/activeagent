@@ -168,6 +168,71 @@ module ActiveAgent
         @scope = block
       end
 
+      # Runtime-defined tool classes, keyed by model name. A definition built
+      # by {.define} replaces the previous one for its model, so a registry
+      # that is rebuilt on every change — from a table, from a dashboard
+      # edit — holds one class per model rather than one per rebuild.
+      #
+      # @return [Hash{String => Class}]
+      def registry
+        @registry ||= {}
+      end
+
+      # Builds a tool class from a declaration rather than from a file:
+      #
+      #   ActiveAgent::SchemaTools.define(Reservation,
+      #     filterable: %i[status guest_id],
+      #     returns: %i[id status guest_id arrives_on],
+      #     policy: true)   # ReservationPolicy::Scope, as scope_by_policy would
+      #
+      # The class behaves exactly as a file-defined one — same roster, same
+      # allowlists, same +call+ — and is named "<Model>Tools" for logs and
+      # telemetry. It is marked runtime-built so discovery does not read it
+      # back out of +descendants+ (where every class ever built stays until
+      # collected), and registered under its model, replacing whatever the
+      # registry held: that is what keeps a rebuild from accumulating classes
+      # (#441). +scope:+ takes a lambda or proc receiving the actor; +policy:+
+      # resolves the model's policy by name; neither means unscoped, as for a
+      # file-defined class.
+      #
+      # @param model [Class] an ActiveRecord class
+      # @param filterable [Array<Symbol, String>]
+      # @param returns [Array<Symbol, String>]
+      # @param scope [Proc, nil]
+      # @param policy [Boolean, Class] true for the conventional policy, or the policy class
+      # @param name [String, nil] the class name, "<Model>Tools" by default
+      # @return [Class]
+      def define(model, filterable: [], returns: [], scope: nil, policy: false, name: nil)
+        klass = Class.new(self)
+        klass.instance_variable_set(:@runtime, true)
+        class_name = name || "#{model.name}Tools"
+        klass.define_singleton_method(:name) { class_name }
+        klass.model(model)
+        klass.filterable(*filterable) if filterable.present?
+        klass.returns(*returns) if returns.present?
+        klass.scope_by_policy(policy == true ? nil : policy) if policy
+        klass.scope(&scope) if scope
+
+        registry[model.name] = klass
+      end
+
+      # Drops the runtime definition for +model+; discovery stops offering it.
+      #
+      # @param model [Class, String]
+      # @return [Class, nil] the class that was registered
+      def undefine(model)
+        registry.delete(model.respond_to?(:name) ? model.name : model.to_s)
+      end
+
+      # Whether this class was built by {.define} rather than loaded from a
+      # file. Discovery reads runtime classes from {.registry}, never from
+      # +descendants+, so a superseded one is not offered twice.
+      #
+      # @return [Boolean]
+      def runtime?
+        @runtime == true
+      end
+
       # The full, fixed tool roster in provider function-calling format.
       #
       # @return [Array<Hash>] tool definitions with :name, :description, :parameters
