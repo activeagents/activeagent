@@ -92,8 +92,8 @@ ActiveAgent::Evals::Runner.new(scenarios:, models:, replay:, judge: judge, instr
 
 With a judge, every answer also gets a `task_completion` score (unless the
 criteria already include an `llm_judge`), scenarios failing on
-`missing_capability`, `expected_tool_not_called`, `missing_content` or
-`low_quality` get a judge-written recommendation with a suggested tool where
+`missing_capability`, `expected_tool_not_called`, `ungrounded_answer`,
+`missing_content` or `low_quality` get a judge-written recommendation with a suggested tool where
 one is missing (`refine_faults:` and `judge_limit:`, 25 calls per run by
 default, adjust that on `Runner.new`), and the verdict carries the judge's
 rationale. A judge that raises or answers unusably is skipped for that call,
@@ -129,6 +129,7 @@ can establish context itself.
 | `tool_error` | A tool the agent called returned an error |
 | `missing_capability` | The agent said no tool covers the task |
 | `expected_tool_not_called` | The scenario expects a tool the agent did not call |
+| `ungrounded_answer` | The agent had tools, called none, and still stated specifics (a count, an id, a date) nothing supplied |
 | `forbidden_content` / `missing_content` | A content expectation failed |
 | `low_quality` | The answer scored below the threshold (0.7) |
 
