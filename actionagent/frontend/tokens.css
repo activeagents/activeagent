@@ -110,3 +110,9 @@
 /* The chevron glyph rotates when its section opens; nothing else animates. */
 .aa-dashboard .aa-chevron { display: inline-block; transition: transform 0.15s ease; }
 .aa-dashboard .aa-chevron[data-open="true"] { transform: rotate(90deg); }
+
+/* Roster rows: the enabled tint and the hover both live here, because an
+   inline background would win over a :hover rule. */
+.aa-dashboard .aa-roster-row { background: transparent; }
+.aa-dashboard .aa-roster-row[data-on="true"] { background: var(--color-accent-ui-tint); }
+.aa-dashboard .aa-roster-row:hover { background: var(--color-hover); }

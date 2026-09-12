@@ -68,6 +68,23 @@ module ActionAgent
         ActionAgent.trace_model.for_account(current_account)
       end
 
+      # The caller an agent run executes on behalf of.
+      #
+      # The host's seam first (ActionAgent.agent_actor_resolver), then the
+      # signed-in user. Never the tenant: an account is who is billed, not
+      # who is allowed, and handing a Pundit policy an account would either
+      # raise or quietly authorize as the whole workspace.
+      def agent_actor
+        return @agent_actor if defined?(@agent_actor)
+
+        @agent_actor =
+          if (resolver = ActionAgent.agent_actor_resolver)
+            resolver.arity.zero? ? resolver.call : resolver.call(self)
+          else
+            current_user
+          end
+      end
+
       # The tenant, when the host app has one. current_owner already
       # resolves it in multi-tenant mode; single-tenant installs have none.
       def current_account

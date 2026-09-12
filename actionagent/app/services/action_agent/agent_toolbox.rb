@@ -231,13 +231,22 @@ module ActionAgent
       def call(name, **kwargs)
         return { error: "Unknown tool: #{name}" } unless function?(name)
 
-        schema_tool = ActionAgent.schema_tool_class_for(name.to_s)
-        if schema_tool
+        # Who the call is for is never one of the call's arguments: it comes
+        # off here, before a tool sees them. That keeps a built-in from
+        # meeting an unexpected keyword, and keeps the cache key below over
+        # the arguments alone.
+        actor = kwargs.delete(:actor)
+
+        if (schema_tool = ActionAgent.schema_tool_class_for(name.to_s))
           # `actor:` is the host's authorization seam — the scope block runs
           # inside the call. It is passed through untouched, including nil,
           # so a host scope decides what an unattributed run may read rather
           # than the engine widening it.
-          return schema_tool.call(name.to_s, actor: kwargs.delete(:actor), **kwargs)
+          #
+          # Deliberately not cached: a scoped read is one caller's answer,
+          # and replaying it for the next caller would hand them rows their
+          # own scope would have refused.
+          return schema_tool.call(name.to_s, actor: actor, **kwargs)
         end
 
         return public_send(FUNCTIONS.fetch(name.to_s), **kwargs) if UNCACHED_FUNCTIONS.include?(name.to_s)

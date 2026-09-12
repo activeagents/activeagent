@@ -110,9 +110,28 @@ module ActiveAgent
     class Agent
       # @param agent [Class] the agent class to proxy
       # @param params [Hash] the parameters to pass to agent instances
-      def initialize(agent, params)
+      # @param actor [Object, nil] the caller the generation runs on behalf
+      #   of (see ActiveAgent::Authorization). Kept beside params rather than
+      #   in them: params reach templates and are part of what a generation
+      #   is *about*, while the actor is who it is *for*, and only the caller
+      #   may say.
+      def initialize(agent, params, actor: nil)
         @agent = agent
         @params = params
+        @actor = actor
+      end
+
+      # Adds parameters, keeping the actor. Lets +as+ and +with+ chain in
+      # either order.
+      # @return [ActiveAgent::Parameterized::Agent]
+      def with(params = {})
+        self.class.new(@agent, @params.merge(params), actor: @actor)
+      end
+
+      # Runs on behalf of +actor+, keeping any parameters.
+      # @return [ActiveAgent::Parameterized::Agent]
+      def as(actor)
+        self.class.new(@agent, @params, actor: actor)
       end
 
       # Intercepts calls to agent action methods and creates parameterized generations.
@@ -124,7 +143,9 @@ module ActiveAgent
       # @raise [NoMethodError] if the method doesn't exist on the agent class
       def method_missing(method_name, ...)
         if @agent.public_instance_methods.include?(method_name)
-          ActiveAgent::Parameterized::Generation.new(@agent, method_name, @params, ...)
+          ActiveAgent::Parameterized::Generation.new(@agent, method_name, @params, ...).tap do |generation|
+            generation.actor = @actor
+          end
         else
           super
         end
@@ -150,6 +171,17 @@ module ActiveAgent
       # @param action [Symbol, String] the action method name
       # @param params [Hash] the parameters to set on the agent instance
       # @param args [Array] additional arguments for the action method
+      # The caller the generation runs on behalf of. Assigned after
+      # construction rather than taken as a keyword, because the action's own
+      # arguments are forwarded here and an actor keyword would collide with
+      # one of the same name.
+      # @return [Object, nil]
+      attr_accessor :actor
+
+      # @param agent_class [Class] the agent class
+      # @param action [Symbol, String] the action method name
+      # @param params [Hash] the parameters to set on the agent instance
+      # @param args [Array] additional arguments for the action method
       def initialize(agent_class, action, params, ...)
         super(agent_class, action, ...)
         @params = params
@@ -163,6 +195,7 @@ module ActiveAgent
       def agent
         @agent ||= agent_class.new.tap do |agent|
           agent.params = @params
+          agent.current_user = @actor
           agent.process(action_name, *args, **kwargs)
         end
       end
@@ -180,8 +213,12 @@ module ActiveAgent
         if processed?
           super
         else
+          # The actor rides as an ordinary job argument, which ActiveJob
+          # serializes through GlobalID like any other record, so a worker on
+          # another machine authorizes as the same caller.
           agent_class.generation_job.set(job_options).perform_later(
-            agent_class.name, action_name.to_s, generation_method.to_s, params: @params, args: args, kwargs: kwargs
+            agent_class.name, action_name.to_s, generation_method.to_s,
+            params: @params, args: args, kwargs: kwargs, actor: @actor
           )
         end
       end
