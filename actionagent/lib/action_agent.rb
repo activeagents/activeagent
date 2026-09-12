@@ -370,7 +370,10 @@ module ActionAgent
 
     # Directory scanned for SchemaTools subclasses when {#schema_tools} is
     # unset. Relative to the host's root. Set to nil to disable discovery and
-    # require an explicit declaration.
+    # require an explicit declaration. Classes built at runtime with
+    # +ActiveAgent::SchemaTools.define+ are discovered alongside the files
+    # whatever this is set to; only an explicit {#schema_tools} list excludes
+    # them.
     # @return [String, nil]
     attr_accessor :schema_tools_path
 
@@ -571,14 +574,31 @@ module ActionAgent
       schema_tool_classes.flat_map(&:tool_names).map(&:to_s)
     end
 
-    # SchemaTools subclasses defined under {#schema_tools_path}.
+    # SchemaTools classes on offer when {#schema_tools} is unset: the files
+    # under {#schema_tools_path}, and every runtime definition in
+    # +ActiveAgent::SchemaTools.registry+.
     #
     # The files are loaded before reading +descendants+: in development nothing
     # has referenced those constants yet, so the list would otherwise be empty
     # at boot and fill in only once something happened to touch them.
+    # Runtime-built classes are read from the registry, never from
+    # +descendants+, where every class ever built stays until collected and a
+    # superseded definition would be offered beside its replacement. A runtime
+    # definition for a model also supersedes a file for that model: it is the
+    # more recent intent.
     # @return [Array<Class>]
     def discovered_schema_tools
-      return [] if @schema_tools_path.blank? || !defined?(ActiveAgent::SchemaTools)
+      return [] unless defined?(ActiveAgent::SchemaTools)
+
+      from_registry = ActiveAgent::SchemaTools.respond_to?(:registry) ? ActiveAgent::SchemaTools.registry.values : []
+      (from_registry + file_defined_schema_tools).uniq { |klass| klass.model.name }
+    end
+
+    # The named SchemaTools subclasses under {#schema_tools_path}; none when
+    # the path is unset or the directory does not exist.
+    # @return [Array<Class>]
+    def file_defined_schema_tools
+      return [] if @schema_tools_path.blank?
       return [] unless defined?(Rails) && Rails.respond_to?(:root) && Rails.root
 
       root = Rails.root.join(@schema_tools_path)
@@ -590,7 +610,11 @@ module ActionAgent
         warn "[ActionAgent] could not load #{path}: #{e.class} - #{e.message}"
       end
 
-      ActiveAgent::SchemaTools.descendants.select { |klass| klass.name.present? }
+      ActiveAgent::SchemaTools.descendants.select { |klass| klass.name.present? && !runtime_schema_tools?(klass) }
+    end
+
+    def runtime_schema_tools?(klass)
+      klass.respond_to?(:runtime?) && klass.runtime?
     end
 
     # The schema tool class that generated +name+, or nil.
