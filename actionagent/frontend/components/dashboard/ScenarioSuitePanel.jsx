@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
+import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
 import { Button, Chip, Empty, MicroLabel, MonoLink, MONO } from './primitives';
 import { fmtCost, fmtK, fmtMs, timeAgo } from '../../utils/format';
 import { scenarioRowsForRun } from '../../utils/evaluationHistory.mjs';
@@ -37,15 +37,6 @@ function scenariosToText(scenarios) {
     lines.push(`${scenario.prompt} | ${options.join(' | ')}`);
   });
   return lines.join('\n');
-}
-
-// In-app navigation to a dashboard route. Accepts a mount-relative path
-// ("/tools") or one that already carries the mount.
-export function navigateTo(path) {
-  if (!path) return;
-  const relative = dashboardRelativePath(path);
-  pushDashboardPath(relative);
-  window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path: dashboardPath(relative) } }));
 }
 
 const stripResults = (run) => {

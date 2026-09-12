@@ -19,12 +19,15 @@ module ActionAgent
       # Conversations returned to the runner's picker when no limit is asked for.
       CONVERSATIONS_LIMIT = 50
       # Keywords Agent#execute takes in its own right, which per-run overrides
-      # must never supply (see #execution_params).
-      RESERVED_EXECUTION_KEYS = [ :attachments, :action ].freeze
+      # must never supply (see #execution_params). `actor` is here for the
+      # same reason as the rest and one more: a keyword splat wins over the
+      # arguments before it, so a client sending params[params][actor] would
+      # otherwise name the caller its own run is authorized as.
+      RESERVED_EXECUTION_KEYS = [ :attachments, :action, :actor, :current_user ].freeze
 
       before_action :set_agent, only: [
         :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics,
-        :conversations, :create_conversation
+        :tool_roster, :conversations, :create_conversation
       ]
       before_action :require_execution_enabled!, only: [ :execute, :test ]
       before_action :require_owner!, only: [ :execute, :test ]
@@ -170,6 +173,7 @@ module ActionAgent
           execution_prompt,
           action: params[:action_name],
           attachments: uploaded_attachments,
+          actor: agent_actor,
           **execution_params
         )
         record_execution_usage
@@ -183,6 +187,7 @@ module ActionAgent
           execution_prompt,
           action: params[:action_name],
           attachments: uploaded_attachments,
+          actor: agent_actor,
           **execution_params
         )
         record_execution_usage
@@ -254,6 +259,19 @@ module ActionAgent
             config: @agent.model_config
           }
         }
+      end
+
+      # GET /api/agents/:id/tool_roster
+      #
+      # What the Tools tab edits: the MCP services this agent can be given
+      # and the tools it can be offered, each with the calls, errors and
+      # latency recorded for it in the window.
+      def tool_roster
+        render json: AgentToolRoster.new(
+          agent: @agent,
+          traces: owned_traces,
+          hours: params.fetch(:hours, ToolDiscovery::DEFAULT_WINDOW_HOURS).to_i
+        ).as_json
       end
 
       # GET /api/agents/:id/analytics
@@ -478,17 +496,33 @@ module ActionAgent
       end
 
       def agent_params
-        params.require(:agent).permit(
+        permitted = params.require(:agent).permit(
           :name, :description, :provider, :model, :instructions,
           :preset_type, :agent_class_name, :status,
           appearance: {},
           action_prompts: [ :name, :prompt, :expose_as_tool ],
           instruction_sets: [],
           tools: [],
-          mcp_servers: [],
           model_config: {},
           response_format: {}
         )
+        permitted[:mcp_servers] = mcp_server_params if params[:agent].key?(:mcp_servers)
+        permitted
+      end
+
+      # An agent names its MCP servers either as bare strings or as hashes —
+      # the Tools tab writes { key, name, tools } so a service can be enabled
+      # with only some of what it serves. Both shapes are permitted, because
+      # every agent saved before the tab existed carries the first one and a
+      # round-trip through the editor must not rewrite it.
+      def mcp_server_params
+        Array(params[:agent][:mcp_servers]).map do |entry|
+          if entry.respond_to?(:permit)
+            entry.permit(:key, :name, :url, :command, :transport, tools: []).to_h
+          else
+            entry.to_s
+          end
+        end
       end
 
       def version_json(version, include_diff: false)
