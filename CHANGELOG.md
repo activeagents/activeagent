@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nor the execution quota applies, because nothing generates. Set
   `ActionAgent.mcp_schema_tools = false` to keep the tools reachable only
   through agents. Closes #439.
+- **A delegated run inherits its parent's caller.** `delegate_to` hands the
+  sub-agent the parent's `current_user` before its action runs, so its own
+  `before_action` callbacks and any scope its tools read through decide
+  against the same person. A parent authorized as one user no longer hands
+  its specialists an unattributed run — which a correctly written host scope
+  reads as "no access", a wrong answer wearing a right one's clothes. A
+  parent with no caller still delegates an unattributed run, never someone
+  else's.
 - **`rails generate active_agent:schema_tools Reservation`** writes a starter
   `ActiveAgent::SchemaTools` class under `app/agent_tools`. It exposes nothing
   beyond `id` until a column is moved into `filterable` or `returns`; every
