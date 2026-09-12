@@ -17,7 +17,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads as "no access", a wrong answer wearing a right one's clothes. A
   parent with no caller still delegates an unattributed run, never someone
   else's.
+- **An agent knows who it is running for, so an authorization gem has
+  something to decide against.** `ActiveAgent::Base#current_user` carries the
+  caller, assigned by whatever authenticated the call
+  (`MyAgent.as(current_user).ask(...)`) and readable from every
+  `before_action`, so Pundit, CanCanCan or Action Policy authorize an agent
+  the way they authorize a controller. A refusal inside a tool call is
+  returned to the model as `{ error: ... }` so it can say it is not allowed;
+  a refusal anywhere else is raised to the caller. `denies_with` names a
+  gem's own error as a refusal.
+- **The dashboard fills that seam.** A run records the caller that started it
+  (a Global ID, so a worker on another machine authorizes as the same
+  person), passes it to every tool as `actor:`, and runs the agent through
+  `as(actor)` — which is what a `SchemaTools` `scope` block has been waiting
+  for since 1.5.0. `ActionAgent.agent_actor_resolver` overrides who that is.
+- **Agents reached over MCP run as the key's caller** rather than
+  unattributed, and an agent that refuses answers as a JSON-RPC error
+  (`-32003`) instead of as an empty result.
+- **Schema tools can be defined at runtime.** `ActiveAgent::SchemaTools.define(Reservation,
+  filterable:, returns:, scope: | policy:)` builds the same bounded roster a
+  file under `app/agent_tools` would — same allowlists, same `call`, named
+  `ReservationTools` for logs — from a declaration held anywhere: a table, a
+  dashboard form, a test. The class is registered under its model and a
+  redefinition replaces the previous one, so a registry rebuilt on every
+  change holds one class per model; `undefine` drops it. The dashboard
+  discovers registry entries beside the files and lets a runtime definition
+  supersede a file for the same model. What is persisted, and where, stays the
+  host's decision; this is the seam a persisted declaration builds on. (#441)
+- **A fabricated answer is now a fault.** `Diagnosis` raises `ungrounded_answer`
+  when an agent that had tools called none, did not say it could not answer,
+  and still stated specifics — a count, a record id, a date — that no tool
+  supplied. Where the scenario names an expected tool, `expected_tool_not_called`
+  says the same thing in its summary and carries `ungrounded: true`, so an
+  invented answer no longer reads like an honest gap. Both reach the judge,
+  which is what turns them into a suggested tool. An agent with no tools at all
+  is not flagged: it answers from its instructions by design, and whether that
+  is acceptable is the judge's grade, not a mechanical one. (#433)
 
+### Changed
+
+- **A wrong tool no longer outscores no tool.** `tools_succeeded` is awarded
+  only for a tool the scenario expected (or any tool when it expects none):
+  a tool that ran without erroring was evidence of the task only by accident,
+  and a scenario that called the wrong tool scored higher than one that called
+  nothing. (#433)
+- **The judge reads more of a scenario's notes** — 1,500 characters rather
+  than 300 — because a suite's notes are often its rubric and the "must not"
+  clause tends to come last. (#433)
 ### Fixed
 
 - **The caller can no longer be named by the model, or by the client.**
