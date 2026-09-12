@@ -9,16 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A fabricated answer is now a fault.** `Diagnosis` raises `ungrounded_answer`
-  when an agent that had tools called none, did not say it could not answer,
-  and still stated specifics — a count, a record id, a date — that no tool
-  supplied. Where the scenario names an expected tool, `expected_tool_not_called`
-  says the same thing in its summary and carries `ungrounded: true`, so an
-  invented answer no longer reads like an honest gap. Both reach the judge,
-  which is what turns them into a suggested tool. An agent with no tools at all
-  is not flagged: it answers from its instructions by design, and whether that
-  is acceptable is the judge's grade, not a mechanical one. (#433)
-
 ### Changed
 
 - **A wrong tool no longer outscores no tool.** `tools_succeeded` is awarded
@@ -32,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A superseded runtime tool class is no longer offered twice.** Discovery
+  read every `SchemaTools` subclass out of `descendants`, where a class built
+  at runtime stays until it is collected, so rebuilding a model's tools
+  accumulated stale duplicates. Runtime-built classes are now read from the
+  registry only. (#441)
 - **A persisted model selection re-runs under the provider it ran under.**
   `Evals::ModelSpec.parse_all` re-parsed a round-tripped spec from its label,
   so `anthropic/claude-sonnet-4.5` run through OpenRouter came back as
