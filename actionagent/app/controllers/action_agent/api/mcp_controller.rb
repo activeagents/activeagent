@@ -7,7 +7,11 @@ module ActionAgent
     # themselves as Resource Agents backed by their ActiveRecord state:
     #
     # - tools/list & tools/call: each agent is a callable tool (run_<slug>)
-    #   that executes a synchronous generation run.
+    #   that executes a synchronous generation run, and each of the host's
+    #   schema tools (ActiveAgent::SchemaTools, the classes the dashboard
+    #   discovers) is callable directly — find_<records>, count_<records>,
+    #   get_<record> — as this key's caller, so a client reads the host's
+    #   records under the same scope an agent run would (#439).
     # - resources/list & resources/read: each agent is an agent://<slug>
     #   resource whose content is its live scorecard (config + stats + memory
     #   summary from the solid_agent datasets).
@@ -143,7 +147,9 @@ module ActionAgent
           protocolVersion: PROTOCOL_VERSION,
           capabilities: { tools: {}, resources: {} },
           serverInfo: { name: "activeagents", version: "1.0" },
-          instructions: "Each tool runs one of this account's agents. Each agent://<slug> resource returns the agent's live scorecard."
+          instructions: "Each run_<slug> tool runs one of this account's agents; every other tool reads the host " \
+                        "application's records directly, as the caller this key authenticates. Each agent://<slug> " \
+                        "resource returns the agent's live scorecard."
         }
       end
 
@@ -174,11 +180,32 @@ module ActionAgent
           agent_tools
         end
 
-        { tools: tools }
+        { tools: tools + schema_tools_list }
+      end
+
+      # The host's schema tools, offered as the same tool definitions an
+      # agent run receives — the parameter schema is the tool's own, so a
+      # client sees which columns it may filter on. Every generated tool of
+      # every discovered class is listed; the host chose what to declare, and
+      # ActionAgent.mcp_schema_tools switches the whole set off.
+      def schema_tools_list
+        return [] unless ActionAgent.mcp_schema_tools?
+
+        ActionAgent.schema_tool_classes.flat_map do |klass|
+          klass.tool_definitions.map do |definition|
+            {
+              name: definition[:name],
+              description: definition[:description],
+              inputSchema: definition[:parameters] || definition[:input_schema] || { type: "object", properties: {} }
+            }
+          end
+        end
       end
 
       def tools_call
         name = params.dig(:params, :name).to_s
+        return schema_tool_call(name) if ActionAgent.mcp_schema_tools? && ActionAgent.schema_tool_class_for(name)
+
         slug, action = name.delete_prefix("run_").split("__", 2)
         agent = key_agents.find_by(slug: slug)
         raise McpError.new("Unknown tool: #{name}", JSONRPC_INVALID_PARAMS) unless agent
@@ -219,6 +246,48 @@ module ActionAgent
             }
           }
         end
+      end
+
+      # Calls a schema tool directly, as this key's caller. No generation runs,
+      # so neither the execution switch nor the execution quota applies: this
+      # is a read of the host's records through the host's own scope.
+      #
+      # A boundary violation — an undeclared filter, an id the caller cannot
+      # see — comes back as a tool result with isError, the shape an agent
+      # run would hand its model, so a client can correct its call. A refusal
+      # raised by the host's scope (an authorization gem's error, or
+      # ActiveAgent::NotAuthorized) answers as a JSON-RPC error, as an
+      # agent's refusal does.
+      def schema_tool_call(name)
+        klass = ActionAgent.schema_tool_class_for(name)
+        result = call_schema_tool(klass, name)
+        response = { content: [ { type: "text", text: result.to_json } ], structuredContent: result }
+        response[:isError] = true if result.respond_to?(:key?) && (result.key?(:error) || result.key?("error"))
+        response
+      end
+
+      def call_schema_tool(klass, name)
+        klass.call(name, actor: agent_actor, **schema_tool_arguments)
+      rescue StandardError => e
+        raise McpError.new(e.message, JSONRPC_FORBIDDEN) if authorization_error?(e)
+
+        raise
+      end
+
+      # The framework's refusal (the default in Base.authorization_errors), or
+      # one of the errors a host named with `denies_with` — matched on the
+      # class, as run_refused? matches a run's.
+      def authorization_error?(error)
+        ActiveAgent::Base.authorization_errors.any? { |klass| error.is_a?(klass) }
+      end
+
+      # The call's arguments as keywords, minus any that name the caller:
+      # the actor is the key's identity, never something a client sends
+      # (AgentExecutionService::ACTOR_KEYWORDS, for the same reason).
+      def schema_tool_arguments
+        arguments = params.dig(:params, :arguments)
+        arguments = arguments.respond_to?(:to_unsafe_h) ? arguments.to_unsafe_h : arguments.to_h
+        arguments.to_h.symbolize_keys.except(*AgentExecutionService::ACTOR_KEYWORDS)
       end
 
       def resources_list
