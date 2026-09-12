@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`rails generate active_agent:schema_tools Reservation`** writes a starter
+  `ActiveAgent::SchemaTools` class under `app/agent_tools`. It exposes nothing
+  beyond `id` until a column is moved into `filterable` or `returns`; every
+  column the model has is listed, commented out, with its type, so the
+  allowlist is a review step rather than a blank page, and columns that look
+  like secrets are left off the list. Reads are scoped through
+  `<Model>Policy::Scope` when it exists (`--policy` / `--no-policy` decide
+  explicitly). This is #440's second option: the roster is still declared,
+  once, but the declaration is no longer written from scratch. (#440)
+
 ## [1.5.2] - 2026-09-11
 
 Releases `activeagent` and `actionagent` 1.5.2 from one tag.
