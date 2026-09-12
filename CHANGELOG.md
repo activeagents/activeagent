@@ -19,9 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The judge reads more of a scenario's notes** — 1,500 characters rather
   than 300 — because a suite's notes are often its rubric and the "must not"
   clause tends to come last. (#433)
-
 ### Fixed
 
+- **The caller can no longer be named by the model, or by the client.**
+  `actor:` reached `AgentToolbox.call` in the same keyword namespace as the
+  arguments a provider parsed out of a model's tool call, and
+  `params[params][actor]` in an execute request would have won over the
+  controller's own. Both are now stripped: the caller is a property of the
+  run, set once by whatever authenticated it. Scoped `SchemaTools` reads are
+  also excluded from the tool-result cache, so one caller's rows are never
+  replayed for the next.
 - **A superseded runtime tool class is no longer offered twice.** Discovery
   read every `SchemaTools` subclass out of `descendants`, where a class built
   at runtime stays until it is collected, so rebuilding a model's tools

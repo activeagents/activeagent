@@ -4,6 +4,7 @@ require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
 require "active_support/core_ext/string/inflections"
 
+require "active_agent/concerns/authorization"
 require "active_agent/concerns/callbacks"
 require "active_agent/concerns/delegation"
 require "active_agent/concerns/observers"
@@ -43,6 +44,7 @@ module ActiveAgent
     include AbstractController::Caching
 
     include Callbacks
+    # After Rescue: the refusal handler is registered with rescue_from.
     include Delegation
     include Parameterized
     include Provider
@@ -51,6 +53,11 @@ module ActiveAgent
     include Streaming
     include Tooling
     include View
+
+    # Last of the behaviour concerns: its rescue_from must sit on top of the
+    # handlers an agent registers for its own authorization gem, so a host
+    # mapping Pundit::NotAuthorizedError keeps deciding what a refusal means.
+    include Authorization
 
     include Observers
     include Previews
