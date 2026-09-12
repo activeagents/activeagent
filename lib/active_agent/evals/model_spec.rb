@@ -46,22 +46,38 @@ module ActiveAgent
       # duplicates by label.
       def self.parse_all(values, **options)
         values = values.to_s.split(",") unless values.is_a?(Array)
-        values.map { |value| coerce(value) }.reject(&:blank?).uniq.map { |value| parse(value, **options) }
+        values.filter_map { |value| from_value(value, **options) }.uniq(&:label)
       end
 
-      # The label of one requested model. A caller that round-trips a spec —
-      # the dashboard persists `specs.map(&:to_h)` and hands it back on a
-      # re-run — sends a Hash, whose `to_s` is the inspected Hash and reaches
-      # the provider as the model ID: `{"label" => "openrouter/gpt-4o-mini",
-      # ...} is not a valid model ID`.
+      # One requested model, from the text a user typed or from a spec handed
+      # back whole. The dashboard persists `specs.map(&:to_h)` and returns it on
+      # a re-run, so a value may be a Hash: one that names both `provider` and
+      # `model` is rebuilt exactly as it ran, because re-parsing its label
+      # would route a vendor-prefixed model the wrong way —
+      # `"anthropic/claude-sonnet-4.5"` run through OpenRouter came back as
+      # Anthropic's own `claude-sonnet-4.5` the moment that provider was
+      # installed. A Hash naming only a label or a model is parsed from that
+      # text; anything naming nothing is dropped.
       #
-      # @return [String, nil] nil when the value names no model
-      def self.coerce(value)
-        return value.to_h.stringify_keys.values_at("label", "model").compact.first.to_s.strip if value.respond_to?(:to_h) && !value.is_a?(String)
+      # @return [ModelSpec, nil]
+      def self.from_value(value, **options)
+        text =
+          if value.respond_to?(:to_h) && !value.is_a?(String)
+            hash = value.to_h.stringify_keys
+            if hash["provider"].present? && hash["model"].present?
+              return new(label: hash["label"].presence || hash["model"], provider: hash["provider"], model: hash["model"])
+            end
 
-        value.to_s.strip
+            hash.values_at("label", "model").compact.first.to_s.strip
+          else
+            value.to_s.strip
+          end
+
+        return nil if text.blank?
+
+        parse(text, **options)
       end
-      private_class_method :coerce
+      private_class_method :from_value
 
       # The provider a bare model name runs under. A rule whose provider the
       # caller does not offer is skipped, so an app without Ollama does not
