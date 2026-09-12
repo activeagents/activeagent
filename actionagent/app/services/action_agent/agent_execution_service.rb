@@ -45,11 +45,26 @@ module ActionAgent
       new(agent_record, run).call
     end
 
+    # Tool-call keywords that name the caller. The model's arguments and the
+    # run's actor share one keyword namespace by the time they reach a tool,
+    # so anything a model emits under these names is dropped before the call:
+    # an actor a model can name is not an authorization boundary, and the
+    # documents a model reads are attacker-reachable.
+    ACTOR_KEYWORDS = %i[actor current_user].freeze
+
     def initialize(agent_record, run)
       @agent_record = agent_record
       @run = run
       @tool_invocations = []
       @event_sequence = 0
+    end
+
+    # The caller this run executes on behalf of, or nil when it runs
+    # unattributed. Passed to every tool as +actor:+ — a host's SchemaTools
+    # scope block, Pundit policy or agent callback decides what that means.
+    # @return [Object, nil]
+    def actor
+      @run.actor
     end
 
     # Emits a progress event on the run (streamed to the UI by pollers).
@@ -266,6 +281,12 @@ module ActionAgent
     # execution) and recorded in @tool_invocations so tool names, arguments
     # and durations reach Traces and the persisted conversation.
     def execute_tool(name, **kwargs)
+      forged = kwargs.slice(*ACTOR_KEYWORDS)
+      if forged.any?
+        Rails.logger.warn("[AgentExecutionService] dropped caller-named arguments from #{name}: #{forged.keys.join(', ')}")
+        kwargs = kwargs.except(*ACTOR_KEYWORDS)
+      end
+
       # Record the absolute URL browse_page will actually fetch, not the bare
       # path the model passed — spans/events/persisted args stay unambiguous.
       kwargs[:url] = AgentToolbox.resolve_browse_url(kwargs[:url]) if name.to_s == "browse_page" && kwargs[:url]
@@ -309,7 +330,9 @@ module ActionAgent
         else
           # A tool one of the agent's own MCP servers serves is called there;
           # AgentToolbox answers the rest.
-          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, **kwargs)
+          # `actor:` comes from the run, never from kwargs (see
+          # ACTOR_KEYWORDS): it is who the run is for, not what it is about.
+          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
         end
       rescue StandardError => e
         Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
@@ -529,7 +552,10 @@ module ActionAgent
         private :persist_tool_messages_to_context
       end
 
-      agent_class.public_send(action).generate_now
+      # `as` carries the caller onto the agent instance, so an agent's own
+      # before_action callbacks (ActiveAgent::Authorization) authorize
+      # against the same person the tools are scoped to.
+      agent_class.as(actor).public_send(action).generate_now
     end
 
     # Function-calling schemas for the agent's enabled tools that have

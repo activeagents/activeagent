@@ -9,19 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Schema tools can be defined at runtime.** `ActiveAgent::SchemaTools.define(Reservation,
-  filterable:, returns:, scope: | policy:)` builds the same bounded roster a
-  file under `app/agent_tools` would — same allowlists, same `call`, named
-  `ReservationTools` for logs — from a declaration held anywhere: a table, a
-  dashboard form, a test. The class is registered under its model and a
-  redefinition replaces the previous one, so a registry rebuilt on every
-  change holds one class per model; `undefine` drops it. The dashboard
-  discovers registry entries beside the files and lets a runtime definition
-  supersede a file for the same model. What is persisted, and where, stays the
-  host's decision; this is the seam a persisted declaration builds on. (#441)
-
 ### Fixed
 
+- **The caller can no longer be named by the model, or by the client.**
+  `actor:` reached `AgentToolbox.call` in the same keyword namespace as the
+  arguments a provider parsed out of a model's tool call, and
+  `params[params][actor]` in an execute request would have won over the
+  controller's own. Both are now stripped: the caller is a property of the
+  run, set once by whatever authenticated it. Scoped `SchemaTools` reads are
+  also excluded from the tool-result cache, so one caller's rows are never
+  replayed for the next.
 - **A superseded runtime tool class is no longer offered twice.** Discovery
   read every `SchemaTools` subclass out of `descendants`, where a class built
   at runtime stays until it is collected, so rebuilding a model's tools
