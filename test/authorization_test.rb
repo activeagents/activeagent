@@ -164,4 +164,47 @@ class AuthorizationTest < ActiveSupport::TestCase
     assert_equal "an unauthenticated caller is not allowed to call `delete_ticket`",
       agent.tools_function.call(:delete_ticket, id: 7)[:error]
   end
+
+  # A parent authorized as one caller must hand its specialists the same
+  # caller: an unattributed delegated run reads, through any host scope, as
+  # "no access", which is a wrong answer wearing a right one's clothes.
+  class SpecialistAgent < ActiveAgent::Base
+    generate_with :mock
+
+    SEEN = []
+
+    before_action { SEEN << current_user&.name }
+
+    delegation :summarize, description: "Condense text" do
+      string :text, required: true
+    end
+
+    def summarize(text:)
+      prompt(message: text)
+    end
+  end
+
+  class OrchestratorAgent < ActiveAgent::Base
+    generate_with :mock
+
+    delegate_to SpecialistAgent
+  end
+
+  test "a delegated run inherits the parent's caller" do
+    SpecialistAgent::SEEN.clear
+    orchestrator = OrchestratorAgent.new
+    orchestrator.current_user = Caller.new("alice")
+
+    orchestrator.perform_delegation(:summarize, text: "The order shipped on Monday.")
+
+    assert_equal [ "alice" ], SpecialistAgent::SEEN
+  end
+
+  test "a parent with no caller delegates an unattributed run, never someone else's" do
+    SpecialistAgent::SEEN.clear
+
+    OrchestratorAgent.new.perform_delegation(:summarize, text: "The order shipped.")
+
+    assert_equal [ nil ], SpecialistAgent::SEEN
+  end
 end
