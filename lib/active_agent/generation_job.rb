@@ -18,8 +18,14 @@ module ActiveAgent
 
     rescue_from StandardError, with: :handle_exception_with_agent_class
 
-    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil)
+    # +actor+ is the caller the generation runs on behalf of
+    # (ActiveAgent::Authorization). ActiveJob serializes it like any other
+    # argument, so a record arrives as the same record the caller passed and
+    # the agent's authorization callbacks decide against a real user rather
+    # than against nil.
+    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil, actor: nil)
       agent_class = params ? agent.constantize.with(params) : agent.constantize
+      agent_class = agent_class.as(actor) if actor
       prompt = if kwargs
         agent_class.public_send(agent_method, *args, **kwargs)
       else

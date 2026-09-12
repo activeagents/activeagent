@@ -20,6 +20,55 @@ module ActionAgent
     # --skip-active-storage has no has_many_attached to call.
     has_many_attached :attachments if defined?(ActiveStorage)
 
+    # The key the caller's identity is recorded under in +input_params+.
+    # Underscored so it cannot collide with a provider override, and
+    # stripped from anything a client sends (see Api::AgentsController).
+    ACTOR_PARAM = "_actor_gid"
+
+    # +input_params+ with the caller recorded alongside them.
+    #
+    # The actor is stored as a Global ID rather than as the record, so the
+    # worker that picks the run up — on another machine, minutes later —
+    # authorizes as the same person who asked for the run. A caller the host
+    # cannot address that way (a plain object, a service account) is simply
+    # not recorded: the run then executes unattributed, which a host scope
+    # reads as "no access", rather than executing as somebody else.
+    #
+    # @param params [Hash] the run's own parameters
+    # @param actor [Object, nil] the caller
+    # @return [Hash]
+    def self.params_with_actor(params, actor)
+      params = (params || {}).to_h.except(ACTOR_PARAM, ACTOR_PARAM.to_sym)
+      gid = actor.respond_to?(:to_global_id) ? actor.to_global_id.to_s : nil
+      gid ? params.merge(ACTOR_PARAM => gid) : params
+    rescue StandardError => e
+      Rails.logger.warn("[AgentRun] could not record the run's actor: #{e.class} - #{e.message}")
+      params
+    end
+
+    # The caller this run executes on behalf of.
+    #
+    # Set in memory for a synchronous run; rehydrated from the stored Global
+    # ID for one picked up by a worker. A Global ID that no longer resolves
+    # (the user was deleted) yields nil, so the run loses access rather than
+    # inheriting someone else's.
+    # @return [Object, nil]
+    def actor
+      return @actor if defined?(@actor)
+
+      @actor = locate_actor
+    end
+
+    attr_writer :actor
+
+    # Whether this run knows who it is for. A run with a recorded actor that
+    # no longer resolves is *not* unattributed — it is broken, and callers
+    # that care can tell the two apart.
+    # @return [Boolean]
+    def actor_recorded?
+      input_params.is_a?(Hash) && input_params[ACTOR_PARAM].present?
+    end
+
     # Whether runs can carry files in this host app: Active Storage loaded,
     # the macro applied, and its tables migrated. Never raises — a host
     # that skipped `rails active_storage:install` still runs agents, it
@@ -219,6 +268,16 @@ module ActionAgent
     end
 
     private
+
+    def locate_actor
+      return nil unless actor_recorded?
+      return nil unless defined?(GlobalID::Locator)
+
+      GlobalID::Locator.locate(input_params[ACTOR_PARAM])
+    rescue StandardError => e
+      Rails.logger.warn("[AgentRun] could not resolve the run's actor: #{e.class} - #{e.message}")
+      nil
+    end
 
     def set_trace_id
       self.trace_id ||= SecureRandom.uuid
