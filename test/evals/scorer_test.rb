@@ -55,6 +55,22 @@ class EvalsScorerTest < ActiveSupport::TestCase
     assert_equal 0.0, scores["tools_succeeded"]
   end
 
+  def test_a_wrong_tool_that_succeeded_is_not_credited_as_a_success
+    scores = scorer(criteria: []).score(
+      scenario(tools: [ "find_records" ]),
+      replay(answer: "Alice changed it.", tool_calls: [ { "name" => "fetch_url" } ])
+    )
+
+    assert_equal 0.0, scores["expected_tools"]
+    assert_nil scores["tools_succeeded"], "a tool the scenario did not ask for is not evidence of the task"
+  end
+
+  def test_any_successful_tool_counts_when_the_scenario_names_none
+    scores = scorer(criteria: []).score(scenario, replay(tool_calls: [ { "name" => "fetch_url" } ]))
+
+    assert_equal 1.0, scores["tools_succeeded"]
+  end
+
   def test_an_llm_judge_criterion_asks_the_judge_and_is_nil_without_one
     judge = fake_judge { |_instructions, prompt| prompt.include?("Criterion: Is it helpful?") ? '{"score": 0.8}' : "?" }
     criteria = [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Is it helpful?" } } ]

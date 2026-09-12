@@ -28,7 +28,7 @@ module ActiveAgent
     class Runner
       # Faults where a judge can add something the evidence alone cannot: what
       # tool to add, or how to change the instructions.
-      DEFAULT_REFINE_FAULTS = %w[missing_capability expected_tool_not_called low_quality missing_content].freeze
+      DEFAULT_REFINE_FAULTS = %w[missing_capability expected_tool_not_called ungrounded_answer low_quality missing_content].freeze
       DEFAULT_JUDGE_LIMIT = 25
 
       attr_reader :scenarios, :models, :criteria, :judge, :threshold

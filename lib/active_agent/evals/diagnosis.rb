@@ -12,6 +12,7 @@ module ActiveAgent
     #   tool_error               — a tool the agent called returned an error
     #   missing_capability       — the agent said no tool covers the task
     #   expected_tool_not_called — the scenario expects a tool the agent did not call
+    #   ungrounded_answer        — the answer states specifics no tool call supplied
     #   forbidden_content        — the answer contains a pattern the scenario forbids
     #   missing_content          — the answer lacks a pattern the scenario expects
     #   low_quality              — the answer scored below the threshold
@@ -21,7 +22,7 @@ module ActiveAgent
     # Returns nil for a passing result.
     class Diagnosis
       FAULTS = %w[
-        run_error tool_error missing_capability expected_tool_not_called
+        run_error tool_error missing_capability expected_tool_not_called ungrounded_answer
         forbidden_content missing_content low_quality judge_unavailable
       ].freeze
 
@@ -36,6 +37,19 @@ module ActiveAgent
         /\bI (?:don't|do not) have (?:the ability|a way|access|visibility|the tools?)\b/i,
         /\boutside (?:of )?(?:my|the) (?:capabilities|available tools|scope)\b/i,
         /\bcan(?:'|no)t (?:be )?(?:done|determined|answered) with (?:the|my) (?:current|available) tools\b/i
+      ].freeze
+
+      # Phrasings that state a specific fact — a record id, a date, a count of
+      # things — which an agent that called no tool can only have invented.
+      # Deliberately narrow: a number inside prose ("here are three options",
+      # "within 30 days") is not a claim about data, and a false positive here
+      # fails a scenario that may have passed on its merits.
+      SPECIFIC_CLAIMS = [
+        /#\d+\b/,
+        /\b\d{4}-\d{2}-\d{2}\b/,
+        /\b(?:you have|there are|there is|we have|I found|found|showing|a total of)\s+(?:\*\*)?\d+\b/i,
+        /\b\d+\s+(?:\*\*)?(?:open|overdue|pending|active|closed|resolved|completed|unpaid|outstanding|new|matching|
+          records?|results?|rows?|entries|items?|tickets?|orders?|tasks?|issues?|invoices?|customers?|users?|milestones?)\b/ix
       ].freeze
 
       Result = Struct.new(:fault, :summary, :recommendation, :evidence, keyword_init: true) do
@@ -76,7 +90,7 @@ module ActiveAgent
       end
 
       def call
-        run_error || tool_error || missing_capability || expected_tool_not_called ||
+        run_error || tool_error || missing_capability || expected_tool_not_called || ungrounded_answer ||
           forbidden_content || missing_content || low_quality
       end
 
@@ -178,16 +192,58 @@ module ActiveAgent
             "#{agent} answered with #{called_tools.uniq.join(', ')} instead of #{expected.join(', ')}. Sharpen " \
             "both tools' descriptions so the model can tell them apart, or say in the instructions which tool " \
             "answers this kind of task."
+          elsif asserts_specifics?
+            "#{expected.join(', ')} is available but #{agent.downcase} answered without calling any tool and " \
+            "stated specifics it could not have looked up (\"#{claim_excerpt}\"). Treat the answer as invented: " \
+            "instruct it to answer this kind of task only from a tool result, and to say so when it has none."
           else
             "#{expected.join(', ')} is available but #{agent.downcase} answered without calling any tool. Tell " \
             "it in the instructions to prefer tool-backed answers for this kind of task, and check the tool's " \
             "description says what it returns."
           end
 
-        result("expected_tool_not_called",
-               "Expected #{expected.join(' or ')} to be called; #{agent.downcase} called " \
-               "#{called_tools.uniq.presence&.join(', ') || 'nothing'}.",
-               recommendation, "expected" => expected, "called" => called_tools, "unavailable" => unavailable)
+        summary = "Expected #{expected.join(' or ')} to be called; #{agent.downcase} called " \
+                  "#{called_tools.uniq.presence&.join(', ') || 'nothing'}"
+        summary += " and answered with specifics no tool supplied" if called_tools.empty? && asserts_specifics?
+
+        result("expected_tool_not_called", "#{summary}.", recommendation,
+               "expected" => expected, "called" => called_tools, "unavailable" => unavailable,
+               "ungrounded" => (called_tools.empty? && asserts_specifics?) || nil, "claim" => (claim_excerpt if called_tools.empty?))
+      end
+
+      # The answer states specifics — a count, an id, a date — that no tool
+      # call could have supplied. Reached only when the scenario names no
+      # expected tool (expected_tool_not_called reports the same fabrication
+      # otherwise) and only for an agent that had tools to call: one with
+      # none answers from its instructions by design, and whether that is
+      # acceptable is the judge's call, not a mechanical one.
+      def ungrounded_answer
+        return nil if @available_tools.empty? || called_tools.any?
+        return nil unless asserts_specifics?
+
+        result("ungrounded_answer",
+               "#{agent} stated specifics (\"#{claim_excerpt}\") without calling any tool that could have supplied them.",
+               "Nothing in the answer came from a tool, so the figures in it are invented. Tell #{agent.downcase} in its " \
+               "instructions to answer this kind of task only from a tool result and to say when it has none; if none of " \
+               "#{@available_tools.join(', ')} returns this data, add a tool that does.",
+               "claim" => claim_excerpt, "tools_available" => @available_tools)
+      end
+
+      def asserts_specifics?
+        specific_claim.present?
+      end
+
+      def specific_claim
+        return @specific_claim if defined?(@specific_claim)
+
+        @specific_claim = SPECIFIC_CLAIMS.lazy.filter_map { |pattern| answer.match(pattern) }.first
+      end
+
+      def claim_excerpt
+        match = specific_claim
+        return nil unless match
+
+        answer[[ match.begin(0) - 40, 0 ].max, 120].to_s.strip
       end
 
       def forbidden_content
