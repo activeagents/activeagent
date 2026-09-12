@@ -26,3 +26,12 @@ export function dashboardRelativePath(pathname = window.location.pathname) {
   }
   return pathname;
 }
+
+// In-app navigation to a dashboard route. Accepts a mount-relative path
+// ("/tools") or one that already carries the mount.
+export function navigateTo(path) {
+  if (!path) return;
+  const relative = dashboardRelativePath(path);
+  pushDashboardPath(relative);
+  window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path: dashboardPath(relative) } }));
+}

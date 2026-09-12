@@ -38,7 +38,10 @@ module ActionAgent
             status: :failed,
             completed_at: Time.current,
             error_message: e.message,
-            error_backtrace: e.backtrace&.first(10)&.join("\n")
+            error_backtrace: e.backtrace&.first(10)&.join("\n"),
+            # Same as the synchronous path: the class is what distinguishes
+            # a refusal from a crash.
+            output_metadata: run.output_metadata.to_h.merge("error_class" => e.class.name)
           )
           run.add_log("Execution failed: #{e.message}", level: :error)
         end

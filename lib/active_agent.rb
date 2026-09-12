@@ -92,6 +92,9 @@ module ActiveAgent
   #
   # These components are loaded on-demand when first referenced.
   autoload :Base
+  # The refusal an agent raises, and the default in Base.authorization_errors.
+  # Reachable before any agent class has loaded, so the dashboard can name it.
+  autoload :NotAuthorized, "active_agent/concerns/authorization"
   autoload :Callbacks, "active_agent/concerns/callbacks"
   autoload :Delegation, "active_agent/concerns/delegation"
   autoload :Streaming, "active_agent/concerns/streaming"

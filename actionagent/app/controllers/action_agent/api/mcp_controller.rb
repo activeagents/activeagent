@@ -28,6 +28,10 @@ module ActionAgent
       JSONRPC_METHOD_NOT_FOUND = -32601
       JSONRPC_INVALID_PARAMS = -32602
       JSONRPC_SERVER_ERROR = -32000
+      # No JSON-RPC code means "forbidden", and the MCP spec leaves -32000..
+      # -32099 to the server. A refusal gets its own so a client can tell it
+      # from a run that merely failed.
+      JSONRPC_FORBIDDEN = -32003
 
       # POST /mcp
       def create
@@ -102,6 +106,38 @@ module ActionAgent
         ActionAgent.agents_for(@owner).where.not(status: :archived).order(:slug)
       end
 
+      # The caller an MCP-invoked run executes on behalf of.
+      #
+      # The key's owner is the identity that authenticated this request, so
+      # it is the default; a host issuing keys per end user overrides it
+      # with ActionAgent.agent_actor_resolver, which is handed this
+      # controller and can read the request however it likes.
+      #
+      # The agent's own callbacks decide what the actor may do — that is the
+      # point of carrying one. This only answers *who*.
+      def agent_actor
+        return @agent_actor if defined?(@agent_actor)
+
+        @agent_actor =
+          if (resolver = ActionAgent.agent_actor_resolver)
+            resolver.arity.zero? ? resolver.call : resolver.call(self)
+          else
+            @api_key.respond_to?(:user) && @api_key.user ? @api_key.user : @owner
+          end
+      end
+
+      # Whether the run ended because the agent refused this caller, rather
+      # than because something broke. Matched on the error class the
+      # framework raises (and the ones a host names with `denies_with`), not
+      # on the message.
+      def run_refused?(run)
+        klass = run.output_metadata.is_a?(Hash) ? run.output_metadata["error_class"] : nil
+        return false if klass.blank?
+
+        klass.to_s == "ActiveAgent::NotAuthorized" ||
+          ActiveAgent::Base.authorization_errors.any? { |error| error.name == klass.to_s }
+      end
+
       def initialize_result
         {
           protocolVersion: PROTOCOL_VERSION,
@@ -160,10 +196,16 @@ module ActionAgent
           raise McpError.new(denial.is_a?(Hash) ? denial[:message] || denial["message"] : denial)
         end
 
-        run = agent.test_execute(message, action: action)
+        run = agent.test_execute(message, action: action, actor: agent_actor)
         ActionAgent.record_usage(@owner, :execution)
 
         if run.failed?
+          # A refusal is not a result. An agent that declined on this
+          # caller's behalf answers as a JSON-RPC error, so the client sees
+          # "not allowed" rather than an empty, confident answer — the
+          # failure mode a nil-actor scope produces on its own.
+          raise McpError.new(run.error_message.to_s, JSONRPC_FORBIDDEN) if run_refused?(run)
+
           { content: [ { type: "text", text: "Agent run failed: #{run.error_message}" } ], isError: true }
         else
           {

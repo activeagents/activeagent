@@ -38,6 +38,9 @@ ActionAgent::Engine.routes.draw do
         post :duplicate
         get :export
         get :analytics
+        # The Tools tab's roster: offerable tools and MCP services, each
+        # with what the window recorded for it.
+        get :tool_roster
         # The runner's conversation picker: this agent's persisted contexts,
         # and a fresh one to pin a first message to.
         get :conversations
