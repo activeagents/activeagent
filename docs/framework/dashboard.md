@@ -435,12 +435,17 @@ one fault, assigned from the evidence in this order:
 | `tool_error` | A tool the agent called returned an error | Fix the tool, or its parameter descriptions |
 | `missing_capability` | The agent said no tool covers the task | Add the tool the recommendation names |
 | `expected_tool_not_called` | The scenario expects a tool the agent did not call | Enable the tool, or sharpen its description / the instructions |
+| `ungrounded_answer` | The agent had tools, called none, and still stated specifics — a count, an id, a date — nothing supplied | Instruct it to answer only from tool results; add the tool that returns this data |
 | `forbidden_content` / `missing_content` | A content expectation failed | Instructions, or the tool's output |
 | `low_quality` | Criteria scored the answer below 0.7 | Read the answer against the weakest criterion |
 
-`missing_capability` and `expected_tool_not_called` are the faults that
-turn a pasted list of new tasks into a backlog: they say which tasks the
-current toolset cannot reach and what to build.
+`missing_capability`, `expected_tool_not_called` and `ungrounded_answer` are
+the faults that turn a pasted list of new tasks into a backlog: they say which
+tasks the current toolset cannot reach and what to build. The last two also
+tell an honest gap from an invented answer: `expected_tool_not_called` carries
+`ungrounded: true` in its evidence when the answer stated specifics no tool
+supplied, and `ungrounded_answer` is the same finding for a scenario that
+names no expected tool.
 
 The parsing, scoring, diagnosis and report are the framework's
 [`ActiveAgent::Evals`](/framework/evaluations); the engine adds the
