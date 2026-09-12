@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-09-11
+
+Releases `activeagent` 1.5.1. `actionagent` is unchanged and stays at 1.5.0.
+
+### Fixed
+
+- **A spec hash names its model rather than reaching the provider as an
+  inspected Hash.** `Evals::ModelSpec.parse_all` called `to_s` on each value,
+  so a Hash travelled as the model ID and the provider answered
+  `{"label" => "openrouter/openai/gpt-4o-mini", ...} is not a valid model ID`
+  — every scenario of the run failing before it reached the model. A caller
+  passing a plain string was unaffected, which is why a single run worked
+  while a whole suite failed. The path is reachable by design rather than by
+  misuse: a run persists its models as `specs.map(&:to_h)`, so re-running that
+  selection hands the hashes back. `parse_all` now reads a hash's `label`,
+  then its `model`, and leaves strings alone.
+
 ## [1.5.0] - 2026-09-10
 
 Releases `activeagent` 1.5.0 and `actionagent` 1.5.0 from one tag.

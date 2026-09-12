@@ -203,11 +203,23 @@ module ActionAgent
       # Tool definitions for the subset of an agent's enabled tools that have
       # server-side implementations.
       def definitions_for(tool_names)
-        Array(tool_names).flat_map { |name| DEFINITIONS[name.to_s] || [] }
+        Array(tool_names).flat_map do |name|
+          DEFINITIONS[name.to_s] || schema_tool_definitions(name.to_s)
+        end
       end
 
       def function?(name)
-        FUNCTIONS.key?(name.to_s)
+        FUNCTIONS.key?(name.to_s) || ActionAgent.schema_tool_class_for(name.to_s).present?
+      end
+
+      # Definitions for a host-declared schema tool, or [] when the name is
+      # not one. Each generated tool is its own entry so an agent enables them
+      # individually rather than as a group.
+      def schema_tool_definitions(name)
+        klass = ActionAgent.schema_tool_class_for(name)
+        return [] unless klass
+
+        Array(klass.tool_definitions).select { |definition| definition[:name].to_s == name }
       end
 
       # Executes a tool call. Returns a result hash; errors are returned as
@@ -218,6 +230,16 @@ module ActionAgent
       # instead of re-running the side effect.
       def call(name, **kwargs)
         return { error: "Unknown tool: #{name}" } unless function?(name)
+
+        schema_tool = ActionAgent.schema_tool_class_for(name.to_s)
+        if schema_tool
+          # `actor:` is the host's authorization seam — the scope block runs
+          # inside the call. It is passed through untouched, including nil,
+          # so a host scope decides what an unattributed run may read rather
+          # than the engine widening it.
+          return schema_tool.call(name.to_s, actor: kwargs.delete(:actor), **kwargs)
+        end
+
         return public_send(FUNCTIONS.fetch(name.to_s), **kwargs) if UNCACHED_FUNCTIONS.include?(name.to_s)
 
         cached_fetch(name, kwargs) do

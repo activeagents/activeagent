@@ -57,7 +57,15 @@ module ActionAgent
     # contributes nothing rather than failing the run — the tools it serves
     # then simply are not offered, and a scenario expecting them fails with a
     # fault naming them.
+    #
+    # A server that fails discovery also records why, in +discovery_errors+.
+    # Contributing nothing keeps the run alive, but silence is indistinguishable
+    # from a server that legitimately serves no tools — and an agent offered no
+    # tools answers from the model alone, which reads as a confident, fabricated
+    # result rather than a transport failure (#425).
     def tool_definitions
+      @discovery_errors = {}
+
       resolver.declared_server_keys.flat_map do |key|
         entry = MCPCatalog.find(key)
         next [] unless entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
@@ -66,9 +74,33 @@ module ActionAgent
           client_for(entry).list_tools
         rescue MCPClient::Error => e
           Rails.logger.warn("[MCPToolDispatcher] #{key} tools/list failed: #{e.message}")
+          @discovery_errors[key] =
+            "Cannot load tools from MCP server '#{key}' (#{entry[:url]}): #{e.message}. " \
+            "Check its URL, transport and credentials."
           []
         end
       end
+    end
+
+    # Why each declared server contributed no tools, keyed by server. Empty
+    # until +tool_definitions+ has run, and empty after a run where every
+    # declared server answered.
+    #
+    # @return [Hash{String => String}]
+    def discovery_errors
+      @discovery_errors ||= {}
+    end
+
+    # Whether every server the agent declares failed discovery. The tool-less
+    # execution that follows cannot produce a meaningful result, so a caller
+    # can fail loudly instead of scoring an answer the model invented.
+    def all_servers_failed?
+      keys = resolver.declared_server_keys.select do |key|
+        entry = MCPCatalog.find(key)
+        entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
+      end
+
+      keys.any? && keys.all? { |key| discovery_errors.key?(key) }
     end
 
     private

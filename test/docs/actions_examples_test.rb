@@ -92,7 +92,7 @@ class ActionsExamplesTest < ActiveSupport::TestCase
     end
   end
 
-  class McpsExample < ActiveSupport::TestCase
+  class MCPsExample < ActiveSupport::TestCase
     # region mcps_research_agent
     class ResearchAgent < ApplicationAgent
       generate_with :anthropic, model: "claude-haiku-4-5"

@@ -66,7 +66,7 @@ module ActionAgent
             providers: Agent::PROVIDERS,
             preset_types: Agent::PRESET_TYPES,
             instruction_sets: Agent::INSTRUCTION_SETS,
-            available_tools: Agent::AVAILABLE_TOOLS
+            available_tools: Agent.available_tools
           }
         }
       end
