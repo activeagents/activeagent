@@ -145,6 +145,26 @@ module ActionAgent
     # @return [Proc, nil]
     attr_accessor :current_user_resolver
 
+    # Resolves the caller an agent run executes on behalf of — what reaches
+    # +ActiveAgent::Base#current_user+, a SchemaTools +scope+ block, and any
+    # authorization gem an agent calls from its callbacks.
+    #
+    # Called with the controller, so the same seam covers a browser session
+    # and an MCP request. Whatever it returns is passed through untouched:
+    # the engine never interprets an actor, and never widens one.
+    #
+    #   config.agent_actor_resolver = ->(controller) { controller.current_user }
+    #
+    # Unset means the dashboard's signed-in user, and, for the MCP endpoint,
+    # the API key's owner — the identity that authenticated the call. A host
+    # whose keys are issued per end user overrides this to return that user.
+    #
+    # Returning nil runs the agent unattributed, which a correctly written
+    # host scope reads as "no access". That is the safe direction, and it is
+    # why this is never defaulted to something more privileged.
+    # @return [Proc, nil]
+    attr_accessor :agent_actor_resolver
+
     # Resolves the current tenant from the controller. See
     # current_user_resolver.
     # @return [Proc, nil]
@@ -519,6 +539,7 @@ module ActionAgent
       @sign_out_path = nil
       @sign_in_path = nil
       @mcp_catalog = []
+      @agent_actor_resolver = nil
       @schema_tools = nil
       @schema_tools_path = "app/agent_tools"
     end
