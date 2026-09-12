@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A persisted model selection re-runs under the provider it ran under.**
+  `Evals::ModelSpec.parse_all` re-parsed a round-tripped spec from its label,
+  so `anthropic/claude-sonnet-4.5` run through OpenRouter came back as
+  Anthropic's own `claude-sonnet-4.5` as soon as that provider's gem was
+  installed — and the re-run failed for want of an Anthropic credential. A
+  hash naming both `provider` and `model` is now rebuilt as it was; a bare
+  label is still parsed. The dashboard's "re-run" of a saved selection is
+  the path this fixes.
+
 ## [1.5.2] - 2026-09-11
 
 Releases `activeagent` and `actionagent` 1.5.2 from one tag.
