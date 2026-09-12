@@ -45,6 +45,66 @@ class SchemaToolsRegistrationTest < ActiveSupport::TestCase
     assert_not_includes ActionAgent.schema_tool_classes, anonymous
   end
 
+  test "a runtime definition is discovered once, and a redefinition supersedes it" do
+    ActionAgent.schema_tools = nil
+    defined = ActiveAgent::SchemaTools.define(Post, filterable: %i[published], returns: %i[id title])
+
+    assert_includes ActionAgent.schema_tool_classes, defined
+    assert_equal 1, ActionAgent.schema_tool_classes.count { |klass| klass.model.name == "Post" }
+
+    again = ActiveAgent::SchemaTools.define(Post, filterable: %i[published], returns: %i[id])
+
+    assert_includes ActionAgent.schema_tool_classes, again
+    assert_not_includes ActionAgent.schema_tool_classes, defined, "a superseded class must not be offered beside its replacement"
+    assert_equal 1, ActionAgent.schema_tool_classes.count { |klass| klass.model.name == "Post" }
+    assert_equal again.tool_names, ActionAgent::Agent.new(name: "PostAgent").tap(&:valid?).tools
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+  end
+
+  test "a runtime definition supersedes a file-defined class for the same model" do
+    ActionAgent.schema_tools = nil
+    previous_path = ActionAgent.schema_tools_path
+    # File discovery scans descendants only when the directory exists; the
+    # dummy app has none, so point discovery at an empty one for this test.
+    ActionAgent.schema_tools_path = Dir.mktmpdir
+    file_defined = Class.new(ActiveAgent::SchemaTools) { model Post; returns :id }
+    file_defined.define_singleton_method(:name) { "FileBackedPostTools" }
+    assert_includes ActionAgent.schema_tool_classes, file_defined
+
+    runtime = ActiveAgent::SchemaTools.define(Post, returns: %i[id title])
+
+    assert_includes ActionAgent.schema_tool_classes, runtime
+    assert_not_includes ActionAgent.schema_tool_classes, file_defined
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+    ActionAgent.schema_tools_path = previous_path
+  end
+
+  test "runtime definitions are offered even when file discovery is switched off" do
+    ActionAgent.schema_tools = nil
+    previous_path = ActionAgent.schema_tools_path
+    ActionAgent.schema_tools_path = nil
+    runtime = ActiveAgent::SchemaTools.define(Post, returns: %i[id])
+
+    assert_equal [ runtime ], ActionAgent.schema_tool_classes
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+    ActionAgent.schema_tools_path = previous_path
+  end
+
+  test "an explicit declaration excludes the registry unless it names it" do
+    runtime = ActiveAgent::SchemaTools.define(Post, returns: %i[id])
+
+    ActionAgent.schema_tools = [ FakeTools ]
+    assert_equal [ FakeTools ], ActionAgent.schema_tool_classes
+
+    ActionAgent.schema_tools = [ FakeTools, runtime ]
+    assert_equal [ FakeTools, runtime ], ActionAgent.schema_tool_classes
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+  end
+
   test "discovery is disabled by a blank path" do
     ActionAgent.schema_tools = nil
     previous_path = ActionAgent.schema_tools_path
