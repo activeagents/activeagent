@@ -1,0 +1,48 @@
+<% module_namespacing do -%>
+# Bounded, read-only agent tools over <%= class_name %>:
+# find_<%= collection_name %>, count_<%= collection_name %>, get_<%= resource_name %>.
+#
+# Nothing is exposed until you say so. Move a column from the commented lists
+# into `filterable` (an agent may filter on it) or `returns` (an agent may
+# read it back). Each one is a judgement about exposure, not a fact about the
+# table: leave out anything a model should never see.
+class <%= class_name %>Tools < ActiveAgent::SchemaTools
+  model <%= class_name %>
+
+  filterable :id
+<% if suggested_columns.any? -%>
+  # filterable <%= suggested_columns.map { |name, _type| ":#{name}" }.join(", ") %>
+<% else -%>
+  # filterable :status, :owner_id   # columns an agent may filter on
+<% end -%>
+
+  returns :id
+<% if suggested_columns.any? -%>
+  # returns <%= suggested_columns.map { |name, _type| ":#{name}" }.join(", ") %>
+<% else -%>
+  # returns :id, :title, :status    # columns an agent may read back
+<% end -%>
+<% if suggested_columns.any? -%>
+  #
+  # Columns and their types:
+<% suggested_columns.each do |name, type| -%>
+  #   <%= name.ljust(24) %> <%= type %>
+<% end -%>
+<% end -%>
+<% if secret_columns.any? -%>
+  #
+  # Not suggested, and not to be added: <%= secret_columns.join(", ") %>.
+<% end -%>
+
+<% if policy? -%>
+  # Every read runs through <%= policy_class_name %>::Scope for the acting
+  # user, so an agent sees exactly what that user could see.
+  scope_by_policy
+<% else -%>
+  # Every read should run through a relation scoped to the acting user. Without
+  # a scope the tools read the whole table. Return <%= class_name %>.none for an
+  # actor with no access; never widen for a nil actor.
+  # scope { |actor| actor ? <%= class_name %>.where(owner: actor) : <%= class_name %>.none }
+<% end -%>
+end
+<% end -%>
