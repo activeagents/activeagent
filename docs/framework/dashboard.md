@@ -456,6 +456,37 @@ read or replace the suite; and
 `GET /api/evaluations/:id/runs/:run_id/report` for the HTML report, with
 `?theme=dark` or `?theme=light` to pin its palette.
 
+## The MCP facade
+
+The dashboard is itself an MCP server: `POST <mount>/mcp` speaks Streamable
+HTTP JSON-RPC, authenticated with a dashboard API key (Settings → API Keys)
+as a Bearer token. Connect a client with:
+
+```json
+{ "type": "http", "url": "https://example.com/activeagents/mcp",
+  "headers": { "Authorization": "Bearer aa_..." } }
+```
+
+`tools/list` offers two kinds of tool:
+
+| Tool | What a call does |
+|---|---|
+| `run_<slug>` (one per agent the key can reach) | Runs that agent with `{ message }` and returns its answer; a named action marked *expose as tool* is `run_<slug>__<action>` |
+| `find_<records>`, `count_<records>`, `get_<record>` (one set per discovered [schema tools](/actions/tools#bounded-reads-over-a-model-schema-tools) class) | Reads the host's records directly, with the tool's own parameter schema, so a client that only needs the rows does not have to ask an agent for them |
+
+Every call runs as **the key's caller** — the key's owner, or whatever
+`ActionAgent.agent_actor_resolver` returns for the request — so a schema
+tool's `scope` sees the same actor it would inside an agent run, and an
+agent's own authorization callbacks decide against the same person. A
+boundary violation (an undeclared filter, an id the caller cannot see) comes
+back as a tool result with `isError`, the shape an agent's model would get;
+a refusal raised by the host's scope or by an agent answers as a JSON-RPC
+error (`-32003`), never as an empty, confident result. Direct reads run no
+generation, so neither `execution_enabled` nor the execution quota applies to
+them. Set `ActionAgent.mcp_schema_tools = false` to keep schema tools
+reachable only through agents. `agent://<slug>` resources return each
+agent's live scorecard.
+
 ## Authentication
 
 **The dashboard has no authentication by default.** Anyone who can reach
