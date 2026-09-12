@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Schema tools can be defined at runtime.** `ActiveAgent::SchemaTools.define(Reservation,
+  filterable:, returns:, scope: | policy:)` builds the same bounded roster a
+  file under `app/agent_tools` would — same allowlists, same `call`, named
+  `ReservationTools` for logs — from a declaration held anywhere: a table, a
+  dashboard form, a test. The class is registered under its model and a
+  redefinition replaces the previous one, so a registry rebuilt on every
+  change holds one class per model; `undefine` drops it. The dashboard
+  discovers registry entries beside the files and lets a runtime definition
+  supersede a file for the same model. What is persisted, and where, stays the
+  host's decision; this is the seam a persisted declaration builds on. (#441)
+
+### Fixed
+
+- **A superseded runtime tool class is no longer offered twice.** Discovery
+  read every `SchemaTools` subclass out of `descendants`, where a class built
+  at runtime stays until it is collected, so rebuilding a model's tools
+  accumulated stale duplicates. Runtime-built classes are now read from the
+  registry only. (#441)
+
 ## [1.5.2] - 2026-09-11
 
 Releases `activeagent` and `actionagent` 1.5.2 from one tag.

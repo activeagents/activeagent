@@ -156,6 +156,24 @@ class TriageAgent < ApplicationAgent
 end
 ```
 
+## Defining Schema Tools at Runtime
+
+A schema tools class does not have to be a file. `ActiveAgent::SchemaTools.define` builds the same bounded roster from a declaration held anywhere — a table your dashboard edits, a configuration object, a test:
+
+```ruby
+tools = ActiveAgent::SchemaTools.define(Reservation,
+  filterable: %i[status guest_id],
+  returns: %i[id status guest_id arrives_on],
+  policy: true)                     # ReservationPolicy::Scope, as scope_by_policy would
+
+tools.name        # => "ReservationTools"
+tools.tool_names  # => ["find_reservations", "count_reservations", "get_reservation"]
+```
+
+The class is registered under its model, and defining the same model again **replaces** the earlier class rather than adding one, so a registry that is rebuilt on every change holds one class per model. `undefine(Reservation)` drops it. The [dashboard engine](/framework/dashboard) discovers registry entries alongside the files under `app/agent_tools`, and a runtime definition supersedes a file for the same model.
+
+The allowlist is the same judgement wherever the declaration lives: a definition that can be edited without a deploy deserves the same review a file would get, and nothing secret-shaped belongs in it.
+
 ## Related Documentation
 
 - [Delegation](/actions/delegation) - Expose another agent to your model as a tool
