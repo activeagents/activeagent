@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The MCP facade serves the host's schema tools directly.** `tools/list`
+  at `POST <mount>/mcp` now offers every tool the dashboard's discovered
+  `ActiveAgent::SchemaTools` classes generate — `find_<records>`,
+  `count_<records>`, `get_<record>` — beside the `run_<slug>` agents, each
+  with its own parameter schema, and `tools/call` runs one as the key's
+  caller through the host's own scope, exactly as it would inside an agent
+  run. A client that only needs the rows no longer has to ask an agent for
+  them. A boundary violation is a tool result with `isError`, a refusal from
+  the host's scope is a JSON-RPC `-32003`, and neither the execution switch
+  nor the execution quota applies, because nothing generates. Set
+  `ActionAgent.mcp_schema_tools = false` to keep the tools reachable only
+  through agents. Closes #439.
+
 ### Fixed
 
 - **The caller can no longer be named by the model, or by the client.**
