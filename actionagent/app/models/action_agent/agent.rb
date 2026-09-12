@@ -273,9 +273,12 @@ module ActionAgent
     # before the job is enqueued, so a worker on another machine finds them
     # attached. +params+ (provider/model overrides, the context_id of a
     # conversation to continue) are kept on the run as input_params.
-    def execute(input_prompt, action: nil, attachments: [], **params)
+    def execute(input_prompt, action: nil, attachments: [], actor: nil, **params)
       ensure_executable!
-      run = create_run(input_prompt, action: action, attachments: attachments, params: params, status: :pending)
+      run = create_run(
+        input_prompt, action: action, attachments: attachments, params: params,
+        actor: actor, status: :pending
+      )
 
       # Queue the execution job
       AgentExecutionJob.perform_later(run.id)
@@ -284,12 +287,13 @@ module ActionAgent
     end
 
     # Quick test execution (synchronous)
-    def test_execute(input_prompt, action: nil, attachments: [], **params)
+    def test_execute(input_prompt, action: nil, attachments: [], actor: nil, **params)
       ensure_executable!
       run = create_run(
         input_prompt, action: action, attachments: attachments, params: params,
-        status: :running, started_at: Time.current
+        actor: actor, status: :running, started_at: Time.current
       )
+      run.actor = actor
 
       begin
         # Build and execute the agent
@@ -310,7 +314,11 @@ module ActionAgent
           status: :failed,
           completed_at: Time.current,
           error_message: e.message,
-          error_backtrace: e.backtrace&.first(10)&.join("\n")
+          error_backtrace: e.backtrace&.first(10)&.join("\n"),
+          # The class, not only the message: an agent that refused this
+          # caller and an agent that broke both fail the run, and only the
+          # class tells them apart without reading prose.
+          output_metadata: run.output_metadata.to_h.merge("error_class" => e.class.name)
         )
       end
 
@@ -336,14 +344,16 @@ module ActionAgent
 
     # Refuses files before creating anything: a run that exists but lost
     # its attachments would execute against the wrong prompt.
-    def create_run(input_prompt, action:, attachments:, params:, **attributes)
+    def create_run(input_prompt, action:, attachments:, params:, actor: nil, **attributes)
       files = Array.wrap(attachments).compact
       raise AgentRun::AttachmentsUnavailable if files.any? && !AgentRun.attachments_available?
 
       run = agent_runs.create!(
         input_prompt: input_prompt,
         action_name: normalized_action(action),
-        input_params: params,
+        # The caller is recorded beside the run's own parameters rather than
+        # among them: a client may send provider overrides, never an actor.
+        input_params: AgentRun.params_with_actor(params, actor),
         trace_id: SecureRandom.uuid,
         **attributes
       )

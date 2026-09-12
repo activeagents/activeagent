@@ -16,7 +16,9 @@ module ActiveAgent
     # @return [Proc] callback proc that accepts (action_name, *args, **kwargs)
     def tools_function
       proc do |action_name, *args, **kwargs|
-        process(action_name, *args, **kwargs)
+        # Marked as a tool call so a refusal is reported to the model as a
+        # result rather than raised through the run (see Authorization).
+        with_tool_call { process(action_name, *args, **kwargs) }
       end
     end
   end

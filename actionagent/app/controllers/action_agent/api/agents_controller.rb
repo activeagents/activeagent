@@ -19,8 +19,11 @@ module ActionAgent
       # Conversations returned to the runner's picker when no limit is asked for.
       CONVERSATIONS_LIMIT = 50
       # Keywords Agent#execute takes in its own right, which per-run overrides
-      # must never supply (see #execution_params).
-      RESERVED_EXECUTION_KEYS = [ :attachments, :action ].freeze
+      # must never supply (see #execution_params). `actor` is here for the
+      # same reason as the rest and one more: a keyword splat wins over the
+      # arguments before it, so a client sending params[params][actor] would
+      # otherwise name the caller its own run is authorized as.
+      RESERVED_EXECUTION_KEYS = [ :attachments, :action, :actor, :current_user ].freeze
 
       before_action :set_agent, only: [
         :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics,
@@ -170,6 +173,7 @@ module ActionAgent
           execution_prompt,
           action: params[:action_name],
           attachments: uploaded_attachments,
+          actor: agent_actor,
           **execution_params
         )
         record_execution_usage
@@ -183,6 +187,7 @@ module ActionAgent
           execution_prompt,
           action: params[:action_name],
           attachments: uploaded_attachments,
+          actor: agent_actor,
           **execution_params
         )
         record_execution_usage

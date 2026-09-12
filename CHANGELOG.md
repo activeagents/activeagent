@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **An agent knows who it is running for, so an authorization gem has
+  something to decide against.** `ActiveAgent::Base#current_user` carries the
+  caller, assigned by whatever authenticated the call
+  (`MyAgent.as(current_user).ask(...)`) and readable from every
+  `before_action`, so Pundit, CanCanCan or Action Policy authorize an agent
+  the way they authorize a controller. A refusal inside a tool call is
+  returned to the model as `{ error: ... }` so it can say it is not allowed;
+  a refusal anywhere else is raised to the caller. `denies_with` names a
+  gem's own error as a refusal.
+- **The dashboard fills that seam.** A run records the caller that started it
+  (a Global ID, so a worker on another machine authorizes as the same
+  person), passes it to every tool as `actor:`, and runs the agent through
+  `as(actor)` — which is what a `SchemaTools` `scope` block has been waiting
+  for since 1.5.0. `ActionAgent.agent_actor_resolver` overrides who that is.
+- **Agents reached over MCP run as the key's caller** rather than
+  unattributed, and an agent that refuses answers as a JSON-RPC error
+  (`-32003`) instead of as an empty result.
+
+### Fixed
+
+- **The caller can no longer be named by the model, or by the client.**
+  `actor:` reached `AgentToolbox.call` in the same keyword namespace as the
+  arguments a provider parsed out of a model's tool call, and
+  `params[params][actor]` in an execute request would have won over the
+  controller's own. Both are now stripped: the caller is a property of the
+  run, set once by whatever authenticated it. Scoped `SchemaTools` reads are
+  also excluded from the tool-result cache, so one caller's rows are never
+  replayed for the next.
+
 ## [1.5.1] - 2026-09-11
 
 Releases `activeagent` 1.5.1. `actionagent` is unchanged and stays at 1.5.0.
