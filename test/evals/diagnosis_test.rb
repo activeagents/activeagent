@@ -15,6 +15,75 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
     )
   end
 
+  def test_an_invented_answer_with_no_expected_tool_is_ungrounded
+    result = diagnose(
+      scenario: scenario("k2", "what tickets are on my plate?"),
+      replay: replay(answer: "You have 3 open tickets: #412 Login bug (due Friday) and #388 Export timeout.", tool_calls: []),
+      score: 1.0, available_tools: %w[list_tickets]
+    )
+
+    assert_equal "ungrounded_answer", result.fault
+    assert_match(/3 open tickets|#412/, result.evidence["claim"])
+    assert_match(/invented/, result.recommendation)
+    assert_equal %w[list_tickets], result.evidence["tools_available"]
+  end
+
+  def test_a_generic_answer_without_specifics_is_not_ungrounded
+    result = diagnose(
+      scenario: scenario("k2", "what tickets are on my plate?"),
+      replay: replay(answer: "I can look that up for you. Which of your three projects do you mean?", tool_calls: []),
+      score: 1.0, available_tools: %w[list_tickets]
+    )
+
+    assert_nil result
+  end
+
+  def test_specifics_backed_by_a_tool_call_are_grounded
+    result = diagnose(
+      scenario: scenario("k2", "what tickets are on my plate?"),
+      replay: replay(answer: "You have 3 open tickets: #412 and #388.", tool_calls: [ { "name" => "list_tickets" } ]),
+      score: 1.0, available_tools: %w[list_tickets]
+    )
+
+    assert_nil result
+  end
+
+  def test_an_agent_with_no_tools_is_not_called_ungrounded
+    result = diagnose(
+      scenario: scenario("k2", "what tickets are on my plate?"),
+      replay: replay(answer: "You have 3 open tickets: #412 and #388.", tool_calls: []),
+      score: 1.0, available_tools: []
+    )
+
+    assert_nil result
+  end
+
+  def test_a_fabricated_answer_where_a_tool_was_expected_names_the_fabrication
+    result = diagnose(
+      scenario: scenario(tools: [ "find_records" ]),
+      replay: replay(answer: "Alice changed it on 2026-09-01, in ticket #12.", tool_calls: []),
+      score: 0.7
+    )
+
+    assert_equal "expected_tool_not_called", result.fault
+    assert_equal true, result.evidence["ungrounded"]
+    assert_match(/2026-09-01|#12/, result.evidence["claim"])
+    assert_match(/invented/, result.recommendation)
+    assert_match(/specifics no tool supplied/, result.summary)
+  end
+
+  def test_an_honest_gap_where_a_tool_was_expected_is_not_marked_invented
+    result = diagnose(
+      scenario: scenario(tools: [ "find_records" ]),
+      replay: replay(answer: "I would need to check the change history to answer that.", tool_calls: []),
+      score: 0.7
+    )
+
+    assert_equal "expected_tool_not_called", result.fault
+    assert_nil result.evidence["ungrounded"]
+    assert_no_match(/invented/, result.recommendation)
+  end
+
   def test_a_passing_result_has_no_fault
     assert_nil diagnose(scenario: scenario, replay: replay)
   end

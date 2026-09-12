@@ -24,6 +24,11 @@ module ActiveAgent
       # @yieldparam instructions [String] the system prompt
       # @yieldparam prompt [String] the user prompt
       # @yieldreturn [String] the completion text
+      # How much of a scenario's notes the judge reads. Where a suite's notes
+      # are its grading rubric, a "Must not…" clause tends to come last, and a
+      # judge that never saw it recommends against it.
+      NOTES_LIMIT = 1_500
+
       def initialize(label:, &generate)
         raise ArgumentError, "Judge.new needs a block that returns the model's completion" unless generate
 
@@ -64,7 +69,7 @@ module ActiveAgent
           ---
           #{scenario.prompt}
           ---
-          #{"Context for the evaluator: #{scenario.notes.truncate(300)}\n" if scenario.notes.present?}
+          #{"Context for the evaluator: #{scenario.notes.truncate(NOTES_LIMIT)}\n" if scenario.notes.present?}
           The assistant answered:
           ---
           #{answer.to_s.truncate(4_000)}
@@ -99,7 +104,7 @@ module ActiveAgent
           Scenario (the user's message):
           #{scenario.prompt}
           #{"Expected tools: #{scenario.expected_tools.join(', ')}" if scenario.expected_tools.any?}
-          #{"Notes: #{scenario.notes.truncate(300)}" if scenario.notes.present?}
+          #{"Notes: #{scenario.notes.truncate(NOTES_LIMIT)}" if scenario.notes.present?}
 
           Tools the agent called:
           #{calls.presence || '(none)'}

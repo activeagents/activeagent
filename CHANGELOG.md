@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A fabricated answer is now a fault.** `Diagnosis` raises `ungrounded_answer`
+  when an agent that had tools called none, did not say it could not answer,
+  and still stated specifics — a count, a record id, a date — that no tool
+  supplied. Where the scenario names an expected tool, `expected_tool_not_called`
+  says the same thing in its summary and carries `ungrounded: true`, so an
+  invented answer no longer reads like an honest gap. Both reach the judge,
+  which is what turns them into a suggested tool. An agent with no tools at all
+  is not flagged: it answers from its instructions by design, and whether that
+  is acceptable is the judge's grade, not a mechanical one. (#433)
+
+### Changed
+
+- **A wrong tool no longer outscores no tool.** `tools_succeeded` is awarded
+  only for a tool the scenario expected (or any tool when it expects none):
+  a tool that ran without erroring was evidence of the task only by accident,
+  and a scenario that called the wrong tool scored higher than one that called
+  nothing. (#433)
+- **The judge reads more of a scenario's notes** — 1,500 characters rather
+  than 300 — because a suite's notes are often its rubric and the "must not"
+  clause tends to come last. (#433)
+
 ## [1.5.2] - 2026-09-11
 
 Releases `activeagent` and `actionagent` 1.5.2 from one tag.
