@@ -247,4 +247,50 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert_match(/No scenarios selected/, run.error_message)
     assert_equal [ run.id ], evaluation.evaluation_runs.ids
   end
+
+  # #425: a run whose MCP servers all failed discovery scored an agent that had
+  # no tools to call. Without this the only evidence was a logger.warn, and the
+  # report recommended prompt changes for a transport failure.
+  test "a run whose every MCP server failed discovery says so on the run" do
+    evaluation = build_suite(mcp_servers: %w[records])
+
+    with_unreachable_mcp_server do
+      evaluation.run!(models: [ "mock/alpha" ])
+    end
+
+    run = evaluation.evaluation_runs.order(:created_at).last
+    assert_equal "complete", run.status
+    assert_match(/Every MCP server this agent declares failed tool discovery/, run.error_message)
+    assert_match(/records/, run.error_message)
+    assert_match(/401 Unauthorized/, run.error_message)
+  end
+
+  test "a run whose servers answer records no discovery warning" do
+    evaluation = build_suite
+
+    evaluation.run!(models: [ "mock/alpha" ])
+
+    run = evaluation.evaluation_runs.order(:created_at).last
+    assert_equal "complete", run.status
+    assert_nil run.error_message
+  end
+
+  # Registers a catalog server the agent declares, whose tools/list refuses.
+  def with_unreachable_mcp_server
+    original = ActionAgent.mcp_catalog
+    ActionAgent.mcp_catalog = [
+      { key: "records", name: "Records", description: "Record lookups.",
+        transport: "http", url: "https://host.example/mcp/records",
+        tool_hints: %w[find_records] }
+    ]
+
+    refuser = Class.new do
+      def list_tools = raise(ActionAgent::MCPClient::Error, "401 Unauthorized")
+      def call_tool(_name, _arguments) = raise(ActionAgent::MCPClient::Error, "401 Unauthorized")
+    end.new
+
+    ActionAgent::MCPClient.stub(:new, refuser) { yield }
+  ensure
+    ActionAgent.mcp_catalog = original
+  end
 end
