@@ -6,6 +6,29 @@ require_relative "evals_test_support"
 class EvalsRunnerTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
+  def test_an_ungrounded_answer_fails_the_scenario_and_reaches_the_judge_for_a_tool
+    task = scenario("tickets_1", "what tickets are on my plate?", group: "tickets")
+    model = spec("test-model")
+    recommend_prompts = []
+    judge = fake_judge do |_instructions, prompt|
+      recommend_prompts << prompt if prompt.include?("Detected fault")
+      '{"score": 0.9, "recommendation": "Add a tool that lists the caller tickets.", ' \
+        '"suggested_tool": {"name": "list_tickets", "description": "Tickets assigned to the caller"}}'
+    end
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ model ], judge: judge, available_tools: { "search_docs" => "Search the docs" },
+      replay: ->(*) { replay(answer: "You have 3 open tickets: #412 Login bug and #388 Export timeout.", tool_calls: []) }
+    ).call
+
+    result = report.results.first
+    assert_equal "failed", result.status
+    assert_equal "ungrounded_answer", result.diagnosis["fault"]
+    assert_equal 1, recommend_prompts.size, "the fault should reach the judge for a recommendation"
+    assert_match(/ungrounded_answer/, recommend_prompts.first)
+    assert_equal "list_tickets", result.diagnosis.dig("judge", "suggested_tool", "name")
+    assert_includes ActiveAgent::Evals::Runner::DEFAULT_REFINE_FAULTS, "ungrounded_answer"
+  end
+
   def test_context_wrapper_covers_replay_judging_and_recommendation_before_on_result
     events = []
     current = nil

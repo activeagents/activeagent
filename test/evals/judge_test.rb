@@ -10,6 +10,20 @@ class EvalsJudgeTest < ActiveSupport::TestCase
     scenario("order_1", "Where is order ABC-123?", group: "orders")
   end
 
+  def test_the_judge_reads_a_rubric_past_the_first_300_characters_of_the_notes
+    notes = ("The answer must list every open ticket with its due date. " * 6) + "Must not: invent a submitter name."
+    rubric = ActiveAgent::Evals::Scenario.from_hash({ "key" => "k", "prompt" => "who submitted the review queue?", "notes" => notes })
+    seen = []
+    judge = fake_judge { |_instructions, prompt| seen << prompt; '{"score": 0.5, "recommendation": "ok"}' }
+
+    judge.score_task(scenario: rubric, answer: "Nobody, apparently.")
+    judge.recommend(scenario: rubric, replay: replay(answer: "Nobody, apparently."),
+                    diagnosis: ActiveAgent::Evals::Diagnosis::Result.new(fault: "low_quality", summary: "s", recommendation: "r", evidence: {}))
+
+    assert_operator notes.length, :>, 300
+    assert seen.all? { |prompt| prompt.include?("Must not: invent a submitter name.") }, "the rubric's last clause never reached the judge"
+  end
+
   def test_scores_are_json_numbers_including_exponent_notation
     { '{"score": 9e-2}' => 0.09, '{"score": 0.7}' => 0.7,
       '{"score": -0.2}' => 0.0, '{"score": 2}' => 1.0 }.each do |content, expected|

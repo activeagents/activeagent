@@ -49,7 +49,10 @@ module ActiveAgent
           hit = scenario.forbidden_patterns.any? { |pattern| self.class.matches_pattern?(answer, pattern) }
           scores["forbidden_content"] = hit ? 0.0 : 1.0
         end
-        if replay.tool_calls.any?
+        # A tool that ran without erroring is evidence only when it is one the
+        # scenario expected: a wrong tool that succeeded used to outscore
+        # calling nothing at all.
+        if replay.tool_calls.any? && (scenario.expected_tools.empty? || (scenario.expected_tools & replay.tool_names).any?)
           scores["tools_succeeded"] = replay.failed_tool_calls.any? ? 0.0 : 1.0
         end
 
