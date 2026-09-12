@@ -368,6 +368,15 @@ module ActionAgent
     # @return [Array<Class, String>, nil]
     attr_accessor :schema_tools
 
+    # Whether the MCP facade (POST <mount>/mcp) offers the host's schema tools
+    # directly — find_<records>, count_<records>, get_<record> — beside the
+    # run_<slug> agent tools. Each call runs as the key's caller, through the
+    # host's own scope, exactly as it would inside an agent run. On by
+    # default: the host declared the tools; set it to false to keep them
+    # reachable only through agents.
+    # @return [Boolean]
+    attr_accessor :mcp_schema_tools
+
     # Directory scanned for SchemaTools subclasses when {#schema_tools} is
     # unset. Relative to the host's root. Set to nil to disable discovery and
     # require an explicit declaration. Classes built at runtime with
@@ -389,6 +398,13 @@ module ActionAgent
     # @return [Boolean]
     def multi_tenant?
       @multi_tenant == true
+    end
+
+    # Whether the MCP facade serves the host's schema tools directly.
+    #
+    # @return [Boolean]
+    def mcp_schema_tools?
+      @mcp_schema_tools != false
     end
 
     # Returns whether agent execution is permitted.
@@ -545,6 +561,7 @@ module ActionAgent
       @agent_actor_resolver = nil
       @schema_tools = nil
       @schema_tools_path = "app/agent_tools"
+      @mcp_schema_tools = nil
     end
 
     # Host-declared schema tool classes, resolved from names and filtered to
