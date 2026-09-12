@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+- **A wrong tool no longer outscores no tool.** `tools_succeeded` is awarded
+  only for a tool the scenario expected (or any tool when it expects none):
+  a tool that ran without erroring was evidence of the task only by accident,
+  and a scenario that called the wrong tool scored higher than one that called
+  nothing. (#433)
+- **The judge reads more of a scenario's notes** — 1,500 characters rather
+  than 300 — because a suite's notes are often its rubric and the "must not"
+  clause tends to come last. (#433)
 ### Fixed
 
 - **The caller can no longer be named by the model, or by the client.**
