@@ -144,6 +144,44 @@ If the LLM doesn't call your function when expected, improve the tool descriptio
 
 If the LLM passes unexpected parameters, add detailed parameter descriptions with `enum` for restricted choices and mark required parameters explicitly.
 
+## Bounded Reads Over a Model (Schema Tools)
+
+An agent given only generic tools has nothing to call when asked about the application's own records, so it answers from the prompt and invents the rest. `ActiveAgent::SchemaTools` closes that gap with a fixed, enumerable roster generated from one model — `find_<records>`, `count_<records>`, `get_<record>` — over the columns you declare and through the scope you name:
+
+```ruby
+# app/agent_tools/reservation_tools.rb
+class ReservationTools < ActiveAgent::SchemaTools
+  model Reservation
+
+  filterable :status, :guest_id, :arrives_on   # the only columns a filter may name
+  returns :id, :status, :guest_id, :arrives_on  # the only columns ever read back
+
+  scope_by_policy                               # ReservationPolicy::Scope.new(actor, Reservation).resolve
+end
+
+ReservationTools.tool_names
+# => ["find_reservations", "count_reservations", "get_reservation"]
+
+ReservationTools.call("find_reservations", actor: current_user, status: "held")
+# => { results: [...], count: 3, truncated: false }
+```
+
+Three properties make this safe to hand to a model:
+
+- **Allowlists reject, never drop.** A filter on an undeclared column comes back as `{ error: ... }` the model can act on, rather than silently answering a broader question — and rather than letting a model read `password_digest` one character at a time through row counts.
+- **Results are capped** (25 by default, 100 at most) with a `truncated` flag, so a `find_*` with no filters cannot select a table into the prompt.
+- **The scope is yours.** `scope { |actor| ... }` receives whatever your host passes as `actor:` and returns the relation to read through; `scope_by_policy` resolves `<Model>Policy::Scope` by name. Omit both and the tools read unscoped — a deliberate choice, not a default.
+
+The tool definitions are ordinary [common-format tools](#common-tools-format-recommended), so an agent offers them with `prompt(tools: ReservationTools.tool_definitions)` and answers each call with `ReservationTools.call(name, actor: current_user, **arguments)`. The [dashboard engine](/framework/dashboard) discovers every class under `app/agent_tools` and offers each generated tool in the agent editor.
+
+Start from the generator rather than a blank file:
+
+```bash
+bin/rails generate active_agent:schema_tools Reservation
+```
+
+It writes the class above with **every column listed, commented out, with its type**, exposing nothing beyond `id` until you move a column into `filterable` or `returns`. Which columns an agent may see is a judgement about exposure, not a fact about the table, so that decision stays a review step; columns that look like secrets are left off the list altogether.
+
 ## Delegating to Another Agent
 
 When the work behind a tool is itself an AI task — summarizing, classifying, translating — reach for [delegation](/actions/delegation) instead of a plain function. A delegated sub-agent keeps its own instructions, templates and model, and runs under a declared schema, a cost/latency budget, and a swappable backend:
