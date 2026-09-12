@@ -117,6 +117,7 @@ module ActiveAgent
       def generate(arguments)
         agent = definition.resolved_agent_class.new
         agent.params = resolved_params(arguments)
+        inherit_actor(agent)
         agent.process(definition.action, **arguments)
 
         definition.backend.apply(agent)
@@ -124,6 +125,22 @@ module ActiveAgent
         inherit_trace_id(agent)
 
         agent.process_prompt
+      end
+
+      # A delegated generation runs on behalf of whoever the parent runs for.
+      # The sub-agent gets the parent's caller before its action runs, so its
+      # own before_action callbacks and any scope its tools read through decide
+      # against the same person — a parent authorized as one user must not
+      # hand its specialists an unattributed run, which a correctly written
+      # host scope reads as "no access". Hosts on an older framework, where an
+      # agent has no caller to carry, are left as they were.
+      #
+      # @param agent [ActiveAgent::Base]
+      # @return [void]
+      def inherit_actor(agent)
+        return unless owner.respond_to?(:current_user) && agent.respond_to?(:current_user=)
+
+        agent.current_user = owner.current_user
       end
 
       # A delegated generation is part of its parent's work, so it carries the
