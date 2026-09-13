@@ -29,6 +29,42 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     evaluation
   end
 
+  # Captures the actor each replay hands Agent#test_execute.
+  def capture_replay_actors(evaluation)
+    seen = []
+    agent = evaluation.agent
+    fake_run = agent.agent_runs.create!(status: :complete, trace_id: SecureRandom.uuid, input_prompt: "x", output: "done")
+    agent.define_singleton_method(:test_execute) { |*, **options| seen << options[:actor]; fake_run }
+    yield
+    seen
+  end
+
+  test "a replay runs as the evaluation's owner when agents are owned per user" do
+    previous = ActionAgent.user_class
+    ActionAgent.user_class = "User"
+    user = User.create!(name: "Owner", email: "owner-#{SecureRandom.hex(4)}@example.com", age: 30)
+    evaluation = build_suite(user_id: user.id)
+
+    actors = capture_replay_actors(evaluation) { evaluation.run!(keys: [ "find_1" ]) }
+
+    assert_equal [ user ], actors, "every tool the replay calls should be scoped to the owner"
+  ensure
+    ActionAgent.user_class = previous
+    user&.destroy
+  end
+
+  test "a replay is unattributed when the install has no owner model" do
+    previous = ActionAgent.user_class
+    ActionAgent.user_class = nil
+    evaluation = build_suite
+
+    actors = capture_replay_actors(evaluation) { evaluation.run!(keys: [ "find_1" ]) }
+
+    assert_equal [ nil ], actors
+  ensure
+    ActionAgent.user_class = previous
+  end
+
   # Runs the block with the host's credentials for +provider+ blanked, so a
   # replay through it fails at the execution service's credential gate rather
   # than at the network. CI decrypts the reference host's credentials, so

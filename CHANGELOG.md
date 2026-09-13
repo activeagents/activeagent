@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An evaluation replay runs as the evaluation's owner.** The scenario runner
+  handed `Agent#test_execute` no caller, so every tool a replay called ran
+  unattributed and a host scope answered empty — the suite graded an agent
+  that never saw a row. When agents are owned per user, a replay now runs as
+  the user who owns the evaluation, as a run over MCP runs as the key's
+  owner. A multi-tenant install still replays unattributed (an account is who
+  is billed, not who is allowed) unless a host adapter runs the suite itself.
 - **The MCP facade serves the host's schema tools directly.** `tools/list`
   at `POST <mount>/mcp` now offers every tool the dashboard's discovered
   `ActiveAgent::SchemaTools` classes generate — `find_<records>`,

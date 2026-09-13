@@ -370,7 +370,10 @@ candidate needs credentials the same way an agent run does — the owner's
 provider key or the host app's `config/active_agent.yml`.
 
 A run is queued (`EvaluationRunJob`) and its results land as each replay
-finishes. The suite card opens onto the three questions asked of a run, in
+finishes. Each replay runs as the evaluation's owner when agents are owned
+per user, so a tool scoped to its caller sees that user's rows; a
+multi-tenant install replays unattributed unless a host adapter
+(`ActionAgent.scenario_evaluation_adapter_resolver`) runs the suite itself. The suite card opens onto the three questions asked of a run, in
 that order — is it getting better, which model, what do I fix — and then
 the evidence behind them.
 
