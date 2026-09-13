@@ -1,5 +1,15 @@
 # frozen_string_literal: true
 
+# DEFAULT_SPELLINGS below instantiates a Zeitwerk::Inflector while this class
+# body runs, which is during Bundler.require — before Rails boots its own
+# autoloaders and pulls zeitwerk in. An app that requires railties piecemeal
+# (`require "action_controller/railtie"` and friends, rather than
+# `rails/all`) therefore died at boot with an uninitialized ActionAgent::
+# Engine::Zeitwerk. Requiring it here makes the engine independent of who
+# loaded what first; zeitwerk is a railties dependency, so nothing new is
+# installed.
+require "zeitwerk"
+
 require_relative "assistant_request_filter"
 
 module ActionAgent

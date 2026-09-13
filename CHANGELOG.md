@@ -94,6 +94,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clause tends to come last. (#433)
 ### Fixed
 
+- **`actionagent` no longer needs someone else to have loaded zeitwerk.** The
+  engine built a `Zeitwerk::Inflector` while its class body ran — during
+  `Bundler.require`, before Rails boots its own autoloaders — so an app that
+  requires railties one at a time (`require "action_controller/railtie"` and
+  friends, rather than `rails/all`) died at boot with an uninitialized
+  `ActionAgent::Engine::Zeitwerk`. The engine requires zeitwerk itself now;
+  it is a railties dependency, so nothing new is installed.
 - **The caller can no longer be named by the model, or by the client.**
   `actor:` reached `AgentToolbox.call` in the same keyword namespace as the
   arguments a provider parsed out of a model's tool call, and
