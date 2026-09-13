@@ -147,7 +147,8 @@ module ActionAgent
       agent_run = @evaluation.agent.test_execute(
         scenario.prompt,
         model_override: spec.model,
-        provider_override: spec.provider
+        provider_override: spec.provider,
+        actor: replay_actor
       )
 
       Evals::Replay.new(
@@ -160,6 +161,21 @@ module ActionAgent
         cost: ModelPricing.estimate(model: spec.model, input_tokens: agent_run.input_tokens, output_tokens: agent_run.output_tokens),
         metadata: { "agent_run_id" => agent_run.id }
       )
+    end
+
+    # The caller a replay runs on behalf of: the evaluation's owner, when the
+    # install owns agents per user. A run with no caller reads, through any
+    # host scope, as "no access" — every tool answers empty and the suite
+    # grades an agent that never saw a row — so the person the evaluation
+    # belongs to is the right default, as the key's owner is over MCP. An
+    # account is who is billed, not who is allowed (see Api::BaseController
+    # #agent_actor), so a multi-tenant install replays unattributed unless a
+    # host adapter (ActionAgent.scenario_evaluation_adapter_resolver) runs
+    # the suite itself.
+    def replay_actor
+      return nil if ActionAgent.multi_tenant? || ActionAgent.user_class.blank?
+
+      owner
     end
 
     # Each tool call the run made, rebuilt from the run's progress events
