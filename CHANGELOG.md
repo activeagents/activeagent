@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-09-14
+
+Releases `activeagent` and `actionagent` 1.6.0 from one tag.
+
+A minor, not a patch. The cycle that began after 1.5.2 gives an agent a
+caller — `current_user`, carried from whatever authenticated the call into
+every `before_action`, every tool, every delegated sub-agent, every run over
+MCP and every evaluation replay — so an authorization gem has something to
+decide against. Around it: schema tools defined at runtime rather than only
+in a file, a generator that writes the first one, those tools served
+directly over MCP, and an evaluation that calls a fabricated answer a fault
+instead of grading it as an honest gap. That is new public surface in both
+gems, which is a minor under semver even though 1.5.2 shipped a feature as a
+patch.
+
+Two notes for upgrades. `tools_succeeded` is now awarded only for a tool the
+scenario expected, so a suite that was quietly scoring wrong-tool runs as
+partial successes will report lower — read the first run as a corrected
+baseline. And `actor:` is now stripped from tool arguments and from
+`params[params][actor]`: the caller is a property of the run, set once by
+whatever authenticated it, and can no longer be named by the model or by a
+client.
+
+The engine's floor on the framework (`activeagent >= 1.4`) is unchanged and
+still correct: 1.6.0 satisfies it.
+
 ### Added
 
 - **An evaluation replay runs as the evaluation's owner.** The scenario runner
@@ -92,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The judge reads more of a scenario's notes** — 1,500 characters rather
   than 300 — because a suite's notes are often its rubric and the "must not"
   clause tends to come last. (#433)
+
 ### Fixed
 
 - **The caller can no longer be named by the model, or by the client.**
