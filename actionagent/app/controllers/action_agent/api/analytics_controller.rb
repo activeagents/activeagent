@@ -5,7 +5,7 @@ module ActionAgent
     class AnalyticsController < BaseController
       # GET /api/analytics
       def index
-        days = (params[:days] || 30).to_i
+        days = integer_param(:days, default: 30)
         start_date = days.days.ago.beginning_of_day
 
         # Table names are interpolated rather than written literally: the
