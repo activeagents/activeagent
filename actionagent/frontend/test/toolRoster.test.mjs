@@ -33,7 +33,10 @@ const payload = () => ({
     { key: 'git', name: 'Git', status: 'available', tools: [{ name: 'git_status', calls: 0, errors: 0 }] },
   ],
   tools: [
-    { key: 'find_tickets', name: 'find_tickets', source: 'agent_defined', description: 'Find tickets.', enabled: true, editable: false, calls: 8, errors: 0, avg_duration_ms: 13 },
+    // A schema tool: offered only while the roster names it, so switchable.
+    { key: 'find_tickets', name: 'find_tickets', source: 'agent_defined', description: 'Find tickets.', enabled: false, editable: true, calls: 8, errors: 0, avg_duration_ms: 13 },
+    // A tool the agent class declares in code: the dashboard reports it.
+    { key: 'refund_invoice', name: 'refund_invoice', source: 'agent_defined', description: 'Refund an invoice.', enabled: true, editable: false, calls: 2, errors: 0, avg_duration_ms: 40 },
     { key: 'memory', name: 'memory', source: 'dashboard', description: 'Durable notes.', enabled: true, editable: true, calls: 0, errors: 0, avg_duration_ms: null },
     { key: 'terminal', name: 'terminal', source: 'dashboard', description: 'Shell.', enabled: false, editable: true, calls: 0, errors: 0, avg_duration_ms: null },
   ],
@@ -89,25 +92,32 @@ test('an enabled service contributes its offered tools to the roster, a disabled
   assert.equal(allToolRows(payload(), serviceState(payload(), []), []).some((row) => row.source === 'mcp'), false);
 });
 
-test('schema-derived tools are always on and never editable; capabilities follow the roster', () => {
-  const rows = allToolRows(payload(), serviceState(payload(), []), ['memory']);
-  const byKey = Object.fromEntries(rows.map((row) => [row.key, row]));
+test('schema tools and capabilities follow the roster; a code-declared tool is always on', () => {
+  const state = serviceState(payload(), []);
+  const byKey = (tools) => Object.fromEntries(allToolRows(payload(), state, tools).map((row) => [row.key, row]));
 
-  assert.equal(byKey.find_tickets.on, true);
-  assert.equal(byKey.find_tickets.editable, false);
-  assert.equal(byKey.memory.on, true);
-  assert.equal(byKey.terminal.on, false);
+  const off = byKey(['memory']);
+  assert.equal(off.find_tickets.on, false);
+  assert.equal(off.find_tickets.editable, true);
+  assert.equal(off.refund_invoice.on, true);
+  assert.equal(off.refund_invoice.editable, false);
+  assert.equal(off.memory.on, true);
+  assert.equal(off.terminal.on, false);
+
+  assert.equal(byKey(['memory', 'find_tickets']).find_tickets.on, true);
 });
 
-test('groups carry their own counts and only the editable one offers bulk controls', () => {
+test('groups carry their own counts and only the ones with a switch offer bulk controls', () => {
   const state = serviceState(payload(), ['playwright']);
   const groups = Object.fromEntries(toolGroups(payload(), state, ['memory'], {}).map((group) => [group.source, group]));
 
-  assert.equal(groups.agent_defined.countLabel, '1 offered');
-  assert.equal(groups.agent_defined.editable, false);
+  // The code-declared tool is on, the schema tool is not named by the roster.
+  assert.equal(groups.agent_defined.countLabel, '1/2 on');
+  assert.equal(groups.agent_defined.editable, true);
   assert.equal(groups.dashboard.countLabel, '1/2 on');
   assert.equal(groups.dashboard.editable, true);
   assert.equal(groups.mcp.countLabel, '2 offered');
+  assert.equal(groups.mcp.editable, false);
 });
 
 test('"enabled only" hides what is off, and a group with no rows left keeps its heading', () => {
@@ -137,11 +147,13 @@ test('the tiles count direct and MCP tools separately and flag a long unused tai
   const state = serviceState(payload(), ['playwright']);
   const stats = Object.fromEntries(rosterStats(payload(), state, ['memory'], { range: '7d' }).map((stat) => [stat.key, stat]));
 
+  // Direct: the code-declared tool and memory. find_tickets is off, so it
+  // is not counted as enabled however many calls the window recorded.
   assert.equal(stats.tools.value, '4');
   assert.equal(stats.tools.sub, '2 direct · 2 offered through MCP');
   assert.equal(stats.services.value, '1/2');
   assert.equal(stats.services.sub, 'on for this agent: Playwright');
-  assert.equal(stats.calls.value, '11');
+  assert.equal(stats.calls.value, '13');
   assert.equal(stats.calls.sub, '0 errors in the last 7d · traced');
   assert.equal(stats.unused.value, '2');
   assert.equal(stats.unused.tone, null);
@@ -166,6 +178,9 @@ test('the pending count is one per toggle that differs from the saved roster', (
     2,
   );
   assert.equal(changeCount(body, { tools: ['memory', 'terminal'], mcpServers: [] }, saved), 1);
+  // Switching a schema tool is a change like any other; a code-declared name is not a toggle.
+  assert.equal(changeCount(body, { tools: ['memory', 'find_tickets'], mcpServers: [] }, saved), 1);
+  assert.equal(changeCount(body, { tools: ['memory', 'refund_invoice'], mcpServers: [] }, saved), 0);
 });
 
 test('a save writes no tool list for a service offering everything, and one when it narrows', () => {
@@ -191,13 +206,16 @@ test('a save keeps a service the roster does not describe, and its connection de
   ]);
 });
 
-test('a save writes only the capabilities the dashboard owns, keeping names it does not know', () => {
+test('a save writes the switchable rows that are on, keeping names it does not know', () => {
   const body = payload();
 
   assert.deepEqual(toolsFor(body, ['memory', 'terminal']), ['memory', 'terminal']);
   assert.deepEqual(toolsFor(body, ['legacy_tool', 'memory']), ['legacy_tool', 'memory']);
-  // Schema-derived and MCP rows are never roster entries.
-  assert.deepEqual(toolsFor(body, ['find_tickets']), ['find_tickets']);
+  // A schema tool is written when it is on and dropped when it is not.
+  assert.deepEqual(toolsFor(body, ['find_tickets', 'memory']), ['find_tickets', 'memory']);
+  assert.deepEqual(toolsFor(body, ['memory']), ['memory']);
+  // A code-declared name is not a row the dashboard writes; it passes through untouched.
+  assert.deepEqual(toolsFor(body, ['refund_invoice']), ['refund_invoice']);
   assert.deepEqual(toolsFor(body, []), []);
 });
 

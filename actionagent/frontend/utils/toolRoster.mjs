@@ -17,7 +17,7 @@ export const SOURCE_LABELS = {
 };
 
 export const GROUP_META = {
-  agent_defined: "derived from the agent's own schema",
+  agent_defined: "the host's schema tools, and what the agent class declares",
   dashboard: 'built into the dashboard',
   mcp: 'offered by the services above',
 };
@@ -152,8 +152,9 @@ export function allToolRows(payload, state, tools = []) {
   return (payload.tools || [])
     .map((tool) => ({
       ...tool,
-      // A schema-derived tool is reported, not selected; a capability is on
-      // when the agent's roster names it.
+      // A row the dashboard can switch — a capability or a schema tool — is
+      // on when the agent's roster names it; a row it only reports (a tool
+      // the agent class declares in code) is on because the class offers it.
       on: tool.editable ? selected.has(tool.key) : tool.enabled !== false,
     }))
     .concat(mcpToolRows(payload, state).map((row) => ({ ...row, on: true })));
@@ -302,9 +303,10 @@ export function mcpServersFor(payload, state, previous = []) {
   return rows;
 }
 
-// The tools value to save: the dashboard capabilities that are on. Rows the
-// dashboard doesn't own — schema-derived and MCP — are never written to the
-// roster, and names it doesn't know about are left where they were.
+// The tools value to save: every switchable row — capabilities and schema
+// tools — that is on. Rows the dashboard only reports (code-declared, MCP)
+// are never written to the roster, and names it doesn't know about are left
+// where they were.
 export function toolsFor(payload, selected = []) {
   const known = new Set((payload.tools || []).filter((tool) => tool.editable).map((tool) => tool.key));
   const kept = (selected || []).map(String).filter((name) => !known.has(name));
