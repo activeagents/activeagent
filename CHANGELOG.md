@@ -94,6 +94,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clause tends to come last. (#433)
 ### Fixed
 
+- **An evaluation created on MySQL can be run.** MySQL cannot give a JSON
+  column a default, so an evaluation saved there without `config` read it
+  back as `nil`, and `compare_models` raised before the runner did anything
+  else. `config` and `criteria` now read as the empty value their column
+  default supplies on other databases. (#417)
 - **The caller can no longer be named by the model, or by the client.**
   `actor:` reached `AgentToolbox.call` in the same keyword namespace as the
   arguments a provider parsed out of a model's tool call, and
