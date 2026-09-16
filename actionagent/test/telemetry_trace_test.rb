@@ -216,6 +216,26 @@ class TelemetryTraceTest < ActiveSupport::TestCase
     assert_equal 1, ActionAgent::Agent.where(agent_class_name: "SupportAgent").count
   end
 
+  # The case above passes with no owner association configured, where
+  # `for_owner(nil)` is `all`. A single-tenant host that DOES configure one —
+  # the ordinary Rails app, `owned_by :user` with multi_tenant off — resolves
+  # no owner per trace, and `for_owner(nil)` is then `none`: the dedupe lookup
+  # missed every time and each ingest registered another copy of one agent,
+  # with MAX_OBSERVED_PER_OWNER never engaging because the count it reads was
+  # always zero. Asserted on the registrar's own scoping seam, because the
+  # symptom depends on a host's owner model rather than on this dummy app's.
+  test "the dedupe scope is the whole table when there is no owner to resolve" do
+    trace = ActionAgent::TelemetryTrace.create_from_payload(payload(spans: [ root_span ]))
+    registrar = ActionAgent::AgentRegistrar.new(trace)
+
+    scope = registrar.send(:agents_for_owner, nil)
+
+    refute_equal "SELECT 1 AS one WHERE 1=0", scope.limit(1).to_sql,
+      "a single-tenant registrar must not dedupe against `none`"
+    assert_equal ActionAgent::Agent.count, scope.count,
+      "an unowned single-tenant ingest deduplicates against every agent row"
+  end
+
   # Exercises AgentRegistrar's own rescue rather than a stub of it: a broken
   # registration must never cost a host app its telemetry.
   test "registration failure does not fail ingest" do
