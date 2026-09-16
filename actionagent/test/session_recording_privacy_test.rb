@@ -48,6 +48,29 @@ class SessionRecordingPrivacyTest < ActionDispatch::IntegrationTest
     assert_nil exported["metadata"]["password"]
     assert_not_includes response.body, "hunter2secret"
   end
+
+  # The handoff state is a copy of the visitor's browser: cookies and web
+  # storage. Stripping only the top level of the metadata left the same
+  # secrets readable one key down, and as the top-level handoff_state key.
+  test "show strips cookies and web storage from the nested handoff state" do
+    @recording.update!(metadata: @recording.metadata.merge(
+      "handoff_state" => {
+        "url" => "https://example.com/checkout",
+        "cookies" => [ { "name" => "_session", "value" => "sekrit-cookie" } ],
+        "local_storage" => { "auth_token" => "lst-secret" },
+        "session_storage" => { "csrf" => "sst-secret" }
+      }
+    ))
+
+    get "/activeagents/api/session_recordings/#{@recording.id}"
+
+    assert_response :success
+    body = JSON.parse(response.body)["recording"]
+    assert_equal "https://example.com/checkout", body.dig("handoff_state", "url")
+    assert_nil body.dig("handoff_state", "cookies")
+    assert_nil body.dig("metadata", "handoff_state", "cookies")
+    %w[sekrit-cookie lst-secret sst-secret].each { |secret| assert_not_includes response.body, secret }
+  end
 end
 
 # In a per-user install the list has to show the recordings the caller can
