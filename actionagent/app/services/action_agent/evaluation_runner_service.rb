@@ -468,15 +468,17 @@ module ActionAgent
     end
 
     def judge_class
-      provider = judge_provider
-      model = @evaluation.judge_model.presence
-      options = {}
-      options[:model] = model if model
-      options.merge!(owner_provider_options(provider))
+      @judge_class ||= begin
+        provider = judge_provider
+        model = @evaluation.judge_model.presence
+        options = {}
+        options[:model] = model if model
+        options.merge!(owner_provider_options(provider))
 
-      @judge_class ||= Class.new(ActiveAgent::Base) do
-        define_singleton_method(:name) { "EvaluationJudgeAgent" }
-        generate_with provider, **options
+        Class.new(ActiveAgent::Base) do
+          define_singleton_method(:name) { "EvaluationJudgeAgent" }
+          generate_with provider, **options
+        end
       end
     end
 
