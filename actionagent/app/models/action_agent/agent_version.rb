@@ -9,6 +9,9 @@ module ActionAgent
 
     # Scopes
     scope :recent, -> { order(version_number: :desc) }
+    # Versions cut from the agent's code on deploy, as opposed to edits made
+    # in the dashboard.
+    scope :releases, -> { where.not(release_digest: [ nil, "" ]) }
     scope :by_version, ->(num) { where(version_number: num) }
 
     # Compare two versions
@@ -36,6 +39,13 @@ module ActionAgent
     end
 
     # Check if this is the latest version
+    # Whether this version was cut from the agent's code (it carries the
+    # release digest) rather than from a dashboard edit.
+    # @return [Boolean]
+    def release?
+      release_digest.present?
+    end
+
     def latest?
       agent.latest_version&.id == id
     end

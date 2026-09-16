@@ -86,6 +86,14 @@ module ActionAgent
       )
       return existing if existing
 
+      # A host that mirrors its agent classes into the dashboard (a sync, a
+      # release) names the class on the record and nothing else: that record
+      # stands for every action of the class, so a trace from the class is
+      # its trace — not an observed twin's. Observed records are per action
+      # and are only ever matched on all three keys above.
+      mirrored = agents.where.not(status: "observed").find_by(agent_class_name: agent_class)
+      return mirrored if mirrored
+
       return if agents.observed_agents.count >= MAX_OBSERVED_PER_OWNER
 
       create_observed_agent(owner)

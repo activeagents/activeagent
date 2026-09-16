@@ -12,6 +12,7 @@ require "active_agent/concerns/parameterized"
 require "active_agent/concerns/preview"
 require "active_agent/concerns/provider"
 require "active_agent/concerns/queueing"
+require "active_agent/concerns/release"
 require "active_agent/concerns/rescue"
 require "active_agent/concerns/streaming"
 require "active_agent/concerns/tooling"
@@ -49,6 +50,7 @@ module ActiveAgent
     include Parameterized
     include Provider
     include Queueing
+    include Release
     include Rescue
     include Streaming
     include Tooling

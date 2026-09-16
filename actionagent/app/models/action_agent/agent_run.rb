@@ -3,6 +3,10 @@
 module ActionAgent
   class AgentRun < ApplicationRecord
     belongs_to :agent
+    # The version of the agent this run executed under — the latest at the
+    # time, since a run is against the agent as it is.
+    belongs_to :agent_version, optional: true
+    before_create { self.agent_version_id ||= agent&.latest_version&.id }
 
     # Raised when a caller hands a run files to attach in a host app that
     # has nowhere to keep them.
