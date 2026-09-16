@@ -10,4 +10,4 @@
 | M6 | Runtime definitions with a registry; descendants leak closed (#447, #441) | ⏳ CI after the main merge |
 | M7 | Delegated runs inherit the caller (#448) | ⏳ stacked on #443 |
 | M8 | Schema tools over MCP (#449, #439) | ⏳ stacked on #443 |
-| M9 | A 1.5.3 release carrying all of it | not started — the release is the owner's call |
+| M9 | A release carrying all of it | ⏳ prepared as 1.6.0 (`release/1.6.0`), awaiting the owner's `gem push` |

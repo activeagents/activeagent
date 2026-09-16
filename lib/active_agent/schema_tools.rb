@@ -68,6 +68,21 @@ module ActiveAgent
     # ask for 10_000; this is what stops that from becoming the prompt.
     MAX_LIMIT = 100
 
+    # Column types a range comparison is offered for. Strings and booleans
+    # are deliberately absent: a lexical `>` on a name column answers a
+    # question nobody asked.
+    RANGE_FILTERABLE_TYPES = %i[date datetime time integer float decimal].freeze
+
+    # The comparison operators a range filter may use, mapped to the Arel
+    # predicate that builds them. Names are the ones models reach for
+    # unprompted (`before`/`after` for dates, `lt`/`gte` for numbers), so a
+    # reasonable guess resolves instead of erroring.
+    RANGE_OPERATORS = {
+      "before" => :lt, "after" => :gt,
+      "lt" => :lt, "lte" => :lteq, "gt" => :gt, "gte" => :gteq,
+      "on_or_before" => :lteq, "on_or_after" => :gteq
+    }.freeze
+
     # Raised when a tool call names a column outside the declared allowlists,
     # or is otherwise outside the declared boundary.
     class UnpermittedAttribute < ArgumentError; end
@@ -300,8 +315,13 @@ module ActiveAgent
 
       # Validates and normalizes a filter hash against the allowlist.
       #
+      # A filter value is normally matched for equality. A Hash value instead
+      # declares a range — `{ "before" => "2026-01-01" }`, `{ "gte" => 10 }` —
+      # and may carry two bounds at once to express a window.
+      #
       # @api private
-      # @raise [UnpermittedAttribute] if any key is not declared filterable
+      # @raise [UnpermittedAttribute] if any key is not declared filterable,
+      #   or a range names an operator that does not exist
       def permitted_filters!(arguments)
         filters = arguments.each_with_object({}) do |(key, value), memo|
           next if value.nil?
@@ -316,6 +336,54 @@ module ActiveAgent
         end
 
         filters
+      end
+
+      # Splits filters into equality pairs and range predicates.
+      #
+      # Kept separate from {.permitted_filters!} because the two halves are
+      # applied differently: equality goes to `where(hash)`, ranges have to be
+      # built through Arel.
+      #
+      # @api private
+      # @return [Array(Hash, Array<Arel::Nodes::Node>)]
+      def partition_filters!(filters)
+        equality = {}
+        ranges   = []
+
+        filters.each do |column, value|
+          if value.is_a?(Hash)
+            ranges.concat(range_predicates!(column, value))
+          else
+            equality[column] = value
+          end
+        end
+
+        [ equality, ranges ]
+      end
+
+      # Builds Arel predicates for one column's range hash.
+      #
+      # Rails silently turns `where(col: { "before" => x })` into `col = NULL`,
+      # which matches nothing and reports zero rather than failing — the worst
+      # outcome for an agent, which reads it as a truthful empty answer. So an
+      # unknown operator is rejected loudly here instead.
+      #
+      # @api private
+      # @raise [UnpermittedAttribute] on an unknown operator
+      def range_predicates!(column, value)
+        arel = @model.arel_table[column]
+        type = @model.type_for_attribute(column)
+
+        value.map do |operator, operand|
+          predicate = RANGE_OPERATORS[operator.to_s]
+          unless predicate
+            raise UnpermittedAttribute,
+              "`#{operator}` is not a valid comparison for `#{column}`. " \
+              "Allowed comparisons: #{RANGE_OPERATORS.keys.join(", ")}"
+          end
+
+          arel.public_send(predicate, type.cast(operand))
+        end
       end
 
       # Projects a record down to the declared return columns.
@@ -386,7 +454,40 @@ module ActiveAgent
         )
         properties = schema[:schema][:properties]
 
-        filterable.index_with { |column| (properties[column] || { type: "string" }).deep_dup }
+        filterable.index_with do |column|
+          scalar = (properties[column] || { type: "string" }).deep_dup
+          range_filterable?(column) ? with_range_form(column, scalar) : scalar
+        end
+      end
+
+      # Dates, times and numbers are the columns a question like "overdue" or
+      # "more than 10" actually needs a comparison on.
+      def range_filterable?(column)
+        RANGE_FILTERABLE_TYPES.include?(@model.type_for_attribute(column).type)
+      end
+
+      # Offers a column as either a scalar (equality) or a range object.
+      #
+      # Without this the range form works but is undiscoverable: a model shown
+      # only `{type: "string", format: "date"}` has no way to know it may ask
+      # for `before`, and answers date questions with an equality match or no
+      # filter at all.
+      def with_range_form(column, scalar)
+        operand = scalar.slice(:type, :format)
+        description = scalar[:description]
+
+        {
+          description: [ description, "Accepts an exact value, or a range object such as " \
+            "{\"before\": ...} / {\"gte\": ...} (#{RANGE_OPERATORS.keys.join(", ")})." ].compact.join(" "),
+          anyOf: [
+            scalar.except(:description),
+            {
+              type: "object",
+              properties: RANGE_OPERATORS.keys.index_with { operand.dup },
+              additionalProperties: false
+            }
+          ]
+        }
       end
 
       def resource_name
@@ -415,10 +516,10 @@ module ActiveAgent
         )
 
         define_singleton_method(name) do |actor: nil, limit: nil, **arguments|
-          filters = permitted_filters!(arguments)
+          equality, ranges = partition_filters!(permitted_filters!(arguments))
           capped = normalize_limit(limit)
 
-          relation = relation_for(actor).where(filters)
+          relation = ranges.reduce(relation_for(actor).where(equality)) { |rel, p| rel.where(p) }
           # One extra row distinguishes "exactly at the limit" from "more than
           # the limit", without a second COUNT query.
           records = relation.limit(capped + 1).to_a
@@ -443,9 +544,10 @@ module ActiveAgent
         )
 
         define_singleton_method(name) do |actor: nil, **arguments|
-          filters = permitted_filters!(arguments)
+          equality, ranges = partition_filters!(permitted_filters!(arguments))
+          relation = ranges.reduce(relation_for(actor).where(equality)) { |rel, p| rel.where(p) }
 
-          { count: relation_for(actor).where(filters).count }
+          { count: relation.count }
         end
       end
 

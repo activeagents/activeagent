@@ -13,6 +13,12 @@ module ActionAgent
 
       before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff ]
 
+      # Browser state that must never leave the server in a read response:
+      # the handoff state a recording carries is a copy of the visitor's
+      # cookies and web storage. Only #handoff returns it, to the owner, when
+      # they continue the session.
+      SENSITIVE_STATE_KEYS = %w[cookies session_storage local_storage].freeze
+
       # GET /api/session_recordings
       # List recordings with optional filters
       def index
@@ -36,8 +42,8 @@ module ActionAgent
         end
 
         # Pagination
-        page = (params[:page] || 1).to_i
-        per_page = [ (params[:per_page] || 20).to_i, 100 ].min
+        page = integer_param(:page, default: 1)
+        per_page = [ integer_param(:per_page, default: 20), 100 ].min
         offset = (page - 1) * per_page
 
         total = recordings.count
@@ -79,10 +85,10 @@ module ActionAgent
 
         # Support pagination for large recordings
         if params[:after_sequence].present?
-          actions = actions.where("sequence > ?", params[:after_sequence].to_i)
+          actions = actions.where("sequence > ?", integer_param(:after_sequence, default: 0))
         end
 
-        limit = [ params[:limit]&.to_i || 100, 500 ].min
+        limit = [ integer_param(:limit, default: 100), 500 ].min
         actions = actions.limit(limit)
 
         render json: {
@@ -332,7 +338,7 @@ module ActionAgent
           created_at: recording.created_at.iso8601,
           updated_at: recording.updated_at.iso8601,
           timeline: recording.timeline,
-          handoff_state: recording.metadata["handoff_state"],
+          handoff_state: safe_handoff_state(recording.metadata["handoff_state"]),
           agent: recording.agent_run&.agent&.slice(:id, :name),
           sandbox_session: recording.sandbox_session&.summary
         }
@@ -343,9 +349,20 @@ module ActionAgent
         action&.screenshot_url(expires_in: 1.hour)
       end
 
+      # Strips the browser state at the top level and inside handoff_state,
+      # which the model stores nested (a recording's metadata carries the
+      # handoff as one key), so a show response never ships a session cookie.
       def safe_metadata(metadata)
-        # Remove sensitive data from metadata
-        metadata.except("cookies", "session_storage", "local_storage")
+        safe = (metadata || {}).except(*SENSITIVE_STATE_KEYS)
+        return safe unless safe["handoff_state"].is_a?(Hash)
+
+        safe.merge("handoff_state" => safe_handoff_state(safe["handoff_state"]))
+      end
+
+      def safe_handoff_state(handoff_state)
+        return handoff_state unless handoff_state.is_a?(Hash)
+
+        handoff_state.except(*SENSITIVE_STATE_KEYS)
       end
 
       def generate_visitor_id
