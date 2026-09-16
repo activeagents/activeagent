@@ -219,6 +219,46 @@ module ActionAgent
       agent_versions.order(version_number: :desc).first
     end
 
+    # The most recent version cut from the agent's code, if any.
+    # @return [AgentVersion, nil]
+    def latest_release
+      agent_versions.releases.order(version_number: :desc).first
+    end
+
+    # Cuts a version for a release of the agent's code, identified by the
+    # digest ActiveAgent::Release computes from what the model is given.
+    # Returns the existing version when the latest release already carries
+    # this digest — a redeploy of an unchanged agent is not a new version —
+    # so it is safe to call on every deploy.
+    #
+    # The version's snapshot is the dashboard configuration plus the release
+    # manifest under "release", so the Versions tab can diff two releases the
+    # same way it diffs two dashboard edits.
+    #
+    # @param digest [String] ActiveAgent::Release digest of the host class
+    # @param manifest [Hash, nil] the class's release manifest
+    # @param revision [String, nil] the deploy (git SHA, release label)
+    # @param released_by [String, nil]
+    # @return [AgentVersion]
+    def record_release!(digest:, manifest: nil, revision: nil, released_by: nil)
+      current = latest_release
+      if current && current.release_digest == digest
+        update_columns(release_digest: digest) if release_digest != digest
+        return current
+      end
+
+      version = agent_versions.create!(
+        version_number: (latest_version&.version_number || 0) + 1,
+        change_summary: release_summary(digest, revision, current&.configuration_snapshot&.dig("release"), manifest),
+        configuration_snapshot: configuration_snapshot.merge("release" => manifest || {}),
+        release_digest: digest,
+        revision: revision,
+        created_by: released_by || "release"
+      )
+      update_columns(release_digest: digest)
+      version
+    end
+
     # Maps each historical instructions digest to the first version that
     # introduced it ("v3"), so run cohorts can label instruction changes with
     # real agent versions instead of raw hashes.
@@ -394,6 +434,18 @@ module ActionAgent
         self.slug = "#{base_slug}-#{counter}"
         counter += 1
       end
+    end
+
+    # "Release 1a2b3c4d5e6f · abc1234: templates, tools" — the digest, the
+    # deploy, and which parts of the manifest moved since the last release.
+    def release_summary(digest, revision, previous_manifest, manifest)
+      label = [ "Release #{digest}", revision.presence ].compact.join(" · ")
+      return "#{label}: first release" if previous_manifest.blank? || manifest.blank?
+
+      changed = (previous_manifest.keys | manifest.stringify_keys.keys).select do |key|
+        previous_manifest[key] != manifest.stringify_keys[key]
+      end
+      changed.any? ? "#{label}: #{changed.sort.join(', ')}" : label
     end
 
     def create_initial_version

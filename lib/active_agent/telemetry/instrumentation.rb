@@ -58,6 +58,15 @@ module ActiveAgent
             span.set_attribute("agent.action", action_name.to_s)
             span.set_attribute("agent.provider", provider_name)
             span.set_attribute("agent.model", model_name)
+            # Which release of the agent ran: the digest of what the model was
+            # given (ActiveAgent::Release), so a dashboard can pin this trace
+            # to the version it cut on deploy.
+            if self.class.respond_to?(:release_digest)
+              span.set_attribute("agent.version", self.class.release_digest)
+              if (revision = ActiveAgent::Release.revision).present?
+                span.set_attribute("agent.revision", revision)
+              end
+            end
 
             # Add prompt span, carrying the prompt contents (instructions +
             # outbound messages) so dashboards can show what was sent.
