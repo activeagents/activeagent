@@ -24,6 +24,17 @@ module ActiveAgent
       # @return [Boolean] Whether to store traces in the app's own database
       attr_reader :local_storage
 
+      # The deploy every trace is stamped with (`service.version`). Unset, it
+      # is whatever ActiveAgent::Release.revision resolves — a git SHA from
+      # the conventional deploy variables — so traces from two deploys of
+      # the same service can be told apart without any host configuration.
+      attr_writer :service_version
+
+      def service_version
+        value = @service_version.respond_to?(:call) ? @service_version.call : @service_version
+        (value.presence || ActiveAgent::Release.revision)&.to_s
+      end
+
       def initialize
         super
         # The framework predates the shared gem and has always been opt-in;

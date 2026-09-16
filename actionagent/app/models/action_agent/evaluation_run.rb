@@ -8,6 +8,10 @@ module ActionAgent
   # See #average_score, which is what has to tolerate both shapes.
   class EvaluationRun < ApplicationRecord
     belongs_to :evaluation
+    # The version of the evaluated agent this run scored, so a pass rate is
+    # a statement about a release rather than about "the agent".
+    belongs_to :agent_version, optional: true
+    before_create { self.agent_version_id ||= evaluation&.agent&.latest_version&.id }
     has_many :scenario_results, class_name: "EvaluationScenarioResult", dependent: :destroy
 
     enum :status, { pending: 0, running: 1, complete: 2, failed: 3 }

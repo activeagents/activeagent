@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 8) do
+ActiveRecord::Schema[8.0].define(version: 9) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -85,6 +85,8 @@ ActiveRecord::Schema[8.0].define(version: 8) do
   end
 
   create_table "active_agent_agent_runs", force: :cascade do |t|
+    t.bigint "agent_version_id"
+    t.index [ "agent_version_id" ], name: "index_active_agent_agent_runs_on_agent_version_id"
     t.string "action_name"
     t.bigint "agent_id", null: false
     t.datetime "completed_at"
@@ -134,6 +136,9 @@ ActiveRecord::Schema[8.0].define(version: 8) do
   end
 
   create_table "active_agent_agent_versions", force: :cascade do |t|
+    t.string "release_digest"
+    t.string "revision"
+    t.index [ "agent_id", "release_digest" ], name: "index_active_agent_agent_versions_on_agent_id_and_release_digest"
     t.bigint "agent_id", null: false
     t.string "change_summary"
     t.json "configuration_snapshot", default: {}, null: false
@@ -145,6 +150,7 @@ ActiveRecord::Schema[8.0].define(version: 8) do
   end
 
   create_table "active_agent_agents", force: :cascade do |t|
+    t.string "release_digest"
     t.bigint "account_id"
     t.string "action_name"
     t.json "action_prompts", default: [], null: false
@@ -189,6 +195,8 @@ ActiveRecord::Schema[8.0].define(version: 8) do
   end
 
   create_table "active_agent_evaluation_runs", force: :cascade do |t|
+    t.bigint "agent_version_id"
+    t.index [ "agent_version_id" ], name: "index_active_agent_evaluation_runs_on_agent_version_id"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
     t.text "error_message"
@@ -356,6 +364,8 @@ ActiveRecord::Schema[8.0].define(version: 8) do
   end
 
   create_table "active_agent_telemetry_traces", force: :cascade do |t|
+    t.bigint "agent_version_id"
+    t.index [ "agent_version_id" ], name: "index_active_agent_telemetry_traces_on_agent_version_id"
     t.string "agent_action"
     t.string "agent_class"
     t.bigint "agent_id"

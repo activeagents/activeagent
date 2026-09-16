@@ -169,12 +169,15 @@ module ActiveAgent
 
       # Returns default attributes for all spans.
       def default_attributes
-        {
+        attributes = {
           "service.name" => configuration.resolved_service_name,
           "service.environment" => configuration.resolved_environment,
           "telemetry.sdk.name" => "activeagent",
           "telemetry.sdk.version" => ActiveAgent::VERSION
         }
+        version = configuration.respond_to?(:service_version) ? configuration.service_version : nil
+        attributes["service.version"] = version if version.present?
+        attributes
       end
     end
   end
