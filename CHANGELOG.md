@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Agents have releases, and every trace, run and evaluation says which one
+  it ran under.** `ActiveAgent::Release` gives each agent class a digest of
+  what the model is given — provider and model, generation options minus
+  credentials, the actions, the prompt templates on disk, and the tools and
+  delegations it declares — so two deploys of the same agent share a digest
+  and any change to those inputs is a new one, with no number to bump.
+  `ActiveAgent::Release.revision` carries the deploy alongside (a git SHA;
+  read from `SERVICE_VERSION`, `GIT_SHA`, `KAMAL_VERSION` and friends when
+  not set). The instrumentation stamps `agent.version` and `agent.revision`
+  on every generation's root span, and every trace gets `service.version`.
+  In the dashboard, `rake action_agent:agents:release[REVISION]` cuts an
+  `AgentVersion` for each agent whose code changed since the last release —
+  idempotent, so it belongs in the deploy — `rake action_agent:agents:versions`
+  lists them, and `Agent#record_release!` is the call behind both for a host
+  that syncs agents its own way. Traces are pinned to the release their root
+  span names, runs and evaluation runs to the version current when they
+  started (`agent_version_id` on all three; the install generator emits the
+  migration). A version's JSON carries `release`, `release_digest` and
+  `revision`, so the Versions tab tells a deploy from an edit. For that to
+  reach a host's own agents, a trace from a class the host mirrors into the
+  dashboard is now attributed to that mirror — the registrar matched only on
+  service, class *and* action, so every code-path trace registered an
+  observed per-action twin beside the synced record and could never be
+  pinned to its release.
+
+### Fixed
+
+- **An evaluation created on MySQL can be run.** MySQL cannot give a JSON
+  column a default, so an evaluation saved there without `config` read it
+  back as `nil`, and `compare_models` raised before the runner did anything
+  else. `config` and `criteria` now read as the empty value their column
+  default supplies on other databases. (#417)
+- **The Tools tab now says which schema tools an agent is offered, and
+  lets you change it.** The editor listed every schema tool as enabled and
+  read-only whatever `agent.tools` held — *"a checkbox that cannot add or
+  remove the tool is a control that changes nothing"* — while evaluations,
+  dashboard runs and the MCP facade offered exactly what that column named.
+  An agent whose roster had been emptied over the API ran a suite with no
+  tools (1/8, `expected tool not called ×6`) under a tab reading "12
+  enabled". A schema tool's row now reads the roster and is switchable, and
+  every schema tool the host declares has a row, off unless the roster names
+  it — any agent may enable any of them, and a tool switched off has to keep
+  its row to be switched back on. A tool the agent class declares in code is
+  still reported rather than selected: the class offers it, and no checkbox
+  could change that.
+
 ## [1.6.1] - 2026-09-16
 
 Releases `activeagent` and `actionagent` 1.6.1 from one tag.
@@ -86,30 +134,6 @@ still correct: 1.6.0 satisfies it.
 
 ### Added
 
-- **Agents have releases, and every trace, run and evaluation says which one
-  it ran under.** `ActiveAgent::Release` gives each agent class a digest of
-  what the model is given — provider and model, generation options minus
-  credentials, the actions, the prompt templates on disk, and the tools and
-  delegations it declares — so two deploys of the same agent share a digest
-  and any change to those inputs is a new one, with no number to bump.
-  `ActiveAgent::Release.revision` carries the deploy alongside (a git SHA;
-  read from `SERVICE_VERSION`, `GIT_SHA`, `KAMAL_VERSION` and friends when
-  not set). The instrumentation stamps `agent.version` and `agent.revision`
-  on every generation's root span, and every trace gets `service.version`.
-  In the dashboard, `rake action_agent:agents:release[REVISION]` cuts an
-  `AgentVersion` for each agent whose code changed since the last release —
-  idempotent, so it belongs in the deploy — `rake action_agent:agents:versions`
-  lists them, and `Agent#record_release!` is the call behind both for a host
-  that syncs agents its own way. Traces are pinned to the release their root
-  span names, runs and evaluation runs to the version current when they
-  started (`agent_version_id` on all three; the install generator emits the
-  migration). A version's JSON carries `release`, `release_digest` and
-  `revision`, so the Versions tab tells a deploy from an edit. For that to
-  reach a host's own agents, a trace from a class the host mirrors into the
-  dashboard is now attributed to that mirror — the registrar matched only on
-  service, class *and* action, so every code-path trace registered an
-  observed per-action twin beside the synced record and could never be
-  pinned to its release.
 - **An evaluation replay runs as the evaluation's owner.** The scenario runner
   handed `Agent#test_execute` no caller, so every tool a replay called ran
   unattributed and a host scope answered empty — the suite graded an agent
@@ -196,11 +220,6 @@ still correct: 1.6.0 satisfies it.
 
 ### Fixed
 
-- **An evaluation created on MySQL can be run.** MySQL cannot give a JSON
-  column a default, so an evaluation saved there without `config` read it
-  back as `nil`, and `compare_models` raised before the runner did anything
-  else. `config` and `criteria` now read as the empty value their column
-  default supplies on other databases. (#417)
 - **The caller can no longer be named by the model, or by the client.**
   `actor:` reached `AgentToolbox.call` in the same keyword namespace as the
   arguments a provider parsed out of a model's tool call, and
@@ -222,20 +241,6 @@ still correct: 1.6.0 satisfies it.
   hash naming both `provider` and `model` is now rebuilt as it was; a bare
   label is still parsed. The dashboard's "re-run" of a saved selection is
   the path this fixes.
-- **The Tools tab now says which schema tools an agent is offered, and
-  lets you change it.** The editor listed every schema tool as enabled and
-  read-only whatever `agent.tools` held — *"a checkbox that cannot add or
-  remove the tool is a control that changes nothing"* — while evaluations,
-  dashboard runs and the MCP facade offered exactly what that column named.
-  An agent whose roster had been emptied over the API ran a suite with no
-  tools (1/8, `expected tool not called ×6`) under a tab reading "12
-  enabled". A schema tool's row now reads the roster and is switchable, and
-  every schema tool the host declares has a row, off unless the roster names
-  it — any agent may enable any of them, and a tool switched off has to keep
-  its row to be switched back on. A tool the agent class declares in code is
-  still reported rather than selected: the class offers it, and no checkbox
-  could change that.
-
 ## [1.5.2] - 2026-09-11
 
 Releases `activeagent` and `actionagent` 1.5.2 from one tag.
