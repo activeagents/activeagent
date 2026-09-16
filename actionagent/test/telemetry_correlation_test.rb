@@ -64,7 +64,7 @@ class TelemetryCorrelationTest < ActiveSupport::TestCase
   end
 
   test "instrumented generations share the trace_id exposed in prompt_options" do
-    original_tracer = swap_global_tracer(ActiveAgent::Telemetry::Tracer.new(@configuration))
+    previous = swap_global_tracer(ActiveAgent::Telemetry::Tracer.new(@configuration))
 
     agent_class = Class.new(ApplicationAgent) do
       def self.name = "CorrelationProbeAgent"
@@ -91,11 +91,11 @@ class TelemetryCorrelationTest < ActiveSupport::TestCase
     assert_match(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/, trace.trace_id,
       "trace_id should be the prompt_options UUID, not a tracer-generated hex id")
   ensure
-    swap_global_tracer(original_tracer)
+    restore_global_tracer(previous)
   end
 
   test "instrumented generations record provider and model attributes" do
-    original_tracer = swap_global_tracer(ActiveAgent::Telemetry::Tracer.new(@configuration))
+    previous = swap_global_tracer(ActiveAgent::Telemetry::Tracer.new(@configuration))
 
     agent_class = Class.new(ApplicationAgent) do
       def self.name = "AttributeProbeAgent"
@@ -122,7 +122,7 @@ class TelemetryCorrelationTest < ActiveSupport::TestCase
     assert_equal "mock-model", llm.dig("attributes", "llm.model")
     assert_operator prompt_span.dig("attributes", "messages.count").to_i, :>=, 1
   ensure
-    swap_global_tracer(original_tracer)
+    restore_global_tracer(previous)
   end
 
   private
@@ -144,13 +144,28 @@ class TelemetryCorrelationTest < ActiveSupport::TestCase
     }
   end
 
+  # Points the framework's global tracer at +tracer+ with local storage on,
+  # returning the state to hand back to +restore_global_tracer+. Left as it
+  # is, `local_storage` keeps `enabled?` true for the rest of the process,
+  # and every later generation in the suite is traced and registered as an
+  # observed agent.
   def swap_global_tracer(tracer)
-    previous = ActiveAgent::Telemetry.instance_variable_get(:@tracer)
+    config = ActiveAgent::Telemetry.configuration
+    previous = {
+      tracer: ActiveAgent::Telemetry.instance_variable_get(:@tracer),
+      enabled: config.enabled,
+      local_storage: config.local_storage
+    }
     ActiveAgent::Telemetry.instance_variable_set(:@tracer, tracer)
-    previous_enabled = ActiveAgent::Telemetry.configuration.enabled
-    ActiveAgent::Telemetry.configuration.enabled = true
-    ActiveAgent::Telemetry.configuration.local_storage = true
-    @restore_enabled = previous_enabled
+    config.enabled = true
+    config.local_storage = true
     previous
+  end
+
+  def restore_global_tracer(previous)
+    config = ActiveAgent::Telemetry.configuration
+    ActiveAgent::Telemetry.instance_variable_set(:@tracer, previous[:tracer])
+    config.enabled = previous[:enabled]
+    config.local_storage = previous[:local_storage]
   end
 end
