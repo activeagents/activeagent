@@ -115,6 +115,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hash naming both `provider` and `model` is now rebuilt as it was; a bare
   label is still parsed. The dashboard's "re-run" of a saved selection is
   the path this fixes.
+- **The Tools tab now says which schema tools an agent is offered, and
+  lets you change it.** The editor listed every schema tool as enabled and
+  read-only whatever `agent.tools` held — *"a checkbox that cannot add or
+  remove the tool is a control that changes nothing"* — while evaluations,
+  dashboard runs and the MCP facade offered exactly what that column named.
+  An agent whose roster had been emptied over the API ran a suite with no
+  tools (1/8, `expected tool not called ×6`) under a tab reading "12
+  enabled". A schema tool's row now reads the roster and is switchable, and
+  every schema tool the host declares has a row, off unless the roster names
+  it — any agent may enable any of them, and a tool switched off has to keep
+  its row to be switched back on. A tool the agent class declares in code is
+  still reported rather than selected: the class offers it, and no checkbox
+  could change that.
 
 ## [1.5.2] - 2026-09-11
 
