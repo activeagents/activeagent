@@ -115,6 +115,25 @@ class DashboardEngineIntegrationTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "active-agent-dashboard"
   end
 
+  test "mcp endpoint rejects unsupported transport methods" do
+    get "/activeagents/mcp", headers: { "Accept" => "text/event-stream" }
+
+    assert_response :method_not_allowed
+    assert_equal "POST", response.headers["Allow"]
+
+    delete "/activeagents/mcp"
+
+    assert_response :method_not_allowed
+    assert_equal "POST", response.headers["Allow"]
+  end
+
+  test "mcp dashboard route still renders for browsers" do
+    get "/activeagents/mcp", headers: { "Accept" => "text/html" }
+
+    assert_response :success
+    assert_includes response.body, "active-agent-dashboard"
+  end
+
   test "dashboard refuses unauthenticated access in production when no auth is configured" do
     Rails.env.stub(:local?, false) do
       get "/activeagents/console/traces"
