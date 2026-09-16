@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-09-16
+
+Releases `activeagent` and `actionagent` 1.6.2 from one tag.
+
+Agents gain releases: a digest of everything the model is given, cut on
+deploy and pinned to every trace, run and evaluation run, so a score is a
+statement about a specific release and a regression is attributable to the
+change that caused it. Around it, three dashboard fixes: an evaluation
+created on MySQL can be run, the Tools tab reads the same `agent.tools` the
+runner does, and the MCP endpoint answers an unsupported method with 405
+instead of the dashboard page. `sign_in_path` and `sign_out_path` are now
+documented.
+
+Upgrading: the install generator emits a new `add_agent_releases` migration
+(guarded column by column); run it. Cutting a release is
+`rake action_agent:agents:release[REVISION]` in the deploy.
+
 ### Added
 
 - **Agents have releases, and every trace, run and evaluation says which one
