@@ -86,6 +86,30 @@ still correct: 1.6.0 satisfies it.
 
 ### Added
 
+- **Agents have releases, and every trace, run and evaluation says which one
+  it ran under.** `ActiveAgent::Release` gives each agent class a digest of
+  what the model is given — provider and model, generation options minus
+  credentials, the actions, the prompt templates on disk, and the tools and
+  delegations it declares — so two deploys of the same agent share a digest
+  and any change to those inputs is a new one, with no number to bump.
+  `ActiveAgent::Release.revision` carries the deploy alongside (a git SHA;
+  read from `SERVICE_VERSION`, `GIT_SHA`, `KAMAL_VERSION` and friends when
+  not set). The instrumentation stamps `agent.version` and `agent.revision`
+  on every generation's root span, and every trace gets `service.version`.
+  In the dashboard, `rake action_agent:agents:release[REVISION]` cuts an
+  `AgentVersion` for each agent whose code changed since the last release —
+  idempotent, so it belongs in the deploy — `rake action_agent:agents:versions`
+  lists them, and `Agent#record_release!` is the call behind both for a host
+  that syncs agents its own way. Traces are pinned to the release their root
+  span names, runs and evaluation runs to the version current when they
+  started (`agent_version_id` on all three; the install generator emits the
+  migration). A version's JSON carries `release`, `release_digest` and
+  `revision`, so the Versions tab tells a deploy from an edit. For that to
+  reach a host's own agents, a trace from a class the host mirrors into the
+  dashboard is now attributed to that mirror — the registrar matched only on
+  service, class *and* action, so every code-path trace registered an
+  observed per-action twin beside the synced record and could never be
+  pinned to its release.
 - **An evaluation replay runs as the evaluation's owner.** The scenario runner
   handed `Agent#test_execute` no caller, so every tool a replay called ran
   unattributed and a host scope answered empty — the suite graded an agent

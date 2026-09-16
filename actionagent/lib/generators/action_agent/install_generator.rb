@@ -57,6 +57,12 @@ module ActionAgent
         )
       end
 
+      # Agent releases arrived after both tables shipped; the migration guards
+      # every column, so it is emitted for any install that lacks it.
+      unless existing_migration?("add_agent_releases")
+        migration_template("add_agent_releases.rb.erb", "db/migrate/add_agent_releases.rb")
+      end
+
       # The rest of the dashboard — agents, runs, versions, conversations,
       # evaluations, sandboxes, recordings, keys. Skippable for an app that
       # only wants to be a trace sink.
