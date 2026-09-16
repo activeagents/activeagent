@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-09-16
+
+Releases `activeagent` and `actionagent` 1.6.1 from one tag.
+
+A patch for two defects that share a failure mode: each one turns a broken
+run into a plausible-looking success rather than an error. A date filter that
+matched nothing reported zero instead of raising, and an agent reported that
+zero as fact; telemetry that was enabled but never instrumented wrote no
+traces while every configuration signal read healthy. Neither surfaced in a
+test suite, because neither produces a failure — only a confident wrong
+answer and an empty table.
+
+No new public surface and no behaviour change for anything that was already
+working, so a patch under semver. Suites that filter on a date column will
+report different — correct — numbers after upgrading; read the first run as a
+corrected baseline.
+
+### Fixed
+
+- **A range filter on a `SchemaTools` column no longer matches nothing and
+  reports zero.** `permitted_filters!` validated the column against the
+  allowlist but passed the value through untouched, so a range hash reached
+  `where` unrecognized and Rails compiled `where(due_date: {"before" => x})`
+  to `due_date = NULL` — a predicate that matches no row. The tool returned
+  `{count: 0}` with no error and the model read it as a truthful empty
+  answer: "0 overdue tickets" against a database holding four. Equality
+  filters were unaffected, which is why this went unnoticed. Comparisons are
+  now built through Arel with the column's own type cast, under the operators
+  `before`, `after`, `lt`, `lte`, `gt`, `gte`, `on_or_before` and
+  `on_or_after`; two bounds may be given together to express a window; and an
+  operator outside that set raises `UnpermittedAttribute` rather than
+  returning zero, consistent with how an undeclared column is already
+  rejected. Ranges are offered for date, datetime, time and numeric columns
+  only — a lexical `>` on a name column answers a question nobody asked.
+- **A range filter is now discoverable.** `filter_properties` described a date
+  column as a bare `{type: "string", format: "date"}`, so the tool surface
+  could not express "before today" at all and a model asking the question
+  correctly still had no way to ask it. Comparable columns are now offered as
+  `anyOf: [scalar, range object]`, with the operator roster in the schema.
+- **Telemetry enabled from a host app's initializer now installs
+  instrumentation.** The railtie prepended `GenerationInstrumentation` only
+  when `Telemetry.enabled?` was already true as railties ran — before
+  `config/initializers/*.rb`. An app that configures telemetry in its own
+  initializer, which is what the documentation shows, was therefore never
+  instrumented: `enabled?` answered true, `local_storage` was on, the trace
+  model resolved and the store lambda worked when called directly, and no
+  generation ever produced a span to store. `configure` now installs as well
+  when the resulting configuration is enabled; `instrument_telemetry!` is
+  idempotent, so the railtie path and the configure path cannot
+  double-prepend and initializer order stops mattering.
+
 ## [1.6.0] - 2026-09-14
 
 Releases `activeagent` and `actionagent` 1.6.0 from one tag.
