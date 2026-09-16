@@ -22,6 +22,14 @@ class AgentReleaseTest < ActiveSupport::TestCase
     )
   end
 
+  # A trace is stored by the reporter's thread; make sure nothing of this
+  # test's is still in flight, or still in the table, when the next one runs.
+  teardown do
+    ActiveAgent::Telemetry.tracer.flush
+    ActionAgent::TelemetryTrace.delete_all
+    ActionAgent::Agent.delete_all
+  end
+
   test "a release cuts one version per digest, carrying the digest and the deploy" do
     first = @agent.record_release!(digest: "aaaaaaaaaaaa", manifest: { "model" => "m1" }, revision: "sha-1")
 
@@ -91,8 +99,7 @@ class AgentReleaseTest < ActiveSupport::TestCase
     saved = { enabled: config.enabled, local_storage: config.local_storage }
     config.enabled = true
     config.local_storage = true
-    ActiveAgent::Base.include(ActiveAgent::Telemetry::Instrumentation)
-    ActiveAgent::Base.instrument_telemetry!
+    instrument(BillingAgent)
 
     BillingAgent.ask.generate_now
     ActiveAgent::Telemetry.tracer.flush
@@ -109,10 +116,7 @@ class AgentReleaseTest < ActiveSupport::TestCase
     saved = { enabled: config.enabled, local_storage: config.local_storage }
     config.enabled = true
     config.local_storage = true
-    # The dummy boots with telemetry off, so the railtie never installed the
-    # generation instrumentation; install it here (idempotent).
-    ActiveAgent::Base.include(ActiveAgent::Telemetry::Instrumentation)
-    ActiveAgent::Base.instrument_telemetry!
+    instrument(BillingAgent)
     ActiveAgent::Release.revision = "rev-9"
     version = @agent.record_release!(digest: BillingAgent.release_digest, revision: "rev-9")
 
@@ -132,6 +136,16 @@ class AgentReleaseTest < ActiveSupport::TestCase
   end
 
   private
+
+  # The dummy boots with telemetry off, so the railtie never installed the
+  # generation instrumentation. Install it on this test's class only: on
+  # ActiveAgent::Base it would stay for the rest of the process, and every
+  # later test that enables telemetry would trace its generations and
+  # register observed agents that leak into unrelated tests.
+  def instrument(klass)
+    klass.include(ActiveAgent::Telemetry::Instrumentation)
+    klass.instrument_telemetry!
+  end
 
   def payload(attributes = {})
     {
