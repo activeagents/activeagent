@@ -8,11 +8,19 @@ module ActionAgent
   # Three groups, one row vocabulary — the same one the Tools and MCP
   # Services pages use, so a roster reads the way the observability views do:
   #
-  # * **Agent-defined** — tools discovered from the rosters this agent's own
-  #   generations offered (ToolDiscovery's +agent+ origin). Schema-derived:
-  #   the agent class declares them, so they are reported here rather than
-  #   selected. Read-only for the same reason MCP rows are — a checkbox that
-  #   cannot add or remove the tool is a control that changes nothing.
+  # * **Agent-defined** — the tools this agent's own generations offered
+  #   (ToolDiscovery's +agent+ origin), plus every schema tool the host
+  #   declares, on or off. Two kinds share the group. A *schema tool* — one
+  #   a host ActiveAgent::SchemaTools class generates — is offered only while
+  #   +agent.tools+ names it: that is the reading AgentToolbox takes at
+  #   generation time, and the evaluation runner, dashboard runs and the MCP
+  #   facade all follow it. So it is selected here, and switchable, and every
+  #   one has a row because any agent may enable any of them
+  #   (Agent.available_tools) and a tool switched off has to keep its row to
+  #   be switched back on. A tool the agent class declares *in code* is
+  #   offered by the class itself; the dashboard reports it and cannot switch
+  #   it, so its row is read-only — a checkbox that cannot add or remove the
+  #   tool is a control that changes nothing.
   # * **Dashboard** — Agent::AVAILABLE_TOOLS, the capabilities the builder
   #   offers every agent. These are the roster: +agent.tools+ is what
   #   AgentToolbox turns into function schemas at generation time.
@@ -20,8 +28,9 @@ module ActionAgent
   #   agent enables, which is where they are edited.
   #
   # Enablement reads the agent's own configuration: +tools+ for the dashboard
-  # capabilities, +mcp_servers+ for services and their per-server allow-lists
-  # (an entry with no +tools+ key offers everything the server serves).
+  # capabilities and the schema tools, +mcp_servers+ for services and their
+  # per-server allow-lists (an entry with no +tools+ key offers everything
+  # the server serves).
   class AgentToolRoster
     AGENT_DEFINED = "agent_defined"
     DASHBOARD = "dashboard"
@@ -158,23 +167,40 @@ module ActionAgent
       agent_defined_rows + dashboard_rows
     end
 
-    # Schema-derived tools: whatever this agent's generations offered that
-    # is neither an MCP tool nor one of the dashboard's own.
+    # Agent-defined tools: whatever this agent's generations offered that is
+    # neither an MCP tool nor one of the dashboard's own, plus every schema
+    # tool the host declares, whether or not the window saw it.
     def agent_defined_rows
-      detected
+      observed = detected
         .select { |tool| tool[:origin] == ToolDiscovery::ORIGIN_AGENT }
         .reject { |tool| dashboard_function_names.include?(tool[:name]) }
-        .map do |tool|
-          usage_row(tool).merge(
-            key: tool[:name],
-            name: tool[:name],
-            source: AGENT_DEFINED,
-            description: tool[:description],
-            # The agent class declares these; the dashboard reports them.
-            enabled: true,
-            editable: false
-          )
-        end
+        .index_by { |tool| tool[:name] }
+
+      (observed.keys + ActionAgent.schema_tool_names).uniq.map do |name|
+        tool = observed[name]
+        schema = schema_tool?(name)
+
+        usage_row(tool).merge(
+          key: name,
+          name: name,
+          source: AGENT_DEFINED,
+          description: tool&.dig(:description) || schema_tool_description(name),
+          # A schema tool is offered only while the roster names it — the
+          # window may still show it being called, but that is history. A
+          # tool the agent class declares in code is offered by the class.
+          enabled: schema ? saved_tools.include?(name) : true,
+          editable: schema
+        )
+      end
+    end
+
+    def schema_tool?(name)
+      @schema_tool ||= Hash.new { |cache, key| cache[key] = ActionAgent.schema_tool_class_for(key).present? }
+      @schema_tool[name]
+    end
+
+    def schema_tool_description(name)
+      AgentToolbox.schema_tool_definitions(name).first&.dig(:description)
     end
 
     def dashboard_rows
