@@ -77,8 +77,22 @@ module ActionAgent
       ActionAgent.multi_tenant? ? @trace.try(:account) : nil
     end
 
+    # The set an observed agent is deduplicated within.
+    #
+    # `for_owner(nil)` is `none` — correct for a multi-tenant read, where an
+    # unresolved tenant must see nothing. But a single-tenant dashboard has no
+    # owner to resolve and legitimately registers with `owner` nil (see
+    # #owner_for_trace), and `none` makes every dedupe lookup miss: each trace
+    # created another copy of the same agent, and the MAX_OBSERVED_PER_OWNER
+    # cap never engaged because the count it reads was always zero. Scoping to
+    # the whole table when there is no owner concept is what `for_owner`
+    # already does for a model with no owner association.
+    def agents_for_owner(owner)
+      owner.nil? && !ActionAgent.multi_tenant? ? Agent.all : Agent.for_owner(owner)
+    end
+
     def find_or_create_agent(owner)
-      agents = Agent.for_owner(owner)
+      agents = agents_for_owner(owner)
       existing = agents.find_by(
         service_name: @trace.service_name,
         agent_class_name: agent_class,
