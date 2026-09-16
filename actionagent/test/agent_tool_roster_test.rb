@@ -14,6 +14,15 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
     ActionAgent::Agent.delete_all
     ActionAgent::TelemetryTrace.delete_all
     ActionAgent::AgentContext.delete_all
+    # The dummy app declares no schema tools; Post's stand in for a host's
+    # (find_posts, count_posts, get_post).
+    @previous_schema_tools = ActionAgent.schema_tools
+    ActionAgent.schema_tools = [ ActiveAgent::SchemaTools.define(Post, filterable: %i[published], returns: %i[id title]) ]
+  end
+
+  teardown do
+    ActiveAgent::SchemaTools.undefine(Post)
+    ActionAgent.schema_tools = @previous_schema_tools
   end
 
   def create_agent(**attributes)
@@ -68,24 +77,87 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
     body["tools"].find { |tool| tool["name"] == name }
   end
 
-  test "schema-derived tools are reported with their usage and are not editable" do
+  test "a tool the agent class declares in code is reported with its usage and is not editable" do
     agent = create_agent(agent_class_name: "SupportHubAgent")
     create_trace(
       agent_class: "SupportHubAgent",
-      declared: [ { "name" => "find_tickets", "description" => "Find tickets matching the given filters." } ],
-      calls: [ { name: "find_tickets", duration: 13.0 } ]
+      declared: [ { "name" => "refund_invoice", "description" => "Refund an invoice in full." } ],
+      calls: [ { name: "refund_invoice", duration: 13.0 } ]
     )
 
-    tool = tool_named(roster_for(agent), "find_tickets")
+    tool = tool_named(roster_for(agent), "refund_invoice")
 
     assert_equal "agent_defined", tool["source"]
-    assert_equal "Find tickets matching the given filters.", tool["description"]
+    assert_equal "Refund an invoice in full.", tool["description"]
     assert_equal 1, tool["calls"]
     assert_equal 13, tool["avg_duration_ms"]
-    # The agent class declares them, so the dashboard reports rather than
-    # selects: a checkbox here could not add or remove the tool.
+    # The class offers it whatever the roster says, so the dashboard reports
+    # rather than selects: a checkbox here could not add or remove the tool.
     assert tool["enabled"]
     assert_equal false, tool["editable"]
+  end
+
+  test "a schema tool is on while the roster names it, off when it does not, and switchable either way" do
+    agent = create_agent(agent_class_name: "SupportHubAgent", tools: [ "find_posts" ])
+    create_trace(
+      agent_class: "SupportHubAgent",
+      declared: [ { "name" => "find_posts", "description" => "Find posts matching the given filters." } ],
+      calls: [ { name: "find_posts", duration: 13.0 } ]
+    )
+
+    on = tool_named(roster_for(agent), "find_posts")
+
+    assert_equal "agent_defined", on["source"]
+    assert on["enabled"]
+    assert on["editable"]
+    assert_equal 1, on["calls"]
+
+    agent.update!(tools: [])
+    off = tool_named(roster_for(agent), "find_posts")
+
+    # The window still shows the tool offered and called; that is history.
+    # What a generation would be offered now is the roster — the reading
+    # AgentToolbox takes, and the one the evaluation runner follows.
+    assert_equal false, off["enabled"]
+    assert off["editable"]
+    assert_equal 1, off["calls"]
+    assert_empty ActionAgent::AgentToolbox.definitions_for(agent.tools)
+  end
+
+  test "every schema tool the host declares has a row, off unless the roster names it" do
+    hub = create_agent(agent_class_name: "SupportHubAgent")
+    hub.update!(tools: [])
+    # Named after the model, so the convention seeds Post's tools on create.
+    posts = create_agent(name: "Post Agent", agent_class_name: "PostAgent")
+
+    off = tool_named(roster_for(hub), "find_posts")
+
+    assert_equal "agent_defined", off["source"]
+    assert_equal false, off["enabled"]
+    assert off["editable"]
+    assert_equal 0, off["calls"]
+    assert_nil off["last_seen"]
+    assert off["description"].present?
+
+    assert_equal %w[count_posts find_posts get_post], posts.tools.sort
+    assert tool_named(roster_for(posts), "find_posts")["enabled"]
+  end
+
+  test "saving the roster switches what a generation is offered" do
+    agent = create_agent(agent_class_name: "SupportHubAgent", tools: [ "find_posts", "memory" ])
+    offered = -> { ActionAgent::AgentToolbox.definitions_for(agent.reload.tools).map { |definition| definition[:name].to_s } }
+
+    patch "/activeagents/api/agents/#{agent.id}", params: { agent: { tools: [ "memory" ] } }
+
+    assert_response :success
+    assert_equal false, tool_named(roster_for(agent), "find_posts")["enabled"]
+    assert_not_includes offered.call, "find_posts"
+
+    patch "/activeagents/api/agents/#{agent.id}", params: { agent: { tools: [ "memory", "find_posts" ] } }
+
+    assert_response :success
+    assert tool_named(roster_for(agent), "find_posts")["enabled"]
+    assert_includes offered.call, "find_posts"
   end
 
   test "another agent's traffic stays out of this agent's roster" do
