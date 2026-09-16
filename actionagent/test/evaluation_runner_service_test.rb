@@ -20,6 +20,21 @@ class ActionAgentEvaluationRunnerServiceTest < ActiveSupport::TestCase
     end
   end
 
+  test "the judge class is built once per service instance" do
+    ActionAgent::Agent.delete_all
+    agent = ActionAgent::Agent.create!(name: "Judged", provider: "openai", model: "gpt-4o-mini")
+    evaluation = agent.evaluations.create!(name: "Quality", judge_kind: "llm", judge_model: "gpt-4o-mini",
+                                           criteria: [ { "key" => "quality", "type" => "llm_judge" } ])
+    service = ActionAgent::EvaluationRunnerService.new(evaluation)
+    resolved = 0
+
+    service.stub(:judge_provider, -> { resolved += 1; :openai }) do
+      assert_same service.send(:judge_class), service.send(:judge_class)
+    end
+
+    assert_equal 1, resolved
+  end
+
   test "malformed or non-numeric judge scores are unscorable" do
     [ '{"score": "0.9"}', '{"score": true}', '{"score": null}', '{"score": {}}',
       '{"score": 0.9oops}', '{"score": 1e999}', '{"score": NaN}', "{}", "no json here", nil ].each do |content|
