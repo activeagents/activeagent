@@ -453,4 +453,102 @@ class SchemaToolsTest < ActiveSupport::TestCase
       Class.new(ActiveAgent::SchemaTools) { scope_by_policy }
     end
   end
+
+  # --- Range filters -----------------------------------------------------
+  #
+  # Rails turns `where(col: {"before" => x})` into `col = NULL`, so before
+  # these were supported a range filter matched nothing and reported zero.
+  # An agent reads that as a truthful empty answer, which is why the silent
+  # case is tested as carefully as the working one.
+
+  class DatedPostTools < ActiveAgent::SchemaTools
+    model Post
+    filterable :published_at, :published
+    returns :id, :title, :published_at
+  end
+
+  test "range filter compares instead of matching nothing" do
+    Post.delete_all
+    old = Post.create!(title: "Old", content: "body", user: @alice, published_at: 10.days.ago)
+    Post.create!(title: "New", content: "body", user: @alice, published_at: 1.day.from_now)
+
+    result = DatedPostTools.call("find_posts", published_at: { "before" => Time.current.iso8601 })
+
+    assert_equal 1, result[:count]
+    assert_equal [ old.title ], result[:results].map { |r| r[:title] }
+  end
+
+  test "count applies a range filter" do
+    Post.delete_all
+    Post.create!(title: "Old", content: "body", user: @alice, published_at: 10.days.ago)
+    Post.create!(title: "New", content: "body", user: @alice, published_at: 1.day.from_now)
+
+    assert_equal 1, DatedPostTools.call("count_posts", published_at: { "after" => Time.current.iso8601 })[:count]
+  end
+
+  test "range filter accepts two bounds as a window" do
+    Post.delete_all
+    Post.create!(title: "Way old", content: "body", user: @alice, published_at: 30.days.ago)
+    inside = Post.create!(title: "Inside", content: "body", user: @alice, published_at: 5.days.ago)
+    Post.create!(title: "Future", content: "body", user: @alice, published_at: 5.days.from_now)
+
+    result = DatedPostTools.call(
+      "find_posts",
+      published_at: { "after" => 10.days.ago.iso8601, "before" => Time.current.iso8601 }
+    )
+
+    assert_equal 1, result[:count]
+    assert_equal [ inside.title ], result[:results].map { |r| r[:title] }
+  end
+
+  test "range filter combines with an equality filter" do
+    Post.delete_all
+    Post.create!(title: "Old published", content: "body", user: @alice, published_at: 10.days.ago, published: true)
+    Post.create!(title: "Old draft", content: "body", user: @alice, published_at: 10.days.ago, published: false)
+
+    result = DatedPostTools.call(
+      "find_posts", published: true, published_at: { "before" => Time.current.iso8601 }
+    )
+
+    assert_equal 1, result[:count]
+    assert_equal [ "Old published" ], result[:results].map { |r| r[:title] }
+  end
+
+  test "rejects an unknown comparison rather than reporting zero" do
+    Post.delete_all
+    Post.create!(title: "Old", content: "body", user: @alice, published_at: 10.days.ago)
+
+    result = DatedPostTools.call("find_posts", published_at: { "roughly_before" => Time.current.iso8601 })
+
+    assert_match(/not a valid comparison/, result[:error])
+    refute result.key?(:results), "must not return records when a comparison is rejected"
+  end
+
+  test "a rejected comparison never silently widens or narrows the answer" do
+    Post.delete_all
+    Post.create!(title: "Old", content: "body", user: @alice, published_at: 10.days.ago)
+
+    # The failure this guards: returning {count: 0} (silently narrowed) or the
+    # unfiltered set (silently widened) instead of an error.
+    result = DatedPostTools.call("count_posts", published_at: { "bogus" => "2026-01-01" })
+
+    assert result.key?(:error)
+    refute result.key?(:count)
+  end
+
+  test "range filters are offered on comparable columns only" do
+    properties = DatedPostTools.tool_definitions.find { |d| d[:name] == "find_posts" }
+      .dig(:parameters, :properties)
+
+    assert properties[:published_at].key?(:anyOf), "a datetime column must offer the range form"
+    refute properties[:published].key?(:anyOf), "a boolean column must not offer a range form"
+  end
+
+  test "the advertised range operators are the ones accepted" do
+    properties = DatedPostTools.tool_definitions.find { |d| d[:name] == "find_posts" }
+      .dig(:parameters, :properties)
+    advertised = properties[:published_at][:anyOf].last[:properties].keys.map(&:to_s)
+
+    assert_equal ActiveAgent::SchemaTools::RANGE_OPERATORS.keys.sort, advertised.sort
+  end
 end

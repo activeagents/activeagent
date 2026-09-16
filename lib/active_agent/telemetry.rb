@@ -78,7 +78,29 @@ module ActiveAgent
       #   end
       def configure
         yield configuration if block_given?
+        install_instrumentation! if enabled?
         configuration
+      end
+
+      # Installs generation instrumentation on ActiveAgent::Base.
+      #
+      # The railtie also does this at boot, but only for configuration already
+      # loaded by then (activeagent.yml, config.active_agent.telemetry). A host
+      # app that enables telemetry from its own initializer runs *after*
+      # railties, so that check has already seen `enabled? == false` and
+      # skipped the install — leaving telemetry enabled but nothing
+      # instrumented, and so no traces despite a valid local_store. Calling it
+      # from {.configure} as well makes the install order-independent;
+      # `instrument_telemetry!` is idempotent, so the two paths cannot
+      # double-prepend.
+      #
+      # @api private
+      # @return [void]
+      def install_instrumentation!
+        return unless defined?(ActiveAgent::Base)
+
+        ActiveAgent::Base.include(Instrumentation)
+        ActiveAgent::Base.instrument_telemetry!
       end
 
       # Resets the configuration to defaults.
