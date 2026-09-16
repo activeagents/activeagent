@@ -31,6 +31,14 @@ ActionAgent.configure do |config|
   #   config.authentication_method = nil
   #
   config.authentication_method = nil
+  #
+  # Where a browser is sent when it asks for a dashboard page without a valid
+  # session; unset, it gets a minimal session-expired page. API clients get a
+  # bare 401 either way. The sign-out path is what the header's "Sign out"
+  # item POSTs to (with _method=delete); unset, the item is not shown.
+  #
+  # config.sign_in_path = "/sign_in"
+  # config.sign_out_path = "/sign_out"
 
   # ==========================================================================
   # Ingest API authentication
