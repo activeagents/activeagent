@@ -532,7 +532,10 @@ module ActionAgent
           change_summary: version.change_summary,
           created_by: version.created_by,
           created_at: version.created_at,
-          is_latest: version.latest?
+          is_latest: version.latest?,
+          release: version.release?,
+          release_digest: version.release_digest,
+          revision: version.revision
         }
 
         if include_diff && version.previous
