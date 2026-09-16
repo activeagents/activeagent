@@ -132,9 +132,9 @@ module ActionAgent
       # observed from telemetry have no AgentRun rows at all, so a runs-only
       # list showed them as empty while their scorecard reported real traffic.
       def runs
-        minutes = params[:minutes].presence&.then { |m| m.to_i.clamp(1, 60 * 24 * 90) }
-        page = (params[:page] || 1).to_i
-        per_page = (params[:per_page] || 20).to_i
+        minutes = integer_param(:minutes)&.clamp(1, 60 * 24 * 90)
+        page = integer_param(:page, default: 1)
+        per_page = integer_param(:per_page, default: 20)
 
         executions = AgentExecutions.new(
           agents: [ @agent ],
@@ -282,7 +282,7 @@ module ActionAgent
       # with all-zero metrics beside a card and a runs list reporting real
       # traffic.
       def analytics
-        days = (params[:days] || 30).to_i
+        days = integer_param(:days, default: 30)
         start_date = days.days.ago.beginning_of_day
 
         runs = @agent.agent_runs.where("created_at >= ?", start_date)

@@ -16,7 +16,7 @@ module ActionAgent
 
       # GET /api/interactions
       def index
-        limit = params.fetch(:limit, DEFAULT_LIMIT).to_i.clamp(1, 200)
+        limit = clamped_param(:limit, default: DEFAULT_LIMIT, min: 1, max: 200)
 
         contexts = interactions_scope
           .includes(:contextable)
@@ -140,8 +140,8 @@ module ActionAgent
       def window_minutes
         return @window_minutes if defined?(@window_minutes)
 
-        raw = params[:minutes].presence
-        @window_minutes = raw ? raw.to_i.clamp(1, MAX_WINDOW_MINUTES) : nil
+        raw = integer_param(:minutes)
+        @window_minutes = raw ? raw.clamp(1, MAX_WINDOW_MINUTES) : nil
       end
 
       def interactions_scope
