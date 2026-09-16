@@ -510,6 +510,21 @@ ActionAgent.configure do |config|
 end
 ```
 
+A browser that asks for a dashboard page without a valid session is sent
+to `config.sign_in_path` when one is set — your app's sign-in page — and
+otherwise shown a minimal session-expired page. API and MCP clients get a
+bare 401 either way. `config.sign_out_path` is the endpoint the header's
+"Sign out" item POSTs to (with `_method=delete` and the CSRF token); the
+engine has no session of its own, so leave it unset to hide the item.
+
+```ruby
+ActionAgent.configure do |config|
+  config.authentication_method = ->(controller) { controller.authenticate_admin! }
+  config.sign_in_path = "/admin/sign_in"
+  config.sign_out_path = "/admin/sign_out"
+end
+```
+
 Or constrain the mount in `config/routes.rb`:
 
 ```ruby

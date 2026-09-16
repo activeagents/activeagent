@@ -129,6 +129,26 @@ module ActionAgent
         render json: { error: "Agent execution is disabled on this dashboard" }, status: :forbidden
       end
 
+      # An integer query param. A value can arrive as a container
+      # (`minutes[]=1&minutes[]=2`, or `page[x]=1`), and neither Array nor
+      # ActionController::Parameters responds to `to_i`: reading them
+      # directly raised NoMethodError and turned a malformed query into a
+      # 500. A multi-valued param means its first value; anything else that
+      # is not a scalar falls back to the default.
+      def integer_param(name, default: nil)
+        raw = params[name]
+        raw = raw.first if raw.is_a?(Array)
+        return default if raw.blank? || !(raw.is_a?(String) || raw.is_a?(Numeric))
+
+        raw.to_s.to_i
+      end
+
+      # integer_param, then clamped into [min, max]. Non-numeric input becomes
+      # 0 and is then clamped up to `min`.
+      def clamped_param(name, default:, min:, max:)
+        integer_param(name, default: default).clamp(min, max)
+      end
+
       def not_found
         render json: { error: "Record not found" }, status: :not_found
       end

@@ -35,6 +35,17 @@ module ActionAgent
 
     scope :recent, -> { order(updated_at: :desc) }
 
+    # MySQL cannot give a JSON column a default, so a row inserted there
+    # without `criteria` or `config` reads back nil. Both readers answer with
+    # the empty value the column default supplies on other databases.
+    def criteria
+      super || []
+    end
+
+    def config
+      super || {}
+    end
+
     def latest_run
       evaluation_runs.order(created_at: :desc).first
     end

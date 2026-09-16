@@ -18,11 +18,16 @@ module ActionAgent
       # POST /api/sandboxes/compare
       # Run multiple providers in a single sandbox using parallel generation jobs
       def compare
-        providers = params[:providers] || %w[anthropic openai ollama]
+        providers = params[:providers].nil? ? %w[anthropic openai ollama] : params[:providers]
         task = params[:task]
         sandbox_id = params[:sandbox_id]
 
         return render json: { error: "Task required" }, status: :bad_request unless task.present?
+        # A bare string or a nested object is a malformed request, not a list
+        # of one provider: reading it as a list raised NoMethodError.
+        unless providers.is_a?(Array) && providers.all? { |name| name.is_a?(String) }
+          return render json: { error: "providers must be a list of provider names" }, status: :bad_request
+        end
         return render json: { error: "At least 2 providers required" }, status: :bad_request if providers.size < 2
 
         # Validate providers

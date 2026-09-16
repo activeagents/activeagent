@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-09-16
+
+Releases `activeagent` and `actionagent` 1.6.2 from one tag.
+
+Agents gain releases: a digest of everything the model is given, cut on
+deploy and pinned to every trace, run and evaluation run, so a score is a
+statement about a specific release and a regression is attributable to the
+change that caused it. Around it, five dashboard fixes: an evaluation
+created on MySQL can be run, the Tools tab reads the same `agent.tools` the
+runner does, a container-valued query parameter is coerced instead of
+raising, a recording's detail response no longer carries the visitor's
+cookies and web storage, and the MCP endpoint answers an unsupported method with 405
+instead of the dashboard page. `sign_in_path` and `sign_out_path` are now
+documented.
+
+Upgrading: the install generator emits a new `add_agent_releases` migration
+(guarded column by column); run it. Cutting a release is
+`rake action_agent:agents:release[REVISION]` in the deploy.
+
 ### Added
 
 - **Agents have releases, and every trace, run and evaluation says which one
@@ -33,6 +52,120 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   service, class *and* action, so every code-path trace registered an
   observed per-action twin beside the synced record and could never be
   pinned to its release.
+
+### Fixed
+
+- **An evaluation created on MySQL can be run.** MySQL cannot give a JSON
+  column a default, so an evaluation saved there without `config` read it
+  back as `nil`, and `compare_models` raised before the runner did anything
+  else. `config` and `criteria` now read as the empty value their column
+  default supplies on other databases. (#417)
+- **The Tools tab now says which schema tools an agent is offered, and
+  lets you change it.** The editor listed every schema tool as enabled and
+  read-only whatever `agent.tools` held — *"a checkbox that cannot add or
+  remove the tool is a control that changes nothing"* — while evaluations,
+  dashboard runs and the MCP facade offered exactly what that column named.
+  An agent whose roster had been emptied over the API ran a suite with no
+  tools (1/8, `expected tool not called ×6`) under a tab reading "12
+  enabled". A schema tool's row now reads the roster and is switchable, and
+  every schema tool the host declares has a row, off unless the roster names
+  it — any agent may enable any of them, and a tool switched off has to keep
+  its row to be switched back on. A tool the agent class declares in code is
+  still reported rather than selected: the class offers it, and no checkbox
+  could change that.
+- **A container-valued query parameter no longer 500s the dashboard API.**
+  `page`, `per_page`, `days`, `minutes`, `limit` and `after_sequence` were
+  read with `to_i`, which neither an Array (`minutes[]=1&minutes[]=2`) nor a
+  nested object (`page[x]=1`) answers. `Api::BaseController` now coerces
+  them: a multi-valued parameter means its first value, a nested object falls
+  back to the default, and the clamps that bounded the number still apply.
+  `sandboxes#compare` answers a `providers` value that is not a list of
+  names with a 400 instead of a `NoMethodError`.
+- **A session recording's `show` no longer returns the visitor's cookies and
+  web storage.** Every other read path redacted the handoff state, but the
+  detail response carried `cookies`, `session_storage` and `local_storage`
+  unscrubbed, both as its own key and nested inside `metadata`. Both are now
+  stripped; only `#handoff` returns them, to the recording's owner. (#456)
+
+## [1.6.1] - 2026-09-16
+
+Releases `activeagent` and `actionagent` 1.6.1 from one tag.
+
+A patch for two defects that share a failure mode: each one turns a broken
+run into a plausible-looking success rather than an error. A date filter that
+matched nothing reported zero instead of raising, and an agent reported that
+zero as fact; telemetry that was enabled but never instrumented wrote no
+traces while every configuration signal read healthy. Neither surfaced in a
+test suite, because neither produces a failure — only a confident wrong
+answer and an empty table.
+
+No new public surface and no behaviour change for anything that was already
+working, so a patch under semver. Suites that filter on a date column will
+report different — correct — numbers after upgrading; read the first run as a
+corrected baseline.
+
+### Fixed
+
+- **A range filter on a `SchemaTools` column no longer matches nothing and
+  reports zero.** `permitted_filters!` validated the column against the
+  allowlist but passed the value through untouched, so a range hash reached
+  `where` unrecognized and Rails compiled `where(due_date: {"before" => x})`
+  to `due_date = NULL` — a predicate that matches no row. The tool returned
+  `{count: 0}` with no error and the model read it as a truthful empty
+  answer: "0 overdue tickets" against a database holding four. Equality
+  filters were unaffected, which is why this went unnoticed. Comparisons are
+  now built through Arel with the column's own type cast, under the operators
+  `before`, `after`, `lt`, `lte`, `gt`, `gte`, `on_or_before` and
+  `on_or_after`; two bounds may be given together to express a window; and an
+  operator outside that set raises `UnpermittedAttribute` rather than
+  returning zero, consistent with how an undeclared column is already
+  rejected. Ranges are offered for date, datetime, time and numeric columns
+  only — a lexical `>` on a name column answers a question nobody asked.
+- **A range filter is now discoverable.** `filter_properties` described a date
+  column as a bare `{type: "string", format: "date"}`, so the tool surface
+  could not express "before today" at all and a model asking the question
+  correctly still had no way to ask it. Comparable columns are now offered as
+  `anyOf: [scalar, range object]`, with the operator roster in the schema.
+- **Telemetry enabled from a host app's initializer now installs
+  instrumentation.** The railtie prepended `GenerationInstrumentation` only
+  when `Telemetry.enabled?` was already true as railties ran — before
+  `config/initializers/*.rb`. An app that configures telemetry in its own
+  initializer, which is what the documentation shows, was therefore never
+  instrumented: `enabled?` answered true, `local_storage` was on, the trace
+  model resolved and the store lambda worked when called directly, and no
+  generation ever produced a span to store. `configure` now installs as well
+  when the resulting configuration is enabled; `instrument_telemetry!` is
+  idempotent, so the railtie path and the configure path cannot
+  double-prepend and initializer order stops mattering.
+
+## [1.6.0] - 2026-09-14
+
+Releases `activeagent` and `actionagent` 1.6.0 from one tag.
+
+A minor, not a patch. The cycle that began after 1.5.2 gives an agent a
+caller — `current_user`, carried from whatever authenticated the call into
+every `before_action`, every tool, every delegated sub-agent, every run over
+MCP and every evaluation replay — so an authorization gem has something to
+decide against. Around it: schema tools defined at runtime rather than only
+in a file, a generator that writes the first one, those tools served
+directly over MCP, and an evaluation that calls a fabricated answer a fault
+instead of grading it as an honest gap. That is new public surface in both
+gems, which is a minor under semver even though 1.5.2 shipped a feature as a
+patch.
+
+Two notes for upgrades. `tools_succeeded` is now awarded only for a tool the
+scenario expected, so a suite that was quietly scoring wrong-tool runs as
+partial successes will report lower — read the first run as a corrected
+baseline. And `actor:` is now stripped from tool arguments and from
+`params[params][actor]`: the caller is a property of the run, set once by
+whatever authenticated it, and can no longer be named by the model or by a
+client.
+
+The engine's floor on the framework (`activeagent >= 1.4`) is unchanged and
+still correct: 1.6.0 satisfies it.
+
+### Added
+
 - **An evaluation replay runs as the evaluation's owner.** The scenario runner
   handed `Agent#test_execute` no caller, so every tool a replay called ran
   unattributed and a host scope answered empty — the suite graded an agent
@@ -116,6 +249,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The judge reads more of a scenario's notes** — 1,500 characters rather
   than 300 — because a suite's notes are often its rubric and the "must not"
   clause tends to come last. (#433)
+
 ### Fixed
 
 - **The caller can no longer be named by the model, or by the client.**
@@ -139,20 +273,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hash naming both `provider` and `model` is now rebuilt as it was; a bare
   label is still parsed. The dashboard's "re-run" of a saved selection is
   the path this fixes.
-- **The Tools tab now says which schema tools an agent is offered, and
-  lets you change it.** The editor listed every schema tool as enabled and
-  read-only whatever `agent.tools` held — *"a checkbox that cannot add or
-  remove the tool is a control that changes nothing"* — while evaluations,
-  dashboard runs and the MCP facade offered exactly what that column named.
-  An agent whose roster had been emptied over the API ran a suite with no
-  tools (1/8, `expected tool not called ×6`) under a tab reading "12
-  enabled". A schema tool's row now reads the roster and is switchable, and
-  every schema tool the host declares has a row, off unless the roster names
-  it — any agent may enable any of them, and a tool switched off has to keep
-  its row to be switched back on. A tool the agent class declares in code is
-  still reported rather than selected: the class offers it, and no checkbox
-  could change that.
-
 ## [1.5.2] - 2026-09-11
 
 Releases `activeagent` and `actionagent` 1.5.2 from one tag.

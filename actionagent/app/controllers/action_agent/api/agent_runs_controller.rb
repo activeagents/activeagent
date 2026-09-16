@@ -33,8 +33,8 @@ module ActionAgent
         scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
         scope = scope.where(status: params[:status]) if params[:status].present?
 
-        page = (params[:page] || 1).to_i
-        per_page = (params[:per_page] || 20).to_i
+        page = integer_param(:page, default: 1)
+        per_page = integer_param(:per_page, default: 20)
         total = scope.count
         runs = scope.offset((page - 1) * per_page).limit(per_page)
 
