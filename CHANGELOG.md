@@ -14,9 +14,11 @@ Releases `activeagent` and `actionagent` 1.6.2 from one tag.
 Agents gain releases: a digest of everything the model is given, cut on
 deploy and pinned to every trace, run and evaluation run, so a score is a
 statement about a specific release and a regression is attributable to the
-change that caused it. Around it, three dashboard fixes: an evaluation
+change that caused it. Around it, five dashboard fixes: an evaluation
 created on MySQL can be run, the Tools tab reads the same `agent.tools` the
-runner does, and the MCP endpoint answers an unsupported method with 405
+runner does, a container-valued query parameter is coerced instead of
+raising, a recording's detail response no longer carries the visitor's
+cookies and web storage, and the MCP endpoint answers an unsupported method with 405
 instead of the dashboard page. `sign_in_path` and `sign_out_path` are now
 documented.
 
@@ -71,6 +73,19 @@ Upgrading: the install generator emits a new `add_agent_releases` migration
   its row to be switched back on. A tool the agent class declares in code is
   still reported rather than selected: the class offers it, and no checkbox
   could change that.
+- **A container-valued query parameter no longer 500s the dashboard API.**
+  `page`, `per_page`, `days`, `minutes`, `limit` and `after_sequence` were
+  read with `to_i`, which neither an Array (`minutes[]=1&minutes[]=2`) nor a
+  nested object (`page[x]=1`) answers. `Api::BaseController` now coerces
+  them: a multi-valued parameter means its first value, a nested object falls
+  back to the default, and the clamps that bounded the number still apply.
+  `sandboxes#compare` answers a `providers` value that is not a list of
+  names with a 400 instead of a `NoMethodError`.
+- **A session recording's `show` no longer returns the visitor's cookies and
+  web storage.** Every other read path redacted the handoff state, but the
+  detail response carried `cookies`, `session_storage` and `local_storage`
+  unscrubbed, both as its own key and nested inside `metadata`. Both are now
+  stripped; only `#handoff` returns them, to the recording's owner. (#456)
 
 ## [1.6.1] - 2026-09-16
 
