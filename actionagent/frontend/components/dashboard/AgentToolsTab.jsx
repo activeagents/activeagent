@@ -523,7 +523,9 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
                           {tool.name}
                         </span>
                         {tool.source === 'mcp' && <Badge size={10}>via {tool.server}</Badge>}
-                        {tool.source === 'agent_defined' && <Badge size={10} title="Declared by the agent class, so the roster reports it rather than selecting it">from schema</Badge>}
+                        {tool.source === 'agent_defined' && (tool.editable
+                          ? <Badge size={10} title="Generated from the host's schema tools; offered to this agent only while its roster names it">from schema</Badge>
+                          : <Badge size={10} title="Declared by the agent class in code, so the roster reports it rather than selecting it">from code</Badge>)}
                         {usage && tool.on && !tool.calls && <Badge size={10}>unused</Badge>}
                       </div>
                       <div style={{ marginTop: 2, fontSize: 12, lineHeight: '17px', color: 'var(--color-text-secondary)', ...ellipsis }}>
