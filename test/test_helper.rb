@@ -17,6 +17,15 @@ require "vcr"
 require "webmock/minitest"
 require "minitest/mock"
 
+# Action Cable reads config/cable.yml for the current environment the first
+# time its server class loads, and keeps what it read. With eager loading off
+# that first time is whichever test first broadcasts or renders the dashboard,
+# and a test that stubs Rails.env to a name with no section in cable.yml
+# (engine_integration_test's staging case) must not be it: the config would
+# come back empty, the adapter would fall back to redis, and every later
+# broadcast in the process would raise. Load it here, under the test env.
+ActionCable.server.config.cable
+
 # Extract full path and relative path from caller_info
 def extract_path_info(caller_info)
   if caller_info =~ /(.+):(\d+):in/
