@@ -43,6 +43,8 @@ module ActionAgent
     scope :for_date_range, ->(start_date, end_date) { where(timestamp: start_date..end_date) }
     # The dashboard agent this trace was attributed to on ingest, if any.
     belongs_to :agent, class_name: "ActionAgent::Agent", optional: true
+    # The release of the agent this trace came from (see #attach_agent_version!).
+    belongs_to :agent_version, class_name: "ActionAgent::AgentVersion", optional: true
 
     scope :for_account, ->(account) { where(account: account) if ActionAgent.multi_tenant? }
 
@@ -252,7 +254,10 @@ module ActionAgent
       # dashboard-authored agent by guessing a primary key.
       attrs[:agent_id] = agent&.id
 
-      create!(attrs).tap { |record| AgentRegistrar.call(record) }
+      create!(attrs).tap do |record|
+        AgentRegistrar.call(record)
+        record.attach_agent_version!
+      end
     end
 
 
@@ -263,6 +268,28 @@ module ActionAgent
     def self.span_token_sum(span)
       tokens = span["tokens"] || {}
       tokens.fetch("input", 0).to_i + tokens.fetch("output", 0).to_i + tokens.fetch("thinking", 0).to_i
+    end
+
+    # Pins this trace to the version of its agent that produced it. The
+    # instrumentation stamps the root span with `agent.version` — the digest
+    # ActiveAgent::Release computes from the class — and a release cut on
+    # deploy carries the same digest, so the two meet here. A trace from a
+    # dashboard run carries no digest and takes the agent's latest version.
+    #
+    # @return [AgentVersion, nil]
+    def attach_agent_version!
+      return if agent_version_id.present? || agent_id.blank?
+
+      digest = root_span&.dig("attributes", "agent.version").presence
+      version = if digest
+        AgentVersion.find_by(agent_id: agent_id, release_digest: digest)
+      else
+        AgentVersion.where(agent_id: agent_id).order(version_number: :desc).first
+      end
+      return unless version
+
+      update_columns(agent_version_id: version.id)
+      version
     end
 
     # Returns the root span of this trace.
