@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Releases `activeagent` and `actionagent` 1.6.3 from one tag.
 
+### Added
+
+- The prompt span records how large the tool schemas actually are, as
+  `prompt.input.tools.tokens`, `prompt.input.mcp_tools.tokens`,
+  `prompt.input.instructions.tokens` and `prompt.input.messages.tokens`. The
+  transcript's size is measured before the span trims the history to the turns
+  that fit, the others before their content is clipped. The content attributes
+  beside them are previews clipped for storage — and on the SDK path the tool
+  attribute is a roster of names and parameter keys, several times smaller than
+  the schema the model is sent — so a reader that sized the context from one
+  understated tool pressure badly.
+- MCP tool schemas are attributed apart from the toolbox's, so the context meter
+  can name which half fills the window.
+
+### Fixed
+
+- The dashboard's context meter divides the provider's own `prompt_tokens`
+  among its segments instead of subtracting its estimates from it. Charging the
+  difference to one segment made "Messages" absorb the whole approximation
+  error, so a trace with dense JSON tool schemas read as a large message history
+  that was never sent. The transcript is one of the divided segments: dividing
+  only the rest would hand its share to the segments that remained, so a long
+  conversation reported an enormous system prompt and no history at all.
+
 ## [1.6.2] - 2026-09-16
 
 Releases `activeagent` and `actionagent` 1.6.2 from one tag.
