@@ -178,6 +178,9 @@ module ActionAgent
       # one understates it by whatever the clip dropped, which for a twelve-tool
       # agent is most of the schema.
       record_tool_schema_attributes(span)
+      full_transcript_json = prompt_turn[:transcript].map do |message|
+        { role: message[:role], content: message[:content].to_s }
+      end.to_json
       transcript = prompt_turn[:transcript].map do |message|
         { role: message[:role], content: message[:content].to_s.byteslice(0, 4000).to_s.scrub }
       end
@@ -190,6 +193,13 @@ module ActionAgent
       end
       span.set_attribute("prompt.input.messages", serialized)
       span.set_attribute("messages.count", transcript.size)
+      # The stored attribute is the tail of the history that fit, so its size is
+      # not the transcript's. The meter apportions the provider's prompt_tokens
+      # across the segments it can size, and a transcript missing from that set
+      # is not merely imprecise: the segments that remain are scaled up to cover
+      # it, so a long conversation reads as an enormous system prompt. Measured
+      # over the full turn, before either the per-message clip or the trim.
+      span.set_attribute("prompt.input.messages.tokens", estimated_tokens(full_transcript_json))
       span.finish
     rescue StandardError => e
       Rails.logger.warn("[AgentExecutionService] prompt span failed: #{e.message}")

@@ -101,7 +101,8 @@ test('attributes MCP schemas separately from the toolbox schemas', () => {
 
 test('the input segments always sum to the reported prompt tokens', () => {
   // Three segments that scale to thirds would each round to 333 and lose a
-  // token; messages carries the remainder so the bar still fills.
+  // token; the largest segment carries the rounding drift so the bar still
+  // fills.
   const context = traceContext(
     trace({
       attributes: {
@@ -153,4 +154,76 @@ test('holds the peak generation against the model window', () => {
   assert.equal(context.cached, 40);
   assert.equal(context.thinking, 20);
   assert.equal(segment(context, 'output'), 100);
+});
+
+// The transcript has to be one of the apportioned segments. It is the only
+// piece whose stored attribute is a trimmed tail rather than a clipped head, so
+// it was the one left sized by the remainder — and a remainder cannot survive
+// scaling the other segments to fill the total.
+
+test('keeps a recorded transcript size instead of inflating the other segments', () => {
+  // The ordinary dashboard trace: a long conversation, a small system prompt,
+  // one small tool. Leaving the transcript out of the apportioning scaled the
+  // rest up to cover it, so this read as 13k of "Instructions" and no history.
+  const context = traceContext(
+    trace({
+      input: 20000,
+      output: 300,
+      attributes: {
+        'prompt.input.instructions.tokens': 500,
+        'prompt.input.tools.tokens': 250,
+        'prompt.input.messages.tokens': 19250,
+      },
+    })
+  );
+
+  assert.equal(segment(context, 'messages'), 19250);
+  assert.equal(segment(context, 'instructions'), 500);
+  assert.equal(segment(context, 'tool_schemas'), 250);
+});
+
+test('estimates the transcript from the stored preview when no size was recorded', () => {
+  const context = traceContext(
+    trace({
+      input: 1000,
+      attributes: {
+        'prompt.input.instructions': 'x'.repeat(400),
+        'prompt.input.messages': JSON.stringify([ { role: 'user', content: 'y'.repeat(1200) } ]),
+      },
+    })
+  );
+
+  // The preview estimates ~308 tokens against 100 for the instructions, so the
+  // history takes the larger share rather than none of it.
+  assert.ok(segment(context, 'messages') > segment(context, 'instructions'));
+  assert.equal(segment(context, 'messages') + segment(context, 'instructions'), 1000);
+});
+
+test('leaves the prompt whole in messages when nothing is sizable', () => {
+  // No attributes to divide by: spreading the total over segments with no
+  // evidence behind them would be inventing the breakdown.
+  const context = traceContext(trace({ input: 900, output: 100 }));
+
+  assert.equal(segment(context, 'messages'), 900);
+  assert.equal(segment(context, 'instructions'), 0);
+  assert.equal(context.estimated, false);
+});
+
+test('the segments still sum to prompt tokens with the transcript in the mix', () => {
+  const context = traceContext(
+    trace({
+      input: 1000,
+      attributes: {
+        'prompt.input.messages.tokens': 100,
+        'prompt.input.tools.tokens': 100,
+        'prompt.input.instructions.tokens': 100,
+      },
+    })
+  );
+
+  const input = context.segments
+    .filter((s) => s.key !== 'output')
+    .reduce((sum, s) => sum + s.tokens, 0);
+
+  assert.equal(input, 1000);
 });
