@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 
+// Re-exported for the views that size their own segments.
+export { contextWindowFor, estimateTokens } from '../../utils/traceContext.mjs';
+
 // Context-window pressure meter (from the Active Agent design system).
 // A segmented bar of what occupies the model's context — messages, tool
 // results, instructions, tool/MCP schemas, generated output — against the
@@ -17,24 +20,7 @@ const SEGMENT_COLORS = {
   output: '#7c3aed',
 };
 
-// Context-window sizes by model family. The provider reports real token
-// counts; the window is the constraint we hold them against.
-export const contextWindowFor = (model) => {
-  const name = (model || '').toLowerCase();
-  if (name.includes('claude')) return 200000;
-  if (name.includes('gemini')) return 1000000;
-  if (name.includes('llama')) return 131072;
-  if (name.includes('gpt-4o') || name.includes('gpt-4-turbo') || name.includes('gpt-4.1')) return 128000;
-  if (name.includes('gpt-5')) return 400000;
-  return 128000;
-};
 
-// ~4 chars/token, for estimating segment sizes from recorded content.
-export const estimateTokens = (value) => {
-  if (value == null) return 0;
-  const text = typeof value === 'string' ? value : JSON.stringify(value);
-  return Math.round(text.length / 4);
-};
 
 export const formatTokenCount = (value) => {
   if (value == null) return '—';
