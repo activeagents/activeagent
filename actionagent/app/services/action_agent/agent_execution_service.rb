@@ -33,9 +33,13 @@ module ActionAgent
     # so a multi-gigabyte log named .csv costs a fixed slice of memory rather
     # than its whole size. Four bytes per character is UTF-8's worst case.
     ATTACHMENT_TEXT_BYTE_LIMIT = ATTACHMENT_TEXT_LIMIT * 4
+    # What one prompt-span attribute stores. The value is a preview for reading,
+    # so it is clipped; a size that has to stay exact travels as its own
+    # `*.tokens` attribute instead.
+    PROMPT_SPAN_ATTRIBUTE_LIMIT = 6000
     # The prompt span records the transcript, not the data URIs; keep the
     # whole serialized list within the same budget as the other attributes.
-    PROMPT_SPAN_MESSAGE_LIMIT = 6000
+    PROMPT_SPAN_MESSAGE_LIMIT = PROMPT_SPAN_ATTRIBUTE_LIMIT
     # Prior turns sent with a pinned conversation: the most recent ones,
     # trimmed oldest-first to a character budget.
     HISTORY_TURN_LIMIT = 40
@@ -164,11 +168,16 @@ module ActionAgent
     def record_prompt_span(root_span)
       span = root_span.add_span("agent.prompt", span_type: :prompt)
       if composed_instructions.present?
-        span.set_attribute("prompt.input.instructions", composed_instructions.to_s.byteslice(0, 6000).to_s.scrub)
+        instructions = composed_instructions.to_s
+        span.set_attribute("prompt.input.instructions", instructions.byteslice(0, PROMPT_SPAN_ATTRIBUTE_LIMIT).to_s.scrub)
+        span.set_attribute("prompt.input.instructions.tokens", estimated_tokens(instructions))
       end
-      if tool_schemas.present?
-        span.set_attribute("prompt.input.tools", tool_schemas.to_json.byteslice(0, 6000).to_s.scrub)
-      end
+      # MCP and toolbox schemas are attributed separately so the meter can name
+      # which half fills the window, and each carries its size. The content
+      # attributes are truncated previews for reading: sizing the context from
+      # one understates it by whatever the clip dropped, which for a twelve-tool
+      # agent is most of the schema.
+      record_tool_schema_attributes(span)
       transcript = prompt_turn[:transcript].map do |message|
         { role: message[:role], content: message[:content].to_s.byteslice(0, 4000).to_s.scrub }
       end
@@ -385,6 +394,30 @@ module ActionAgent
       @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record)
     end
 
+    # Splits the offered schemas the way `tool_schemas` assembles them, so the
+    # span reports what the model was actually sent: nothing for a mock run, and
+    # one MCP round trip rather than a second one for telemetry.
+    def record_tool_schema_attributes(span)
+      mcp_definitions, toolbox_definitions = tool_schema_halves
+      {
+        "prompt.input.tools" => toolbox_definitions,
+        "prompt.input.mcp_tools" => mcp_definitions
+      }.each do |key, definitions|
+        next if definitions.blank?
+
+        json = definitions.to_json
+        span.set_attribute(key, json.byteslice(0, PROMPT_SPAN_ATTRIBUTE_LIMIT).to_s.scrub)
+        span.set_attribute("#{key}.tokens", estimated_tokens(json))
+      end
+    end
+
+    # ~4 chars/token, the same approximation the context meter applies to content
+    # it sizes itself. Taken before truncation, so the meter reads the whole
+    # schema rather than the preview the attribute stores.
+    def estimated_tokens(text)
+      (text.length / 4.0).round
+    end
+
     def call_agent(slug:, message:)
       depth = Thread.current[:agent_call_depth].to_i
       return { error: "call_agent depth limit (#{MAX_CALL_DEPTH}) reached" } if depth >= MAX_CALL_DEPTH
@@ -562,13 +595,21 @@ module ActionAgent
     # server-side implementations (none for mock runs — the mock provider
     # doesn't do tool calling).
     def tool_schemas
-      return [] if provider == :mock
+      mcp_definitions, toolbox_definitions = tool_schema_halves
+      mcp_definitions + toolbox_definitions
+    end
 
-      # The agent's own MCP servers describe their tools; the toolbox describes
-      # the rest. Without the first half a tool the agent declares is never
-      # offered to the model, which then answers from memory instead of calling
-      # it.
-      mcp_dispatcher.tool_definitions + AgentToolbox.definitions_for(@agent_record.tools)
+    # The agent's own MCP servers describe their tools; the toolbox describes the
+    # rest. Without the first half a tool the agent declares is never offered to
+    # the model, which then answers from memory instead of calling it. Memoized
+    # because listing a server's tools is a request to that server.
+    def tool_schema_halves
+      @tool_schema_halves ||=
+        if provider == :mock
+          [ [], [] ]
+        else
+          [ mcp_dispatcher.tool_definitions, AgentToolbox.definitions_for(@agent_record.tools) ]
+        end
     end
 
     # Persists the tool interaction stream to the solid_agent conversation

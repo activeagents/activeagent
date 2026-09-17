@@ -254,6 +254,57 @@ class RunnerWorkbenchTest < ActionDispatch::IntegrationTest
     assert_not_includes span.attributes["prompt.input.messages"], "base64"
   end
 
+  # A mock run offers the model no tools, so the span records none — the same
+  # source the run itself reads, rather than a second look at the agent's
+  # declared tools.
+  test "the prompt span records no tool schemas for a mock run" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+    root = ActiveAgent::Telemetry::Span.new("SalesCopilotAgent.prompt", trace_id: run.trace_id, span_type: :root)
+
+    service_for(run).record_prompt_span(root)
+
+    span = root.children.first
+    assert_nil span.attributes["prompt.input.tools"]
+    assert_nil span.attributes["prompt.input.tools.tokens"]
+  end
+
+  # The content attribute is a clipped preview, so the size travels separately:
+  # a reader that measured the preview would understate whatever the clip drops.
+  test "the prompt span sizes tool schemas before truncating them" do
+    definitions = [ { "type" => "function", "function" => { "name" => "lookup", "description" => "x" * 8000 } } ]
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+    service = service_for(run)
+    service.stub(:tool_schema_halves, [ [], definitions ]) do
+      root = ActiveAgent::Telemetry::Span.new("SalesCopilotAgent.prompt", trace_id: run.trace_id, span_type: :root)
+      service.record_prompt_span(root)
+
+      span = root.children.first
+      limit = ActionAgent::AgentExecutionService::PROMPT_SPAN_ATTRIBUTE_LIMIT
+      assert_equal limit, span.attributes["prompt.input.tools"].bytesize
+      assert_equal (definitions.to_json.length / 4.0).round, span.attributes["prompt.input.tools.tokens"]
+      assert_operator span.attributes["prompt.input.tools.tokens"], :>, limit / 4
+    end
+  end
+
+  # MCP and toolbox schemas are attributed apart so the meter can name which
+  # half fills the window.
+  test "the prompt span attributes MCP schemas separately from toolbox schemas" do
+    mcp = [ { "type" => "function", "function" => { "name" => "browser_navigate" } } ]
+    toolbox = [ { "type" => "function", "function" => { "name" => "render_ui" } } ]
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+    service = service_for(run)
+    service.stub(:tool_schema_halves, [ mcp, toolbox ]) do
+      root = ActiveAgent::Telemetry::Span.new("SalesCopilotAgent.prompt", trace_id: run.trace_id, span_type: :root)
+      service.record_prompt_span(root)
+
+      span = root.children.first
+      assert_includes span.attributes["prompt.input.tools"], "render_ui"
+      assert_includes span.attributes["prompt.input.mcp_tools"], "browser_navigate"
+      assert_equal (toolbox.to_json.length / 4.0).round, span.attributes["prompt.input.tools.tokens"]
+      assert_equal (mcp.to_json.length / 4.0).round, span.attributes["prompt.input.mcp_tools.tokens"]
+    end
+  end
+
   # The framework fix the workbench relies on: the mock provider has no
   # vision, but a media-only turn must still be a valid message.
   test "the mock provider accepts media-only turns" do
