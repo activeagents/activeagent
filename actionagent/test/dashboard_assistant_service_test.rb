@@ -22,6 +22,18 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     ActionAgent.provider_credentials_resolver = @original_resolver
     ActionAgent.agent_scope_resolver = @original_scope
     ActiveAgent.instance_variable_set(:@configuration, @original_configuration)
+    # webmock/minitest resets the stub registry in a teardown it aliases onto
+    # Minitest::Test at load time, so a teardown defined here replaces it and
+    # the reset silently stops happening. Every test in this file registers a
+    # stub_request against the provider, several as `to_return` blocks over a
+    # fixed list (`responses.shift`) that yields nil once exhausted — and a
+    # responder returning nil is what WebMock builds a Response from, dying as
+    # `undefined method 'each_key' for nil` inside its own response
+    # construction. Leaked past this file those stubs outrank VCR for any later
+    # test hitting the same URL, so the error landed on whichever test drew an
+    # exhausted stub: seed-dependent, and it broke the docs examples and with
+    # them every Pages deploy while ci.yml's own ordering stayed green.
+    super
   end
 
   test "provider tool round trips return only server-issued cards and keep history separate" do
