@@ -74,6 +74,13 @@ export const traceContext = (trace) => {
   const instructions = sized('prompt.input.instructions.tokens', 'prompt.input.instructions', 'llm.instructions');
   const toolSchemas = sized('prompt.input.tools.tokens', 'prompt.input.tools', 'llm.tools');
   const mcpSchemas = sized('prompt.input.mcp_tools.tokens', 'prompt.input.mcp_tools');
+  // The transcript is a segment like the others, not the leftover. The stored
+  // `prompt.input.messages` preview is only the tail of the history that fit
+  // the attribute budget, so a recorded size is what makes a long conversation
+  // readable here; estimating from the preview understates whatever the trim
+  // dropped, which is still better than leaving the transcript out of the
+  // apportioning altogether.
+  const messages = sized('prompt.input.messages.tokens', 'prompt.input.messages', 'llm.messages');
   let toolResults = 0;
   for (const span of spans) {
     const attrs = span.attributes || {};
@@ -84,31 +91,41 @@ export const traceContext = (trace) => {
   }
   toolResults = Math.min(toolResults, peak.input);
 
-  // The segments are ~4 chars/token approximations of individual pieces, while
-  // `peak.input` is the provider's own prompt_tokens for all of them together.
-  // Charging the difference to "Messages" — subtracting the segments from the
-  // total — makes that one segment absorb the whole approximation error, so a
-  // trace with dense JSON tool schemas reads as a large message history that
-  // was never sent. Scaling the segments to fit the real total spreads the
+  // The segments are approximations of individual pieces, while `peak.input` is
+  // the provider's own prompt_tokens for all of them together. Charging the
+  // difference to one segment makes it absorb the whole approximation error, so
+  // a trace with dense JSON tool schemas read as a large message history that
+  // was never sent. Scaling every segment to fit the real total spreads the
   // error over the pieces it came from instead.
   //
-  // The segments still cannot exceed the total, so the remainder is floored at
-  // zero, and it is the segment that carries whatever the others did not claim.
-  const estimatedInput = instructions + toolSchemas + mcpSchemas + toolResults;
-  const scale = estimatedInput > 0 && peak.input > 0 ? peak.input / estimatedInput : 1;
-  const scaled = (value) => Math.round(value * scale);
+  // Every piece we can size has to be in this set. Scaling a subset to fill
+  // prompt_tokens silently reassigns the missing piece's share to the ones that
+  // remain — with the transcript left out, a 500-token system prompt on a
+  // 20k-token chat rendered as 13k of "Instructions" and nothing for the
+  // history that actually filled the window.
+  const keys = ['messages', 'toolResults', 'instructions', 'toolSchemas', 'mcpSchemas'];
+  const raw = { messages, toolResults, instructions, toolSchemas, mcpSchemas };
+  const estimatedInput = keys.reduce((sum, key) => sum + raw[key], 0);
 
-  const inputSegments = {
-    instructions: scaled(instructions),
-    toolSchemas: scaled(toolSchemas),
-    mcpSchemas: scaled(mcpSchemas),
-    toolResults: scaled(toolResults),
-  };
-  const attributed = inputSegments.instructions + inputSegments.toolSchemas +
-    inputSegments.mcpSchemas + inputSegments.toolResults;
-  // Whatever prompt_tokens holds beyond the parts we can attribute is the
-  // message transcript plus the provider's own framing overhead.
-  const messages = Math.max(peak.input - attributed, 0);
+  let inputSegments;
+  if (estimatedInput > 0 && peak.input > 0) {
+    const scale = peak.input / estimatedInput;
+    inputSegments = {};
+    for (const key of keys) inputSegments[key] = Math.round(raw[key] * scale);
+    // Rounding leaves the parts a token or two off the total the provider
+    // reported; give the drift to the largest segment so the bar fills exactly
+    // and no segment can go negative.
+    const drift = peak.input - keys.reduce((sum, key) => sum + inputSegments[key], 0);
+    if (drift !== 0) {
+      const largest = keys.reduce((a, b) => (inputSegments[b] > inputSegments[a] ? b : a));
+      inputSegments[largest] = Math.max(inputSegments[largest] + drift, 0);
+    }
+  } else {
+    // Nothing was sizable: the prompt is transcript and provider framing we
+    // cannot divide, so it stays whole rather than being spread over segments
+    // that have no evidence behind them.
+    inputSegments = { messages: peak.input, toolResults: 0, instructions: 0, toolSchemas: 0, mcpSchemas: 0 };
+  }
 
   return {
     used: peak.total,
@@ -120,7 +137,7 @@ export const traceContext = (trace) => {
     // itself estimated whenever any segment was sized here.
     estimated: estimatedInput > 0,
     segments: [
-      { key: 'messages', label: 'Messages', tokens: messages },
+      { key: 'messages', label: 'Messages', tokens: inputSegments.messages },
       { key: 'tool_results', label: 'Tool results', tokens: inputSegments.toolResults },
       { key: 'instructions', label: 'Instructions', tokens: inputSegments.instructions },
       { key: 'tool_schemas', label: 'Tool schemas', tokens: inputSegments.toolSchemas },

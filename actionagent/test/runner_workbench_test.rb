@@ -254,6 +254,32 @@ class RunnerWorkbenchTest < ActionDispatch::IntegrationTest
     assert_not_includes span.attributes["prompt.input.messages"], "base64"
   end
 
+  # The stored transcript is the tail of the history that fit the attribute
+  # budget, so its size is not the transcript's. The meter apportions the
+  # provider's prompt_tokens across the segments it can size, and a transcript
+  # left out of that set does not merely go unlabelled — the other segments are
+  # scaled up to cover its share, so a long conversation reads as an enormous
+  # system prompt. The size is therefore measured before the trim.
+  test "the prompt span sizes the whole transcript, not the stored tail" do
+    context = create_context
+    12.times { |i| context.add_user_message("turn #{i} #{"m" * 1000}") }
+    run = @agent.agent_runs.create!(input_prompt: "and now?", status: :pending, input_params: { context_id: context.id })
+    root = ActiveAgent::Telemetry::Span.new("SalesCopilotAgent.prompt", trace_id: run.trace_id, span_type: :root)
+
+    service_for(run).record_prompt_span(root)
+
+    span = root.children.first
+    stored = span.attributes["prompt.input.messages"]
+    recorded = span.attributes["prompt.input.messages.tokens"]
+
+    # The trim ran, so the preview holds fewer turns than the conversation.
+    assert_operator stored.bytesize, :<=, ActionAgent::AgentExecutionService::PROMPT_SPAN_MESSAGE_LIMIT
+    assert_operator JSON.parse(stored).size, :<, 13
+    # The recorded size covers the turns the preview dropped.
+    assert_operator recorded, :>, (stored.length / 4.0).round
+    assert_operator recorded, :>=, 12 * 1000 / 4
+  end
+
   # A mock run offers the model no tools, so the span records none — the same
   # source the run itself reads, rather than a second look at the agent's
   # declared tools.
