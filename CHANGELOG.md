@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-09-17
+
+Releases `activeagent` and `actionagent` 1.6.3 from one tag.
+
 ## [1.6.2] - 2026-09-16
 
 Releases `activeagent` and `actionagent` 1.6.2 from one tag.
