@@ -27,6 +27,15 @@ Releases `activeagent` and `actionagent` 1.6.3 from one tag.
 - `Evaluation#replace_scenarios!` takes `on_removed:` — `:destroy` (the
   default, unchanged) or `:disable`, which keeps a scenario the suite no
   longer names as `enabled: false` so earlier runs' results still resolve.
+- A `Judge` block that accepts `kind:` is told which of the judge's three calls
+  it is serving — `:score`, `:recommend` or `:verdict` — so a host can trace,
+  budget or model them separately. Previously the only signal was the
+  `instructions` string, so hosts matched against the gem's own
+  `RECOMMEND_INSTRUCTIONS` / `VERDICT_INSTRUCTIONS` constants; rewording one
+  then sent every such host quietly down its `else` branch, mislabelling traces
+  rather than failing. The keyword reaches only a block that names it or
+  collects `**`, so judges taking `instructions:` and `prompt:` are unaffected.
+  (#462)
 
 ### Fixed
 
