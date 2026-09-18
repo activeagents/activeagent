@@ -121,6 +121,52 @@ after the wrapper finishes; wrapper errors propagate. Direct
 `Runner#evaluate` calls bypass the wrapper so a host doing its own scheduling
 can establish context itself.
 
+### Correlating traces with results
+
+`Correlation` is that wrapper, written once against a telemetry backend
+instead of per host. It mints a `run_id` per run and a `result_id` per
+evaluation, puts both on every trace opened inside them as `eval.`-prefixed
+attributes, and records the trace ids back onto the result:
+`replay.metadata["trace_id"]` for the replay and `["judge_trace_ids"]` for the
+judge calls that graded it. A judge call made outside an evaluation — the
+run-level verdict — lands on the run metadata instead, which is the hash the
+Report carries, so the verdict is reachable from the report rather than
+attributed to the last result evaluated.
+
+```ruby
+correlation = ActiveAgent::Evals::Correlation.new(
+  agent_name: "SupportAgent",
+  judge_name: "SupportAgentJudge",
+  tracer: ->(name, action:, attributes:, on_trace:, &block) {
+    MyTelemetry.with_agent(name, action: action, attributes: attributes,
+                           on_trace: on_trace, synchronous: true, &block)
+  }
+)
+
+report = correlation.with_run("suite" => "support") do |metadata|
+  Runner.new(
+    scenarios: scenarios, models: models, metadata: metadata,
+    around_evaluation: correlation,
+    replay: ->(scenario, spec) { correlation.replay { agent.run(scenario.prompt) } },
+    judge: Judge.new(label: "judge-model") { |instructions:, prompt:|
+      correlation.judge("score") { chat.with_instructions(instructions).ask(prompt).content }
+    }
+  ).call
+end
+```
+
+Pass the yielded metadata to `Runner.new(metadata:)`: it is the caller's own
+hash, mutated in place, so a run reopened around a later verdict accumulates
+onto the metadata the Report already carries.
+
+The tracer is injected, so the evaluation module takes on no telemetry
+dependency and still loads on its own. Without one, the correlation mints ids
+and merges metadata while the blocks run untraced, which keeps a suite
+runnable where no telemetry is configured. `trace_keys:` chooses which
+correlation keys become attributes — the default is `run_id`, `result_id`,
+`suite`, `scenario_key`, `model_label`, `model` and `provider`, and anything
+else in the run metadata stays on the report but off the traces.
+
 ## Faults
 
 | Fault | Meaning |
