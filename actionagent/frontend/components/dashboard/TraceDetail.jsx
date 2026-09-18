@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { TYPOGRAPHY } from '../../utils/designTokens';
-import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
+import ContextMeter from './ContextMeter';
+import { traceContext } from '../../utils/traceContext.mjs';
 import InteractionStream from './InteractionStream';
 import SpanWaterfall, {
   SPAN_SORTS,
@@ -8,6 +9,9 @@ import SpanWaterfall, {
   traceTools,
 } from './SpanWaterfall';
 import { SegmentedControl, telemetryColors } from './TelemetryObject';
+
+// TraceCard reads a trace's context pressure through this module.
+export { traceContext };
 
 // Everything one trace has to say, in one panel: its spans as a waterfall or
 // its run as a conversation, what it held in context, where the wall clock
@@ -19,67 +23,6 @@ const TRACE_VIEWS = [
   { id: 'spans', label: 'Spans', hint: 'Timing waterfall with span details' },
   { id: 'conversation', label: 'Conversation', hint: 'The run as a message stream — prompt, tool calls, response' },
 ];
-
-// Context pressure: what the biggest generation in this trace held against the
-// model's window. Segment sizes are estimated from recorded content (~4
-// chars/token); the input/output totals are the provider's real counts.
-export const traceContext = (trace) => {
-  const spans = trace?.spans || [];
-  let peak = null;
-  for (const span of spans) {
-    const tokens = span.tokens || {};
-    const total = (tokens.input || 0) + (tokens.output || 0);
-    if (total > 0 && (!peak || total > peak.total)) {
-      peak = {
-        input: tokens.input || 0,
-        output: tokens.output || 0,
-        thinking: tokens.thinking || 0,
-        cached: tokens.cached || 0,
-        total,
-      };
-    }
-  }
-  if (!peak) return null;
-
-  const attr = (key) => {
-    for (const span of spans) {
-      const value = (span.attributes || {})[key];
-      if (value) return value;
-    }
-    return null;
-  };
-  // Both telemetry shapes: ActiveAgent SDK (prompt.input.*, tool.input/
-  // output.*) and the RubyLLM adapter (llm.instructions/tools,
-  // tool.arguments/result).
-  const instructions = estimateTokens(attr('prompt.input.instructions') || attr('llm.instructions'));
-  const toolSchemas = estimateTokens(attr('prompt.input.tools') || attr('llm.tools'));
-  const mcpSchemas = estimateTokens(attr('prompt.input.mcp_tools'));
-  let toolResults = 0;
-  for (const span of spans) {
-    const attrs = span.attributes || {};
-    const result = attrs['tool.output.result'] || attrs['tool.result'];
-    const args = attrs['tool.input.args'] || attrs['tool.arguments'];
-    if (result) toolResults += estimateTokens(result);
-    if (args) toolResults += estimateTokens(args);
-  }
-  toolResults = Math.min(toolResults, peak.input);
-  const messages = Math.max(peak.input - instructions - toolSchemas - mcpSchemas - toolResults, 0);
-
-  return {
-    used: peak.total,
-    limit: contextWindowFor(trace.model),
-    cached: peak.cached,
-    thinking: peak.thinking,
-    segments: [
-      { key: 'messages', label: 'Messages', tokens: messages },
-      { key: 'tool_results', label: 'Tool results', tokens: toolResults },
-      { key: 'instructions', label: 'Instructions', tokens: instructions },
-      { key: 'tool_schemas', label: 'Tool schemas', tokens: toolSchemas },
-      { key: 'mcp_schemas', label: 'MCP tool schemas', tokens: mcpSchemas },
-      { key: 'output', label: 'Generated output', tokens: peak.output },
-    ],
-  };
-};
 
 // Generation vs tool time for one trace: how much of the wall clock went to
 // the LLM, to each tool, and to unattributed overhead. Tool calls run inside
@@ -245,7 +188,7 @@ export default function TraceDetail({ trace, darkMode, compact = false, showConv
 
       {context && (
         <div className="mt-3">
-          <ContextMeter {...context} label="Context pressure" estimated darkMode={darkMode} />
+          <ContextMeter {...context} label="Context pressure" darkMode={darkMode} />
         </div>
       )}
 
