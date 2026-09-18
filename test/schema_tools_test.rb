@@ -36,6 +36,21 @@ class SchemaToolsTest < ActiveSupport::TestCase
     returns :id, :title
   end
 
+  # A Rails enum, which is declared on the model rather than through the
+  # inclusion validator SchemaGenerator reads.
+  class EnumPost < Post
+    self.table_name = "posts"
+    enum :state, { draft: 0, review: 1, live: 2 }, prefix: true
+
+    def self.name = "EnumPost"
+  end
+
+  class EnumPostTools < ActiveAgent::SchemaTools
+    model EnumPost
+    filterable :state, :published
+    returns :id, :title
+  end
+
   setup do
     Post.delete_all
     Profile.delete_all if defined?(Profile)
@@ -105,6 +120,54 @@ class SchemaToolsTest < ActiveSupport::TestCase
     # into an enum — hand-rolled type mapping would not know that.
     assert_equal [ "admin", "moderator", "user" ], properties[:role][:enum]
     assert_equal "boolean", properties[:active][:type]
+  end
+
+  test "a Rails enum is offered as its names, not its integer backing" do
+    definition = EnumPostTools.tool_definitions.find { |d| d[:name] == "find_enum_posts" }
+    state = definition[:parameters][:properties][:state]
+
+    # Without this the column reaches the model as {type: "integer"}: no
+    # labels, so the only way a model learns "review" means 1 is prose in the
+    # instructions, written by hand in every host app.
+    assert_equal "string", state[:type]
+    assert_equal [ "draft", "review", "live" ], state[:enum]
+  end
+
+  test "an enum is not offered the range form" do
+    definition = EnumPostTools.tool_definitions.find { |d| d[:name] == "find_enum_posts" }
+    state = definition[:parameters][:properties][:state]
+
+    # `state > 1` is an artefact of declaration order, not a question anyone
+    # can ask. Offering it invites a filter that returns a confident number.
+    refute state.key?(:anyOf), "an enum must not advertise comparisons"
+  end
+
+  test "an undefined enum value is rejected rather than matching nothing" do
+    result = EnumPostTools.call("count_enum_posts", state: "pending")
+
+    # The silent alternative is {count: 0}, which an agent reports as a fact:
+    # "no posts are pending" reads identically to "pending is not a state".
+    # Same shape as the unknown-column error, so the model can correct itself.
+    refute result.key?(:count), "an undefined enum value must not return a count"
+    assert_match "pending", result[:error]
+    assert_match "draft, review, live", result[:error]
+  end
+
+  test "an enum still accepts the names and values it defines" do
+    # setup seeds two posts, both at the column default (draft).
+    EnumPost.create!(title: "Live one", content: "x", user: @alice, state: "live")
+
+    assert_equal({ count: 2 }, EnumPostTools.call("count_enum_posts", state: "draft"))
+    assert_equal({ count: 1 }, EnumPostTools.call("count_enum_posts", state: "live"))
+    # The integer backing still works, so a stored value round-trips.
+    assert_equal({ count: 1 }, EnumPostTools.call("count_enum_posts", state: 2))
+  end
+
+  test "a range predicate on an enum is rejected" do
+    result = EnumPostTools.call("count_enum_posts", state: { "gt" => 1 })
+
+    refute result.key?(:count), "a comparison on an enum must not return a count"
+    assert_match "cannot be compared as a range", result[:error]
   end
 
   test "only filterable columns appear as find parameters" do
