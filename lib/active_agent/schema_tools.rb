@@ -408,6 +408,9 @@ module ActiveAgent
             "Allowed values: #{values.keys.join(", ")}"
         end
 
+        # The schema offers names only, so an integer here came from a model
+        # ignoring it. Accepted anyway: it is unambiguous, and a host calling
+        # the tool directly in Ruby reasonably passes the backing value.
         return if values.key?(value.to_s) || values.value?(value)
 
         raise UnpermittedAttribute,
