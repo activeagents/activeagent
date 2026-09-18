@@ -7,9 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.6.3] - 2026-09-17
+## [1.6.3] - 2026-09-18
 
 Releases `activeagent` and `actionagent` 1.6.3 from one tag.
+
+A release about telling the truth on the screens that report what happened.
+The context meter now divides the provider's own `prompt_tokens` among its
+segments instead of subtracting estimates from it, and sizes each piece —
+tool schemas, MCP schemas, instructions and the transcript — before the span
+clips it for storage; previously a trace with dense tool schemas showed a
+large message history that was never sent. An adapted replay is metered as
+one execution like any other, so a host that supplies its own runtime is no
+longer silently uncounted, and a spec naming a provider the agent cannot
+serve now fails before the replay rather than reaching it.
+
+Three seams hosts were reaching around become API. `ActiveAgent::Evals::Correlation`
+joins `Runner`'s `around_evaluation:` hook to a telemetry backend's trace
+scope, so a report row links back to the conversation behind it. A `Judge`
+block that accepts `kind:` is told whether it is scoring, recommending or
+writing the verdict, instead of matching on the gem's own instruction prose.
+`Agent#generations` replaces the polymorphic join hosts were copying out of a
+private service method.
+
+Upgrading: no migration, and nothing that already worked changes. The judge
+keyword reaches only a block that asks for it, so existing judges are
+untouched; `Evaluation#replace_scenarios!` keeps `:destroy` as its default.
+Adapters should drop any `ActionAgent.record_usage` call of their own, which
+now double-counts, and any provider allow-list check of their own, which is
+now dead code.
 
 ### Added
 
