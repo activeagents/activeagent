@@ -292,6 +292,26 @@ document, group display names, or environment flags. Re-import the source
 document to change that selection. Invalid YAML or a selection containing
 no scenarios returns an import error without creating a sampled evaluation.
 
+### Refreshing a suite
+
+`Evaluation#replace_scenarios!` writes a catalog's questions onto a
+persisted evaluation. A scenario whose key survives keeps its record, so
+results from earlier runs still resolve through it.
+
+What happens to a scenario the new attributes no longer name is the
+`on_removed:` option:
+
+```ruby
+evaluation.replace_scenarios!(attributes)                        # :destroy (default)
+evaluation.replace_scenarios!(attributes, on_removed: :disable)  # keep, enabled: false
+```
+
+`:destroy` drops the row. `:disable` keeps it with `enabled: false`, which
+takes it out of future runs — the runner selects only enabled scenarios —
+while leaving the results that scored it readable. Choose `:disable` for a
+suite synced from an evolving catalog, where a question can come back or an
+old report still needs its rows.
+
 ## Running a host application's agent from the mounted dashboard
 
 The engine normally replays scenarios with `ActionAgent::Agent#test_execute`.
@@ -323,13 +343,22 @@ or duplicate results fail the run instead of leaving a completed report
 with missing rows. Exceptions also mark the run failed and retain results
 already written.
 
-The host owns provider execution, usage accounting, tool definitions, and
-judge configuration. Use the supplied owner rather than a global current
-user in background jobs; honor `evaluation.judge_kind`,
-`evaluation.judge_model`, and the evaluation's tenant/role configuration.
-The adapter path does not build the engine's judge or execute its agent.
-It still passes through dashboard authentication, execution enablement,
-and quota checks.
+The host owns provider execution, tool definitions, and judge
+configuration. Use the supplied owner rather than a global current user in
+background jobs; honor `evaluation.judge_kind`, `evaluation.judge_model`,
+and the evaluation's tenant/role configuration. The adapter path does not
+build the engine's judge or execute its agent. It still passes through
+dashboard authentication, execution enablement, and quota checks.
+
+**Usage accounting is the engine's.** Each result the adapter reports is
+metered as one `:execution` against the supplied owner — the same unit the
+default replay path records, one per scenario × model. An adapter should
+not call `ActionAgent.record_usage` itself, or every replay is counted
+twice.
+
+Models reach the adapter already validated: a spec naming a provider the
+agent cannot serve fails the run with `ArgumentError` before the adapter is
+called, so an adapter does not need to re-check `models.map(&:provider)`.
 
 An observed agent can run a persisted evaluation only when its resolver
 returns an adapter. Direct agent execution remains read-only. A host
