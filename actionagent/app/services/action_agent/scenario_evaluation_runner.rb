@@ -64,7 +64,16 @@ module ActionAgent
       report = if adapter
         raise ArgumentError, "scenario evaluation adapter must be callable" unless adapter.respond_to?(:call)
 
-        adapter.call(evaluation: @evaluation, owner: owner, scenarios: tasks, models: specs, on_result: on_result)
+        # The default path meters each replay itself (see #replay). An adapter
+        # runs the agent in the host's own runtime, out of reach of that call,
+        # so the execution is counted here as each result lands — one per
+        # scenario x model, the same unit. Otherwise a host that adapts the
+        # replay is silently unmetered unless it remembers to meter itself.
+        metered = lambda do |result|
+          ActionAgent.record_usage(owner, :execution)
+          on_result.call(result)
+        end
+        adapter.call(evaluation: @evaluation, owner: owner, scenarios: tasks, models: specs, on_result: metered)
       else
         ensure_judge_defined_kpis! if @evaluation.judge_defined?
         default_report(tasks, specs, on_result)
@@ -122,6 +131,12 @@ module ActionAgent
     def model_specs
       names = Array(@selection[:models]).presence || @evaluation.compare_models
       specs = Evals::ModelSpec.parse_all(names, default_provider: @evaluation.agent.provider, providers: Agent::PROVIDERS + %w[mock])
+      # parse_all resolves a bare name against `providers:` but passes through a
+      # `provider/model` whose provider is not in that list, so the run would
+      # otherwise reach the replay with a provider nothing can serve.
+      unsupported = specs.map(&:provider).uniq - (Agent::PROVIDERS + %w[mock])
+      raise ArgumentError, "unsupported model provider: #{unsupported.to_sentence}" if unsupported.any?
+
       return specs if specs.any?
 
       [ Evals::ModelSpec.new(label: @evaluation.agent.model, provider: @evaluation.agent.provider, model: @evaluation.agent.model) ]

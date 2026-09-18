@@ -100,10 +100,16 @@ module ActionAgent
     # ActiveAgent::Evals::ScenarioParser output). Keys already in the suite keep their records, so
     # earlier runs' results still resolve to their scenario, and keep their
     # enabled flag unless the attributes set it (a paste cannot).
-    def replace_scenarios!(attributes)
+    # `on_removed:` decides what happens to a scenario the new attributes no
+    # longer name: `:destroy` drops it, `:disable` keeps the row with
+    # `enabled: false` so runs that scored it still resolve their results.
+    def replace_scenarios!(attributes, on_removed: :destroy)
+      raise ArgumentError, "on_removed must be :destroy or :disable" unless %i[destroy disable].include?(on_removed)
+
       transaction do
         keep = attributes.map { |attrs| attrs["key"] }
-        scenarios.where.not(key: keep).destroy_all
+        removed = scenarios.where.not(key: keep)
+        on_removed == :disable ? removed.update_all(enabled: false) : removed.destroy_all
 
         attributes.each_with_index do |attrs, index|
           scenario = scenarios.find_or_initialize_by(key: attrs["key"])
