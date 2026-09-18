@@ -40,6 +40,10 @@ class SchemaToolsTest < ActiveSupport::TestCase
   # inclusion validator SchemaGenerator reads.
   class EnumPost < Post
     self.table_name = "posts"
+    # Declared explicitly rather than inferred from the column: Rails 7.2
+    # raises "Undeclared attribute type for enum" when a subclass declares an
+    # enum over a column it inherited, which Rails 8 tolerates.
+    attribute :state, :integer
     enum :state, { draft: 0, review: 1, live: 2 }, prefix: true
 
     def self.name = "EnumPost"
