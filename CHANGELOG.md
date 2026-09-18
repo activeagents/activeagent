@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ActiveAgent::Base.rendered_instructions` renders an agent's instructions
+  outside a generation, for a dashboard mirroring the class and for tests
+  asserting what a model is told. Both otherwise reached a private renderer
+  through `send`.
+- `ActionAgent::AgentSync` mirrors host agent classes into dashboard `Agent`
+  records, setting the `agent_class_name` that `AgentRelease` already expects a
+  host to have written. The code owns what an agent is (name, description,
+  instructions, tools — rewritten every sync); the operator owns how it runs
+  (provider, model, status — set on create and preserved), so a model chosen in
+  the dashboard survives the next deploy.
+- `ActionAgent.run_host_agent_classes` (default `false`) runs an agent that
+  mirrors a host class as that class, rather than as one rebuilt from the
+  record's `tools` and `instructions` columns. Dashboard-authored agents, which
+  name no class, keep using the dynamic runtime either way; a class name that no
+  longer resolves falls back to it rather than failing the run.
+
+### Fixed
+
+- A Rails enum is offered to the model as its names (`{type: "string", enum:
+  [...]}`) instead of the integer backing it. `SchemaGenerator` reads enums from
+  inclusion validators and never consulted `defined_enums`, so a `status` column
+  reached the model as a bare integer with no labels — leaving every host to
+  explain the mapping in prose.
+- A filter value outside an enum is rejected, naming the valid values, instead
+  of matching no rows. `status: "pending"` returned `{count: 0}`, which an agent
+  reports as a fact — indistinguishable from "none match". Same reasoning as the
+  unknown-operator rejection in `range_predicates!`.
+- An enum is no longer offered the range form. Its integer backing is a
+  declaration-order artefact, so `status: {gt: 1}` was a meaningless filter that
+  still returned a confident count.
+
 ## [1.6.3] - 2026-09-18
 
 Releases `activeagent` and `actionagent` 1.6.3 from one tag.

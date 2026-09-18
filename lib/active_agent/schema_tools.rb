@@ -332,6 +332,8 @@ module ActiveAgent
               "`#{key}` is not a filterable attribute. Allowed filters: #{filterable.join(", ")}"
           end
 
+          validate_enum_value!(column, value)
+
           memo[column] = value
         end
 
@@ -384,6 +386,35 @@ module ActiveAgent
 
           arel.public_send(predicate, type.cast(operand))
         end
+      end
+
+      # A value outside a Rails enum reaches `where` as an unmatched name and
+      # returns zero rows — the same silent-nothing that {.range_predicates!}
+      # rejects for an unknown operator, and just as bad here: an agent reads
+      # "0 tickets under review" as a fact rather than a mistyped filter.
+      #
+      # The range form is not offered on an enum (see {.range_filterable?}), so
+      # a Hash here is a filter that cannot mean anything.
+      #
+      # @api private
+      # @raise [UnpermittedAttribute] on a value the enum does not define
+      def validate_enum_value!(column, value)
+        values = enum_values_for(column)
+        return if values.blank?
+
+        if value.is_a?(Hash)
+          raise UnpermittedAttribute,
+            "`#{column}` is an enum and cannot be compared as a range. " \
+            "Allowed values: #{values.keys.join(", ")}"
+        end
+
+        # The schema offers names only, so an integer here came from a model
+        # ignoring it. Accepted anyway: it is unambiguous, and a host calling
+        # the tool directly in Ruby reasonably passes the backing value.
+        return if values.key?(value.to_s) || values.value?(value)
+
+        raise UnpermittedAttribute,
+          "`#{value}` is not a valid `#{column}`. Allowed values: #{values.keys.join(", ")}"
       end
 
       # Projects a record down to the declared return columns.
@@ -455,14 +486,44 @@ module ActiveAgent
         properties = schema[:schema][:properties]
 
         filterable.index_with do |column|
+          next enum_property(column) if enum_column?(column)
+
           scalar = (properties[column] || { type: "string" }).deep_dup
           range_filterable?(column) ? with_range_form(column, scalar) : scalar
         end
       end
 
+      # A Rails enum is declared on the model, not through the inclusion
+      # validator SchemaGenerator reads, so without this a `status` column
+      # reaches the model as a bare integer: no labels, no constraint. The
+      # names are the model's own API (`Ticket.open`, `status: "open"`), so
+      # they are what the tool offers.
+      #
+      # @api private
+      def enum_property(column)
+        { type: "string", enum: enum_values_for(column).keys, description: "#{column.to_s.humanize} field" }
+      end
+
+      # @api private
+      def enum_column?(column)
+        enum_values_for(column).present?
+      end
+
+      # @api private
+      def enum_values_for(column)
+        @model.defined_enums[column.to_s] || {}
+      end
+
       # Dates, times and numbers are the columns a question like "overdue" or
       # "more than 10" actually needs a comparison on.
+      #
+      # An enum is backed by an integer but is not ordered in any sense a
+      # question can use: `status > 1` is an artefact of declaration order, so
+      # offering the range form on one invites a meaningless filter that still
+      # returns a confident count.
       def range_filterable?(column)
+        return false if enum_column?(column)
+
         RANGE_FILTERABLE_TYPES.include?(@model.type_for_attribute(column).type)
       end
 
