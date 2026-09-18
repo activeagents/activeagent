@@ -10,6 +10,21 @@ module ActiveAgent
     #     RubyLLM.chat(model: "claude-opus-5").with_instructions(instructions).ask(prompt).content
     #   end
     #
+    # A judge serves three different calls, and a block that accepts `kind:` is
+    # told which one it is serving — `:score`, `:recommend` or `:verdict` — so a
+    # host can trace them apart, budget them apart, or score with a cheaper model
+    # than it writes the verdict with:
+    #
+    #   Judge.new(label: "claude-opus-5") do |instructions:, prompt:, kind:|
+    #     model = kind == :score ? "claude-haiku-4-5" : "claude-opus-5"
+    #     RubyLLM.chat(model: model).with_instructions(instructions).ask(prompt).content
+    #   end
+    #
+    # The keyword is passed only to a block that names it (or collects `**`), so
+    # a two-keyword block written before this is unaffected. Without it the only
+    # signal is the `instructions` string, which means matching on the gem's own
+    # prose — and a reworded constant then mislabels silently instead of failing.
+    #
     # Every method returns nil when the judge fails or answers unusably, so an
     # evaluation degrades to rule scoring rather than aborting.
     class Judge
@@ -23,6 +38,8 @@ module ActiveAgent
       # @param label [String] how reports name the judge (usually its model)
       # @yieldparam instructions [String] the system prompt
       # @yieldparam prompt [String] the user prompt
+      # @yieldparam kind [Symbol] which call this is — `:score`, `:recommend` or
+      #   `:verdict`. Passed only to a block that accepts it.
       # @yieldreturn [String] the completion text
       # How much of a scenario's notes the judge reads. Where a suite's notes
       # are its grading rubric, a "Must not…" clause tends to come last, and a
@@ -41,7 +58,7 @@ module ActiveAgent
         return nil if answer.blank?
 
         guidance = criterion.dig("config", "prompt").presence || criterion["key"].to_s.humanize
-        parse_score(ask(SCORE_INSTRUCTIONS, <<~PROMPT))
+        parse_score(ask(SCORE_INSTRUCTIONS, <<~PROMPT, :score))
           Criterion: #{guidance}
 
           The user asked:
@@ -64,7 +81,7 @@ module ActiveAgent
       def score_task(scenario:, answer:)
         return nil if answer.blank?
 
-        parse_score(ask(SCORE_INSTRUCTIONS, <<~PROMPT))
+        parse_score(ask(SCORE_INSTRUCTIONS, <<~PROMPT, :score))
           A user asked an assistant:
           ---
           #{scenario.prompt}
@@ -90,7 +107,7 @@ module ActiveAgent
           "- #{call['name']}#{' (errored)' if call['error']}: #{call['arguments'].to_json.truncate(200)}"
         end.join("\n")
 
-        parsed = parse_object(ask(RECOMMEND_INSTRUCTIONS, <<~PROMPT))
+        parsed = parse_object(ask(RECOMMEND_INSTRUCTIONS, <<~PROMPT, :recommend))
           An AI agent failed one evaluation scenario. Recommend the fix.
 
           Agent instructions:
@@ -146,7 +163,7 @@ module ActiveAgent
             "#{", faults: #{faults}" if faults.present?}"
         end
 
-        parsed = parse_object(ask(VERDICT_INSTRUCTIONS, <<~PROMPT))
+        parsed = parse_object(ask(VERDICT_INSTRUCTIONS, <<~PROMPT, :verdict))
           An AI agent ran the same scenarios under several models. Its goals:
           ---
           #{instructions.to_s.truncate(1_000).presence || '(no instructions configured)'}
@@ -180,11 +197,32 @@ module ActiveAgent
         end
       end
 
-      def ask(instructions, prompt)
-        @generate.call(instructions: instructions, prompt: prompt).to_s
+      def ask(instructions, prompt, kind)
+        @generate.call(**ask_arguments(instructions, prompt, kind)).to_s
       rescue StandardError => e
         warn_failure(e)
         nil
+      end
+
+      # The block signature is public API, and every judge written before `kind:`
+      # existed takes exactly `instructions:` and `prompt:` — passing a third
+      # keyword to one of those raises ArgumentError, which `ask` would swallow
+      # as a judge failure, degrading the run to rule scoring. So the kind goes
+      # only to a block that asked for it.
+      def ask_arguments(instructions, prompt, kind)
+        arguments = { instructions: instructions, prompt: prompt }
+        arguments[:kind] = kind if generate_accepts_kind?
+        arguments
+      end
+
+      # True for a block naming `kind:` or collecting `**`. Memoized because the
+      # answer cannot change for a given judge and `ask` runs per scored result.
+      def generate_accepts_kind?
+        return @generate_accepts_kind if defined?(@generate_accepts_kind)
+
+        @generate_accepts_kind = @generate.parameters.any? do |type, name|
+          type == :keyrest || (name == :kind && (type == :key || type == :keyreq))
+        end
       end
 
       def warn_failure(error)
