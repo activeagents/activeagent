@@ -106,7 +106,15 @@ module ActionAgent
 
     # The rendered instructions, so the dashboard record runs on the same text
     # the class does rather than a hand-maintained copy.
+    #
+    # An agent whose instructions are assembled rather than rendered straight
+    # from its own template — filled from assigns it computes, or falling back
+    # to a template it shares with sibling agents — says so by defining
+    # `dashboard_instructions_text`. That is asked first, because only the
+    # class knows how its own prompt is built.
     def instructions_for(klass)
+      return klass.dashboard_instructions_text.presence if klass.respond_to?(:dashboard_instructions_text)
+
       klass.try(:rendered_instructions).presence
     end
 
