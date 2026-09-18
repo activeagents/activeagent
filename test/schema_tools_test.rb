@@ -38,19 +38,9 @@ class SchemaToolsTest < ActiveSupport::TestCase
 
   # A Rails enum, which is declared on the model rather than through the
   # inclusion validator SchemaGenerator reads.
-  class EnumPost < Post
-    self.table_name = "posts"
-    # Declared explicitly rather than inferred from the column: Rails 7.2
-    # raises "Undeclared attribute type for enum" when a subclass declares an
-    # enum over a column it inherited, which Rails 8 tolerates.
-    attribute :state, :integer
-    enum :state, { draft: 0, review: 1, live: 2 }, prefix: true
-
-    def self.name = "EnumPost"
-  end
-
+  # Post declares `enum :state` (test/dummy/app/models/post.rb).
   class EnumPostTools < ActiveAgent::SchemaTools
-    model EnumPost
+    model Post
     filterable :state, :published
     returns :id, :title
   end
@@ -127,7 +117,7 @@ class SchemaToolsTest < ActiveSupport::TestCase
   end
 
   test "a Rails enum is offered as its names, not its integer backing" do
-    definition = EnumPostTools.tool_definitions.find { |d| d[:name] == "find_enum_posts" }
+    definition = EnumPostTools.tool_definitions.find { |d| d[:name] == "find_posts" }
     state = definition[:parameters][:properties][:state]
 
     # Without this the column reaches the model as {type: "integer"}: no
@@ -138,7 +128,7 @@ class SchemaToolsTest < ActiveSupport::TestCase
   end
 
   test "an enum is not offered the range form" do
-    definition = EnumPostTools.tool_definitions.find { |d| d[:name] == "find_enum_posts" }
+    definition = EnumPostTools.tool_definitions.find { |d| d[:name] == "find_posts" }
     state = definition[:parameters][:properties][:state]
 
     # `state > 1` is an artefact of declaration order, not a question anyone
@@ -147,7 +137,7 @@ class SchemaToolsTest < ActiveSupport::TestCase
   end
 
   test "an undefined enum value is rejected rather than matching nothing" do
-    result = EnumPostTools.call("count_enum_posts", state: "pending")
+    result = EnumPostTools.call("count_posts", state: "pending")
 
     # The silent alternative is {count: 0}, which an agent reports as a fact:
     # "no posts are pending" reads identically to "pending is not a state".
@@ -159,16 +149,16 @@ class SchemaToolsTest < ActiveSupport::TestCase
 
   test "an enum still accepts the names and values it defines" do
     # setup seeds two posts, both at the column default (draft).
-    EnumPost.create!(title: "Live one", content: "x", user: @alice, state: "live")
+    Post.create!(title: "Live one", content: "x", user: @alice, state: "live")
 
-    assert_equal({ count: 2 }, EnumPostTools.call("count_enum_posts", state: "draft"))
-    assert_equal({ count: 1 }, EnumPostTools.call("count_enum_posts", state: "live"))
+    assert_equal({ count: 2 }, EnumPostTools.call("count_posts", state: "draft"))
+    assert_equal({ count: 1 }, EnumPostTools.call("count_posts", state: "live"))
     # The integer backing still works, so a stored value round-trips.
-    assert_equal({ count: 1 }, EnumPostTools.call("count_enum_posts", state: 2))
+    assert_equal({ count: 1 }, EnumPostTools.call("count_posts", state: 2))
   end
 
   test "a range predicate on an enum is rejected" do
-    result = EnumPostTools.call("count_enum_posts", state: { "gt" => 1 })
+    result = EnumPostTools.call("count_posts", state: { "gt" => 1 })
 
     refute result.key?(:count), "a comparison on an enum must not return a count"
     assert_match "cannot be compared as a range", result[:error]
