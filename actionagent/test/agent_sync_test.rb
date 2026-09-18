@@ -5,6 +5,16 @@ require "test_helper"
 # Mirroring host agent classes into Agent records — the step that lets the
 # dashboard run, evaluate and release the agents an app already has in code.
 class AgentSyncTest < ActiveSupport::TestCase
+  class AssembledAgent < ApplicationAgent
+    generate_with :mock, model: "mock-1"
+
+    def self.dashboard_instructions_text = "assembled for the dashboard"
+
+    def ask
+      prompt(message: "hi")
+    end
+  end
+
   class InvoiceAgent < ApplicationAgent
     generate_with :mock, model: "mock-1"
 
@@ -49,6 +59,16 @@ class AgentSyncTest < ActiveSupport::TestCase
     # The code owns what an agent is; the operator owns how it runs. A model
     # picked in the dashboard must survive the next deploy's sync.
     assert_equal "operator-choice", agent.reload.model
+  end
+
+  test "an agent that assembles its own instructions is asked for them" do
+    result = ActionAgent::AgentSync.call([ AssembledAgent ], owner: nil_owner)
+
+    # A record agent's prompt comes from a template it shares with siblings,
+    # filled from assigns it computes — the class is the only thing that knows
+    # how to build it, so the sync asks rather than rendering a template that
+    # would come back empty.
+    assert_equal "assembled for the dashboard", result.agents.sole.instructions
   end
 
   test "a class that is not an agent is skipped, not raised" do
