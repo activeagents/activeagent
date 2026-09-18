@@ -27,6 +27,19 @@ Releases `activeagent` and `actionagent` 1.6.3 from one tag.
 - `Evaluation#replace_scenarios!` takes `on_removed:` — `:destroy` (the
   default, unchanged) or `:disable`, which keeps a scenario the suite no
   longer names as `enabled: false` so earlier runs' results still resolve.
+- **An evaluation's traces link back to the result that caused them.**
+  `ActiveAgent::Evals::Correlation` joins two APIs the module already had but
+  never connected: `Runner`'s `around_evaluation:` hook and its `metadata:`
+  run identity, and a telemetry backend's per-block agent scope. A run mints a
+  `run_id`, each evaluation a `result_id`, and both ride every trace opened
+  inside them as `eval.`-prefixed attributes; the trace ids travel the other
+  way onto `result.replay.metadata` — `trace_id` for the replay,
+  `judge_trace_ids` for the judge calls that graded it, with a run-level
+  verdict landing on the run metadata the Report carries rather than on
+  whichever result was evaluated last. The tracer is injected, so the module
+  takes on no telemetry dependency and `require "active_agent/evals"` still
+  loads on its own. Hand the object to `Runner.new(around_evaluation:)`
+  directly; a plain lambda there keeps working unchanged.
 - `Agent#generations` reads the generations recorded against an agent, with
   `Agent#agent_contexts` beside it. Generations hang off `AgentContext`
   polymorphically, so reaching them meant hand-writing that join — the engine
@@ -51,7 +64,6 @@ Releases `activeagent` and `actionagent` 1.6.3 from one tag.
   serve fails with `ArgumentError` before any replay runs. A spec handed back
   as a Hash naming both `provider` and `model` bypassed the `providers:`
   allow-list, so the run reached the replay with a provider nothing serves.
-
 ## [1.6.2] - 2026-09-16
 
 Releases `activeagent` and `actionagent` 1.6.2 from one tag.
