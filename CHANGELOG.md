@@ -7,8 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-09-18
+
+Releases `activeagent` and `actionagent` 1.6.3 from one tag.
+
+A release about telling the truth on the screens that report what happened.
+The context meter now divides the provider's own `prompt_tokens` among its
+segments instead of subtracting estimates from it, and sizes each piece —
+tool schemas, MCP schemas, instructions and the transcript — before the span
+clips it for storage; previously a trace with dense tool schemas showed a
+large message history that was never sent. An adapted replay is metered as
+one execution like any other, so a host that supplies its own runtime is no
+longer silently uncounted, and a spec naming a provider the agent cannot
+serve now fails before the replay rather than reaching it.
+
+Three seams hosts were reaching around become API. `ActiveAgent::Evals::Correlation`
+joins `Runner`'s `around_evaluation:` hook to a telemetry backend's trace
+scope, so a report row links back to the conversation behind it. A `Judge`
+block that accepts `kind:` is told whether it is scoring, recommending or
+writing the verdict, instead of matching on the gem's own instruction prose.
+`Agent#generations` replaces the polymorphic join hosts were copying out of a
+private service method.
+
+Upgrading: no migration, and nothing that already worked changes. The judge
+keyword reaches only a block that asks for it, so existing judges are
+untouched; `Evaluation#replace_scenarios!` keeps `:destroy` as its default.
+Adapters should drop any `ActionAgent.record_usage` call of their own, which
+now double-counts, and any provider allow-list check of their own, which is
+now dead code.
+
+### Added
+
+- The prompt span records how large the tool schemas actually are, as
+  `prompt.input.tools.tokens`, `prompt.input.mcp_tools.tokens`,
+  `prompt.input.instructions.tokens` and `prompt.input.messages.tokens`. The
+  transcript's size is measured before the span trims the history to the turns
+  that fit, the others before their content is clipped. The content attributes
+  beside them are previews clipped for storage — and on the SDK path the tool
+  attribute is a roster of names and parameter keys, several times smaller than
+  the schema the model is sent — so a reader that sized the context from one
+  understated tool pressure badly.
+- MCP tool schemas are attributed apart from the toolbox's, so the context meter
+  can name which half fills the window.
+- `Evaluation#replace_scenarios!` takes `on_removed:` — `:destroy` (the
+  default, unchanged) or `:disable`, which keeps a scenario the suite no
+  longer names as `enabled: false` so earlier runs' results still resolve.
+- **An evaluation's traces link back to the result that caused them.**
+  `ActiveAgent::Evals::Correlation` joins two APIs the module already had but
+  never connected: `Runner`'s `around_evaluation:` hook and its `metadata:`
+  run identity, and a telemetry backend's per-block agent scope. A run mints a
+  `run_id`, each evaluation a `result_id`, and both ride every trace opened
+  inside them as `eval.`-prefixed attributes; the trace ids travel the other
+  way onto `result.replay.metadata` — `trace_id` for the replay,
+  `judge_trace_ids` for the judge calls that graded it, with a run-level
+  verdict landing on the run metadata the Report carries rather than on
+  whichever result was evaluated last. The tracer is injected, so the module
+  takes on no telemetry dependency and `require "active_agent/evals"` still
+  loads on its own. Hand the object to `Runner.new(around_evaluation:)`
+  directly; a plain lambda there keeps working unchanged.
+- A `Judge` block that accepts `kind:` is told which of the judge's three calls
+  it is serving — `:score`, `:recommend` or `:verdict` — so a host can trace,
+  budget or model them separately. Previously the only signal was the
+  `instructions` string, so hosts matched against the gem's own
+  `RECOMMEND_INSTRUCTIONS` / `VERDICT_INSTRUCTIONS` constants; rewording one
+  then sent every such host quietly down its `else` branch, mislabelling traces
+  rather than failing. The keyword reaches only a block that names it or
+  collects `**`, so judges taking `instructions:` and `prompt:` are unaffected.
+  (#462)
+- `Agent#generations` reads the generations recorded against an agent, with
+  `Agent#agent_contexts` beside it. Generations hang off `AgentContext`
+  polymorphically, so reaching them meant hand-writing that join — the engine
+  did it itself in a private service method a host could not reuse, which now
+  uses the association instead. Destroying an agent still leaves its contexts
+  alone, as it always has. (#464)
+
 ### Fixed
 
+- The dashboard's context meter divides the provider's own `prompt_tokens`
+  among its segments instead of subtracting its estimates from it. Charging the
+  difference to one segment made "Messages" absorb the whole approximation
+  error, so a trace with dense JSON tool schemas read as a large message history
+  that was never sent. The transcript is one of the divided segments: dividing
+  only the rest would hand its share to the segments that remained, so a long
+  conversation reported an enormous system prompt and no history at all.
 - A host that supplies a `scenario_evaluation_adapter_resolver` now has its
   replays metered as executions, one per scenario x model, the same unit the
   default path records. Previously an adapted replay was counted only if the
@@ -17,13 +98,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   serve fails with `ArgumentError` before any replay runs. A spec handed back
   as a Hash naming both `provider` and `model` bypassed the `providers:`
   allow-list, so the run reached the replay with a provider nothing serves.
-
-### Added
-
-- `Evaluation#replace_scenarios!` takes `on_removed:` — `:destroy` (the
-  default, unchanged) or `:disable`, which keeps a scenario the suite no
-  longer names as `enabled: false` so earlier runs' results still resolve.
-
 ## [1.6.2] - 2026-09-16
 
 Releases `activeagent` and `actionagent` 1.6.2 from one tag.

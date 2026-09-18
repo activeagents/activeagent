@@ -101,7 +101,23 @@ module ActiveAgent
                     parameters: properties.is_a?(Hash) ? properties.keys : []
                   }.compact
                 }
-                prompt_span.set_attribute("prompt.input.tools", JSON.generate(roster)) if roster.any?
+                if roster.any?
+                  prompt_span.set_attribute("prompt.input.tools", JSON.generate(roster))
+                  # The roster is a reading aid: names, a truncated description
+                  # and parameter keys. What the model is sent is the full JSON
+                  # Schema — types, enums, nested objects, anyOf branches —
+                  # which for a twelve-tool agent is several times the roster,
+                  # so a context meter sizing tool pressure from the roster
+                  # understates it badly. The schemas come from the host and
+                  # need not be serializable; a size is worth less than the
+                  # generation it would otherwise take down.
+                  tools_size = begin
+                    JSON.generate(tools).length
+                  rescue StandardError
+                    nil
+                  end
+                  prompt_span.set_attribute("prompt.input.tools.tokens", (tools_size / 4.0).round) if tools_size
+                end
               end
 
               # prompt_options[:messages] holds the turns a caller passed
