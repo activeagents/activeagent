@@ -7,19 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [1.6.3] - 2026-09-17
 
-- A host that supplies a `scenario_evaluation_adapter_resolver` now has its
-  replays metered as executions, one per scenario x model, the same unit the
-  default path records. Previously an adapted replay was counted only if the
-  host remembered to call `ActionAgent.record_usage` itself.
-- A scenario evaluation whose selected models name a provider the agent cannot
-  serve fails with `ArgumentError` before any replay runs. A spec handed back
-  as a Hash naming both `provider` and `model` bypassed the `providers:`
-  allow-list, so the run reached the replay with a provider nothing serves.
+Releases `activeagent` and `actionagent` 1.6.3 from one tag.
 
 ### Added
 
+- The prompt span records how large the tool schemas actually are, as
+  `prompt.input.tools.tokens`, `prompt.input.mcp_tools.tokens`,
+  `prompt.input.instructions.tokens` and `prompt.input.messages.tokens`. The
+  transcript's size is measured before the span trims the history to the turns
+  that fit, the others before their content is clipped. The content attributes
+  beside them are previews clipped for storage — and on the SDK path the tool
+  attribute is a roster of names and parameter keys, several times smaller than
+  the schema the model is sent — so a reader that sized the context from one
+  understated tool pressure badly.
+- MCP tool schemas are attributed apart from the toolbox's, so the context meter
+  can name which half fills the window.
 - `Evaluation#replace_scenarios!` takes `on_removed:` — `:destroy` (the
   default, unchanged) or `:disable`, which keeps a scenario the suite no
   longer names as `enabled: false` so earlier runs' results still resolve.
@@ -37,6 +41,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   loads on its own. Hand the object to `Runner.new(around_evaluation:)`
   directly; a plain lambda there keeps working unchanged.
 
+### Fixed
+
+- The dashboard's context meter divides the provider's own `prompt_tokens`
+  among its segments instead of subtracting its estimates from it. Charging the
+  difference to one segment made "Messages" absorb the whole approximation
+  error, so a trace with dense JSON tool schemas read as a large message history
+  that was never sent. The transcript is one of the divided segments: dividing
+  only the rest would hand its share to the segments that remained, so a long
+  conversation reported an enormous system prompt and no history at all.
+- A host that supplies a `scenario_evaluation_adapter_resolver` now has its
+  replays metered as executions, one per scenario x model, the same unit the
+  default path records. Previously an adapted replay was counted only if the
+  host remembered to call `ActionAgent.record_usage` itself.
+- A scenario evaluation whose selected models name a provider the agent cannot
+  serve fails with `ArgumentError` before any replay runs. A spec handed back
+  as a Hash naming both `provider` and `model` bypassed the `providers:`
+  allow-list, so the run reached the replay with a provider nothing serves.
 ## [1.6.2] - 2026-09-16
 
 Releases `activeagent` and `actionagent` 1.6.2 from one tag.
