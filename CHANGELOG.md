@@ -27,6 +27,12 @@ Releases `activeagent` and `actionagent` 1.6.3 from one tag.
 - `Evaluation#replace_scenarios!` takes `on_removed:` — `:destroy` (the
   default, unchanged) or `:disable`, which keeps a scenario the suite no
   longer names as `enabled: false` so earlier runs' results still resolve.
+- `Agent#generations` reads the generations recorded against an agent, with
+  `Agent#agent_contexts` beside it. Generations hang off `AgentContext`
+  polymorphically, so reaching them meant hand-writing that join — the engine
+  did it itself in a private service method a host could not reuse, which now
+  uses the association instead. Destroying an agent still leaves its contexts
+  alone, as it always has. (#464)
 
 ### Fixed
 
