@@ -149,9 +149,7 @@ module ActionAgent
     end
 
     def sample_generations(model: nil)
-      scope = AgentGeneration
-        .joins(:agent_context)
-        .where(AgentContext.table_name => { contextable: @evaluation.agent })
+      scope = @evaluation.agent.generations
       scope = scope.where(model: model) if model
       scope.order(created_at: :desc).limit(@evaluation.sample_size).to_a
     end

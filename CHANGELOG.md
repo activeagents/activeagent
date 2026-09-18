@@ -49,6 +49,12 @@ Releases `activeagent` and `actionagent` 1.6.3 from one tag.
   rather than failing. The keyword reaches only a block that names it or
   collects `**`, so judges taking `instructions:` and `prompt:` are unaffected.
   (#462)
+- `Agent#generations` reads the generations recorded against an agent, with
+  `Agent#agent_contexts` beside it. Generations hang off `AgentContext`
+  polymorphically, so reaching them meant hand-writing that join — the engine
+  did it itself in a private service method a host could not reuse, which now
+  uses the association instead. Destroying an agent still leaves its contexts
+  alone, as it always has. (#464)
 
 ### Fixed
 

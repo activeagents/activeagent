@@ -11,6 +11,14 @@ module ActionAgent
     has_many :agent_runs, dependent: :destroy
     has_many :evaluations, dependent: :destroy
     has_many :agent_memories, as: :memorable, dependent: :destroy
+    # Generations hang off AgentContext polymorphically, which is an
+    # implementation detail of how contexts are modelled — so without these a
+    # host that wants an agent's recorded history writes that join itself and is
+    # coupled to the shape. Deliberately no `dependent:` on the contexts: the
+    # association is added to read them, and destroying an agent has never taken
+    # its conversations with it. Making it do so is a separate call.
+    has_many :agent_contexts, as: :contextable
+    has_many :generations, through: :agent_contexts
 
     # Polymorphic rows (agent_memories, agent_contexts) store this string.
     # A host app that grew these tables under its own Agent constant keeps
