@@ -23,6 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Evaluation#replace_scenarios!` takes `on_removed:` — `:destroy` (the
   default, unchanged) or `:disable`, which keeps a scenario the suite no
   longer names as `enabled: false` so earlier runs' results still resolve.
+- **An evaluation's traces link back to the result that caused them.**
+  `ActiveAgent::Evals::Correlation` joins two APIs the module already had but
+  never connected: `Runner`'s `around_evaluation:` hook and its `metadata:`
+  run identity, and a telemetry backend's per-block agent scope. A run mints a
+  `run_id`, each evaluation a `result_id`, and both ride every trace opened
+  inside them as `eval.`-prefixed attributes; the trace ids travel the other
+  way onto `result.replay.metadata` — `trace_id` for the replay,
+  `judge_trace_ids` for the judge calls that graded it, with a run-level
+  verdict landing on the run metadata the Report carries rather than on
+  whichever result was evaluated last. The tracer is injected, so the module
+  takes on no telemetry dependency and `require "active_agent/evals"` still
+  loads on its own. Hand the object to `Runner.new(around_evaluation:)`
+  directly; a plain lambda there keeps working unchanged.
 
 ## [1.6.2] - 2026-09-16
 
