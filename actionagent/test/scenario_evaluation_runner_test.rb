@@ -260,6 +260,34 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert evaluation.scenarios.find_by!(key: "find_9").enabled
   end
 
+  test "replace_scenarios! with on_removed: :disable keeps a dropped scenario and its results readable" do
+    evaluation = build_suite
+    dropped = evaluation.scenarios.find_by!(key: "blame_1")
+
+    evaluation.replace_scenarios!([ { "key" => "find_1", "prompt" => "A rewritten first question", "group" => "Find" } ],
+      on_removed: :disable)
+
+    assert_equal dropped.id, evaluation.scenarios.find_by!(key: "blame_1").id
+    assert_not dropped.reload.enabled, "a scenario the suite no longer names is disabled, not destroyed"
+    assert_equal %w[find_1], evaluation.scenarios.enabled.ordered.map(&:key)
+  end
+
+  test "replace_scenarios! destroys a dropped scenario by default" do
+    evaluation = build_suite
+
+    evaluation.replace_scenarios!([ { "key" => "find_1", "prompt" => "A rewritten first question", "group" => "Find" } ])
+
+    assert_nil evaluation.scenarios.find_by(key: "blame_1")
+  end
+
+  test "replace_scenarios! rejects an unknown on_removed" do
+    evaluation = build_suite
+
+    assert_raises(ArgumentError) do
+      evaluation.replace_scenarios!([ { "key" => "find_1", "prompt" => "Anything" } ], on_removed: :archive)
+    end
+  end
+
   test "each replay is reported to the host as one execution" do
     evaluation = build_suite
     recorded = []
