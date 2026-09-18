@@ -159,4 +159,31 @@ class ActionAgentScenarioEvaluationAdapterTest < ActiveSupport::TestCase
     assert_equal "complete", run.status
     assert run.scenario_results.first.agent_run
   end
+
+  test "an adapter replay is metered as an execution, the same as the default path" do
+    recorded = []
+    previous_recorder = ActionAgent.usage_recorder
+    ActionAgent.usage_recorder = ->(owner, kind) { recorded << [ owner, kind ] }
+    ActionAgent.scenario_evaluation_adapter_resolver = lambda do |_evaluation|
+      ->(evaluation:, owner:, scenarios:, models:, on_result:) { host_report(scenarios: scenarios, models: models, on_result: on_result) }
+    end
+
+    @evaluation.run!(keys: [ "order_1" ], models: %w[mock/alpha mock/beta])
+
+    assert_equal [ [ @owner, :execution ], [ @owner, :execution ] ], recorded,
+      "one execution per scenario x model, so an adapted replay is not silently unmetered"
+  ensure
+    ActionAgent.usage_recorder = previous_recorder
+  end
+
+  test "a model spec naming a provider the agent cannot serve is rejected before any replay runs" do
+    ActionAgent.scenario_evaluation_adapter_resolver = lambda do |_evaluation|
+      ->(**) { raise "adapter must not run for an unsupported provider" }
+    end
+
+    error = assert_raises(ArgumentError) do
+      @evaluation.run!(keys: [ "order_1" ], models: [ { "provider" => "nonesuch", "model" => "some-model" } ])
+    end
+    assert_match(/nonesuch/, error.message)
+  end
 end
