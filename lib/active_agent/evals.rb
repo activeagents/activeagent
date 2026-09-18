@@ -25,6 +25,7 @@ require_relative "evals/design_tokens"
 require_relative "evals/report_html"
 require_relative "evals/report"
 require_relative "evals/runner"
+require_relative "evals/correlation"
 require_relative "evals/publisher"
 
 # Scenario evaluations for agents that answer with tools.
@@ -40,7 +41,8 @@ require_relative "evals/publisher"
 # fell short and what would fix it (Diagnosis, refined by an optional Judge),
 # and rolling everything up per model (Report). Runner ties them together
 # around one callable you supply: given a scenario and a model, run the
-# agent and return a Replay.
+# agent and return a Replay. Correlation is optional plumbing on top: it
+# links the traces a run emits back to the result that caused them.
 #
 #   scenarios = ActiveAgent::Evals::ScenarioParser.scenarios(pasted_text)
 #   models    = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini qwen3:8b], default_provider: "openai")
