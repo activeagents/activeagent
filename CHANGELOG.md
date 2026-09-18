@@ -24,6 +24,9 @@ Releases `activeagent` and `actionagent` 1.6.3 from one tag.
   understated tool pressure badly.
 - MCP tool schemas are attributed apart from the toolbox's, so the context meter
   can name which half fills the window.
+- `Evaluation#replace_scenarios!` takes `on_removed:` — `:destroy` (the
+  default, unchanged) or `:disable`, which keeps a scenario the suite no
+  longer names as `enabled: false` so earlier runs' results still resolve.
 
 ### Fixed
 
@@ -34,6 +37,14 @@ Releases `activeagent` and `actionagent` 1.6.3 from one tag.
   that was never sent. The transcript is one of the divided segments: dividing
   only the rest would hand its share to the segments that remained, so a long
   conversation reported an enormous system prompt and no history at all.
+- A host that supplies a `scenario_evaluation_adapter_resolver` now has its
+  replays metered as executions, one per scenario x model, the same unit the
+  default path records. Previously an adapted replay was counted only if the
+  host remembered to call `ActionAgent.record_usage` itself.
+- A scenario evaluation whose selected models name a provider the agent cannot
+  serve fails with `ArgumentError` before any replay runs. A spec handed back
+  as a Hash naming both `provider` and `model` bypassed the `providers:`
+  allow-list, so the run reached the replay with a provider nothing serves.
 
 ## [1.6.2] - 2026-09-16
 
