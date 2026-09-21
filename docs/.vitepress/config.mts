@@ -103,6 +103,7 @@ export default defineConfig({
           { text: 'Dev Console (Dashboard Engine)', link: '/framework/dashboard' },
           { text: 'Evaluations', link: '/framework/evaluations' },
           { text: 'Self-Hosted Dashboard', link: '/framework/self-hosted-observability' },
+          { text: 'Dashboard for RubyLLM Apps', link: '/framework/ruby_llm_dashboard' },
           { text: 'Retries', link: '/framework/retries' },
           { text: 'Rails Integration', link: '/framework/rails' },
           { text: 'Testing', link: '/framework/testing' },
