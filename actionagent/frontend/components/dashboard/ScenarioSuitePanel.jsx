@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
-import { Button, Chip, Empty, MicroLabel, MonoLink, MONO } from './primitives';
-import { fmtCost, fmtK, fmtMs, timeAgo } from '../../utils/format';
+import { navigateTo } from '../../utils/dashboardPath';
+import { Button, Chip, Empty, MicroLabel, MONO } from './primitives';
+import { splitModelLabel, timeAgo } from '../../utils/format';
 import { scenarioRowsForRun } from '../../utils/evaluationHistory.mjs';
+import { runDelta, runSpend } from '../../utils/evaluationRuns.mjs';
+import RunsList from './evaluations/RunsList';
+import CriteriaFooter from './evaluations/CriteriaFooter';
 import {
-  FixList, ModelsPanel, RunsPanel, ScenarioDetail, ScenarioMatrix,
-  fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, plural,
+  FixList, ModelsPanel, ScenarioDetail, ScenarioMatrix,
+  fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, modelPassStats, plural,
   runScenarioCount, runScenarioKeys, runTotalOf, runTotals,
 } from './EvaluationRunPanels';
 
@@ -44,20 +47,15 @@ const stripResults = (run) => {
   return summary;
 };
 
-const usageText = (usage) => {
-  if (!usage) return null;
-  const parts = [fmtCost(usage.cost), `${fmtK((usage.input_tokens || 0) + (usage.output_tokens || 0))} tokens`];
-  if (usage.model_time_ms != null) parts.push(`model time ${fmtMs(usage.model_time_ms)}`);
-  if (usage.runtime_ms != null) parts.push(`finished in ${fmtMs(usage.runtime_ms)}`);
-  return parts.join(' · ');
-};
-
 const inputStyle = {
   padding: '6px 10px', borderRadius: 8, fontSize: 12, fontFamily: MONO,
   background: 'var(--color-card)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text-primary)',
 };
 
-export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, deleting = false }) {
+// `initialRunId` is the run a deep link (/evaluations/:id/runs/:run_id)
+// asks for; `onRunSelected` reports the run a click in the list picked, so
+// the page can put it in the URL.
+export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, deleting = false, initialRunId = null, onRunSelected }) {
   const evaluationId = evaluation.id;
   const agentName = evaluation.agent?.name || 'Agent';
 
@@ -147,8 +145,9 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
       const suite = await fetchSuite();
       if (cancelled) return;
       const latestId = suite?.runs?.[0]?.id ?? null;
-      setSelectedRunId((current) => (current && suite?.runs?.some((r) => r.id === current) ? current : latestId));
-      if (latestId) fetchRunDetail(latestId);
+      const wanted = initialRunId && suite?.runs?.some((r) => r.id === initialRunId) ? initialRunId : null;
+      setSelectedRunId((current) => wanted || (current && suite?.runs?.some((r) => r.id === current) ? current : latestId));
+      if (wanted || latestId) fetchRunDetail(wanted || latestId);
     })();
     return () => { cancelled = true; };
   }, [fetchSuite, fetchRunDetail]);
@@ -226,6 +225,13 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     setOpenKey(null);
     if (!details[runId]) fetchRunDetail(runId);
   };
+
+  // A later deep link to another of this suite's runs selects it in place.
+  useEffect(() => {
+    if (!initialRunId || initialRunId === selectedRunId || !runs.some((r) => r.id === initialRunId)) return;
+    selectRun(initialRunId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRunId]);
 
   const toggleScenario = async (scenario) => {
     if (!scenario.id) return;
@@ -321,8 +327,28 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     });
   }, []);
   const criteriaKeys = Object.keys(run?.scores || {}).filter((key) => !key.startsWith('_'));
-  const criteriaText = (criteriaKeys.length ? criteriaKeys : (evaluation.criteria || []).map((c) => c.key))
-    .map((key) => String(key).replace(/_/g, ' ')).join(' · ') || '—';
+
+  // The rows of the runs list: one pass bar per model column of each run.
+  // The selected run's bars count from the results that have landed, so a
+  // run still replaying fills in as it goes.
+  const barsFor = useCallback((candidate) => {
+    const mine = candidate.id === run?.id ? results : [];
+    const cols = modelColumns(candidate, mine, evaluation);
+    const count = runScenarioCount(candidate, cols, scenarios);
+    return cols.map((label) => ({ label, short: splitModelLabel(label).short, ...modelPassStats(candidate, label, mine, count) }));
+  }, [run, results, evaluation, scenarios]);
+
+  // Movement is only read against a run of the same shape — the same
+  // scenarios under the same number of models — so a partial run (one
+  // group, one scenario) is not compared to a full one.
+  const deltaFor = useCallback((candidate, older, olderNumber) => {
+    if (!older || older.status !== 'complete' || candidate.status !== 'complete') return runDelta(candidate, older, { olderNumber });
+    const cols = modelColumns(candidate, candidate.id === run?.id ? results : [], evaluation);
+    const baseCols = modelColumns(older, [], evaluation);
+    const sameShape = runScenarioCount(older, baseCols, scenarios) === runScenarioCount(candidate, cols, scenarios)
+      && baseCols.length === cols.length;
+    return runDelta(candidate, older, { olderNumber, comparable: sameShape });
+  }, [run, results, evaluation, scenarios]);
 
   // Until the suite has loaded, the counts the index already knows stand in
   // for the scenario list.
@@ -411,11 +437,21 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
         </div>
       )}
 
-      {/* Runs | Models */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 2fr) minmax(0, 3fr)', gap: 16, alignItems: 'start' }}>
-        <RunsPanel runs={runs} runCount={runCount} selectedId={run?.id ?? null} onSelect={selectRun} agentName={agentName} selectedResults={results} scenarios={scenarios} />
-        <ModelsPanel run={run} columns={run ? columns : []} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} />
-      </div>
+      {/* Runs — every run of the suite; a row selects the run the panels
+          below show. */}
+      <RunsList
+        runs={runs}
+        runCount={runCount}
+        evaluation={evaluation}
+        agentName={agentName}
+        selectedId={run?.id ?? null}
+        onOpen={(candidate) => { selectRun(candidate.id); onRunSelected?.(candidate.id); }}
+        barsFor={barsFor}
+        deltaFor={deltaFor}
+      />
+
+      {/* Models */}
+      <ModelsPanel run={run} columns={run ? columns : []} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} />
 
       {/* What to fix */}
       {run && run.status !== 'failed' && (
@@ -492,25 +528,16 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
       </div>
 
       {/* Footer */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid var(--color-border-light)', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
-        <span style={{ whiteSpace: 'nowrap' }}>{`judge ${judgedBy}`}</span>
-        <span style={{ minWidth: 0, textWrap: 'pretty' }}>{`criteria ${criteriaText}`}</span>
-        {run?.usage && <span style={{ whiteSpace: 'nowrap' }} title="Estimated cost, tokens and model time of this run">{usageText(run.usage)}</span>}
-        {reportPath && (
-          <MonoLink href={dashboardPath(reportPath)} onClick={() => navigateTo(reportPath)} title="The run rendered as a report page">run report</MonoLink>
-        )}
-        {onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={deleting}
-            title="Delete this suite and its runs"
-            style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-error)', opacity: deleting ? 0.5 : 1 }}
-          >
-            {deleting ? 'Deleting…' : 'Delete suite'}
-          </button>
-        )}
-      </div>
+      <CriteriaFooter
+        evaluation={evaluation}
+        run={run}
+        keys={criteriaKeys.length ? criteriaKeys : null}
+        spend={runSpend(run)}
+        reportPath={reportPath}
+        onDelete={onDelete}
+        deleting={deleting}
+        deleteLabel="Delete suite"
+      />
     </div>
   );
 }

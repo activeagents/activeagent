@@ -380,5 +380,16 @@ schema migration. Existing result and report URLs continue to work:
 - `<mount>/api/evaluations/:id/runs/:run_id` returns persisted result JSON.
 - `<mount>/api/evaluations/:id/runs/:run_id/report` serves the HTML report.
 - `<mount>/evaluations/:id/runs/:run_id/report` opens it within the dashboard.
+- `<mount>/evaluations/:id` opens an evaluation on its run history, and
+  `<mount>/evaluations/:id/runs/:run_id` one of its runs — a page of its own
+  for a sampling evaluation, the selected run of a suite's panel otherwise.
 - `<mount>/evaluations?evaluation=:id` opens a specific evaluation, including
   one outside the first index page. Add `&run=:run_id` to open its saved report.
+
+Every serialized run carries `number` (its position in the evaluation's
+history, oldest first) and `usage`, which keeps the agent's spend apart from
+the judge's: `replays` (or `samples`, for a sampling run), `cost`,
+`per_interaction`, tokens and timing on the agent's side — what the
+interactions cost to serve — and `judge` (`calls`, tokens, `cost`, `model`,
+`by_kind`) for the judge model's own calls, present only when a judge was
+asked. The index adds `run_count` and a `previous_run` summary per evaluation.
