@@ -3,38 +3,33 @@ import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../u
 import { evaluationLink, includeLinkedEvaluation } from '../../utils/evaluationHistory.mjs';
 import { useTheme } from '../../contexts/ThemeContext';
 import ScenarioSuitePanel from './ScenarioSuitePanel';
-import { Badge, Button, Card, Glyph, MicroLabel, StatCard, MONO, TONE, toneFor } from './primitives';
-import { fmtCost, fmtK, fmtMs, fmtPct, fmtScore, timeAgo } from '../../utils/format';
-import { plural } from './EvaluationRunPanels';
+import EvaluationForm from './evaluations/EvaluationForm';
+import EvaluationRunDetail from './evaluations/EvaluationRunDetail';
+import CriteriaFooter from './evaluations/CriteriaFooter';
+import RunsList, { RunBadge, runsSummary } from './evaluations/RunsList';
+import { fmtRate } from './evaluations/SpendStrip';
+import { Button, Card, Glyph, StatCard, MONO, TONE, toneFor } from './primitives';
+import { fmtCost, fmtPct, timeAgo } from '../../utils/format';
+import { criterionGroup, modelCount, plural, runLabel, runSpend, samplingFixItems, spendSummary } from '../../utils/evaluationRuns.mjs';
 
-const RULE_CRITERIA = [
-  { type: 'response_present', key: 'response_present', label: 'Response present', config: {} },
-  { type: 'min_length', key: 'response_length', label: 'Response length ≥ 40 chars', config: { chars: 40 } },
-  { type: 'max_latency_ms', key: 'latency', label: 'Latency ≤ 5s', config: { ms: 5000 } },
-  { type: 'token_budget', key: 'token_budget', label: 'Output ≤ 1000 tokens', config: { output_tokens: 1000 } },
-];
-
-// Scored from the agent's telemetry traces (aggregates over the last 7
-// days), not from sampled generations.
-const TELEMETRY_CRITERIA = [
-  { type: 'trace_error_rate', key: 'trace_error_rate', label: 'Trace error rate ≤ 5% (telemetry, 7d)', config: { max_error_rate: 5, window_hours: 168 } },
-  { type: 'trace_latency', key: 'trace_latency', label: 'Avg trace latency ≤ 5s (telemetry, 7d)', config: { max_avg_ms: 5000, window_hours: 168 } },
-];
+// Evaluations, each with every run it has had. An evaluation is a named set
+// of criteria against one agent — scored over its recorded generations, or,
+// as a scenario suite, replayed through it — and its runs are the record of
+// whether the agent is getting better. The page lists evaluations with their
+// run history; a run opens to a scorecard per model cohort, the judge's
+// verdict, the criteria × models matrix (or, for a suite, the scenario
+// matrix) and what the run asks to fix. Every figure on screen is a field
+// the app recorded, including what each run cost: the agent's side, which
+// is what operating it costs, apart from the judge's, which is the
+// evaluation's own.
 
 const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
-
-const formatRunUsage = (usage) => {
-  if (!usage) return null;
-  const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
-  const runtime = usage.runtime_ms == null ? null : fmtMs(usage.runtime_ms);
-  return `${fmtCost(usage.cost)} · ${fmtK(tokens)} tok${runtime ? ` · ${runtime}` : ''}`;
-};
 
 // Mean-score tone: a score is not a pass ratio, so it keeps the thresholds
 // the sampling evaluations have always used.
 const scoreTone = (value) => (value >= 0.85 ? 'success' : value >= 0.7 ? 'warning' : 'error');
 
-// The report sub-route under /evaluations, when the current URL names one.
+// Routes under /evaluations: the report page of one run …
 const reportRefFromPath = () => {
   const match = dashboardRelativePath().match(/^\/evaluations\/(\d+)\/runs\/(\d+)\/report/);
   if (match) return { evaluationId: match[1], runId: match[2] };
@@ -42,58 +37,36 @@ const reportRefFromPath = () => {
   return query?.runId ? query : null;
 };
 
-const inputStyle = {
-  padding: '8px 12px', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box',
-  background: 'var(--color-card)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text-primary)',
+// … or one evaluation, open, and optionally one of its runs.
+const runRefFromPath = () => {
+  const match = dashboardRelativePath().match(/^\/evaluations\/(\d+)(?:\/runs\/(\d+))?\/?$/);
+  if (!match) return null;
+  return { evaluationId: Number(match[1]), runId: match[2] ? Number(match[2]) : null };
 };
+
+// Which evaluation the URL names, as a string id: `?evaluation=` (the older
+// deep link) or the path. Either may point outside the first index page.
+const linkedIdFromLocation = () =>
+  evaluationLink(window.location.search)?.evaluationId || (runRefFromPath() ? String(runRefFromPath().evaluationId) : null);
 
 const monoStyle = (size = 11, color = 'var(--color-text-muted)') => ({ fontFamily: MONO, fontSize: size, color });
 
-// A criterion score bar for a sampling evaluation: label · track · score.
-function ScoreRow({ label, score, indent = false, mono = false }) {
-  const tone = score.skipped ? null : scoreTone(score.score);
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingLeft: indent ? 16 : 0 }}>
-      <div
-        style={{ width: 160, flexShrink: 0, fontSize: mono ? 11 : 13, fontFamily: mono ? MONO : 'inherit', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-        title={label}
-      >
-        {mono ? label : label.replace(/_/g, ' ')}
-        {score.source === 'telemetry' && (
-          <span
-            data-testid="score-source-telemetry"
-            style={{ ...monoStyle(10), marginLeft: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}
-            title={`Aggregate over ${score.traces} traces in the last ${score.window_hours}h`}
-          >
-            telemetry
-          </span>
-        )}
-      </div>
-      {score.skipped ? (
-        <div style={{ flex: 1, fontSize: 12, fontStyle: 'italic', color: 'var(--color-text-muted)' }} title={score.reason}>
-          skipped — {score.reason}
-        </div>
-      ) : (
-        <>
-          <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--color-muted)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${Math.round(score.score * 100)}%`, borderRadius: 999, background: TONE[tone].strong }} />
-          </div>
-          <div
-            style={{ width: 48, textAlign: 'right', fontFamily: MONO, fontSize: 12, fontWeight: 600, color: TONE[tone].strong }}
-            title={`min ${score.min} · max ${score.max} · ${score.passed}/${score.total} passed`}
-          >
-            {fmtScore(score.score)}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+// How many things a run asks to fix: a suite's recommendations from its
+// report, a sampling run's from its own scores; a failed run is one item.
+const fixCountFor = (evaluation) => {
+  const run = evaluation.latest_run;
+  if (!run) return 0;
+  if (evaluation.scenario_suite) {
+    return (run.scores?._recommendations || []).length + (run.status === 'failed' ? 1 : 0);
+  }
+  return samplingFixItems(evaluation, run).length;
+};
 
 // embedded hides the page title when this renders inside the agent detail
-// page's Evals tab, which already carries the heading. agentId scopes every
-// number on the page to that agent — an account-wide average score under one
-// agent's name reads as that agent's score, which it is not.
+// page's Evals tab, which already carries the heading, and keeps the page
+// off the URL. agentId scopes every number on the page to that agent — an
+// account-wide average under one agent's name reads as that agent's score,
+// which it is not.
 export default function EvaluationsView({ embedded = false, agentId = null }) {
   const { darkMode } = useTheme();
   // Which run's report the URL asks for; the agent page's embedded Evals tab
@@ -136,9 +109,38 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // keeping the stale one would size the next report to the last one.
   useEffect(() => setReportHeight(null), [reportRef]);
 
+  const [evaluations, setEvaluations] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  // Accordion state per evaluation; the first suite opens by default.
+  const [openIds, setOpenIds] = useState(null);
+  // The run the URL opens: a sampling evaluation's run page, or the run a
+  // suite's panel selects.
+  const [openRun, setOpenRun] = useState(() => {
+    if (embedded) return null;
+    const ref = runRefFromPath();
+    return ref?.runId ? ref : null;
+  });
+  const [linkedEvaluationId, setLinkedEvaluationId] = useState(() => (embedded ? null : linkedIdFromLocation()));
+  // Run history per sampling evaluation, loaded when its card opens:
+  // { runs (newest first, up to RUNS_PAGE), runCount }.
+  const [histories, setHistories] = useState({});
+  const [showForm, setShowForm] = useState(false);
+  const [runningId, setRunningId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  // URL → state: browser back/forward, and in-app navigation.
   useEffect(() => {
     if (embedded) return undefined;
-    const applyPath = () => setReportRef(reportRefFromPath());
+    const applyPath = () => {
+      setReportRef(reportRefFromPath());
+      const ref = runRefFromPath();
+      setOpenRun(ref?.runId ? ref : null);
+      const linked = linkedIdFromLocation();
+      setLinkedEvaluationId(linked);
+      if (linked) setOpenIds((current) => new Set([...(current || []), Number(linked)]));
+    };
     window.addEventListener('popstate', applyPath);
     window.addEventListener('dashboard:navigate', applyPath);
     return () => {
@@ -146,38 +148,6 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       window.removeEventListener('dashboard:navigate', applyPath);
     };
   }, [embedded]);
-  const [evaluations, setEvaluations] = useState([]);
-  const [agents, setAgents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
-  // Accordion state per evaluation; the first suite opens by default.
-  const [openIds, setOpenIds] = useState(null);
-  const [linkedEvaluationId, setLinkedEvaluationId] = useState(() => embedded ? null : evaluationLink(window.location.search)?.evaluationId);
-  useEffect(() => {
-    if (embedded) return undefined;
-    const applyLink = () => {
-      const id = evaluationLink(window.location.search)?.evaluationId;
-      setLinkedEvaluationId(id);
-      if (id) setOpenIds(new Set([Number(id)]));
-    };
-    window.addEventListener('popstate', applyLink);
-    window.addEventListener('dashboard:navigate', applyLink);
-    return () => {
-      window.removeEventListener('popstate', applyLink);
-      window.removeEventListener('dashboard:navigate', applyLink);
-    };
-  }, [embedded]);
-  const [showForm, setShowForm] = useState(false);
-  const [runningId, setRunningId] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
-  const [form, setForm] = useState({
-    agent_id: agentId ? String(agentId) : '', name: '', sample_size: 20,
-    criteria: RULE_CRITERIA.map((c) => c.key),
-    containsPattern: '', llmJudgePrompt: '',
-    judgeKind: 'manual', judgeModel: '', compareModels: '', scenariosText: '',
-  });
-  const [formError, setFormError] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchEvaluations = useCallback(async () => {
     try {
@@ -210,6 +180,26 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     }
   }, [agentId, linkedEvaluationId]);
 
+  // The run history (up to RUNS_PAGE) is one request per sampling
+  // evaluation, made when its card opens rather than for every row in the
+  // list. A suite's panel loads its own.
+  const loadHistory = useCallback(async (evaluationId) => {
+    try {
+      const response = await fetch(`/api/evaluations/${evaluationId}`);
+      if (!response.ok) throw new Error(`Could not load this evaluation's runs (HTTP ${response.status})`);
+      const data = await response.json();
+      setHistories((prev) => ({
+        ...prev,
+        [evaluationId]: { runs: data.evaluation?.runs || [], runCount: data.evaluation?.run_count ?? null },
+      }));
+    } catch (error) {
+      // Recorded so the card renders what the index already knows instead
+      // of retrying on every render.
+      setHistories((prev) => ({ ...prev, [evaluationId]: { runs: null, runCount: null, error: error.message } }));
+      setLoadError(error.message);
+    }
+  }, []);
+
   useEffect(() => {
     fetchEvaluations();
     fetch('/api/agents')
@@ -218,75 +208,58 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       .catch(() => setAgents([]));
   }, [fetchEvaluations]);
 
+  useEffect(() => {
+    const wanted = new Set([...(openIds || []), ...(openRun ? [openRun.evaluationId] : [])]);
+    wanted.forEach((id) => {
+      const evaluation = evaluations.find((e) => e.id === id);
+      if (evaluation && !evaluation.scenario_suite && !histories[id]) loadHistory(id);
+    });
+  }, [openIds, openRun, evaluations, histories, loadHistory]);
+
+  const setPath = (path) => {
+    if (!embedded && dashboardRelativePath() !== path) pushDashboardPath(path);
+  };
+
   const isOpen = (id) => !!openIds?.has(id);
-  const toggleOpen = (id) => setOpenIds((current) => {
-    const next = new Set(current || []);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    return next;
-  });
-
-  const buildCriteria = () => {
-    const criteria = [...RULE_CRITERIA, ...TELEMETRY_CRITERIA]
-      .filter((c) => form.criteria.includes(c.key))
-      .map(({ key, type, config }) => ({ key, type, config }));
-    if (form.containsPattern.trim()) {
-      criteria.push({ key: 'contains', type: 'contains', config: { pattern: form.containsPattern.trim() } });
-    }
-    if (form.llmJudgePrompt.trim()) {
-      criteria.push({ key: 'quality', type: 'llm_judge', config: { prompt: form.llmJudgePrompt.trim() } });
-    }
-    return criteria;
+  const toggleOpen = (evaluation) => {
+    const opening = !isOpen(evaluation.id);
+    setOpenIds((current) => {
+      const next = new Set(current || []);
+      if (opening) next.add(evaluation.id);
+      else next.delete(evaluation.id);
+      return next;
+    });
+    setPath(opening ? `/evaluations/${evaluation.id}` : '/evaluations');
   };
 
-  const handleCreate = async (event) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      const response = await fetch('/api/evaluations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
-        body: JSON.stringify({
-          evaluation: {
-            agent_id: form.agent_id,
-            name: form.name,
-            sample_size: form.sample_size,
-            judge_kind: form.judgeKind === 'judge_defined'
-              ? 'judge_defined'
-              : (form.llmJudgePrompt.trim() ? 'llm' : 'rules'),
-            judge_model: form.judgeModel.trim() || undefined,
-            compare_models: form.compareModels.split(',').map((m) => m.trim()).filter(Boolean),
-            criteria: form.judgeKind === 'judge_defined' ? [] : buildCriteria(),
-            scenarios_text: form.scenariosText.trim() || undefined,
-          },
-        }),
-      });
-      // A non-JSON body (an HTML error page, a sign-in redirect) used to
-      // surface as "Unexpected token <" in the form.
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || `Failed to create evaluation (HTTP ${response.status})`);
-      setShowForm(false);
-      setForm({ ...form, name: '', scenariosText: '' });
-      await fetchEvaluations();
-      if (data.evaluation?.id != null) setOpenIds((current) => new Set([...(current || []), data.evaluation.id]));
-    } catch (error) {
-      setFormError(error.message);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const openRunDetail = (evaluation, run) => {
+    setOpenIds((current) => new Set([...(current || []), evaluation.id]));
+    setOpenRun({ evaluationId: evaluation.id, runId: run.id });
+    setPath(`/evaluations/${evaluation.id}/runs/${run.id}`);
   };
 
-  const handleRun = async (id) => {
-    setRunningId(id);
+  const closeRunDetail = (evaluationId) => {
+    setOpenRun(null);
+    setPath(evaluationId ? `/evaluations/${evaluationId}` : '/evaluations');
+  };
+
+  // Runs a sampling evaluation again. A suite's runs start from its panel,
+  // which chooses the scenarios and models.
+  const handleRun = async (evaluation) => {
+    setRunningId(evaluation.id);
     setLoadError(null);
     try {
-      const response = await fetch(`/api/evaluations/${id}/run`, {
+      const response = await fetch(`/api/evaluations/${evaluation.id}/run`, {
         method: 'POST',
         headers: { 'X-CSRF-Token': csrfToken() },
       });
-      if (!response.ok) setLoadError(`Run failed (HTTP ${response.status})`);
-      await fetchEvaluations();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setLoadError((data.errors || [data.error]).filter(Boolean).join(', ') || `Run failed (HTTP ${response.status})`);
+        return;
+      }
+      await Promise.all([fetchEvaluations(), loadHistory(evaluation.id)]);
+      if (data.run && openRun?.evaluationId === evaluation.id) openRunDetail(evaluation, data.run);
     } finally {
       setRunningId(null);
     }
@@ -310,6 +283,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           next.delete(evaluation.id);
           return next;
         });
+        if (openRun?.evaluationId === evaluation.id) closeRunDetail(null);
       } else {
         setLoadError(`Delete failed (HTTP ${response.status})`);
       }
@@ -327,33 +301,18 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   }
 
   // The request is already scoped; this is a belt-and-braces guard so the
-  // list, the summary cards, and the empty state can never disagree.
+  // list, the tiles, and the empty state can never disagree.
   const shownEvaluations = agentId
     ? evaluations.filter((e) => String(e.agent?.id) === String(agentId))
     : evaluations;
 
-  // Page stats, from the latest complete run of each scenario suite: a
-  // scenario run is one scenario × one model, and every failed run carries
-  // exactly one fault.
-  const suites = shownEvaluations.filter((e) => e.scenario_suite);
-  const sampling = shownEvaluations.filter((e) => !e.scenario_suite);
-  const latestRuns = suites.map((e) => e.latest_run).filter((r) => r && r.status === 'complete');
-  const pageRuns = latestRuns.reduce((sum, r) => sum + (r.samples_evaluated || 0), 0);
-  const pagePassed = latestRuns.reduce((sum, r) => sum + (r.samples_passed || 0), 0);
-  const pageFixes = latestRuns.reduce((sum, r) => sum + (r.scores?._recommendations?.length || 0), 0);
-  const passRatio = pageRuns ? pagePassed / pageRuns : null;
-  const agentNames = [...new Set(suites.map((e) => e.agent?.name).filter(Boolean))];
-  const modelsCompared = suites.reduce((max, e) => Math.max(max, e.latest_run?.models?.length || (e.compare_models || []).length || 0), 0);
-  const suitesSubParts = [];
-  if (agentNames.length === 1) suitesSubParts.push(`@${agentNames[0]} · ${modelsCompared > 1 ? `${modelsCompared} models compared` : '1 model'}`);
-  else if (agentNames.length > 1) suitesSubParts.push(plural(agentNames.length, 'agent'));
-  if (sampling.length) suitesSubParts.push(plural(sampling.length, 'sampling evaluation'));
-  const suitesSub = suitesSubParts.join(' · ') || 'no suites yet';
-
-  // A comparison run stores each sample criterion as {model: stats} instead
-  // of flat stats — detect by the absence of score/skipped keys.
-  const isCohortMap = (score) =>
-    score && typeof score === 'object' && !('score' in score) && !('skipped' in score);
+  // The runs a sampling card lists: its history once loaded, else the
+  // latest run the index carried.
+  const runsOf = (evaluation) => {
+    const history = histories[evaluation.id];
+    if (history?.runs) return { runs: history.runs, runCount: evaluation.run_count ?? history.runCount ?? null, loaded: true };
+    return { runs: evaluation.latest_run ? [evaluation.latest_run] : [], runCount: evaluation.run_count ?? null, loaded: false };
+  };
 
   if (reportRef) {
     const reportUrl = dashboardPath(`/api/evaluations/${reportRef.evaluationId}/runs/${reportRef.runId}/report`);
@@ -394,6 +353,56 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     );
   }
 
+  // A sampling evaluation's run has a page of its own. A suite's run opens
+  // in the suite's panel, where the scenario matrix is, so the list stays.
+  if (openRun) {
+    const evaluation = shownEvaluations.find((e) => e.id === openRun.evaluationId);
+    if (!evaluation || !evaluation.scenario_suite) {
+      const { runs, runCount, loaded } = evaluation ? runsOf(evaluation) : { runs: [], runCount: null, loaded: true };
+      return (
+        <EvaluationRunDetail
+          evaluation={evaluation}
+          runs={runs}
+          runCount={runCount}
+          runId={openRun.runId}
+          loading={!loaded}
+          running={runningId === openRun.evaluationId}
+          onSelectRun={(run) => openRunDetail(evaluation, run)}
+          onRun={() => handleRun(evaluation)}
+          onBack={() => closeRunDetail(null)}
+          onOpenEvaluation={() => closeRunDetail(openRun.evaluationId)}
+          onDelete={evaluation ? () => handleDelete(evaluation) : undefined}
+          deleting={deletingId === openRun.evaluationId}
+        />
+      );
+    }
+  }
+
+  // Page tiles, from the latest run of each evaluation.
+  const latestRuns = shownEvaluations.map((e) => e.latest_run).filter(Boolean);
+  const completeRuns = latestRuns.filter((r) => r.status === 'complete');
+  const samplesScored = completeRuns.reduce((sum, r) => sum + (r.samples_evaluated || 0), 0);
+  const samplesPassed = completeRuns.reduce((sum, r) => sum + (r.samples_passed || 0), 0);
+  const passRatio = samplesScored ? samplesPassed / samplesScored : null;
+  const agentNames = [...new Set(shownEvaluations.map((e) => e.agent?.name).filter(Boolean))];
+  const modelsCompared = shownEvaluations.reduce((max, e) => Math.max(max, modelCount(e, e.latest_run)), 0);
+  const fixCounts = shownEvaluations.map(fixCountFor);
+  const toFix = fixCounts.reduce((sum, count) => sum + count, 0);
+  const toFixEvaluations = fixCounts.filter(Boolean).length;
+  const spend = spendSummary(completeRuns);
+  const evaluationsSub = shownEvaluations.length
+    ? `${plural(agentNames.length, 'agent')} · ${modelsCompared > 1 ? `${modelsCompared} models compared` : 'no model comparisons'}`
+    : 'none defined yet';
+  // The operating figure clients budget against: the agent's spend over the
+  // interactions the latest runs covered, with the judge's own spend named
+  // apart so it never inflates it.
+  const spendSub = spend.agentCost != null
+    ? [
+      `agent ${fmtCost(spend.agentCost)} over ${plural(spend.interactions, 'interaction')}`,
+      spend.judgeCost != null ? `judge ${fmtCost(spend.judgeCost)} offline` : 'no judge spend',
+    ].join(' · ')
+    : 'no priced runs yet';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header — embedded in the agent page, that page owns the heading. */}
@@ -402,7 +411,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           <div style={{ flex: 1, minWidth: 260 }}>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Evaluations</h1>
             <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>
-              Score recorded outputs, or paste a list of user messages to replay through the agent under one or more models
+              Score recorded outputs, or paste a list of user messages to replay through the agent under one or more models. Every run is kept.
             </p>
           </div>
         )}
@@ -419,226 +428,61 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
         </div>
       )}
 
-      {/* New Evaluation form */}
       {showForm && (
-        <Card testId="new-evaluation-form">
-          <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>Agent</MicroLabel>
-                <select
-                  required
-                  disabled={!!agentId}
-                  value={form.agent_id}
-                  onChange={(e) => setForm({ ...form, agent_id: e.target.value })}
-                  style={{ ...inputStyle, width: '100%', opacity: agentId ? 0.7 : 1 }}
-                >
-                  {!agentId && <option value="">Select agent…</option>}
-                  {agents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>{agent.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>Name</MicroLabel>
-                <input
-                  required
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Response Quality"
-                  style={{ ...inputStyle, width: '100%' }}
-                />
-              </div>
-              <div>
-                <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>Sample size</MicroLabel>
-                <input
-                  type="number" min="1" max="100"
-                  value={form.sample_size}
-                  onChange={(e) => setForm({ ...form, sample_size: e.target.value })}
-                  style={{ ...inputStyle, width: '100%', fontFamily: MONO }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>KPI definition</MicroLabel>
-                <select
-                  value={form.judgeKind}
-                  onChange={(e) => setForm({ ...form, judgeKind: e.target.value })}
-                  style={{ ...inputStyle, width: '100%' }}
-                >
-                  <option value="manual">Manual criteria</option>
-                  <option value="judge_defined">Judge defines KPIs from agent goals</option>
-                </select>
-              </div>
-              <div>
-                <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>Judge model (optional)</MicroLabel>
-                <input
-                  type="text"
-                  value={form.judgeModel}
-                  onChange={(e) => setForm({ ...form, judgeModel: e.target.value })}
-                  placeholder="e.g. claude-opus-5"
-                  style={{ ...inputStyle, width: '100%', fontFamily: MONO, fontSize: 12 }}
-                />
-              </div>
-              <div>
-                <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>Compare models (optional, comma-separated)</MicroLabel>
-                <input
-                  type="text"
-                  value={form.compareModels}
-                  onChange={(e) => setForm({ ...form, compareModels: e.target.value })}
-                  placeholder="e.g. claude-haiku-4-5, qwen3:8b"
-                  style={{ ...inputStyle, width: '100%', fontFamily: MONO, fontSize: 12 }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>
-                Scenarios (optional) — paste user messages to replay, one per line
-              </MicroLabel>
-              <textarea
-                value={form.scenariosText}
-                onChange={(e) => setForm({ ...form, scenariosText: e.target.value })}
-                rows={form.scenariosText ? 8 : 3}
-                placeholder={'# Find records\nWhich catalog items are available? | tools: find_records\n# Change history\nWho updated the description for the sample notebook?'}
-                style={{ ...inputStyle, width: '100%', fontFamily: MONO, fontSize: 12, lineHeight: '18px' }}
-              />
-              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)', textWrap: 'pretty' }}>
-                With scenarios, each run replays every message through the agent — once per model in “Compare models” — and
-                reports which tasks it completes, what faults it hits, and how to fix them. <code style={{ fontFamily: MONO }}># Heading</code> lines group related
-                tasks so they can be run together; <code style={{ fontFamily: MONO }}>| tools: a, b</code> names the tool a task should call.
-              </p>
-            </div>
-
-            {form.judgeKind === 'judge_defined' && (
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                On the first run the judge reads the agent's instructions and recent interactions,
-                defines 3–6 KPIs, then scores samples against them. KPIs persist so later runs
-                (and model cohorts) stay comparable.
-              </p>
-            )}
-
-            {form.judgeKind !== 'judge_defined' && (<>
-            <div>
-              <MicroLabel style={{ display: 'block', marginBottom: 8 }}>Rule-based criteria (sampled generations)</MicroLabel>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                {RULE_CRITERIA.map((criterion) => (
-                  <label key={criterion.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--color-text-primary)' }}>
-                    <input
-                      type="checkbox"
-                      checked={form.criteria.includes(criterion.key)}
-                      onChange={(e) => setForm({
-                        ...form,
-                        criteria: e.target.checked
-                          ? [...form.criteria, criterion.key]
-                          : form.criteria.filter((k) => k !== criterion.key),
-                      })}
-                    />
-                    {criterion.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <MicroLabel style={{ display: 'block', marginBottom: 8 }}>Telemetry criteria (trace aggregates)</MicroLabel>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                {TELEMETRY_CRITERIA.map((criterion) => (
-                  <label key={criterion.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--color-text-primary)' }}>
-                    <input
-                      type="checkbox"
-                      checked={form.criteria.includes(criterion.key)}
-                      onChange={(e) => setForm({
-                        ...form,
-                        criteria: e.target.checked
-                          ? [...form.criteria, criterion.key]
-                          : form.criteria.filter((k) => k !== criterion.key),
-                      })}
-                    />
-                    {criterion.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>Must contain (optional pattern)</MicroLabel>
-                <input
-                  type="text"
-                  value={form.containsPattern}
-                  onChange={(e) => setForm({ ...form, containsPattern: e.target.value })}
-                  placeholder="e.g. password reset"
-                  style={{ ...inputStyle, width: '100%' }}
-                />
-              </div>
-              <div>
-                <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>LLM judge criterion (optional, needs provider credentials)</MicroLabel>
-                <input
-                  type="text"
-                  value={form.llmJudgePrompt}
-                  onChange={(e) => setForm({ ...form, llmJudgePrompt: e.target.value })}
-                  placeholder="e.g. Is the answer helpful and accurate?"
-                  style={{ ...inputStyle, width: '100%' }}
-                />
-              </div>
-            </div>
-            </>)}
-
-            {formError && <div style={{ fontSize: 13, color: 'var(--color-error-text)' }}>{formError}</div>}
-
-            <div>
-              <Button variant="primary" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (form.scenariosText.trim() ? 'Creating & starting run…' : 'Creating & running…') : 'Create & Run'}
-              </Button>
-            </div>
-          </form>
-        </Card>
+        <EvaluationForm
+          agents={agents}
+          agentId={agentId}
+          onCancel={() => setShowForm(false)}
+          onCreated={async (evaluation) => {
+            setShowForm(false);
+            await fetchEvaluations();
+            if (evaluation?.id != null) {
+              setOpenIds((current) => new Set([...(current || []), evaluation.id]));
+              setPath(`/evaluations/${evaluation.id}`);
+            }
+          }}
+        />
       )}
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 16 }}>
-        <StatCard label="Suites" value={suites.length} sub={suitesSub} testId="stat-suites" />
-        <StatCard label="Scenario runs" value={pageRuns} sub="latest run of each suite" testId="stat-scenario-runs" />
+        <StatCard label="Evaluations" value={shownEvaluations.length} sub={evaluationsSub} testId="stat-evaluations" />
+        <StatCard label="Samples scored" value={samplesScored} sub="latest run of each evaluation" testId="stat-samples-scored" />
         <StatCard
           label="Pass rate"
           value={passRatio == null ? '—' : fmtPct(passRatio)}
           valueColor={passRatio == null ? 'var(--color-text-muted)' : TONE[toneFor(passRatio)].strong}
-          sub={passRatio == null ? 'no completed runs yet' : `${pagePassed} / ${pageRuns} passed`}
+          sub={passRatio == null ? 'no completed runs yet' : `${samplesPassed} / ${samplesScored} samples passed`}
           testId="stat-pass-rate"
         />
         <StatCard
-          label="Open faults"
-          value={pageRuns - pagePassed}
-          sub={`${plural(pageFixes, 'fix item')} across ${plural(latestRuns.length, 'suite')}`}
-          testId="stat-open-faults"
+          label="To fix"
+          value={toFix}
+          valueColor={toFix ? 'var(--color-error)' : undefined}
+          sub={toFix ? `across ${plural(toFixEvaluations, 'evaluation')}` : 'nothing outstanding'}
+          testId="stat-to-fix"
+        />
+        <StatCard
+          label="Cost / interaction"
+          value={fmtRate(spend.perInteraction)}
+          valueColor={spend.perInteraction == null ? 'var(--color-text-muted)' : undefined}
+          sub={spendSub}
+          testId="stat-agent-cost"
         />
       </div>
 
       {/* Evaluations */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {shownEvaluations.map((evaluation) => {
+        {shownEvaluations.map((evaluation, index) => {
           const run = evaluation.latest_run;
           const open = isOpen(evaluation.id);
           const suite = !!evaluation.scenario_suite;
-          const complete = run?.status === 'complete';
-          const runningNow = run?.status === 'pending' || run?.status === 'running';
-          const modelCount = run?.models?.length || (evaluation.compare_models || []).length || 1;
-          const passed = run?.samples_passed || 0;
-          const evaluated = run?.samples_evaluated || 0;
-          const ratio = evaluated ? passed / evaluated : 0;
+          const fixCount = fixCounts[index];
           // Criteria are only rendered once expanded, so this exposes on the
           // collapsed card whether the evaluation scores from telemetry —
           // otherwise nothing can select one without opening every card.
-          const scoresFromTelemetry = (evaluation.criteria || []).some((criterion) =>
-            TELEMETRY_CRITERIA.some((telemetry) => telemetry.key === criterion.key)
-          );
-          const meta = suite
-            ? `@${evaluation.agent?.name || 'agent'} · ${plural(evaluation.scenario_count || 0, 'scenario')} × ${plural(modelCount, 'model')}`
-            : `@${evaluation.agent?.name || 'agent'} · ${plural(evaluation.sample_size || 0, 'sample')}${modelCount > 1 ? ` × ${plural(modelCount, 'model')}` : ''}`;
+          const scoresFromTelemetry = (evaluation.criteria || []).some((criterion) => criterionGroup(criterion) === 'telemetry');
+          const { runs, runCount } = runsOf(evaluation);
           return (
             <Card
               key={evaluation.id}
@@ -650,30 +494,28 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
               style={{ overflow: 'hidden' }}
             >
               <div
-                onClick={() => toggleOpen(evaluation.id)}
+                role="button"
+                tabIndex={0}
+                aria-expanded={open}
+                onClick={() => toggleOpen(evaluation)}
+                onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleOpen(evaluation); } }}
                 className="hover:bg-[var(--color-hover)]"
-                style={{ display: 'flex', alignItems: 'center', gap: 12, rowGap: 8, padding: '12px 16px', cursor: 'pointer', flexWrap: 'wrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, rowGap: 8, padding: '12px 16px', cursor: 'pointer', flexWrap: 'wrap' }}
               >
                 <Glyph kind="chevron" open={open} />
                 <span
-                  style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 10, fontWeight: 700, color: 'var(--color-text-secondary)', flexShrink: 0 }}
+                  style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', flexShrink: 0 }}
                   title={suite ? 'scenario suite' : 'sampling evaluation'}
                 >
                   {suite ? '=' : '~'}
                 </span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>{evaluation.name}</span>
-                <span style={monoStyle(11)}>{meta}</span>
-                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>{evaluation.name}</span>
+                {/* What the evaluation is set up to cover; a run's own row says what it scored. */}
+                <span style={monoStyle(11)}>{`@${evaluation.agent?.name || 'agent'} · ${runLabel(evaluation)}`}</span>
+                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   <span style={monoStyle(11)}>{timeAgo(run?.completed_at || run?.created_at || evaluation.created_at)}</span>
-                  {run?.status === 'failed' && <span style={monoStyle(11, 'var(--color-error)')}>failed</span>}
-                  {runningNow && <span style={monoStyle(11)}>{run.status === 'pending' ? 'queued' : 'running'}</span>}
-                  {!run && <span style={monoStyle(11)}>no runs</span>}
-                  {complete && suite && <span style={monoStyle(11)}>{plural(evaluated - passed, 'fault')}</span>}
-                  {complete && suite && <Badge tone={toneFor(ratio)} testId="suite-pass-badge">{`${passed}/${evaluated} passed`}</Badge>}
-                  {complete && !suite && run.average_score != null && (
-                    <Badge tone={scoreTone(run.average_score)} title="mean score across criteria">{`score ${fmtScore(run.average_score)}`}</Badge>
-                  )}
-                  {complete && !suite && evaluated > 0 && <Badge tone={toneFor(ratio)}>{`${passed}/${evaluated} passed`}</Badge>}
+                  {fixCount > 0 && <span style={monoStyle(11, 'var(--color-error)')}>{`${fixCount} to fix`}</span>}
+                  <RunBadge run={run} testId={suite ? 'suite-pass-badge' : 'evaluation-pass-badge'} />
                 </span>
               </div>
 
@@ -685,97 +527,42 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                       onChanged={fetchEvaluations}
                       onDelete={() => handleDelete(evaluation)}
                       deleting={deletingId === evaluation.id}
+                      initialRunId={openRun?.evaluationId === evaluation.id ? openRun.runId : null}
+                      onRunSelected={(runId) => setPath(`/evaluations/${evaluation.id}/runs/${runId}`)}
                     />
                   ) : (
-                    <>
-                      {run?.status === 'failed' ? (
-                        <div style={{ padding: 16, fontSize: 13, color: 'var(--color-error-text)' }}>{run.error_message}</div>
-                      ) : run?.scores ? (
-                        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {/* Comparative verdict (model-vs-model runs) */}
-                          {run.scores._verdict && (
-                            <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--color-border-light)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }}>{run.scores._verdict.winner}</span>
-                                <Badge tone="info" size={10} style={{ padding: '1px 6px' }}>judge's pick</Badge>
-                                <span style={{ marginLeft: 'auto', ...monoStyle(11) }}>{`judged by ${run.scores._verdict.judge}`}</span>
-                              </div>
-                              <div style={{ fontSize: 12, lineHeight: '18px', color: 'var(--color-text-cell)', textWrap: 'pretty' }}>
-                                <MicroLabel size={10} color="var(--color-text-muted)" style={{ marginRight: 8 }}>Verdict</MicroLabel>
-                                {run.scores._verdict.rationale}
-                              </div>
-                            </div>
-                          )}
-                          {run.scores._missing_models && (
-                            <div style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
-                              No recorded generations for: {run.scores._missing_models.join(', ')} — run the agent under those models first
-                            </div>
-                          )}
-                          {Object.entries(run.scores).filter(([label]) => !label.startsWith('_')).map(([label, score]) =>
-                            isCohortMap(score) ? (
-                              <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{label.replace(/_/g, ' ')}</div>
-                                {Object.entries(score).map(([model, stats]) => (
-                                  <ScoreRow key={model} label={model} score={stats} indent mono />
-                                ))}
-                              </div>
-                            ) : (
-                              <ScoreRow key={label} label={label} score={score} />
-                            )
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{ padding: 16, ...monoStyle(11) }}>[ ] no runs yet</div>
-                      )}
-
-                      {/* Details */}
-                      <div style={{ padding: 16, background: 'var(--color-background)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, fontSize: 13 }}>
-                        <div>
-                          <MicroLabel size={10} color="var(--color-text-muted)">Judge</MicroLabel>
-                          <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 12, color: 'var(--color-text-primary)' }}>
-                            {evaluation.judge_kind === 'judge_defined'
-                              ? `judge-defined KPIs${evaluation.judge_model ? ` (${evaluation.judge_model})` : ''}`
-                              : evaluation.judge_kind === 'llm' ? (evaluation.judge_model || 'llm judge') : 'rules'}
-                          </div>
-                        </div>
-                        <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
-                          <MicroLabel size={10} color="var(--color-text-muted)">Criteria</MicroLabel>
-                          <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 12, color: 'var(--color-text-primary)', textWrap: 'pretty' }}>
-                            {(evaluation.criteria || []).map((c) => String(c.key).replace(/_/g, ' ')).join(' · ') || '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <MicroLabel size={10} color="var(--color-text-muted)">Samples</MicroLabel>
-                          <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 12, color: 'var(--color-text-primary)' }}>
-                            {complete && evaluated > 0 ? `${passed} / ${evaluated} passed` : '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <MicroLabel size={10} color="var(--color-text-muted)">Last run</MicroLabel>
-                          <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 12, color: 'var(--color-text-primary)' }} title="Estimated cost, tokens and wall-clock runtime of the latest run">
-                            {formatRunUsage(run?.usage) || '—'}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 8 }}>
-                          <Button
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleRun(evaluation.id); }}
-                            disabled={runningId === evaluation.id}
-                          >
-                            {runningId === evaluation.id ? 'Running…' : 'Run again'}
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleDelete(evaluation); }}
-                            disabled={deletingId === evaluation.id}
-                            title="Delete this evaluation and its runs"
-                          >
-                            {deletingId === evaluation.id ? 'Deleting…' : 'Delete'}
-                          </Button>
-                        </div>
+                    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="sampling-evaluation-panel">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                          {runs.length ? runsSummary(runs, runCount) : `@${evaluation.agent?.name || 'agent'} · no runs yet`}
+                        </span>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={runningId === evaluation.id}
+                          onClick={(event) => { event.stopPropagation(); handleRun(evaluation); }}
+                          testId="evaluation-run-button"
+                        >
+                          {runningId === evaluation.id ? 'Running…' : `Run ${runLabel(evaluation)}`}
+                        </Button>
                       </div>
-                    </>
+                      <RunsList
+                        runs={runs}
+                        runCount={runCount}
+                        evaluation={evaluation}
+                        agentName={evaluation.agent?.name}
+                        previousRun={evaluation.previous_run}
+                        onOpen={(candidate) => openRunDetail(evaluation, candidate)}
+                        testId="evaluation-runs-panel"
+                      />
+                      <CriteriaFooter
+                        evaluation={evaluation}
+                        run={run}
+                        spend={runSpend(run)}
+                        onDelete={() => handleDelete(evaluation)}
+                        deleting={deletingId === evaluation.id}
+                      />
+                    </div>
                   )}
                 </div>
               )}
@@ -788,7 +575,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
         <Card style={{ textAlign: 'center', padding: '48px 20px' }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-primary)' }}>No evaluations yet</div>
           <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>
-            Create an evaluation to score recorded outputs, or paste scenarios to test new tasks across models
+            Create an evaluation to score recorded outputs, or paste scenarios to test new tasks across models. Every run is kept, so scores stay comparable over time.
           </p>
         </Card>
       )}

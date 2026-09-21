@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The Evaluations page is rebuilt around runs** (`actionagent`). Evaluations
+  are the top level; every run is kept and listed with its movement against
+  the run before it (`+3 passed vs #2`, `partial run`, `#1 failed`), and a
+  sampling evaluation's run opens to a page of its own at
+  `<mount>/evaluations/:id/runs/:run_id` — a scorecard per model cohort, the
+  judge's verdict, the criteria × models matrix and what the run asks to fix.
+  A scenario suite's runs are the same full-width list; a row selects the run
+  the suite's model scorecards, fix items and scenario matrix show.
+- **What a run cost is two figures, not one.** The agent's spend — what the
+  replayed or sampled interactions cost to serve, with a `per_interaction`
+  rate, the operating cost a per-conversation budget is set against — is
+  reported apart from the judge's, the judge model's own calls, which run
+  agent-to-agent and offline. Every judge call is metered under what it was
+  for (`scores["_judge_usage"]`: calls, tokens, estimated cost and how many
+  calls scored, recommended, ruled or authored KPIs), and `EvaluationRun#usage`
+  carries both sides. The page shows them on every run row, on the run, on a
+  page tile and in the footer, so the cost of operating an agent is never
+  inflated by the cost of checking it.
+- A generation-sampling run records `scores["_cohorts"]`: per model, how many
+  generations were sampled, how many cleared every criterion, their latency
+  and tokens, and what those interactions cost to serve.
+- `GET /api/evaluations` carries `run_count` and a `previous_run` summary per
+  evaluation, and every serialized run its `number` in the evaluation's
+  history, oldest first.
+- The dashboard's object lists hold their metric columns in place: a trace,
+  interaction or evaluation run with nothing in a column prints a dash there
+  rather than sliding its neighbours over (`MetaStrip`).
+
+### Changed
+
+- The engine's judge blocks take `ActiveAgent::Evals::Judge`'s `kind:`, so a
+  scenario run's score, recommendation and verdict calls are metered apart.
+
 ## [1.6.3] - 2026-09-18
 
 Releases `activeagent` and `actionagent` 1.6.3 from one tag.
