@@ -46,14 +46,20 @@ module ActionAgent
         render json: { evaluations: evaluations.map { |evaluation| serialize(evaluation) } }
       end
 
+      # Runs listed per evaluation on GET /api/evaluations/:id. The rest of
+      # the history stays reachable by run id; `run_count` says how long it is.
+      RUN_HISTORY_LIMIT = 20
+
       # GET /api/evaluations/:id
       def show
         evaluation = evaluations_scope.find(params[:id])
+        run_count = evaluation.evaluation_runs.count
+        runs = evaluation.evaluation_runs.recent.limit(RUN_HISTORY_LIMIT).to_a
 
         render json: {
           evaluation: serialize(evaluation).merge(
             scenarios: evaluation.scenarios.ordered.map(&:as_json_summary),
-            runs: evaluation.evaluation_runs.recent.limit(20).map { |run| serialize_run(run) }
+            runs: runs.each_with_index.map { |run, index| serialize_run(run, number: run_count - index) }
           )
         }
       end
@@ -98,8 +104,12 @@ module ActionAgent
       def run
         evaluation = current_evaluation
         run = start_run(evaluation, selection_params)
+        evaluation.reload
 
-        render json: { evaluation: serialize(evaluation.reload), run: serialize_run(run) }
+        render json: {
+          evaluation: serialize(evaluation),
+          run: serialize_run(run, number: evaluation.evaluation_runs.count)
+        }
       end
 
       # GET /api/evaluations/:id/runs/:run_id
@@ -116,7 +126,8 @@ module ActionAgent
 
         render json: {
           evaluation: serialize(evaluation),
-          run: serialize_run(run).merge(results: results.map(&:as_json_summary), fix_items: safe_fix_items(run))
+          run: serialize_run(run, number: run_number(evaluation, run))
+            .merge(results: results.map(&:as_json_summary), fix_items: safe_fix_items(run))
         }
       end
 
@@ -328,7 +339,9 @@ module ActionAgent
       end
 
       def serialize(evaluation)
-        latest = evaluation.latest_run
+        # size reads the preloaded association on index and COUNTs elsewhere.
+        run_count = evaluation.evaluation_runs.size
+        latest, previous = recent_runs(evaluation, 2)
 
         {
           id: evaluation.id,
@@ -344,22 +357,50 @@ module ActionAgent
           scenario_count: evaluation.scenarios.size,
           scenario_groups: evaluation.scenario_suite? ? evaluation.scenario_groups : [],
           created_at: evaluation.created_at.iso8601,
-          latest_run: latest ? serialize_run(latest) : nil
+          run_count: run_count,
+          latest_run: latest ? serialize_run(latest, number: run_count) : nil,
+          # Just enough of the run before it for the list to show movement
+          # ("+3 passed vs #2") without a request per evaluation.
+          previous_run: previous ? serialize_run_summary(previous, number: run_count - 1) : nil
         }
       end
 
-      def serialize_run(run)
-        {
-          id: run.id,
-          status: run.status,
+      # Newest first. Sorts the preloaded association when index loaded it
+      # rather than issuing one ORDER BY query per evaluation.
+      def recent_runs(evaluation, limit)
+        runs = evaluation.evaluation_runs
+        if runs.loaded?
+          runs.sort_by { |run| [ run.created_at, run.id ] }.reverse.first(limit)
+        else
+          runs.recent.limit(limit).to_a
+        end
+      end
+
+      # A run's position in its evaluation's history, oldest = 1.
+      def run_number(evaluation, run)
+        evaluation.evaluation_runs.where("created_at < ? OR (created_at = ? AND id <= ?)", run.created_at, run.created_at, run.id).count
+      end
+
+      # `number` is the run's position in its evaluation's history, oldest =
+      # 1, so the dashboard can say "Run #3" and "vs #2".
+      def serialize_run(run, number: nil)
+        serialize_run_summary(run, number: number).merge(
           scores: run.scores,
           selection: run.selection,
           models: run.models,
+          usage: run.usage,
+          error_message: run.error_message
+        )
+      end
+
+      def serialize_run_summary(run, number: nil)
+        {
+          id: run.id,
+          number: number,
+          status: run.status,
           average_score: safe_average_score(run),
           samples_evaluated: run.samples_evaluated,
           samples_passed: run.samples_passed,
-          usage: run.usage,
-          error_message: run.error_message,
           completed_at: run.completed_at&.iso8601,
           created_at: run.created_at.iso8601
         }

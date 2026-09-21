@@ -1,18 +1,23 @@
 import React from 'react';
-import { Badge, Button, Empty, Glyph, MicroLabel, MonoLink, Panel, PassBar, MONO, TONE, toneFor } from './primitives';
-import { fmtCost, fmtK, fmtMs, fmtScore, fmtTokens, splitModelLabel, timeAgo } from '../../utils/format';
+import { Badge, Button, Card, Empty, Glyph, MicroLabel, MonoLink, MONO } from './primitives';
+import { fmtCost, fmtK, fmtMs, fmtScore, splitModelLabel } from '../../utils/format';
+import { RUNS_PAGE, plural, runTotalOf, runsMeta } from '../../utils/evaluationRuns.mjs';
+import ModelScorecard from './evaluations/ModelScorecard';
 
-// The panels a scenario suite's expanded body is built from — Runs, Models,
-// What to fix, the scenario matrix and a scenario's drill-down — plus the
-// derivations they share. Everything here is presentational: state, fetching
-// and mutations live in ScenarioSuitePanel.
+// The panels a scenario suite's expanded body is built from — Models, What
+// to fix, the scenario matrix and a scenario's drill-down — plus the
+// derivations they share. The runs list is evaluations/RunsList, shared with
+// the sampling evaluations. Everything here is presentational: state,
+// fetching and mutations live in ScenarioSuitePanel.
+
+// The run-history helpers moved to the shared vocabulary module; re-exported
+// so their existing importers keep working.
+export { RUNS_PAGE, plural, runTotalOf, runsMeta };
 
 // ---------------------------------------------------------------------------
 // Derivations
 
 const uniq = (list) => [...new Set(list)];
-
-export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 // The fault taxonomy renders lower-case with spaces: expected_tool_not_called
 // → "expected tool not called".
@@ -262,164 +267,69 @@ function CallLine({ calls, empty, style }) {
 }
 
 // ---------------------------------------------------------------------------
-// RUNS
-
-// GET /api/evaluations/:id serves at most this many runs, newest first.
-export const RUNS_PAGE = 20;
-
-// How many runs the suite has: `run_count` from the API when it reports it
-// (so `#n` stays stable once the run list is capped), else the runs fetched —
-// never fewer than the list, which can grow locally when a run starts.
-export const runTotalOf = (runs = [], runCount = null) =>
-  (Number.isFinite(runCount) ? Math.max(runCount, runs.length) : runs.length);
-
-// The panel's header meta: `3 runs`, or `24 runs · latest 20` when the list
-// is a page of a longer history (or may be, when the total is unknown).
-export const runsMeta = (runs = [], runCount = null) => {
-  const total = runTotalOf(runs, runCount);
-  const paged = runs.length < total || (!Number.isFinite(runCount) && runs.length >= RUNS_PAGE);
-  return `${plural(total, 'run')}${paged ? ` · latest ${runs.length}` : ''}`;
-};
-
-// One row per run, newest first. `runs` is the suite's run list (newest
-// first); `#n` counts from the oldest run of the suite: `runCount` is the
-// suite's total when known, so the numbering does not shift once the list
-// is capped at the RUNS_PAGE most recent.
-export function RunsPanel({ runs, runCount = null, selectedId, onSelect, agentName, selectedResults = [], scenarios = [] }) {
-  const total = runTotalOf(runs, runCount);
-  const numberOf = (index) => total - index;
-  const rows = runs.map((run, index) => {
-    const columns = modelColumns(run, run.id === selectedId ? selectedResults : []);
-    const results = run.id === selectedId ? selectedResults : [];
-    const scenarioCount = runScenarioCount(run, columns, scenarios);
-    const totals = runTotals(run, results, columns, scenarios);
-    const selection = run.selection || run.scores?._selection || {};
-
-    let delta = 'first run';
-    let deltaColor = 'var(--color-text-muted)';
-    if (run.status === 'failed') {
-      delta = 'failed';
-      deltaColor = 'var(--color-error)';
-    } else if (inProgress(run)) {
-      delta = run.status === 'pending' ? 'queued' : 'running';
-    } else {
-      const baseIndex = runs.findIndex((candidate, i) => i > index && candidate.status === 'complete');
-      const base = baseIndex >= 0 ? runs[baseIndex] : null;
-      if (base) {
-        const baseColumns = modelColumns(base);
-        const sameShape = runScenarioCount(base, baseColumns, scenarios) === scenarioCount && baseColumns.length === columns.length;
-        if (sameShape) {
-          const d = totals.passed - (base.samples_passed || 0);
-          delta = `${d > 0 ? '+' : ''}${d} passed vs #${numberOf(baseIndex)}`;
-          deltaColor = d > 0 ? 'var(--color-success)' : d < 0 ? 'var(--color-error)' : 'var(--color-text-muted)';
-        } else {
-          delta = 'partial run';
-        }
-      }
-    }
-
-    return {
-      run,
-      label: `#${numberOf(index)}`,
-      when: timeAgo(run.completed_at || run.created_at),
-      delta,
-      deltaColor,
-      note: `${agentName} · ${plural(scenarioCount, 'scenario')} × ${plural(columns.length, 'model')}${selection.group ? ` · ${selection.group}` : ''}`,
-      bars: columns.map((label) => ({ label, ...modelPassStats(run, label, results, scenarioCount) })),
-      selected: run.id === selectedId,
-    };
-  });
-
-  return (
-    <Panel title="Runs" meta={runsMeta(runs, runCount)} testId="suite-runs-panel">
-      {rows.length === 0 && <Empty>[ ] no runs yet</Empty>}
-      {rows.map((row) => (
-        <div
-          key={row.run.id}
-          onClick={() => onSelect(row.run.id)}
-          className={row.selected ? undefined : 'hover:bg-[var(--color-hover)]'}
-          data-selected={row.selected ? 'true' : 'false'}
-          style={{
-            padding: '10px 12px 10px 10px', borderTop: '1px solid var(--color-border-light)', cursor: 'pointer',
-            background: row.selected ? 'var(--color-muted)' : undefined,
-            borderLeft: `2px solid ${row.selected ? 'var(--color-accent-ui)' : 'transparent'}`,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }}>{row.label}</span>
-            <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{row.when}</span>
-            <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 11, fontWeight: 600, color: row.deltaColor }}>{row.delta}</span>
-          </div>
-          <div style={{ ...mono(11), marginTop: 2, textWrap: 'pretty' }}>{row.note}</div>
-          {row.bars.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
-              {row.bars.map((bar) => (
-                <PassBar key={bar.label} label={splitModelLabel(bar.label).short} passed={bar.passed} total={bar.total} />
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </Panel>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // MODELS
 
+// One scorecard per model cohort of the selected run — passes, score,
+// latency, tokens and what the replays cost under it — then the judge's
+// verdict when the run compared cohorts. A model's card carries the agent's
+// spend only; the judge's is the run's (see RunsList and CriteriaFooter).
 export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, judgedBy, verdict }) {
   const summaries = run?.scores?._models || {};
   return (
-    <Panel title="Models" meta={judgedBy ? `judged by ${judgedBy}` : null} testId="suite-models-panel">
-      {columns.length === 0 && <Empty>[ ] no models scored yet</Empty>}
-      {columns.map((label) => {
-        const { short, provider } = describeModel(run, label);
-        const stats = summaries[label];
-        const { passed, total } = modelPassStats(run, label, results, scenarioCount);
-        const ratio = total ? passed / total : 0;
-        const color = TONE[toneFor(ratio)].strong;
-        const faults = Object.entries(stats?.faults || {});
-        const best = verdict?.winner === label;
-        return (
-          <div key={label} style={{ padding: '10px 12px', borderTop: '1px solid var(--color-border-light)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }} title={label}>{short}</span>
-              {provider && <span style={mono(11)}>{provider}</span>}
-              {best && <Badge tone="info" size={10} style={{ padding: '1px 6px' }} testId="judges-pick">judge's pick</Badge>}
-              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 120, height: 6, borderRadius: 999, background: 'var(--color-muted)', overflow: 'hidden' }}>
-                  <span style={{ display: 'block', width: `${Math.round(ratio * 100)}%`, height: '100%', borderRadius: 999, background: color }} />
-                </span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color }}>{`${passed}/${total}`}</span>
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }}>
-              <span>score <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{stats?.avg_score != null ? Number(stats.avg_score).toFixed(3) : '—'}</span></span>
-              <span>latency <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{fmtMs(stats?.avg_duration_ms)}</span></span>
-              <span style={{ whiteSpace: 'nowrap' }}>
-                <span style={{ color: 'var(--color-token-in)' }}>in</span> {fmtTokens(stats?.input_tokens)} · <span style={{ color: 'var(--color-token-out)' }}>out</span> {fmtTokens(stats?.output_tokens)}
-              </span>
-              <span>cost <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{fmtCost(stats?.cost)}</span></span>
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {faults.map(([fault, count]) => (
-                <Badge key={fault} tone="error">{`${faultName(fault)} ×${count}`}</Badge>
-              ))}
-              {stats && faults.length === 0 && (
-                <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-success-text)' }}>[+] no faults</span>
-              )}
-              {!stats && inProgress(run) && <span style={mono(11)}>scoring…</span>}
-            </div>
-          </div>
-        );
-      })}
-      {verdict?.rationale && (
-        <div style={{ padding: '10px 12px', borderTop: '1px solid var(--color-border-light)', fontSize: 12, lineHeight: '18px', color: 'var(--color-text-cell)', textWrap: 'pretty' }}>
-          <MicroLabel size={10} color="var(--color-text-muted)" style={{ marginRight: 8 }}>Verdict</MicroLabel>
-          {verdict.rationale}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="suite-models-panel">
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <MicroLabel>Models</MicroLabel>
+        {judgedBy && <span style={mono(11)}>{`judged by ${judgedBy}`}</span>}
+      </div>
+      {columns.length === 0 && (
+        <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>[ ] no models scored yet</Empty>
+      )}
+      {columns.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          {columns.map((label) => {
+            const { short, provider } = describeModel(run, label);
+            const stats = summaries[label];
+            const { passed, total } = modelPassStats(run, label, results, scenarioCount);
+            const faults = Object.entries(stats?.faults || {});
+            const note = stats && faults.length === 0
+              ? { text: '[+] no faults', color: 'var(--color-success-text)' }
+              : !stats && inProgress(run) ? { text: 'scoring…' } : null;
+            return (
+              <ModelScorecard
+                key={label}
+                label={label}
+                short={short}
+                provider={provider}
+                winner={verdict?.winner === label}
+                passed={passed}
+                total={total}
+                avgScore={stats?.avg_score}
+                latencyMs={stats?.avg_duration_ms}
+                inputTokens={stats?.input_tokens}
+                outputTokens={stats?.output_tokens}
+                cost={stats?.cost}
+                perInteraction={stats?.cost != null && stats.scenarios ? stats.cost / stats.scenarios : null}
+                unit="scenario"
+                badges={faults.map(([fault, count]) => ({ tone: 'error', text: `${faultName(fault)} ×${count}` }))}
+                note={note}
+              />
+            );
+          })}
         </div>
       )}
-    </Panel>
+      {verdict?.rationale && (
+        <Card padding="12px 16px" testId="suite-verdict" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <MicroLabel>Verdict</MicroLabel>
+            {verdict.judge && <span style={mono(11)}>{`judged by ${verdict.judge}`}</span>}
+          </div>
+          <div style={{ fontSize: 13, lineHeight: '19px', color: 'var(--color-text-cell)', textWrap: 'pretty' }}>
+            <strong style={{ color: 'var(--color-text-primary)', fontFamily: MONO, fontSize: 12 }}>{verdict.winner}</strong>
+            {verdict.rationale ? ` · ${verdict.rationale}` : ''}
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 
