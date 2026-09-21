@@ -261,6 +261,10 @@ module ActionAgent
       scores["_selection"] = run.selection
       scores["_metadata"] = report.metadata
       scores["_judge_label"] = report.judge_label || report.judge&.label
+      # The judge's own spend, apart from the replays' (which the results
+      # carry and EvaluationRun#usage sums). A host adapter that runs its own
+      # judge is out of reach of this meter, so its runs record none.
+      scores["_judge_usage"] = judge_usage if judge_usage
       scores
     end
 
@@ -318,12 +322,13 @@ module ActionAgent
 
     # The judge the evaluation's owner has credentials for, wrapped for the
     # evaluation core; nil when none is configured, in which case scoring
-    # stays on rules and expectations.
+    # stays on rules and expectations. The block takes `kind:` so each call
+    # is metered under what it was for (EvaluationRunnerService#judge_generate).
     def evals_judge
       return nil unless judge_available?
 
-      @evals_judge ||= Evals::Judge.new(label: @evaluation.judge_model.presence || judge_provider.to_s) do |instructions:, prompt:|
-        judge_class.prompt(message: prompt, instructions: instructions).generate_now.message&.content
+      @evals_judge ||= Evals::Judge.new(label: @evaluation.judge_model.presence || judge_provider.to_s) do |instructions:, prompt:, kind:|
+        judge_generate(kind, message: prompt, instructions: instructions).message&.content
       end
     end
   end

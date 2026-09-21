@@ -140,7 +140,10 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
       config: { "scenario_suite" => true }
     )
     scenario = evaluation.scenarios.create!(key: "s1", prompt: "Hello", position: 0)
-    run = evaluation.evaluation_runs.create!(status: :complete, created_at: 90.seconds.ago, completed_at: Time.current)
+    judge = { "calls" => 3, "input_tokens" => 600, "output_tokens" => 30, "cost" => 0.00375, "model" => "claude-opus-5",
+              "by_kind" => { "score" => 2, "verdict" => 1 } }
+    run = evaluation.evaluation_runs.create!(status: :complete, created_at: 90.seconds.ago, completed_at: Time.current,
+      scores: { "_judge_usage" => judge })
     run.scenario_results.create!(
       scenario: scenario, model: "mock-model", status: :passed, score: 1.0,
       duration_ms: 1200, input_tokens: 100, output_tokens: 40, cost: 0.002
@@ -156,15 +159,56 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     usage = JSON.parse(response.body)["evaluations"].first.dig("latest_run", "usage")
     assert_equal 2, usage["replays"]
     assert_in_delta 0.003, usage["cost"], 0.00001
+    # The operating figure: what one replayed interaction cost the agent.
+    assert_in_delta 0.0015, usage["per_interaction"], 0.00001
     assert_equal 160, usage["input_tokens"]
     assert_equal 60, usage["output_tokens"]
     assert_equal 2000, usage["model_time_ms"]
     assert_in_delta 90_000, usage["runtime_ms"], 2_000
+    # The judge's spend rides alongside, never folded into the replays' cost.
+    assert_equal judge, usage["judge"]
   end
 
-  test "a generation-sampling run reports no usage" do
+  test "a run that recorded nothing reports no usage" do
     run = ActionAgent::EvaluationRun.new
     assert_nil run.usage
+  end
+
+  # A sampling run's agent-side figure is what the sampled interactions cost
+  # to serve — already spent before the run — while the judge's is the run's
+  # own; the two never merge into one number.
+  test "a generation-sampling run reports its cohorts' cost per interaction apart from the judge's" do
+    judge = { "calls" => 21, "input_tokens" => 6_300, "output_tokens" => 252, "cost" => 0.0378, "model" => "claude-opus-5",
+              "by_kind" => { "score" => 20, "verdict" => 1 } }
+    run = ActionAgent::EvaluationRun.new(
+      created_at: 30.seconds.ago, completed_at: Time.current,
+      scores: {
+        "quality" => { "score" => 0.9, "min" => 0.8, "max" => 1.0, "passed" => 18, "total" => 20 },
+        "_cohorts" => {
+          "gpt-4o-mini" => { "samples" => 12, "passed" => 11, "input_tokens" => 1_200, "output_tokens" => 480, "cost" => 0.0006 },
+          "gpt-4o" => { "samples" => 8, "passed" => 7, "input_tokens" => 800, "output_tokens" => 320, "cost" => 0.0052 }
+        },
+        "_judge_usage" => judge
+      }
+    )
+
+    usage = run.usage
+    assert_equal 20, usage[:samples]
+    assert_nil usage[:replays]
+    assert_in_delta 0.0058, usage[:cost], 1e-9
+    assert_in_delta 0.0058 / 20, usage[:per_interaction], 1e-9
+    assert_equal 2_000, usage[:input_tokens]
+    assert_equal 800, usage[:output_tokens]
+    assert_in_delta 30_000, usage[:runtime_ms], 2_000
+    assert_equal judge, usage[:judge]
+  end
+
+  test "a run that only asked a judge reports the judge's spend and nothing on the agent's side" do
+    judge = { "calls" => 1, "input_tokens" => 500, "output_tokens" => 80, "cost" => 0.0045, "model" => "claude-opus-5",
+              "by_kind" => { "define" => 1 } }
+    run = ActionAgent::EvaluationRun.new(scores: { "_judge_usage" => judge })
+
+    assert_equal({ judge: judge }, run.usage)
   end
 end
 
