@@ -215,6 +215,65 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert_in_delta 0.000045, result.cost.to_f, 0.0001
   end
 
+  # The judge's spend is the evaluation's own overhead, not the agent's; the
+  # runner meters every judge call under what it was for so the dashboard
+  # can show the replays' cost (operating the agent) apart from the judge's.
+  test "a judged run records the judge's calls and cost apart from the replays'" do
+    evaluation = build_suite
+    evaluation.update!(judge_kind: "llm", judge_model: "claude-opus-5",
+      criteria: [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Is the answer useful?" } } ])
+    reply = Struct.new(:content, :input_tokens, :output_tokens, :model) do
+      def message = Struct.new(:content).new(content)
+      def usage = Struct.new(:input_tokens, :output_tokens).new(input_tokens, output_tokens)
+      def generate_now = self
+    end
+    judge = Class.new do
+      define_singleton_method(:prompt) do |message:, instructions:|
+        content = if instructions.include?("comparing model cohorts")
+          { winner: "mock/alpha", rationale: "Marginally better." }.to_json
+        elsif instructions.include?("recommend the fix")
+          { recommendation: "Enable find_records.", suggested_tool: nil, instruction_change: nil }.to_json
+        else
+          { score: 0.9 }.to_json
+        end
+        reply.new(content, 200, 10, "claude-opus-5")
+      end
+    end
+
+    runner = ActionAgent::ScenarioEvaluationRunner.new(evaluation, selection: { keys: %w[find_1 find_2], models: [ "mock/alpha", "mock/beta" ] })
+    run = runner.stub(:judge_provider, :anthropic) do
+      runner.stub(:judge_class, judge) { runner.call }
+    end
+
+    assert_equal "complete", run.status
+    usage = run.scores["_judge_usage"]
+    assert usage["calls"].positive?
+    # Every replay's answer was scored, the two cohorts got a verdict, and the
+    # missing expected tool asked for a recommendation.
+    assert_equal 4, usage.dig("by_kind", "score")
+    assert_equal 1, usage.dig("by_kind", "verdict")
+    assert usage.dig("by_kind", "recommend").to_i >= 1
+    assert_equal usage["by_kind"].values.sum, usage["calls"]
+    assert_equal 200 * usage["calls"], usage["input_tokens"]
+    assert_equal "claude-opus-5", usage["model"]
+    assert_in_delta ActionAgent::ModelPricing.estimate(model: "claude-opus-5", input_tokens: usage["input_tokens"], output_tokens: usage["output_tokens"]),
+                    usage["cost"], 1e-9
+    assert_equal "claude-opus-5", run.scores["_judge_label"]
+    assert_equal "mock/alpha", run.scores.dig("_verdict", "winner")
+
+    # EvaluationRun#usage keeps the two sides apart.
+    assert_equal 4, run.usage[:replays]
+    assert_equal usage, run.usage[:judge]
+  end
+
+  test "a rules-only run records no judge spend" do
+    run = build_suite.run!(keys: [ "find_1" ])
+
+    assert_equal "complete", run.status
+    assert_nil run.scores["_judge_usage"]
+    assert_nil run.usage[:judge]
+  end
+
   test "an evaluation with scenarios runs through the scenario runner and one without through the sampler" do
     evaluation = build_suite
     plain = evaluation.agent.evaluations.create!(

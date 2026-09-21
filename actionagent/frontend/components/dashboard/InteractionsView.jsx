@@ -13,6 +13,8 @@ import { formatDuration } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
 import {
   Chevron,
+  META_COLUMN,
+  MetaStrip,
   ObjectCard,
   PreviewLines,
   SegmentedControl,
@@ -549,6 +551,10 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
             const detail = details[session.id];
             const isExpanded = expandedSession === session.id;
             const sessionView = sessionViews[session.id] || 'conversation';
+            const sessionTokens = session.tokens?.total || 0;
+            // What the meter holds against the window: the in/out counts when
+            // the interaction reported them, the total when it only has that.
+            const sessionContext = (session.tokens?.input || 0) + (session.tokens?.output || 0) || sessionTokens;
             return (
               <ObjectCard key={session.id} darkMode={darkMode} className="shadow-sm">
                 {/* Session header — the same object header a trace card uses:
@@ -586,24 +592,53 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>
-                    <span>
-                      {session.message_count > 0
-                        ? `${session.message_count} messages`
-                        : `${session.tool_count || 0} tool ${session.tool_count === 1 ? 'call' : 'calls'}`}
-                    </span>
-                    <span>{formatNumber(session.tokens?.total)} tokens</span>
-                    {(session.tokens?.total || 0) > 0 && (
-                      <ContextMeter
-                        compact
-                        darkMode={darkMode}
-                        label="Context"
-                        used={(session.tokens?.input || 0) + (session.tokens?.output || 0) || session.tokens?.total}
-                        limit={contextWindowFor(session.model)}
-                        segments={[{ key: 'messages', label: 'Context', tokens: (session.tokens?.input || 0) + (session.tokens?.output || 0) || session.tokens?.total }]}
-                      />
-                    )}
-                    <span style={{ color: colors.textMuted }}>{timeAgo(session.last_activity_at)}</span>
+                  {/* The same columns a trace row keeps, held whether or
+                      not this interaction filled them. */}
+                  <div className="flex items-center gap-4 flex-shrink-0">
+                    <MetaStrip
+                      darkMode={darkMode}
+                      cells={[
+                        {
+                          key: 'activity',
+                          width: META_COLUMN.count,
+                          content:
+                            session.message_count > 0
+                              ? `${session.message_count} messages`
+                              : `${session.tool_count || 0} tool ${session.tool_count === 1 ? 'call' : 'calls'}`,
+                        },
+                        {
+                          key: 'tokens',
+                          width: META_COLUMN.tokens,
+                          title: 'Tokens across this interaction',
+                          empty: 'No token counts recorded for this interaction',
+                          content: sessionTokens > 0 && `${formatNumber(sessionTokens)} tokens`,
+                        },
+                        {
+                          key: 'context',
+                          width: META_COLUMN.context,
+                          empty: 'Context: this interaction recorded no token counts',
+                          content: sessionTokens > 0 && (
+                            <ContextMeter
+                              compact
+                              darkMode={darkMode}
+                              label="Context"
+                              used={sessionContext}
+                              limit={contextWindowFor(session.model)}
+                              segments={[{ key: 'messages', label: 'Context', tokens: sessionContext }]}
+                            />
+                          ),
+                        },
+                        {
+                          key: 'age',
+                          width: META_COLUMN.age,
+                          title: session.last_activity_at || undefined,
+                          empty: 'No activity recorded',
+                          content: timeAgo(session.last_activity_at) && (
+                            <span style={{ color: colors.textMuted }}>{timeAgo(session.last_activity_at)}</span>
+                          ),
+                        },
+                      ]}
+                    />
                     <Chevron open={isExpanded} darkMode={darkMode} />
                   </div>
                 </div>
@@ -614,6 +649,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                   <PreviewLines
                     darkMode={darkMode}
                     onClick={() => toggleSession(session.id)}
+                    hold
                     style={{ padding: '0 16px 12px' }}
                     lines={[
                       { label: 'input', text: session.preview?.input, color: roleBubble('user', darkMode).color },

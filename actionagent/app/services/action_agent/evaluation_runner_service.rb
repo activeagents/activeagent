@@ -55,6 +55,9 @@ module ActionAgent
         scores[criterion["key"]] = stats
       end
 
+      scores["_cohorts"] = cohort_summaries(samples, per_sample_scores) if samples.any?
+      scores["_judge_usage"] = judge_usage if judge_usage
+
       run.update!(
         status: :complete,
         scores: scores,
@@ -109,6 +112,11 @@ module ActionAgent
         scores["_verdict"] = verdict if verdict
       end
 
+      scores["_cohorts"] = active.to_h do |model, samples|
+        [ model, cohort_summary(samples, per_model_sample_scores[model] || {}) ]
+      end
+      scores["_judge_usage"] = judge_usage if judge_usage
+
       run.update!(
         status: :complete,
         scores: scores,
@@ -146,6 +154,98 @@ module ActionAgent
       per_sample_scores.count do |_id, values|
         values.any? && values.all? { |s| s >= PASS_THRESHOLD }
       end
+    end
+
+    # --- Cohort summaries ------------------------------------------------------
+    #
+    # Stored under scores["_cohorts"], keyed by model: how many generations
+    # were sampled under it, how many cleared every criterion, their latency
+    # and token usage, and what those generations cost to serve. A comparison
+    # run gets one entry per requested cohort that had generations; a plain
+    # run one per model that happened to be among the sampled generations.
+    # This is what lets the dashboard show a run as "5/12 passed" per model,
+    # the way a scenario run's `_models` summaries do, without re-reading the
+    # generations.
+    #
+    # The cost here is the agent's: what the sampled interactions cost to
+    # operate. It is not what this run spent — scoring recorded generations
+    # costs nothing until a judge is asked, and the judge's own spend is
+    # recorded apart, under "_judge_usage" (see #judge_usage).
+
+    def cohort_summaries(samples, per_sample_scores)
+      samples
+        .group_by { |generation| generation.model.presence || "unknown" }
+        .transform_values { |group| cohort_summary(group, per_sample_scores) }
+    end
+
+    def cohort_summary(samples, per_sample_scores)
+      durations_ms = samples.filter_map do |generation|
+        seconds = generation.duration_seconds.to_f
+        seconds * 1000 if seconds.positive?
+      end
+      providers = samples.filter_map { |generation| generation.provider.presence }
+      input_tokens = samples.sum { |generation| generation.input_tokens.to_i }
+      output_tokens = samples.sum { |generation| generation.output_tokens.to_i }
+      costs = samples.filter_map do |generation|
+        ModelPricing.estimate(model: generation.model, input_tokens: generation.input_tokens, output_tokens: generation.output_tokens)
+      end
+
+      {
+        "samples" => samples.size,
+        "passed" => passed_count(per_sample_scores.slice(*samples.map(&:id))),
+        "provider" => providers.tally.max_by { |_provider, count| count }&.first,
+        "avg_duration_ms" => durations_ms.any? ? (durations_ms.sum / durations_ms.size).round : nil,
+        "input_tokens" => input_tokens,
+        "output_tokens" => output_tokens,
+        "cost" => costs.any? ? costs.sum.round(6) : nil
+      }
+    end
+
+    # --- Judge usage -----------------------------------------------------------
+    #
+    # Every call the judge makes is metered here, apart from the agent's own
+    # spend: scoring answers, recommending fixes, writing the verdict and,
+    # for a judge_defined evaluation, authoring the KPIs. The agent's cost is
+    # the operating figure — what serving these interactions costs — while
+    # the judge's is the evaluation's own, offline, agent-to-agent overhead,
+    # and a run that reported the two as one number would overstate the
+    # first. Persisted as scores["_judge_usage"]:
+    #
+    #   { "calls", "input_tokens", "output_tokens", "cost", "model",
+    #     "by_kind" => { "score" => n, "recommend" => n, "verdict" => n, "define" => n } }
+    #
+    # nil until the judge has been asked something, so a rules-only run
+    # records no judge at all rather than a judge that cost nothing.
+
+    def judge_usage
+      return nil if @judge_usage.nil?
+
+      @judge_usage.merge("cost" => @judge_usage["cost"]&.round(6))
+    end
+
+    # Asks the judge and meters the answer. `kind` is the call's purpose —
+    # :score, :recommend, :verdict or :define — the same vocabulary
+    # ActiveAgent::Evals::Judge hands a block that accepts `kind:`.
+    def judge_generate(kind, message:, instructions:)
+      response = judge_class.prompt(message: message, instructions: instructions).generate_now
+      record_judge_call(kind, response)
+      response
+    end
+
+    def record_judge_call(kind, response)
+      usage = response.respond_to?(:usage) ? response.usage : nil
+      input_tokens = usage.respond_to?(:input_tokens) ? usage.input_tokens.to_i : 0
+      output_tokens = usage.respond_to?(:output_tokens) ? usage.output_tokens.to_i : 0
+      model = (response.respond_to?(:model) && response.model.presence) || @evaluation.judge_model.presence
+      cost = ModelPricing.estimate(model: model, input_tokens: input_tokens, output_tokens: output_tokens)
+
+      @judge_usage ||= { "calls" => 0, "input_tokens" => 0, "output_tokens" => 0, "cost" => nil, "model" => nil, "by_kind" => {} }
+      @judge_usage["calls"] += 1
+      @judge_usage["input_tokens"] += input_tokens
+      @judge_usage["output_tokens"] += output_tokens
+      @judge_usage["cost"] = (@judge_usage["cost"] || 0.0) + cost if cost
+      @judge_usage["model"] ||= model
+      @judge_usage["by_kind"][kind.to_s] = @judge_usage["by_kind"].fetch(kind.to_s, 0) + 1
     end
 
     def sample_generations(model: nil)
@@ -273,10 +373,11 @@ module ActionAgent
         raise "Judge-defined KPIs need provider credentials (add a provider API key in Settings)"
       end
 
-      response = judge_class.prompt(
+      response = judge_generate(
+        :define,
         message: kpi_definition_prompt,
         instructions: "You define measurable evaluation KPIs for AI agents. Respond ONLY with JSON."
-      ).generate_now
+      )
 
       kpis = parse_kpis(response.message&.content)
       raise "Judge returned no usable KPIs — try again or add criteria manually" if kpis.empty?
@@ -354,7 +455,8 @@ module ActionAgent
         "#{key}: #{cells.join(', ')}"
       end
 
-      response = judge_class.prompt(
+      response = judge_generate(
+        :verdict,
         message: <<~PROMPT,
           An AI agent was evaluated under multiple models. Its goals:
           ---
@@ -368,7 +470,7 @@ module ActionAgent
           Respond ONLY with JSON: {"winner": "<model>", "rationale": "<at most two sentences>"}
         PROMPT
         instructions: "You are an impartial evaluation judge comparing model cohorts. Respond ONLY with JSON."
-      ).generate_now
+      )
 
       json = response.message&.content.to_s[/\{.*\}/m]
       verdict = json ? JSON.parse(json) : nil
@@ -390,10 +492,11 @@ module ActionAgent
       return nil unless judge_available?
       return nil if generation.content.blank?
 
-      response = judge_class.prompt(
+      response = judge_generate(
+        :score,
         message: judge_prompt(criterion, generation),
         instructions: "You are an impartial evaluation judge. Respond ONLY with JSON: {\"score\": <float between 0.0 and 1.0>}"
-      ).generate_now
+      )
 
       parse_judge_score(response.message&.content)
     rescue StandardError => e
