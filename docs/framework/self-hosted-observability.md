@@ -216,6 +216,11 @@ or an `agent_resolver:` lambda — otherwise traffic reports as
 `RubyLLM::Chat`. See the bridge's README for content capture
 (off by default) and turn semantics.
 
+An app that mounts this dashboard itself can write traces through the trace
+model instead of posting to its own ingest route. The full walkthrough —
+same-app and remote topologies, authentication, naming traffic, content
+capture — is [Dashboard for RubyLLM Apps](/framework/ruby_llm_dashboard).
+
 ## Conversation persistence with solid_agent
 
 Telemetry gives you traces; [solid_agent](https://github.com/activeagents/solid_agent)

@@ -211,4 +211,5 @@ See [Streaming](/agents/streaming) for ActionCable integration and real-time upd
 - [Tools](/actions/tools) - Function calling
 - [Embeddings](/actions/embeddings) - Vector generation
 - [Streaming](/agents/streaming) - Real-time response updates
+- [Dashboard for RubyLLM Apps](/framework/ruby_llm_dashboard) - Telemetry dashboard for an app that stays on RubyLLM directly
 - [RubyLLM Documentation](https://rubyllm.com) - Official RubyLLM docs
