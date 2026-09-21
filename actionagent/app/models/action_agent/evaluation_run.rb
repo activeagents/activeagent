@@ -79,26 +79,74 @@ module ActionAgent
       (values.sum.to_f / values.size).round(3)
     end
 
-    # Aggregate usage over the run's scenario results, for display after a
-    # run: estimated cost, token totals, summed model time, and the run's
-    # wall-clock runtime. Returns nil for a generation-sampling run, which
-    # replays nothing itself.
+    # The judge's own spend on this run — calls, tokens, estimated cost and
+    # how many calls served each purpose — as the runner recorded it; nil
+    # for a run that never asked a judge.
+    def judge_usage
+      value = scores&.dig("_judge_usage")
+      value.is_a?(Hash) ? value : nil
+    end
+
+    # Per-model summaries of a generation-sampling run's cohorts, keyed by
+    # model; empty for a scenario run or a run recorded before they were.
+    def cohorts
+      value = scores&.dig("_cohorts")
+      value.is_a?(Hash) ? value : {}
+    end
+
+    # What the run spent, for display after it: the agent's side and the
+    # judge's, kept apart because they answer different questions.
+    #
+    # The agent's side is the operating figure — what the interactions cost
+    # to serve. For a scenario run that is the replays' estimated cost,
+    # tokens and summed model time (`replays` of them); for a
+    # generation-sampling run it is the sampled generations' (`samples`),
+    # which were served before the run and cost it nothing. `per_interaction`
+    # is that cost spread over the interactions, the number a per-conversation
+    # budget is set against.
+    #
+    # `judge` is the evaluation's own overhead: the judge model's calls
+    # (scoring, recommending, the verdict, authoring KPIs), which run
+    # agent-to-agent and offline. It is present only when a judge was asked.
+    #
+    # Returns nil for a run that recorded nothing on either side.
     def usage
       totals = scenario_results.pick(
         Arel.sql("COUNT(*)"), Arel.sql("SUM(cost)"), Arel.sql("SUM(input_tokens)"),
         Arel.sql("SUM(output_tokens)"), Arel.sql("SUM(duration_ms)")
       )
       replays = totals&.first.to_i
-      return nil if replays.zero?
+      judge = judge_usage
+      runtime_ms = completed_at.present? ? ((completed_at - created_at) * 1000).round : nil
 
-      {
-        replays: replays,
-        cost: totals[1]&.to_f,
-        input_tokens: totals[2].to_i,
-        output_tokens: totals[3].to_i,
-        model_time_ms: totals[4].to_i,
-        runtime_ms: completed_at.present? ? ((completed_at - created_at) * 1000).round : nil
-      }
+      if replays.positive?
+        cost = totals[1]&.to_f
+        {
+          replays: replays,
+          cost: cost,
+          per_interaction: cost && (cost / replays).round(6),
+          input_tokens: totals[2].to_i,
+          output_tokens: totals[3].to_i,
+          model_time_ms: totals[4].to_i,
+          runtime_ms: runtime_ms,
+          judge: judge
+        }.compact
+      elsif cohorts.any?
+        samples = cohorts.values.sum { |cohort| cohort["samples"].to_i }
+        costs = cohorts.values.filter_map { |cohort| cohort["cost"] }
+        cost = costs.any? ? costs.sum.to_f.round(6) : nil
+        {
+          samples: samples,
+          cost: cost,
+          per_interaction: cost && samples.positive? ? (cost / samples).round(6) : nil,
+          input_tokens: cohorts.values.sum { |cohort| cohort["input_tokens"].to_i },
+          output_tokens: cohorts.values.sum { |cohort| cohort["output_tokens"].to_i },
+          runtime_ms: runtime_ms,
+          judge: judge
+        }.compact
+      elsif judge
+        { runtime_ms: runtime_ms, judge: judge }.compact
+      end
     end
 
     # Route templates for the report's fix item actions, relative to the
