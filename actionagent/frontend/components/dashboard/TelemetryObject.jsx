@@ -73,6 +73,71 @@ export function ObjectCard({ darkMode, id, children, style, className = '' }) {
   );
 }
 
+// The metrics strip down the right of an object header: what a run used —
+// model, context pressure, wall clock, tokens, cost, status — one column each.
+//
+// A list of these rows only reads as columns when every row puts its cells in
+// the same place, and rendering only the values an object happens to carry
+// breaks that on exactly the rows you most want to read against their
+// neighbours. An errored trace has no tokens, no cost and nothing in context,
+// so its surviving cells used to slide rightward into the columns the healthy
+// rows spend on something else — its duration under their cost, its status
+// under nothing at all. Every cell here holds its column whether or not this
+// object filled it, and an empty one prints a muted dash: "not recorded", in
+// the place you were already looking. The strip is anchored at its right edge,
+// so only the first column is free to size to its content — a model name is
+// the one value with no sensible fixed width. Each column is wide enough for
+// the longest value it holds, with the icon that leads it: "155.6K tokens",
+// "$0.0996", "12.34s".
+export const META_COLUMN = {
+  context: 132, // the compact ContextMeter's own width
+  duration: 76,
+  tokens: 104,
+  cost: 88,
+  status: 68,
+  count: 96,
+  age: 76,
+};
+
+// `cells` are `{ key, content, width, title, empty, align }`: `width` in
+// pixels (omitted only for a leading content-sized column), `title` the
+// tooltip when there is a value and `empty` the one explaining its absence.
+export function MetaStrip({ cells, darkMode, gap = 16, className = '', style }) {
+  const colors = telemetryColors(darkMode);
+  const shown = (cells || []).filter(Boolean);
+  if (shown.length === 0) return null;
+
+  return (
+    <div
+      className={`flex-shrink-0 text-sm ${className}`}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: shown.map((cell) => (cell.width ? `${cell.width}px` : 'minmax(0, auto)')).join(' '),
+        alignItems: 'center',
+        columnGap: `${gap}px`,
+        color: colors.textSecondary,
+        ...style,
+      }}
+    >
+      {shown.map((cell) => {
+        const filled = cell.content != null && cell.content !== false && cell.content !== '';
+        return (
+          <div
+            key={cell.key}
+            title={(filled ? cell.title : cell.empty) || undefined}
+            // A column is one line wide: a long model name ellipses rather
+            // than widening a column every other row has to match.
+            className="min-w-0 truncate"
+            style={{ textAlign: cell.align || 'right' }}
+          >
+            {filled ? cell.content : <span style={{ color: colors.textMuted }}>—</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // The block an expanded value opens into. JSON keeps its indentation and
 // scrolls sideways; prose wraps. Either way it is capped and scrolls, because
 // a captured message history can run to thousands of lines and would otherwise
@@ -116,11 +181,18 @@ export const prettyValue = (value) => {
 // `onClick` opens the object these lines belong to. It still fires for a line
 // with nothing more to show, and for the padding around them — only a line
 // that can actually open keeps the click for itself.
-export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12px', style, max = 200 }) {
+// `hold` keeps a line whose value is missing, as a labelled empty row. Rows in
+// a list want it — a trace that errored before it answered still prints its
+// `output:` line, so its card stands as tall as the ones around it and the two
+// labels stay on one baseline down the list. A span inside an open trace does
+// not: its missing half is usually one the panel above already showed, and a
+// dash there would deny content the span really carried.
+export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12px', style, max = 200, hold = false }) {
   const [isOpen, toggle] = useDisclosureSet();
   const colors = telemetryColors(darkMode);
-  const visible = (lines || []).filter((line) => line && line.text);
-  if (visible.length === 0) return null;
+  const shown = (lines || []).filter((line) => line && (line.text || hold));
+  // An object that recorded neither half keeps no preview block at all.
+  if (!shown.some((line) => line.text)) return null;
 
   return (
     <div
@@ -137,11 +209,12 @@ export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12p
         ...style,
       }}
     >
-      {visible.map((line, index) => {
+      {shown.map((line, index) => {
         const key = `${line.label}-${index}`;
         const open = isOpen(key);
         const limit = line.max || max;
-        const squished = String(line.text).replace(/\s+/g, ' ').trim();
+        const empty = !line.text;
+        const squished = String(line.text ?? '').replace(/\s+/g, ' ').trim();
         const pretty = prettyValue(line.text);
         // These rows are a single clipped line, so what actually fits depends
         // on the window — a character count can't tell you. The rule errs
@@ -150,7 +223,7 @@ export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12p
         // to fit costs nothing next to a clipped line with no way in. JSON
         // always opens — its indented form is the readable one at any width.
         const expandable =
-          pretty.json || squished.length > 60 || squished !== String(line.text).trim();
+          !empty && (pretty.json || squished.length > 60 || squished !== String(line.text).trim());
 
         return (
           <div key={key}>
@@ -180,7 +253,7 @@ export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12p
               <span style={{ color: line.color || colors.textMuted }}>
                 {expandable ? (open ? '▾' : '▸') : '\u00A0'} {line.label}:
               </span>{' '}
-              {!open && previewText(squished, limit)}
+              {!open && (empty ? <span style={{ color: colors.textMuted }}>—</span> : previewText(squished, limit))}
             </div>
             {open && (
               <pre
