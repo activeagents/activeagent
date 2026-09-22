@@ -5,6 +5,10 @@ module ActionAgent
   #
   # Handles authentication and provides helper methods for multi-tenant mode.
   class ApplicationController < ActionController::Base
+    # Ahead of the engine's own callbacks, so a concern's before_action or
+    # around_action runs before the dashboard authenticates.
+    ActionAgent.controller_concern_modules.each { |concern| include concern }
+
     protect_from_forgery with: :exception
 
     before_action :authenticate_dashboard!

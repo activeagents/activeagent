@@ -216,11 +216,52 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :ingest_api_key
 
+    # Concerns included into ActionAgent::ApplicationRecord as it loads, and
+    # through it into every engine model. An entry is a Module or the name
+    # of one. A name is resolved when the class
+    # loads, so an initializer can refer to a constant the host has not
+    # autoloaded yet, and a name that resolves to nothing raises NameError
+    # there rather than being skipped.
+    #
+    #   ActionAgent.configure do |config|
+    #     config.model_concerns = ["MyApp::ConnectionSwitching"]
+    #   end
+    #
+    # The class loads after the initializers have run, so set this in an
+    # initializer; a concern added later is not applied.
+    # @return [Array<Module, String>]
+    attr_accessor :model_concerns
+
+    # Concerns included into ActionAgent::ApplicationController as it loads,
+    # and through it into every dashboard controller: the React dashboard
+    # and its JSON API, the server-rendered console and the MCP facade.
+    # They are included ahead of the engine's own callbacks, so a concern's
+    # before_action or around_action runs before the dashboard
+    # authenticates. Entries are Modules or names, as for model_concerns.
+    #
+    # Not the trace ingest endpoint: Api::TracesController authenticates
+    # with a bearer token and inherits ActionController::API.
+    #
+    #   ActionAgent.configure do |config|
+    #     config.controller_concerns = ["MyApp::RequestTagging"]
+    #   end
+    # @return [Array<Module, String>]
+    attr_accessor :controller_concerns
+
     # @deprecated Never consumed — dashboard controllers inherit
-    #   ActionController::Base. Retained as a no-op so existing
-    #   initializers that set it keep booting; remove in the next major.
+    #   ActionController::Base, and controller_concerns is how a host puts
+    #   its own behaviour on them. Assigning it warns and stores a value
+    #   nothing reads; removed in the next major.
     # @return [String]
-    attr_accessor :base_controller_class
+    attr_reader :base_controller_class
+
+    def base_controller_class=(value)
+      deprecator.warn(
+        "ActionAgent.base_controller_class has never been consumed and is removed in 2.0. " \
+        "Set ActionAgent.controller_concerns to extend the dashboard's controllers."
+      )
+      @base_controller_class = value
+    end
 
     # Called before each run/trace-ingest to enforce host-app limits.
     # Receives (owner, kind) where kind is :execution or :trace_ingest, and
@@ -513,6 +554,19 @@ module ActionAgent
       name&.safe_constantize
     end
 
+    # The modules model_concerns names. ApplicationRecord reads it as it loads.
+    # @return [Array<Module>]
+    def model_concern_modules
+      resolve_concerns(model_concerns)
+    end
+
+    # The modules controller_concerns names. ApplicationController reads it
+    # as it loads.
+    # @return [Array<Module>]
+    def controller_concern_modules
+      resolve_concerns(controller_concerns)
+    end
+
     # Configures the dashboard.
     #
     # @yield [config] Configuration block
@@ -540,6 +594,8 @@ module ActionAgent
       @storage_service = nil
       @ingest_api_key = nil
       @base_controller_class = "ActionController::Base" # deprecated no-op
+      @model_concerns = []
+      @controller_concerns = []
       @quota_checker = nil
       @provider_credentials_resolver = nil
       @sandbox_backends = {}
@@ -638,6 +694,12 @@ module ActionAgent
     # @return [Class, nil]
     def schema_tool_class_for(name)
       schema_tool_classes.find { |klass| klass.tool?(name) }
+    end
+
+    private
+
+    def resolve_concerns(entries)
+      Array(entries).map { |entry| entry.is_a?(Module) ? entry : entry.to_s.constantize }
     end
   end
 

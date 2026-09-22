@@ -79,6 +79,20 @@ ActionAgent.configure do |config|
   # means the resolver above returned nil.
 
   # ==========================================================================
+  # Host integration
+  # ==========================================================================
+  #
+  # Concerns your own models and controllers carry, applied to the engine's.
+  # model_concerns are included into ActionAgent::ApplicationRecord, and so
+  # into every engine model. controller_concerns are included into
+  # ActionAgent::ApplicationController ahead of its own callbacks, and so
+  # into every dashboard controller — not the bearer-token ingest endpoint.
+  # Modules or their names; a name is resolved when the class loads.
+  #
+  # config.model_concerns = ["ConnectionSwitching"]
+  # config.controller_concerns = ["RequestTagging"]
+
+  # ==========================================================================
   # Ask ActiveAgents assistant
   # ==========================================================================
   #
