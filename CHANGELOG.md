@@ -36,6 +36,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dashboard's object lists hold their metric columns in place: a trace,
   interaction or evaluation run with nothing in a column prints a dash there
   rather than sliding its neighbours over (`MetaStrip`).
+- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
+  which hosts driving `acts_as_chat` conversations had been writing for
+  themselves. `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
+  `require "active_agent/evals"` alone still does not) gives
+  `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
+  `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
+  traces each call under the kind it serves; and `RubyLLM.replay(messages)`,
+  a `Replay` from a conversation's messages: tool calls in id order with an
+  MCP-style `{"error": ...}` tool result marking the call errored, tokens
+  summed over the assistant messages from either RubyLLM 1.x's columns or
+  2.x's `tokens`, and the last assistant message as the answer.
+- **`ActionAgent::ProviderKey.credentials_for(owner)` and
+  `.apply_to(config, owner:)`** (`actionagent`) hand an owner's saved API keys
+  to code outside the engine — `{ "openai" => "sk-..." }`, or written through
+  `<provider>_api_key=` onto a `RubyLLM.context` config block or anything
+  shaped like one. A credential that no longer decrypts is skipped with a
+  warning naming the error class, never the value.
 
 ### Changed
 
