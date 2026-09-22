@@ -42,6 +42,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The engine's judge blocks take `ActiveAgent::Evals::Judge`'s `kind:`, so a
   scenario run's score, recommendation and verdict calls are metered apart.
 
+## [1.6.4] - 2026-09-22
+
+Releases `activeagent` and `actionagent` 1.6.4 from one tag. A patch on 1.6.3
+carrying one fix to `SchemaTools`, for a filter that answered confidently and
+wrongly instead of failing.
+
+### Fixed
+
+- A Rails enum is offered to the model as its names (`{type: "string", enum:
+  [...]}`) instead of the integer backing it. `SchemaGenerator` reads enums from
+  inclusion validators and never consulted `defined_enums`, so a `status` column
+  reached the model as a bare integer with no labels.
+- A filter value outside an enum — alone or inside an IN list — is rejected,
+  naming the valid values, instead of matching no rows. `status: "pending"`
+  returned `{count: 0}`, which an agent reports as a fact, indistinguishable
+  from "none match". Same reasoning as the unknown-operator rejection in
+  `range_predicates!`.
+- An enum is no longer offered the range form. Its integer backing is a
+  declaration-order artefact, so `status: {gt: 1}` was a meaningless filter that
+  still returned a confident count.
+
 ## [1.6.3] - 2026-09-18
 
 Releases `activeagent` and `actionagent` 1.6.3 from one tag.
