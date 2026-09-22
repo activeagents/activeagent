@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Host concerns for the engine's models and controllers** (`actionagent`).
+  `ActionAgent.model_concerns` is included into
+  `ActionAgent::ApplicationRecord` as it loads, and so into every engine
+  model; `ActionAgent.controller_concerns` into
+  `ActionAgent::ApplicationController`, ahead of its own callbacks, and so
+  into every dashboard controller. (The ingest endpoint,
+  `Api::TracesController`, inherits `ActionController::API` and keeps its
+  own bearer-token authentication; it is not touched.) Entries are modules
+  or their names, resolved
+  when the class loads. A host that pins the engine's tables to one database
+  connection, or carries its session helpers onto the dashboard's
+  controllers, configures that here instead of reopening the classes from a
+  `to_prepare` block.
 - **The Evaluations page is rebuilt around runs** (`actionagent`). Evaluations
   are the top level; every run is kept and listed with its movement against
   the run before it (`+3 passed vs #2`, `partial run`, `#1 failed`), and a
@@ -41,6 +54,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The engine's judge blocks take `ActiveAgent::Evals::Judge`'s `kind:`, so a
   scenario run's score, recommendation and verdict calls are metered apart.
+- `ActionAgent::TelemetryTrace` inherits `ActionAgent::ApplicationRecord`
+  like every other engine model (`actionagent`), so it carries the model
+  concerns above, `AdapterAware` and the ownership API (`owner_association`,
+  `for_owner`) from the same place. Its table name is unchanged.
+
+### Deprecated
+
+- Assigning `ActionAgent.base_controller_class`, which has never been
+  consumed, warns through `ActionAgent.deprecator` and points at
+  `controller_concerns`. The accessor is removed in 2.0.
 
 ## [1.6.3] - 2026-09-18
 

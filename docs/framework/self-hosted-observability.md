@@ -243,6 +243,51 @@ Generations record the same `trace_id` the telemetry pipeline uses
 (thread it via `prompt_options[:trace_id]`), so conversation rows and
 dashboard traces correlate.
 
+## Extending engine models and controllers
+
+A host usually has concerns its own models and controllers already carry —
+a connection-switching concern that pins tables to one database, a request
+instrumentation or audit concern on every controller. Two settings apply
+them to the engine's classes. The engine includes them as those classes
+load, so they are in place before any subclass is defined, and again after
+every code reload:
+
+```ruby
+# config/initializers/action_agent.rb
+ActionAgent.configure do |config|
+  # Included into ActionAgent::ApplicationRecord, and so into every engine
+  # model.
+  config.model_concerns = ["MyApp::ConnectionSwitching"]
+
+  # Included into ActionAgent::ApplicationController, and so into every
+  # dashboard controller — the React dashboard and its JSON API, the
+  # server-rendered console and the MCP facade — ahead of the engine's own
+  # callbacks, so a before_action or around_action runs before the
+  # dashboard authenticates.
+  config.controller_concerns = ["MyApp::RequestTagging"]
+end
+```
+
+Entries are modules or their names. A name is resolved when the class
+loads, so the initializer can refer to a constant your app has not
+autoloaded yet, and a name that resolves to nothing raises `NameError`
+there rather than being skipped. Set them in an initializer: the classes
+load after the initializers have run, and a concern added later is not
+applied.
+
+The trace ingest endpoint, `ActionAgent::Api::TracesController`, is not a
+dashboard controller — it authenticates with a bearer token and inherits
+`ActionController::API` — so controller concerns do not reach it.
+
+`authentication_method` still decides who is admitted. A controller
+concern puts your app's session helpers on the engine's controllers, and
+the lambda is where you call them. The engine's own `current_user` keeps
+precedence over one a concern defines, so a concern's `current_user` is not
+reachable on the engine's controllers: `current_user_resolver` remains what
+names the signed-in user to the engine, and it and `authentication_method`
+call the concern through a method the engine does not define, such as
+`->(controller) { controller.send(:user_from_session) }`.
+
 ## Operations
 
 - **Retention is yours.** Nothing prunes automatically. Set a window and
