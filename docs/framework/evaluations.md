@@ -167,6 +167,65 @@ correlation keys become attributes — the default is `run_id`, `result_id`,
 `suite`, `scenario_key`, `model_label`, `model` and `provider`, and anything
 else in the run metadata stays on the report but off the traces.
 
+### RubyLLM hosts
+
+An app that drives RubyLLM `acts_as_chat` conversations needs two more pieces
+to run a suite: a judge that asks a RubyLLM chat, and a `Replay` built from
+the messages a conversation stored. `ActiveAgent::Evals::RubyLLM` is both,
+loaded by its own require so `require "active_agent/evals"` never pulls in the
+`ruby_llm` gem:
+
+```ruby
+require "active_agent/evals/ruby_llm"   # requires ruby_llm itself
+```
+
+`judge` builds a `Judge` whose completions come from
+`context.chat(model:, provider:, assume_model_exists:, **chat_options)`, then
+`with_instructions(instructions).ask(prompt).content`. `context` is anything
+answering to `chat` — `RubyLLM` itself, or a `RubyLLM.context` built with the
+host's own keys (the dashboard's `ActionAgent::ProviderKey.apply_to` writes an
+owner's saved keys onto that config block). With a `correlation:`, every call
+is traced through `Correlation#judge` under the kind it serves (`score`,
+`recommend`, `verdict`), so the judge trace lands on the result it graded.
+
+`replay` turns an ordered list of messages — `acts_as_chat` records or
+`RubyLLM::Message` values, an Array or a relation — into a `Replay`: the tool
+calls in id order, each marked errored when the `tool` message answering it
+holds JSON with an `"error"` key (how an MCP tool failure is reported) with
+that error as its `detail`; input and output tokens summed over the assistant
+messages, from `input_tokens`/`output_tokens` (RubyLLM 1.x) or
+`tokens.input`/`tokens.output` (RubyLLM 2.x); and the last assistant message
+as the answer unless `answer:` is given. `duration_ms:`, `error:` and
+`metadata:` pass through.
+
+```ruby
+require "active_agent/evals/ruby_llm"
+
+context = RubyLLM.context { |config| ActionAgent::ProviderKey.apply_to(config, owner: account) }
+correlation = ActiveAgent::Evals::Correlation.new(agent_name: "SupportChat", tracer: tracer)
+
+judge = ActiveAgent::Evals::RubyLLM.judge(
+  label: "claude-opus-5", model: "claude-opus-5", provider: :anthropic,
+  context: context, correlation: correlation
+)
+
+report = correlation.with_run("suite" => "support") do |metadata|
+  ActiveAgent::Evals::Runner.new(
+    scenarios: scenarios, models: models, metadata: metadata, judge: judge,
+    around_evaluation: correlation,
+    replay: ->(scenario, spec) {
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond)
+      chat = correlation.replay { SupportChat.run(scenario.prompt, model: spec.model, context: context) }
+      ActiveAgent::Evals::RubyLLM.replay(
+        chat.messages.order(:id),
+        duration_ms: Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond) - started,
+        metadata: { "chat_id" => chat.id }
+      )
+    }
+  ).call
+end
+```
+
 ## Faults
 
 | Fault | Meaning |
