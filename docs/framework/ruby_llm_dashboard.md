@@ -350,9 +350,19 @@ With a full (not `--traces_only`) install, set
 `ActionAgent.execution_enabled = false` to keep the mount a read-only
 observability surface.
 
+A full install also keeps each owner's provider keys, and your RubyLLM code can
+run on them: `ActionAgent::ProviderKey.apply_to(config, owner: account)` inside
+a `RubyLLM.context` block sets `openai_api_key` and friends from what the
+owner saved (see
+[Self-Hosted Dashboard](/framework/self-hosted-observability#using-an-owner-s-provider-keys-outside-the-engine)).
+To evaluate the chats themselves, `require "active_agent/evals/ruby_llm"`
+gives you a judge on that context and a `Replay` from a chat's messages — see
+[Evaluations](/framework/evaluations#rubyllm-hosts).
+
 ## Related
 
 - [Self-Hosted Dashboard](/framework/self-hosted-observability) — deploying the engine for a team or a fleet
 - [Telemetry](/framework/telemetry) — the trace format and the framework's own reporting
 - [RubyLLM Provider](/providers/ruby_llm) — running `ActiveAgent::Base` agents through RubyLLM instead
+- [Evaluations](/framework/evaluations#rubyllm-hosts) — scoring RubyLLM chats with `ActiveAgent::Evals::RubyLLM`
 - [activeagents-telemetry](https://github.com/activeagents/activeagents-telemetry) — the adapter's README and turn semantics

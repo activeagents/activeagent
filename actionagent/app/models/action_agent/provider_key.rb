@@ -30,6 +30,44 @@ module ActionAgent
     validates :credential, format: { with: %r{\Ahttps?://\S+\z}, message: "must be an http(s):// URL" },
       if: :host_based?
 
+    class << self
+      # The owner's saved API keys, `{ "openai" => "sk-...", ... }` — one entry
+      # per KEY_PROVIDERS row with a credential. Host-addressed providers
+      # (ollama) are left out: their credential is a URL, not a key.
+      #
+      # A credential that no longer decrypts (a key rotation the row missed)
+      # is skipped with a warning rather than raised, so one stale row does not
+      # take every provider down with it. The warning names the error class
+      # only, never the value.
+      #
+      # @param owner [Object, nil] whatever `for_owner` scopes by
+      # @return [Hash{String => String}]
+      def credentials_for(owner)
+        for_owner(owner).where(provider: KEY_PROVIDERS).order(:provider).each_with_object({}) do |key, credentials|
+          credential = key.credential
+          credentials[key.provider] = credential if credential.present?
+        rescue StandardError => e
+          Rails.logger.warn("[ProviderKey] skipping #{key.provider} credential ##{key.id}: #{e.class.name}")
+        end
+      end
+
+      # Writes the owner's keys onto `config` through `<provider>_api_key=`
+      # writers, the shape a `RubyLLM.context { |config| ... }` block hands
+      # out — but any object with those writers will do, so the engine gains
+      # no RubyLLM dependency:
+      #
+      #   context = RubyLLM.context { |config| ActionAgent::ProviderKey.apply_to(config, owner: account) }
+      #
+      # @param config [Object] anything answering to `openai_api_key=` and friends
+      # @param owner [Object, nil] whatever `for_owner` scopes by
+      # @return [Hash{String => String}] the credentials applied
+      def apply_to(config, owner:)
+        credentials_for(owner).each do |provider, credential|
+          config.public_send(:"#{provider}_api_key=", credential)
+        end
+      end
+    end
+
     def host_based?
       HOST_PROVIDERS.include?(provider)
     end
