@@ -42,6 +42,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The engine's judge blocks take `ActiveAgent::Evals::Judge`'s `kind:`, so a
   scenario run's score, recommendation and verdict calls are metered apart.
 
+### Fixed
+
+- `Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later` run
+  their job instead of raising `ArgumentError: unknown keywords` in the
+  worker (#346).
+- The agent builder and editor can reach every model a provider serves: the
+  OpenRouter catalog is no longer cut to its first 100 ids, and the model
+  field is a type-ahead over the catalog that also takes an unlisted id
+  (`actionagent`, #427).
+- A rejected Create Agent shows its validation errors on the builder — a
+  summary and a message under each field — instead of leaving the form
+  silently in place. `POST`/`PATCH /api/agents` 422s carry `field_errors`
+  beside `errors` (`actionagent`, #426).
+
+### Security
+
+- The dashboard's JSON API verifies the CSRF token (`actionagent`, #461). It
+  authenticates with the host's session cookie but had opted out of forgery
+  protection. The dashboard now sends the page's token with every mutating
+  request from one fetch shim; the MCP facade and trace ingest, which
+  authenticate by bearer token, stay exempt. A rejected request answers
+  `422` with `code: "invalid_csrf_token"`. Hosts that re-enabled protection
+  themselves (`ActionAgent::Api::BaseController.protect_from_forgery`) can
+  drop that line.
+
 ## [1.6.3] - 2026-09-18
 
 Releases `activeagent` and `actionagent` 1.6.3 from one tag.

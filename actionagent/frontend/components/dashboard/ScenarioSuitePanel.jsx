@@ -19,8 +19,6 @@ import {
 // pasted scenarios, run a group / everything / one scenario under chosen
 // models, enable or disable a scenario, delete the suite.
 
-const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
-
 // Rebuilds the pasted form of a suite so it can be edited in place.
 function scenariosToText(scenarios) {
   const lines = [];
@@ -201,7 +199,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     try {
       const response = await fetch(`/api/evaluations/${evaluationId}/run`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...selection, models: selectedModels }),
       });
       const data = await response.json().catch(() => ({}));
@@ -237,7 +235,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     if (!scenario.id) return;
     await fetch(`/api/evaluations/${evaluationId}/scenarios/${scenario.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scenario: { enabled: scenario.enabled === false } }),
     });
     await fetchScenarios();
@@ -247,7 +245,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     setEditError(null);
     const response = await fetch(`/api/evaluations/${evaluationId}/scenarios`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scenarios_text: editText }),
     });
     const data = await response.json().catch(() => ({}));
