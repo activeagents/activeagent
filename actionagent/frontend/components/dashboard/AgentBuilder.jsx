@@ -10,6 +10,10 @@ const STEPS = [
   { id: 'review', label: 'Review', icon: '3' }
 ];
 
+// Fields on the Basics step; the slug is derived from the name, so its
+// errors are the name's to show.
+const BASICS_FIELDS = ['name', 'slug', 'description', 'provider', 'model'];
+
 export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initialDraft = null }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [providerModels, setProviderModels] = useState(FALLBACK_PROVIDER_MODELS);
@@ -51,6 +55,9 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
     return () => { cancelled = true; };
   }, [formData.provider]);
 
+  // What the server rejected on the last Create Agent: { errors, fieldErrors }.
+  const [submitErrors, setSubmitErrors] = useState(null);
+
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -83,8 +90,15 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
     }
   };
 
-  const handleSubmit = () => {
-    onSave(formData);
+  const handleSubmit = async () => {
+    setSubmitErrors(null);
+    const failure = await onSave(formData);
+    if (!failure) return;
+
+    setSubmitErrors(failure);
+    if (Object.keys(failure.fieldErrors || {}).some(field => BASICS_FIELDS.includes(field))) {
+      setCurrentStep(0);
+    }
   };
 
   return (
@@ -121,10 +135,24 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
         </div>
       </div>
 
+      {submitErrors && (
+        <div role="alert" className="mb-4 p-4 rounded-lg border border-red-300 bg-red-50 text-sm text-red-800">
+          <p className="font-medium">The agent could not be created:</p>
+          <ul className="mt-1 list-disc list-inside">
+            {submitErrors.errors.map(message => <li key={message}>{message}</li>)}
+          </ul>
+        </div>
+      )}
+
       {/* Step Content */}
       <div className="bg-white rounded-xl border border-gray-200 p-8">
         {currentStep === 0 && (
-          <BasicsStep formData={formData} updateField={updateField} providerModels={providerModels} />
+          <BasicsStep
+            formData={formData}
+            updateField={updateField}
+            providerModels={providerModels}
+            fieldErrors={submitErrors?.fieldErrors || {}}
+          />
         )}
         {currentStep === 1 && (
           <ConfigureStep
@@ -165,8 +193,17 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
   );
 }
 
+function FieldErrors({ messages }) {
+  if (!messages.length) return null;
+  return (
+    <p className="mt-1 text-sm text-red-600">{messages.join('. ')}</p>
+  );
+}
+
 // Step 1: Basics
-function BasicsStep({ formData, updateField, providerModels }) {
+function BasicsStep({ formData, updateField, providerModels, fieldErrors }) {
+  const errorsFor = (...fields) => fields.flatMap(field => fieldErrors[field] || []);
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
@@ -182,6 +219,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
             placeholder="My Awesome Agent"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
           />
+          <FieldErrors messages={errorsFor('name', 'slug')} />
         </div>
 
         <div>
@@ -193,6 +231,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
             rows={3}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
           />
+          <FieldErrors messages={errorsFor('description')} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -212,6 +251,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
                 </option>
               ))}
             </select>
+            <FieldErrors messages={errorsFor('provider')} />
           </div>
 
           <div>
@@ -222,6 +262,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
               onChange={(model) => updateField('model', model)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
             />
+            <FieldErrors messages={errorsFor('model')} />
           </div>
         </div>
 
