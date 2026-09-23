@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AgentAvatar, { AGENT_PRESETS, INSTRUCTIONS, TOOLS } from '../AgentAvatar';
 import { ICONS } from '../../utils/designTokens';
 import { FALLBACK_PROVIDER_MODELS, fetchProviderModels } from '../../utils/providerModels';
+import ModelPicker from './ModelPicker';
 
 const STEPS = [
   { id: 'basics', label: 'Basics', icon: '1' },
@@ -215,15 +216,12 @@ function BasicsStep({ formData, updateField, providerModels }) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-            <select
+            <ModelPicker
               value={formData.model}
-              onChange={(e) => updateField('model', e.target.value)}
+              models={providerModels[formData.provider]}
+              onChange={(model) => updateField('model', model)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-            >
-              {providerModels[formData.provider].map(model => (
-                <option key={model} value={model}>{model}</option>
-              ))}
-            </select>
+            />
           </div>
         </div>
 
