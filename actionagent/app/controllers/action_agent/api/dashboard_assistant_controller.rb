@@ -3,8 +3,6 @@
 module ActionAgent
   module Api
     class DashboardAssistantController < BaseController
-      protect_from_forgery with: :exception
-
       before_action :require_assistant_enabled!
       before_action :require_owner!
       before_action :require_execution_enabled!, only: :create
@@ -13,15 +11,6 @@ module ActionAgent
       rescue_from DashboardAssistantService::InvalidInput, with: :invalid_input
       rescue_from DashboardAssistantService::ProcessingConsentRequired, with: :processing_consent_required
       rescue_from DashboardAssistantService::SetupRequired, with: :setup_required
-      # Rails 8.2 verifies forgery protection from the browser's Sec-Fetch-Site
-      # header, renamed the failure to InvalidCrossOriginRequest, and deprecated
-      # the old name. Rescue whichever names the running Rails defines, so a
-      # rejected request answers with the dashboard's JSON either way.
-      # const_defined? does not fire the deprecation the bare constant would.
-      rescue_from ActionController::InvalidCrossOriginRequest, with: :invalid_authenticity_token
-      if ActionController.const_defined?(:InvalidAuthenticityToken, false)
-        rescue_from ActionController::InvalidAuthenticityToken, with: :invalid_authenticity_token
-      end
 
       def show
         render json: DashboardAssistantService.new(owner: current_owner).configuration
