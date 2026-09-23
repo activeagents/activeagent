@@ -92,12 +92,15 @@ module ActionAgent
         nil
       end
 
+      # The whole catalog, never a prefix of it: OpenRouter serves several
+      # hundred models, and a cap after sorting left everything late in the
+      # alphabet (openai/*, qwen/*, ...) unselectable. The editor filters it.
       def live_openrouter_models
         data = Rails.cache.fetch("provider_models:openrouter", expires_in: 1.hour) do
           fetch_json(URI.parse("https://openrouter.ai/api/v1/models"))
         end
         ids = Array(data&.dig("data")).filter_map { |model| model["id"] }
-        [ ids.sort.first(100), "live" ] if ids.any?
+        [ ids.sort, "live" ] if ids.any?
       rescue StandardError => e
         Rails.logger.warn("[ProviderModels] openrouter lookup failed: #{e.message}")
         nil
