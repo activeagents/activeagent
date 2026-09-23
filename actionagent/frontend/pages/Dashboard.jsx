@@ -182,12 +182,21 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         setCurrentView('editor');
         showNotification('Agent created successfully!', 'success');
         window.history.pushState({}, '', dashboardPath(`/agents/${data.agent.id}/edit`));
-      } else {
-        const error = await response.json();
-        showNotification(error.errors?.join(', ') || 'Failed to create agent', 'error');
+        return null;
       }
+
+      // Handed back to the builder, which renders them on the form; a 422
+      // from a validation is the common case, but any failure is reported.
+      const error = await response.json().catch(() => ({}));
+      const failure = {
+        errors: error.errors?.length ? error.errors : [error.error || `Failed to create agent (${response.status})`],
+        fieldErrors: error.field_errors || {},
+      };
+      showNotification(failure.errors.join(', '), 'error');
+      return failure;
     } catch (error) {
       showNotification('Failed to create agent', 'error');
+      return { errors: ['Failed to create agent: the request did not complete'], fieldErrors: {} };
     } finally {
       setIsLoading(false);
     }
@@ -504,7 +513,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
       {/* Notification Toast */}
       {notification && (
-        <div className={`fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg transition-all transform ${
+        <div className={`fixed bottom-4 right-4 z-[60] px-6 py-3 rounded-lg shadow-lg transition-all transform ${
           notification.type === 'error' ? 'bg-red-500' :
           notification.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
         } text-white`}>
