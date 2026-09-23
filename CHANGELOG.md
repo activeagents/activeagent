@@ -55,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   summary and a message under each field — instead of leaving the form
   silently in place. `POST`/`PATCH /api/agents` 422s carry `field_errors`
   beside `errors` (`actionagent`, #426).
+- An engine agent is refused a provider whose client gem the host has not
+  installed (`openai` for OpenAI, Ollama and OpenRouter; `anthropic` for
+  Anthropic) when the provider is chosen, with a validation error naming
+  the gem, instead of failing on its first run (`actionagent`, #416).
 
 ### Security
 
