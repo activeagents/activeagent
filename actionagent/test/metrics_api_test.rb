@@ -498,6 +498,18 @@ class MetricsApiTest < ActionDispatch::IntegrationTest
     assert_equal [], metrics(agent: "ResearchAgent")["markers"]
   end
 
+  # Observed agents are registered from the application's own class name, so
+  # the filter names `SupportBot`, never the `SupportBotAgent` an authored
+  # agent of that name would export.
+  test "an observed agent's deploy markers follow the filter on the class its traces report" do
+    create_agent(name: "SupportBot.respond", status: :observed, service_name: "support-desk",
+                 agent_class_name: "SupportBot", action_name: "respond")
+    create_agent(name: "Billing")
+
+    assert_equal [ "v1 · SupportBot.respond" ], metrics(agent: "SupportBot")["markers"].map { |m| m["label"] }
+    assert_equal [], metrics(agent: "SupportBotAgent")["markers"]
+  end
+
   test "an incident marker flags the bucket with the error spike" do
     6.times { create_trace(at: ago(5), agent: "SupportAgent", status: "ERROR", error: "HTTP 429 Too Many Requests") }
     create_trace(at: ago(5), agent: "BillingAgent", status: "ERROR", error: "Request timed out")

@@ -12,6 +12,11 @@ class AgentTelemetryTracesTest < ActionDispatch::IntegrationTest
     ActionAgent::AgentContext.delete_all
     ActionAgent::TelemetryTrace.delete_all
     ActionAgent::Agent.delete_all
+    @agent_scope_resolver = ActionAgent.agent_scope_resolver
+  end
+
+  def teardown
+    ActionAgent.agent_scope_resolver = @agent_scope_resolver
   end
 
   def report_trace(agent_class:, action:, service_name: "support-desk")
@@ -55,6 +60,16 @@ class AgentTelemetryTracesTest < ActionDispatch::IntegrationTest
     assert_equal [ kept.id ], observed("SupportBot", "respond").telemetry_traces(scope).ids
   end
 
+  test "the class an agent's traces report under" do
+    report_trace(agent_class: "SupportBot", action: "respond")
+    authored = ActionAgent::Agent.create!(name: "Support Hub", provider: "openai", model: "gpt-4o-mini")
+    mirrored = ActionAgent::Agent.create!(name: "Help Desk", agent_class_name: "HelpDesk", provider: "openai", model: "gpt-4o-mini")
+
+    assert_equal "SupportBot", observed("SupportBot", "respond").reported_agent_class
+    assert_equal "SupportHubAgent", authored.reported_agent_class
+    assert_equal "HelpDeskAgent", mirrored.reported_agent_class
+  end
+
   test "an authored agent's traces are every trace reported under its class, attributed or not" do
     agent = ActionAgent::Agent.create!(name: "Support Hub", provider: "openai", model: "gpt-4o-mini")
     first = report_trace(agent_class: "SupportHubAgent", action: "respond")
@@ -75,5 +90,51 @@ class AgentTelemetryTracesTest < ActionDispatch::IntegrationTest
     assert_response :success
     ids = JSON.parse(response.body)["interactions"].map { |row| row["id"] }
     assert_equal [ "trace-#{attributed.id}", "trace-#{earlier.id}" ].sort, ids.sort
+  end
+
+  # --- GET /api/traces?agent_id= ------------------------------------------------
+
+  def traces(**params)
+    get "/activeagents/api/traces", params: params
+    assert_response :success
+    JSON.parse(response.body)
+  end
+
+  test "the traces list for an observed agent is its traces, and names only their class" do
+    attributed = report_trace(agent_class: "SupportBot", action: "respond")
+    earlier = unattributed(report_trace(agent_class: "SupportBot", action: "respond"))
+    report_trace(agent_class: "SupportBot", action: "title")
+    report_trace(agent_class: "BillingAgent", action: "refund")
+    agent = observed("SupportBot", "respond")
+
+    body = traces(agent_id: agent.id)
+
+    assert_equal [ attributed.id, earlier.id ].sort, body["traces"].map { |trace| trace["id"] }.sort
+    assert_equal [ "SupportBot" ], body["agents"]
+    assert_equal({ "SupportBot" => agent.id }, body["agent_ids"])
+  end
+
+  test "the traces list for an authored agent is what its class selects" do
+    agent = ActionAgent::Agent.create!(name: "Support Hub", provider: "openai", model: "gpt-4o-mini")
+    report_trace(agent_class: "SupportHubAgent", action: "respond")
+    report_trace(agent_class: "SupportHubAgent", action: "summarize")
+    report_trace(agent_class: "SupportBot", action: "respond")
+
+    by_class = traces(agent: "SupportHubAgent")["traces"].map { |trace| trace["id"] }
+
+    assert_equal 2, by_class.size
+    assert_equal by_class.sort, traces(agent_id: agent.id)["traces"].map { |trace| trace["id"] }.sort
+  end
+
+  test "the traces list answers 404 for an agent the caller cannot see" do
+    report_trace(agent_class: "SupportBot", action: "respond")
+    theirs = observed("SupportBot", "respond")
+    theirs.update_columns(user_id: 802)
+    ActionAgent.agent_scope_resolver = ->(owner) { ActionAgent::Agent.where(user_id: owner&.id) }
+
+    get "/activeagents/api/traces", params: { agent_id: theirs.id }
+
+    assert_response :not_found
+    assert_not_includes response.body, "SupportBot"
   end
 end

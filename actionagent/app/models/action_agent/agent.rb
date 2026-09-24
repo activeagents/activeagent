@@ -157,11 +157,18 @@ module ActionAgent
     # The ActiveAgent class name this agent's runs are recorded under — the
     # correlation key between platform Agent records and telemetry traces
     # (TelemetryTrace#agent_class) and solid_agent contexts. An observed
-    # agent's reported class need not end in Agent, so its traces are read
-    # through #telemetry_traces rather than by this name.
+    # agent's reported class need not end in Agent, so its traces are
+    # matched on #reported_agent_class rather than on this name.
     def telemetry_agent_class
       base = agent_class_name.presence || name.parameterize(separator: "_").camelize
       base.end_with?("Agent") ? base : "#{base}Agent"
+    end
+
+    # Returns the class name this agent's traces carry in
+    # TelemetryTrace#agent_class: the application's own class for an observed
+    # agent (`"SupportBot"`), #telemetry_agent_class for any other.
+    def reported_agent_class
+      observed? ? agent_class_name : telemetry_agent_class
     end
 
     # The traces in +traces+ recorded for this agent.
@@ -175,7 +182,7 @@ module ActionAgent
     # @param traces [ActiveRecord::Relation] the traces the caller may read
     # @return [ActiveRecord::Relation]
     def telemetry_traces(traces = ActionAgent.trace_model.all)
-      return traces.for_agent(telemetry_agent_class) unless observed?
+      return traces.for_agent(reported_agent_class) unless observed?
 
       traces.where(agent_id: id).or(unattributed_telemetry_traces(traces))
     end
@@ -188,13 +195,10 @@ module ActionAgent
     # @param traces [ActiveRecord::Relation] the traces the caller may read
     # @return [ActiveRecord::Relation]
     def unattributed_telemetry_traces(traces = ActionAgent.trace_model.all)
-      identity = if observed?
-        { service_name: service_name, agent_class: agent_class_name, agent_action: action_name }
-      else
-        { agent_class: telemetry_agent_class }
-      end
+      identity = { agent_id: nil, agent_class: reported_agent_class }
+      identity.update(service_name: service_name, agent_action: action_name) if observed?
 
-      traces.where(agent_id: nil, **identity)
+      traces.where(identity)
     end
 
     # The agent's long-term memory (solid_agent HasMemory contract) — the
