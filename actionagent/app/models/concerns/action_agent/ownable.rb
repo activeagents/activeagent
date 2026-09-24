@@ -73,13 +73,14 @@ module ActionAgent
     # The record's owner under the current configuration, or nil.
     #
     # The belongs_to is declared when the class loads, from the
-    # configuration at that moment; an owner model configured afterwards
-    # (a test, or an initializer that ran late) has the column but not the
-    # association, so the foreign key is read directly in that case.
+    # configuration at that moment. An owner model configured afterwards
+    # (a test, or an initializer that ran late) has the column but either no
+    # association or one declared for another class, so the foreign key is
+    # read directly in that case.
     def owner
       association = self.class.owner_association
       return nil unless association
-      return public_send(association) if respond_to?(association)
+      return public_send(association) if owner_association_current?(association)
 
       owner_class = ActionAgent.public_send(CLASS_FOR.fetch(association)).safe_constantize
       owner_id = self[:"#{association}_id"]
@@ -87,13 +88,24 @@ module ActionAgent
     end
 
     # Assigns +owner+ to whichever association this install uses. A no-op
-    # when the host app configured no owner model.
+    # when the host app configured no owner model. Writes the foreign key
+    # directly when the association is missing or was declared for another
+    # class, as #owner reads it.
     def owner=(record)
       association = self.class.owner_association
       return unless association
-      return public_send(:"#{association}=", record) if respond_to?(:"#{association}=")
+      return public_send(:"#{association}=", record) if owner_association_current?(association)
 
       self[:"#{association}_id"] = record&.id
+    end
+
+    private
+
+    # Whether +association+ was declared for the class the configuration
+    # names now.
+    def owner_association_current?(association)
+      reflection = self.class.reflect_on_association(association)
+      reflection.present? && reflection.class_name == ActionAgent.public_send(CLASS_FOR.fetch(association)).to_s
     end
   end
 end
