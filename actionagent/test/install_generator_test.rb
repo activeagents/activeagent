@@ -3,9 +3,10 @@
 require "test_helper"
 require "generators/action_agent/install_generator"
 
-# The migrations action_agent:install emits for the evaluation report
-# identity: carried by the create-table migration on a fresh install, and
-# emitted as a guarded upgrade for an install whose tables predate it.
+# The migrations action_agent:install emits for columns added after the
+# dashboard tables shipped: carried by the create-table migration on a fresh
+# install, and emitted as a guarded upgrade for an install whose tables
+# predate them.
 class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
   tests ActionAgent::InstallGenerator
   destination Rails.root.join("tmp/generators/action_agent_install")
@@ -29,6 +30,24 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_migration "db/migrate/add_evaluation_report_identity.rb"
     assert_operator migration_version("add_evaluation_report_identity"), :>, migration_version("create_active_agent_dashboard_tables"),
       "the upgrade must run after the table it alters exists"
+  end
+
+  # add_agent_releases is emitted before the dashboard tables, so on a fresh
+  # install it finds none of them and the create-table migration has to carry
+  # what it would have added.
+  test "a fresh install creates the release columns with the dashboard tables" do
+    run_generator [ "--skip-routes" ]
+
+    assert_migration "db/migrate/create_active_agent_dashboard_tables.rb" do |content|
+      tables = content.split(/^\s+create_table /).to_h { |block| [ block[/\A"\#\{prefix\}(\w+)"/, 1], block ] }
+      assert_match(/t\.string :release_digest/, tables["agents"])
+      assert_match(/t\.string :release_digest\n\s+t\.string :revision/, tables["agent_versions"])
+      assert_match(/t\.index \[ :agent_id, :release_digest \]/, tables["agent_versions"])
+      %w[agent_runs evaluation_runs].each do |table|
+        assert_match(/t\.bigint :agent_version_id/, tables[table], "#{table} records the version it ran under")
+        assert_match(/t\.index :agent_version_id/, tables[table])
+      end
+    end
   end
 
   test "an install whose tables predate published reports gets only the upgrade" do

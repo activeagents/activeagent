@@ -136,6 +136,15 @@ application publishes a report to the mount.
   installed (`openai` for OpenAI, Ollama and OpenRouter; `anthropic` for
   Anthropic) when the provider is chosen, with a validation error naming
   the gem, instead of failing on its first run (`actionagent`, #416).
+- A fresh `action_agent:install` creates the agent release columns with the
+  dashboard tables (`actionagent`): `release_digest` on agents,
+  `release_digest` and `revision` on agent versions, and `agent_version_id`
+  on agent runs and evaluation runs. The generator emits `add_agent_releases`
+  before the create-table migration, so on a fresh install it found none of
+  those tables and added nothing, and creating an agent run or an evaluation
+  run raised `NoMethodError` on `agent_version_id`. An install generated
+  that way still lacks the columns and needs them added by a migration of
+  its own.
 
 ### Security
 
