@@ -24,8 +24,10 @@ module ActionAgent
     #   { "type": "http", "url": "https://activeagents.ai/mcp",
     #     "headers": { "Authorization": "Bearer aa_..." } }
     class MCPController < BaseController
-      # Authenticated by API key rather than by the host app's sessions.
+      # Authenticated by API key rather than by the host app's sessions, so
+      # there is no session cookie for a cross-site request to ride on.
       allow_unauthenticated_access
+      skip_forgery_protection
       before_action :authenticate_api_key!, except: [ :unsupported ]
 
       PROTOCOL_VERSION = "2025-03-26"

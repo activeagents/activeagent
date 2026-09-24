@@ -23,7 +23,21 @@ module ActiveAgent
     # argument, so a record arrives as the same record the caller passed and
     # the agent's authorization callbacks decide against a real user rather
     # than against nil.
-    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil, actor: nil)
+    #
+    # +direct_generation_type+ marks a job enqueued by Agent.prompt(...) or
+    # Agent.embed(...), which have no action to call: +agent_method+ is then
+    # the synthetic +__direct_*__+ name, so the generation is rebuilt from
+    # +direct_args+ and +direct_options+ instead.
+    def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil, actor: nil,
+                direct_generation_type: nil, direct_args: nil, direct_options: nil)
+      if direct_generation_type
+        generation = ActiveAgent::Parameterized::DirectGeneration.new(
+          agent.constantize, direct_generation_type.to_sym, params || {},
+          *Array(direct_args), **(direct_options || {}).symbolize_keys
+        )
+        return generation.public_send(generation_method)
+      end
+
       agent_class = params ? agent.constantize.with(params) : agent.constantize
       agent_class = agent_class.as(actor) if actor
       prompt = if kwargs

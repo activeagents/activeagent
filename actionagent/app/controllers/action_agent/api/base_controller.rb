@@ -12,17 +12,32 @@ module ActionAgent
     # install, a per-user install and a multi-tenant platform all read the
     # same controllers.
     #
-    # Note this is not the telemetry ingest endpoint — that authenticates
-    # with a bearer token and lives in Api::TracesController.
+    # Because it authenticates with the host's session cookie, it keeps the
+    # forgery protection ApplicationController turns on: the dashboard sends
+    # the page's CSRF token with every mutating request (frontend
+    # utils/apiFetch.mjs). Endpoints that authenticate with a bearer token
+    # instead — the telemetry ingest endpoint (Api::TracesController) and
+    # the MCP facade (Api::MCPController) — are exempt.
     class BaseController < ActionAgent::ApplicationController
-      skip_forgery_protection
-
+      # Rails 8.2 verifies forgery protection from the browser's Sec-Fetch-Site
+      # header, renamed the failure to InvalidCrossOriginRequest, and deprecated
+      # the old name. Rescue whichever names the running Rails defines, so a
+      # rejected request answers with the dashboard's JSON either way.
+      # const_defined? does not fire the deprecation the bare constant would.
+      rescue_from ActionController::InvalidCrossOriginRequest, with: :invalid_authenticity_token
+      if ActionController.const_defined?(:InvalidAuthenticityToken, false)
+        rescue_from ActionController::InvalidAuthenticityToken, with: :invalid_authenticity_token
+      end
       rescue_from ActiveRecord::RecordNotFound, with: :not_found
       rescue_from ActiveRecord::RecordInvalid, with: :unprocessable_entity
       rescue_from ActionController::ParameterMissing, with: :bad_request
       rescue_from ActiveRecord::Encryption::Errors::Configuration, with: :encryption_unconfigured
 
       private
+
+      def invalid_authenticity_token
+        render json: { error: "Refresh the dashboard and try again", code: "invalid_csrf_token" }, status: :unprocessable_entity
+      end
 
       # API keys and provider credentials are encrypted at rest, which needs
       # Active Record Encryption keys. The engine derives fallback keys when
