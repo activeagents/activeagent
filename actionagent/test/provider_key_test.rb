@@ -22,6 +22,7 @@ class ProviderKeyTest < ActiveSupport::TestCase
   def setup
     ActionAgent::ProviderKey.delete_all
     @previous_account_class = ActionAgent.account_class
+    @previous_resolver = ActionAgent.provider_credentials_resolver
     ActionAgent.account_class = "User" # the dummy app has no Account
     @owner = User.create!(name: "Owner", email: "owner-#{SecureRandom.hex(4)}@example.com", age: 30)
     @other = User.create!(name: "Other", email: "other-#{SecureRandom.hex(4)}@example.com", age: 31)
@@ -30,6 +31,7 @@ class ProviderKeyTest < ActiveSupport::TestCase
   def teardown
     ActionAgent::ProviderKey.delete_all
     ActionAgent.account_class = @previous_account_class
+    ActionAgent.provider_credentials_resolver = @previous_resolver
     User.where(id: [ @owner.id, @other.id ]).delete_all
   end
 
@@ -65,7 +67,38 @@ class ProviderKeyTest < ActiveSupport::TestCase
     assert_no_match(/sk-openai-stale|not-ciphertext/, log.string, "the warning must never carry a credential")
   end
 
-  test "apply_to writes each key through the config's provider writer" do
+  # Rows are scoped by the owner's id alone, so an instance of another model
+  # would read whichever owner happens to share its id.
+  test "credentials_for refuses an owner that is not the install's owner model" do
+    create_key("openai", "sk-openai-owner", owner: @owner)
+    impostor = Struct.new(:id).new(@owner.id)
+
+    error = assert_raises(ArgumentError) { ActionAgent::ProviderKey.credentials_for(impostor) }
+    assert_match(/per account \(User\)/, error.message)
+    assert_raises(ArgumentError) { ActionAgent::ProviderKey.apply_to(Config.new, owner: impostor) }
+  end
+
+  test "credentials_for takes the host's credential resolver first, as the engine's runs do" do
+    create_key("openai", "sk-openai-row", owner: @owner)
+    create_key("anthropic", "sk-ant-row", owner: @owner)
+    create_key("openrouter", "sk-or-row", owner: @owner)
+    asked = []
+    ActionAgent.provider_credentials_resolver = lambda do |owner, provider|
+      asked << [ owner, provider ]
+      case provider
+      when "openai" then { access_token: "sk-openai-vault" }
+      when "openrouter" then { "uri_base" => "https://proxy.example.com" } # an answer with no key
+      end
+    end
+
+    assert_equal({ "anthropic" => "sk-ant-row", "openai" => "sk-openai-vault" },
+      ActionAgent::ProviderKey.credentials_for(@owner),
+      "a resolver answer without a key leaves the provider to the host's own configuration")
+    assert_equal ActionAgent::ProviderKey::KEY_PROVIDERS.sort, asked.map(&:last)
+    assert(asked.all? { |owner, _| owner == @owner })
+  end
+
+  test "apply_to writes each key through the config's provider writer and returns only provider names" do
     create_key("openai", "sk-openai-owner", owner: @owner)
     create_key("openrouter", "sk-or-owner", owner: @owner)
     create_key("ollama", "http://localhost:11434", owner: @owner)
@@ -74,7 +107,7 @@ class ProviderKeyTest < ActiveSupport::TestCase
     applied = ActionAgent::ProviderKey.apply_to(config, owner: @owner)
 
     assert_equal({ "openai" => "sk-openai-owner", "openrouter" => "sk-or-owner" }, config.applied)
-    assert_equal config.applied, applied
+    assert_equal %w[openai openrouter], applied, "the return value is safe to log: it carries no key"
   end
 
   test "apply_to touches nothing for an owner without keys" do
