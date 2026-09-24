@@ -127,6 +127,16 @@ report to the mount.
 - `add_agent_releases` reads `ActionAgent.table_name_prefix` for the tables
   it alters (`actionagent`), so a newly generated copy works on an install
   with a custom prefix. The trace table keeps its fixed name.
+- A collector's rejection of `ActiveAgent::Evals::Publisher` says what it
+  refused and whether to retry. The message carries the `error` string of a
+  JSON object response body beside the HTTP status — control characters and
+  runs of whitespace collapsed to one space, the API key replaced with
+  `[FILTERED]`, cut to 200 characters; nothing else from the body — and what
+  to do next: never retry the report under the same `run_id` on a 409,
+  publish a smaller selection on a 413, correct the report on a 422, retry
+  later on a 408, 429 or 5xx, and resolve the cause first on anything else,
+  such as a 401 or 403. `Publisher::Error` carries `status`, `detail` and
+  `retryable?`.
 
 ### Deprecated
 
@@ -136,6 +146,22 @@ report to the mount.
 
 ### Fixed
 
+- Telemetry criteria (`trace_error_rate`, `trace_latency`) score an observed
+  agent from its own traces (`actionagent`). They selected traces by
+  `Agent#telemetry_agent_class`, which appends `Agent` to a class name
+  lacking it, so an agent observed from an application reporting `SupportBot`
+  found no traces and scored nothing, and observed agents of one class ending
+  in `Agent` read each other's actions. `Agent#telemetry_traces` selects the
+  traces `AgentRegistrar` attributed to the agent, plus unattributed ones with
+  its service, class and action. Deleting an observed agent leaves its traces
+  unattributed, so the agent registered again for them still reads them. The
+  agent's Traces tab, its Tools tab usage
+  columns and the Interactions list filtered to it use the same selection. The
+  Traces tab asks for it with `GET /api/traces?agent_id=`, which answers 404
+  for an agent the caller cannot see; `agent=` still filters by class. On the
+  Metrics page filtered to a class, an observed agent's deploy markers now
+  show under the class its traces report (`Agent#reported_agent_class`).
+  Authored and mirrored agents read the traces they did before.
 - `Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later` run
   their job instead of raising `ArgumentError: unknown keywords` in the
   worker (#346).
@@ -160,6 +186,21 @@ report to the mount.
 run raised `NoMethodError` on `agent_version_id`. An install generated
 that way on 1.6.2-1.6.4 gets the columns from the new
 `ensure_agent_release_columns` migration (see Upgrading above).
+- Every failure of `ActiveAgent::Evals::Publisher` to deliver a report
+  raises `Publisher::Error`. A malformed response (`Net::HTTPBadResponse`,
+  `Net::HTTPHeaderSyntaxError`, or a `Zlib::Error` from corrupt compression)
+  escaped as its own class and is now a retryable `Publisher::Error`. A
+  report that cannot be encoded as JSON (invalid UTF-8, `NaN`, nesting too
+  deep) is now a non-retryable one raised before anything is sent: it escaped
+  as `JSON::GeneratorError`, or was blamed on the collector as invalid JSON.
+  Only a network failure keeps its underlying error as `cause`, so a response
+  body or report content never reaches a log through the exception chain.
+  Invalid arguments raise `ArgumentError`, now also for a `report` that does
+  not convert to a hash (a string raised `NoMethodError` and `nil` published
+  an empty report) and a `nil` timeout (`TypeError`).
+- The publisher strips whitespace around its API key, so the key it sends is
+  the one it filters from a collector's explanation, and refuses a key with
+  characters other than visible ASCII.
 
 ### Security
 
