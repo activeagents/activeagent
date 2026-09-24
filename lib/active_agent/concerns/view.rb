@@ -12,6 +12,29 @@ module ActiveAgent
       include ActionView::Layouts
     end
 
+    class_methods do
+      # The agent's rendered instructions, outside a generation.
+      #
+      # Two surfaces need the text an agent would run on without running it: a
+      # dashboard that mirrors the class (ActionAgent::AgentSync) and a test
+      # asserting what the model is told. Both otherwise reach a private
+      # renderer through `send`, which couples them to internals that can move
+      # without notice.
+      #
+      #   TicketAgent.rendered_instructions  # => "You are the Ticket agent..."
+      #
+      #   TicketAgent.rendered_instructions(topic: "tickets")
+      #
+      # @param template [String] template name, default "instructions"
+      # @param assigns [Hash] instance variables the template reads
+      # @return [String, nil] nil when the agent has no such template
+      def rendered_instructions(template: "instructions", **assigns)
+        agent = new
+        assigns.each { |name, value| agent.instance_variable_set(:"@#{name}", value) }
+        agent.send(:view_render_template, template)
+      end
+    end
+
     # Builds template lookup paths supporting both flat and nested directory structures.
     #
     # Templates are searched in priority order:

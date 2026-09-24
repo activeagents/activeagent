@@ -101,10 +101,7 @@ export default function McpServersView({ focusServer, onOpenTools }) {
     try {
       const response = await fetch(`/api/mcp_servers/${encodeURIComponent(server.key)}/launch`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.reason || body.error || `Launch failed (${response.status})`);

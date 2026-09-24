@@ -49,6 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dashboard's object lists hold their metric columns in place: a trace,
   interaction or evaluation run with nothing in a column prints a dash there
   rather than sliding its neighbours over (`MetaStrip`).
+- `ActiveAgent::Base.rendered_instructions` renders an agent's instructions
+  outside a generation, for a dashboard mirroring the class and for tests
+  asserting what a model is told. Both otherwise reached a private renderer
+  through `send`.
+- `ActionAgent::AgentSync` mirrors host agent classes into dashboard `Agent`
+  records, setting the `agent_class_name` that `AgentRelease` already expects a
+  host to have written. The code owns what an agent is (name, description,
+  instructions, tools — rewritten every sync); the operator owns how it runs
+  (provider, model, status — set on create and preserved), so a model chosen in
+  the dashboard survives the next deploy.
+- `ActionAgent.run_host_agent_classes` (default `false`) runs an agent that
+  mirrors a host class as that class, rather than as one rebuilt from the
+  record's `tools` and `instructions` columns. Dashboard-authored agents, which
+  name no class, keep using the dynamic runtime either way; a class name that no
+  longer resolves falls back to it rather than failing the run.
 
 ### Changed
 
@@ -64,6 +79,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Assigning `ActionAgent.base_controller_class`, which has never been
   consumed, warns through `ActionAgent.deprecator` and points at
   `controller_concerns`. The accessor is removed in 2.0.
+
+### Fixed
+
+- `Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later` run
+  their job instead of raising `ArgumentError: unknown keywords` in the
+  worker (#346).
+- The agent builder and editor can reach every model a provider serves: the
+  OpenRouter catalog is no longer cut to its first 100 ids, and the model
+  field is a type-ahead over the catalog that also takes an unlisted id
+  (`actionagent`, #427).
+- A rejected Create Agent shows its validation errors on the builder — a
+  summary and a message under each field — instead of leaving the form
+  silently in place. `POST`/`PATCH /api/agents` 422s carry `field_errors`
+  beside `errors` (`actionagent`, #426).
+- An engine agent is refused a provider whose client gem the host has not
+  installed (`openai` for OpenAI, Ollama and OpenRouter; `anthropic` for
+  Anthropic) when the provider is chosen, with a validation error naming
+  the gem, instead of failing on its first run (`actionagent`, #416).
+
+### Security
+
+- The dashboard's JSON API verifies the CSRF token (`actionagent`, #461). It
+  authenticates with the host's session cookie but had opted out of forgery
+  protection. The dashboard now sends the page's token with every mutating
+  request from one fetch shim; the MCP facade and trace ingest, which
+  authenticate by bearer token, stay exempt. A rejected request answers
+  `422` with `code: "invalid_csrf_token"`. Hosts that re-enabled protection
+  themselves (`ActionAgent::Api::BaseController.protect_from_forgery`) can
+  drop that line.
 
 ## [1.6.4] - 2026-09-22
 
