@@ -209,10 +209,12 @@ module ActionAgent
     # @return [Object, nil] Object responding to #signed_url_for and #fetch_snapshot
     attr_accessor :storage_service
 
-    # Bearer token required by the ingest API in single-tenant mode. When
-    # unset the local ingest endpoint accepts unauthenticated posts, so set
-    # it whenever the mount is reachable beyond your own machine.
-    # (Multi-tenant mode authenticates per-account keys instead.)
+    # Bearer token required in single-tenant mode by the endpoints other
+    # applications post to: trace ingest (<mount>/api/traces) and published
+    # evaluation reports (<mount>/api/evaluation_reports). When unset both
+    # accept unauthenticated posts, so set it whenever the mount is reachable
+    # beyond your own machine. (Multi-tenant mode authenticates per-account
+    # keys instead.)
     # @return [String, nil]
     attr_accessor :ingest_api_key
 
@@ -239,8 +241,9 @@ module ActionAgent
     # before_action or around_action runs before the dashboard
     # authenticates. Entries are Modules or names, as for model_concerns.
     #
-    # Not the trace ingest endpoint: Api::TracesController authenticates
-    # with a bearer token and inherits ActionController::API.
+    # Not the endpoints other applications post to: Api::TracesController
+    # and Api::EvaluationReportsController authenticate with a bearer token
+    # and inherit ActionController::API.
     #
     #   ActionAgent.configure do |config|
     #     config.controller_concerns = ["MyApp::RequestTagging"]
@@ -263,11 +266,17 @@ module ActionAgent
       @base_controller_class = value
     end
 
-    # Called before each run/trace-ingest to enforce host-app limits.
-    # Receives (owner, kind) where kind is :execution or :trace_ingest, and
-    # returns nil to allow, or to deny: a message String, or a Hash merged
-    # into the response so the app can surface its own usage numbers.
-    # Denials surface as HTTP 402 (execution) / 429 (ingest).
+    # Called before each metered action to enforce host-app limits.
+    # Receives (owner, kind) and returns nil to allow, or to deny: a message
+    # String, or a Hash merged into the response so the app can surface its
+    # own usage numbers. The kinds, and how a denial surfaces:
+    #
+    #   :execution         — an agent run; HTTP 402
+    #   :trace_ingest      — a POST to <mount>/api/traces; HTTP 429
+    #   :evaluation_report — a POST to <mount>/api/evaluation_reports; HTTP 429
+    #
+    # The owner of an ingest kind is the tenant the key resolved to, nil on a
+    # single-tenant install.
     #
     # Unset means unlimited, which is what a self-hosted install wants.
     # @return [Proc, nil]
@@ -370,7 +379,9 @@ module ActionAgent
 
     # Called after the dashboard performs a metered action, as
     # (owner, kind) — the counterpart to quota_checker, for host apps that
-    # track usage against a plan. Unset means nothing is counted.
+    # track usage against a plan. The kinds are :execution, for each agent
+    # run, and :evaluation_report, for each report the collector stores; an
+    # identical retry is not counted again. Unset means nothing is counted.
     # @return [Proc, nil]
     attr_accessor :usage_recorder
 
@@ -379,6 +390,11 @@ module ActionAgent
     # nobody in single-tenant mode. A host app whose agents hang off a
     # different record (the platform's hang off the account's owning user)
     # supplies its own mapping.
+    #
+    # A published evaluation report's agent is placed the same way: the
+    # resolver receives an unsaved trace with the publishing tenant as its
+    # account, and the report's source and agent name as its service_name and
+    # agent_class. In multi-tenant mode it must not return nil there.
     # @return [Proc, nil]
     attr_accessor :trace_owner_resolver
 
