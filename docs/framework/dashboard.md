@@ -495,6 +495,46 @@ them. Set `ActionAgent.mcp_schema_tools = false` to keep schema tools
 reachable only through agents. `agent://<slug>` resources return each
 agent's live scorecard.
 
+## GitHub connections and checkout sandboxes
+
+Settings -> **Integrations** connects the owner's GitHub account over OAuth.
+The owner then chooses which repositories the workspace may use. Register a
+[GitHub OAuth app](https://github.com/settings/developers) whose callback URL
+is `<mount>/api/github_connection/callback` (for example
+`https://example.com/activeagents/api/github_connection/callback`), then
+configure it:
+
+```ruby
+ActionAgent.configure do |config|
+  config.github_client_id = Rails.application.credentials.dig(:github, :client_id)
+  config.github_client_secret = Rails.application.credentials.dig(:github, :client_secret)
+  # Default "repo read:user"; "public_repo read:user" for public checkouts only.
+  config.github_oauth_scopes = "repo read:user"
+end
+```
+
+Unset, both settings fall back to `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
+The token is encrypted at rest like a provider key and is never returned to
+the browser. The selection only keeps repositories GitHub lists for that
+token.
+
+**Start sandbox** on a selected repository creates an `app_runtime` sandbox
+session. A sandbox backend (see `ActionAgent.sandbox_backends`) does the
+following for that session:
+
+1. Reads `sandbox_session.checkout_spec`, which holds `repository`, `ref`,
+   `clone_url`, `username` and `token`, and clones it.
+2. Boots the app. If the app mounts this engine, its MCP facade serves the
+   app's agents and schema tools.
+3. Returns `mcp_url:` (and, when the facade needs one, `mcp_token:`, a
+   dashboard API key of the booted app) from `create_sandbox`.
+
+The session is then an MCP server keyed `sandbox:<session_id>`, shown on the
+sandbox as `runtime_server_key`. Add that key to an agent's MCP servers, and
+runs and evaluations of that agent call the checkout's own tools. The lookup
+is scoped to the agent's owner, so one tenant cannot name another tenant's
+sandbox.
+
 ## Authentication
 
 **The dashboard has no authentication by default.** Anyone who can reach

@@ -18,8 +18,14 @@ module ActionAgent
       failed: 6
     }
 
-    # Sandbox types
-    SANDBOX_TYPES = %w[playwright_mcp terminal research].freeze
+    # Sandbox types. +app_runtime+ boots a checkout of one of the owner's
+    # GitHub repositories (see GithubConnection) and exposes that app's own
+    # runtime, so agents and evaluations can use its tools.
+    SANDBOX_TYPES = %w[playwright_mcp terminal research app_runtime].freeze
+
+    # MCP server keys naming a checkout sandbox's app runtime, as an agent's
+    # mcp_servers lists them: "sandbox:<session_id>".
+    RUNTIME_SERVER_PREFIX = "sandbox:"
 
     # Free tier limits
     FREE_TIER_LIMITS = {
@@ -29,9 +35,15 @@ module ActionAgent
       session_duration_minutes: 15
     }.freeze
 
+    encrypts :runtime_mcp_token if ActionAgent.encrypt_credentials
+
     # Validations
     validates :session_id, presence: true, uniqueness: true
     validates :sandbox_type, inclusion: { in: SANDBOX_TYPES }
+    validates :repository, presence: true, if: :app_runtime?
+    validates :repository_ref, length: { maximum: 255 }, format: { without: /\A-|\s|\.\./, message: "is not a valid git ref" },
+      allow_blank: true
+    validate :repository_available, on: :create, if: :app_runtime?
 
     # Callbacks
     before_validation :generate_session_id, on: :create
@@ -49,6 +61,69 @@ module ActionAgent
     # catalog edit.
     def mcp_catalog_entries
       Array(mcp_servers).filter_map { |key| MCPCatalog.find(key) }
+    end
+
+    def self.runtime_server_key?(key)
+      key.to_s.start_with?(RUNTIME_SERVER_PREFIX)
+    end
+
+    # The MCP catalog entry for a checkout sandbox's app runtime, looked up
+    # among +owner+'s sessions only. Nil unless the session is live and its
+    # backend reported an endpoint.
+    #
+    # @return [Hash, nil]
+    def self.runtime_server_entry(key, owner:)
+      return nil unless runtime_server_key?(key)
+
+      session = for_owner(owner).find_by(session_id: key.to_s.delete_prefix(RUNTIME_SERVER_PREFIX))
+      session&.runtime_server_entry
+    end
+
+    def app_runtime?
+      sandbox_type == "app_runtime"
+    end
+
+    def runtime_server_key
+      "#{RUNTIME_SERVER_PREFIX}#{session_id}"
+    end
+
+    # This session's app runtime as an MCP catalog entry — the shape
+    # MCPToolDispatcher reaches servers through.
+    def runtime_server_entry
+      return nil unless app_runtime? && active? && runtime_mcp_url.present?
+
+      {
+        key: runtime_server_key,
+        name: "#{repository}@#{repository_ref} (sandbox)",
+        description: "App runtime booted from a checkout of #{repository}",
+        transport: "streamable_http",
+        url: runtime_mcp_url,
+        headers: runtime_mcp_token.present? ? { "Authorization" => "Bearer #{runtime_mcp_token}" } : {}
+      }
+    end
+
+    # What a sandbox backend clones for an app_runtime session: repository,
+    # ref, clone URL and the credentials to fetch it. Nil for any other
+    # sandbox type. Carries the owner's GitHub token, so it goes to the
+    # backend and never into a response.
+    #
+    # @return [Hash, nil]
+    def checkout_spec
+      return nil unless app_runtime?
+
+      github_connection&.checkout_spec(repository, ref: repository_ref)
+    end
+
+    # The GitHub connection whose selection this session's checkout comes
+    # from. Found through the connection's own owner column: a connection is
+    # account-owned before user-owned, the opposite of a session, so the
+    # session's #owner is not necessarily the connection's.
+    def github_connection
+      case GithubConnection.owner_association
+      when :account then account_id && GithubConnection.find_by(account_id: account_id)
+      when :user then user_id && GithubConnection.find_by(user_id: user_id)
+      else GithubConnection.first
+      end
     end
 
     # Check if session is still valid
@@ -103,13 +178,13 @@ module ActionAgent
       end
     end
 
-    # Mark as ready with Cloud Run URL
-    def mark_ready!(cloud_run_url:, cloud_run_job_id: nil)
-      update!(
-        status: :ready,
-        cloud_run_url: cloud_run_url,
-        cloud_run_job_id: cloud_run_job_id
-      )
+    # Mark as ready with Cloud Run URL. A checkout sandbox's backend also
+    # reports the app runtime's MCP endpoint and the token it expects.
+    def mark_ready!(cloud_run_url:, cloud_run_job_id: nil, runtime_mcp_url: nil, runtime_mcp_token: nil)
+      attributes = { status: :ready, cloud_run_url: cloud_run_url, cloud_run_job_id: cloud_run_job_id }
+      attributes[:runtime_mcp_url] = runtime_mcp_url if runtime_mcp_url
+      attributes[:runtime_mcp_token] = runtime_mcp_token if runtime_mcp_token
+      update!(attributes)
     end
 
     # Expire the session
@@ -132,7 +207,12 @@ module ActionAgent
         expires_at: expires_at&.iso8601,
         created_at: created_at.iso8601,
         cloud_run_url: cloud_run_url,
-        mcp_servers: Array(mcp_servers)
+        mcp_servers: Array(mcp_servers),
+        repository: repository,
+        repository_ref: repository_ref,
+        # The key an agent adds to its mcp_servers to use this runtime's
+        # tools; nil until the backend has reported the endpoint.
+        runtime_server_key: runtime_mcp_url.present? ? runtime_server_key : nil
       }
     end
 
@@ -146,6 +226,21 @@ module ActionAgent
     end
 
     private
+
+    def repository_available
+      return if repository.blank?
+
+      connection = github_connection
+      if connection.nil?
+        errors.add(:repository, "needs a GitHub connection (Settings -> Integrations)")
+      elsif (repo = connection.repository(repository))
+        # Canonical spelling, and the default branch unless a ref was asked for.
+        self.repository = repo["full_name"]
+        self.repository_ref = repository_ref.presence || repo["default_branch"]
+      else
+        errors.add(:repository, "is not one of the repositories selected in Settings -> Integrations")
+      end
+    end
 
     def generate_session_id
       self.session_id ||= SecureRandom.uuid

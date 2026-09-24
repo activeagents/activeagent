@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 9) do
+ActiveRecord::Schema[8.0].define(version: 10) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -264,6 +264,21 @@ ActiveRecord::Schema[8.0].define(version: 9) do
     t.index [ "agent_id", "name" ], name: "index_active_agent_evaluations_on_agent_id_and_name", unique: true
   end
 
+  create_table "active_agent_github_connections", force: :cascade do |t|
+    t.text "access_token", null: false
+    t.bigint "account_id"
+    t.string "avatar_url"
+    t.datetime "created_at", null: false
+    t.bigint "github_user_id", null: false
+    t.string "login", null: false
+    t.json "repositories", default: []
+    t.string "scopes"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_github_connections_on_account_id"
+    t.index [ "user_id" ], name: "index_active_agent_github_connections_on_user_id"
+  end
+
   create_table "active_agent_provider_keys", force: :cascade do |t|
     t.bigint "account_id"
     t.datetime "created_at", null: false
@@ -331,8 +346,12 @@ ActiveRecord::Schema[8.0].define(version: 9) do
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
     t.json "mcp_servers", default: []
+    t.string "repository"
+    t.string "repository_ref"
     t.json "runs", default: []
     t.integer "runs_count", default: 0
+    t.text "runtime_mcp_token"
+    t.string "runtime_mcp_url"
     t.string "sandbox_type", default: "playwright_mcp"
     t.string "session_id", null: false
     t.integer "status", default: 0
