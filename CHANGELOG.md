@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Upgrading: the install generator emits a new `add_evaluation_report_identity`
+migration (guarded column by column) for the evaluation report collector.
+Re-run `bin/rails generate action_agent:install --skip` (`--skip` keeps your
+initializer) and `bin/rails db:migrate`. Nothing else changes until an
+application publishes a report to the mount.
+
 ### Added
 
 - **Host concerns for the engine's models and controllers** (`actionagent`).
@@ -69,6 +75,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `allowed_tools` as an `mcp_toolset` entry in `tools` (every other tool of
   the server disabled), beside any tools the request already declares
   (#328, by @dark-panda).
+- **Every install that mounts the engine collects published evaluation
+  reports** (`actionagent`). An application that runs its agents itself and
+  evaluates them in-process publishes the finished report with
+  `ActiveAgent::Evals::Publisher`; until now only the hosted platform could
+  receive it. `POST <mount>/api/evaluation_reports` takes the same version-1
+  envelope and returns the same receipt, and `ActionAgent::EvaluationReportImport`
+  stores it as the engine's own rows — the observed agent for the report's
+  `source` and `agent_name`, an evaluation named for its suite and scope
+  (`orders (eu, support)`), its scenarios, and a complete run with a result
+  per scenario and model — so the Evaluations page shows it the way it shows
+  a run the dashboard executed. The run's summary is recomputed from the
+  stored results. The endpoint authenticates exactly as trace ingest does
+  (`ingest_api_key`, or the tenant's key in multi-tenant mode), and a
+  report's agent is owned by whatever `trace_owner_resolver` gives a trace of
+  that tenant, so it sits beside the tenant's traced agents. A `run_id` is
+  stored once per tenant, or once per install: 201 for a new report, 200 for
+  an identical retry, 409 for different content. Invalid reports are 422,
+  bodies over 2 MiB 413, and 429 answers a `quota_checker` denial of the new
+  `:evaluation_report` kind, an owner already at
+  `AgentRegistrar::MAX_OBSERVED_PER_OWNER` observed agents, or a key past 30
+  reports a minute. `usage_recorder` is told `:evaluation_report` for each
+  stored report. Evaluation runs gain `external_tenant`, `external_run_id` and
+  `external_report_digest`, unique on the first two; see Upgrading above.
+  `docs/evals/publication.md` documents the endpoint.
 
 ### Changed
 
@@ -78,6 +108,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   like every other engine model (`actionagent`), so it carries the model
   concerns above, `AdapterAware` and the ownership API (`owner_association`,
   `for_owner`) from the same place. Its table name is unchanged.
+- `Api::TracesController`'s bearer authentication and its 429 quota body
+  live in `ActionAgent::Api::IngestAuthentication` (`actionagent`), which the
+  evaluation report collector shares. A host subclass that overrides
+  `authenticate_api_key!` is unaffected.
 
 ### Deprecated
 
