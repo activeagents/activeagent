@@ -115,15 +115,21 @@ module ActionAgent
     end
 
     # The GitHub connection whose selection this session's checkout comes
-    # from. Found through the connection's own owner column: a connection is
-    # account-owned before user-owned, the opposite of a session, so the
-    # session's #owner is not necessarily the connection's.
+    # from.
     def github_connection
-      case GithubConnection.owner_association
-      when :account then account_id && GithubConnection.find_by(account_id: account_id)
-      when :user then user_id && GithubConnection.find_by(user_id: user_id)
-      else GithubConnection.first
-      end
+      owners_record(GithubConnection)
+    end
+
+    # Environment the backend passes into an app_runtime checkout, so the
+    # booted app can run Claude Code sessions against it with the owner's
+    # connected credential (Settings -> Integrations). Empty when none is
+    # connected. Secret — for the backend, never a response.
+    #
+    # @return [Hash{String => String}]
+    def runtime_environment
+      return {} unless app_runtime?
+
+      owners_record(ProviderKey.where(provider: "claude_code"))&.runtime_environment || {}
     end
 
     # Check if session is still valid
@@ -226,6 +232,19 @@ module ActionAgent
     end
 
     private
+
+    # The owner's record in +scope+, found through that model's own owner
+    # column. GitHub connections and provider keys are account-owned before
+    # user-owned, the opposite of a session, so the session's #owner is not
+    # necessarily theirs.
+    def owners_record(scope)
+      scope = scope.all
+      case scope.klass.owner_association
+      when :account then account_id && scope.find_by(account_id: account_id)
+      when :user then user_id && scope.find_by(user_id: user_id)
+      else scope.first
+      end
+    end
 
     def repository_available
       return if repository.blank?
