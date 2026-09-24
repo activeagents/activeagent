@@ -44,9 +44,10 @@ ActionAgent.configure do |config|
   # Ingest API authentication
   # ==========================================================================
   #
-  # Bearer token other apps must send when posting traces to the mounted
-  # ingest endpoint (/activeagents/api/traces). Leave unset only when the
-  # mount is not reachable beyond your own machine.
+  # Bearer token other apps must send when posting traces
+  # (/activeagents/api/traces) or evaluation reports
+  # (/activeagents/api/evaluation_reports) to the mount. Leave unset only
+  # when the mount is not reachable beyond your own machine.
   #
   # config.ingest_api_key = Rails.application.credentials.dig(:active_agent, :ingest_api_key)
 
@@ -86,7 +87,7 @@ ActionAgent.configure do |config|
   # model_concerns are included into ActionAgent::ApplicationRecord, and so
   # into every engine model. controller_concerns are included into
   # ActionAgent::ApplicationController ahead of its own callbacks, and so
-  # into every dashboard controller — not the bearer-token ingest endpoint.
+  # into every dashboard controller — not the bearer-token ingest endpoints.
   # Modules or their names; a name is resolved when the class loads.
   #
   # config.model_concerns = ["ConnectionSwitching"]
