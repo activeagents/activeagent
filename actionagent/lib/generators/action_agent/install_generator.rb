@@ -79,11 +79,20 @@ module ActionAgent
 
       # Scenario suites arrived after the dashboard tables shipped, so an
       # install that already has those still needs this one.
-      return if existing_migration?("create_active_agent_evaluation_scenarios")
+      unless existing_migration?("create_active_agent_evaluation_scenarios")
+        migration_template(
+          "create_active_agent_evaluation_scenarios.rb.erb",
+          "db/migrate/create_active_agent_evaluation_scenarios.rb"
+        )
+      end
+
+      # GitHub connections and checkout sandboxes, likewise later than the
+      # dashboard tables.
+      return if existing_migration?("create_active_agent_github_connections")
 
       migration_template(
-        "create_active_agent_evaluation_scenarios.rb.erb",
-        "db/migrate/create_active_agent_evaluation_scenarios.rb"
+        "create_active_agent_github_connections.rb.erb",
+        "db/migrate/create_active_agent_github_connections.rb"
       )
     end
 

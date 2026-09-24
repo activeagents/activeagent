@@ -17,9 +17,12 @@ module ActionAgent
 
     class Error < StandardError; end
 
-    def initialize(url:, label: nil)
+    # +headers+ are sent with every request: a checkout sandbox's runtime
+    # authenticates its MCP facade with a bearer token.
+    def initialize(url:, label: nil, headers: {})
       @uri = URI(url)
       @label = label.presence || @uri.host
+      @headers = headers.to_h
       @mutex = Mutex.new
     end
 
@@ -113,6 +116,7 @@ module ActionAgent
       request["Content-Type"] = "application/json"
       request["Accept"] = "application/json, text/event-stream"
       request["Mcp-Session-Id"] = session if session
+      @headers.each { |name, value| request[name.to_s] = value }
       request.body = payload.to_json
 
       response = http.request(request)

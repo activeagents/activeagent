@@ -10,8 +10,9 @@ module ActionAgent
       sandbox = SandboxSession.find(sandbox_session_id)
       return if sandbox.ready? || sandbox.expired?
 
-      # In development/test, simulate provisioning
-      if Rails.env.development? || Rails.env.test?
+      # In development/test, simulate provisioning. A checkout sandbox always
+      # goes to a backend: the simulation has no checkout to boot.
+      if (Rails.env.development? || Rails.env.test?) && !sandbox.app_runtime?
         simulate_provisioning(sandbox)
         return
       end
@@ -19,18 +20,24 @@ module ActionAgent
       # Hand off to whichever backend this install registered — the engine
       # ships only the in-memory one, so a real container/job comes from the
       # host app's backend (see ActionAgent.sandbox_backends).
+      if sandbox.app_runtime? && sandbox.checkout_spec.nil?
+        raise "#{sandbox.repository} is no longer available: reconnect GitHub or reselect it in Settings -> Integrations"
+      end
+
       result = SandboxOrchestrator.new.create_sandbox(sandbox)
 
       sandbox.mark_ready!(
         cloud_run_url: result[:url],
-        cloud_run_job_id: result[:sandbox_id]
+        cloud_run_job_id: result[:sandbox_id],
+        runtime_mcp_url: result[:mcp_url],
+        runtime_mcp_token: result[:mcp_token]
       )
 
       # Broadcast status update
       broadcast_sandbox_update(sandbox)
     rescue StandardError => e
       Rails.logger.error("Sandbox provision failed: #{e.message}")
-      sandbox.update!(status: :failed)
+      sandbox.update!(status: :failed, error_message: e.message.truncate(500))
       broadcast_sandbox_update(sandbox)
     end
 

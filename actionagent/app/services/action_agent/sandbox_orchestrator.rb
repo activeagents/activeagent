@@ -101,7 +101,12 @@ module ActionAgent
         instance_tier: result[:instance_tier] || tier&.id,
         resources: result[:resources],
         hourly_cost: result[:hourly_cost] || tier&.hourly_cost&.to_f,
-        created_at: result[:created_at] || Time.current
+        created_at: result[:created_at] || Time.current,
+        # An app_runtime sandbox's backend clones sandbox_session.checkout_spec,
+        # boots the app, and reports where its MCP facade answers (and the
+        # bearer token it expects) so agents can use the checkout's tools.
+        mcp_url: result[:mcp_url],
+        mcp_token: result[:mcp_token]
       }
     end
 
