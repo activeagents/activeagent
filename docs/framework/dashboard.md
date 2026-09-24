@@ -533,6 +533,11 @@ authenticate :user, ->(u) { u.admin? } do
 end
 ```
 
+The engine's controllers are their own base class, so your app's session
+helpers are not on them. `config.controller_concerns` puts a concern of
+yours there for the lambda to call — see
+[Extending engine models and controllers](/framework/self-hosted-observability#extending-engine-models-and-controllers).
+
 The local ingest endpoint accepts unauthenticated posts by default (it
 receives traces from your own app process on your own machine). If the
 mount is reachable from other machines, set `config.ingest_api_key` to

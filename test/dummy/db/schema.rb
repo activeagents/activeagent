@@ -532,6 +532,7 @@ ActiveRecord::Schema[8.0].define(version: 9) do
     t.datetime "created_at", null: false
     t.boolean "published", default: false
     t.datetime "published_at"
+    t.integer "state", default: 0
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id"

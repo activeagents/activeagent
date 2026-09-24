@@ -17,6 +17,10 @@ module ActionAgent
 
     self.abstract_class = true
 
+    # After abstract_class, so a concern's included block that reads
+    # table_name sees nil.
+    ActionAgent.model_concern_modules.each { |concern| include concern }
+
     # Models that are not themselves owned still answer the ownership
     # questions, so callers can scope any dashboard relation uniformly.
     class << self

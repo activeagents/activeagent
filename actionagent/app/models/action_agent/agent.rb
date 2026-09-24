@@ -37,6 +37,7 @@ module ActionAgent
     validates :provider, presence: true
     validates :model, presence: true
     validate :validate_action_prompts
+    validate :provider_client_installed, if: :will_save_change_to_provider?, unless: :observed?
 
     # Status enum
     # `observed` agents were discovered from reported telemetry rather than
@@ -489,6 +490,21 @@ module ActionAgent
     def normalized_action(action)
       action = action.to_s.presence
       action && available_actions.include?(action) ? action : nil
+    end
+
+    # Provider client gems are optional dependencies of activeagent (OpenAI,
+    # Ollama and OpenRouter need `openai`, Anthropic needs `anthropic`), so a
+    # provider can be picked here that the host never installed. Refuse it
+    # when it is chosen, naming the gem, rather than on the agent's first
+    # run. Only the providers the engine offers are checked; the host's
+    # config/active_agent.yml may point one at another service.
+    def provider_client_installed
+      return unless PROVIDERS.include?(provider)
+
+      service = ActiveAgent::Base.provider_config_load(provider)[:service] || provider.camelize
+      ActiveAgent::Base.provider_load(service)
+    rescue LoadError => e
+      errors.add(:provider, "#{provider} can't be used yet: #{e.message}")
     end
 
     def validate_action_prompts

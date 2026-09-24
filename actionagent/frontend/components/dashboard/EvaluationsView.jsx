@@ -23,8 +23,6 @@ import { criterionGroup, modelCount, plural, runLabel, runSpend, samplingFixItem
 // is what operating it costs, apart from the judge's, which is the
 // evaluation's own.
 
-const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
-
 // Mean-score tone: a score is not a pass ratio, so it keeps the thresholds
 // the sampling evaluations have always used.
 const scoreTone = (value) => (value >= 0.85 ? 'success' : value >= 0.7 ? 'warning' : 'error');
@@ -251,7 +249,6 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     try {
       const response = await fetch(`/api/evaluations/${evaluation.id}/run`, {
         method: 'POST',
-        headers: { 'X-CSRF-Token': csrfToken() },
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -274,7 +271,6 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     try {
       const response = await fetch(`/api/evaluations/${evaluation.id}`, {
         method: 'DELETE',
-        headers: { 'X-CSRF-Token': csrfToken() },
       });
       if (response.ok || response.status === 404) {
         setEvaluations((prev) => prev.filter((e) => e.id !== evaluation.id));
