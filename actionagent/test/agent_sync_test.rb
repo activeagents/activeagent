@@ -79,6 +79,25 @@ class AgentSyncTest < ActiveSupport::TestCase
     assert_match "not an ActiveAgent::Base subclass", result.skipped.sole.skipped
   end
 
+  test "each owner syncs into its own record when agents are owned per user" do
+    previous = ActionAgent.user_class
+    ActionAgent.user_class = "User"
+    alice = User.create!(name: "Alice", email: "alice-#{SecureRandom.hex(4)}@example.com", age: 30)
+    bob = User.create!(name: "Bob", email: "bob-#{SecureRandom.hex(4)}@example.com", age: 30)
+
+    alices = ActionAgent::AgentSync.call([ InvoiceAgent ], owner: alice).agents.sole
+    bobs = ActionAgent::AgentSync.call([ InvoiceAgent ], owner: bob).agents.sole
+
+    assert_not_equal alices.id, bobs.id, "a second owner's sync must not take over the first owner's agent"
+    assert_equal alice.id, alices.reload.user_id
+    assert_equal bob.id, bobs.user_id
+  ensure
+    ActionAgent.user_class = previous
+    ActionAgent::Agent.delete_all
+    alice&.destroy
+    bob&.destroy
+  end
+
   private
 
   # Agent has no owner presence validation; the engine scopes by whatever the
