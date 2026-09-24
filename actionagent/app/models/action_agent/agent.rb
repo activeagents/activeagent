@@ -123,9 +123,6 @@ module ActionAgent
     # Available providers
     PROVIDERS = %w[openai anthropic ollama openrouter].freeze
 
-    # The ActiveAgent class name this agent's runs are recorded under — the
-    # correlation key between platform Agent records and telemetry traces
-    # (TelemetryTrace#agent_class) and solid_agent contexts.
     # Tools a schema tool class claims for this agent by naming convention:
     # Reservation -> ReservationTools -> ReservationAgent.
     #
@@ -157,9 +154,47 @@ module ActionAgent
       self.tools = defaults if defaults.any?
     end
 
+    # The ActiveAgent class name this agent's runs are recorded under — the
+    # correlation key between platform Agent records and telemetry traces
+    # (TelemetryTrace#agent_class) and solid_agent contexts. An observed
+    # agent's reported class need not end in Agent, so its traces are read
+    # through #telemetry_traces rather than by this name.
     def telemetry_agent_class
       base = agent_class_name.presence || name.parameterize(separator: "_").camelize
       base.end_with?("Agent") ? base : "#{base}Agent"
+    end
+
+    # The traces in +traces+ recorded for this agent.
+    #
+    # An observed agent is registered from its application's own class name,
+    # one agent per action, so its traces are the ones AgentRegistrar
+    # attributed to it plus #unattributed_telemetry_traces. Every other agent
+    # reads every trace reported under #telemetry_agent_class, attributed or
+    # not.
+    #
+    # @param traces [ActiveRecord::Relation] the traces the caller may read
+    # @return [ActiveRecord::Relation]
+    def telemetry_traces(traces = ActionAgent.trace_model.all)
+      return traces.for_agent(telemetry_agent_class) unless observed?
+
+      traces.where(agent_id: id).or(unattributed_telemetry_traces(traces))
+    end
+
+    # The traces in +traces+ attributed to no agent that carry this agent's
+    # identity, such as those ingested before AgentRegistrar ran. An observed
+    # agent's identity is the service, class and action it was registered
+    # from; any other agent's is #telemetry_agent_class.
+    #
+    # @param traces [ActiveRecord::Relation] the traces the caller may read
+    # @return [ActiveRecord::Relation]
+    def unattributed_telemetry_traces(traces = ActionAgent.trace_model.all)
+      identity = if observed?
+        { service_name: service_name, agent_class: agent_class_name, agent_action: action_name }
+      else
+        { agent_class: telemetry_agent_class }
+      end
+
+      traces.where(agent_id: nil, **identity)
     end
 
     # The agent's long-term memory (solid_agent HasMemory contract) — the
