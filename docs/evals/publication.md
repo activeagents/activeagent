@@ -59,9 +59,10 @@ compatible collector returns. The rest of the body is ignored, and a body that
 is not a JSON object with a string `error` gives no explanation. Control
 characters and runs of whitespace become one space, the API key becomes
 `[FILTERED]` if the collector echoes it, and the text is cut to 200 characters.
-The message never contains the request, the report, headers, or the API key. A
-compatible collector names the field it refused without quoting the submitted
-value.
+The publisher adds nothing from the request, the report or its headers; any
+report content in the message is what the collector's own text quotes. A
+collector should name the field it refused and keep report content, such as
+answers and prompts, out of its `error`.
 
 | Status | `retryable?` | What to do |
 |---|---|---|
