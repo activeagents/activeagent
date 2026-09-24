@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Claude Code connection** (`actionagent`, #478). Settings -> Integrations
+  stores a `claude setup-token` token (`sk-ant-oat…`) or an Anthropic API key
+  as the `claude_code` provider key. It is encrypted, write-only, and not an
+  agent provider. `SandboxSession#runtime_environment` hands it to an
+  `app_runtime` backend as `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`),
+  so the checkout can run Claude Code sessions. `/api/provider_keys` rows now
+  carry `kind` (`key`, `host` or `connection`).
 - **GitHub connections and checkout sandboxes** (`actionagent`, #477).
   Settings -> Integrations connects GitHub over OAuth
   (`ActionAgent.github_client_id` / `github_client_secret`, or

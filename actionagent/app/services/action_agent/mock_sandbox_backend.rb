@@ -31,10 +31,13 @@ module ActionAgent
       }
 
       # A checkout sandbox: record what would be cloned (never the token) and
+      # which credentials would be passed in, and
       # report the runtime's MCP endpoint the way a real backend does. Nothing
       # answers there — this backend runs nothing.
       if (checkout = session.try(:checkout_spec))
         @sandboxes[name][:checkout] = checkout.except(:token)
+        # Which variables would be set, never their values.
+        @sandboxes[name][:environment_keys] = session.runtime_environment.keys
         @sandboxes[name][:mcp_url] = "http://127.0.0.1:8080/activeagents/mcp"
       end
 
