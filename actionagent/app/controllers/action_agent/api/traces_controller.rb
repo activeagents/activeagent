@@ -80,6 +80,12 @@ module ActionAgent
         enforce_ingest_quota_for!(:trace_ingest, "Trace ingest limit reached")
       end
 
+      # Counts the request against the tenant, when its account model
+      # defines the hook.
+      def record_ingest_request
+        @account.increment_telemetry_usage! if @account.respond_to?(:increment_telemetry_usage!)
+      end
+
       # Process traces synchronously for local development.
       def process_traces_synchronously(traces, sdk_info)
         model = ActionAgent.trace_model

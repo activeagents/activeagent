@@ -8,6 +8,13 @@ require "test_helper"
 class ReportTestAccount < ActiveRecord::Base
   belongs_to :owner, class_name: "User", optional: true
 
+  # The trace ingest usage hook a host may define, counted per class.
+  cattr_accessor :telemetry_requests, default: 0
+
+  def increment_telemetry_usage!
+    self.class.telemetry_requests += 1
+  end
+
   def self.ensure_table!
     return if connection.table_exists?(:report_test_accounts)
 
@@ -491,6 +498,23 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
     assert_response :created
     assert_equal 1, keys.size
     assert_match(/account:#{tenant.id}\z/, keys.first)
+  end
+
+  test "counts only trace ingest through the tenant's increment_telemetry_usage!" do
+    use_tenants!
+    tenant = create_tenant("Counted")
+    ReportTestAccount.telemetry_requests = 0
+
+    publish(envelope, token: tenant.telemetry_api_key)
+    assert_response :created
+    assert_equal 0, ReportTestAccount.telemetry_requests, "a report post is metered through usage_recorder instead"
+
+    ActionAgent::ProcessTelemetryTracesJob.stub(:perform_later, nil) do
+      post "/activeagents/api/traces", params: { traces: [ { trace_id: "t1" } ] }, as: :json,
+        headers: { "Authorization" => "Bearer #{tenant.telemetry_api_key}" }
+    end
+    assert_response :accepted
+    assert_equal 1, ReportTestAccount.telemetry_requests
   end
 
   # --- publishing ----------------------------------------------------------------

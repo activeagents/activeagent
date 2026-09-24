@@ -580,7 +580,10 @@ In multi-tenant mode the ingest API authenticates with
 asynchronously through `ActionAgent::ProcessTelemetryTracesJob`
 (idempotent per trace_id, capped at 100 traces per request). Add an
 `increment_telemetry_usage!` method to your account model to hook usage
-tracking or rate limiting.
+tracking or rate limiting; it is called once per authenticated trace ingest
+request. The evaluation report collector authenticates the same keys but does
+not call it: it asks `quota_checker` with `:evaluation_report` and tells
+`usage_recorder` of each stored report.
 
 ## Relationship to the hosted platform
 
