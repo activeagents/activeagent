@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
 import { FALLBACK_PROVIDER_MODELS, fetchProviderModels } from '../../utils/providerModels';
+import ModelPicker from './ModelPicker';
 import { useTheme } from '../../contexts/ThemeContext';
 import { paletteFor, ACCENT } from '../../utils/dashboardTheme';
 import TracesView from './TracesView';
@@ -503,19 +504,13 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
         </div>
         <div>
           <label style={labelStyle(colors)}>Model</label>
-          <select
+          <ModelPicker
             value={formData.model}
-            onChange={(e) => updateField('model', e.target.value)}
+            models={providerModels[formData.provider]}
+            onChange={(model) => updateField('model', model)}
             className="aa-field"
             style={{ ...fieldStyle(colors), fontFamily: TYPOGRAPHY.mono }}
-          >
-            {(providerModels[formData.provider]?.includes(formData.model)
-              ? providerModels[formData.provider]
-              : [formData.model, ...(providerModels[formData.provider] || [])]
-            ).filter(Boolean).map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 
