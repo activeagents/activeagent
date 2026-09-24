@@ -88,11 +88,19 @@ module ActionAgent
 
       # GitHub connections and checkout sandboxes, likewise later than the
       # dashboard tables.
-      return if existing_migration?("create_active_agent_github_connections")
+      unless existing_migration?("create_active_agent_github_connections")
+        migration_template(
+          "create_active_agent_github_connections.rb.erb",
+          "db/migrate/create_active_agent_github_connections.rb"
+        )
+      end
+
+      # Claude Code sessions inside those checkouts.
+      return if existing_migration?("create_active_agent_code_sessions")
 
       migration_template(
-        "create_active_agent_github_connections.rb.erb",
-        "db/migrate/create_active_agent_github_connections.rb"
+        "create_active_agent_code_sessions.rb.erb",
+        "db/migrate/create_active_agent_code_sessions.rb"
       )
     end
 

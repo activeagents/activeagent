@@ -194,9 +194,10 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :layout
 
-    # Which sandbox backend to provision with: :mock (the only one the
-    # engine ships — an in-memory fake that runs nothing) or the name of a
-    # backend the host registered in sandbox_backends. An unregistered name
+    # Which sandbox backend to provision with: :mock (an in-memory fake that
+    # runs nothing), :local (checkouts cloned and booted as child processes
+    # of the dashboard itself — see local_sandboxes_enabled), or the name of
+    # a backend the host registered in sandbox_backends. An unregistered name
     # falls back to :mock with a logged warning.
     # @return [Symbol]
     attr_accessor :sandbox_service
@@ -291,6 +292,47 @@ module ActionAgent
     # sandbox_service.
     # @return [Hash{String => String}]
     attr_accessor :sandbox_backends
+
+    # Whether the :local sandbox backend may run. It clones the owner's
+    # repository onto the dashboard's own machine and runs its setup and
+    # server as child processes — the owner's code, with the dashboard's
+    # privileges — so it is for a developer's machine or a single-user
+    # install. Unset, it follows the environment: on in development and
+    # test, off everywhere else.
+    # @return [Boolean, nil]
+    attr_writer :local_sandboxes_enabled
+
+    # Where the :local backend keeps each sandbox's checkout, logs and
+    # process state (one directory per session). Unset, tmp/action_agent/sandboxes
+    # under the host app.
+    # @return [String, Pathname, nil]
+    attr_writer :local_sandbox_root
+
+    # How long the :local backend waits for a checkout's setup and server to
+    # come up before giving up, in seconds.
+    # @return [Integer]
+    attr_accessor :local_sandbox_boot_timeout
+
+    # The Claude Code executable a sandbox backend runs headless sessions
+    # with. The :local backend runs it on the dashboard's machine.
+    # @return [String]
+    attr_accessor :claude_code_command
+
+    # The permission mode Claude Code sessions run in. "acceptEdits" lets a
+    # session edit files in the checkout and run filesystem commands; with
+    # nobody to answer prompts, anything else that would ask is denied.
+    # @return [String]
+    attr_accessor :claude_code_permission_mode
+
+    # A cap on agentic turns per Claude Code session (nil for Claude Code's
+    # own default).
+    # @return [Integer, nil]
+    attr_accessor :claude_code_max_turns
+
+    # How long a Claude Code session may run before it is stopped, in
+    # seconds.
+    # @return [Integer]
+    attr_accessor :claude_code_timeout
 
     # Whether the dashboard may execute agents against real providers.
     # Disable to run the dashboard as a read-only observability surface.
@@ -508,6 +550,19 @@ module ActionAgent
       Rails.env.local?
     end
 
+    # Whether the :local sandbox backend may run on this install.
+    # @return [Boolean]
+    def local_sandboxes_enabled?
+      return @local_sandboxes_enabled == true unless @local_sandboxes_enabled.nil?
+
+      Rails.env.local?
+    end
+
+    # @return [Pathname]
+    def local_sandbox_root
+      Pathname.new(@local_sandbox_root.presence || Rails.root.join("tmp", "action_agent", "sandboxes"))
+    end
+
     # Tells the host app that +owner+ performed +kind+. Never raises: a
     # bookkeeping failure must not fail the action that was already taken.
     def record_usage(owner, kind)
@@ -642,6 +697,13 @@ module ActionAgent
       @quota_checker = nil
       @provider_credentials_resolver = nil
       @sandbox_backends = {}
+      @local_sandboxes_enabled = nil
+      @local_sandbox_root = nil
+      @local_sandbox_boot_timeout = 600
+      @claude_code_command = "claude"
+      @claude_code_permission_mode = "acceptEdits"
+      @claude_code_max_turns = nil
+      @claude_code_timeout = 1800
       @execution_enabled = true
       @run_host_agent_classes = false
       @assistant_enabled = nil
