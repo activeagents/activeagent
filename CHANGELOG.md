@@ -78,6 +78,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   like every other engine model (`actionagent`), so it carries the model
   concerns above, `AdapterAware` and the ownership API (`owner_association`,
   `for_owner`) from the same place. Its table name is unchanged.
+- A collector's rejection of `ActiveAgent::Evals::Publisher` says what it
+  refused and whether to retry. The message carries the `error` string of a
+  JSON object response body beside the HTTP status — control characters
+  stripped, the API key filtered, cut to 200 characters; nothing else from
+  the body — and what to do next: never retry the report under the same
+  `run_id` on a 409, publish a smaller selection on a 413, correct the report
+  on a 422, retry later on a 408, 429 or 5xx. `Publisher::Error` carries
+  `status`, `detail` and `retryable?`, and stays the one class to rescue.
 
 ### Deprecated
 
