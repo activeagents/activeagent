@@ -38,9 +38,14 @@ module ActionAgent
           return
         end
 
-        # Track usage for rate limiting (if the account responds to it)
-        @account.increment_telemetry_usage! if @account.respond_to?(:increment_telemetry_usage!)
+        record_ingest_request
       end
+
+      # Called once the tenant has authenticated. Counts nothing here: trace
+      # ingest counts the request through the tenant's
+      # increment_telemetry_usage!, and the report collector records a stored
+      # report through ActionAgent.usage_recorder instead.
+      def record_ingest_request; end
 
       # Requires the configured single-tenant ingest key when one is set.
       # The telemetry reporter, ruby_llm_telemetry and
@@ -66,10 +71,14 @@ module ActionAgent
         denial = ActionAgent.quota_denial(@account, kind)
         return if denial.blank?
 
-        body = { error: error }
-        body = denial.is_a?(Hash) ? body.merge(denial) : body.merge(message: denial)
+        render json: quota_denial_body(denial, error), status: :too_many_requests
+      end
 
-        render json: body, status: :too_many_requests
+      # The 429 body for a quota checker's +denial+: its Hash merged in, or
+      # its String as the message.
+      def quota_denial_body(denial, error)
+        body = { error: error }
+        denial.is_a?(Hash) ? body.merge(denial) : body.merge(message: denial)
       end
 
       # Extracts Bearer token from Authorization header.
