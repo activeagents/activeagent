@@ -64,6 +64,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   record's `tools` and `instructions` columns. Dashboard-authored agents, which
   name no class, keep using the dynamic runtime either way; a class name that no
   longer resolves falls back to it rather than failing the run.
+- MCP servers take `allowed_tools` and `require_approval` in the common
+  format. OpenAI's Responses API receives both as given; Anthropic receives
+  `allowed_tools` as an `mcp_toolset` entry in `tools` (every other tool of
+  the server disabled), beside any tools the request already declares
+  (#328, by @dark-panda).
 
 ### Changed
 
