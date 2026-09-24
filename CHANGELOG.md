@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-09-24
+
+Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:
+a mounted engine collects the evaluation reports applications publish with
+`ActiveAgent::Evals::Publisher`, whose failures now say what the collector
+refused and whether to retry; observed agents read their own traces in
+evaluation criteria, the Tools and Traces tabs and deploy markers; host apps
+extend the engine's models and controllers through concerns and mirror their
+agent classes into the dashboard; and the Evaluations page is rebuilt around
+runs. Run the install generator after upgrading (see Upgrading below).
+
 Upgrading: the install generator emits two new migrations, both guarded
 column by column: `ensure_agent_release_columns`, which adds the agent release
 columns an install generated fresh on 1.6.2-1.6.4 never got (and those on
