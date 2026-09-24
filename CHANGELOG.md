@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Host concerns for the engine's models and controllers** (`actionagent`).
+  `ActionAgent.model_concerns` is included into
+  `ActionAgent::ApplicationRecord` as it loads, and so into every engine
+  model; `ActionAgent.controller_concerns` into
+  `ActionAgent::ApplicationController`, ahead of its own callbacks, and so
+  into every dashboard controller. (The ingest endpoint,
+  `Api::TracesController`, inherits `ActionController::API` and keeps its
+  own bearer-token authentication; it is not touched.) Entries are modules
+  or their names, resolved
+  when the class loads. A host that pins the engine's tables to one database
+  connection, or carries its session helpers onto the dashboard's
+  controllers, configures that here instead of reopening the classes from a
+  `to_prepare` block.
 - **The Evaluations page is rebuilt around runs** (`actionagent`). Evaluations
   are the top level; every run is kept and listed with its movement against
   the run before it (`+3 passed vs #2`, `partial run`, `#1 failed`), and a
@@ -36,6 +49,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dashboard's object lists hold their metric columns in place: a trace,
   interaction or evaluation run with nothing in a column prints a dash there
   rather than sliding its neighbours over (`MetaStrip`).
+- `ActiveAgent::Base.rendered_instructions` renders an agent's instructions
+  outside a generation, for a dashboard mirroring the class and for tests
+  asserting what a model is told. Both otherwise reached a private renderer
+  through `send`.
+- `ActionAgent::AgentSync` mirrors host agent classes into dashboard `Agent`
+  records, setting the `agent_class_name` that `AgentRelease` already expects a
+  host to have written. The code owns what an agent is (name, description,
+  instructions, tools — rewritten every sync); the operator owns how it runs
+  (provider, model, status — set on create and preserved), so a model chosen in
+  the dashboard survives the next deploy.
+- `ActionAgent.run_host_agent_classes` (default `false`) runs an agent that
+  mirrors a host class as that class, rather than as one rebuilt from the
+  record's `tools` and `instructions` columns. Dashboard-authored agents, which
+  name no class, keep using the dynamic runtime either way; a class name that no
+  longer resolves falls back to it rather than failing the run.
+- MCP servers take `allowed_tools` and `require_approval` in the common
+  format. OpenAI's Responses API receives both as given; Anthropic receives
+  `allowed_tools` as an `mcp_toolset` entry in `tools` (every other tool of
+  the server disabled), beside any tools the request already declares
+  (#328, by @dark-panda).
 - **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
   which hosts driving `acts_as_chat` conversations had been writing for
   themselves. `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
@@ -58,6 +91,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The engine's judge blocks take `ActiveAgent::Evals::Judge`'s `kind:`, so a
   scenario run's score, recommendation and verdict calls are metered apart.
+- `ActionAgent::TelemetryTrace` inherits `ActionAgent::ApplicationRecord`
+  like every other engine model (`actionagent`), so it carries the model
+  concerns above, `AdapterAware` and the ownership API (`owner_association`,
+  `for_owner`) from the same place. Its table name is unchanged.
+
+### Deprecated
+
+- Assigning `ActionAgent.base_controller_class`, which has never been
+  consumed, warns through `ActionAgent.deprecator` and points at
+  `controller_concerns`. The accessor is removed in 2.0.
+
+### Fixed
+
+- `Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later` run
+  their job instead of raising `ArgumentError: unknown keywords` in the
+  worker (#346).
+- The agent builder and editor can reach every model a provider serves: the
+  OpenRouter catalog is no longer cut to its first 100 ids, and the model
+  field is a type-ahead over the catalog that also takes an unlisted id
+  (`actionagent`, #427).
+- A rejected Create Agent shows its validation errors on the builder — a
+  summary and a message under each field — instead of leaving the form
+  silently in place. `POST`/`PATCH /api/agents` 422s carry `field_errors`
+  beside `errors` (`actionagent`, #426).
+- An engine agent is refused a provider whose client gem the host has not
+  installed (`openai` for OpenAI, Ollama and OpenRouter; `anthropic` for
+  Anthropic) when the provider is chosen, with a validation error naming
+  the gem, instead of failing on its first run (`actionagent`, #416).
+
+### Security
+
+- The dashboard's JSON API verifies the CSRF token (`actionagent`, #461). It
+  authenticates with the host's session cookie but had opted out of forgery
+  protection. The dashboard now sends the page's token with every mutating
+  request from one fetch shim; the MCP facade and trace ingest, which
+  authenticate by bearer token, stay exempt. A rejected request answers
+  `422` with `code: "invalid_csrf_token"`. Hosts that re-enabled protection
+  themselves (`ActionAgent::Api::BaseController.protect_from_forgery`) can
+  drop that line.
+
+## [1.6.4] - 2026-09-22
+
+Releases `activeagent` and `actionagent` 1.6.4 from one tag. A patch on 1.6.3
+carrying one fix to `SchemaTools`, for a filter that answered confidently and
+wrongly instead of failing.
+
+### Fixed
+
+- A Rails enum is offered to the model as its names (`{type: "string", enum:
+  [...]}`) instead of the integer backing it. `SchemaGenerator` reads enums from
+  inclusion validators and never consulted `defined_enums`, so a `status` column
+  reached the model as a bare integer with no labels.
+- A filter value outside an enum — alone or inside an IN list — is rejected,
+  naming the valid values, instead of matching no rows. `status: "pending"`
+  returned `{count: 0}`, which an agent reports as a fact, indistinguishable
+  from "none match". Same reasoning as the unknown-operator rejection in
+  `range_predicates!`.
+- An enum is no longer offered the range form. Its integer backing is a
+  declaration-order artefact, so `status: {gt: 1}` was a meaningless filter that
+  still returned a confident count.
 
 ## [1.6.3] - 2026-09-18
 

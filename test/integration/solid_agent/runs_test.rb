@@ -98,20 +98,30 @@ class SolidAgentRunsTest < SolidAgentIntegrationTest
 
     generation = AgentGeneration.sole
 
-    # The mock provider's model prices at zero by design, so the assertion
-    # that matters is that estimation runs and stays consistent.
+    # Usage has to reach the record before there is anything to price.
+    assert_operator generation.input_tokens + generation.output_tokens, :>, 0
+
+    # The mock provider's model prices at zero by design: 0.0 rather than nil
+    # is the proof that estimation ran over the recorded tokens.
+    assert_equal 0.0, generation.estimated_cost
+
+    # A real model prices above zero. Which table answers — solid_agent's
+    # static rates or RubyLLM's registry — depends on whether ruby_llm has
+    # been loaded elsewhere in this process (its provider tests load it when
+    # OPENAI_API_KEY is set), and the two disagree on this model. So no dollar
+    # figure is pinned through the tables; solid_agent's own suite owns those.
+    generation.update!(model: "claude-sonnet-5", input_tokens: 12_000, output_tokens: 800)
+
+    assert_operator generation.estimated_cost, :>, 0
     assert_equal(
-      SolidAgent::ModelPricing.estimate(
-        model: generation.model,
-        input_tokens: generation.input_tokens,
-        output_tokens: generation.output_tokens
-      ),
+      SolidAgent::ModelPricing.estimate(model: "claude-sonnet-5", input_tokens: 12_000, output_tokens: 800),
       generation.estimated_cost
     )
 
-    assert_in_delta 0.048, SolidAgent::ModelPricing.estimate(
-      model: "claude-sonnet-5", input_tokens: 12_000, output_tokens: 800
-    ), 0.0005
+    # Explicit rates bypass every table, so the arithmetic itself is stable.
+    assert_in_delta 0.048,
+      generation.estimated_cost(input_price_per_million: 3.0, output_price_per_million: 15.0),
+      1e-9
   end
 
   test "one trace id joins the run, the conversation and the generation" do

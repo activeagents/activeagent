@@ -16,9 +16,10 @@ module ActionAgent
   # @example Creating a trace with account (multi-tenant mode)
   #   ActionAgent::TelemetryTrace.create_from_payload(trace_payload, sdk_info, account: account)
   #
-  class TelemetryTrace < ::ActiveRecord::Base
-    include ActionAgent::AdapterAware
-
+  class TelemetryTrace < ApplicationRecord
+    # Fixed rather than derived from ActionAgent.table_name_prefix: the
+    # telemetry migration the install generator writes creates this table
+    # under its literal name, whatever prefix the host sets.
     self.table_name = "active_agent_telemetry_traces"
 
     # Optional account association for multi-tenant mode

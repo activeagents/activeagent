@@ -20,8 +20,6 @@ const TELEMETRY_CRITERIA = [
   { type: 'trace_latency', key: 'trace_latency', label: 'Avg trace latency ≤ 5s (telemetry, 7d)', config: { max_avg_ms: 5000, window_hours: 168 } },
 ];
 
-const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
-
 const inputStyle = {
   padding: '8px 12px', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box',
   background: 'var(--color-card)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text-primary)',
@@ -61,7 +59,7 @@ export default function EvaluationForm({ agents, agentId, onCreated, onCancel })
     try {
       const response = await fetch('/api/evaluations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           evaluation: {
             agent_id: form.agent_id,
