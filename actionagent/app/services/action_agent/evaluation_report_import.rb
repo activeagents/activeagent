@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "digest"
+require "zlib"
 
 module ActionAgent
   # Used to store an evaluation an application ran itself, published as the
@@ -10,7 +11,7 @@ module ActionAgent
   #
   # The tenant is the account the ingest key resolved to on a multi-tenant
   # install, and nil on a single-tenant one. The report lands as:
-  #   agent      — the tenant's observed agent for the envelope's `source` and
+  #   agent      — the observed agent for the envelope's `source` and
   #                `agent_name`, owned where the tenant's traced agents are
   #                (see #owner)
   #   evaluation — that agent's evaluation for the `suite` and the report's
@@ -23,25 +24,51 @@ module ActionAgent
   # computed from the stored results, not taken from the report. The judge's
   # verdict and label are taken from it.
   #
-  # An identical retry returns the stored run. Different content under a run_id
-  # already stored raises Conflict. The unique index on the run's tenant and
-  # run_id settles concurrent deliveries. A multi-tenant import also holds the
-  # tenant's row lock, so one tenant's imports find or create its agent,
-  # evaluation and scenarios one at a time.
+  # An identical retry returns the stored run, before anything is asked of the
+  # `admit` callable. Different content under a run_id already stored raises
+  # Conflict. Imports for one owner run one at a time under an advisory lock
+  # (OwnerLock), so concurrent first deliveries find or create one agent,
+  # evaluation and scenario set, and the unique index on the run's tenant and
+  # run_id settles any delivery the lock does not serialize.
   class EvaluationReportImport
     class Error < StandardError; end
+    # The payload is not a report the engine can store as sent; 422.
     class Invalid < Error; end
+    # Different content under a run_id already stored; 409.
     class Conflict < Error; end
-    class LimitExceeded < Error; end
+    # Storing the report needs an operator to act first; 403.
+    class Refused < Error; end
+    # A cap on stored records was reached; 403.
+    class LimitExceeded < Refused; end
+    # Another import holds the owner's lock past OwnerLock::TIMEOUT; 503.
+    class Busy < Error; end
+    # The `admit` callable refused a new report; 429.
+    class Denied < Error
+      attr_reader :denial
+
+      def initialize(denial)
+        @denial = denial
+        super(denial.is_a?(Hash) ? denial[:error] || denial["error"] : denial.to_s)
+      end
+    end
 
     MAX_BYTES = 2.megabytes
     MAX_RESULTS = 1000
     MAX_MODELS = 50
     MAX_TEXT = MAX_BYTES
+    # Scenarios one evaluation may hold, and evaluations one agent may hold,
+    # across every report published to it.
+    MAX_SCENARIOS_PER_EVALUATION = 2000
+    MAX_EVALUATIONS_PER_AGENT = 100
     # The longest evaluation name a string column holds on every supported
     # database (MySQL's VARCHAR(255)).
     MAX_EVALUATION_NAME = 255
+    # The most a TEXT column holds on MySQL. A prompt, error or recommendation
+    # longer than this is stored cut to it; the scenario snapshot and the
+    # diagnosis, which are JSON, keep the whole text.
+    TEXT_BYTES = 65_535
     IDENTIFIER_PATTERN = /\A[^[:cntrl:]]{1,200}\z/
+    AGENT_NAME_PATTERN = /\A[^[:cntrl:]]{2,100}\z/
     TRACE_PATTERN = /\A[a-zA-Z0-9_-]{1,128}\z/
     SCOPE_PATTERN = %r{\A[\w .:/@-]{1,100}\z}
     STATUSES = %w[passed failed errored].freeze
@@ -59,34 +86,66 @@ module ActionAgent
     }.freeze
     # What an observed agent created from a report records as its source.
     AGENT_SOURCE = "evaluation-report"
+    # The evaluation_runs columns an import writes that later migrations added.
+    REQUIRED_RUN_COLUMNS = %w[external_tenant external_run_id external_report_digest agent_version_id].freeze
 
     # Returns `[run, duplicate]`: the stored EvaluationRun, and whether an
     # earlier identical delivery had already stored it. `account` is the
-    # tenant, or nil on a single-tenant install. NUL characters, which
-    # PostgreSQL cannot store, are removed from every string first.
+    # tenant, or nil on a single-tenant install.
     #
-    # Raises Invalid for a payload that is not a valid version-1 report,
-    # Conflict for different content under a stored run_id or an evaluation
-    # the report does not belong to, and LimitExceeded when the owner already
-    # holds AgentRegistrar::MAX_OBSERVED_PER_OWNER observed agents.
-    def self.call(payload:, account: nil)
-      new(payload, account).call
+    # `admit` is asked only for a report that would be stored, never for an
+    # identical retry. It returns nil to allow the report, or a denial, which
+    # is raised as Denied.
+    #
+    # The envelope's identities are validated as sent. NUL characters, which
+    # PostgreSQL cannot store, are removed from every string inside `report`.
+    #
+    # Raises Invalid for a payload that is not a valid version-1 report, or an
+    # evaluation name the agent already holds for another suite or scope;
+    # Conflict for different content under a stored run_id; Refused (and
+    # LimitExceeded) when storing needs an operator to act first; Denied; and
+    # Busy.
+    def self.call(payload:, account: nil, admit: nil)
+      new(payload, account, admit).call
     end
 
-    def initialize(payload, account)
-      @payload = without_nul(payload)
+    # Why this install cannot store reports, or nil when it can: an install
+    # with no evaluation tables (generated with --traces-only), or one whose
+    # evaluation runs lack a column a later migration adds.
+    def self.unavailable_reason
+      unless EvaluationRun.table_exists?
+        return "This install has no evaluation tables (it was installed with --traces-only), so it cannot store evaluation reports"
+      end
+
+      missing = REQUIRED_RUN_COLUMNS - EvaluationRun.column_names
+      return if missing.empty?
+
+      "Evaluation runs are missing #{missing.join(', ')}: run `bin/rails generate action_agent:install --skip` " \
+        "and `bin/rails db:migrate`, then restart"
+    end
+
+    def initialize(payload, account, admit)
+      @payload = payload
       @account = account
+      @admit = admit
     end
 
     def call
       validate!
       digest = Digest::SHA256.hexdigest(JSON.generate(canonical(@payload)))
-      attempts = 0
+      existing = stored_run
+      return [ identical!(existing, digest), true ] if existing
 
+      attempts = 0
       begin
-        serialized do
-          existing = stored_run
-          existing ? [ identical!(existing, digest), true ] : [ import(digest), false ]
+        OwnerLock.new(EvaluationRun.connection, owner_lock_key).synchronize do
+          EvaluationRun.transaction(requires_new: true) do
+            existing = stored_run
+            next [ identical!(existing, digest), true ] if existing
+
+            admit!
+            [ import(digest), false ]
+          end
         end
       rescue ActiveRecord::RecordNotUnique
         # A concurrent delivery committed this run, or an agent, evaluation or
@@ -100,10 +159,61 @@ module ActionAgent
       end
     end
 
+    # A lock held for the duration of a block, keyed by a string, on the
+    # database the engine's tables live in: a transaction-scoped advisory lock
+    # on PostgreSQL, a named lock on MySQL, and nothing on SQLite, which
+    # already runs one write transaction at a time. Raises Busy when MySQL
+    # cannot take the lock within TIMEOUT seconds.
+    class OwnerLock
+      TIMEOUT = 30
+
+      def initialize(connection, key)
+        @connection = connection
+        @key = key
+      end
+
+      def synchronize(&block)
+        case @connection.adapter_name.to_s.downcase
+        when /postgres/ then postgres_lock(&block)
+        when /mysql|trilogy/ then mysql_lock(&block)
+        else yield
+        end
+      end
+
+      private
+
+      # Held until the transaction it is taken in ends. The two-integer form
+      # keeps it out of the single-bigint keyspace Rails' migration lock uses.
+      def postgres_lock
+        @connection.transaction(requires_new: true) do
+          @connection.execute("SELECT pg_advisory_xact_lock(#{signed(Zlib.crc32('action_agent'))}, #{signed(Zlib.crc32(@key))})")
+          yield
+        end
+      end
+
+      # Held by the connection until released, so it is released after the
+      # block's transaction has committed.
+      def mysql_lock
+        name = @connection.quote("action_agent:#{Digest::SHA256.hexdigest(@key).first(40)}")
+        acquired = @connection.select_value("SELECT GET_LOCK(#{name}, #{TIMEOUT})")
+        raise Busy, "Another evaluation report for this agent is being stored; retry shortly" unless acquired.to_i == 1
+
+        begin
+          yield
+        ensure
+          @connection.select_value("SELECT RELEASE_LOCK(#{name})")
+        end
+      end
+
+      def signed(crc)
+        crc >= 2**31 ? crc - 2**32 : crc
+      end
+    end
+
     private
 
     def report
-      @payload["report"]
+      @report ||= without_nul(@payload["report"])
     end
 
     def results
@@ -112,14 +222,6 @@ module ActionAgent
 
     def metadata
       report["metadata"] || {}
-    end
-
-    # The tenant's row lock where there is a tenant, a plain transaction
-    # otherwise. A savepoint when the caller already holds a transaction, so
-    # a unique-index collision leaves that transaction usable for #call's
-    # second read.
-    def serialized(&block)
-      @account ? @account.with_lock(requires_new: true, &block) : EvaluationRun.transaction(requires_new: true, &block)
     end
 
     # The value of the run's external_tenant: the tenant's id, or "" with no
@@ -136,6 +238,11 @@ module ActionAgent
       raise Conflict, "run_id already exists with a different report" unless run.external_report_digest == digest
 
       run
+    end
+
+    def admit!
+      denial = @admit&.call
+      raise Denied, denial if denial.present?
     end
 
     def import(digest)
@@ -168,14 +275,16 @@ module ActionAgent
     # Otherwise the tenant itself, or nobody on a single-tenant install, as
     # AgentRegistrar decides for a trace.
     #
-    # Raises Error when a multi-tenant resolver returns nil, which would place
-    # the agent in no tenant's dashboard.
+    # Raises Refused when a multi-tenant resolver returns nil, which would
+    # place the agent in no tenant's dashboard.
     def owner
       return @owner if defined?(@owner)
 
       resolver = ActionAgent.trace_owner_resolver
       @owner = resolver ? resolver.call(tenant_trace) : @account
-      raise Error, "ActionAgent.trace_owner_resolver returned no owner for the publishing tenant" if @owner.nil? && ActionAgent.multi_tenant?
+      if @owner.nil? && ActionAgent.multi_tenant?
+        raise Refused, "ActionAgent.trace_owner_resolver returned no owner for the publishing tenant"
+      end
 
       @owner
     end
@@ -189,10 +298,23 @@ module ActionAgent
       end
     end
 
+    # Imports that could create the same agent share a lock: the owner's
+    # agents are where find_or_create_agent looks.
+    def owner_lock_key
+      owner ? "evaluation_report:#{owner.class.name}:#{owner.id}" : "evaluation_report:install"
+    end
+
     # The owner's agents. Every agent when the install has no owner to scope
     # to, which is how AgentRegistrar reads a single-tenant dashboard.
     def owner_agents
       owner.nil? && !ActionAgent.multi_tenant? ? Agent.all : Agent.for_owner(owner)
+    end
+
+    # Whether an agent also records the tenant in account_id. Not when agents
+    # are owned by account: the owner already is the account the agent
+    # belongs to, which the host's resolver may place outside the tenant.
+    def records_tenant?
+      @account.present? && Agent.owner_association != :account
     end
 
     # --- records ---------------------------------------------------------------
@@ -202,7 +324,7 @@ module ActionAgent
     def find_or_create_agent
       find_agent || create_agent(agent_slug)
     rescue ActiveRecord::RecordNotUnique
-      # Another tenant's concurrent first import took the slug.
+      # Another owner's concurrent first import took the slug.
       find_agent || create_agent("#{slug_base}-#{SecureRandom.hex(3)}")
     end
 
@@ -210,10 +332,11 @@ module ActionAgent
       { service_name: @payload["source"], agent_class_name: @payload["agent_name"], action_name: nil }
     end
 
-    # Narrowed to the tenant, whose owner may also own another tenant's agents.
+    # Narrowed to the tenant when agents are owned by a user, who may belong
+    # to another tenant as well.
     def find_agent
       agents = owner_agents.observed_agents
-      agents = agents.where(account_id: @account.id) if @account
+      agents = agents.where(account_id: @account.id) if records_tenant?
       agents.find_by(agent_identity)
     end
 
@@ -221,7 +344,8 @@ module ActionAgent
     # aborting the import's transaction on PostgreSQL.
     def create_agent(slug)
       if owner_agents.observed_agents.count >= AgentRegistrar::MAX_OBSERVED_PER_OWNER
-        raise LimitExceeded, "Observed agent limit reached (#{AgentRegistrar::MAX_OBSERVED_PER_OWNER})"
+        raise LimitExceeded, "Observed agent limit reached (#{AgentRegistrar::MAX_OBSERVED_PER_OWNER}); " \
+                             "remove observed agents on the dashboard before publishing a new one"
       end
 
       Agent.transaction(requires_new: true) do
@@ -242,7 +366,7 @@ module ActionAgent
           )
         )
         agent.owner = owner
-        agent.account_id = @account.id if @account
+        agent.account_id = @account.id if records_tenant?
         agent.save!
         agent
       end
@@ -266,7 +390,13 @@ module ActionAgent
       unless evaluation.new_record?
         return evaluation if evaluation.config["external"] == external_config
 
-        raise Conflict, "The agent already has an evaluation named #{evaluation_name} that this report does not belong to"
+        raise Invalid, "The agent already has an evaluation named #{evaluation_name} that this report does not " \
+                       "belong to; publish under another suite or scope"
+      end
+
+      if agent.evaluations.count >= MAX_EVALUATIONS_PER_AGENT
+        raise LimitExceeded, "Evaluation limit reached (#{MAX_EVALUATIONS_PER_AGENT} for this agent); " \
+                             "remove evaluations on the dashboard before publishing a new suite or scope"
       end
 
       evaluation.assign_attributes(
@@ -302,18 +432,30 @@ module ActionAgent
     end
 
     # Adds the scenarios the evaluation lacks and updates each reported one to
-    # the prompt and group it ran with. Scenarios the report did not run are left
-    # as they are. Returns every scenario of the evaluation by key.
+    # the prompt and group it ran with. Reads only the reported scenarios;
+    # the ones the report did not run are left as they are. Returns the
+    # reported scenarios by key.
+    #
+    # Raises LimitExceeded when the evaluation would hold more than
+    # MAX_SCENARIOS_PER_EVALUATION scenarios.
     def upsert_scenarios(evaluation)
-      by_key = evaluation.new_record? ? {} : evaluation.scenarios.index_by(&:key)
-      next_position = by_key.values.filter_map(&:position).max&.succ || 0
+      keys = reported_scenarios.map { |scenario| scenario["key"] }
+      by_key = evaluation.new_record? ? {} : evaluation.scenarios.where(key: keys).index_by(&:key)
+      added = keys.size - by_key.size
+      held = evaluation.new_record? ? 0 : evaluation.scenarios.count
+      if held + added > MAX_SCENARIOS_PER_EVALUATION
+        raise LimitExceeded, "Scenario limit reached (#{MAX_SCENARIOS_PER_EVALUATION} per evaluation): #{evaluation_name} " \
+                             "holds #{held} and this report adds #{added}; remove scenarios on the dashboard or publish " \
+                             "under another suite or scope"
+      end
 
+      next_position = evaluation.new_record? ? 0 : (evaluation.scenarios.maximum(:position)&.succ || 0)
       reported_scenarios.each do |attributes|
         unless by_key.key?(attributes["key"])
           by_key[attributes["key"]] = evaluation.scenarios.build(key: attributes["key"], position: next_position)
           next_position += 1
         end
-        by_key[attributes["key"]].assign_attributes(prompt: attributes["prompt"], group: attributes["group"])
+        by_key[attributes["key"]].assign_attributes(prompt: truncated(attributes["prompt"], TEXT_BYTES), group: attributes["group"])
       end
       # A new evaluation is valid without criteria only once it has scenarios, so
       # it is saved with them; an existing one saves the scenarios it gained.
@@ -336,14 +478,14 @@ module ActionAgent
         status: result["status"],
         score: result["score"],
         scores: result["scores"] || {},
-        output: result["answer"].to_s.byteslice(0, OUTPUT_BYTES).to_s.scrub.presence,
+        output: truncated(result["answer"], OUTPUT_BYTES),
         tool_calls: result["tool_calls"] || [],
         duration_ms: result["duration_ms"],
         input_tokens: result["input_tokens"],
         output_tokens: result["output_tokens"],
         cost: result["cost"],
         fault: result["fault"],
-        recommendation: result["recommendation"],
+        recommendation: truncated(result["recommendation"], TEXT_BYTES),
         diagnosis: (result["diagnosis"] || {}).merge(
           "_replay_metadata" => result["metadata"] || {},
           "_scenario_snapshot" => {
@@ -351,8 +493,14 @@ module ActionAgent
             "position" => scenario.position, "expectations" => {}
           }
         ),
-        error_message: result["error"]
+        error_message: truncated(result["error"], TEXT_BYTES)
       )
+    end
+
+    # The first +bytes+ bytes of +text+, dropping a character the cut splits,
+    # or nil for blank text.
+    def truncated(text, bytes)
+      text.to_s.byteslice(0, bytes).to_s.scrub("").presence
     end
 
     # The scenarios and models the run covered, in the shape
@@ -366,14 +514,15 @@ module ActionAgent
     end
 
     # What the run keeps from the report itself, which EvaluationRun#to_report
-    # reads back when it rebuilds the report.
+    # reads back when it rebuilds the report. `_judge_label` is recorded even
+    # when nil, which EvaluationRun#judge_label reads as "rules" instead of
+    # falling back to the evaluation's judge.
     def recorded_scores
       {
         "_verdict" => report["verdict"],
         "_selection" => selection,
-        "_metadata" => metadata,
-        "_judge_label" => judge_label
-      }.compact
+        "_metadata" => metadata
+      }.compact.merge("_judge_label" => judge_label)
     end
 
     # The run's scores in the shape the Evaluations view renders
@@ -388,14 +537,18 @@ module ActionAgent
 
     # --- validation ------------------------------------------------------------
 
+    # Checks the envelope's identities as sent, so a control character in one
+    # (NUL included) is refused rather than removed, and the receipt echoes
+    # the run_id exactly.
     def validate!
       object!(@payload, "payload")
       validate_json!(@payload)
       raise Invalid, "version must be 1" unless @payload["version"] == 1
 
       %w[run_id source suite].each { |key| identifier!(@payload[key], key) }
-      string!(@payload["agent_name"], "agent_name", 100, required: true)
-      raise Invalid, "agent_name must contain at least two characters" if @payload["agent_name"].strip.length < 2
+      unless @payload["agent_name"].is_a?(String) && AGENT_NAME_PATTERN.match?(@payload["agent_name"]) && @payload["agent_name"].strip.length >= 2
+        raise Invalid, "agent_name must be 2-100 characters without control characters"
+      end
 
       object!(report, "report")
       optional_object!(report["metadata"], "report.metadata")
@@ -442,7 +595,8 @@ module ActionAgent
         %w[prompt answer error recommendation].each { |key| string!(result[key], "result.#{key}", MAX_TEXT) }
         string!(result["group"], "result.group", 200)
         validate_tool_calls!(result["tool_calls"])
-        validate_diagnosis!(result["diagnosis"], result["fault"])
+        validate_diagnosis!(result["diagnosis"])
+        validate_derived_fields!(result)
         optional_object!(result["metadata"], "result.metadata")
         result_metadata = result["metadata"] || {}
         if result_metadata["result_id"]
@@ -466,14 +620,25 @@ module ActionAgent
       end
     end
 
+    # `fault` and `recommendation` are the diagnosis's, which is where
+    # ActiveAgent::Evals::Result#to_h reads them. The row stores the top-level
+    # values and the rebuilt report reads the diagnosis, so a result where
+    # they differ would store a run that contradicts itself. Both absent is
+    # consistent.
+    def validate_derived_fields!(result)
+      %w[fault recommendation].each do |key|
+        next if result[key] == result["diagnosis"]&.dig(key)
+
+        raise Invalid, "result.#{key} must equal result.diagnosis.#{key}"
+      end
+    end
+
     # The diagnosis fields the dashboard reads, in the shapes
     # ActiveAgent::Evals::Diagnosis writes them.
-    def validate_diagnosis!(diagnosis, fault)
+    def validate_diagnosis!(diagnosis)
       return if diagnosis.nil?
 
       object!(diagnosis, "result.diagnosis")
-      raise Invalid, "result.diagnosis.fault must match result.fault" unless diagnosis["fault"].nil? || diagnosis["fault"] == fault
-
       %w[summary recommendation].each { |key| string!(diagnosis[key], "result.diagnosis.#{key}", MAX_TEXT) }
       optional_object!(diagnosis["evidence"], "result.diagnosis.evidence")
       unavailable = diagnosis.dig("evidence", "unavailable")

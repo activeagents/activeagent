@@ -47,7 +47,8 @@ ActionAgent.configure do |config|
   # Bearer token other apps must send when posting traces
   # (/activeagents/api/traces) or evaluation reports
   # (/activeagents/api/evaluation_reports) to the mount. Leave unset only
-  # when the mount is not reachable beyond your own machine.
+  # when the mount is not reachable beyond your own machine; even then, any web
+  # page open in a browser there can post form data to the trace endpoint.
   #
   # config.ingest_api_key = Rails.application.credentials.dig(:active_agent, :ingest_api_key)
 
