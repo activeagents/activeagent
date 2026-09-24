@@ -19,9 +19,9 @@ class AgentTelemetryTracesTest < ActionDispatch::IntegrationTest
     ActionAgent.agent_scope_resolver = @agent_scope_resolver
   end
 
-  def report_trace(agent_class:, action:, service_name: "support-desk")
+  def report_trace(agent_class:, action:, service_name: "support-desk", environment: "production")
     ActionAgent::TelemetryTrace.create_from_payload({
-      "trace_id" => SecureRandom.hex(16), "service_name" => service_name, "environment" => "production",
+      "trace_id" => SecureRandom.hex(16), "service_name" => service_name, "environment" => environment,
       "timestamp" => Time.current.iso8601(6),
       "spans" => [ {
         "span_id" => "r1", "parent_span_id" => nil, "name" => "#{agent_class}.#{action}",
@@ -35,6 +35,10 @@ class AgentTelemetryTracesTest < ActionDispatch::IntegrationTest
     trace.tap { |record| record.update_columns(agent_id: nil) }
   end
 
+  def all_traces
+    ActionAgent::TelemetryTrace.all
+  end
+
   def observed(agent_class, action)
     ActionAgent::Agent.observed_agents.find_by!(agent_class_name: agent_class, action_name: action)
   end
@@ -46,18 +50,37 @@ class AgentTelemetryTracesTest < ActionDispatch::IntegrationTest
     title << unattributed(report_trace(agent_class: "SupportBot", action: "title"))
     unattributed(report_trace(agent_class: "SupportBot", action: "respond", service_name: "billing"))
 
-    assert_equal respond.map(&:id).sort, observed("SupportBot", "respond").telemetry_traces.ids.sort
-    assert_equal title.map(&:id).sort, observed("SupportBot", "title").telemetry_traces.ids.sort
+    assert_equal respond.map(&:id).sort, observed("SupportBot", "respond").telemetry_traces(all_traces).ids.sort
+    assert_equal title.map(&:id).sort, observed("SupportBot", "title").telemetry_traces(all_traces).ids.sort
   end
 
-  test "an observed agent's traces stay within the relation they are selected from" do
-    report_trace(agent_class: "SupportBot", action: "respond")
-    kept = report_trace(agent_class: "SupportBot", action: "respond")
-    kept.update_columns(status: "ERROR")
+  # The dummy app's traces carry no account, so `environment` stands in for
+  # the tenant a multi-tenant caller narrows its relation to with `for_account`.
+  test "an observed agent's traces, unattributed ones included, stay within the caller's relation" do
+    mine = [ report_trace(agent_class: "SupportBot", action: "respond", environment: "tenant-a") ]
+    mine << unattributed(report_trace(agent_class: "SupportBot", action: "respond", environment: "tenant-a"))
+    unattributed(report_trace(agent_class: "SupportBot", action: "respond", environment: "tenant-b"))
 
-    scope = ActionAgent::TelemetryTrace.with_errors
+    tenant = ActionAgent::TelemetryTrace.for_environment("tenant-a")
 
-    assert_equal [ kept.id ], observed("SupportBot", "respond").telemetry_traces(scope).ids
+    assert_equal mine.map(&:id).sort, observed("SupportBot", "respond").telemetry_traces(tenant).ids.sort
+  end
+
+  test "an observed agent registered from an empty action reads its unattributed traces" do
+    attributed = report_trace(agent_class: "SupportBot", action: "")
+    earlier = unattributed(report_trace(agent_class: "SupportBot", action: ""))
+    agent = ActionAgent::Agent.observed_agents.find_by!(agent_class_name: "SupportBot")
+
+    assert_nil agent.action_name
+    assert_equal [ attributed.id, earlier.id ].sort, agent.telemetry_traces(all_traces).ids.sort
+  end
+
+  test "an observed agent registered again after a delete keeps the traces recorded before it" do
+    before = report_trace(agent_class: "SupportBot", action: "respond")
+    observed("SupportBot", "respond").destroy!
+    after = report_trace(agent_class: "SupportBot", action: "respond")
+
+    assert_equal [ before.id, after.id ].sort, observed("SupportBot", "respond").telemetry_traces(all_traces).ids.sort
   end
 
   test "the class an agent's traces report under" do
@@ -76,7 +99,7 @@ class AgentTelemetryTracesTest < ActionDispatch::IntegrationTest
     second = report_trace(agent_class: "SupportHubAgent", action: "summarize")
     report_trace(agent_class: "SupportBot", action: "respond")
 
-    assert_equal [ first.id, second.id ].sort, agent.telemetry_traces.ids.sort
+    assert_equal [ first.id, second.id ].sort, agent.telemetry_traces(all_traces).ids.sort
   end
 
   test "the interactions list filtered to an observed agent carries its unattributed traces" do

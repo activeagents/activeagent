@@ -94,7 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   found no traces and scored nothing, and observed agents of one class ending
   in `Agent` read each other's actions. `Agent#telemetry_traces` selects the
   traces `AgentRegistrar` attributed to the agent, plus unattributed ones with
-  its service, class and action. The agent's Traces tab, its Tools tab usage
+  its service, class and action. Deleting an observed agent leaves its traces
+  unattributed, so the agent registered again for them still reads them. The
+  agent's Traces tab, its Tools tab usage
   columns and the Interactions list filtered to it use the same selection. The
   Traces tab asks for it with `GET /api/traces?agent_id=`, which answers 404
   for an agent the caller cannot see; `agent=` still filters by class. On the

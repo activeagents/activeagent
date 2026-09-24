@@ -53,6 +53,7 @@ module ActionAgent
     before_validation :apply_conventional_schema_tools, on: :create
     after_create :create_initial_version
     after_update :create_version_on_config_change, if: :configuration_changed?
+    after_destroy :release_telemetry_traces, if: :observed?
 
     # Scopes
     scope :active_agents, -> { where(status: :active) }
@@ -179,24 +180,29 @@ module ActionAgent
     # reads every trace reported under #telemetry_agent_class, attributed or
     # not.
     #
-    # @param traces [ActiveRecord::Relation] the traces the caller may read
+    # @param traces [ActiveRecord::Relation] the traces the caller may read,
+    #   already narrowed to its tenant
     # @return [ActiveRecord::Relation]
-    def telemetry_traces(traces = ActionAgent.trace_model.all)
+    def telemetry_traces(traces)
       return traces.for_agent(reported_agent_class) unless observed?
 
       traces.where(agent_id: id).or(unattributed_telemetry_traces(traces))
     end
 
     # The traces in +traces+ attributed to no agent that carry this agent's
-    # identity, such as those ingested before AgentRegistrar ran. An observed
-    # agent's identity is the service, class and action it was registered
-    # from; any other agent's is #telemetry_agent_class.
+    # identity, such as those ingested before AgentRegistrar ran or recorded
+    # for an observed agent since deleted. An observed agent's identity is the
+    # service, class and action it was registered from; any other agent's is
+    # #telemetry_agent_class.
     #
-    # @param traces [ActiveRecord::Relation] the traces the caller may read
+    # @param traces [ActiveRecord::Relation] the traces the caller may read,
+    #   already narrowed to its tenant
     # @return [ActiveRecord::Relation]
-    def unattributed_telemetry_traces(traces = ActionAgent.trace_model.all)
+    def unattributed_telemetry_traces(traces)
       identity = { agent_id: nil, agent_class: reported_agent_class }
-      identity.update(service_name: service_name, agent_action: action_name) if observed?
+      # AgentRegistrar registers a trace with an empty action under a nil
+      # action_name, so both spellings are this agent's.
+      identity.update(service_name: service_name, agent_action: action_name.nil? ? [ nil, "" ] : action_name) if observed?
 
       traces.where(identity)
     end
@@ -429,6 +435,13 @@ module ActionAgent
     end
 
     private
+
+    # Leaves the traces AgentRegistrar attributed to this observed agent
+    # unattributed, so an agent registered again for the same identity reads
+    # them through #unattributed_telemetry_traces.
+    def release_telemetry_traces
+      ActionAgent.trace_model.where(agent_id: id).update_all(agent_id: nil)
+    end
 
     # Refuses files before creating anything: a run that exists but lost
     # its attachments would execute against the wrong prompt.

@@ -132,7 +132,7 @@ module ActionAgent
         agent = owner_agents.find_by(id: agent_id)
         return ActionAgent.trace_model.none unless agent
 
-        ActionAgent.trace_model.where(agent_id: agent.id).or(agent.unattributed_telemetry_traces)
+        owned_traces.where(agent_id: agent.id).or(agent.unattributed_telemetry_traces(owned_traces))
       end
 
       # The dashboard-wide time window, shared with Traces. Absent means "all".
