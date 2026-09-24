@@ -78,6 +78,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   like every other engine model (`actionagent`), so it carries the model
   concerns above, `AdapterAware` and the ownership API (`owner_association`,
   `for_owner`) from the same place. Its table name is unchanged.
+- A collector's rejection of `ActiveAgent::Evals::Publisher` says what it
+  refused and whether to retry. The message carries the `error` string of a
+  JSON object response body beside the HTTP status — control characters and
+  runs of whitespace collapsed to one space, the API key replaced with
+  `[FILTERED]`, cut to 200 characters; nothing else from the body — and what
+  to do next: never retry the report under the same `run_id` on a 409,
+  publish a smaller selection on a 413, correct the report on a 422, retry
+  later on a 408, 429 or 5xx, and resolve the cause first on anything else,
+  such as a 401 or 403. `Publisher::Error` carries `status`, `detail` and
+  `retryable?`.
 
 ### Deprecated
 
@@ -118,6 +128,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installed (`openai` for OpenAI, Ollama and OpenRouter; `anthropic` for
   Anthropic) when the provider is chosen, with a validation error naming
   the gem, instead of failing on its first run (`actionagent`, #416).
+- Every failure of `ActiveAgent::Evals::Publisher` to deliver a report
+  raises `Publisher::Error`. A malformed response (`Net::HTTPBadResponse`,
+  `Net::HTTPHeaderSyntaxError`, or a `Zlib::Error` from corrupt compression)
+  escaped as its own class and is now a retryable `Publisher::Error`. A
+  report that cannot be encoded as JSON (invalid UTF-8, `NaN`, nesting too
+  deep) is now a non-retryable one raised before anything is sent: it escaped
+  as `JSON::GeneratorError`, or was blamed on the collector as invalid JSON.
+  Only a network failure keeps its underlying error as `cause`, so a response
+  body or report content never reaches a log through the exception chain.
+  Invalid arguments raise `ArgumentError`, now also for a `report` that does
+  not convert to a hash (a string raised `NoMethodError` and `nil` published
+  an empty report) and a `nil` timeout (`TypeError`).
+- The publisher strips whitespace around its API key, so the key it sends is
+  the one it filters from a collector's explanation, and refuses a key with
+  characters other than visible ASCII.
 
 ### Security
 
