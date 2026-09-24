@@ -87,6 +87,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Telemetry criteria (`trace_error_rate`, `trace_latency`) score an observed
+  agent from its own traces (`actionagent`). They selected traces by
+  `Agent#telemetry_agent_class`, which appends `Agent` to a class name
+  lacking it, so an agent observed from an application reporting `SupportBot`
+  found no traces and scored nothing, and observed agents of one class ending
+  in `Agent` read each other's actions. `Agent#telemetry_traces` selects the
+  traces `AgentRegistrar` attributed to the agent, plus unattributed ones with
+  its service, class and action. Deleting an observed agent leaves its traces
+  unattributed, so the agent registered again for them still reads them. The
+  agent's Traces tab, its Tools tab usage
+  columns and the Interactions list filtered to it use the same selection. The
+  Traces tab asks for it with `GET /api/traces?agent_id=`, which answers 404
+  for an agent the caller cannot see; `agent=` still filters by class. On the
+  Metrics page filtered to a class, an observed agent's deploy markers now
+  show under the class its traces report (`Agent#reported_agent_class`).
+  Authored and mirrored agents read the traces they did before.
 - `Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later` run
   their job instead of raising `ArgumentError: unknown keywords` in the
   worker (#346).
