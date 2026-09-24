@@ -98,8 +98,10 @@ class HostIntegrationTest < ActiveSupport::TestCase
     end
   end
 
+  # Forgery protection is left to ApiForgeryProtectionTest, which exercises
+  # it: the dashboard API verifies CSRF tokens (#461), and the callback names
+  # a skip leaves in the chain differ across Rails versions.
   test "on first load, a dashboard controller's own callback skips still hold" do
-    assert_not_includes first_load.fetch("base_controller_filters"), "verify_authenticity_token"
     assert_not_includes first_load.fetch("mcp_controller_filters"), "authenticate_dashboard!"
   end
 
