@@ -213,8 +213,10 @@ module ActionAgent
     # applications post to: trace ingest (<mount>/api/traces) and published
     # evaluation reports (<mount>/api/evaluation_reports). When unset both
     # accept unauthenticated posts, so set it whenever the mount is reachable
-    # beyond your own machine. (Multi-tenant mode authenticates per-account
-    # keys instead.)
+    # beyond your own machine. Trace ingest also takes a form post, which any
+    # web page open in a browser on that machine can send it; the report
+    # collector takes only application/json, which a page cannot send
+    # cross-site. (Multi-tenant mode authenticates per-account keys instead.)
     # @return [String, nil]
     attr_accessor :ingest_api_key
 
@@ -273,7 +275,8 @@ module ActionAgent
     #
     #   :execution         — an agent run; HTTP 402
     #   :trace_ingest      — a POST to <mount>/api/traces; HTTP 429
-    #   :evaluation_report — a POST to <mount>/api/evaluation_reports; HTTP 429
+    #   :evaluation_report — a report <mount>/api/evaluation_reports would
+    #                        store (never an identical retry); HTTP 429
     #
     # The owner of an ingest kind is the tenant the key resolved to, nil on a
     # single-tenant install.

@@ -63,7 +63,7 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
       "report" => report(run_id: run_id, answer: answer).to_h }
   end
 
-  def report(run_id:, answer: "Order 1234 shipped on Monday.")
+  def report(run_id:, answer: "Order 1234 shipped on Monday.", judge_label: "gpt-5-mini")
     specs = [
       Evals::ModelSpec.new(label: "gpt-5-mini", provider: "openai", model: "gpt-5-mini"),
       Evals::ModelSpec.new(label: "openrouter/anthropic/claude-sonnet-5", provider: "openrouter", model: "anthropic/claude-sonnet-5")
@@ -91,13 +91,13 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
     end
 
     Evals::Report.new(
-      results: results, models: specs, judge_label: "gpt-5-mini",
+      results: results, models: specs, judge_label: judge_label,
       metadata: { "run_id" => run_id, "suite" => "orders", "scope" => "eu", "role" => "support" }
     )
   end
 
-  def publish(payload, token: nil)
-    headers = { "Content-Type" => "application/json" }
+  def publish(payload, token: nil, content_type: "application/json")
+    headers = { "Content-Type" => content_type }
     headers["Authorization"] = "Bearer #{token}" if token
     post ENDPOINT, params: payload.is_a?(String) ? payload : payload.to_json, headers: headers
   end
@@ -113,6 +113,26 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
 
   def create_tenant(name, owner: nil)
     ReportTestAccount.create!(name: name, telemetry_api_key: "key-#{SecureRandom.hex(8)}", owner: owner)
+  end
+
+  # A request body that counts the bytes read from it.
+  class CountingInput < StringIO
+    attr_reader :bytes_read
+
+    def read(*args)
+      super.tap { |chunk| @bytes_read = (@bytes_read || 0) + chunk.to_s.bytesize }
+    end
+  end
+
+  # Posts +body+ through the whole app with no Content-Length, as a chunked
+  # request arrives. Returns the status and how many bytes the app read.
+  def post_chunked(body)
+    input = CountingInput.new(body.b)
+    env = Rack::MockRequest.env_for(ENDPOINT, method: "POST", "CONTENT_TYPE" => "application/json", "HTTP_HOST" => "localhost")
+    env.delete("CONTENT_LENGTH")
+    env["HTTP_TRANSFER_ENCODING"] = "chunked"
+    env["rack.input"] = input
+    [ Rails.application.call(env).first, input.bytes_read.to_i ]
   end
 
   def create_user(name)
@@ -246,12 +266,13 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
     assert_equal 1, ActionAgent::Agent.count
   end
 
-  test "refuses to add runs to an evaluation no report created" do
+  test "refuses to add runs to an evaluation no report created, as a report to correct" do
     publish(envelope)
     ActionAgent::Evaluation.find(json_response["evaluation_id"]).update_columns(config: {})
     publish(envelope)
 
-    assert_response :conflict
+    assert_response :unprocessable_entity, "409 is kept for a run_id that already holds a different report"
+    assert_match "publish under another suite or scope", json_response["error"]
   end
 
   test "stores text with NUL characters removed" do
@@ -428,7 +449,7 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
 
     publish(envelope)
 
-    assert_response :too_many_requests
+    assert_response :forbidden, "a cap an operator has to lift is not a retryable 429"
     assert_match "Observed agent limit", json_response["error"]
     assert_equal 0, ActionAgent::EvaluationRun.count
   end
@@ -500,6 +521,240 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
     assert_match(/account:#{tenant.id}\z/, keys.first)
   end
 
+  # --- retries under quota and rate limits -------------------------------------
+
+  test "an identical retry gets its 200 receipt after the quota is used up" do
+    stored = 0
+    ActionAgent.usage_recorder = ->(_owner, kind) { stored += 1 if kind == :evaluation_report }
+    ActionAgent.quota_checker = ->(_owner, kind) { "Report allowance used up" if kind == :evaluation_report && stored >= 1 }
+    payload = envelope
+
+    publish(payload)
+    assert_response :created
+    publish(payload)
+    assert_response :ok, "the report that used the last unit is already stored"
+    assert json_response["duplicate"]
+
+    publish(envelope)
+    assert_response :too_many_requests, "a new report is still refused"
+    assert_equal "Report allowance used up", json_response["message"]
+  end
+
+  test "an identical retry gets its 200 receipt when the key is over the rate limit" do
+    payload = envelope
+    publish(payload)
+    assert_response :created
+
+    Rails.cache.stub(:increment, ActionAgent::Api::EvaluationReportsController::RATE_LIMIT + 1) do
+      publish(payload)
+      assert_response :ok
+
+      publish(envelope)
+      assert_response :too_many_requests
+    end
+  end
+
+  test "a run_id is compared exactly, so run_ids that differ only in case are two runs" do
+    publish(envelope(run_id: "nightly-a"))
+    assert_response :created
+    publish(envelope(run_id: "Nightly-A"))
+
+    assert_response :created
+    assert_equal "Nightly-A", json_response["run_id"]
+  end
+
+  # --- request handling --------------------------------------------------------
+
+  test "Rails never parses the body into params, so only #create reads it, capped" do
+    ActionAgent.ingest_api_key = "install-key"
+    seen = []
+    capture = ->(*args) { seen << args.last[:params] if args.last[:controller] == "ActionAgent::Api::EvaluationReportsController" }
+    padded = envelope.merge("padding" => "x" * (ActionAgent::EvaluationReportImport::MAX_BYTES + 1))
+
+    ActiveSupport::Notifications.subscribed(capture, "start_processing.action_controller") do
+      publish(padded)
+      assert_response :unauthorized
+      publish(envelope, token: "install-key")
+      assert_response :created
+    end
+
+    assert_equal 2, seen.size
+    seen.each { |params| assert_empty params.keys & %w[padding report run_id], "the envelope reached params before #create" }
+  end
+
+  test "bounds a chunked body with no Content-Length at the size limit" do
+    limit = ActionAgent::EvaluationReportImport::MAX_BYTES
+    status, bytes_read = post_chunked(envelope.merge("padding" => "x" * (limit * 2)).to_json)
+    assert_equal 413, status
+    assert_operator bytes_read, :<=, limit + 1, "the body was read past the limit"
+
+    status, = post_chunked(envelope.to_json)
+    assert_equal 201, status
+  end
+
+  test "refuses a body that is not declared application/json, as a cross-site form or text/plain post would be" do
+    publish(envelope, content_type: "text/plain;charset=UTF-8")
+    assert_response :unsupported_media_type
+
+    publish(envelope, content_type: "application/x-www-form-urlencoded")
+    assert_response :unsupported_media_type
+    assert_equal 0, ActionAgent::EvaluationRun.count
+  end
+
+  test "answers 501, not 500, on an install with no evaluation tables" do
+    ActionAgent::EvaluationRun.stub(:table_exists?, false) { publish(envelope) }
+
+    assert_response :not_implemented
+    assert_match "--traces-only", json_response["error"]
+  end
+
+  test "answers 501, not 500, on an install missing a column the import writes" do
+    columns = ActionAgent::EvaluationRun.column_names - [ "agent_version_id" ]
+    ActionAgent::EvaluationRun.stub(:column_names, columns) { publish(envelope) }
+
+    assert_response :not_implemented
+    assert_match "agent_version_id", json_response["error"]
+    assert_match "action_agent:install --skip", json_response["error"]
+  end
+
+  test "answers 503 with Retry-After when the owner's lock cannot be taken" do
+    busy = Object.new
+    busy.define_singleton_method(:synchronize) { raise ActionAgent::EvaluationReportImport::Busy, "busy" }
+
+    ActionAgent::EvaluationReportImport::OwnerLock.stub(:new, busy) { publish(envelope) }
+
+    assert_response :service_unavailable
+    assert_equal "5", response.headers["Retry-After"]
+  end
+
+  # --- envelope identities and report content -----------------------------------
+
+  test "refuses a NUL in an envelope identity rather than storing a different run_id" do
+    assert_rejected envelope.merge("run_id" => "nightly-7\u0000"), "run_id must be 1-200 characters without control characters"
+    assert_rejected envelope.merge("source" => "support-app\u0000"), "source"
+    assert_rejected envelope.merge("agent_name" => "Support\tBot"), "agent_name must be 2-100 characters without control characters"
+  end
+
+  test "echoes the run_id exactly as sent" do
+    publish(envelope(run_id: "nächtlich/7 run"))
+
+    assert_response :created
+    assert_equal "nächtlich/7 run", json_response["run_id"]
+  end
+
+  test "records a rules-only run as unjudged even when an earlier report of the suite named a judge" do
+    publish(envelope)
+    payload = { "version" => 1, "run_id" => "run-rules", "source" => "support-app", "agent_name" => "SupportBot", "suite" => "orders",
+                "report" => report(run_id: "run-rules", judge_label: nil).to_h }
+    publish(payload)
+
+    assert_response :created
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    assert run.scores.key?("_judge_label")
+    assert_nil run.judge_label, "the run must not borrow the evaluation's judge"
+    assert_nil run.to_report.to_h["judge"]
+  end
+
+  test "refuses a result whose fault or recommendation differs from its diagnosis" do
+    payload = envelope
+    payload["report"]["results"].first["fault"] = "missing_capability"
+    assert_rejected payload, "result.fault must equal result.diagnosis.fault"
+
+    payload = envelope
+    payload["report"]["results"].last.delete("fault")
+    assert_rejected payload, "result.fault must equal result.diagnosis.fault"
+
+    payload = envelope
+    payload["report"]["results"].last["recommendation"] = "Something else"
+    assert_rejected payload, "result.recommendation must equal result.diagnosis.recommendation"
+  end
+
+  test "stores a prompt, error or recommendation cut to what a MySQL TEXT column holds" do
+    limit = ActionAgent::EvaluationReportImport::TEXT_BYTES
+    payload = envelope
+    failing = payload["report"]["results"].last
+    failing["prompt"] = "é" * limit
+    failing["error"] = "e" * (limit + 10)
+    failing["recommendation"] = failing["diagnosis"]["recommendation"] = "r" * (limit + 10)
+    publish(payload)
+
+    assert_response :created
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    row = run.scenario_results.find_by(status: :failed)
+    assert_equal [ limit, limit ], [ row.error_message.bytesize, row.recommendation.bytesize ]
+    prompt = row.scenario.prompt
+    assert prompt.valid_encoding?
+    assert_operator prompt.bytesize, :<=, limit
+    assert_equal "é" * limit, row.evaluated_scenario["prompt"], "the snapshot keeps the whole prompt for the report"
+  end
+
+  # --- ownership and caps -------------------------------------------------------
+
+  test "refuses a multi-tenant report whose owner resolver places it nowhere" do
+    use_tenants!
+    ActionAgent.trace_owner_resolver = ->(_trace) { nil }
+
+    publish(envelope, token: create_tenant("Unplaced").telemetry_api_key)
+
+    assert_response :forbidden
+    assert_match "trace_owner_resolver", json_response["error"]
+  end
+
+  test "places a report's agent in the account the resolver names, once, under that account's cap" do
+    use_tenants!
+    ActionAgent.trace_model_class = "ReportTenantTrace"
+    parent = create_tenant("Parent")
+    child = create_tenant("Child")
+    ActionAgent.trace_owner_resolver = ->(trace) { trace.account == child ? parent : trace.account }
+
+    publish(envelope, token: child.telemetry_api_key)
+    assert_response :created
+    publish(envelope, token: child.telemetry_api_key)
+    assert_response :created
+
+    agents = ActionAgent::Agent.observed_agents.where(service_name: "support-app")
+    assert_equal [ parent.id ], agents.pluck(:account_id), "one agent, where the child's traced agents are"
+    ActionAgent.current_account_resolver = ->(_controller) { parent }
+    get "/activeagents/api/evaluations"
+    assert_equal 1, JSON.parse(response.body)["evaluations"].size
+  end
+
+  test "refuses a report that would take an evaluation past its scenario cap" do
+    publish(envelope)
+    evaluation = ActionAgent::Evaluation.find(json_response["evaluation_id"])
+    now = Time.current
+    ActionAgent::EvaluationScenario.insert_all(Array.new(ActionAgent::EvaluationReportImport::MAX_SCENARIOS_PER_EVALUATION - 2) do |index|
+      { evaluation_id: evaluation.id, key: "held_#{index}", prompt: "Held #{index}", position: index + 2, enabled: true,
+        expectations: {}, created_at: now, updated_at: now }
+    end)
+
+    publish(envelope)
+    assert_response :created, "reported scenarios the evaluation already holds add nothing"
+
+    payload = envelope
+    payload["report"]["results"].first["scenario_key"] = "brand_new"
+    publish(payload)
+    assert_response :forbidden
+    assert_match "Scenario limit reached", json_response["error"]
+  end
+
+  test "refuses a report that would give an agent more evaluations than its cap" do
+    publish(envelope)
+    agent_id = ActionAgent::Evaluation.find(json_response["evaluation_id"]).agent_id
+    now = Time.current
+    ActionAgent::Evaluation.insert_all(Array.new(ActionAgent::EvaluationReportImport::MAX_EVALUATIONS_PER_AGENT - 1) do |index|
+      { agent_id: agent_id, name: "held #{index}", judge_kind: "rules", sample_size: 20, criteria: [], config: {},
+        created_at: now, updated_at: now }
+    end)
+
+    payload = envelope
+    payload["report"]["metadata"]["scope"] = "us"
+    publish(payload)
+
+    assert_response :forbidden
+    assert_match "Evaluation limit reached", json_response["error"]
+  end
+
   test "counts only trace ingest through the tenant's increment_telemetry_usage!" do
     use_tenants!
     tenant = create_tenant("Counted")
@@ -538,5 +793,72 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
       "the saved report's JSON, re-delivered, resolves to the stored run"
     run = ActionAgent::EvaluationRun.find(receipt["id"])
     assert_equal published.to_h["models"].keys, run.to_report.to_h["models"].keys
+  end
+end
+
+# The advisory lock EvaluationReportImport holds per owner, as SQL issued to
+# each adapter. The dummy app runs on SQLite, so the PostgreSQL and MySQL
+# statements are checked against a recording connection.
+class EvaluationReportOwnerLockTest < ActiveSupport::TestCase
+  OwnerLock = ActionAgent::EvaluationReportImport::OwnerLock
+
+  class RecordingConnection
+    attr_reader :statements
+
+    def initialize(adapter_name, lock_result: 1)
+      @adapter_name = adapter_name
+      @lock_result = lock_result
+      @statements = []
+    end
+
+    attr_reader :adapter_name
+
+    def execute(sql) = @statements << sql
+
+    def select_value(sql)
+      @statements << sql
+      sql.include?("GET_LOCK") ? @lock_result : 1
+    end
+
+    def quote(value) = "'#{value}'"
+
+    def transaction(**) = yield
+  end
+
+  test "PostgreSQL takes a transaction-scoped lock in the two-integer keyspace" do
+    connection = RecordingConnection.new("PostgreSQL")
+    ran = false
+
+    OwnerLock.new(connection, "evaluation_report:install").synchronize { ran = true }
+
+    assert ran
+    assert_match(/\ASELECT pg_advisory_xact_lock\(-?\d+, -?\d+\)\z/, connection.statements.sole)
+  end
+
+  test "MySQL releases its named lock after the block, even when the block raises" do
+    connection = RecordingConnection.new("Mysql2")
+
+    assert_raises(RuntimeError) { OwnerLock.new(connection, "evaluation_report:install").synchronize { raise "import failed" } }
+
+    assert_match(/\ASELECT GET_LOCK\('action_agent:\h{40}', 30\)\z/, connection.statements.first)
+    assert_match(/\ASELECT RELEASE_LOCK\('action_agent:\h{40}'\)\z/, connection.statements.last)
+  end
+
+  test "MySQL raises Busy without running the block when the lock times out" do
+    connection = RecordingConnection.new("Trilogy", lock_result: 0)
+    ran = false
+
+    assert_raises(ActionAgent::EvaluationReportImport::Busy) do
+      OwnerLock.new(connection, "evaluation_report:install").synchronize { ran = true }
+    end
+    assert_not ran
+    assert_equal 1, connection.statements.size, "a lock never taken is never released"
+  end
+
+  test "SQLite, which runs one write transaction at a time, takes no lock" do
+    connection = RecordingConnection.new("SQLite")
+
+    assert_equal :ran, OwnerLock.new(connection, "evaluation_report:install").synchronize { :ran }
+    assert_empty connection.statements
   end
 end

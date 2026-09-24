@@ -10,37 +10,42 @@ module ActionAgent
     # stored by EvaluationReportImport. Responds:
     #
     #   201 — stored; the receipt the publisher checks
-    #   200 — an identical retry; the receipt names the stored run
-    #   409 — different content under a stored run_id, or an evaluation of
-    #         that name the report does not belong to
+    #   200 — an identical retry; the receipt names the stored run. Never
+    #         refused by the quota or the rate limit.
+    #   409 — this run_id already holds a different report
+    #   422 — not a valid version-1 report, or an evaluation name the agent
+    #         already holds for another suite or scope
+    #   403 — storing it needs an operator first: a cap on observed agents,
+    #         evaluations or scenarios, or no owner for the tenant
+    #   429 — a new report over the host's quota (kind :evaluation_report) or
+    #         over RATE_LIMIT new reports a minute from one key
     #   413 — a body over EvaluationReportImport::MAX_BYTES
-    #   429 — denied by the host's quota checker (kind :evaluation_report),
-    #         the owner holds the most observed agents it can, or more than
-    #         RATE_LIMIT reports in a minute from one key
+    #   415 — a body that is not declared application/json
     #   400 — a body that is not JSON
-    #   422 — JSON that is not a valid version-1 report
     #   401 — a missing or unknown key
+    #   501 — an install with no evaluation tables, or not yet migrated
+    #   503 — another import for the same agent held the lock too long
     class EvaluationReportsController < ActionController::API
       include IngestAuthentication
 
-      # Reports one key may deliver per minute.
+      # New reports one key may store per minute.
       RATE_LIMIT = 30
 
-      # The body is read once, by #create, with a size cap.
       wrap_parameters false
 
-      before_action :enforce_report_quota!
-      rate_limit to: RATE_LIMIT, within: 1.minute, by: -> { rate_limit_key },
-        with: -> { render json: { error: "Too many evaluation reports; retry in a minute" }, status: :too_many_requests }
+      before_action :require_json!
+      before_action :require_report_store!
 
       # POST <mount>/api/evaluation_reports
       def create
-        return report_too_large if request.content_length.to_i > EvaluationReportImport::MAX_BYTES
+        # The header, not request.content_length, which reads a chunked body
+        # in full to measure it.
+        return report_too_large if request.get_header("CONTENT_LENGTH").to_i > EvaluationReportImport::MAX_BYTES
 
         body = request.body.read(EvaluationReportImport::MAX_BYTES + 1).to_s
         return report_too_large if body.bytesize > EvaluationReportImport::MAX_BYTES
 
-        run, duplicate = EvaluationReportImport.call(account: @account, payload: JSON.parse(body))
+        run, duplicate = EvaluationReportImport.call(account: @account, payload: JSON.parse(body), admit: -> { admission_denial })
         ActionAgent.record_usage(@account, :evaluation_report) unless duplicate
 
         render json: receipt(run, duplicate), status: duplicate ? :ok : :created
@@ -50,21 +55,55 @@ module ActionAgent
         render json: { error: e.message }, status: :unprocessable_entity
       rescue EvaluationReportImport::Conflict => e
         render json: { error: e.message }, status: :conflict
-      rescue EvaluationReportImport::LimitExceeded => e
-        render json: { error: e.message }, status: :too_many_requests
+      rescue EvaluationReportImport::Refused => e
+        render json: { error: e.message }, status: :forbidden
+      rescue EvaluationReportImport::Denied => e
+        render json: e.denial, status: :too_many_requests
+      rescue EvaluationReportImport::Busy => e
+        response.headers["Retry-After"] = "5"
+        render json: { error: e.message }, status: :service_unavailable
       end
 
       private
 
-      # The host app's quota checker, asked with kind :evaluation_report.
-      def enforce_report_quota!
-        enforce_ingest_quota_for!(:evaluation_report, "Evaluation report limit reached")
+      # Rails reads and parses a JSON body into params before any callback
+      # runs, for the request log among others. With none to parse, the body
+      # is read only by #create, and only up to the size limit.
+      def process_action(*)
+        request.request_parameters = {}
+        super
       end
 
-      # One bucket per key: the tenant's on a multi-tenant install, the
-      # install's own on a single-tenant one.
-      def rate_limit_key
-        @account ? "account:#{@account.id}" : "install"
+      # A cross-site page can send a text/plain or form POST without a CORS
+      # preflight; it cannot send application/json.
+      def require_json!
+        return if request.media_type == "application/json"
+
+        render json: { error: "Content-Type must be application/json" }, status: :unsupported_media_type
+      end
+
+      def require_report_store!
+        reason = EvaluationReportImport.unavailable_reason
+        render json: { error: reason }, status: :not_implemented if reason
+      end
+
+      # What refuses a report that would be stored, or nil: the rate limit,
+      # then the host app's quota checker, asked with kind :evaluation_report.
+      # Never asked for an identical retry.
+      def admission_denial
+        return { error: "Too many evaluation reports; retry in a minute" } if rate_limited?
+
+        denial = ActionAgent.quota_denial(@account, :evaluation_report)
+        quota_denial_body(denial, "Evaluation report limit reached") if denial.present?
+      end
+
+      # Counts a new report against its key's bucket, in the store Rails'
+      # own rate_limit uses. One bucket per key: the tenant's on a
+      # multi-tenant install, the install's own on a single-tenant one.
+      def rate_limited?
+        bucket = @account ? "account:#{@account.id}" : "install"
+        count = self.class.cache_store.increment("rate-limit:#{controller_path}:#{bucket}", 1, expires_in: 1.minute)
+        count.present? && count > RATE_LIMIT
       end
 
       def receipt(run, duplicate)
