@@ -7,32 +7,37 @@
 # migration carries the same columns for a fresh install.
 #
 # Each step is guarded so the migration is safe to re-run against a database
-# that already has some of these columns.
+# that already has some of these columns. Table names follow
+# ActionAgent.table_name_prefix, except the trace table, whose name is fixed.
 class AddAgentReleases < ActiveRecord::Migration<%= migration_version %>
   def up
-    add_column_unless_exists :active_agent_agents, :release_digest, :string
+    add_column_unless_exists table(:agents), :release_digest, :string
 
-    add_column_unless_exists :active_agent_agent_versions, :release_digest, :string
-    add_column_unless_exists :active_agent_agent_versions, :revision, :string
-    add_index_unless_exists :active_agent_agent_versions, [ :agent_id, :release_digest ]
+    add_column_unless_exists table(:agent_versions), :release_digest, :string
+    add_column_unless_exists table(:agent_versions), :revision, :string
+    add_index_unless_exists table(:agent_versions), [ :agent_id, :release_digest ]
 
-    %i[active_agent_telemetry_traces active_agent_agent_runs active_agent_evaluation_runs].each do |table|
-      add_column_unless_exists table, :agent_version_id, :bigint
-      add_index_unless_exists table, :agent_version_id
+    [ "active_agent_telemetry_traces", table(:agent_runs), table(:evaluation_runs) ].each do |name|
+      add_column_unless_exists name, :agent_version_id, :bigint
+      add_index_unless_exists name, :agent_version_id
     end
   end
 
   def down
-    remove_column :active_agent_agents, :release_digest if column_exists?(:active_agent_agents, :release_digest)
-    remove_column :active_agent_agent_versions, :release_digest if column_exists?(:active_agent_agent_versions, :release_digest)
-    remove_column :active_agent_agent_versions, :revision if column_exists?(:active_agent_agent_versions, :revision)
+    remove_column table(:agents), :release_digest if column_exists?(table(:agents), :release_digest)
+    remove_column table(:agent_versions), :release_digest if column_exists?(table(:agent_versions), :release_digest)
+    remove_column table(:agent_versions), :revision if column_exists?(table(:agent_versions), :revision)
 
-    %i[active_agent_telemetry_traces active_agent_agent_runs active_agent_evaluation_runs].each do |table|
-      remove_column table, :agent_version_id if column_exists?(table, :agent_version_id)
+    [ "active_agent_telemetry_traces", table(:agent_runs), table(:evaluation_runs) ].each do |name|
+      remove_column name, :agent_version_id if column_exists?(name, :agent_version_id)
     end
   end
 
   private
+
+  def table(name)
+    "#{ActionAgent.table_name_prefix}#{name}"
+  end
 
   def add_column_unless_exists(table, column, type)
     return unless table_exists?(table)
