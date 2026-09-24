@@ -197,8 +197,18 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
       t.integer :samples_passed, default: 0
       t.text :error_message
       t.datetime :completed_at
+      # Set only on a run an application executed itself and published
+      # (ActionAgent::EvaluationReportImport): the tenant whose key published
+      # it, the run_id the application minted, and the digest of the report.
+      # The tenant is its id, or "" on a single-tenant install, because a
+      # unique index never treats two NULLs as equal.
+      t.string :external_tenant
+      t.string :external_run_id
+      t.string :external_report_digest
       t.timestamps
       t.index :evaluation_id
+      t.index [ :external_tenant, :external_run_id ], unique: true,
+        name: "index_#{prefix}evaluation_runs_on_external_identity"
     end
 
     create_table "#{prefix}sandbox_sessions" do |t|
