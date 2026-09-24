@@ -922,7 +922,7 @@ module Providers
         assert_not result.key?(:tools)
       end
 
-      test "normalize_params does not override existing tools when extracting from mcps" do
+      test "normalize_params keeps existing tools and adds the mcp toolset beside them" do
         params = {
           tools: [
             { name: "existing_tool", input_schema: { type: "object" } }
@@ -940,9 +940,12 @@ module Providers
 
         result = transforms.normalize_params(params)
 
-        # Should keep existing tools, not override with mcp tools
-        assert_equal 1, result[:tools].size
+        # The request's own tools stay, and the server's allowed_tools still
+        # restrict what it exposes rather than being dropped.
+        assert_equal 2, result[:tools].size
         assert_equal "existing_tool", result[:tools][0][:name]
+        assert_equal "mcp_toolset", result[:tools][1][:type]
+        assert_equal({ "create_payment" => { enabled: true } }, result[:tools][1][:configs])
       end
     end
   end
