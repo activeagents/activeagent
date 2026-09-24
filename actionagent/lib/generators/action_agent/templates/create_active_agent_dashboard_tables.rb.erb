@@ -213,9 +213,10 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
       # (ActionAgent::EvaluationReportImport): the tenant whose key published
       # it, the run_id the application minted, and the digest of the report.
       # The tenant is its id, or "" on a single-tenant install, because a
-      # unique index never treats two NULLs as equal.
-      t.string :external_tenant
-      t.string :external_run_id
+      # unique index never treats two NULLs as equal. Both are compared
+      # exactly, which on MySQL takes a binary collation.
+      t.string :external_tenant, **exact_collation
+      t.string :external_run_id, **exact_collation
       t.string :external_report_digest
       t.timestamps
       t.index :evaluation_id
@@ -351,7 +352,17 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
     null.nil? ? { default: value } : { default: value, null: null }
   end
 
+  # MySQL's default collation ignores case and accents, so "nightly-a" and
+  # "Nightly-A" would be one run_id there and two everywhere else.
+  def exact_collation
+    mysql? ? { collation: "utf8mb4_bin" } : {}
+  end
+
   def postgres?
     connection.adapter_name.to_s.downcase.include?("postgres")
+  end
+
+  def mysql?
+    connection.adapter_name.to_s.downcase.match?(/mysql|trilogy/)
   end
 end
