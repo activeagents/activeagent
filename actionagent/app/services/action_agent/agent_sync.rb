@@ -69,7 +69,9 @@ module ActionAgent
         return Row.new(agent: nil, created: false, skipped: "#{klass} has no provider/model configured")
       end
 
-      agent = Agent.find_or_initialize_by(slug: self.class.slug_for(klass))
+      # Slugs are unique per owner, so the lookup is too: unscoped, a second
+      # owner's sync would find the first owner's record and rewrite it.
+      agent = Agent.for_owner(@owner).find_or_initialize_by(slug: self.class.slug_for(klass))
       created = agent.new_record?
       if created
         agent.owner = @owner
