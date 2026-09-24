@@ -500,6 +500,21 @@ module ActionAgent
       tool_definitions = tool_schemas
       service = self
 
+      # A dashboard-authored agent has no Ruby class — it is rows: a tool
+      # selection, instructions typed in the builder. That is the common case
+      # and the runtime below builds a class for it.
+      #
+      # An agent mirrored from host code is the other case: the class exists,
+      # already declares its own tools (SchemaTools rosters, delegations) and
+      # renders its own instructions, and none of that is reachable through
+      # `tools` + `instructions` columns. Running the real class keeps the
+      # dashboard evaluating what production runs, instead of a rebuilt
+      # lookalike. Both runtimes stay; which one applies is decided by whether
+      # the class resolves.
+      if (host_class = resolved_host_class)
+        return run_host_class(host_class, actor: actor, action: action, run_trace_id: run_trace_id)
+      end
+
       agent_class = Class.new(ActiveAgent::Base) do
         # SolidAgent persists contexts under self.class.name; anonymous
         # classes would fail its agent_name presence validation.
@@ -675,6 +690,40 @@ module ActionAgent
         tool_span.finish
         name
       end
+    end
+
+    # The host class this agent mirrors, when it names one that resolves to a
+    # runnable ActiveAgent::Base subclass. Anything else — no class name, a
+    # class that no longer exists, a name that resolves to something else — is
+    # nil, and the dynamic runtime handles the record as before.
+    #
+    # @return [Class, nil]
+    def resolved_host_class
+      return nil unless ActionAgent.run_host_agent_classes
+
+      name = @agent_record.agent_class_name.presence
+      return nil if name.blank?
+
+      klass = name.safe_constantize
+      klass if klass.is_a?(Class) && klass < ActiveAgent::Base
+    end
+
+    # Runs the host's own class. Its tools, delegations and instructions come
+    # from the code, so the engine supplies only what is the run's business:
+    # the caller, and the trace to correlate against.
+    def run_host_class(klass, actor:, action:, run_trace_id:)
+      generation = klass.as(actor).public_send(action, **host_action_arguments(klass, action))
+      generation.prompt_options[:trace_id] = run_trace_id if generation.respond_to?(:prompt_options)
+      generation.generate_now
+    end
+
+    # A code agent's action takes named arguments (`ask(question:)`), so the
+    # run's message is passed under the action's own keyword rather than as a
+    # bare message the signature would reject.
+    def host_action_arguments(klass, action)
+      contract = klass.try(:delegation_contracts)&.dig(action.to_sym)
+      keyword = contract&.try(:parameters)&.keys&.first
+      keyword ? { keyword.to_sym => user_text } : {}
     end
 
     def provider_available?(name)

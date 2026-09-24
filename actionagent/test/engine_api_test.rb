@@ -48,6 +48,16 @@ class DashboardEngineApiTest < ActionDispatch::IntegrationTest
     assert_equal 1, agent.agent_versions.count
   end
 
+  test "a rejected agent reports its errors per field as well as in summary" do
+    post "/activeagents/api/agents", params: { agent: { name: "R", provider: "openai", model: "" } }
+
+    assert_response :unprocessable_entity
+    body = JSON.parse(response.body)
+    assert_includes body["errors"], "Model can't be blank"
+    assert_equal [ "Model can't be blank" ], body.dig("field_errors", "model")
+    assert body.dig("field_errors", "name").any? { |message| message.start_with?("Name is too short") }
+  end
+
   test "agent search is case-insensitive on every adapter" do
     create_agent(name: "Support Triage")
     create_agent(name: "Billing")

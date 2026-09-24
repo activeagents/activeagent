@@ -297,6 +297,21 @@ module ActionAgent
     # @return [Boolean]
     attr_accessor :execution_enabled
 
+    # Whether a run of an agent that mirrors a host class executes that class,
+    # instead of the class the engine builds from the record's `tools` and
+    # `instructions` columns.
+    #
+    # Off by default: it changes what a run of a mirrored agent executes, and
+    # a host that has tuned its dashboard records around the dynamic runtime
+    # should opt in deliberately. Dashboard-authored agents — the ones with no
+    # `agent_class_name` — are unaffected either way.
+    #
+    # On, a mirrored agent runs its real tools, delegations and instructions,
+    # so an evaluation scores the agent production runs rather than a
+    # flattened copy of it.
+    # @return [Boolean]
+    attr_accessor :run_host_agent_classes
+
     # Whether the "Ask ActiveAgents" assistant is available.
     #
     # The assistant is a tool for developing and CI-ing agents: it sends
@@ -600,6 +615,7 @@ module ActionAgent
       @provider_credentials_resolver = nil
       @sandbox_backends = {}
       @execution_enabled = true
+      @run_host_agent_classes = false
       @assistant_enabled = nil
 
       @scenario_evaluation_adapter_resolver = nil
