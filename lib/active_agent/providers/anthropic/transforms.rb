@@ -47,10 +47,11 @@ module ActiveAgent
 
               params[:mcp_servers] = normalize_mcp_servers(mcps)
 
-              if params[:tools].nil?  # If tools not already provided, extract from mcps
-                mcp_tools = normalize_mcp_tools(mcps)
-                params[:tools] = mcp_tools if mcp_tools.present?
-              end
+              # A server's allowed_tools become an mcp_toolset entry beside the
+              # request's own tools. Added only when there is one: an empty
+              # list would send `"tools": null` on every MCP request.
+              mcp_tools = normalize_mcp_tools(mcps)
+              params[:tools] = Array(params[:tools]) + mcp_tools if mcp_tools.present?
             end
 
             params

@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dashboard's object lists hold their metric columns in place: a trace,
   interaction or evaluation run with nothing in a column prints a dash there
   rather than sliding its neighbours over (`MetaStrip`).
+- MCP servers take `allowed_tools` and `require_approval` in the common
+  format. OpenAI's Responses API receives both as given; Anthropic receives
+  `allowed_tools` as an `mcp_toolset` entry in `tools` (every other tool of
+  the server disabled), beside any tools the request already declares
+  (#328, by @dark-panda).
 
 ### Changed
 
