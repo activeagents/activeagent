@@ -90,7 +90,7 @@ module ActionAgent
         if @agent.save
           render json: { agent: agent_json(@agent, include_details: true) }, status: :created
         else
-          render json: { errors: @agent.errors.full_messages }, status: :unprocessable_entity
+          render json: agent_errors_json(@agent), status: :unprocessable_entity
         end
       end
 
@@ -99,7 +99,7 @@ module ActionAgent
         if @agent.update(agent_params)
           render json: { agent: agent_json(@agent, include_details: true) }
         else
-          render json: { errors: @agent.errors.full_messages }, status: :unprocessable_entity
+          render json: agent_errors_json(@agent), status: :unprocessable_entity
         end
       end
 
@@ -493,6 +493,12 @@ module ActionAgent
       # frontend can show the upgrade prompt.
       def set_agent
         @agent = owner_agents.find(params[:id])
+      end
+
+      # +errors+ for a form-level summary; +field_errors+ (attribute => full
+      # messages) so the builder and editor can put each under its field.
+      def agent_errors_json(agent)
+        { errors: agent.errors.full_messages, field_errors: agent.errors.to_hash(true) }
       end
 
       def agent_params

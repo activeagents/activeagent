@@ -118,7 +118,7 @@ export default function DashboardAssistant({ session, onSessionChange, onReviewD
     try {
       const response = await fetch('/api/dashboard_assistant', {
         method: 'POST', signal: controller.signal,
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, history, provider, model: model.trim(), allow_provider_processing: true }),
       });
       const data = await response.json();

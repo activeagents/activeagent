@@ -87,6 +87,21 @@ class CredentialsTest < ActionDispatch::IntegrationTest
     assert_equal %w[claude-sonnet-5 claude-opus-5], body["models"]
   end
 
+  test "the OpenRouter lookup returns the whole catalog, not an alphabetical prefix" do
+    ids = (1..150).map { |n| format("aaa/model-%03d", n) } + [ "openai/gpt-4o-mini" ]
+    stub_request(:get, "https://openrouter.ai/api/v1/models")
+      .to_return(status: 200, body: { data: ids.map { |id| { id: id } } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    get "/activeagents/api/provider_models", params: { provider: "openrouter" }
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "live", body["source"]
+    assert_equal 151, body["models"].size
+    assert_includes body["models"], "openai/gpt-4o-mini"
+  end
+
   test "the Anthropic lookup falls back to the curated list without a key" do
     get "/activeagents/api/provider_models", params: { provider: "anthropic" }
 
