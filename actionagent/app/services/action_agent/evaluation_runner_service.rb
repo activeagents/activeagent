@@ -275,7 +275,7 @@ module ActionAgent
       if total.zero?
         return {
           "skipped" => true,
-          "reason" => "No telemetry traces for #{@evaluation.agent.telemetry_agent_class} in the last #{window_hours}h"
+          "reason" => "No telemetry traces for #{telemetry_source} in the last #{window_hours}h"
         }
       end
 
@@ -313,10 +313,16 @@ module ActionAgent
     end
 
     def telemetry_traces(window_hours)
-      ActionAgent.trace_model
-        .for_account(ActionAgent.tenant_for(owner))
-        .for_agent(@evaluation.agent.telemetry_agent_class)
+      @evaluation.agent
+        .telemetry_traces(ActionAgent.trace_model.for_account(ActionAgent.tenant_for(owner)))
         .for_date_range(window_hours.hours.ago, Time.current)
+    end
+
+    # What a skip reason says was looked for: the observed agent itself, or
+    # the class any other agent's traces are reported under.
+    def telemetry_source
+      agent = @evaluation.agent
+      agent.observed? ? agent.name : agent.telemetry_agent_class
     end
 
     # Returns 0.0..1.0, or nil when the criterion cannot be scored.

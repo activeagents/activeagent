@@ -10,6 +10,7 @@ import TimeWindowSelector from './TimeWindowSelector';
 import TraceCard from './TraceCard';
 import { formatDuration, getSpanIcon } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
+import { tracesQuery } from '../../utils/tracesQuery.mjs';
 
 // Deterministic color assignment for agent classes
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
@@ -86,9 +87,9 @@ const buildThroughputData = (traces, agents, windowMinutes, bucketSeconds = 60) 
   return data;
 };
 
-// agentClass scopes the view to one agent's traces (per-agent embed: same
+// agentId scopes the view to one agent's traces (per-agent embed: same
 // component, different UX context); embedded hides the page title.
-export default function TracesView({ agentClass = null, embedded = false }) {
+export default function TracesView({ agentId = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [traces, setTraces] = useState([]);
   const [agentsList, setAgentsList] = useState([]);
@@ -113,13 +114,13 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
   const fetchTraces = useCallback(async () => {
     try {
-      // The shared window bounds the range; an embedded view scopes to its agent.
-      const scope = agentClass ? `&agent=${encodeURIComponent(agentClass)}` : '';
-      const response = await fetch(`/api/traces?minutes=${timeWindow.minutes}${scope}`);
+      // The shared window bounds the range; an embedded view scopes to its
+      // agent, and the server narrows the agent list along with the traces.
+      const response = await fetch(tracesQuery({ minutes: timeWindow.minutes, agentId }));
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setTraces(data.traces || []);
-      setAgentsList(agentClass ? [agentClass] : (data.agents || []));
+      setAgentsList(data.agents || []);
       setAgentIds(data.agent_ids || {});
       setLoadError(null);
     } catch (error) {
@@ -127,7 +128,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     } finally {
       setIsLoading(false);
     }
-  }, [timeWindow.minutes, agentClass]);
+  }, [timeWindow.minutes, agentId]);
 
   useEffect(() => {
     fetchTraces();
@@ -560,7 +561,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                   </button>
                 ))}
               </div>
-              {!agentClass && (
+              {!agentId && (
               <select
                 value={filter.agent}
                 onChange={(e) => setFilter({ ...filter, agent: e.target.value, action: 'all' })}

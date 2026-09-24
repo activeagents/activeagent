@@ -48,7 +48,7 @@ module ActionAgent
     def initialize(agent:, traces:, hours: ToolDiscovery::DEFAULT_WINDOW_HOURS)
       @agent = agent
       @discovery = ToolDiscovery.new(
-        traces: traces.for_agent(agent.telemetry_agent_class),
+        traces: agent.telemetry_traces(traces),
         agents: Agent.where(id: agent.id),
         hours: hours
       )

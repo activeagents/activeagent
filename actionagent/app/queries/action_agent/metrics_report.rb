@@ -440,7 +440,7 @@ module ActionAgent
       versions.filter_map do |version|
         agent = version.agent
         next if agent.nil?
-        next if @agent && agent.telemetry_agent_class != @agent
+        next if @agent && agent.reported_agent_class != @agent
 
         previous = predecessors[[ version.agent_id, version.version_number - 1 ]]
         instructions_changed = snapshot_of(version)["instructions"].to_s != snapshot_of(previous)["instructions"].to_s
