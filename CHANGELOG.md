@@ -87,6 +87,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Telemetry criteria (`trace_error_rate`, `trace_latency`) score an observed
+  agent from its own traces (`actionagent`). They selected traces by
+  `Agent#telemetry_agent_class`, which appends `Agent` to a class name
+  lacking it, so an agent observed from an application reporting `SupportBot`
+  found no traces and scored nothing, and observed agents of one class ending
+  in `Agent` read each other's actions. `Agent#telemetry_traces` selects the
+  traces `AgentRegistrar` attributed to the agent, plus unattributed ones with
+  its service, class and action. The Tools tab's usage columns and the
+  Interactions list filtered to the agent use the same selection. Authored and
+  mirrored agents read the traces they did before.
 - `Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later` run
   their job instead of raising `ArgumentError: unknown keywords` in the
   worker (#346).

@@ -149,4 +149,100 @@ class ActionAgentEvaluationRunnerServiceTest < ActiveSupport::TestCase
     assert_in_delta usage[:cost] / 2, usage[:per_interaction], 1e-6
     assert_equal judge, usage[:judge]
   end
+
+  # --- telemetry criteria ------------------------------------------------------
+
+  def report_trace(agent_class:, action:, status: "OK", duration_ms: 1_000.0, service_name: "support-desk")
+    ActionAgent::TelemetryTrace.create_from_payload({
+      "trace_id" => SecureRandom.hex(16), "service_name" => service_name, "environment" => "production",
+      "timestamp" => Time.current.iso8601(6),
+      "spans" => [ {
+        "span_id" => "r1", "parent_span_id" => nil, "name" => "#{agent_class}.#{action}",
+        "type" => "root", "duration_ms" => duration_ms, "status" => status,
+        "attributes" => { "agent.class" => agent_class, "agent.action" => action }
+      } ]
+    })
+  end
+
+  def telemetry_run(agent)
+    agent.evaluations.create!(
+      name: "Health", judge_kind: "rules",
+      criteria: [
+        { "key" => "errors", "type" => "trace_error_rate", "config" => { "max_error_rate" => 10 } },
+        { "key" => "latency", "type" => "trace_latency", "config" => { "max_avg_ms" => 1_000 } }
+      ]
+    ).run!
+  end
+
+  def reset_telemetry
+    ActionAgent::Agent.delete_all
+    ActionAgent::TelemetryTrace.delete_all
+  end
+
+  # An application reporting `SupportBot` registers one observed agent per
+  # action under that class. `Agent#telemetry_agent_class` would name it
+  # `SupportBotAgent`, which no trace carries.
+  test "an observed agent's telemetry criteria score its own traces, not another action's" do
+    reset_telemetry
+    report_trace(agent_class: "SupportBot", action: "respond", duration_ms: 800.0)
+    report_trace(agent_class: "SupportBot", action: "respond", status: "ERROR", duration_ms: 1_600.0)
+    report_trace(agent_class: "SupportBot", action: "title", duration_ms: 90_000.0)
+    report_trace(agent_class: "SupportBot", action: "title", status: "ERROR", duration_ms: 90_000.0)
+    report_trace(agent_class: "SupportBot", action: "title", status: "ERROR", duration_ms: 90_000.0)
+    respond = ActionAgent::Agent.find_by!(agent_class_name: "SupportBot", action_name: "respond")
+
+    run = telemetry_run(respond)
+
+    assert respond.observed?
+    assert run.complete?
+    errors = run.scores["errors"]
+    assert_equal 2, errors["traces"], "the error rate reads the respond action's traces only"
+    assert_in_delta 50.0, errors.dig("observed", "error_rate"), 0.01
+    assert_in_delta 0.2, errors["score"], 0.001
+    latency = run.scores["latency"]
+    assert_equal 2, latency["traces"], "the latency reads the respond action's traces only"
+    assert_equal 1_200, latency.dig("observed", "avg_duration_ms")
+    assert_in_delta 0.833, latency["score"], 0.001
+  end
+
+  test "an observed agent's telemetry criteria read its traces ingested before registration" do
+    reset_telemetry
+    report_trace(agent_class: "SupportBot", action: "respond", duration_ms: 500.0)
+    respond = ActionAgent::Agent.find_by!(agent_class_name: "SupportBot", action_name: "respond")
+    earlier = report_trace(agent_class: "SupportBot", action: "respond", status: "ERROR", duration_ms: 1_500.0)
+    other_service = report_trace(agent_class: "SupportBot", action: "respond", service_name: "billing", duration_ms: 9_000.0)
+    # Unattributed, as a trace ingested before AgentRegistrar ran would be.
+    [ earlier, other_service ].each { |trace| trace.update_columns(agent_id: nil) }
+
+    run = telemetry_run(respond)
+
+    assert_equal 2, run.scores.dig("errors", "traces"), "another service's unattributed trace is not this agent's"
+    assert_equal 1, run.scores.dig("errors", "observed", "errors")
+    assert_equal 1_000, run.scores.dig("latency", "observed", "avg_duration_ms")
+  end
+
+  test "an observed agent with no traces in the window is skipped under its own name" do
+    reset_telemetry
+    report_trace(agent_class: "SupportBot", action: "respond")
+    respond = ActionAgent::Agent.find_by!(agent_class_name: "SupportBot", action_name: "respond")
+    ActionAgent::TelemetryTrace.update_all(timestamp: 1.year.ago)
+
+    errors = telemetry_run(respond).scores["errors"]
+
+    assert errors["skipped"]
+    assert_equal "No telemetry traces for SupportBot.respond in the last 168h", errors["reason"]
+  end
+
+  test "an authored agent's telemetry criteria read every trace reported under its class" do
+    reset_telemetry
+    authored = ActionAgent::Agent.create!(name: "Support Hub", provider: "openai", model: "gpt-4o-mini")
+    report_trace(agent_class: "SupportHubAgent", action: "respond", duration_ms: 400.0)
+    report_trace(agent_class: "SupportHubAgent", action: "summarize", status: "ERROR", duration_ms: 600.0)
+    report_trace(agent_class: "SupportBot", action: "respond", duration_ms: 90_000.0)
+
+    run = telemetry_run(authored)
+
+    assert_equal 2, run.scores.dig("errors", "traces")
+    assert_equal 500, run.scores.dig("latency", "observed", "avg_duration_ms")
+  end
 end
