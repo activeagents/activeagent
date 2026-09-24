@@ -535,6 +535,17 @@ runs and evaluations of that agent call the checkout's own tools. The lookup
 is scoped to the agent's owner, so one tenant cannot name another tenant's
 sandbox.
 
+### Claude Code
+
+Settings -> Integrations also connects **Claude Code**. Paste the token
+`claude setup-token` prints (`sk-ant-oat01-…`), or an Anthropic API key. It is
+stored like a provider key (encrypted, write-only, masked in the UI) under the
+provider name `claude_code`, and never offered as an agent provider. A
+checkout backend reads `sandbox_session.runtime_environment`, which is
+`{ "CLAUDE_CODE_OAUTH_TOKEN" => … }` or `{ "ANTHROPIC_API_KEY" => … }`, and
+sets it in the booted app's environment so Claude Code can run against the
+checkout.
+
 ## Authentication
 
 **The dashboard has no authentication by default.** Anyone who can reach

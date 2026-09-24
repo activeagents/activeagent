@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import GithubIntegrationCard from './GithubIntegrationCard';
+import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
 
 const PROVIDER_META = {
   openai: { label: 'OpenAI', icon: '🤖', placeholder: 'sk-…' },
@@ -386,7 +387,7 @@ export default function SettingsView({ user, account }) {
               account use these instead of the platform defaults. Keys are encrypted at rest.
             </p>
             <div className="space-y-4">
-              {providerKeys.map(({ provider, host_based: hostBased, configured, hint }) => {
+              {providerKeys.filter(({ kind }) => kind !== 'connection').map(({ provider, host_based: hostBased, configured, hint }) => {
                 const meta = PROVIDER_META[provider] || { label: provider, icon: '🔑', placeholder: '' };
                 const editing = editingProvider === provider;
                 return (
@@ -472,6 +473,9 @@ export default function SettingsView({ user, account }) {
               from one boots that app's own runtime, so agents and evaluations can run with its tools.
             </p>
             <GithubIntegrationCard callbackStatus={githubCallback} />
+          </div>
+          <div className="border rounded-lg p-6" style={cardStyle}>
+            <ClaudeCodeIntegrationCard />
           </div>
         </div>
       )}
