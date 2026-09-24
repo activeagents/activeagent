@@ -34,8 +34,8 @@ module ActionAgent
     #   }
     #
     class TracesController < ActionController::API
-      before_action :authenticate_api_key!, if: -> { ActionAgent.multi_tenant? }
-      before_action :authenticate_ingest_key!, unless: -> { ActionAgent.multi_tenant? }
+      include IngestAuthentication
+
       before_action :enforce_ingest_quota!
 
       # POST <mount>/api/traces  (e.g. /activeagents/api/traces)
@@ -75,64 +75,9 @@ module ActionAgent
 
       private
 
-      # Authenticates the request using Bearer token from Authorization header.
-      # Only used in multi-tenant mode.
-      def authenticate_api_key!
-        token = extract_bearer_token
-
-        if token.blank?
-          render json: { error: "Missing Authorization header" }, status: :unauthorized
-          return
-        end
-
-        account_class = ActionAgent.account_class.constantize
-        @account = account_class.find_by(telemetry_api_key: token)
-
-        if @account.nil?
-          render json: { error: "Invalid API key" }, status: :unauthorized
-          return
-        end
-
-        # Track usage for rate limiting (if the account responds to it)
-        @account.increment_telemetry_usage! if @account.respond_to?(:increment_telemetry_usage!)
-      end
-
-      # Requires the configured single-tenant ingest key when one is set.
-      # The telemetry reporter and ruby_llm_telemetry both send their
-      # api_key as a Bearer header, so remote apps work unchanged.
-      def authenticate_ingest_key!
-        expected = ActionAgent.ingest_api_key
-        return if expected.blank?
-
-        token = extract_bearer_token
-        return if token.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected)
-
-        render json: { error: "Invalid API key" }, status: :unauthorized
-      end
-
-      # The host app's quota checker, asked with kind :trace_ingest — the
-      # counterpart to Api::BaseController#enforce_quota!, which asks with
-      # :execution. Denials are 429 here rather than 402: a reporter that is
-      # over its ingest allowance should back off, not upgrade mid-flush.
-      # Same body shape, so a checker's message or Hash payload reads the
-      # same on both.
+      # The host app's quota checker, asked with kind :trace_ingest.
       def enforce_ingest_quota!
-        denial = ActionAgent.quota_denial(@account, :trace_ingest)
-        return if denial.blank?
-
-        body = { error: "Trace ingest limit reached" }
-        body = denial.is_a?(Hash) ? body.merge(denial) : body.merge(message: denial)
-
-        render json: body, status: :too_many_requests
-      end
-
-      # Extracts Bearer token from Authorization header.
-      def extract_bearer_token
-        auth_header = request.headers["Authorization"]
-        return nil if auth_header.blank?
-
-        match = auth_header.match(/^Bearer\s+(.+)$/i)
-        match[1] if match
+        enforce_ingest_quota_for!(:trace_ingest, "Trace ingest limit reached")
       end
 
       # Process traces synchronously for local development.
