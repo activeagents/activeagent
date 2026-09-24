@@ -38,10 +38,19 @@ module ActiveAgent
             end
 
             # Handle mcps parameter (common format) -> transforms to mcp_servers (provider format)
-            if params[:mcps]
-              params[:mcp_servers] = normalize_mcp_servers(params.delete(:mcps))
-            elsif params[:mcp_servers]
-              params[:mcp_servers] = normalize_mcp_servers(params[:mcp_servers])
+            if params[:mcps] || params[:mcp_servers]
+              mcps = if params[:mcps]
+                params.delete(:mcps)
+              else
+                params[:mcp_servers]
+              end
+
+              params[:mcp_servers] = normalize_mcp_servers(mcps)
+
+              if params[:tools].nil?  # If tools not already provided, extract from mcps
+                mcp_tools = normalize_mcp_tools(mcps)
+                params[:tools] = mcp_tools if mcp_tools.present?
+              end
             end
 
             params
@@ -109,6 +118,49 @@ module ActiveAgent
 
               result.compact
             end
+          end
+
+          # Builds Anthropic mcp_toolset tool entries from MCP server allowed_tools.
+          #
+          # Accepts allowed_tools entries as tool-name strings/symbols or hashes
+          # with a :name key; entries in any other format are ignored.
+          #
+          # @param mcp_servers [Array<Hash>]
+          # @return [Array<Hash>, nil] toolset entries, or nil when none were extracted
+          def normalize_mcp_tools(mcp_servers)
+            return nil unless mcp_servers.is_a?(Array)
+
+            result = mcp_servers.filter_map do |server|
+              next unless server.is_a?(Hash)
+
+              server_hash = server.deep_symbolize_keys
+              allowed_tools = server_hash[:allowed_tools]
+              next unless allowed_tools.is_a?(Array)
+
+              configs = allowed_tools.filter_map { |tool|
+                name = case tool
+                when String, Symbol
+                  tool.to_s
+                when Hash
+                  (tool[:name] || tool["name"]).to_s
+                end
+
+                [ name, { enabled: true } ] if name.present?
+              }.to_h
+
+              next if configs.empty?
+
+              {
+                type: "mcp_toolset",
+                mcp_server_name: server_hash[:name],
+                default_config: {
+                  enabled: false
+                },
+                configs: configs
+              }
+            end
+
+            result.presence
           end
 
           # Normalizes tool_choice from common format to Anthropic gem model objects.
