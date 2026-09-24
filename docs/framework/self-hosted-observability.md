@@ -20,7 +20,7 @@ all you need.
 | Traces + span waterfall | ✓ | ✓ |
 | Metrics (24h aggregates, per-agent stats) | ✓ | ✓ |
 | Ingest API for remote apps | ✓ (`<mount>/api/traces`) | ✓ (`https://api.activeagents.ai/v1/traces`) |
-| Evaluation reports published by remote apps | ✓ (`<mount>/api/evaluation_reports`) | ✓ (`https://api.activeagents.ai/v1/evaluations`) |
+| Evaluation reports published by remote apps | ✓ (`<mount>/api/evaluation_reports`, not on a `--traces_only` install) | When the platform offers it (`https://api.activeagents.ai/v1/evaluations`) |
 | Agent builder, runs, versions | ✓ | ✓ |
 | Interactions (tool-call conversations), evaluations, scorecards, cost estimates | ✓ | ✓ |
 | Agents as an MCP server | ✓ (`<mount>/mcp`) | ✓ |
@@ -32,8 +32,8 @@ feature surface is the same one, not a smaller version of it.
 
 The wire format is identical too, so the choice is per-environment, not
 per-app: the same `config/active_agent.yml` switches between them (see
-[Getting traces in](#getting-traces-in)), and the same publisher call
-delivers an evaluation report to either (see
+[Getting traces in](#getting-traces-in)). An evaluation report is published
+the same way to a mount, or to the platform once it collects them (see
 [Getting evaluation reports in](#getting-evaluation-reports-in)).
 
 ## Install
@@ -65,10 +65,13 @@ The generator creates:
 - `db/migrate/*_create_active_agent_evaluation_scenarios.rb` — scenario
   suites and their per-scenario, per-model results (re-run the generator on
   an existing install to get it),
-- `db/migrate/*_add_evaluation_report_identity.rb` — the identity of a run
-  an application published rather than the dashboard executed (a no-op on a
-  fresh install, whose evaluation runs table already has it; re-run the
-  generator on an existing install to get it),
+- `db/migrate/*_ensure_agent_release_columns.rb` and
+  `db/migrate/*_add_evaluation_report_identity.rb` — the agent release
+  columns wherever an earlier install lacks them, and the identity of a run
+  an application published rather than the dashboard executed. Both are
+  no-ops on a fresh install, whose tables already carry the columns; re-run
+  the generator on an existing install to get them (with `--traces_only`
+  again on a traces-only install, which needs neither),
 - `mount ActionAgent::Engine => "/activeagents"` in
   `config/routes.rb`,
 - `config/initializers/action_agent.rb` — authentication,
@@ -218,12 +221,15 @@ ActiveAgent::Evals::Publisher.new(
 ```
 
 The endpoint is `<mount>/api/evaluation_reports`, authenticated with the same
-key as trace ingest (the tenant's key in multi-tenant mode). A `run_id` is
-stored once per install, or once per tenant: an identical retry returns the
-stored run with HTTP 200, and different content under that `run_id` is a 409.
-A host that meters its install answers the `:evaluation_report` kind from
-`quota_checker` (a denial is a 429), and `usage_recorder` is told of each
-stored report. The envelope, the validation rules and every response are in
+key as trace ingest (the tenant's key in multi-tenant mode), and it takes only
+`Content-Type: application/json`, so a web page cannot post to it cross-site. A
+`run_id` is stored once per install, or once per tenant: an identical retry
+returns the stored run with HTTP 200, and different content under that
+`run_id` is a 409. A host that meters its install answers the
+`:evaluation_report` kind from `quota_checker`, asked only for a report that
+would be stored (a denial is a 429), and `usage_recorder` is told of each
+stored report. An install generated with `--traces_only` has no evaluation
+tables and answers 501. The envelope, the validation rules and every response are in
 [Publishing an externally executed evaluation](/evals/publication).
 
 ## RubyLLM applications

@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Upgrading: the install generator emits a new `add_evaluation_report_identity`
-migration (guarded column by column) for the evaluation report collector.
-Re-run `bin/rails generate action_agent:install --skip` (`--skip` keeps your
-initializer) and `bin/rails db:migrate`. Nothing else changes until an
-application publishes a report to the mount.
+Upgrading: the install generator emits two new migrations, both guarded
+column by column: `ensure_agent_release_columns`, which adds the agent release
+columns an install generated fresh on 1.6.2-1.6.4 never got (and those on
+tables with a custom `table_name_prefix`), and `add_evaluation_report_identity`
+for the evaluation report collector. Re-run
+`bin/rails generate action_agent:install --skip` (`--skip` keeps your
+initializer) and `bin/rails db:migrate`. A traces-only install needs neither;
+if you re-run the generator there, pass `--traces_only` again, or it emits the
+whole dashboard schema. Nothing else changes until an application publishes a
+report to the mount.
 
 ### Added
 
@@ -75,29 +80,34 @@ application publishes a report to the mount.
   `allowed_tools` as an `mcp_toolset` entry in `tools` (every other tool of
   the server disabled), beside any tools the request already declares
   (#328, by @dark-panda).
-- **Every install that mounts the engine collects published evaluation
-  reports** (`actionagent`). An application that runs its agents itself and
-  evaluates them in-process publishes the finished report with
-  `ActiveAgent::Evals::Publisher`; until now only the hosted platform could
-  receive it. `POST <mount>/api/evaluation_reports` takes the same version-1
-  envelope and returns the same receipt, and `ActionAgent::EvaluationReportImport`
-  stores it as the engine's own rows — the observed agent for the report's
-  `source` and `agent_name`, an evaluation named for its suite and scope
-  (`orders (eu, support)`), its scenarios, and a complete run with a result
-  per scenario and model — so the Evaluations page shows it the way it shows
-  a run the dashboard executed. The run's summary is recomputed from the
-  stored results. The endpoint authenticates exactly as trace ingest does
-  (`ingest_api_key`, or the tenant's key in multi-tenant mode), and a
-  report's agent is owned by whatever `trace_owner_resolver` gives a trace of
-  that tenant, so it sits beside the tenant's traced agents. A `run_id` is
-  stored once per tenant, or once per install: 201 for a new report, 200 for
-  an identical retry, 409 for different content. Invalid reports are 422,
-  bodies over 2 MiB 413, and 429 answers a `quota_checker` denial of the new
-  `:evaluation_report` kind, an owner already at
-  `AgentRegistrar::MAX_OBSERVED_PER_OWNER` observed agents, or a key past 30
-  reports a minute. `usage_recorder` is told `:evaluation_report` for each
-  stored report. Evaluation runs gain `external_tenant`, `external_run_id` and
-  `external_report_digest`, unique on the first two; see Upgrading above.
+- **A mounted engine collects published evaluation reports** (`actionagent`).
+  An application that runs its agents itself and evaluates them in-process
+  publishes the finished report with `ActiveAgent::Evals::Publisher`; until
+  now a self-hosted install had nowhere to receive it. On a full install (not
+  one generated with `--traces_only`, which answers 501),
+  `POST <mount>/api/evaluation_reports` takes the version-1 envelope and
+  returns the receipt the publisher checks, and
+  `ActionAgent::EvaluationReportImport` stores it as the engine's own rows:
+  the observed agent for the report's `source` and `agent_name`, an evaluation
+  named for its suite and scope (`orders (eu, support)`), its scenarios, and a
+  complete run with a result per scenario and model. The Evaluations page
+  shows it the way it shows a run the dashboard executed, with the summary
+  recomputed from the stored results. The endpoint authenticates exactly as
+  trace ingest does (`ingest_api_key`, or the tenant's key in multi-tenant
+  mode), takes only `application/json`, and places a report's agent wherever
+  `trace_owner_resolver` puts that tenant's traced agents. A `run_id` is
+  stored once per tenant, or once per install, and compared exactly: 201 for a
+  new report, 200 for an identical retry, 409 for different content. Invalid
+  reports, and an evaluation name the report does not own, are 422; a cap an
+  operator has to lift (observed agents per owner, 100 evaluations per agent,
+  2,000 scenarios per evaluation) is 403; a new report over the new
+  `:evaluation_report` quota kind or past 30 new reports a minute from a key
+  is 429. An identical retry is never refused by the quota or the rate limit.
+  Bodies over 2 MiB are 413, and Rails never parses the body into params, so
+  nothing past the limit is read. `usage_recorder` is told
+  `:evaluation_report` for each stored report. Evaluation runs gain
+  `external_tenant`, `external_run_id` and `external_report_digest`, unique on
+  the first two (binary on MySQL); see Upgrading above.
   `docs/evals/publication.md` documents the endpoint.
 
 ### Changed
@@ -111,7 +121,12 @@ application publishes a report to the mount.
 - `Api::TracesController`'s bearer authentication and its 429 quota body
   live in `ActionAgent::Api::IngestAuthentication` (`actionagent`), which the
   evaluation report collector shares. A host subclass that overrides
-  `authenticate_api_key!` is unaffected.
+  `authenticate_api_key!` is unaffected. The tenant's
+  `increment_telemetry_usage!` is still called for each trace ingest request,
+  and not for a report post.
+- `add_agent_releases` reads `ActionAgent.table_name_prefix` for the tables
+  it alters (`actionagent`), so a newly generated copy works on an install
+  with a custom prefix. The trace table keeps its fixed name.
 
 ### Deprecated
 
@@ -142,9 +157,9 @@ application publishes a report to the mount.
   on agent runs and evaluation runs. The generator emits `add_agent_releases`
   before the create-table migration, so on a fresh install it found none of
   those tables and added nothing, and creating an agent run or an evaluation
-  run raised `NoMethodError` on `agent_version_id`. An install generated
-  that way still lacks the columns and needs them added by a migration of
-  its own.
+run raised `NoMethodError` on `agent_version_id`. An install generated
+that way on 1.6.2-1.6.4 gets the columns from the new
+`ensure_agent_release_columns` migration (see Upgrading above).
 
 ### Security
 
