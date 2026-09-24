@@ -1,0 +1,51 @@
+# frozen_string_literal: true
+
+# Adds the agent release columns wherever they are missing: release_digest on
+# agents, release_digest and revision on agent versions, and agent_version_id
+# on traces, agent runs and evaluation runs.
+#
+# Two kinds of install lack them. One generated fresh by an actionagent
+# release whose add_agent_releases ran before its dashboard tables existed,
+# so every step of it was skipped. And one whose tables carry a custom
+# ActionAgent.table_name_prefix, which the copy of add_agent_releases it
+# holds does not read. Each step is guarded, so this is a no-op where the
+# columns already exist, and it is emitted after the dashboard tables.
+class EnsureAgentReleaseColumns < ActiveRecord::Migration<%= migration_version %>
+  def up
+    add_column_unless_exists table(:agents), :release_digest, :string
+
+    add_column_unless_exists table(:agent_versions), :release_digest, :string
+    add_column_unless_exists table(:agent_versions), :revision, :string
+    add_index_unless_exists table(:agent_versions), [ :agent_id, :release_digest ]
+
+    # The trace table keeps its literal name whatever the prefix
+    # (ActionAgent::TelemetryTrace.table_name).
+    [ "active_agent_telemetry_traces", table(:agent_runs), table(:evaluation_runs) ].each do |name|
+      add_column_unless_exists name, :agent_version_id, :bigint
+      add_index_unless_exists name, :agent_version_id
+    end
+  end
+
+  # The columns may predate this migration, so rolling it back leaves them.
+  def down; end
+
+  private
+
+  def table(name)
+    "#{ActionAgent.table_name_prefix}#{name}"
+  end
+
+  def add_column_unless_exists(table, column, type)
+    return unless table_exists?(table)
+    return if column_exists?(table, column)
+
+    add_column table, column, type
+  end
+
+  def add_index_unless_exists(table, columns)
+    return unless table_exists?(table)
+    return if index_exists?(table, columns)
+
+    add_index table, columns
+  end
+end

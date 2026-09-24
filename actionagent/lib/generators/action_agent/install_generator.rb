@@ -77,13 +77,36 @@ module ActionAgent
         )
       end
 
+      # add_agent_releases is emitted before the dashboard tables, so on an
+      # install generated fresh before the create-table migration carried the
+      # release columns it skipped every table, and its copy may name tables
+      # without the configured prefix. This adds whatever is still missing,
+      # and changes nothing where the columns exist.
+      unless existing_migration?("ensure_agent_release_columns")
+        migration_template(
+          "ensure_agent_release_columns.rb.erb",
+          "db/migrate/ensure_agent_release_columns.rb"
+        )
+      end
+
       # Scenario suites arrived after the dashboard tables shipped, so an
       # install that already has those still needs this one.
-      return if existing_migration?("create_active_agent_evaluation_scenarios")
+      unless existing_migration?("create_active_agent_evaluation_scenarios")
+        migration_template(
+          "create_active_agent_evaluation_scenarios.rb.erb",
+          "db/migrate/create_active_agent_evaluation_scenarios.rb"
+        )
+      end
+
+      # Published evaluation reports arrived after the dashboard tables
+      # shipped. Emitted after them, so on a fresh install it runs once the
+      # table exists, finds the columns the create-table migration made, and
+      # changes nothing.
+      return if existing_migration?("add_evaluation_report_identity")
 
       migration_template(
-        "create_active_agent_evaluation_scenarios.rb.erb",
-        "db/migrate/create_active_agent_evaluation_scenarios.rb"
+        "add_evaluation_report_identity.rb.erb",
+        "db/migrate/add_evaluation_report_identity.rb"
       )
     end
 
