@@ -70,6 +70,11 @@ ActionAgent.configure do |config|
 
   # Restrict what a given owner can see.
   config.agent_scope_resolver = ->(owner) { ActionAgent::Agent.where(user: owner) }
+
+  # Put your app's own concerns on the engine's classes: a connection
+  # switcher on every model, request tagging on every dashboard controller.
+  config.model_concerns = ["ConnectionSwitching"]
+  config.controller_concerns = ["RequestTagging"]
 end
 ```
 

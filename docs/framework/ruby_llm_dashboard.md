@@ -102,7 +102,9 @@ development and test environments (HTTP 403) — a staging or review app is
 as reachable as production and is treated the same. The lambda receives the
 engine's controller. The engine's
 controllers are their own base class — your app's `current_user` helper is
-not on them — so read the session or your auth library directly:
+not on them — so read the session or your auth library directly, or put
+your session concern on them with `config.controller_concerns` (see
+[Extending engine models and controllers](/framework/self-hosted-observability#extending-engine-models-and-controllers)):
 
 ```ruby
 # config/initializers/action_agent.rb
