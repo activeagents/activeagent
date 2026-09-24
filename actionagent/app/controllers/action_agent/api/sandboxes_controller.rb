@@ -100,6 +100,9 @@ module ActionAgent
         # Guarded: the association only exists when the host app configured a
         # user model, and a single-user install configures none.
         @sandbox.user = current_user if @sandbox.respond_to?(:user=)
+        # A checkout is validated against the owner's GitHub connection, which
+        # an account-owned install finds through the account.
+        @sandbox.account_id = current_account.id if current_account && @sandbox.has_attribute?(:account_id)
         @sandbox.agent_template = AgentTemplate.find_by(slug: params[:template_slug]) if params[:template_slug]
 
         if @sandbox.save
@@ -174,8 +177,10 @@ module ActionAgent
         @sandbox = owned(SandboxSession).find_by!(session_id: params[:id])
       end
 
+      # An app_runtime sandbox also names the checkout: one of the owner's
+      # selected GitHub repositories and, optionally, a ref.
       def sandbox_params
-        params.permit(:sandbox_type)
+        params.permit(:sandbox_type, :repository, :repository_ref)
       end
 
       def free_tier_templates

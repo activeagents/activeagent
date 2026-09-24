@@ -29,7 +29,7 @@ module ActionAgent
     # none has nothing to execute beyond the engine's own toolbox.
     def any_reachable_server?
       resolver.declared_server_keys.any? do |key|
-        entry = MCPCatalog.find(key)
+        entry = catalog_entry(key)
         entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
       end
     end
@@ -67,7 +67,7 @@ module ActionAgent
       @discovery_errors = {}
 
       resolver.declared_server_keys.flat_map do |key|
-        entry = MCPCatalog.find(key)
+        entry = catalog_entry(key)
         next [] unless entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
 
         begin
@@ -96,7 +96,7 @@ module ActionAgent
     # can fail loudly instead of scoring an answer the model invented.
     def all_servers_failed?
       keys = resolver.declared_server_keys.select do |key|
-        entry = MCPCatalog.find(key)
+        entry = catalog_entry(key)
         entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
       end
 
@@ -116,17 +116,31 @@ module ActionAgent
       return nil if key.blank?
       return nil unless resolver.status_for(key) == EvaluationToolResolver::ENABLED
 
-      entry = MCPCatalog.find(key)
+      entry = catalog_entry(key)
       return nil unless entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS)
       return nil if entry[:url].blank?
 
       entry
     end
 
+    # A catalog server, or the app runtime of a checkout sandbox the agent's
+    # owner started (keys "sandbox:<session_id>"). The sandbox lookup is scoped
+    # to the agent's owner, so naming another tenant's session resolves to
+    # nothing.
+    def catalog_entry(key)
+      return MCPCatalog.find(key) unless SandboxSession.runtime_server_key?(key)
+
+      SandboxSession.runtime_server_entry(key, owner: agent.try(:owner))
+    end
+
     # One client per server for the life of this dispatcher, so a run's tool
     # calls share the MCP session the first call opens.
     def client_for(entry)
-      @clients[entry[:key]] ||= MCPClient.new(url: absolute_url(entry[:url]), label: entry[:name] || entry[:key])
+      @clients[entry[:key]] ||= MCPClient.new(
+        url: absolute_url(entry[:url]),
+        label: entry[:name] || entry[:key],
+        headers: entry[:headers] || {}
+      )
     end
 
     # A host registers its own servers with a path ("/mcp/diagnostic"), since it

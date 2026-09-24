@@ -145,6 +145,15 @@ ActionAgent::Engine.routes.draw do
     resources :api_keys, only: [ :index, :create, :destroy ]
     resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider
 
+    # The owner's GitHub connection: the OAuth web flow (connect redirects to
+    # GitHub, which returns to callback) and the repositories it makes
+    # available to checkout sandboxes.
+    resource :github_connection, only: [ :show, :update, :destroy ], controller: "github_connections" do
+      get :repositories
+      get :connect
+      get :callback
+    end
+
     # Model catalogs for the agent builder (Ollama queried live from the
     # configured host; hosted providers curated).
     resources :provider_models, only: [ :index ]

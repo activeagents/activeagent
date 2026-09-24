@@ -29,6 +29,15 @@ module ActionAgent
         hourly_cost: tier.hourly_cost.to_f,
         created_at: Time.current
       }
+
+      # A checkout sandbox: record what would be cloned (never the token) and
+      # report the runtime's MCP endpoint the way a real backend does. Nothing
+      # answers there — this backend runs nothing.
+      if (checkout = session.try(:checkout_spec))
+        @sandboxes[name][:checkout] = checkout.except(:token)
+        @sandboxes[name][:mcp_url] = "http://127.0.0.1:8080/activeagents/mcp"
+      end
+
       @sandboxes[name]
     end
 

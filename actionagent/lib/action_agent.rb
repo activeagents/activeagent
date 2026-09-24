@@ -396,6 +396,20 @@ module ActionAgent
     # @return [Boolean]
     attr_accessor :encrypt_credentials
 
+    # The GitHub OAuth App the dashboard's "Connect GitHub" flow authorizes
+    # against (Settings -> Integrations). Unset, each falls back to
+    # GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET, and the dashboard offers no
+    # connection when neither is present. Register the app's callback URL as
+    # <mount>/api/github_connection/callback.
+    # @return [String, nil]
+    attr_writer :github_client_id, :github_client_secret
+
+    # OAuth scopes requested on connect. +repo+ reaches private repositories
+    # so a sandbox can clone them; narrow it to "public_repo read:user" for
+    # public checkouts only.
+    # @return [String]
+    attr_accessor :github_oauth_scopes
+
     # MCP servers the host app itself serves or connects, appended to the
     # built-in catalog (MCPCatalog) so the MCP Services view lists them and
     # telemetry traffic attributes to them. Each entry is a hash shaped like
@@ -452,6 +466,20 @@ module ActionAgent
     # Returns whether multi-tenant mode is enabled.
     #
     # @return [Boolean]
+    def github_client_id
+      @github_client_id.presence || ENV["GITHUB_CLIENT_ID"].presence
+    end
+
+    def github_client_secret
+      @github_client_secret.presence || ENV["GITHUB_CLIENT_SECRET"].presence
+    end
+
+    # Whether the GitHub OAuth flow can run on this install.
+    # @return [Boolean]
+    def github_oauth_configured?
+      github_client_id.present? && github_client_secret.present?
+    end
+
     def multi_tenant?
       @multi_tenant == true
     end
@@ -622,6 +650,9 @@ module ActionAgent
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
+      @github_client_id = nil
+      @github_client_secret = nil
+      @github_oauth_scopes = "repo read:user"
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil

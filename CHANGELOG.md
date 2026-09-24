@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GitHub connections and checkout sandboxes** (`actionagent`, #477).
+  Settings -> Integrations connects GitHub over OAuth
+  (`ActionAgent.github_client_id` / `github_client_secret`, or
+  `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`), stores the token encrypted,
+  and lets the owner choose which repositories the workspace may use. Only
+  repositories GitHub lists for the token can be selected. A new
+  `app_runtime` sandbox type checks out one of them: the backend receives
+  `sandbox_session.checkout_spec` (repository, ref, clone URL, token),
+  boots the app, and returns `mcp_url` / `mcp_token` from `create_sandbox`.
+  The session is then an MCP server keyed `sandbox:<session_id>`. An agent
+  that lists that key in `mcp_servers` runs, and is evaluated, with the
+  checkout's own tools. Lookups are scoped to the agent's owner. Run
+  `rails g action_agent:install` to add the
+  `create_active_agent_github_connections` migration.
+
 - **Host concerns for the engine's models and controllers** (`actionagent`).
   `ActionAgent.model_concerns` is included into
   `ActionAgent::ApplicationRecord` as it loads, and so into every engine
