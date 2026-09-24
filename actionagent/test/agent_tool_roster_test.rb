@@ -33,11 +33,11 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
 
   # A trace of one generation: the roster it offered, and the tools the model
   # then called — the two readings ToolDiscovery takes from a single trace.
-  def create_trace(agent_class:, declared: [], calls: [])
+  def create_trace(agent_class:, action: "respond", declared: [], calls: [])
     spans = [ {
-      "span_id" => "r1", "parent_span_id" => nil, "name" => "#{agent_class}.respond",
+      "span_id" => "r1", "parent_span_id" => nil, "name" => "#{agent_class}.#{action}",
       "type" => "root", "duration_ms" => 900.0, "status" => "OK",
-      "attributes" => { "agent.class" => agent_class, "agent.action" => "respond" }
+      "attributes" => { "agent.class" => agent_class, "agent.action" => action }
     } ]
 
     if declared.any?
@@ -165,6 +165,19 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
     create_trace(agent_class: "BillingAgent", calls: [ { name: "refund_invoice" } ])
 
     assert_nil tool_named(roster_for(agent), "refund_invoice")
+  end
+
+  # An application reporting `SupportBot` registers one observed agent per
+  # action under that class, and none of its traces carry `SupportBotAgent`.
+  test "an observed agent's roster counts its own calls, not another action's" do
+    create_trace(agent_class: "SupportBot", calls: [ { name: "lookup_order" } ])
+    create_trace(agent_class: "SupportBot", action: "title", calls: [ { name: "lookup_order" }, { name: "lookup_order" } ])
+    respond = ActionAgent::Agent.find_by!(agent_class_name: "SupportBot", action_name: "respond")
+
+    tool = tool_named(roster_for(respond), "lookup_order")
+
+    assert respond.observed?
+    assert_equal 1, tool["calls"], "the roster counts the respond action's call only"
   end
 
   test "dashboard capabilities carry their enabled state and the usage of the functions they expose" do

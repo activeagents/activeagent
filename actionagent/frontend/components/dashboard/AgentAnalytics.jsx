@@ -32,15 +32,6 @@ export default function AgentAnalytics({ agent, onBack, embedded = false }) {
   const { timeWindow, days: period } = useTimeWindow();
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Correlation key between this Agent record and its telemetry traces
-  // (mirrors Agent#telemetry_agent_class for shallow agent objects).
-  const telemetryAgentClass = agent.telemetry_agent_class ||
-    (() => {
-      const base = agent.agent_class_name ||
-        `${(agent.name || '').replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()).replace(/[^a-zA-Z0-9]/g, '')}`;
-      return base.endsWith('Agent') ? base : `${base}Agent`;
-    })();
-
   useEffect(() => {
     loadAnalytics();
   }, [agent?.id, period]);
@@ -162,7 +153,7 @@ export default function AgentAnalytics({ agent, onBack, embedded = false }) {
       )}
 
       {shownTab === 'traces' && (
-        <TracesView agentClass={telemetryAgentClass} embedded />
+        <TracesView agentId={agent.id} embedded />
       )}
 
       {shownTab === 'interactions' && (
