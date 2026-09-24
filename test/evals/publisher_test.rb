@@ -77,6 +77,23 @@ class EvalsPublisherTest < Minitest::Test
     refute_includes error.message, "private-test-key"
   end
 
+  def test_a_key_with_surrounding_whitespace_is_sent_and_filtered_without_it
+    [ "private-test-key ", "private-test-key\t", " private-test-key\n" ].each do |key|
+      stub_request(:post, ENDPOINT).with(headers: { "Authorization" => "Bearer private-test-key" })
+        .to_return(status: 401, body: { error: "unknown key private-test-key\tfor\nthis account" }.to_json)
+      error = assert_raises(Publisher::Error) { Publisher.new(endpoint: ENDPOINT, api_key: key).call(**arguments) }
+
+      assert_equal "unknown key [FILTERED] for this account", error.detail, key.inspect
+      refute_includes error.message, "private-test-key"
+    end
+  end
+
+  def test_a_key_must_be_visible_ascii
+    [ "private test-key", "private\ttest-key", "private-t\u00EBst-key", "private-test-key\u200B" ].each do |key|
+      assert_raises(ArgumentError, key.inspect) { Publisher.new(endpoint: ENDPOINT, api_key: key) }
+    end
+  end
+
   def test_only_the_error_string_of_a_json_object_is_read
     [ "<html>Bad Gateway private-test-key</html>", "", [ "results[0] is invalid" ].to_json,
       { error: { field: "answer", value: "Shipped" } }.to_json, { message: "Shipped is invalid" }.to_json,
@@ -95,7 +112,8 @@ class EvalsPublisherTest < Minitest::Test
       429 => [ true, "retry later" ],
       408 => [ true, "retain the report and run_id for retry" ],
       503 => [ true, "retain the report and run_id for retry" ],
-      401 => [ false, "resolve the rejection before retrying" ]
+      401 => [ false, "resolve the rejection before retrying" ],
+      403 => [ false, "resolve the rejection before retrying" ]
     }.each do |status, (retryable, guidance)|
       error = rejection(status, { error: "reason #{status}" }.to_json)
       assert_equal status, error.status
@@ -129,11 +147,28 @@ class EvalsPublisherTest < Minitest::Test
     end
   end
 
-  def test_a_receipt_that_is_not_json_is_retryable
-    stub_request(:post, ENDPOINT).to_return(status: 201, body: "<html>ok</html>")
+  def test_a_receipt_that_is_not_json_is_retryable_and_quotes_nothing_from_it
+    stub_request(:post, ENDPOINT).to_return(status: 201, body: "\e]0;title\a\u202E private-test-key Shipped")
     error = assert_raises(Publisher::Error) { publisher.call(**arguments) }
+
     assert_equal "Evaluation collector returned invalid JSON; retain the report and run_id for retry", error.message
     assert error.retryable?
+    assert_nil error.cause
+    refute_includes error.full_message, "private-test-key"
+  end
+
+  def test_a_malformed_response_is_retryable_and_quotes_nothing_from_it
+    [ Net::HTTPBadResponse.new("wrong status line: \"private-test-key Shipped\""),
+      Net::HTTPHeaderSyntaxError.new("invalid syntax for byte-ranges-specifier: 'private-test-key'"),
+      Zlib::DataError.new("invalid code lengths set") ].each do |failure|
+      stub_request(:post, ENDPOINT).to_raise(failure)
+      error = assert_raises(Publisher::Error) { publisher.call(**arguments) }
+
+      assert_equal "Evaluation collector returned a malformed response (#{failure.class}); retain the report and run_id for retry", error.message
+      assert error.retryable?, failure.class
+      assert_nil error.cause, failure.class
+      refute_includes error.full_message, "private-test-key"
+    end
   end
 
   def test_a_name_that_does_not_resolve_fails_as_a_delivery_failure
@@ -144,6 +179,7 @@ class EvalsPublisherTest < Minitest::Test
     assert_includes error.message, "SocketError"
     assert_includes error.message, "retain the report and run_id for retry"
     assert error.retryable?
+    assert_instance_of SocketError, error.cause
   end
 
   def test_oversized_report_never_leaves_the_process
@@ -153,11 +189,33 @@ class EvalsPublisherTest < Minitest::Test
     assert_not_requested :post, ENDPOINT
   end
 
+  def test_a_report_that_cannot_be_encoded_never_leaves_the_process
+    too_deep = (1..120).reduce("Shipped") { |inner, _| { "result" => inner } }
+    [ { "answer" => "Shipped \xFF" }, { "score" => Float::NAN }, too_deep ].each do |report|
+      error = assert_raises(Publisher::Error) { publisher.call(**arguments.merge(report: report)) }
+
+      assert_match(/\AEvaluation report cannot be encoded as JSON \(JSON::\w+Error\); correct the report before publishing\z/, error.message)
+      refute error.retryable?
+      assert_nil error.cause
+    end
+    assert_not_requested :post, ENDPOINT
+  end
+
+  def test_a_report_must_be_a_hash_or_convert_to_one
+    [ "Shipped", nil, [ "Shipped" ], 42 ].each do |report|
+      assert_raises(ArgumentError, report.inspect) { publisher.call(**arguments.merge(report: report)) }
+    end
+    assert_not_requested :post, ENDPOINT
+  end
+
   def test_requires_a_secure_destination_and_a_key
     [ "http://collector.example.test/v1/evaluations", "ftp://example.test", "https://user:pass@example.test", "https://example.test/?key=secret" ].each do |endpoint|
       assert_raises(ArgumentError) { Publisher.new(endpoint: endpoint, api_key: "test-key") }
     end
-    assert_raises(ArgumentError) { Publisher.new(api_key: "") }
+    [ "", " \t\n" ].each { |key| assert_raises(ArgumentError) { Publisher.new(api_key: key) } }
+    [ nil, "soon", 0, -1, Float::INFINITY ].each do |timeout|
+      assert_raises(ArgumentError, timeout.inspect) { Publisher.new(api_key: "test-key", timeout: timeout) }
+    end
     assert_instance_of Publisher, Publisher.new(endpoint: "http://127.0.0.1:3210/v1/evaluations", api_key: "test-key")
   end
 end

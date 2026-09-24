@@ -4,6 +4,7 @@ require "json"
 require "net/http"
 require "openssl"
 require "uri"
+require "zlib"
 
 module ActiveAgent
   module Evals
@@ -11,12 +12,17 @@ module ActiveAgent
     # retain run_id when retrying: compatible collectors treat that identity as
     # immutable within the authenticated account. Delivery is blocking and does
     # not follow redirects with the account's bearer credential.
+    #
+    # Every failure to deliver raises Error. Invalid arguments raise
+    # ArgumentError before anything is sent.
     class Publisher
       DEFAULT_ENDPOINT = "https://api.activeagents.ai/v1/evaluations"
       MAX_BYTES = 2 * 1024 * 1024
       DETAIL_LIMIT = 200
 
-      # Raised for every failed delivery.
+      # Raised for every failed delivery. Only a network failure keeps the
+      # underlying error as its +cause+, so neither the response nor the
+      # report reaches a log through the exception chain.
       #
       # @!attribute [r] status
       #   @return [Integer, nil] the collector's HTTP status for a rejection, nil otherwise
@@ -42,12 +48,15 @@ module ActiveAgent
       # Whether each rejection status is retryable, and what the caller should
       # do about it. Other statuses fall back to the rules in +rejection+.
       REJECTIONS = {
-        409 => [ false, "the collector holds a different report under this run_id; never retry this report with the same run_id" ],
+        409 => [ false, "the collector already holds a different report under this run_id; never retry this report with the same run_id" ],
         413 => [ false, "the report exceeds the collector's size limit; publish a smaller selection" ],
         422 => [ false, "correct what the collector refused before retrying" ],
-        429 => [ true, "the collector's quota or rate limit was reached; retain the report and run_id and retry later" ]
+        429 => [ true, "the account is over its quota or rate limit; retain the report and run_id and retry later" ]
       }.freeze
 
+      # The key is sent as a bearer token and filtered from the collector's
+      # explanation, so it is limited to visible ASCII: the sanitizer in
+      # +collector_detail+ never alters it, and an echo of it always matches.
       def initialize(api_key:, endpoint: DEFAULT_ENDPOINT, timeout: 10, open_timeout: 10)
         @uri = URI.parse(endpoint.to_s)
         unless @uri.is_a?(URI::HTTP) && @uri.host && !@uri.userinfo && !@uri.query && !@uri.fragment
@@ -56,12 +65,16 @@ module ActiveAgent
         unless @uri.scheme == "https" || %w[localhost 127.0.0.1 ::1].include?(@uri.hostname)
           raise ArgumentError, "Evaluation endpoint requires HTTPS except on loopback hosts"
         end
-        raise ArgumentError, "Evaluation API key is required" if api_key.to_s.strip.empty?
 
-        @api_key = api_key.to_s
-        @timeout = Float(timeout)
-        @open_timeout = Float(open_timeout)
-        unless [ @timeout, @open_timeout ].all? { |value| value.finite? && value.positive? }
+        @api_key = api_key.to_s.strip
+        raise ArgumentError, "Evaluation API key is required" if @api_key.empty?
+        unless @api_key.match?(/\A[\x21-\x7E]+\z/)
+          raise ArgumentError, "Evaluation API key must contain only visible ASCII characters"
+        end
+
+        @timeout = Float(timeout, exception: false)
+        @open_timeout = Float(open_timeout, exception: false)
+        unless [ @timeout, @open_timeout ].all? { |value| value&.finite? && value.positive? }
           raise ArgumentError, "Evaluation delivery timeouts must be positive and finite"
         end
       rescue URI::InvalidURIError
@@ -75,7 +88,7 @@ module ActiveAgent
         identities.each do |key, value|
           raise ArgumentError, "#{key} must be a nonempty string" unless value.is_a?(String) && !value.strip.empty?
         end
-        body = JSON.generate(identities.merge("version" => 1, "report" => report.to_h))
+        body = encode(identities.merge("version" => 1, "report" => report_hash(report)))
         raise Error, "Evaluation report exceeds the 2 MiB delivery limit; publish a smaller selection" if body.bytesize > MAX_BYTES
 
         http = Net::HTTP.new(@uri.hostname, @uri.port)
@@ -91,18 +104,38 @@ module ActiveAgent
         response = http.request(request)
         raise rejection(response) unless %w[200 201].include?(response.code)
 
-        receipt = JSON.parse(response.body)
+        receipt = JSON.parse(response.body.to_s)
         unless receipt.is_a?(Hash) && receipt["run_id"] == run_id && receipt["status"] == "complete" && receipt["id"] && receipt["evaluation_id"]
           raise Error.new("Evaluation collector returned an invalid completion receipt; retain the report and run_id for retry", retryable: true)
         end
         receipt
       rescue JSON::ParserError
-        raise Error.new("Evaluation collector returned invalid JSON; retain the report and run_id for retry", retryable: true)
+        # The parser's message quotes the body.
+        raise Error.new("Evaluation collector returned invalid JSON; retain the report and run_id for retry", retryable: true), cause: nil
+      rescue Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Zlib::Error => e
+        # These messages can quote the response's status line, headers or body.
+        raise Error.new("Evaluation collector returned a malformed response (#{e.class}); retain the report and run_id for retry", retryable: true), cause: nil
       rescue IOError, SocketError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError => e
         raise Error.new("Evaluation delivery failed (#{e.class}); retain the report and run_id for retry", retryable: true)
       end
 
       private
+
+      def report_hash(report)
+        hash = report.to_h if report.respond_to?(:to_h) && !report.nil? && !report.is_a?(Array)
+        raise ArgumentError, "report must be a Report or its saved JSON hash" unless hash.is_a?(Hash)
+
+        hash
+      end
+
+      # Returns the envelope as JSON. A report holding invalid UTF-8, NaN,
+      # Infinity or nesting over JSON's depth limit raises a non-retryable
+      # Error, without the generator's message, which can quote the report.
+      def encode(envelope)
+        JSON.generate(envelope)
+      rescue JSON::JSONError, EncodingError => e
+        raise Error.new("Evaluation report cannot be encoded as JSON (#{e.class}); correct the report before publishing"), cause: nil
+      end
 
       def rejection(response)
         status = response.code.to_i
