@@ -358,14 +358,28 @@ context = RubyLLM.context do |config|
 end
 ```
 
-`credentials_for` returns one entry per saved API-key provider (`openai`,
-`anthropic`, `openrouter`) with a credential present; an `ollama` host is a
-URL, not a key, and is left out. A row whose credential no longer decrypts —
-a key rotation it missed — is skipped with a warning naming the error class,
-never the value, so one stale row does not take every provider down.
-`apply_to` writes each one through `<provider>_api_key=` on whatever you
-hand it: a `RubyLLM.context` config block, or any object with those writers.
-The engine takes on no RubyLLM dependency for it. The evaluation module's
+`credentials_for` returns the key the engine's own runs would use for each
+API-key provider (`openai`, `anthropic`, `openrouter`) that has one. Like
+those runs, it asks your `provider_credentials_resolver` first and falls back
+to the owner's saved row only for a provider the resolver answers nothing
+for; a resolver answer that carries no `access_token` or `api_key` leaves the
+provider out. An `ollama` host is a URL, not a key, and is left out too. A
+saved row whose credential no longer decrypts — a key rotation it missed — is
+skipped with a warning naming the error class, never the value, so one stale
+row does not take every provider down.
+
+Pass an instance of the model this install keeps provider keys by: the
+`account_class`, or the `user_class` when no account class is configured.
+Rows are scoped by that model's id alone, so both methods raise
+`ArgumentError` for anything else rather than read the keys of whichever
+owner shares its id.
+
+`apply_to` writes each key through `<provider>_api_key=` on whatever you hand
+it — a `RubyLLM.context` config block, or any object with those writers — and
+returns the providers it wrote, never the keys. A provider the owner has no
+key for keeps what the config already held; for a `RubyLLM.context`, that is
+the host's global key, the same fallback the engine's runs use. The engine
+takes on no RubyLLM dependency for it. The evaluation module's
 [RubyLLM judge](/framework/evaluations#rubyllm-hosts) is built to take the
 context this produces.
 

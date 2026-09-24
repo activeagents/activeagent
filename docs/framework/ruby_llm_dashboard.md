@@ -359,7 +359,12 @@ owner saved (see
 [Self-Hosted Dashboard](/framework/self-hosted-observability#using-an-owner-s-provider-keys-outside-the-engine)).
 To evaluate the chats themselves, `require "active_agent/evals/ruby_llm"`
 gives you a judge on that context and a `Replay` from a chat's messages — see
-[Evaluations](/framework/evaluations#rubyllm-hosts).
+[Evaluations](/framework/evaluations#rubyllm-hosts). The dashboard's own
+evaluation runs replay `ActiveAgent::Base` agents, but an evaluation can hand
+its replays to your code instead: return a callable from
+`scenario_evaluation_adapter_resolver` and the dashboard runs your suite
+while keeping its catalog, run history and reports (see
+[Running a host application's agent from the mounted dashboard](/framework/evaluations#running-a-host-application-s-agent-from-the-mounted-dashboard)).
 
 ## Related
 

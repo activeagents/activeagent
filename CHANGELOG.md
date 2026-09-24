@@ -70,22 +70,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the server disabled), beside any tools the request already declares
   (#328, by @dark-panda).
 - **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
-  which hosts driving `acts_as_chat` conversations had been writing for
-  themselves. `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
-  `require "active_agent/evals"` alone still does not) gives
-  `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
-  `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
-  traces each call under the kind it serves; and `RubyLLM.replay(messages)`,
-  a `Replay` from a conversation's messages: tool calls in id order with an
-  MCP-style `{"error": ...}` tool result marking the call errored, tokens
-  summed over the assistant messages from either RubyLLM 1.x's columns or
-  2.x's `tokens`, and the last assistant message as the answer.
+  which hosts driving RubyLLM conversations had been writing for themselves.
+  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
+  `require "active_agent/evals"` alone still does not) gives two helpers, for
+  RubyLLM 1.16 and later and for 2.x:
+  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
+    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
+    traces each call under the kind it serves. `temperature:` and a
+    `configure:` hook set the chat up; any other keyword must be one
+    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
+    built rather than failing every call. `on_usage:` reports each call's
+    model, tokens and cost.
+  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
+    `acts_as_chat` records of either RubyLLM generation are read through
+    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
+    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
+    the order the model made them in; one is errored when its result is JSON
+    with a present `"error"`, an MCP result with `"isError": true`, or the
+    inspected `{ error: ... }` RubyLLM 1.x stores for a tool's error Hash,
+    with the error (JSON-encoded, at most 1,200 bytes) as its detail.
+    `input_tokens` counts the whole prompt, cache reads and writes included.
+    Cost is RubyLLM's own price, left nil when any message is unpriced. A
+    conversation that stopped at a tool call has no answer and says so in
+    its `error`.
 - **`ActionAgent::ProviderKey.credentials_for(owner)` and
-  `.apply_to(config, owner:)`** (`actionagent`) hand an owner's saved API keys
-  to code outside the engine — `{ "openai" => "sk-..." }`, or written through
+  `.apply_to(config, owner:)`** (`actionagent`) hand an owner's API keys to
+  code outside the engine — `{ "openai" => "sk-..." }`, or written through
   `<provider>_api_key=` onto a `RubyLLM.context` config block or anything
-  shaped like one. A credential that no longer decrypts is skipped with a
-  warning naming the error class, never the value.
+  shaped like one, returning the providers written rather than the keys. A
+  key is found the way the engine's runs find it: the host's
+  `provider_credentials_resolver` first, then the owner's saved row. The
+  owner must be an instance of the model the install keeps keys by, since
+  rows are scoped by its id alone; anything else raises `ArgumentError`. A
+  saved credential that no longer decrypts is skipped with a warning naming
+  the error class, never the value.
 
 ### Changed
 

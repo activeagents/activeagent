@@ -169,44 +169,78 @@ else in the run metadata stays on the report but off the traces.
 
 ### RubyLLM hosts
 
-An app that drives RubyLLM `acts_as_chat` conversations needs two more pieces
-to run a suite: a judge that asks a RubyLLM chat, and a `Replay` built from
-the messages a conversation stored. `ActiveAgent::Evals::RubyLLM` is both,
-loaded by its own require so `require "active_agent/evals"` never pulls in the
-`ruby_llm` gem:
+An app that drives RubyLLM conversations — `RubyLLM.chat`, `acts_as_chat`
+records — needs two more pieces to run a suite: a judge that asks a RubyLLM
+chat, and a `Replay` built from the messages a conversation produced.
+`ActiveAgent::Evals::RubyLLM` is both, loaded by its own require so
+`require "active_agent/evals"` never pulls in the `ruby_llm` gem. Both
+RubyLLM 1.x (1.16 and later) and 2.x work.
 
 ```ruby
 require "active_agent/evals/ruby_llm"   # requires ruby_llm itself
 ```
 
-`judge` builds a `Judge` whose completions come from
-`context.chat(model:, provider:, assume_model_exists:, **chat_options)`, then
+**`judge`** builds a `Judge` whose completions come from
+`context.chat(model:, provider:, assume_model_exists:)`, then
 `with_instructions(instructions).ask(prompt).content`. `context` is anything
 answering to `chat` — `RubyLLM` itself, or a `RubyLLM.context` built with the
 host's own keys (the dashboard's `ActionAgent::ProviderKey.apply_to` writes an
-owner's saved keys onto that config block). With a `correlation:`, every call
-is traced through `Correlation#judge` under the kind it serves (`score`,
+owner's keys onto that config block). With a `correlation:`, every call is
+traced through `Correlation#judge` under the kind it serves (`score`,
 `recommend`, `verdict`), so the judge trace lands on the result it graded.
 
-`replay` turns an ordered list of messages — `acts_as_chat` records or
-`RubyLLM::Message` values, an Array or a relation — into a `Replay`: the tool
-calls in id order, each marked errored when the `tool` message answering it
-holds JSON with an `"error"` key (how an MCP tool failure is reported) with
-that error as its `detail`; input and output tokens summed over the assistant
-messages, from `input_tokens`/`output_tokens` (RubyLLM 1.x) or
-`tokens.input`/`tokens.output` (RubyLLM 2.x); and the last assistant message
-as the answer unless `answer:` is given. `duration_ms:`, `error:` and
-`metadata:` pass through.
+- `temperature:` is applied with `with_temperature`, and `configure:` is
+  called with each chat before it is asked, for any other `with_*` setting.
+- Any other keyword goes to `chat` itself, so it must be one
+  `RubyLLM::Chat.new` takes — `protocol:` on RubyLLM 2.x. Anything else raises
+  `ArgumentError` when the judge is built, not on every call.
+- `on_usage:` is called after each answered call with
+  `{ "kind", "model", "input_tokens", "output_tokens", "cost" }`, for a host
+  that meters what its judge spends. An error it raises is logged, never
+  allowed to cost the grade.
+
+**`replay`** turns an ordered list of messages — `acts_as_chat` records of
+either RubyLLM generation, `RubyLLM::Message` values, an Array or a relation —
+into a `Replay`. Records are read through their own `to_llm`, so the replay
+sees what RubyLLM itself would send the model, whichever schema the table has.
+
+- **Tool calls** come in the order the model made them. A call is errored
+  when the result answering it reports an error: JSON with a present
+  `"error"`, an MCP result with `"isError": true`, or the inspected
+  `{ error: "..." }` RubyLLM 1.x stores when a tool returns an error Hash. The
+  error is the call's `detail`, JSON-encoded unless it is a string and cut to
+  1,200 bytes.
+- **Tokens** are summed over the assistant messages. `input_tokens` is the
+  whole prompt: RubyLLM counts cache reads and writes apart from its `input`,
+  and the replay adds them back.
+- **Cost** is the sum of RubyLLM's own price for each assistant message, and
+  is left nil when any of them is unpriced rather than reporting part of it.
+- **The answer** is the last assistant message's content. A conversation that
+  stopped on a tool call — a tool awaiting approval, a run cut short — has no
+  answer, and the replay's `error` says which call it stopped at.
+
+`answer:`, `error:` and `cost:` override what the messages say;
+`duration_ms:` and `metadata:` pass through.
+
+Put together with a correlation, and with the replays and judge calls reported
+through the `activeagents-telemetry-ruby_llm` adapter:
 
 ```ruby
 require "active_agent/evals/ruby_llm"
 
 context = RubyLLM.context { |config| ActionAgent::ProviderKey.apply_to(config, owner: account) }
-correlation = ActiveAgent::Evals::Correlation.new(agent_name: "SupportChat", tracer: tracer)
+
+correlation = ActiveAgent::Evals::Correlation.new(
+  agent_name: "SupportChat",
+  tracer: ->(name, action:, attributes:, on_trace:, &block) {
+    ActiveAgents::Telemetry::RubyLLM.with_agent(name, action: action, attributes: attributes,
+                                                on_trace: on_trace, synchronous: true, &block)
+  }
+)
 
 judge = ActiveAgent::Evals::RubyLLM.judge(
   label: "claude-opus-5", model: "claude-opus-5", provider: :anthropic,
-  context: context, correlation: correlation
+  context: context, correlation: correlation, temperature: 0
 )
 
 report = correlation.with_run("suite" => "support") do |metadata|
@@ -222,9 +256,31 @@ report = correlation.with_run("suite" => "support") do |metadata|
         metadata: { "chat_id" => chat.id }
       )
     }
-  ).call
+  ).call.tap(&:verdict)
 end
 ```
+
+`tap(&:verdict)` asks for the verdict while the run is still open. The
+verdict is computed on first use, and a judge call made after `with_run` has
+returned is traced without the run's `eval.run_id`, its trace id never
+reaching `report.metadata["judge_trace_ids"]`.
+
+Two things about the adapter to know:
+
+- **Trace ids are recorded only for traces the adapter accepted for
+  delivery.** A trace dropped by `sample_rate` or a disabled configuration
+  never reaches `on_trace`, so its result carries no `trace_id`.
+- **Keep your own `with_agent` scope out of code a replay runs** on adapter
+  releases up to 0.3.1. There a nested `with_agent` — such as a "name your
+  traffic" scope around `chat.ask` — replaces the evaluation's scope for the
+  turns inside it: their traces lose the `eval.*` attributes, delivery goes
+  back to the background thread, and the result never receives its
+  `trace_id`. Check the adapter's changelog for nested-scope support before
+  relying on it.
+
+To run such a suite from the mounted dashboard rather than a script, return
+it from a host adapter — see
+[Running a host application's agent from the mounted dashboard](#running-a-host-application-s-agent-from-the-mounted-dashboard).
 
 ## Faults
 
