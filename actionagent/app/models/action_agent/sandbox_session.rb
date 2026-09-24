@@ -6,6 +6,7 @@ module ActionAgent
     owned_by :user, :account
 
     belongs_to :agent_template, optional: true
+    has_many :code_sessions, dependent: :destroy
 
     # Session statuses
     enum :status, {
@@ -79,6 +80,19 @@ module ActionAgent
       session&.runtime_server_entry
     end
 
+    # The live runtimes in +scope+ (a relation already scoped to an owner) as
+    # MCP server listings: the catalog entry shape MCPCatalog serves, without
+    # the bearer token runtime_server_entry carries for the dispatcher.
+    #
+    # @return [Array<Hash>]
+    def self.runtime_server_listings(scope)
+      scope.active.by_type("app_runtime")
+        .where.not(runtime_mcp_url: [ nil, "" ])
+        .where("expires_at > ?", Time.current)
+        .recent.limit(20)
+        .filter_map(&:runtime_server_listing)
+    end
+
     def app_runtime?
       sandbox_type == "app_runtime"
     end
@@ -100,6 +114,18 @@ module ActionAgent
         url: runtime_mcp_url,
         headers: runtime_mcp_token.present? ? { "Authorization" => "Bearer #{runtime_mcp_token}" } : {}
       }
+    end
+
+    # This runtime as a token-free MCP server listing (see
+    # runtime_server_listings), or nil when it is not live.
+    def runtime_server_listing
+      entry = runtime_server_entry or return nil
+
+      entry.except(:headers).merge(
+        command: nil, package: nil, categories: [ "runtime" ], docs_url: nil,
+        sandbox: false, sandbox_type: "app_runtime", first_party: false,
+        requires_credentials: [], tools: [], runtime: true
+      )
     end
 
     # What a sandbox backend clones for an app_runtime session: repository,

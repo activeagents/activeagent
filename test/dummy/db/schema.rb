@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 10) do
+ActiveRecord::Schema[8.0].define(version: 11) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -192,6 +192,33 @@ ActiveRecord::Schema[8.0].define(version: 10) do
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index [ "token" ], name: "index_active_agent_api_keys_on_token", unique: true
+  end
+
+  create_table "active_agent_code_sessions", force: :cascade do |t|
+    t.bigint "account_id"
+    t.string "claude_session_id"
+    t.datetime "created_at", null: false
+    t.text "diff"
+    t.integer "dropped_events_count", default: 0, null: false
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.json "events", default: []
+    t.datetime "finished_at"
+    t.integer "input_tokens"
+    t.string "model"
+    t.integer "num_turns"
+    t.integer "output_tokens"
+    t.text "prompt", null: false
+    t.text "result"
+    t.bigint "sandbox_session_id", null: false
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.decimal "total_cost_usd", precision: 12, scale: 6
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_code_sessions_on_account_id"
+    t.index [ "sandbox_session_id" ], name: "index_active_agent_code_sessions_on_sandbox_session_id"
+    t.index [ "user_id" ], name: "index_active_agent_code_sessions_on_user_id"
   end
 
   create_table "active_agent_evaluation_runs", force: :cascade do |t|
