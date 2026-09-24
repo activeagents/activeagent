@@ -39,6 +39,8 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
       t.string :source
       t.datetime :first_observed_at
       t.datetime :last_observed_at
+      # The digest of the release the agent last shipped in (Agent#record_release!).
+      t.string :release_digest
 
       t.bigint :user_id
       t.bigint :account_id
@@ -55,8 +57,13 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
       t.column :configuration_snapshot, json_type, **json_default({}, null: false)
       t.string :change_summary
       t.string :created_by
+      # A version cut from a release carries its digest and the deploy it
+      # shipped in.
+      t.string :release_digest
+      t.string :revision
       t.timestamps
       t.index [ :agent_id, :version_number ], unique: true
+      t.index [ :agent_id, :release_digest ]
     end
 
     create_table "#{prefix}agent_runs" do |t|
@@ -77,10 +84,13 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
       t.integer :duration_ms
       t.datetime :started_at
       t.datetime :completed_at
+      # The version of the agent the run executed.
+      t.bigint :agent_version_id
       t.timestamps
       t.index :agent_id
       t.index :trace_id
       t.index :created_at
+      t.index :agent_version_id
     end
 
     create_table "#{prefix}agent_templates" do |t|
@@ -197,6 +207,8 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
       t.integer :samples_passed, default: 0
       t.text :error_message
       t.datetime :completed_at
+      # The version of the agent the run scored.
+      t.bigint :agent_version_id
       # Set only on a run an application executed itself and published
       # (ActionAgent::EvaluationReportImport): the tenant whose key published
       # it, the run_id the application minted, and the digest of the report.
@@ -207,6 +219,7 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
       t.string :external_report_digest
       t.timestamps
       t.index :evaluation_id
+      t.index :agent_version_id
       t.index [ :external_tenant, :external_run_id ], unique: true,
         name: "index_#{prefix}evaluation_runs_on_external_identity"
     end
