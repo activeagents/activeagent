@@ -98,6 +98,42 @@ class ProviderKeyTest < ActiveSupport::TestCase
     assert(asked.all? { |owner, _| owner == @owner })
   end
 
+  # A gateway's key belongs to the gateway: paired with the public endpoint a
+  # RubyLLM config defaults to, it would be sent somewhere it was not meant for.
+  test "credentials_for leaves out a provider the resolver sends to another endpoint" do
+    create_key("openai", "sk-openai-row", owner: @owner)
+    ActionAgent.provider_credentials_resolver = lambda do |_owner, provider|
+      { access_token: "sk-gateway", uri_base: "https://gateway.example.com/v1" } if provider == "openai"
+    end
+
+    assert_equal({}, ActionAgent::ProviderKey.credentials_for(@owner))
+  end
+
+  test "credentials_for reads a resolver's key as the providers do: api_key, then access_token, blanks skipped" do
+    ActionAgent.provider_credentials_resolver = lambda do |_owner, provider|
+      case provider
+      when "openai" then { "access_token" => "", "api_key" => "sk-openai-api" }
+      when "anthropic" then { access_token: "sk-ant-token", api_key: "sk-ant-api" }
+      when "openrouter" then "not a hash"
+      end
+    end
+
+    assert_equal({ "anthropic" => "sk-ant-api", "openai" => "sk-openai-api" },
+      ActionAgent::ProviderKey.credentials_for(@owner))
+  end
+
+  test "credentials_for sees through a delegating decorator" do
+    create_key("openai", "sk-openai-owner", owner: @owner)
+
+    assert_equal({ "openai" => "sk-openai-owner" }, ActionAgent::ProviderKey.credentials_for(SimpleDelegator.new(@owner)))
+  end
+
+  test "credentials_for refuses every owner when the owner class does not load" do
+    ActionAgent.account_class = "NoSuchOwnerModel"
+
+    assert_raises(ArgumentError) { ActionAgent::ProviderKey.credentials_for(@owner) }
+  end
+
   test "apply_to writes each key through the config's provider writer and returns only provider names" do
     create_key("openai", "sk-openai-owner", owner: @owner)
     create_key("openrouter", "sk-or-owner", owner: @owner)

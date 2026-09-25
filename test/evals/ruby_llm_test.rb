@@ -13,7 +13,7 @@ class EvalsRubyLLMTest < ActiveSupport::TestCase
   TEST = File.expand_path("..", __dir__)
 
   test "the RubyLLM judge and replay cases pass" do
-    output = IO.popen([ RbConfig.ruby, "-I#{LIB}", "-I#{TEST}", CASES ], err: %i[child out], &:read)
+    output = IO.popen([ RbConfig.ruby, "-EUTF-8", "-I#{LIB}", "-I#{TEST}", CASES ], err: %i[child out], &:read)
     status = $?
 
     assert status.success?, output

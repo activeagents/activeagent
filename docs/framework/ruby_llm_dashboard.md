@@ -354,8 +354,9 @@ observability surface.
 
 A full install also keeps each owner's provider keys, and your RubyLLM code can
 run on them: `ActionAgent::ProviderKey.apply_to(config, owner: account)` inside
-a `RubyLLM.context` block sets `openai_api_key` and friends from what the
-owner saved (see
+a `RubyLLM.context` block sets `openai_api_key` and friends to that owner's
+keys — your `provider_credentials_resolver`'s first, then what the owner
+saved (see
 [Self-Hosted Dashboard](/framework/self-hosted-observability#using-an-owner-s-provider-keys-outside-the-engine)).
 To evaluate the chats themselves, `require "active_agent/evals/ruby_llm"`
 gives you a judge on that context and a `Replay` from a chat's messages — see
@@ -363,7 +364,9 @@ gives you a judge on that context and a `Replay` from a chat's messages — see
 evaluation runs replay `ActiveAgent::Base` agents, but an evaluation can hand
 its replays to your code instead: return a callable from
 `scenario_evaluation_adapter_resolver` and the dashboard runs your suite
-while keeping its catalog, run history and reports (see
+while keeping its catalog, run history and reports. That is agent execution,
+so it needs `ActionAgent.execution_enabled` left on, and each result is
+metered as one `:execution` for the owner (see
 [Running a host application's agent from the mounted dashboard](/framework/evaluations#running-a-host-application-s-agent-from-the-mounted-dashboard)).
 
 ## Related

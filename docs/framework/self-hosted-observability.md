@@ -358,21 +358,26 @@ context = RubyLLM.context do |config|
 end
 ```
 
-`credentials_for` returns the key the engine's own runs would use for each
-API-key provider (`openai`, `anthropic`, `openrouter`) that has one. Like
-those runs, it asks your `provider_credentials_resolver` first and falls back
-to the owner's saved row only for a provider the resolver answers nothing
-for; a resolver answer that carries no `access_token` or `api_key` leaves the
-provider out. An `ollama` host is a URL, not a key, and is left out too. A
-saved row whose credential no longer decrypts — a key rotation it missed — is
-skipped with a warning naming the error class, never the value, so one stale
-row does not take every provider down.
+`credentials_for` returns a key for each API-key provider (`openai`,
+`anthropic`, `openrouter`) that has one, looked up in the order the engine's
+own runs use: your `provider_credentials_resolver` first, asked with the owner
+you pass, and the owner's saved row only for a provider the resolver answers
+nothing for. A resolver answer leaves the provider out when it carries no
+`api_key` or `access_token`, or when it points the provider at another
+endpoint (`uri_base`, `base_url`, `api_base` or `host`): a gateway's key is
+not handed out on its own, because a RubyLLM config would send it to the
+provider's public endpoint. An `ollama` host is a URL, not a key, and is left
+out too. A saved row whose credential no longer decrypts — a key rotation it
+missed — is skipped with a warning naming the error class, never the value, so
+one stale row does not take every provider down.
 
-Pass an instance of the model this install keeps provider keys by: the
-`account_class`, or the `user_class` when no account class is configured.
-Rows are scoped by that model's id alone, so both methods raise
-`ArgumentError` for anything else rather than read the keys of whichever
-owner shares its id.
+On an install with an owner model, pass an instance of the model it keeps
+provider keys by: the `account_class`, or the `user_class` when no account
+class is configured (a decorator that delegates to one is unwrapped). Rows are
+scoped by that model's id alone, so both methods raise `ArgumentError` for
+anything else rather than read the keys of whichever owner shares its id. A
+nil owner reads no saved rows, only your resolver's keys; an install with no
+owner model reads every saved row.
 
 `apply_to` writes each key through `<provider>_api_key=` on whatever you hand
 it — a `RubyLLM.context` config block, or any object with those writers — and
