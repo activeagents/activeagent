@@ -82,7 +82,14 @@ module ActionAgent
       # Where git finds a repository. Set when the dashboard runs under a git
       # hook, and they would point the checkout's git at the dashboard's own.
       \AGIT_(?:DIR|WORK_TREE|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|
-        NAMESPACE|PREFIX|QUARANTINE_PATH|CONFIG|CONFIG_PARAMETERS|CONFIG_COUNT|CONFIG_KEY_\d+|CONFIG_VALUE_\d+)\z
+        NAMESPACE|PREFIX|QUARANTINE_PATH|CONFIG|CONFIG_PARAMETERS|CONFIG_COUNT|CONFIG_KEY_\d+|CONFIG_VALUE_\d+)\z |
+      # The dashboard's own model-provider and Claude Code settings. A
+      # developer often runs the dashboard from inside Claude Code, which
+      # exports CLAUDECODE, CLAUDE_CODE_* (its own session id among them) and
+      # ANTHROPIC_BASE_URL; a session inheriting those joins the developer's
+      # session, and a base URL redirects the owner's credential. A session
+      # gets exactly the Claude Code variables the backend sets.
+      \A(?:ANTHROPIC|CLAUDE|OPENAI|OPEN_AI|OPENROUTER|OPEN_ROUTER|OLLAMA)(?:_|\z) | \ACLAUDECODE\z
     /x
     SECRET_VARIABLE = /SECRET|TOKEN|PASSWORD|PASSWD|API_KEY|APIKEY|PRIVATE_KEY|CREDENTIAL|ACCESS_KEY/i
 
