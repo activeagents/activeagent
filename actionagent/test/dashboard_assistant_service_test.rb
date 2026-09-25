@@ -272,7 +272,74 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     assert configuration.dig(:processing, :consent_required)
     assert configuration[:providers].all? { |provider| provider[:id] == "ollama" || provider[:configured] }
     assert_not_includes configuration.to_json, "hidden-fixture-secret"
-    assert configuration[:connections].values.none? { |connection| connection[:supported] }
+    assert_equal({ supported: false }, configuration.dig(:connections, :coi))
+  end
+
+  # The assistant's configuration endpoint reports what Settings → Integrations
+  # has set up. The model is not told, and starts nothing itself
+  # (LIMITATIONS, INSTRUCTIONS).
+  test "connections report the owner's GitHub and Claude Code setup and whether the backend runs sessions" do
+    ActionAgent::GithubConnection.delete_all
+    ActionAgent::ProviderKey.delete_all
+
+    connections = assistant.configuration[:connections]
+    assert_equal({ supported: true, connected: false }, connections[:github])
+    # The default :mock backend runs (pretend) Claude Code sessions.
+    assert_equal({ supported: true, connected: false }, connections[:claude_code])
+    assert_equal({ supported: false }, connections[:coi])
+
+    ActionAgent::GithubConnection.create!(access_token: "gho_hidden_fixture", github_user_id: 42, login: "octocat")
+    ActionAgent::ProviderKey.create!(provider: "claude_code", credential: "sk-ant-oat01-hidden_fixture")
+    connections = assistant.configuration[:connections]
+    assert connections.dig(:github, :connected)
+    assert connections.dig(:claude_code, :connected)
+    assert_not_includes connections.to_json, "gho_hidden_fixture"
+    assert_not_includes connections.to_json, "sk-ant-oat01-hidden_fixture"
+
+    no_sessions = Object.new
+    no_sessions.define_singleton_method(:supports?) { |verb| verb != :code_session }
+    ActionAgent::SandboxOrchestrator.stub(:new, no_sessions) do
+      assert_equal({ supported: false, connected: true }, assistant.configuration.dig(:connections, :claude_code))
+    end
+    # A misspelled backend class raises NameError; a class file that requires
+    # an SDK the host doesn't bundle raises LoadError, which is no
+    # StandardError.
+    [
+      NameError.new("uninitialized constant MisspelledBackend"),
+      LoadError.new("cannot load such file -- google/cloud/run/v2_missing_sdk")
+    ].each do |error|
+      unloadable = ->(*) { raise error }
+      ActionAgent::SandboxOrchestrator.stub(:new, unloadable) do
+        assert_equal({ supported: false, connected: true }, assistant.configuration.dig(:connections, :claude_code), error.class.name)
+      end
+    end
+
+    limitation = ActionAgent::DashboardAssistantService::LIMITATIONS.find { |text| text.include?("Claude Code") }
+    assert_includes limitation, "Settings → Integrations"
+    assert_includes ActionAgent::DashboardAssistantService::INSTRUCTIONS, "Settings → Integrations"
+  end
+
+  test "connections count only the owner's own GitHub and Claude Code setup" do
+    original_user_class = ActionAgent.user_class
+    ActionAgent.user_class = "User"
+    ActionAgent::GithubConnection.delete_all
+    ActionAgent::ProviderKey.delete_all
+    stranger = @owner.id + 1
+    ActionAgent::GithubConnection.create!(user_id: stranger, access_token: "gho_fixture", github_user_id: 42, login: "octocat")
+    ActionAgent::ProviderKey.create!(user_id: stranger, provider: "claude_code", credential: "sk-ant-oat01-fixture")
+
+    connections = assistant.configuration[:connections]
+    assert_not connections.dig(:github, :connected)
+    assert_not connections.dig(:claude_code, :connected)
+
+    ActionAgent::GithubConnection.create!(user_id: @owner.id, access_token: "gho_fixture", github_user_id: 43, login: "hubot")
+    assert assistant.configuration.dig(:connections, :github, :connected)
+    assert_not assistant.configuration.dig(:connections, :claude_code, :connected)
+
+    ActionAgent::ProviderKey.create!(user_id: @owner.id, provider: "claude_code", credential: "sk-ant-oat01-owner_fixture")
+    assert assistant.configuration.dig(:connections, :claude_code, :connected)
+  ensure
+    ActionAgent.user_class = original_user_class
   end
 
   test "host credentials take priority then scoped provider keys then configuration" do

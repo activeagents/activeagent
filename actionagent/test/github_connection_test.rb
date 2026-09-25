@@ -151,6 +151,14 @@ class GithubConnectionTest < ActionDispatch::IntegrationTest
     sandbox = JSON.parse(response.body)["sandbox"]
     assert_equal "acme/docs", sandbox["repository"]
     assert_equal "trunk", sandbox["repository_ref"], "the default branch is used when no ref is given"
+    # A checkout boots in the background; the client polls until it is ready.
+    assert_equal "provisioning", sandbox["status"]
+    assert_not_includes response.body, "gho_secret"
+
+    perform_enqueued_jobs
+
+    get "/activeagents/api/sandboxes/#{sandbox['session_id']}"
+    sandbox = JSON.parse(response.body)["sandbox"]
     assert_equal "ready", sandbox["status"]
     assert_equal "sandbox:#{sandbox['session_id']}", sandbox["runtime_server_key"]
     assert_not_includes response.body, "gho_secret"

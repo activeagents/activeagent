@@ -31,7 +31,7 @@ module ActionAgent
     PROCESSING_DISCLOSURE = "The selected provider receives your current message, bounded conversation history, and authorized report excerpts requested through assistant tools."
     LIMITATIONS = [
       "Reports describe recorded behavior; no repository branch or current main has been verified.",
-      "GitHub connections, COI execution, and native Claude Code session connections are not implemented here.",
+      "This assistant cannot connect GitHub, start checkout sandboxes, or run Claude Code sessions: do that in Settings → Integrations. COI execution is not available.",
       "Agent proposals are drafts only. Review them in the builder before saving or running."
     ].freeze
     INSTRUCTIONS = <<~TEXT.freeze
@@ -55,9 +55,12 @@ module ActionAgent
       agents. These groups do not provide repository editing, arbitrary browser
       automation, or private database access. Instructions alone do not add tools
       or data access. Explain missing capabilities when proposing an agent.
-      GitHub auth, repo checkout, COI, native Claude Code sessions, running
-      evaluations, and publishing PRs are not available in this version. Explain
-      those limitations without suggesting fake authentication links.
+      You cannot connect GitHub, start checkout sandboxes, run Claude Code
+      sessions, run evaluations, or publish PRs. The developer connects GitHub
+      and Claude Code, starts checkout sandboxes, and runs Claude Code sessions
+      in Settings → Integrations; point them there instead of claiming a sandbox
+      or session started. COI execution is not available in this version.
+      Explain those limitations without suggesting fake authentication links.
     TEXT
     TOOL_DEFINITIONS = [
       {
@@ -107,7 +110,7 @@ module ActionAgent
         providers: DEFAULT_MODELS.map { |id, model| { id: id, configured: provider_configured?(id), default_model: model } },
         defaults: { provider: nil, model: nil },
         processing: { consent_required: true, disclosure: PROCESSING_DISCLOSURE },
-        connections: %i[github coi claude_code].index_with { { supported: false } },
+        connections: connections,
         limits: { message_characters: MAX_MESSAGE_CHARACTERS, history_messages: MAX_HISTORY_MESSAGES, history_characters: MAX_HISTORY_CHARACTERS },
         limitations: LIMITATIONS
       }
@@ -190,6 +193,34 @@ module ActionAgent
     end
 
     private
+
+    # What the owner has set up in Settings → Integrations, reported by the
+    # assistant's configuration endpoint (booleans only, never a token). The
+    # model is not told: it starts nothing, and sandboxes and Claude Code
+    # sessions are started from that view (see LIMITATIONS).
+    def connections
+      {
+        github: { supported: true, connected: GithubConnection.for_owner(@owner).exists? },
+        claude_code: {
+          supported: code_sessions_supported?,
+          connected: ProviderKey.for_owner(@owner).exists?(provider: "claude_code")
+        },
+        coi: { supported: false }
+      }
+    end
+
+    # Claude Code needs a sandbox backend that runs sessions, which :mock and
+    # :local do and a host's may not. A backend that cannot even be loaded (a
+    # misspelled class in ActionAgent.sandbox_backends, or a class file that
+    # requires an SDK the host doesn't bundle) runs none, and must not take
+    # the assistant's configuration down with it. The SDK case raises
+    # LoadError, a ScriptError rather than a StandardError.
+    def code_sessions_supported?
+      SandboxOrchestrator.new.supports?(:code_session)
+    rescue StandardError, LoadError => e
+      Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
+      false
+    end
 
     def require_processing_consent!
       return if @allow_provider_processing == true

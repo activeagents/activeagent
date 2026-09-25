@@ -48,6 +48,35 @@ export const fmtAgo = (iso, now = Date.now()) => {
   return `${Math.floor(hours / 24)}d ago`;
 };
 
+// A checkout sandbox's app runtime, which an agent enables as
+// "sandbox:<session_id>". The API marks those rows `runtime: true`; the key
+// prefix is read too, so a row that arrives without the flag still counts.
+// The MCP Services page reads the same rule, so both views badge the same rows.
+export const RUNTIME_KEY_PREFIX = 'sandbox:';
+
+export const isSandboxRuntime = (row) => Boolean(
+  row && (row.runtime === true || String(row.key || '').startsWith(RUNTIME_KEY_PREFIX)),
+);
+
+// A runtime row is `known` only while its sandbox is live: an agent can still
+// name "sandbox:<id>" after that sandbox stopped, and the roster then lists
+// the key alone. A stopped one lists and dispatches nothing, and starting a
+// sandbox again makes a new session under a new key, so this one never comes
+// back.
+export const isStoppedRuntime = (row) => isSandboxRuntime(row) && !row.known;
+
+// What the Tools tab says for a service that lists no tools. A live runtime
+// has none recorded because it lists them when the agent runs; a stopped one
+// never will.
+export function emptyToolsHint(service) {
+  if (isStoppedRuntime(service)) {
+    return 'this sandbox is no longer running, so it offers no tools — switch it off, '
+      + 'and start a new sandbox from Settings → Integrations to enable its runtime';
+  }
+  if (isSandboxRuntime(service)) return 'tools are listed by the running app each time the agent runs';
+  return 'no tools recorded for this service yet';
+}
+
 // An agent names a server as a bare string or as a hash carrying its key —
 // both shapes reach the editor, and a round-trip must not rewrite either.
 export const entryKey = (entry) => {

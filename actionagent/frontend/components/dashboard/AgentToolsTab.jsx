@@ -5,8 +5,11 @@ import {
   RANGES,
   SOURCE_LABELS,
   changeCount,
+  emptyToolsHint,
   fmtAgo,
   fmtDuration,
+  isSandboxRuntime,
+  isStoppedRuntime,
   mcpServersFor,
   rosterStats,
   serviceRows,
@@ -359,7 +362,19 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>{service.name}</span>
                       {service.first_party && <Badge tone="accent" size={10}>first-party</Badge>}
-                      {!service.known && <Badge size={10} title="Seen in your traffic but not in the platform catalog">undocumented</Badge>}
+                      {isSandboxRuntime(service) && (
+                        <Badge tone="info" size={10} title="The app runtime of a checkout sandbox started from Settings → Integrations">
+                          sandbox runtime
+                        </Badge>
+                      )}
+                      {isStoppedRuntime(service) && (
+                        <Badge tone="warning" size={10} title="This checkout sandbox has stopped; the agent still names its runtime">
+                          not running
+                        </Badge>
+                      )}
+                      {!service.known && !isSandboxRuntime(service) && (
+                        <Badge size={10} title="Seen in your traffic but not in the platform catalog">undocumented</Badge>
+                      )}
                       {service.partial && <Badge tone="warning" size={10}>{service.partialLabel}</Badge>}
                     </div>
                     <div style={{ marginTop: 2, fontSize: 12, lineHeight: '17px', color: 'var(--color-text-secondary)', ...ellipsis }}>
@@ -388,7 +403,7 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
                     </div>
 
                     {service.tools.length === 0 ? (
-                      <Empty style={{ padding: '10px 0' }}>no tools recorded for this service yet</Empty>
+                      <Empty style={{ padding: '10px 0' }}>{emptyToolsHint(service)}</Empty>
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '6px 14px' }}>
                         {service.tools.map((tool) => (

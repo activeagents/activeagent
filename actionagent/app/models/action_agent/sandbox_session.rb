@@ -36,6 +36,12 @@ module ActionAgent
       session_duration_minutes: 15
     }.freeze
 
+    # How long a checkout sandbox lives. Booting one (clone, bundle install,
+    # db:prepare) can take minutes, and it is worked in for a while after —
+    # Claude Code sessions, agents using its tools — so the free tier's 15
+    # minutes would expire it about as soon as it was ready.
+    APP_RUNTIME_SESSION_DURATION = 2.hours
+
     encrypts :runtime_mcp_token if ActionAgent.encrypt_credentials
 
     # Validations
@@ -202,8 +208,12 @@ module ActionAgent
 
       update!(status: :provisioning)
 
-      # In development, run synchronously for immediate feedback
-      if Rails.env.development? || Rails.env.test?
+      # A checkout always boots in the background: cloning and setting up a
+      # real app takes minutes, and a request must not wait on it, in
+      # development either. The client polls the session until it is ready
+      # (or failed). The other types are simulated in development and test,
+      # synchronously for immediate feedback.
+      if !app_runtime? && (Rails.env.development? || Rails.env.test?)
         SandboxProvisionJob.perform_now(id)
       else
         SandboxProvisionJob.perform_later(id)
@@ -219,10 +229,18 @@ module ActionAgent
       update!(attributes)
     end
 
-    # Expire the session
+    # Expire the session. Its runtime stops being reachable at once — the
+    # endpoint and its token are cleared, so no agent is handed a runtime
+    # that is going away — and the backend's resource is released by
+    # SandboxCleanupJob, which keeps the handle until that succeeds.
+    #
+    # Under the row lock, which reloads the row first: callers (DELETE, the
+    # reaper) loaded this copy earlier, and SandboxProvisionJob may have
+    # marked it ready since. Acting on the stale copy would neither clear the
+    # endpoint it recorded (nil -> nil writes nothing) nor see the handle to
+    # terminate, leaving the booted sandbox running.
     def expire!
-      update!(status: :expired)
-      # Cleanup Cloud Run resources
+      with_lock { update!(status: :expired, runtime_mcp_url: nil, runtime_mcp_token: nil) }
       SandboxCleanupJob.perform_later(id) if cloud_run_job_id.present?
     end
 
@@ -244,8 +262,23 @@ module ActionAgent
         repository_ref: repository_ref,
         # The key an agent adds to its mcp_servers to use this runtime's
         # tools; nil until the backend has reported the endpoint.
-        runtime_server_key: runtime_mcp_url.present? ? runtime_server_key : nil
+        runtime_server_key: runtime_mcp_url.present? ? runtime_server_key : nil,
+        # Why provisioning failed. Scrubbed of the session's secrets when
+        # SandboxProvisionJob stored it.
+        error_message: error_summary
       }
+    end
+
+    # A failed boot's message is a one-line reason followed by the tail of
+    # the failing step's log, and the log's last lines usually hold the
+    # actual error — so a long message keeps its head and its end.
+    ERROR_SUMMARY_HEAD = 300
+    ERROR_SUMMARY_TAIL = 1_700
+
+    def error_summary
+      return error_message if error_message.nil? || error_message.length <= ERROR_SUMMARY_HEAD + ERROR_SUMMARY_TAIL
+
+      "#{error_message[0, ERROR_SUMMARY_HEAD]}\n…\n#{error_message[-ERROR_SUMMARY_TAIL..]}"
     end
 
     # Detailed info including runs
@@ -292,7 +325,8 @@ module ActionAgent
     end
 
     def set_expiration
-      self.expires_at ||= FREE_TIER_LIMITS[:session_duration_minutes].minutes.from_now
+      duration = app_runtime? ? APP_RUNTIME_SESSION_DURATION : FREE_TIER_LIMITS[:session_duration_minutes].minutes
+      self.expires_at ||= duration.from_now
       self.max_runs ||= FREE_TIER_LIMITS[:max_runs]
       self.timeout_seconds ||= FREE_TIER_LIMITS[:timeout_seconds]
     end

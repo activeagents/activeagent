@@ -5,6 +5,9 @@ import {
   changeCount,
   fmtAgo,
   fmtDuration,
+  emptyToolsHint,
+  isSandboxRuntime,
+  isStoppedRuntime,
   mcpServersFor,
   rosterStats,
   serviceRows,
@@ -204,6 +207,58 @@ test('a save keeps a service the roster does not describe, and its connection de
     { key: 'playwright', url: 'http://local/mcp' },
     { key: 'booking', url: 'https://booking.internal/mcp' },
   ]);
+});
+
+test('a sandbox runtime is saved by its key and name, offering whatever the running app serves', () => {
+  // A live checkout runtime as the roster lists it: known, but with no tool
+  // hints — its tools are listed by the app itself when the agent runs.
+  const runtime = {
+    key: 'sandbox:4f1c2d',
+    name: 'acme/docs@main (sandbox)',
+    known: true,
+    runtime: true,
+    status: 'available',
+    transport: 'Streamable HTTP · http://127.0.0.1:4100/activeagents/mcp',
+    tools: [],
+  };
+  const body = { ...payload(), services: [...payload().services, runtime] };
+  const saved = { tools: ['memory'], mcpServers: ['playwright'] };
+
+  // Switched on the way the Tools tab's switch writes it.
+  const before = serviceState(body, saved.mcpServers);
+  const on = { ...before, [runtime.key]: { ...before[runtime.key], on: true } };
+  const mcpServers = mcpServersFor(body, on, saved.mcpServers);
+
+  // Never an empty allow-list: that would read as "offer none of its tools".
+  assert.deepEqual(mcpServers, ['playwright', { key: 'sandbox:4f1c2d', name: 'acme/docs@main (sandbox)' }]);
+  assert.equal(changeCount(body, { tools: ['memory'], mcpServers }, saved), 1);
+  // What was saved reads back as on.
+  assert.equal(serviceState(body, mcpServers)[runtime.key].on, true);
+
+  const [row] = serviceRows(body, serviceState(body, mcpServers), { query: 'acme/docs' });
+  assert.equal(row.key, runtime.key);
+  assert.equal(row.on, true);
+  assert.equal(isSandboxRuntime(row), true);
+  // A runtime an agent still names after its sandbox stopped is listed by its key alone.
+  assert.equal(isSandboxRuntime({ key: 'sandbox:gone', known: false }), true);
+  assert.equal(isSandboxRuntime(payload().services[0]), false);
+});
+
+// A runtime lists its tools only while its sandbox runs, so an empty list
+// means "listed when the agent runs" for a live one and "never" for a key the
+// agent still names after the sandbox stopped.
+test('an empty tool list reads differently for a live runtime, a stopped one and a catalog service', () => {
+  const live = { key: 'sandbox:4f1c2d', runtime: true, known: true, tools: [] };
+  const stopped = { key: 'sandbox:gone', runtime: true, known: false, tools: [] };
+
+  assert.equal(isStoppedRuntime(live), false);
+  assert.equal(isStoppedRuntime(stopped), true);
+  assert.equal(isStoppedRuntime({ key: 'booking', known: false }), false);
+
+  assert.match(emptyToolsHint(live), /listed by the running app/);
+  assert.match(emptyToolsHint(stopped), /no longer running/);
+  assert.doesNotMatch(emptyToolsHint(stopped), /listed by the running app/);
+  assert.equal(emptyToolsHint(payload().services[0]), 'no tools recorded for this service yet');
 });
 
 test('a save writes the switchable rows that are on, keeping names it does not know', () => {

@@ -83,13 +83,21 @@ module ActionAgent
       end
 
       # GET /api/sandboxes
-      # List available sandbox types and sample tasks
+      # List available sandbox types and sample tasks, and the caller's own
+      # sandboxes (?sandbox_type= narrows them), with what the Settings ->
+      # Integrations view needs to offer Claude Code sessions in a checkout.
       def index
         render json: {
           sandbox_types: SandboxSession::SANDBOX_TYPES,
           free_tier_limits: SandboxSession::FREE_TIER_LIMITS,
           templates: free_tier_templates,
-          sample_tasks: sample_tasks
+          sample_tasks: sample_tasks,
+          sandboxes: listed_sandboxes.map(&:summary),
+          code_sessions_supported: code_sessions_supported?,
+          # Found through the key's own owner column, as
+          # SandboxSession#runtime_environment finds the credential it hands a
+          # checkout: a provider key is account-owned before user-owned.
+          claude_code_connected: owned(ProviderKey).exists?(provider: "claude_code")
         }
       end
 
@@ -165,16 +173,40 @@ module ActionAgent
       end
 
       # DELETE /api/sandboxes/:session_id
-      # End sandbox session
+      # End sandbox session. Expiring it enqueues SandboxCleanupJob, which
+      # terminates whatever the backend runs for it (a checkout's processes
+      # included); one still provisioning is released by
+      # SandboxProvisionJob when its backend returns.
       def destroy
         @sandbox.expire!
-        render json: { deleted: true }
+        render json: { deleted: true, sandbox: @sandbox.summary }
       end
 
       private
 
       def set_sandbox
         @sandbox = owned(SandboxSession).find_by!(session_id: params[:id])
+      end
+
+      # Whether the configured backend can run Claude Code sessions. A
+      # backend that cannot even be loaded (a misspelled class in
+      # ActionAgent.sandbox_backends, or a class file requiring an SDK the
+      # host doesn't bundle, which raises LoadError) cannot, and must not
+      # take the rest of this listing down with it.
+      def code_sessions_supported?
+        SandboxOrchestrator.new.supports?(:code_session)
+      rescue StandardError, LoadError => e
+        Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
+        false
+      end
+
+      # The caller's sandboxes that have not expired, newest first. A failed
+      # one stays listed so its error can be read; one past its expiry but
+      # not reaped yet stays listed so it can still be stopped.
+      def listed_sandboxes
+        scope = owned(SandboxSession).where.not(status: :expired).recent.limit(20)
+        type = params[:sandbox_type]
+        type.is_a?(String) && type.present? ? scope.by_type(type) : scope
       end
 
       # An app_runtime sandbox also names the checkout: one of the owner's

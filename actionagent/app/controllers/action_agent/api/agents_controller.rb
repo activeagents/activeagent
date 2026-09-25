@@ -266,11 +266,22 @@ module ActionAgent
       # What the Tools tab edits: the MCP services this agent can be given
       # and the tools it can be offered, each with the calls, errors and
       # latency recorded for it in the window.
+      #
+      # The checkout runtimes offered are the agent owner's — the only ones
+      # MCPToolDispatcher reaches for this agent — and of those, only the
+      # ones the caller may see as well. Intersected by id rather than with
+      # merge: both relations constrain the same owner column, and merge
+      # lets the second condition replace the first instead of adding to it.
       def tool_roster
+        runtimes = SandboxSession.runtime_server_listings(
+          SandboxSession.for_owner(@agent.owner).where(id: owned(SandboxSession).select(:id))
+        )
+
         render json: AgentToolRoster.new(
           agent: @agent,
           traces: owned_traces,
-          hours: params.fetch(:hours, ToolDiscovery::DEFAULT_WINDOW_HOURS).to_i
+          hours: params.fetch(:hours, ToolDiscovery::DEFAULT_WINDOW_HOURS).to_i,
+          runtimes: runtimes
         ).as_json
       end
 

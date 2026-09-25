@@ -5,8 +5,9 @@ const PROVIDER = 'claude_code';
 
 // Settings -> Integrations: the owner's Claude Code credential. Stored like a
 // provider key (write-only, masked hint) and handed to checkout sandboxes so
-// the booted app can run Claude Code sessions.
-export default function ClaudeCodeIntegrationCard() {
+// the booted app can run Claude Code sessions. onChange fires after a save or
+// a disconnect, so the sandbox card can unlock or lock its session panel.
+export default function ClaudeCodeIntegrationCard({ onChange }) {
   const { darkMode } = useTheme();
   const [state, setState] = useState(null); // { configured, hint, updated_at }
   const [editing, setEditing] = useState(false);
@@ -44,6 +45,7 @@ export default function ClaudeCodeIntegrationCard() {
       setEditing(false);
       setInput('');
       await load();
+      onChange?.();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -57,6 +59,7 @@ export default function ClaudeCodeIntegrationCard() {
       const res = await fetch(`/api/provider_keys/${PROVIDER}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
       await load();
+      onChange?.();
     } catch (e) {
       setError('Could not disconnect Claude Code.');
     }
