@@ -411,6 +411,22 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
 
   private
 
+  test "a session queued behind a Stop never starts Claude Code" do
+    use_scripted_backend
+    post sessions_path, params: { prompt: "Fix the failing test" }, as: :json
+    assert_response :created
+    id = JSON.parse(response.body).dig("code_session", "id")
+
+    # The Stop lands before the session's job runs.
+    delete "/activeagents/api/sandboxes/#{@sandbox.session_id}"
+    perform_enqueued_jobs(only: ActionAgent::CodeSessionJob)
+
+    session = ActionAgent::CodeSession.find(id)
+    assert session.failed?
+    assert_match(/stopped before the session started/, session.error_message)
+    assert_empty ScriptedBackend.runs, "the backend was never asked to run it"
+  end
+
   def sessions_path(sandbox = @sandbox)
     "/activeagents/api/sandboxes/#{sandbox.session_id}/code_sessions"
   end

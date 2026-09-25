@@ -14,7 +14,7 @@ module ActionAgent
       # The handle is kept until the backend confirms it let go: cleared
       # after a failed terminate, nothing would ever know the process (or
       # container) was still there. cleanup_expired! retries these.
-      handle = sandbox.cloud_run_job_id
+      handle = sandbox.cloud_run_job_id.presence || derived_handle(sandbox)
       return if handle.present? && !released?(sandbox, handle)
 
       # Optionally delete old sandbox records
@@ -45,6 +45,18 @@ module ActionAgent
     end
 
     private
+
+    # A checkout whose provisioning never recorded a handle (the job died
+    # while the backend was booting it) can still hold processes; a backend
+    # that can name a session's sandbox without being told answers here.
+    def derived_handle(sandbox)
+      return nil unless sandbox.app_runtime?
+
+      SandboxOrchestrator.new.handle_for(sandbox)
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] could not derive a sandbox handle: #{e.message}")
+      nil
+    end
 
     # Whether the backend behind +handle+ let go of it.
     #

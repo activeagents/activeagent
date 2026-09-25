@@ -28,6 +28,12 @@ module ActionAgent
       orchestrator = SandboxOrchestrator.new
       sandbox = code_session.sandbox_session
 
+      # Queued behind a Stop (the cleanup job shares this queue): never start
+      # Claude Code, with the owner's credential, in a stopped sandbox.
+      unless sandbox.reload.ready? && sandbox.active?
+        return fail!(code_session, "The sandbox was stopped before the session started")
+      end
+
       outcome = orchestrator.run_code_session(sandbox, code_session) do |event|
         # append_event! reloads the row under its lock, so this sees a cancel
         # made since. The cancel's own stop can land after this job claimed
@@ -130,6 +136,9 @@ module ActionAgent
     end
 
     def fail!(code_session, message)
+      # A save that raised leaves unsaved changes behind, and locking a dirty
+      # record raises: start from the row as stored.
+      code_session.reload
       code_session.with_lock do
         next if code_session.finished?
 

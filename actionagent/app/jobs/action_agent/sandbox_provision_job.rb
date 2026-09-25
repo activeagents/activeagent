@@ -42,7 +42,7 @@ module ActionAgent
       # was just started rather than reviving the session as ready.
       recorded = mark_ready_unless_stopped(sandbox, result)
       unless recorded
-        release(orchestrator, handle)
+        release(orchestrator, handle, sandbox.id)
         return
       end
 
@@ -59,7 +59,7 @@ module ActionAgent
       # Booted, but the session never recorded the handle (marking it ready
       # raised): nothing else knows the sandbox exists, so nothing would
       # ever terminate it.
-      release(orchestrator, handle) if handle && !recorded
+      release(orchestrator, handle, sandbox.id) if handle && !recorded
       fail_unless_stopped(sandbox, message) if sandbox
     end
 
@@ -111,12 +111,20 @@ module ActionAgent
       false
     end
 
-    def release(orchestrator, handle)
+    def release(orchestrator, handle, sandbox_id)
       return if handle.blank?
 
-      orchestrator.terminate(handle)
+      released = orchestrator.terminate(handle)
+      keep_handle(sandbox_id, handle) if released == false
     rescue StandardError => e
       Rails.logger.warn("Failed to release sandbox #{handle}: #{e.message}")
+      keep_handle(sandbox_id, handle)
+    end
+
+    # The backend could not release it now: record the handle on the
+    # (expired) session so the reaper retries, as SandboxCleanupJob does.
+    def keep_handle(sandbox_id, handle)
+      SandboxSession.where(id: sandbox_id).update_all(cloud_run_job_id: handle)
     end
 
     # A session stopped while provisioning stays expired: the failure is

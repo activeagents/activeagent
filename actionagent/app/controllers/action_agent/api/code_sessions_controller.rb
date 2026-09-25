@@ -91,8 +91,14 @@ module ActionAgent
 
       private
 
+      # A checkout runs on its account's GitHub token and Claude Code
+      # credential, so in a multi-tenant install it must belong to the
+      # caller's current account too — not only to the caller, who may have
+      # left that account or switched to another.
       def set_sandbox
-        @sandbox = owned(SandboxSession).find_by!(session_id: params[:sandbox_id])
+        scope = owned(SandboxSession)
+        scope = scope.where(account_id: current_account.id) if current_account
+        @sandbox = scope.find_by!(session_id: params[:sandbox_id])
       end
 
       def set_code_session

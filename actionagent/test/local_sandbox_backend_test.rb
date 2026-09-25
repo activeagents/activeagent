@@ -198,7 +198,10 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
       # that would redirect the owner's credential.
       "CLAUDECODE" => "1", "CLAUDE_CODE_SESSION_ID" => "x", "CLAUDE_CODE_ENTRYPOINT" => "x",
       "CLAUDE_CONFIG_DIR" => "x", "ANTHROPIC_BASE_URL" => "https://elsewhere.test", "OPENAI_BASE_URL" => "x",
-      "OLLAMA_HOST" => "x", "CLAUDETTE_HOME" => "/home/dev/claudette"
+      "OLLAMA_HOST" => "x", "CLAUDETTE_HOME" => "/home/dev/claudette",
+      # Secrets without a telltale word in their name.
+      "DB_PASS" => "x", "MYSQL_PWD" => "x", "LOCKBOX_MASTER_KEY" => "x", "SENTRY_DSN" => "x",
+      "SLACK_WEBHOOK_URL" => "x", "GITHUB_PAT" => "x", "CACHE_STORE" => "redis://:hunter2@cache:6379/0"
     }
 
     env = Backend.sanitized_environment(source)
@@ -688,6 +691,21 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
   end
 
   private
+
+  test "a checkout whose git config defines a filter driver is not diffed" do
+    sandbox = boot!
+    app = workspace(sandbox).join("app")
+    marker = @tmp.join("filter-ran")
+    # What a session steered by the repository's content could write: a
+    # clean filter runs its command on `git add` and `git diff`.
+    system("git", "-C", app.to_s, "config", "filter.x.clean", "touch #{marker}; cat", exception: true)
+    File.write(app.join(".gitattributes"), "* filter=x\n")
+
+    outcome = @backend.run_code_session(sandbox, code_session) { |_event| }
+
+    assert_match(/diff not recorded/, outcome[:diff])
+    assert_not File.exist?(marker), "the filter's command never ran"
+  end
 
   def boot!
     sandbox_double(create_origin!).tap { |sandbox| @backend.create_sandbox(sandbox) }

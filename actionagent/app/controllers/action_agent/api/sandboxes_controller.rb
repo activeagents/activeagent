@@ -12,6 +12,9 @@ module ActionAgent
       # development, so it bypassed that safeguard too.
 
       before_action :require_execution_enabled!, only: [ :run, :compare ]
+      # A checkout runs the owner's code (setup, server): the same gates as
+      # running an agent, like MCPServersController#launch.
+      before_action :gate_checkout!, only: [ :create ]
       before_action :enforce_execution_quota!, only: [ :compare ]
       before_action :set_sandbox, only: [ :show, :run, :destroy ]
 
@@ -99,6 +102,16 @@ module ActionAgent
           # checkout: a provider key is account-owned before user-owned.
           claude_code_connected: owned(ProviderKey).exists?(provider: "claude_code")
         }
+      end
+
+      def gate_checkout!
+        return unless params[:sandbox_type].to_s == "app_runtime"
+
+        require_execution_enabled!
+        return if performed?
+
+        enforce_execution_quota!
+        record_execution_usage unless performed?
       end
 
       # POST /api/sandboxes
