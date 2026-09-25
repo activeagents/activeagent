@@ -50,7 +50,7 @@ require_relative "evals/publisher"
 #   report = ActiveAgent::Evals::Runner.new(
 #     scenarios: scenarios,
 #     models: models,
-#     available_tools: { "find_records" => "Look up records by filters" },
+#     available_tools: { "lookup_order" => "Find an order by number" },
 #     replay: ->(scenario, spec) { my_agent.run(scenario.prompt, model: spec.model, provider: spec.provider) }
 #   ).call
 #

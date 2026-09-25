@@ -9,8 +9,8 @@ module ActiveAgent
     #   - `# Heading` or `**Heading**` lines, which start a group; so does a
     #     short unmarked line ending in a colon (`Find records:`)
     #   - a message in backticks at the start of the line, followed by notes,
-    #     as in an issue's question catalog:
-    #     `` 3. `Show me all providers with no license on file` — 1,060 locally ``
+    #     as in a list copied from an issue:
+    #     `` 3. `Show me all tickets with no assignee` — 12 in the sample data ``
     #   - trailing ` | tools: a, b | contains: x | not_contains: y | key: k`
     #     options on a line
     #   - a JSON array of strings, or of objects with `prompt` (or `message`),
@@ -19,7 +19,7 @@ module ActiveAgent
     #     group names, stable keys, notes and production-only flags
     #
     # Every scenario gets a key unique within the paste, derived from its group
-    # and position ("blame_3"), unless the line names one. The result is an
+    # and position ("history_3"), unless the line names one. The result is an
     # array of string-keyed hashes; `Scenario.from_hash` builds the structs.
     class ScenarioParser
       class ParseError < ArgumentError; end

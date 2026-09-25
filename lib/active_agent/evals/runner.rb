@@ -16,10 +16,10 @@ module ActiveAgent
     # faults in `refine_faults` (up to `judge_limit` calls per run).
     #
     #   Runner.new(
-    #     scenarios: suite.scenarios(groups: %w[blame]),
+    #     scenarios: suite.scenarios(groups: %w[history]),
     #     models: ModelSpec.parse_all(%w[gpt-5-mini claude-haiku-4-5], default_provider: "openai"),
     #     criteria: [{ "key" => "response_present", "type" => "response_present" }],
-    #     available_tools: { "find_records" => "Look up records" },
+    #     available_tools: { "lookup_order" => "Find an order by number" },
     #     instructions: agent.instructions,
     #     judge: Judge.new(label: "claude-opus-5") { |instructions:, prompt:| ... },
     #     replay: ->(scenario, spec) { ... },

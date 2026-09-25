@@ -228,8 +228,8 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
 
   test "a namespaced server nothing else knows is named, with no status" do
     assert_equal(
-      { "key" => "booking-match", "name" => "booking-match", "status" => nil },
-      resolver.call("mcp__booking-match__search_slots")
+      { "key" => "shipping-desk", "name" => "shipping-desk", "status" => nil },
+      resolver.call("mcp__shipping-desk__track_shipment")
     )
   end
 
@@ -238,9 +238,9 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
   end
 
   test "a host-registered catalog server is available for the tools it hints" do
-    ActionAgent.mcp_catalog = [ { key: "booking-match", name: "Booking Match", tool_hints: %w[search_slots] } ]
+    ActionAgent.mcp_catalog = [ { key: "shipping-desk", name: "Shipping Desk", tool_hints: %w[track_shipment] } ]
 
-    assert_equal({ "key" => "booking-match", "name" => "Booking Match", "status" => "available" }, resolver.call("search_slots"))
+    assert_equal({ "key" => "shipping-desk", "name" => "Shipping Desk", "status" => "available" }, resolver.call("track_shipment"))
   ensure
     ActionAgent.mcp_catalog = []
   end
@@ -256,23 +256,23 @@ class ActionAgentEvaluationToolResolverTest < ActiveSupport::TestCase
     agent = ActionAgent::Agent.new(
       name: "Assistant",
       mcp_servers: [ {
-        "key" => "booking", "name" => "Booking Match", "url" => "https://booking.test/mcp",
-        "tools" => [ "search_slots", { "name" => "book_appointment" } ]
+        "key" => "shipping", "name" => "Shipping Desk", "url" => "https://shipping.test/mcp",
+        "tools" => [ "track_shipment", { "name" => "schedule_pickup" } ]
       } ]
     )
 
-    assert_equal({ "key" => "booking", "name" => "Booking Match", "status" => "enabled" }, resolver(agent).call("search_slots"))
-    assert_equal "booking", resolver(agent).call("book_appointment")["key"]
+    assert_equal({ "key" => "shipping", "name" => "Shipping Desk", "status" => "enabled" }, resolver(agent).call("track_shipment"))
+    assert_equal "shipping", resolver(agent).call("schedule_pickup")["key"]
   end
 
   test "the older hash-keyed configuration is read the same way" do
     agent = ActionAgent::Agent.new(
       name: "Assistant",
-      mcp_servers: { "playwright" => { "command" => "npx @playwright/mcp@latest" }, "booking" => { "tools" => [ "search_slots" ] } }
+      mcp_servers: { "playwright" => { "command" => "npx @playwright/mcp@latest" }, "shipping" => { "tools" => [ "track_shipment" ] } }
     )
 
     assert_equal "enabled", resolver(agent).call("mcp__playwright__browser_click")["status"]
-    assert_equal({ "key" => "booking", "name" => "booking", "status" => "enabled" }, resolver(agent).call("search_slots"))
+    assert_equal({ "key" => "shipping", "name" => "shipping", "status" => "enabled" }, resolver(agent).call("track_shipment"))
   end
 
   test "an agent-defined tool, a blank name and malformed entries resolve to nothing" do
@@ -298,7 +298,7 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
     # save, which is when that validation runs.
     evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
     scenario = evaluation.scenarios.build(
-      key: "match_slots", prompt: "Find the next slot", position: 0, expectations: { "tools" => [ "browser_navigate" ] }
+      key: "order_status", prompt: "Where is order ABC-123?", position: 0, expectations: { "tools" => [ "browser_navigate" ] }
     )
     evaluation.save!
     run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
@@ -387,8 +387,8 @@ class ActionAgentEvaluationRunVerdictTest < ActiveSupport::TestCase
   def create_comparison_run(verdict: nil, judge_model: nil, models: [ HOSTED, LOCAL ])
     agent = ActionAgent::Agent.create!(name: "Assistant", provider: "openai", model: "gpt-5-mini")
     evaluation = agent.evaluations.new(name: "Bake-off", judge_kind: "rules", judge_model: judge_model, criteria: [])
-    evaluation.scenarios.build(key: "find_slots", prompt: "Find the next slot", position: 0)
-    evaluation.scenarios.build(key: "cancel_slot", prompt: "Cancel it", position: 1)
+    evaluation.scenarios.build(key: "find_order", prompt: "Find order ABC-123", position: 0)
+    evaluation.scenarios.build(key: "cancel_order", prompt: "Cancel it", position: 1)
     evaluation.save!
 
     run = evaluation.evaluation_runs.create!(

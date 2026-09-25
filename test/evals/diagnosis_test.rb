@@ -6,7 +6,7 @@ require_relative "evals_test_support"
 class EvalsDiagnosisTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
-  ROSTER = %w[fetch_url find_records].freeze
+  ROSTER = %w[fetch_url find_tickets].freeze
 
   def diagnose(scenario:, replay:, scores: { "response_present" => 1.0 }, score: 1.0, available_tools: ROSTER)
     ActiveAgent::Evals::Diagnosis.call(
@@ -60,7 +60,7 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
 
   def test_a_fabricated_answer_where_a_tool_was_expected_names_the_fabrication
     result = diagnose(
-      scenario: scenario(tools: [ "find_records" ]),
+      scenario: scenario(tools: [ "find_tickets" ]),
       replay: replay(answer: "Alice changed it on 2026-09-01, in ticket #12.", tool_calls: []),
       score: 0.7
     )
@@ -74,7 +74,7 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
 
   def test_an_honest_gap_where_a_tool_was_expected_is_not_marked_invented
     result = diagnose(
-      scenario: scenario(tools: [ "find_records" ]),
+      scenario: scenario(tools: [ "find_tickets" ]),
       replay: replay(answer: "I would need to check the change history to answer that.", tool_calls: []),
       score: 0.7
     )
@@ -106,19 +106,19 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
     result = diagnose(
       scenario: scenario(contains: [ "Alice" ]),
       replay: replay(answer: "I could not look that up.",
-                     tool_calls: [ { "name" => "find_records", "error" => true, "detail" => "timeout", "arguments" => { "model" => "Provider" } } ]),
+                     tool_calls: [ { "name" => "find_tickets", "error" => true, "detail" => "timeout", "arguments" => { "status" => "open" } } ]),
       score: 0.2
     )
 
     assert_equal "tool_error", result.fault
-    assert_equal [ "find_records" ], result.evidence["tools"]
+    assert_equal [ "find_tickets" ], result.evidence["tools"]
     assert_match(/timeout/, result.recommendation)
   end
 
   def test_an_agent_that_says_it_cannot_do_the_task_is_a_missing_capability
     result = diagnose(
       scenario: scenario,
-      replay: replay(answer: "I don't have access to change history for providers, so I can't tell who edited it."),
+      replay: replay(answer: "I don't have access to change history for policies, so I can't tell who edited it."),
       score: 0.4
     )
 
@@ -130,7 +130,7 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
   def test_a_negative_result_is_not_a_missing_capability
     result = diagnose(
       scenario: scenario,
-      replay: replay(answer: "I checked the provider table and can't find any providers without a license on file; all 15,043 have one.")
+      replay: replay(answer: "I checked the tickets table and can't find any tickets without an assignee; all 40 have one.")
     )
 
     assert_nil result
@@ -154,7 +154,7 @@ class EvalsDiagnosisTest < ActiveSupport::TestCase
   end
 
   def test_an_expected_tool_that_exists_but_was_not_called_points_at_the_instructions
-    result = diagnose(scenario: scenario(tools: [ "find_records" ]), replay: replay, score: 0.5)
+    result = diagnose(scenario: scenario(tools: [ "find_tickets" ]), replay: replay, score: 0.5)
 
     assert_equal "expected_tool_not_called", result.fault
     assert_match(/available but the agent answered without calling any tool/, result.recommendation)

@@ -347,11 +347,11 @@ line; `# Heading` lines group related tasks so a group can be run on its own;
 options after `|` set expectations:
 
 ```text
-# Find records
-Which gynecologists in Charlotte have scheduling enabled? | tools: find_records
-Show me all providers with no license on file
-# Blame
-Who changed the biography for Dr. AbdelRazek? | contains: AbdelRazek
+# Open tickets
+Which open tickets mention a refund? | tools: find_tickets
+Show me all tickets with no assignee
+# Change history
+Who changed the shipping policy last week? | contains: policy
 ```
 
 | Option | Meaning |
