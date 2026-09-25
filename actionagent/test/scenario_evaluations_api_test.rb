@@ -88,31 +88,31 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
   end
 
   CATALOG = <<~TEXT
-    # Find records
-    1. `Which gynecologists in Charlotte have scheduling enabled?` — 314 locally
-    2. `Show me all providers with no license on file` | tools: find_records
-    # Blame
-    3. Who changed the biography for Dr. AbdelRazek?
+    # Open tickets
+    1. `Which open tickets mention a refund?` — 3 in the sample data
+    2. `Show me all tickets with no assignee` | tools: find_tickets
+    # History
+    3. Who changed the shipping policy last week?
   TEXT
 
   test "pasting a list of messages creates a scenario suite and queues its first run" do
     agent = create_agent
 
     post "/activeagents/api/evaluations", params: {
-      evaluation: { agent_id: agent.id, name: "Question catalog", scenarios_text: CATALOG, compare_models: "mock/alpha, mock/beta" }
+      evaluation: { agent_id: agent.id, name: "Support questions", scenarios_text: CATALOG, compare_models: "mock/alpha, mock/beta" }
     }, as: :json
 
     assert_response :created
     body = JSON.parse(response.body)["evaluation"]
     assert body["scenario_suite"]
     assert_equal 3, body["scenario_count"]
-    assert_equal [ "Blame", "Find records" ], body["scenario_groups"]
+    assert_equal [ "History", "Open tickets" ], body["scenario_groups"]
     assert_equal %w[mock/alpha mock/beta], body["compare_models"]
     assert_equal "pending", body.dig("latest_run", "status")
 
     evaluation = ActionAgent::Evaluation.find(body["id"])
-    assert_equal %w[find_records_1 find_records_2 blame_1], evaluation.scenarios.ordered.map(&:key)
-    assert_equal [ "find_records" ], evaluation.scenarios.find_by!(key: "find_records_2").expected_tools
+    assert_equal %w[open_tickets_1 open_tickets_2 history_1], evaluation.scenarios.ordered.map(&:key)
+    assert_equal [ "find_tickets" ], evaluation.scenarios.find_by!(key: "open_tickets_2").expected_tools
     assert_enqueued_jobs 1, only: ActionAgent::EvaluationRunJob
   end
 
@@ -216,7 +216,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     evaluation.save!
 
     perform_enqueued_jobs do
-      post "/activeagents/api/evaluations/#{evaluation.id}/run", params: { group: "Find records", models: [ "mock/alpha", "mock/beta" ] }, as: :json
+      post "/activeagents/api/evaluations/#{evaluation.id}/run", params: { group: "Open tickets", models: [ "mock/alpha", "mock/beta" ] }, as: :json
     end
 
     assert_response :success
@@ -228,10 +228,10 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     run = JSON.parse(response.body)["run"]
     assert_equal "complete", run["status"]
     assert_equal %w[mock/alpha mock/beta], run["models"]
-    assert_equal "Find records", run.dig("selection", "group")
+    assert_equal "Open tickets", run.dig("selection", "group")
     assert_equal 4, run["results"].size
-    assert_equal %w[find_records_1 find_records_1 find_records_2 find_records_2], run["results"].map { |r| r["scenario_key"] }
-    tool_miss = run["results"].find { |r| r["scenario_key"] == "find_records_2" }
+    assert_equal %w[open_tickets_1 open_tickets_1 open_tickets_2 open_tickets_2], run["results"].map { |r| r["scenario_key"] }
+    tool_miss = run["results"].find { |r| r["scenario_key"] == "open_tickets_2" }
     assert_equal "expected_tool_not_called", tool_miss["fault"]
     assert tool_miss["recommendation"].present?
     assert run["scores"]["_verdict"].present?
@@ -296,7 +296,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
       criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ],
       config: { "scenario_suite" => true }
     )
-    scenario = evaluation.scenarios.create!(key: "s1", prompt: "Who changed the <biography>?", group: "blame", position: 0)
+    scenario = evaluation.scenarios.create!(key: "s1", prompt: "Who changed the <shipping policy>?", group: "history", position: 0)
     run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     run.scenario_results.create!(
       scenario: scenario, model: "mock-model", provider: "mock", status: :passed, score: 1.0,
@@ -308,7 +308,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match %r{text/html}, response.content_type
     assert_includes response.body, "<!doctype html>"
-    assert_includes response.body, "Who changed the &lt;biography&gt;?"
+    assert_includes response.body, "Who changed the &lt;shipping policy&gt;?"
     assert_includes response.body, "&lt;b&gt;Alice&lt;/b&gt; did."
     assert_includes response.body, "Report suite"
   end
@@ -332,7 +332,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
   def create_missing_tool_run(agent, tool:)
     evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
     scenario = evaluation.scenarios.build(
-      key: "match_slots", prompt: "Find the next available slot", group: "match", position: 0,
+      key: "order_status", prompt: "Where is order ABC-123?", group: "orders", position: 0,
       expectations: { "tools" => [ tool ] }
     )
     evaluation.save!
@@ -365,7 +365,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_equal "fault", item["kind"]
     assert_equal "expected_tool_not_called", item["fault"]
     assert_equal 1, item["count"]
-    assert_equal [ "match_slots" ], item["scenario_keys"]
+    assert_equal [ "order_status" ], item["scenario_keys"]
     assert_equal [ "mock/mock-model" ], item["models"]
     assert_equal "missing tools", item["tools_label"]
     server = { "key" => "playwright", "name" => "Playwright", "status" => "available" }
@@ -395,18 +395,18 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     agent = create_agent
     evaluation = agent.evaluations.new(name: "Tool coverage", judge_kind: "rules", criteria: [])
     scenario = evaluation.scenarios.build(
-      key: "sync", prompt: "Is sync healthy?", position: 0, expectations: { "tools" => [ "mcp__booking__sync_status" ] }
+      key: "index", prompt: "Is the help center index up to date?", position: 0, expectations: { "tools" => [ "mcp__helpdesk__index_status" ] }
     )
     evaluation.save!
     run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     run.scenario_results.create!(
       scenario: scenario, model: "mock-model", provider: "mock", status: :failed, score: 0.5, fault: "tool_error",
-      tool_calls: [ { "name" => "mcp__booking__sync_status", "error" => true, "detail" => "no Provider with id=0" } ],
+      tool_calls: [ { "name" => "mcp__helpdesk__index_status", "error" => true, "detail" => "no Article with id=0" } ],
       recommendation: "Fix the failing tool before judging the answer.",
       diagnosis: {
-        "fault" => "tool_error", "summary" => "Tool mcp__booking__sync_status returned an error while answering.",
+        "fault" => "tool_error", "summary" => "Tool mcp__helpdesk__index_status returned an error while answering.",
         "recommendation" => "Fix the failing tool before judging the answer.",
-        "evidence" => { "tools" => [ "mcp__booking__sync_status" ], "detail" => "no Provider with id=0" }
+        "evidence" => { "tools" => [ "mcp__helpdesk__index_status" ], "detail" => "no Article with id=0" }
       }
     )
 
@@ -416,8 +416,8 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     item = JSON.parse(response.body).dig("run", "fix_items").first
     assert_equal "failing tools", item["tools_label"]
     assert_equal(
-      [ { "name" => "mcp__booking__sync_status", "note" => "no Provider with id=0",
-          "server" => { "key" => "booking", "name" => "booking", "status" => "unknown" } } ],
+      [ { "name" => "mcp__helpdesk__index_status", "note" => "no Article with id=0",
+          "server" => { "key" => "helpdesk", "name" => "helpdesk", "status" => "unknown" } } ],
       item["tools"]
     )
     assert_nil item["server"]
@@ -468,7 +468,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
   test "the report page names the judge's pick and the judge the run recorded" do
     agent = create_agent
     evaluation = agent.evaluations.new(name: "Bake-off", judge_kind: "rules", judge_model: "gpt-4o-mini", criteria: [])
-    scenario = evaluation.scenarios.build(key: "find_slots", prompt: "Which slots are open?", position: 0)
+    scenario = evaluation.scenarios.build(key: "order_eta", prompt: "When will order ABC-123 arrive?", position: 0)
     evaluation.save!
     run = evaluation.evaluation_runs.create!(
       status: :complete, completed_at: Time.current,
@@ -480,7 +480,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
         ]
       },
       scores: {
-        "_verdict" => { "winner" => "gpt-5-mini", "rationale" => "Called find_records every time.", "judge" => "claude-sonnet-4-5" }
+        "_verdict" => { "winner" => "gpt-5-mini", "rationale" => "Called lookup_order every time.", "judge" => "claude-sonnet-4-5" }
       }
     )
     run.scenario_results.create!(
@@ -489,7 +489,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     )
     run.scenario_results.create!(
       scenario: scenario, model: "qwen3:8b", provider: "ollama", status: :passed, score: 1.0,
-      output: "Next Tuesday.", duration_ms: 2400
+      output: "On Tuesday.", duration_ms: 2400
     )
 
     get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}/report"
@@ -497,7 +497,7 @@ class ActionAgentScenarioEvaluationsApiTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal [ [ "gpt-5-mini" ] ], response.body.scan(%r{<span class="name">([^<]+)</span>[^\n]*judge's pick})
     assert_includes response.body, "judged by claude-sonnet-4-5"
-    assert_includes response.body, "Called find_records every time."
+    assert_includes response.body, "Called lookup_order every time."
     refute_includes response.body, "judged by pass rate"
   end
 end

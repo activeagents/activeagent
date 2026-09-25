@@ -254,7 +254,7 @@ export default function EvaluationForm({
             value={form.scenariosText}
             onChange={(e) => updateScenarios(e.target.value)}
             rows={form.scenariosText ? 8 : 3}
-            placeholder={'# Find records\nWhich catalog items are available? | tools: find_records\n# Change history\nWho updated the description for the sample notebook?'}
+            placeholder={'# Open tickets\nWhich open tickets mention a refund? | tools: find_tickets\n# Change history\nWho changed the shipping policy last week?'}
             style={{ ...inputStyle, width: '100%', fontFamily: MONO, fontSize: 12, lineHeight: '18px' }}
           />
           <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)', textWrap: 'pretty' }}>

@@ -17,14 +17,14 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
       { name: "Suite Agent", provider: "mock", model: "mock-model", instructions: "Answer with the data." }.merge(attributes)
     )
     evaluation = agent.evaluations.new(
-      name: "Question catalog",
+      name: "Support questions",
       judge_kind: "rules",
       criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ]
     )
-    evaluation.scenarios.build(key: "find_1", group: "Find", prompt: "Which gynecologists in Charlotte have scheduling enabled?")
-    evaluation.scenarios.build(key: "find_2", group: "Find", prompt: "Show me all providers with no license on file",
-      expectations: { "tools" => [ "find_records" ] })
-    evaluation.scenarios.build(key: "blame_1", group: "Blame", prompt: "Who changed the biography for Dr. AbdelRazek?")
+    evaluation.scenarios.build(key: "tickets_1", group: "Tickets", prompt: "Which open tickets mention a refund?")
+    evaluation.scenarios.build(key: "tickets_2", group: "Tickets", prompt: "Show me all tickets with no assignee",
+      expectations: { "tools" => [ "find_tickets" ] })
+    evaluation.scenarios.build(key: "history_1", group: "History", prompt: "Who changed the shipping policy last week?")
     evaluation.save!
     evaluation
   end
@@ -45,7 +45,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     user = User.create!(name: "Owner", email: "owner-#{SecureRandom.hex(4)}@example.com", age: 30)
     evaluation = build_suite(user_id: user.id)
 
-    actors = capture_replay_actors(evaluation) { evaluation.run!(keys: [ "find_1" ]) }
+    actors = capture_replay_actors(evaluation) { evaluation.run!(keys: [ "tickets_1" ]) }
 
     assert_equal [ user ], actors, "every tool the replay calls should be scoped to the owner"
   ensure
@@ -58,7 +58,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     ActionAgent.user_class = nil
     evaluation = build_suite
 
-    actors = capture_replay_actors(evaluation) { evaluation.run!(keys: [ "find_1" ]) }
+    actors = capture_replay_actors(evaluation) { evaluation.run!(keys: [ "tickets_1" ]) }
 
     assert_equal [ nil ], actors
   ensure
@@ -93,23 +93,23 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   test "a selection narrows the run to one group and records what it covered" do
     evaluation = build_suite
 
-    run = evaluation.run!(group: "Blame")
+    run = evaluation.run!(group: "History")
 
-    assert_equal [ "blame_1" ], run.scenario_results.map { |result| result.scenario.key }
-    assert_equal [ "blame_1" ], run.selection["scenario_keys"]
-    assert_equal "Blame", run.selection["group"]
+    assert_equal [ "history_1" ], run.scenario_results.map { |result| result.scenario.key }
+    assert_equal [ "history_1" ], run.selection["scenario_keys"]
+    assert_equal "History", run.selection["group"]
     assert_equal [ "mock-model" ], run.models
   end
 
   test "keys and scenario_ids select individual scenarios" do
     evaluation = build_suite
-    find_two = evaluation.scenarios.find_by!(key: "find_2")
+    tickets_two = evaluation.scenarios.find_by!(key: "tickets_2")
 
-    by_key = evaluation.run!(keys: [ "find_1" ])
-    by_id = evaluation.run!(scenario_ids: [ find_two.id ])
+    by_key = evaluation.run!(keys: [ "tickets_1" ])
+    by_id = evaluation.run!(scenario_ids: [ tickets_two.id ])
 
-    assert_equal [ "find_1" ], by_key.scenario_results.map { |result| result.scenario.key }
-    assert_equal [ "find_2" ], by_id.scenario_results.map { |result| result.scenario.key }
+    assert_equal [ "tickets_1" ], by_key.scenario_results.map { |result| result.scenario.key }
+    assert_equal [ "tickets_2" ], by_id.scenario_results.map { |result| result.scenario.key }
   end
 
   test "an empty selection fails the run rather than silently running nothing" do
@@ -123,11 +123,11 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
 
   test "a disabled scenario is skipped" do
     evaluation = build_suite
-    evaluation.scenarios.find_by!(key: "find_1").update!(enabled: false)
+    evaluation.scenarios.find_by!(key: "tickets_1").update!(enabled: false)
 
     run = evaluation.run!
 
-    assert_equal %w[blame_1 find_2], run.scenario_results.map { |result| result.scenario.key }.sort
+    assert_equal %w[history_1 tickets_2], run.scenario_results.map { |result| result.scenario.key }.sort
   end
 
   test "comparison scores are cohort maps and the summary ranks models by pass rate" do
@@ -151,17 +151,17 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   test "an expected tool the agent never calls is diagnosed and rolled up into recommendations" do
     evaluation = build_suite
 
-    run = evaluation.run!(keys: [ "find_2" ])
+    run = evaluation.run!(keys: [ "tickets_2" ])
     result = run.scenario_results.first
 
     assert_equal "failed", result.status
     assert_equal "expected_tool_not_called", result.fault
     assert_equal 0.0, result.scores["expected_tools"]
-    assert_match(/find_records/, result.recommendation)
+    assert_match(/find_tickets/, result.recommendation)
 
     recommendation = run.scores["_recommendations"].first
     assert_equal "expected_tool_not_called", recommendation["fault"]
-    assert_equal [ "find_2" ], recommendation["scenario_keys"]
+    assert_equal [ "tickets_2" ], recommendation["scenario_keys"]
     assert_equal 1, recommendation["count"]
     assert_equal({ "expected_tool_not_called" => 1 }, run.scores["_models"]["mock-model"]["faults"])
   end
@@ -169,7 +169,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   test "a scenario the mock provider answers passes when nothing is expected of the answer" do
     evaluation = build_suite
 
-    run = evaluation.run!(keys: [ "find_1" ])
+    run = evaluation.run!(keys: [ "tickets_1" ])
     result = run.scenario_results.first
 
     assert_equal "passed", result.status
@@ -181,7 +181,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   test "a failed replay is an errored result with a run_error fault, and the run still completes" do
     evaluation = build_suite(provider: "anthropic", model: "claude-sonnet-5")
 
-    run = without_provider_credentials("anthropic") { evaluation.run!(keys: [ "find_1" ]) }
+    run = without_provider_credentials("anthropic") { evaluation.run!(keys: [ "tickets_1" ]) }
     result = run.scenario_results.first
 
     assert_equal "complete", run.status
@@ -195,20 +195,20 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     evaluation = build_suite
     agent = evaluation.agent
     fake_run = agent.agent_runs.create!(
-      status: :complete, trace_id: SecureRandom.uuid, input_prompt: "x", output: "Found 3 providers.",
+      status: :complete, trace_id: SecureRandom.uuid, input_prompt: "x", output: "Found 3 tickets.",
       duration_ms: 120, input_tokens: 10, output_tokens: 5,
       logs: [
-        { "eid" => "1-1", "kind" => "tool", "label" => "find_records", "status" => "started", "detail" => { "model" => "Provider" }.to_json },
-        { "eid" => "1-1", "kind" => "tool", "label" => "find_records", "status" => "done", "duration_ms" => 40, "detail" => "3 rows" }
+        { "eid" => "1-1", "kind" => "tool", "label" => "find_tickets", "status" => "started", "detail" => { "status" => "open" }.to_json },
+        { "eid" => "1-1", "kind" => "tool", "label" => "find_tickets", "status" => "done", "duration_ms" => 40, "detail" => "3 rows" }
       ]
     )
     agent.define_singleton_method(:test_execute) { |*, **| fake_run }
 
-    run = evaluation.run!(keys: [ "find_2" ])
+    run = evaluation.run!(keys: [ "tickets_2" ])
     result = run.scenario_results.first
 
     assert_equal "passed", result.status
-    assert_equal [ { "name" => "find_records", "arguments" => { "model" => "Provider" }, "error" => false, "detail" => "3 rows", "duration_ms" => 40 } ],
+    assert_equal [ { "name" => "find_tickets", "arguments" => { "status" => "open" }, "error" => false, "detail" => "3 rows", "duration_ms" => 40 } ],
       result.tool_calls
     assert_equal 1.0, result.scores["expected_tools"]
     assert_equal 1.0, result.scores["tools_succeeded"]
@@ -232,7 +232,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
         content = if instructions.include?("comparing model cohorts")
           { winner: "mock/alpha", rationale: "Marginally better." }.to_json
         elsif instructions.include?("recommend the fix")
-          { recommendation: "Enable find_records.", suggested_tool: nil, instruction_change: nil }.to_json
+          { recommendation: "Enable find_tickets.", suggested_tool: nil, instruction_change: nil }.to_json
         else
           { score: 0.9 }.to_json
         end
@@ -240,7 +240,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
       end
     end
 
-    runner = ActionAgent::ScenarioEvaluationRunner.new(evaluation, selection: { keys: %w[find_1 find_2], models: [ "mock/alpha", "mock/beta" ] })
+    runner = ActionAgent::ScenarioEvaluationRunner.new(evaluation, selection: { keys: %w[tickets_1 tickets_2], models: [ "mock/alpha", "mock/beta" ] })
     run = runner.stub(:judge_provider, :anthropic) do
       runner.stub(:judge_class, judge) { runner.call }
     end
@@ -267,7 +267,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   end
 
   test "a rules-only run records no judge spend" do
-    run = build_suite.run!(keys: [ "find_1" ])
+    run = build_suite.run!(keys: [ "tickets_1" ])
 
     assert_equal "complete", run.status
     assert_nil run.scores["_judge_usage"]
@@ -289,61 +289,61 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   test "run_later! creates a pending run that the job completes" do
     evaluation = build_suite
 
-    run = evaluation.run_later!(group: "Blame")
+    run = evaluation.run_later!(group: "History")
     assert_equal "pending", run.status
 
     perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
 
     assert_equal "complete", run.reload.status
-    assert_equal [ "blame_1" ], run.scenario_results.map { |result| result.scenario.key }
+    assert_equal [ "history_1" ], run.scenario_results.map { |result| result.scenario.key }
   end
 
   test "replace_scenarios! keeps the records whose keys survive" do
     evaluation = build_suite
-    original = evaluation.scenarios.find_by!(key: "find_1")
+    original = evaluation.scenarios.find_by!(key: "tickets_1")
 
-    evaluation.replace_scenarios!(ActiveAgent::Evals::ScenarioParser.parse("# Find\nA rewritten first question\n# Search\nWhy is this provider not showing?"))
+    evaluation.replace_scenarios!(ActiveAgent::Evals::ScenarioParser.parse("# Tickets\nA rewritten first question\n# Search\nWhy is this article not showing?"))
 
-    assert_equal %w[find_1 search_1], evaluation.scenarios.ordered.map(&:key)
-    assert_equal original.id, evaluation.scenarios.find_by!(key: "find_1").id
+    assert_equal %w[tickets_1 search_1], evaluation.scenarios.ordered.map(&:key)
+    assert_equal original.id, evaluation.scenarios.find_by!(key: "tickets_1").id
     assert_equal "A rewritten first question", original.reload.prompt
   end
 
   test "replace_scenarios! keeps a surviving scenario's enabled flag" do
     evaluation = build_suite
-    evaluation.scenarios.find_by!(key: "find_1").update!(enabled: false)
+    evaluation.scenarios.find_by!(key: "tickets_1").update!(enabled: false)
 
-    evaluation.replace_scenarios!(ActiveAgent::Evals::ScenarioParser.parse("# Find\nA rewritten first question | key: find_1\nA new one | key: find_9"))
+    evaluation.replace_scenarios!(ActiveAgent::Evals::ScenarioParser.parse("# Tickets\nA rewritten first question | key: tickets_1\nA new one | key: tickets_9"))
 
-    assert_not evaluation.scenarios.find_by!(key: "find_1").enabled
-    assert evaluation.scenarios.find_by!(key: "find_9").enabled
+    assert_not evaluation.scenarios.find_by!(key: "tickets_1").enabled
+    assert evaluation.scenarios.find_by!(key: "tickets_9").enabled
   end
 
   test "replace_scenarios! with on_removed: :disable keeps a dropped scenario and its results readable" do
     evaluation = build_suite
-    dropped = evaluation.scenarios.find_by!(key: "blame_1")
+    dropped = evaluation.scenarios.find_by!(key: "history_1")
 
-    evaluation.replace_scenarios!([ { "key" => "find_1", "prompt" => "A rewritten first question", "group" => "Find" } ],
+    evaluation.replace_scenarios!([ { "key" => "tickets_1", "prompt" => "A rewritten first question", "group" => "Tickets" } ],
       on_removed: :disable)
 
-    assert_equal dropped.id, evaluation.scenarios.find_by!(key: "blame_1").id
+    assert_equal dropped.id, evaluation.scenarios.find_by!(key: "history_1").id
     assert_not dropped.reload.enabled, "a scenario the suite no longer names is disabled, not destroyed"
-    assert_equal %w[find_1], evaluation.scenarios.enabled.ordered.map(&:key)
+    assert_equal %w[tickets_1], evaluation.scenarios.enabled.ordered.map(&:key)
   end
 
   test "replace_scenarios! destroys a dropped scenario by default" do
     evaluation = build_suite
 
-    evaluation.replace_scenarios!([ { "key" => "find_1", "prompt" => "A rewritten first question", "group" => "Find" } ])
+    evaluation.replace_scenarios!([ { "key" => "tickets_1", "prompt" => "A rewritten first question", "group" => "Tickets" } ])
 
-    assert_nil evaluation.scenarios.find_by(key: "blame_1")
+    assert_nil evaluation.scenarios.find_by(key: "history_1")
   end
 
   test "replace_scenarios! rejects an unknown on_removed" do
     evaluation = build_suite
 
     assert_raises(ArgumentError) do
-      evaluation.replace_scenarios!([ { "key" => "find_1", "prompt" => "Anything" } ], on_removed: :archive)
+      evaluation.replace_scenarios!([ { "key" => "tickets_1", "prompt" => "Anything" } ], on_removed: :archive)
     end
   end
 
@@ -375,7 +375,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   # no tools to call. Without this the only evidence was a logger.warn, and the
   # report recommended prompt changes for a transport failure.
   test "a run whose every MCP server failed discovery says so on the run" do
-    evaluation = build_suite(mcp_servers: %w[records])
+    evaluation = build_suite(mcp_servers: %w[tickets])
 
     with_unreachable_mcp_server do
       evaluation.run!(models: [ "mock/alpha" ])
@@ -384,7 +384,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     run = evaluation.evaluation_runs.order(:created_at).last
     assert_equal "complete", run.status
     assert_match(/Every MCP server this agent declares failed tool discovery/, run.error_message)
-    assert_match(/records/, run.error_message)
+    assert_match(/tickets/, run.error_message)
     assert_match(/401 Unauthorized/, run.error_message)
   end
 
@@ -402,9 +402,9 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   def with_unreachable_mcp_server
     original = ActionAgent.mcp_catalog
     ActionAgent.mcp_catalog = [
-      { key: "records", name: "Records", description: "Record lookups.",
-        transport: "http", url: "https://host.example/mcp/records",
-        tool_hints: %w[find_records] }
+      { key: "tickets", name: "Tickets", description: "Ticket lookups.",
+        transport: "http", url: "https://host.example/mcp/tickets",
+        tool_hints: %w[find_tickets] }
     ]
 
     refuser = Class.new do
