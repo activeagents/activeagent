@@ -193,13 +193,18 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
       "BUNDLER_ORIG_PATH" => "x", "RUBYOPT" => "x", "RUBYLIB" => "x",
       "AWS_SECRET_ACCESS_KEY" => "x", "AWS_ACCESS_KEY_ID" => "x", "GH_TOKEN" => "x", "PGPASSWORD" => "x",
       "MYSQL_PASSWD" => "x", "STRIPE_APIKEY" => "x", "SSH_PRIVATE_KEY" => "x", "GOOGLE_CREDENTIALS" => "x",
-      "openai_api_key" => "x", "GIT_DIR" => "x", "GIT_INDEX_FILE" => "x", "GIT_CONFIG_KEY_0" => "x"
+      "openai_api_key" => "x", "GIT_DIR" => "x", "GIT_INDEX_FILE" => "x", "GIT_CONFIG_KEY_0" => "x",
+      # A dashboard run from inside Claude Code: its session, and a base URL
+      # that would redirect the owner's credential.
+      "CLAUDECODE" => "1", "CLAUDE_CODE_SESSION_ID" => "x", "CLAUDE_CODE_ENTRYPOINT" => "x",
+      "CLAUDE_CONFIG_DIR" => "x", "ANTHROPIC_BASE_URL" => "https://elsewhere.test", "OPENAI_BASE_URL" => "x",
+      "OLLAMA_HOST" => "x", "CLAUDETTE_HOME" => "/home/dev/claudette"
     }
 
     env = Backend.sanitized_environment(source)
 
     assert_equal %w[
-      ASDF_DIR CURL_CA_BUNDLE HOME HTTPS_PROXY LANG MISE_SHELL PATH RBENV_VERSION SSL_CERT_FILE TMPDIR
+      ASDF_DIR CLAUDETTE_HOME CURL_CA_BUNDLE HOME HTTPS_PROXY LANG MISE_SHELL PATH RBENV_VERSION SSL_CERT_FILE TMPDIR
     ], env.keys.sort
   end
 

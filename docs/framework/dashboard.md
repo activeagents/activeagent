@@ -675,6 +675,13 @@ before Bundler set it up (`Bundler.with_unbundled_env`), then drops:
   `GIT_COMMON_DIR`, `GIT_CONFIG*`, `GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n` and
   the like), which a git hook sets and which would point the checkout's git at
   the dashboard's own repository;
+- the dashboard's own model-provider and Claude Code settings: every
+  `ANTHROPIC_*`, `CLAUDE_*`, `CLAUDECODE`, `OPENAI_*`, `OPEN_AI_*`,
+  `OPENROUTER_*`, `OPEN_ROUTER_*` and `OLLAMA_*` variable. A dashboard run from
+  inside Claude Code exports its own session's variables and an
+  `ANTHROPIC_BASE_URL`. A session that inherited them would join that session,
+  and the base URL would send the owner's credential elsewhere. A Claude Code
+  session gets exactly the variables the backend sets (below);
 - every variable whose name matches
   `/(SECRET|TOKEN|PASSWORD|PASSWD|API_KEY|APIKEY|PRIVATE_KEY|CREDENTIAL|ACCESS_KEY)/i`.
 
