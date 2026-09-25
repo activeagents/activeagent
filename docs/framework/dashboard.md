@@ -682,8 +682,13 @@ before Bundler set it up (`Bundler.with_unbundled_env`), then drops:
   `ANTHROPIC_BASE_URL`. A session that inherited them would join that session,
   and the base URL would send the owner's credential elsewhere. A Claude Code
   session gets exactly the variables the backend sets (below);
-- every variable whose name matches
-  `/(SECRET|TOKEN|PASSWORD|PASSWD|API_KEY|APIKEY|PRIVATE_KEY|CREDENTIAL|ACCESS_KEY)/i`.
+- every variable whose name looks like a secret: it contains `SECRET`,
+  `TOKEN`, `PASSWORD`, `PASSWD`, `PASSPHRASE`, `API_KEY`, `APIKEY`,
+  `PRIVATE_KEY`, `CREDENTIAL`, `ACCESS_KEY` or `WEBHOOK`, or ends in `_KEY`,
+  `DSN`, `PASS`, `PWD` or `PAT` (`DB_PASS`, `MYSQL_PWD`, `LOCKBOX_MASTER_KEY`,
+  `SENTRY_DSN`, `GITHUB_PAT`);
+- every variable whose value is a URL carrying a password
+  (`redis://:secret@cache:6379`), whatever its name.
 
 Everything else is kept: `PATH`, `HOME`, `LANG`, `TMPDIR`, proxy and CA
 variables, and rbenv, mise and asdf settings. Processes are spawned with
@@ -691,6 +696,25 @@ exactly that environment (`unsetenv_others: true`), so nothing else leaks
 through. Because `RAILS_ENV` is dropped, a Rails checkout boots in development
 unless its `env` sets it. A checkout that needs a key of its own sets it in
 `env`, or reads it from its own credentials.
+
+**Known limits of the local backend.**
+
+- **Databases.** A checkout boots with its own `config/database.yml`. If it
+  names a fixed development database, as most Rails apps do, a checkout of the
+  same app you run the dashboard from uses *your* development database, and
+  its `db:prepare` migrates it. Give the checkout a database of its own in
+  `.activeagents/sandbox.yml` (for example `DATABASE_URL: sqlite3:storage/sandbox.sqlite3`).
+- **Code reloading.** In development, Active Job's default async adapter runs
+  jobs inside the web process, and a reloading app holds the reloader while a
+  job runs. A checkout boot (up to `local_sandbox_boot_timeout`) or a Claude
+  Code session (up to `claude_code_timeout`) can delay code reloading until it
+  finishes. Run jobs in a separate worker (Solid Queue, for example) if that
+  gets in the way.
+- **Filters.** When a checkout's git config defines filter drivers, which a
+  session could add, the session's diff is not recorded rather than running
+  their commands.
+- **macOS.** Without `/proc`, the backend identifies its processes by their
+  start time from `ps`, and never signals a pid it cannot identify.
 
 This repository boots its own dummy app this way. Its
 [`.activeagents/sandbox.yml`](https://github.com/activeagents/activeagent/blob/main/.activeagents/sandbox.yml)

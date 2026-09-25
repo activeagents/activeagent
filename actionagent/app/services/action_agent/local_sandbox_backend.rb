@@ -2,6 +2,7 @@
 
 require "io/wait"
 require "net/http"
+require "open3"
 require "socket"
 require "tmpdir"
 
@@ -91,7 +92,13 @@ module ActionAgent
       # gets exactly the Claude Code variables the backend sets.
       \A(?:ANTHROPIC|CLAUDE|OPENAI|OPEN_AI|OPENROUTER|OPEN_ROUTER|OLLAMA)(?:_|\z) | \ACLAUDECODE\z
     /x
-    SECRET_VARIABLE = /SECRET|TOKEN|PASSWORD|PASSWD|API_KEY|APIKEY|PRIVATE_KEY|CREDENTIAL|ACCESS_KEY/i
+    SECRET_VARIABLE = /
+      SECRET | TOKEN | PASSWORD | PASSWD | PASSPHRASE | API_KEY | APIKEY | PRIVATE_KEY | CREDENTIAL | ACCESS_KEY |
+      # DB_PASS, MYSQL_PWD, LOCKBOX_MASTER_KEY, SENTRY_DSN, SLACK_WEBHOOK_URL, GITHUB_PAT
+      (?:\A|_)PASS\z | (?:\A|_)PWD\z | _KEY\z | DSN\z | WEBHOOK | (?:\A|_)PAT\z
+    /xi
+    # A URL carrying a password (redis://:secret@host), whatever its name.
+    CREDENTIALED_URL = %r{\A[a-z][a-z0-9+.-]*://[^/\s@]*:[^/\s@]+@}i
 
     # Fetches the checkout with the token in this process's environment only.
     # Git gets the credential through GIT_CONFIG_* for the one fetch: never in
@@ -215,6 +222,7 @@ module ActionAgent
           name = name.to_s
           next if value.nil? || DROPPED_VARIABLES.include?(name)
           next if DROPPED_VARIABLE_PATTERN.match?(name) || SECRET_VARIABLE.match?(name)
+          next if CREDENTIALED_URL.match?(value.to_s)
 
           env[name] = value.to_s
         end
@@ -261,6 +269,12 @@ module ActionAgent
     # Stops the sandbox's server and any Claude Code sessions it recorded,
     # then removes its workspace. Returns true, also when there was nothing
     # to stop.
+    # A sandbox's handle follows from its session id, so one whose boot was
+    # never recorded can still be found and stopped.
+    def handle_for(session)
+      "local-#{session.session_id}"
+    end
+
     def terminate(handle)
       session_id = session_id_from(handle)
       discard(session_id) if session_id
@@ -617,7 +631,14 @@ module ActionAgent
       log = log_path(workspace, "claude-#{key}")
       deadline = deadline_after(ActionAgent.claude_code_timeout)
       # Checked again once Claude Code is recorded; this saves starting it.
-      refuse_stopped_session!(read_state(workspace), key)
+      state = read_state(workspace)
+      refuse_stopped_session!(state, key)
+      # A cancelled session frees its slot as soon as it is marked cancelled,
+      # while its Claude Code may still be exiting (and diffing). Two in one
+      # checkout would edit the same files.
+      if other_session_running?(state, key, workspace.basename.to_s)
+        raise Error, "The previous Claude Code session in this sandbox is still stopping; try again in a moment"
+      end
       stdin_read, stdin_write = IO.pipe
       stdout_read, stdout_write = IO.pipe
       stderr_read, stderr_write = IO.pipe
@@ -681,6 +702,13 @@ module ActionAgent
     # finds this pid or left a mark here first. Returns :terminating when a
     # terminate is under way (or already removed the workspace), :cancelled
     # when a cancel came first, and nil otherwise.
+    def other_session_running?(state, key, session_id)
+      sessions = state["code_sessions"].is_a?(Hash) ? state["code_sessions"] : {}
+      sessions.any? do |other, pid|
+        other != key && pid.is_a?(Integer) && group_alive?(pid) && recorded_group?(pid, session_id, state)
+      end
+    end
+
     def record_code_session(workspace, key, pid)
       mark = nil
       update_state(workspace) do |state|
@@ -787,6 +815,14 @@ module ActionAgent
       app = workspace.join("app")
       env = self.class.sanitized_environment
       git = git_command(app)
+      # A filter driver in the checkout's git config (which the session could
+      # have written) runs its command on `git add` and `git diff`, as the
+      # dashboard's user. Rather than run it, report no diff.
+      drivers, = capture(env, [ *git, "config", "--local", "--includes", "--name-only", "--get-regexp", "^filter\\." ],
+        chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
+      if drivers.to_s.strip.present?
+        return "(diff not recorded: the checkout's git config defines filter drivers, which would run commands)"
+      end
       capture(env, [ *git, "add", "--intent-to-add", "--all" ], chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
 
       base = read_state(workspace)["checkout_commit"]
@@ -941,10 +977,15 @@ module ActionAgent
     # the process cannot rewrite it, as a long enough process title (Ruby's
     # `$0=`, setproctitle) does. nil where /proc cannot say.
     def process_start(pid)
-      return nil unless procfs?
-
       # Field 22 of the stat line; proc_stat starts at field 3.
-      Integer(proc_stat(pid)[19], exception: false)
+      return Integer(proc_stat(pid)[19], exception: false) if procfs?
+
+      # No /proc (macOS): ps reports the start time to the second, enough to
+      # tell a reused pid apart. nil when the process is gone.
+      output, status = Open3.capture2("ps", "-o", "lstart=", "-p", pid.to_s)
+      status.success? ? output.strip.presence : nil
+    rescue SystemCallError
+      nil
     end
 
     def record_process_start(state, pid)
@@ -963,10 +1004,13 @@ module ActionAgent
       return false unless signalable?(pid)
 
       started = state["process_starts"][pid.to_s] if state["process_starts"].is_a?(Hash)
-      if started && procfs?
+      if started
         current = process_start(pid)
         return current.nil? || current == started
       end
+      # Nothing to identify it by (no start time recorded, and no /proc to
+      # read its environment): never signal a pid that may have been reused.
+      return false unless procfs?
 
       environ = File.binread("/proc/#{pid}/environ")
       # A zombie's environment reads empty, and its pid is still its own.

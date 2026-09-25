@@ -241,7 +241,9 @@ module ActionAgent
     # terminate, leaving the booted sandbox running.
     def expire!
       with_lock { update!(status: :expired, runtime_mcp_url: nil, runtime_mcp_token: nil) }
-      SandboxCleanupJob.perform_later(id) if cloud_run_job_id.present?
+      # A checkout with no handle may still have a boot behind it (its job
+      # died mid-boot, say); the cleanup job asks the backend for it.
+      SandboxCleanupJob.perform_later(id) if cloud_run_job_id.present? || app_runtime?
     end
 
     # Summary for API responses

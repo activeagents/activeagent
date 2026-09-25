@@ -412,6 +412,39 @@ class SandboxLifecycleTest < ActionDispatch::IntegrationTest
 
   private
 
+  test "starting a checkout answers to the execution gate" do
+    ActionAgent.execution_enabled = false
+
+    post "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/docs" }, as: :json
+
+    assert_response :forbidden
+    assert_equal 0, ActionAgent::SandboxSession.count
+  ensure
+    ActionAgent.execution_enabled = true
+  end
+
+  test "stopping a checkout whose boot never recorded a handle still reaches its backend" do
+    ProbeBackend.define_method(:handle_for) { |session| "probe-#{session.session_id}" }
+    session = ActionAgent::SandboxSession.create!(sandbox_type: "app_runtime", repository: "acme/docs")
+    # The provision job died mid-boot: provisioning, no handle.
+    session.update_columns(status: ActionAgent::SandboxSession.statuses[:provisioning])
+
+    perform_enqueued_jobs { session.expire! }
+
+    assert_includes ProbeBackend.calls, [ :terminate, "probe-#{session.session_id}" ]
+  ensure
+    ProbeBackend.remove_method(:handle_for)
+  end
+
+  test "a run finishing after a Stop leaves the sandbox stopped" do
+    session = ActionAgent::SandboxSession.create!(sandbox_type: "playwright_mcp", status: :running)
+    session.update!(status: :expired)
+
+    ActionAgent::SandboxRunJob.new.send(:back_to_ready, session)
+
+    assert session.reload.expired?
+  end
+
   def session_for(summary)
     ActionAgent::SandboxSession.find_by!(session_id: summary["session_id"])
   end

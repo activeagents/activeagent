@@ -167,6 +167,12 @@ module ActionAgent
       @backend.public_send(adapter_method(:cleanup))
     end
 
+    # The handle the backend would give +sandbox_session+'s sandbox, for a
+    # backend that derives it from the session (nil otherwise).
+    def handle_for(sandbox_session)
+      @backend.respond_to?(:handle_for) ? @backend.handle_for(sandbox_session) : nil
+    end
+
     # Whether the backend implements +verb+ (an ADAPTER_METHODS key).
     def supports?(verb)
       ADAPTER_METHODS.fetch(verb).any? { |m| @backend.respond_to?(m) }
