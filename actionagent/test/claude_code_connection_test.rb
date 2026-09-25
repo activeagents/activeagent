@@ -60,11 +60,16 @@ class ClaudeCodeConnectionTest < ActionDispatch::IntegrationTest
       repositories: [ { "id" => 2, "full_name" => "acme/docs", "private" => false, "default_branch" => "trunk" } ]
     )
 
-    post "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/docs" }, as: :json
+    # Provisioning a checkout runs in the background; run it here, so the
+    # session is handed to the backend.
+    perform_enqueued_jobs do
+      post "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/docs" }, as: :json
+    end
 
     assert_response :created, response.body
     assert_not_includes response.body, OAUTH_TOKEN
     session = ActionAgent::SandboxSession.find_by!(session_id: JSON.parse(response.body).dig("sandbox", "session_id"))
+    assert session.ready?, "the backend booted the checkout"
     assert_equal({ "CLAUDE_CODE_OAUTH_TOKEN" => OAUTH_TOKEN }, session.runtime_environment)
   end
 

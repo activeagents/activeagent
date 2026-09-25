@@ -24,6 +24,9 @@ export default function SettingsView({ user, account }) {
   const { darkMode, toggleDarkMode } = useTheme();
   const [{ tab: firstTab, github: githubCallback }] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState(firstTab);
+  // Bumped when the Claude Code card changes, so the GitHub card re-reads
+  // whether sandboxes can run Claude Code sessions.
+  const [integrationsVersion, setIntegrationsVersion] = useState(0);
 
   // API Keys tab state
   const [apiKeys, setApiKeys] = useState([]);
@@ -470,12 +473,13 @@ export default function SettingsView({ user, account }) {
             </h3>
             <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Connect GitHub to choose which repositories this workspace may use. A sandbox started
-              from one boots that app's own runtime, so agents and evaluations can run with its tools.
+              from one boots that app's own runtime, so agents and evaluations can run with its tools,
+              and Claude Code can work on the checkout.
             </p>
-            <GithubIntegrationCard callbackStatus={githubCallback} />
+            <GithubIntegrationCard callbackStatus={githubCallback} refreshKey={integrationsVersion} />
           </div>
           <div className="border rounded-lg p-6" style={cardStyle}>
-            <ClaudeCodeIntegrationCard />
+            <ClaudeCodeIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
           </div>
         </div>
       )}

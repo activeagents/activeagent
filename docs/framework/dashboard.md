@@ -233,8 +233,15 @@ Agent drafts open in the builder for review; they are not saved or run by chat.
 Conversation state resets on reload. Assistant generations disable framework
 traces and provider notifications, and message/history parameters are filtered
 before Rails request logging. Provider retention and any host middleware that
-records raw HTTP bodies still follow the host's policies. Repository connections, COI execution, Claude Code sessions
-and PR checks remain [planned work](/plans/dashboard-assistant/PLAN).
+records raw HTTP bodies still follow the host's policies.
+
+The assistant's configuration endpoint (`GET /api/dashboard_assistant`)
+reports whether GitHub and Claude Code are connected, as booleans with no
+tokens. The assistant itself isn't told, and it cannot connect them, start a
+checkout sandbox or run a Claude Code session; it points you to Settings →
+Integrations, where those live (see
+[Local checkout sandboxes](#local-checkout-sandboxes)). COI execution and PR
+checks remain [planned work](/plans/dashboard-assistant/PLAN).
 
 ## Metrics
 
@@ -543,8 +550,277 @@ stored like a provider key (encrypted, write-only, masked in the UI) under the
 provider name `claude_code`, and never offered as an agent provider. A
 checkout backend reads `sandbox_session.runtime_environment`, which is
 `{ "CLAUDE_CODE_OAUTH_TOKEN" => … }` or `{ "ANTHROPIC_API_KEY" => … }`, and
-sets it in the booted app's environment so Claude Code can run against the
-checkout.
+gives it to the Claude Code sessions it runs in the checkout, and to nothing
+else: the `:local` backend never puts it in the environment of the checkout's
+setup, manifest or server (see [Claude Code sessions](#claude-code-sessions)).
+
+## Local checkout sandboxes
+
+The engine ships a `:local` sandbox backend, so **Start sandbox** works on a
+developer's own machine with no containers. It clones the repository into a
+directory under the host app, runs the repository's setup, and boots it as child
+processes of the dashboard. Turn it on in the initializer:
+
+```ruby
+ActionAgent.configure do |config|
+  config.sandbox_service = :local   # or SANDBOX_BACKEND=local
+end
+```
+
+It needs `git` and `sh` on the dashboard's `PATH`, plus whatever the checkout's
+own setup needs (Ruby and Bundler for a Rails app). Claude Code sessions also
+need the `claude` CLI.
+
+::: warning The local backend runs the owner's code with the dashboard's privileges
+The checkout's setup commands, its server and every Claude Code session run as
+the dashboard's own OS user, with its filesystem and its network. Environment
+sanitizing (below) keeps the dashboard's credentials and database out of their
+environment. It does not isolate them: a checkout can read any file that user
+can read. Use `:local` on a developer's machine, or on a single-user install
+where the person who connects GitHub is the person who runs the dashboard.
+
+It is **off outside development and test** unless you enable it:
+
+```ruby
+config.local_sandboxes_enabled = true
+```
+:::
+
+| Option | Default | What it sets |
+|---|---|---|
+| `sandbox_service` | `:mock` | The backend: `:mock` (in memory, runs nothing), `:local`, or one registered in `sandbox_backends`. `SANDBOX_BACKEND` overrides it |
+| `local_sandboxes_enabled` | unset: on in development and test, off elsewhere | Whether `:local` may run at all |
+| `local_sandbox_root` | `Rails.root.join("tmp/action_agent/sandboxes")` | Where each sandbox's workspace lives |
+| `local_sandbox_boot_timeout` | `600` (seconds) | The limit on checkout, setup, manifest and server start together |
+| `claude_code_command` | `"claude"` | The Claude Code executable |
+| `claude_code_permission_mode` | `"acceptEdits"` | `--permission-mode` for every session |
+| `claude_code_max_turns` | `nil` (Claude Code's own default) | `--max-turns` for every session |
+| `claude_code_timeout` | `1800` (seconds) | How long a session may run before it is stopped |
+
+### What a sandbox runs
+
+Each sandbox gets a workspace, `<local_sandbox_root>/<session_id>/`, readable
+only by the dashboard's user:
+
+```
+app/            the checkout
+runtime.json    the manifest the checkout wrote
+state.json      { pid, port, started_at, code_sessions: { "<id>" => pid } }
+logs/           checkout, setup, manifest, server and claude-<id> logs
+claude/         CLAUDE_CONFIG_DIR for Claude Code sessions
+```
+
+Its handle is `local-<session_id>`. Provisioning runs in a background job (a
+checkout can take minutes) and does the following, in order:
+
+1. Fetches the ref, one commit deep, into `app/`. The GitHub token is only in
+   the environment of that fetch. It never appears on a command line, and it
+   is never written to `.git/config`.
+2. Reads `.activeagents/sandbox.yml` from the checkout, if there is one.
+3. Runs each `setup` command.
+4. Picks a free port and runs the `manifest` command.
+5. Starts the `start` command in its own process group, with its output in
+   `logs/server.log`, and records its pid and port in `state.json`.
+6. Polls `GET http://127.0.0.1:$PORT<mcp_path>` with
+   `Accept: application/json` until it answers `405`, which means the engine
+   is mounted and serving (`401` and `200` count too).
+
+Steps 1 to 6 share `local_sandbox_boot_timeout`. If a step fails, runs out of
+time, or the server exits, everything the backend started is stopped. The
+sandbox then fails with a message that names the step and ends with the last
+lines of that step's log. The GitHub token and the Claude Code credential are
+scrubbed from that message. When the sandbox is ready, its MCP server
+(`sandbox:<session_id>`) is
+`http://127.0.0.1:$PORT<mcp_path>`, with the manifest's token.
+
+### `.activeagents/sandbox.yml`
+
+A checkout says how it boots in an optional `.activeagents/sandbox.yml` at its
+root. Every key is optional. The example below shows the default `setup`,
+`manifest` and `start`, so a Rails app that mounts this engine needs no file
+at all:
+
+```yaml
+env:        # extra environment for setup, manifest and server (string values)
+  RAILS_ENV: development
+setup:      # run once after checkout, in order; default: ["bundle install", "bin/rails db:prepare"]
+  - bundle install
+  - bin/rails db:prepare
+manifest: bin/rails action_agent:sandbox:manifest    # default; must write the manifest JSON to $ACTION_AGENT_SANDBOX_MANIFEST
+start: bin/rails server -b 127.0.0.1 -p $PORT        # default; must serve on 127.0.0.1:$PORT and keep running
+```
+
+- Every command runs with `sh -c` in the checkout root. A setup command must
+  exit 0. `start` must keep running.
+- Each command's environment is the sanitized dashboard environment, plus
+  `PORT`, `ACTION_AGENT_SANDBOX_MANIFEST` (an absolute path inside the
+  workspace) and `ACTION_AGENT_SANDBOX_SESSION_ID`, plus the file's `env`.
+  The port is picked after setup, so it is still free when the server binds
+  it. `manifest` and `start` get `PORT`; `setup` does not.
+- The GitHub token is never in that environment. The Claude Code credential
+  isn't either: only Claude Code sessions get it.
+- Unknown keys are ignored. A malformed file fails provisioning, and the
+  sandbox's error says what is wrong with it.
+
+**Environment sanitizing.** A sandbox never inherits the dashboard's secrets or
+its database. The backend starts from the dashboard's environment as it was
+before Bundler set it up (`Bundler.with_unbundled_env`), then drops:
+
+- `DATABASE_URL`, any `*_DATABASE_URL`, `REDIS_URL`, `SECRET_KEY_BASE`,
+  `RAILS_MASTER_KEY`, `RAILS_ENV`, `RACK_ENV`, `PORT`,
+  `ACTIVE_RECORD_ENCRYPTION_*`, `BUNDLE_GEMFILE`, `BUNDLE_*`, `RUBYOPT` and
+  `RUBYLIB`;
+- `BUNDLER_*`, and git's repository-location and config variables
+  (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+  `GIT_COMMON_DIR`, `GIT_CONFIG*`, `GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n` and
+  the like), which a git hook sets and which would point the checkout's git at
+  the dashboard's own repository;
+- every variable whose name matches
+  `/(SECRET|TOKEN|PASSWORD|PASSWD|API_KEY|APIKEY|PRIVATE_KEY|CREDENTIAL|ACCESS_KEY)/i`.
+
+Everything else is kept: `PATH`, `HOME`, `LANG`, `TMPDIR`, proxy and CA
+variables, and rbenv, mise and asdf settings. Processes are spawned with
+exactly that environment (`unsetenv_others: true`), so nothing else leaks
+through. Because `RAILS_ENV` is dropped, a Rails checkout boots in development
+unless its `env` sets it. A checkout that needs a key of its own sets it in
+`env`, or reads it from its own credentials.
+
+This repository boots its own dummy app this way. Its
+[`.activeagents/sandbox.yml`](https://github.com/activeagents/activeagent/blob/main/.activeagents/sandbox.yml)
+shows a nested app, and a Gemfile that isn't at the root.
+
+### The manifest task
+
+The manifest tells the backend where the booted app's MCP facade answers and
+which bearer token opens it:
+
+```json
+{ "mcp_path": "/activeagents/mcp", "mcp_token": "aa_..." }
+```
+
+The engine ships `bin/rails action_agent:sandbox:manifest`, so every app that
+mounts it has the task. The task finds the engine's mount in the app's routes
+and writes the manifest to `$ACTION_AGENT_SANDBOX_MANIFEST`. When that
+variable is unset, it prints the manifest instead. The token belongs to a
+dashboard API key named "Checkout sandbox runtime", in the checkout's own
+database. The first run creates it, and later runs reuse it, so a sandbox
+that boots again doesn't add a key. If the engine is not mounted, the task
+exits non-zero with
+`action_agent:sandbox:manifest: ActionAgent::Engine is not mounted in this app's routes`.
+
+In an app whose API keys belong to an account or user, that key has no owner
+and reaches no agents over MCP. In that case, and for an app that isn't Rails,
+`manifest` can be any command that writes the JSON. `mcp_path` must start with
+`/`, and `mcp_token` is a string or `null`.
+
+### Stopping and reaping
+
+- **Stop** on a sandbox (`DELETE /api/sandboxes/:session_id`) expires it and
+  terminates it.
+- Terminating sends `SIGTERM` to the server's process group and to any running
+  Claude Code session. After about 10 seconds it sends `SIGKILL`, then removes
+  the workspace.
+- A pid is signalled only if that workspace's `state.json` recorded it. A
+  sandbox that is already gone counts as stopped.
+- An `app_runtime` sandbox expires 2 hours after it is created. Other sandbox
+  types expire after 15 minutes.
+
+Nothing reaps expired sandboxes on its own. Schedule the reap task:
+
+```bash
+bin/rails action_agent:sandbox:reap   # prints "Expired N sandbox session(s)"
+```
+
+It expires every session that is past its expiry and still pending,
+provisioning, ready or running, and terminates each one through
+`ActionAgent::SandboxCleanupJob`. It also retries sessions whose earlier
+terminate failed. Run it from cron, or as a Solid Queue recurring task:
+
+```yaml
+# config/recurring.yml
+development:
+  reap_sandboxes:
+    command: "ActionAgent::SandboxCleanupJob.cleanup_expired!"
+    schedule: every 5 minutes
+
+production:
+  reap_sandboxes:
+    command: "ActionAgent::SandboxCleanupJob.cleanup_expired!"
+    schedule: every 5 minutes
+```
+
+The file Rails and the Solid Queue installer generate is keyed by environment
+(it starts with `production:`). Solid Queue reads only the current
+environment's key when the file has one, so a top-level `reap_sandboxes:`
+never runs there. Add the entry under each environment the file names.
+
+A sandbox runs in its own process groups, so stopping the dashboard doesn't
+stop its sandboxes. After a restart, `state.json` is how the dashboard finds
+them again. Provisioning, Claude Code sessions and cleanup run as Active Job
+jobs, and **Cancel** signals a session from the web process. Run the
+dashboard and its job workers on one machine, as one user, so they share the
+workspaces.
+
+### Claude Code sessions
+
+When a sandbox is **ready**, its card in Settings → Integrations shows a
+Claude Code panel. **Run Claude Code** stays disabled until Claude Code is
+connected (see [Claude Code](#claude-code)). Write a prompt, and the dashboard
+runs Claude Code headless in the checkout. The panel shows each event as it
+arrives:
+
+- the assistant's text;
+- each tool call and its result;
+- the final result line, with turns, cost and duration.
+
+When the session finishes, the panel shows the checkout's `git diff`, with new
+files included. **Cancel** stops a running session.
+
+Only one session runs per sandbox at a time. Each one counts as an execution:
+`execution_enabled` must be on, and the execution quota applies. Sessions are
+stored in `active_agent_code_sessions`. An existing install gets that table by
+running `rails generate action_agent:install` and `rails db:migrate` again.
+The API offers the same actions:
+
+- `GET` and `POST /api/sandboxes/:session_id/code_sessions`;
+- `GET …/code_sessions/:id?after=N`, which returns events from index N, and
+  the diff once the session has finished;
+- `POST …/code_sessions/:id/cancel`.
+
+The `:local` backend runs:
+
+```bash
+claude -p --output-format stream-json --verbose \
+  --permission-mode acceptEdits --no-session-persistence
+```
+
+It adds flags as needed:
+
+- `--permission-prompts none` when the installed CLI supports it;
+- `--max-turns N` when `claude_code_max_turns` is set;
+- `--model M` when the session names a model.
+
+The prompt goes in on standard input, never on the command line. The session
+runs in the checkout, in its own process group. Its environment is the
+sanitized one, plus:
+
+- the Claude Code credential (`CLAUDE_CODE_OAUTH_TOKEN` or
+  `ANTHROPIC_API_KEY`);
+- `CLAUDE_CONFIG_DIR`, set to the sandbox's own `claude/` directory;
+- `DISABLE_AUTOUPDATER`, `DISABLE_TELEMETRY`, `DISABLE_ERROR_REPORTING` and
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, each set to `1`.
+
+A session still running after `claude_code_timeout` is stopped and fails. The
+backend scrubs the checkout token and the Claude Code credential from the
+recorded events and the diff. A session keeps at most 1,000 events, and a diff
+of at most 500 KB.
+
+**Permission mode.** Sessions run in `acceptEdits` mode unless you set
+`claude_code_permission_mode`. In that mode, Claude Code may edit files in the
+checkout and run filesystem commands. Nobody is there to answer a permission
+prompt, so anything else that would ask is denied. `plan` keeps sessions
+read-only. Avoid `bypassPermissions`: it lets a session run any command as the
+dashboard's user.
 
 ## Authentication
 

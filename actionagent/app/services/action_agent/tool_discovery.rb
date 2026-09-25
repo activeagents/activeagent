@@ -35,6 +35,9 @@ module ActionAgent
   #
   # Scopes are passed in rather than derived, so the caller's ownership
   # rules (single-user, per-user, or multi-tenant) decide what is visible.
+  # The same goes for checkout sandbox runtimes: the caller hands in the live
+  # ones it may see (SandboxSession.runtime_server_listings), and they are
+  # listed beside the catalog under their "sandbox:<session_id>" keys.
   class ToolDiscovery
     DEFAULT_WINDOW_HOURS = 24 * 7
     MAX_WINDOW_HOURS = 24 * 90
@@ -53,16 +56,20 @@ module ActionAgent
     ORIGIN_BUILTIN = "builtin"
     ORIGIN_AGENT = "agent"
 
-    attr_reader :traces, :agents, :window_hours, :since
+    attr_reader :traces, :agents, :window_hours, :since, :runtimes
 
     # @param traces [ActiveRecord::Relation] the traces the caller may read
     # @param agents [ActiveRecord::Relation] the agents the caller may reach
     # @param hours [Integer] how far back to look
-    def initialize(traces:, agents:, hours: DEFAULT_WINDOW_HOURS)
+    # @param runtimes [Array<Hash>] the live checkout sandbox runtimes the
+    #   caller may see, as SandboxSession.runtime_server_listings returns
+    #   them — token-free catalog-shaped entries
+    def initialize(traces:, agents:, hours: DEFAULT_WINDOW_HOURS, runtimes: [])
       @traces = traces
       @agents = agents
       @window_hours = hours.to_i.clamp(1, MAX_WINDOW_HOURS)
       @since = @window_hours.hours.ago
+      @runtimes = Array(runtimes).index_by { |runtime| runtime[:key] }
     end
 
     # The full inventory: every tool seen in the window, plus the MCP servers
@@ -500,7 +507,7 @@ module ActionAgent
         end
       end
 
-      keys = (MCPCatalog.keys + detected.keys + configured_servers.keys).uniq
+      keys = (MCPCatalog.keys + runtimes.keys + detected.keys + configured_servers.keys).uniq
 
       # detected has a default block that would materialize a bucket on
       # lookup, so unseen servers are passed through as an explicit nil.
@@ -509,7 +516,11 @@ module ActionAgent
     end
 
     def server_row(key, bucket)
-      catalog = MCPCatalog.find(key)
+      # A live checkout runtime reads like a catalog entry: known, named after
+      # its repository and ref, with the endpoint it serves on. Its listing
+      # carries no bearer token, so nothing below can render one.
+      catalog = MCPCatalog.find(key) || runtimes[key]
+      runtime = SandboxSession.runtime_server_key?(key)
       configured = configured_servers[key].to_a.sort
       calls = bucket ? bucket[:calls] : 0
 
@@ -524,11 +535,14 @@ module ActionAgent
         docs_url: catalog&.fetch(:docs_url, nil),
         first_party: catalog ? catalog[:first_party] : false,
         requires_credentials: catalog ? catalog[:requires_credentials] : [],
-        launchable: catalog ? catalog[:sandbox] : false,
+        # A runtime is already running — it was started from Settings ->
+        # Integrations — so there is nothing here to launch.
+        launchable: catalog && !runtime ? catalog[:sandbox] : false,
         sandbox_type: catalog&.fetch(:sandbox_type, nil),
         # Catalog membership is what "known" means — a server detected purely
         # from traffic is real but undocumented here, and the view says so.
         known: !catalog.nil?,
+        runtime: runtime,
         status: server_status(calls, configured, catalog),
         calls: calls,
         errors: bucket ? bucket[:errors] : 0,

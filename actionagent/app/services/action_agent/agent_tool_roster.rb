@@ -25,7 +25,9 @@ module ActionAgent
   #   offers every agent. These are the roster: +agent.tools+ is what
   #   AgentToolbox turns into function schemas at generation time.
   # * **MCP** — never stored on the roster. Computed from the services the
-  #   agent enables, which is where they are edited.
+  #   agent enables, which is where they are edited. The services are the
+  #   catalog plus the live checkout sandbox runtimes the caller hands in
+  #   (+runtimes:+), which an agent enables under their "sandbox:<id>" keys.
   #
   # Enablement reads the agent's own configuration: +tools+ for the dashboard
   # capabilities and the schema tools, +mcp_servers+ for services and their
@@ -40,13 +42,16 @@ module ActionAgent
     # workspace already talks to, then the rest of the catalog.
     STATUS_RANK = { "active" => 0, "configured" => 1, "available" => 2, "idle" => 3 }.freeze
 
-    attr_reader :agent, :discovery
+    attr_reader :agent, :discovery, :runtimes
 
     # @param agent [ActionAgent::Agent] the agent being edited
     # @param traces [ActiveRecord::Relation] the traces the caller may read
     # @param hours [Integer] the window the usage columns are scoped to
-    def initialize(agent:, traces:, hours: ToolDiscovery::DEFAULT_WINDOW_HOURS)
+    # @param runtimes [Array<Hash>] live checkout sandbox runtimes this agent
+    #   can be given, as SandboxSession.runtime_server_listings returns them
+    def initialize(agent:, traces:, hours: ToolDiscovery::DEFAULT_WINDOW_HOURS, runtimes: [])
       @agent = agent
+      @runtimes = Array(runtimes).index_by { |runtime| runtime[:key] }
       @discovery = ToolDiscovery.new(
         traces: traces.for_agent(agent.telemetry_agent_class),
         agents: Agent.where(id: agent.id),
@@ -89,10 +94,10 @@ module ActionAgent
       end
     end
 
-    # The catalog, plus anything this agent's traffic or configuration names
-    # that the catalog doesn't describe.
+    # The catalog and the live runtimes, plus anything this agent's traffic or
+    # configuration names that neither describes.
     def service_keys
-      (MCPCatalog.keys + detected_by_server.keys + configured_servers.keys).uniq
+      (MCPCatalog.keys + runtimes.keys + detected_by_server.keys + configured_servers.keys).uniq
     end
 
     def detected_by_server
@@ -100,7 +105,8 @@ module ActionAgent
     end
 
     def service_row(key)
-      catalog = MCPCatalog.find(key)
+      # A live runtime reads as a known service; its listing carries no token.
+      catalog = MCPCatalog.find(key) || runtimes[key]
       used = detected_by_server[key] || []
       calls = used.sum { |tool| tool[:calls] }
       enabled = configured_servers.key?(key)
@@ -112,6 +118,7 @@ module ActionAgent
         docs_url: catalog&.dig(:docs_url),
         first_party: catalog ? catalog[:first_party] : false,
         known: !catalog.nil?,
+        runtime: SandboxSession.runtime_server_key?(key),
         transport: transport_label(catalog),
         status: service_status(calls, enabled, catalog),
         enabled: enabled,
@@ -125,12 +132,16 @@ module ActionAgent
     # How to reach the server, in the one line the expanded panel shows:
     # "Streamable HTTP · <url>" for the ones the dashboard can call,
     # "sandbox · <command>" for the ones it can start, "stdio · <command>"
-    # for the rest.
+    # for the rest. Every transport MCPToolDispatcher calls reads the same,
+    # because MCPClient reaches all of them over Streamable HTTP — a checkout
+    # runtime ("streamable_http") included.
     def transport_label(catalog)
       return nil if catalog.nil?
 
       transport = catalog[:transport].to_s
-      return [ "Streamable HTTP", catalog[:url] ].compact.join(" · ") if transport == "http"
+      if transport.in?(MCPToolDispatcher::HTTP_TRANSPORTS)
+        return [ "Streamable HTTP", catalog[:url].presence ].compact.join(" · ")
+      end
 
       prefix = catalog[:sandbox] ? "sandbox" : transport.presence
       [ prefix, catalog[:command] ].compact.join(" · ").presence

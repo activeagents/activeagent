@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { isSandboxRuntime } from '../../utils/toolRoster.mjs';
 
 const REFRESH_INTERVAL_MS = 60000;
 
@@ -17,6 +18,10 @@ const STATUS_FILTERS = [
   { value: 'configured', label: 'Configured' },
   { value: 'available', label: 'Available' },
 ];
+
+// Transports the dashboard reaches over HTTP at a url, rather than a command
+// something has to start. A checkout sandbox's runtime is "streamable_http".
+const ENDPOINT_TRANSPORTS = ['http', 'streamable_http', 'sse'];
 
 const STATUS_TONES = {
   active: { light: '#15803d', dark: '#86efac', bgLight: '#f0fdf4', bgDark: 'rgba(34,197,94,0.15)' },
@@ -239,6 +244,14 @@ export default function McpServersView({ focusServer, onOpenTools }) {
                             first-party
                           </span>
                         )}
+                        {isSandboxRuntime(server) && (
+                          <span
+                            style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', background: darkMode ? 'rgba(59,130,246,0.15)' : '#eff6ff', color: darkMode ? '#93c5fd' : '#1d4ed8' }}
+                            title="The app runtime of a checkout sandbox started from Settings → Integrations"
+                          >
+                            sandbox runtime
+                          </span>
+                        )}
                         {!server.known && (
                           <span
                             style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', background: colors.borderLight, color: colors.textMuted }}
@@ -335,7 +348,7 @@ function ServerDetail({ server, colors, tone, onOpenTools }) {
       <div style={{ height: '1px', background: colors.borderLight, marginBottom: '4px' }} />
 
       {connection && (
-        <Row label={server.transport === 'http' ? 'Endpoint' : 'Command'}>
+        <Row label={ENDPOINT_TRANSPORTS.includes(server.transport) ? 'Endpoint' : 'Command'}>
           <code style={{ fontFamily: 'monospace', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', background: colors.codeBg, display: 'inline-block' }}>
             {connection}
           </code>

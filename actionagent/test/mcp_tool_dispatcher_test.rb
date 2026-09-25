@@ -164,6 +164,132 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
     assert_equal 443, client.instance_variable_get(:@uri).port
   end
 
+  # --- a server entry that lists no tools --------------------------------
+
+  # Answers the way MCPClient does, and records what it was asked to call.
+  class RecordingClient
+    attr_reader :calls
+
+    def initialize(tools)
+      @tools = tools
+      @calls = []
+    end
+
+    def list_tools = @tools
+
+    def call_tool(name, arguments)
+      @calls << [ name, arguments ]
+      { text: "#{name} answered", is_error: false }
+    end
+  end
+
+  # The resolver maps a bare tool name to a server by a namespace, a catalog
+  # hint or an allow-list on the agent's entry. An entry naming none of those
+  # ({key, name}, as the Tools tab saves a service offering everything) used to
+  # have its tools offered and then never dispatched: the model called one and
+  # it fell through to the toolbox.
+  test "a tool a server listed is dispatched there even when nothing else names its server" do
+    ActionAgent.mcp_catalog = [
+      { key: "booking", name: "Booking", transport: "http", url: "https://booking.example/mcp" }
+    ]
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ { "key" => "booking", "name" => "Booking" } ]))
+    booking = RecordingClient.new([ { name: "search_slots", description: "Open slots.", parameters: { type: "object" } } ])
+    dispatcher.instance_variable_get(:@clients)["booking"] = booking
+
+    # Nothing in the name says where it lives until the server has listed it.
+    assert_not dispatcher.dispatchable?("search_slots")
+
+    assert_equal %w[search_slots], dispatcher.tool_definitions.map { |tool| tool[:name] }
+    assert dispatcher.dispatchable?("search_slots")
+    assert_equal({ text: "search_slots answered" }, dispatcher.call("search_slots", { "day" => "friday" }))
+    assert_equal [ [ "search_slots", { "day" => "friday" } ] ], booking.calls
+    # A tool no server of the agent's listed is still the toolbox's.
+    assert_not dispatcher.dispatchable?("run_command")
+    assert_nil dispatcher.call("run_command", {})
+  end
+
+  # The catalog hints browser_navigate to playwright, which this agent has not
+  # enabled (and could not call: it is stdio). The server it did enable lists
+  # the tool, so that server answers — a hint naming a server the agent cannot
+  # reach must not strand a tool the model was offered.
+  test "a listed tool the catalog hints to a server the agent has not enabled is dispatched where it was listed" do
+    ActionAgent.mcp_catalog = [
+      { key: "browser", name: "Browser", transport: "http", url: "https://browser.example/mcp" }
+    ]
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ { "key" => "browser", "name" => "Browser" } ]))
+    browser = RecordingClient.new([ { name: "browser_navigate", description: "Opens a page.", parameters: { type: "object" } } ])
+    dispatcher.instance_variable_get(:@clients)["browser"] = browser
+
+    assert_equal "playwright", ActionAgent::EvaluationToolResolver.new(nil).server_key_for("browser_navigate")
+    assert_not dispatcher.dispatchable?("browser_navigate")
+
+    assert_equal %w[browser_navigate], dispatcher.tool_definitions.map { |tool| tool[:name] }
+    assert dispatcher.dispatchable?("browser_navigate")
+    assert_equal({ text: "browser_navigate answered" }, dispatcher.call("browser_navigate", { "url" => "https://example.com" }))
+    assert_equal [ [ "browser_navigate", { "url" => "https://example.com" } ] ], browser.calls
+  end
+
+  # The Tools tab saves {key, name, tools: [...]} when some of a server's tools
+  # are switched off, and tools: [] when all are. A switched-off tool is
+  # neither offered nor sent to the server, however the server lists it.
+  test "a tool the agent's entry switches off is neither offered nor dispatched" do
+    ActionAgent.mcp_catalog = [
+      { key: "booking", name: "Booking", transport: "http", url: "https://booking.example/mcp" }
+    ]
+    listing = [
+      { name: "search_slots", description: "Open slots.", parameters: { type: "object" } },
+      { name: "cancel_all_bookings", description: "Cancels everything.", parameters: { type: "object" } }
+    ]
+
+    narrowed = ActionAgent::MCPToolDispatcher.new(agent_with([ { "key" => "booking", "tools" => [ "search_slots" ] } ]))
+    booking = RecordingClient.new(listing)
+    narrowed.instance_variable_get(:@clients)["booking"] = booking
+
+    assert_equal %w[search_slots], narrowed.tool_definitions.map { |tool| tool[:name] }
+    assert narrowed.dispatchable?("search_slots")
+    assert_not narrowed.dispatchable?("cancel_all_bookings")
+    assert_nil narrowed.call("cancel_all_bookings", {})
+    assert_equal({ text: "search_slots answered" }, narrowed.call("search_slots", {}))
+    assert_equal [ [ "search_slots", {} ] ], booking.calls
+
+    none = ActionAgent::MCPToolDispatcher.new(agent_with([ { "key" => "booking", "name" => "Booking", "tools" => [] } ]))
+    silent = RecordingClient.new(listing)
+    none.instance_variable_get(:@clients)["booking"] = silent
+
+    assert_empty none.tool_definitions
+    assert_nil none.call("search_slots", {})
+    assert_nil none.call("cancel_all_bookings", {})
+    assert_empty silent.calls
+  end
+
+  # A catalog hint names the server without its listing, so the allow-list
+  # has to hold on that path too.
+  test "a hinted tool the agent's entry switches off is not dispatched" do
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ { "key" => "records", "tools" => [ "find_records" ] } ]))
+
+    assert dispatcher.dispatchable?("find_records")
+    assert dispatcher.dispatchable?("mcp__records__find_records")
+    assert_not dispatcher.dispatchable?("count_records")
+    assert_not dispatcher.dispatchable?("mcp__records__count_records")
+    assert_nil dispatcher.call("count_records", {})
+  end
+
+  test "a server that stops answering stops being where its tools are dispatched" do
+    ActionAgent.mcp_catalog = [
+      { key: "booking", name: "Booking", transport: "http", url: "https://booking.example/mcp" }
+    ]
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(%w[booking]))
+    clients = dispatcher.instance_variable_get(:@clients)
+    clients["booking"] = StubClient.new(tools: [ { name: "search_slots", description: "", parameters: {} } ])
+    dispatcher.tool_definitions
+    assert dispatcher.dispatchable?("search_slots")
+
+    clients["booking"] = StubClient.new(raises: "unreachable")
+    dispatcher.tool_definitions
+
+    assert_not dispatcher.dispatchable?("search_slots")
+  end
+
   test "an observed agent with a reachable server may execute" do
     agent = agent_with(%w[records])
     agent.status = :observed
@@ -177,5 +303,93 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
 
     error = assert_raises(ActionAgent::Agent::ObservedAgentError) { agent.ensure_executable! }
     assert_match(/no reachable MCP server/, error.message)
+  end
+end
+
+# The same gap, end to end against a checkout sandbox's runtime (#489): an
+# agent enabling "sandbox:<id>" — bare, or as the {key, name} entry the Tools
+# tab saves — is offered the runtime's tools and must have a call to one of
+# them reach the runtime, carrying the bearer token its MCP endpoint expects.
+#
+# These stub the endpoint itself rather than the client: VCR lets through a
+# request WebMock holds a stub for, and the header on the wire is the point.
+class MCPToolDispatcherRuntimeTest < ActiveSupport::TestCase
+  RUNTIME_URL = "http://127.0.0.1:4100/activeagents/mcp"
+  RUNTIME_TOKEN = "aa_runtime_dispatch_s3cret"
+
+  setup do
+    ActionAgent::SandboxSession.delete_all
+    @session = ActionAgent::SandboxSession.new(
+      session_id: SecureRandom.uuid, sandbox_type: "app_runtime", repository: "acme/docs", repository_ref: "main"
+    )
+    # The repository check reads a GitHub selection this test has no need of.
+    @session.save!(validate: false)
+    @session.mark_ready!(cloud_run_url: "http://127.0.0.1:4100", runtime_mcp_url: RUNTIME_URL, runtime_mcp_token: RUNTIME_TOKEN)
+  end
+
+  def agent_with(servers)
+    ActionAgent::Agent.new(name: "Checkout agent", status: :draft, provider: "openai",
+                           model: "gpt-4o-mini", mcp_servers: servers, tools: [])
+  end
+
+  # The runtime's MCP endpoint, answering only a request that carries its
+  # token: initialize, the initialized notification, tools/list, tools/call.
+  def stub_runtime
+    stub_request(:post, RUNTIME_URL)
+      .with(headers: { "Authorization" => "Bearer #{RUNTIME_TOKEN}" })
+      .to_return do |request|
+        payload = JSON.parse(request.body)
+        result =
+          case payload["method"]
+          when "initialize" then { protocolVersion: "2025-03-26", capabilities: { tools: {} } }
+          when "tools/list"
+            { tools: [ { name: "lookup_order", description: "Find an order by id.",
+                         inputSchema: { type: "object", properties: { id: { type: "string" } } } } ] }
+          when "tools/call"
+            { content: [ { type: "text", text: "order #{payload.dig('params', 'arguments', 'id')} shipped" } ] }
+          end
+
+        if payload.key?("id")
+          { status: 200, body: { jsonrpc: "2.0", id: payload["id"], result: result }.to_json,
+            headers: { "Content-Type" => "application/json", "Mcp-Session-Id" => "runtime-session" } }
+        else
+          { status: 202, body: "" }
+        end
+      end
+  end
+
+  def assert_dispatched_to_runtime(servers)
+    stub_runtime
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(servers))
+
+    assert_equal %w[lookup_order], dispatcher.tool_definitions.map { |tool| tool[:name] }
+    assert dispatcher.dispatchable?("lookup_order")
+    assert_equal({ text: "order A-17 shipped" }, dispatcher.call("lookup_order", { "id" => "A-17" }))
+
+    assert_requested(:post, RUNTIME_URL, headers: { "Authorization" => "Bearer #{RUNTIME_TOKEN}" }, times: 1) do |request|
+      payload = JSON.parse(request.body)
+      payload["method"] == "tools/call" && payload.dig("params", "name") == "lookup_order" &&
+        payload.dig("params", "arguments") == { "id" => "A-17" }
+    end
+  end
+
+  test "a runtime enabled by its bare key dispatches a bare tool name to the runtime" do
+    assert_dispatched_to_runtime([ @session.runtime_server_key ])
+  end
+
+  test "a runtime enabled as a key and name dispatches a bare tool name to the runtime" do
+    assert_dispatched_to_runtime([ { "key" => @session.runtime_server_key, "name" => "acme/docs@main (sandbox)" } ])
+  end
+
+  test "a runtime that has expired is neither offered nor dispatched to" do
+    stub_runtime
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ @session.runtime_server_key ]))
+    dispatcher.tool_definitions
+    # Its endpoint left in place: liveness alone must stop the call.
+    @session.update!(status: :expired)
+
+    assert_nil dispatcher.call("lookup_order", { "id" => "A-17" })
+    assert_empty ActionAgent::MCPToolDispatcher.new(agent_with([ @session.runtime_server_key ])).tool_definitions
+    assert_not_requested(:post, RUNTIME_URL) { |request| JSON.parse(request.body)["method"] == "tools/call" }
   end
 end

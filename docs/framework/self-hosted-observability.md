@@ -343,10 +343,22 @@ Set `ActionAgent.execution_enabled = false` to run the mount as
 a read-only observability surface instead.
 
 Sandboxes are the one part that needs infrastructure the engine can't ship.
-It includes an in-memory backend and a registry; register your own to run
-agents in real containers:
+It includes two backends and a registry:
+
+- `:mock`, the default, keeps sandboxes in memory and runs nothing.
+- `:local` clones a connected GitHub repository and boots it as child
+  processes of the dashboard, with no containers. It runs the owner's code
+  with the dashboard's privileges, so it is meant for a developer's machine
+  or a single-user install. It is off outside development and test unless
+  `ActionAgent.local_sandboxes_enabled = true`. See
+  [Local checkout sandboxes](/framework/dashboard#local-checkout-sandboxes).
+
+To run sandboxes in real containers, register your own backend:
 
 ```ruby
 ActionAgent.sandbox_backends = { "cloud_run" => "CloudRunService" }
 ActionAgent.sandbox_service = "cloud_run"
 ```
+
+Whichever backend runs, schedule `bin/rails action_agent:sandbox:reap` so
+expired sandboxes are stopped.

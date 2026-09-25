@@ -30,14 +30,29 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     ActionAgent.assistant_enabled = @original_assistant
   end
 
-  test "metadata discloses provider processing and unavailable integrations without selecting a provider" do
+  test "metadata discloses provider processing and integration setup without selecting a provider" do
+    ActionAgent::GithubConnection.delete_all
+    ActionAgent::ProviderKey.delete_all
     get "/activeagents/api/dashboard_assistant"
     assert_response :success
     data = response.parsed_body
     assert_nil data.dig("defaults", "provider")
     assert data.dig("processing", "consent_required")
     assert_equal %w[openai anthropic ollama openrouter], data["providers"].map { |provider| provider["id"] }
-    assert data["connections"].values.all? { |connection| connection == { "supported" => false } }
+    assert_equal({
+      "github" => { "supported" => true, "connected" => false },
+      "claude_code" => { "supported" => true, "connected" => false },
+      "coi" => { "supported" => false }
+    }, data["connections"])
+
+    ActionAgent::GithubConnection.create!(access_token: "gho_hidden_fixture", github_user_id: 42, login: "octocat")
+    ActionAgent::ProviderKey.create!(provider: "claude_code", credential: "sk-ant-oat01-hidden_fixture")
+    get "/activeagents/api/dashboard_assistant"
+    assert_response :success
+    assert response.parsed_body.dig("connections", "github", "connected")
+    assert response.parsed_body.dig("connections", "claude_code", "connected")
+    assert_not_includes response.body, "gho_hidden_fixture"
+    assert_not_includes response.body, "sk-ant-oat01-hidden_fixture"
   end
 
   test "missing consent and credentials fail before recording usage" do
