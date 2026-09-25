@@ -7,11 +7,11 @@ module ActiveAgent
     # answer is expected to do.
     #
     # @!attribute key
-    #   @return [String] stable within a suite ("blame_3"), so results line up across runs
+    #   @return [String] stable within a suite ("history_3"), so results line up across runs
     # @!attribute group
-    #   @return [String, nil] the group key ("blame")
+    #   @return [String, nil] the group key ("history")
     # @!attribute group_name
-    #   @return [String, nil] the group's display name ("Blame / audit")
+    #   @return [String, nil] the group's display name ("History / audit")
     # @!attribute expected_tools
     #   @return [Array<String>] tool names a passing answer calls (any one of them)
     # @!attribute expected_patterns
