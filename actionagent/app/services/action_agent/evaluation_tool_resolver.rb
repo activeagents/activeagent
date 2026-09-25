@@ -3,7 +3,7 @@
 module ActionAgent
   # Names the MCP server behind a tool an evaluation run needs, for the
   # report's fix items (ActiveAgent::Evals::Report#fix_items): a scenario
-  # that expected +search_slots+ and never got it is fixed by enabling the
+  # that expected +track_shipment+ and never got it is fixed by enabling the
   # server that serves it, and the item can only say so — and deep-link to
   # MCP Services — when something here can name that server.
   #
@@ -97,7 +97,7 @@ module ActionAgent
     end
 
     # normalized key => the display name a configured hash entry carries
-    # alongside its key ({"key" => "booking", "name" => "Booking Service"}).
+    # alongside its key ({"key" => "shipping", "name" => "Shipping Desk"}).
     def configured_names
       @configured_names ||= configured_entries.each_with_object({}) do |entry, map|
         next unless entry.respond_to?(:key?)
@@ -111,7 +111,7 @@ module ActionAgent
     end
 
     # bare tool name => server key, from configured entries that list the
-    # tools they serve ({"name" => "booking", "tools" => ["search_slots"]}),
+    # tools they serve ({"name" => "shipping", "tools" => ["track_shipment"]}),
     # in the catalog's own +tool_hints+ spelling or as tool hashes.
     def configured_tools
       @configured_tools ||= configured_entries.each_with_object({}) do |entry, map|

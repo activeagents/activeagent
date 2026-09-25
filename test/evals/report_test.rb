@@ -10,12 +10,12 @@ class EvalsReportTest < ActiveSupport::TestCase
   Diagnosis = ActiveAgent::Evals::Diagnosis
   Report = ActiveAgent::Evals::Report
 
-  AVAILABLE = %w[find_records healthcheck sync_status].freeze
+  AVAILABLE = %w[find_tickets inbox_status index_status].freeze
   LINKS = { "mcp" => "/activeagents/mcp/%{key}", "tools" => "/activeagents/tools", "instructions" => "/activeagents/agents/1/edit" }.freeze
   SERVERS = {
-    "sync_status" => { "key" => "booking_diagnostic", "name" => "Booking Diagnostic", "status" => "enabled" },
-    "search_slots" => { "key" => "booking_match", "name" => "Booking Match", "status" => "available" },
-    "book_slot" => { "key" => "booking_match", "name" => "Booking Match", "status" => "available" }
+    "index_status" => { "key" => "help_desk_status", "name" => "Help Desk Status", "status" => "enabled" },
+    "lookup_order" => { "key" => "order_desk", "name" => "Order Desk", "status" => "available" },
+    "refund_order" => { "key" => "order_desk", "name" => "Order Desk", "status" => "available" }
   }.freeze
 
   def models
@@ -50,33 +50,33 @@ class EvalsReportTest < ActiveSupport::TestCase
   # Five scenarios in three groups under two models: every fault type once,
   # a passing pair, and one "available but not called" exception.
   def results
-    health = scenario("s_health", "Run a healthcheck on this deployment", group: "diag", tools: [ "healthcheck" ])
-    jobs = scenario("s_jobs", "Are there any stuck background jobs?", group: "diag", tools: [ "healthcheck" ])
-    sync = scenario("s_sync", "Is content sync healthy?", group: "diag", tools: [ "sync_status" ])
-    slots = scenario("s_slots", "Find the next available <b>slots</b> for a dermatologist", group: "match", tools: [ "search_slots" ])
-    blame = scenario("s_blame", "Who changed the biography?", group: "blame")
-    long_error = "no Provider with id=0 — the record was deleted before the tool ran, try again with a valid id"
+    inbox = scenario("s_inbox", "Is the support inbox receiving email?", group: "desk", tools: [ "inbox_status" ])
+    queue = scenario("s_queue", "Is the reply queue backed up?", group: "desk", tools: [ "inbox_status" ])
+    index = scenario("s_index", "Is the help center search index up to date?", group: "desk", tools: [ "index_status" ])
+    order = scenario("s_order", "Where is order <b>ABC-123</b>?", group: "orders", tools: [ "lookup_order" ])
+    history = scenario("s_history", "Who changed the shipping policy?", group: "history")
+    long_error = "no Article with id=0 — the article was deleted before the tool ran, try again with a valid id"
 
     [
-      result(health, gpt, replay(answer: "All healthy.", tool_calls: [ { "name" => "healthcheck" } ], duration_ms: 2_500, input_tokens: 80, output_tokens: 9, cost: 0.0012)),
-      result(health, llama, replay(answer: "Healthy.", tool_calls: [ { "name" => "healthcheck" }, { "name" => "check_async" } ], duration_ms: 900)),
-      result(jobs, gpt, replay(answer: "No stuck jobs.", tool_calls: [ { "name" => "find_records" } ]), score: 0.5),
-      result(jobs, llama, replay(answer: "None stuck.", tool_calls: [ { "name" => "healthcheck" } ])),
-      result(sync, gpt, replay(answer: "Sync looks fine.", tool_calls: [ { "name" => "healthcheck" } ]), score: 0.5),
-      result(sync, llama, replay(answer: "Sync is broken.", tool_calls: [ { "name" => "sync_status", "error" => true, "detail" => long_error }, { "name" => "sync_status", "error" => true, "detail" => long_error } ]), score: 0.5),
-      result(slots, gpt, replay(answer: "<img src=x onerror=alert(1)> no slots", tool_calls: [ { "name" => "find_records" } ]), score: 0.5),
-      result(slots, llama, replay(answer: "I don't have access to scheduling data."), score: 0.5,
-             judge: { "recommendation" => "Give the agent a slot search tool.",
-                      "suggested_tool" => { "name" => "book_slot", "description" => "Books a slot" },
-                      "instruction_change" => "Use search_slots for appointment questions." }),
-      result(blame, gpt, replay(answer: "Someone did."), score: 0.4,
+      result(inbox, gpt, replay(answer: "All healthy.", tool_calls: [ { "name" => "inbox_status" } ], duration_ms: 2_500, input_tokens: 80, output_tokens: 9, cost: 0.0012)),
+      result(inbox, llama, replay(answer: "Healthy.", tool_calls: [ { "name" => "inbox_status" }, { "name" => "check_async" } ], duration_ms: 900)),
+      result(queue, gpt, replay(answer: "The queue is clear.", tool_calls: [ { "name" => "find_tickets" } ]), score: 0.5),
+      result(queue, llama, replay(answer: "Nothing is waiting.", tool_calls: [ { "name" => "inbox_status" } ])),
+      result(index, gpt, replay(answer: "The index looks fine.", tool_calls: [ { "name" => "inbox_status" } ]), score: 0.5),
+      result(index, llama, replay(answer: "The index is stale.", tool_calls: [ { "name" => "index_status", "error" => true, "detail" => long_error }, { "name" => "index_status", "error" => true, "detail" => long_error } ]), score: 0.5),
+      result(order, gpt, replay(answer: "<img src=x onerror=alert(1)> no such order", tool_calls: [ { "name" => "find_tickets" } ]), score: 0.5),
+      result(order, llama, replay(answer: "I don't have access to order data."), score: 0.5,
+             judge: { "recommendation" => "Give the agent an order lookup tool.",
+                      "suggested_tool" => { "name" => "refund_order", "description" => "Refunds an order" },
+                      "instruction_change" => "Use lookup_order for order questions." }),
+      result(history, gpt, replay(answer: "Someone did."), score: 0.4,
              judge: { "recommendation" => "Add an audit tool.", "suggested_tool" => { "name" => "record_history", "description" => "Who changed what" } }),
-      result(blame, llama, replay(answer: "Alice changed it on Monday."))
+      result(history, llama, replay(answer: "Alice changed it on Monday."))
     ]
   end
 
   def report(**options)
-    Report.new(results: results, models: models, metadata: { "evaluation" => "Booking suite", "run" => 3 }, **options)
+    Report.new(results: results, models: models, metadata: { "evaluation" => "Support suite", "run" => 3 }, **options)
   end
 
   # --- fix items -------------------------------------------------------------
@@ -92,27 +92,27 @@ class EvalsReportTest < ActiveSupport::TestCase
     missing = by_fault["expected_tool_not_called"]
     assert_equal "fault", missing["kind"]
     assert_equal 3, missing["count"]
-    assert_equal %w[s_jobs s_sync s_slots], missing["scenario_keys"]
+    assert_equal %w[s_queue s_index s_order], missing["scenario_keys"]
     assert_equal [ "gpt-5-mini" ], missing["models"]
     assert_equal "missing tools", missing["tools_label"]
-    assert_equal %w[search_slots], missing["tools"].map { |tool| tool["name"] }
-    assert_match(/\As_jobs is the exception: Expected healthcheck to be called; the agent called find_records\./, missing["note"])
-    assert_match(/expects search_slots, which the agent does not have/, missing["recommendation"],
+    assert_equal %w[lookup_order], missing["tools"].map { |tool| tool["name"] }
+    assert_match(/\As_queue is the exception: Expected inbox_status to be called; the agent called find_tickets\./, missing["note"])
+    assert_match(/expects lookup_order, which the agent does not have/, missing["recommendation"],
                  "the card speaks for the scenarios whose tool was missing, not for the exception it notes")
-    assert_no_match(/answered with find_records/, missing["recommendation"])
+    assert_no_match(/answered with find_tickets/, missing["recommendation"])
     assert_nil missing["quote"]
 
     failing = by_fault["tool_error"]
     assert_equal "failing tools", failing["tools_label"]
     assert_equal 1, failing["tools"].size, "failing tools are deduplicated by name"
-    assert_equal "sync_status", failing["tools"].first["name"]
+    assert_equal "index_status", failing["tools"].first["name"]
     assert_equal 60, failing["tools"].first["note"].length
     assert_equal({ "label" => "Open failing tools", "hint" => "Tools ->", "path" => nil }, failing["action"])
 
     capability = by_fault["missing_capability"]
     assert_equal "suggested tools", capability["tools_label"]
-    assert_equal %w[book_slot search_slots], capability["tools"].map { |tool| tool["name"] }
-    assert_equal "Give the agent a slot search tool.", capability["recommendation"]
+    assert_equal %w[refund_order lookup_order], capability["tools"].map { |tool| tool["name"] }
+    assert_equal "Give the agent an order lookup tool.", capability["recommendation"]
     assert_equal "Open suggested tools", capability["action"]["label"]
 
     quality = by_fault["low_quality"]
@@ -122,8 +122,8 @@ class EvalsReportTest < ActiveSupport::TestCase
 
     instruction = by_fault["instruction change"]
     assert_equal "instruction", instruction["kind"]
-    assert_equal "Use search_slots for appointment questions.", instruction["quote"]
-    assert_equal [ "s_slots" ], instruction["scenario_keys"]
+    assert_equal "Use lookup_order for order questions.", instruction["quote"]
+    assert_equal [ "s_order" ], instruction["scenario_keys"]
     assert_equal [ llama.label ], instruction["models"]
     assert_equal [], instruction["tools"]
     assert_nil instruction["recommendation"], "the judge's recommendation is already the fault card's text"
@@ -147,12 +147,12 @@ class EvalsReportTest < ActiveSupport::TestCase
     by_fault = items.to_h { |item| [ item["fault"], item ] }
 
     missing = by_fault["expected_tool_not_called"]
-    assert_equal({ "key" => "booking_match", "name" => "Booking Match", "status" => "available" }, missing["server"])
-    assert_equal "Booking Match", missing["tools"].first["note"], "a missing tool's note is its server"
-    assert_equal({ "label" => "Enable Booking Match for Assistant", "hint" => "MCP Services ->", "path" => "/activeagents/mcp/booking_match" }, missing["action"])
+    assert_equal({ "key" => "order_desk", "name" => "Order Desk", "status" => "available" }, missing["server"])
+    assert_equal "Order Desk", missing["tools"].first["note"], "a missing tool's note is its server"
+    assert_equal({ "label" => "Enable Order Desk for Assistant", "hint" => "MCP Services ->", "path" => "/activeagents/mcp/order_desk" }, missing["action"])
 
     failing = by_fault["tool_error"]
-    assert_equal "booking_diagnostic", failing["tools"].first.dig("server", "key")
+    assert_equal "help_desk_status", failing["tools"].first.dig("server", "key")
     assert_equal "/activeagents/tools", failing["action"]["path"]
     assert_nil failing["server"], "only missing tools resolve to a shared server"
 
@@ -161,7 +161,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   def test_missing_tools_on_an_enabled_server_or_across_servers_fall_back_to_the_tools_page
-    enabled = ->(_name) { { "key" => "booking_match", "name" => "Booking Match", "status" => "enabled" } }
+    enabled = ->(_name) { { "key" => "order_desk", "name" => "Order Desk", "status" => "enabled" } }
     item = report(tool_resolver: enabled, links: LINKS).fix_items.first
 
     assert_equal "enabled", item.dig("server", "status")
@@ -171,7 +171,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     item = Report.new(results: results, models: models, tool_resolver: split).fix_items.first
 
     assert_equal "unknown", item["tools"].first.dig("server", "status")
-    assert_equal "search_slots", item["tools"].first.dig("server", "name"), "a server without a name reads as its key"
+    assert_equal "lookup_order", item["tools"].first.dig("server", "name"), "a server without a name reads as its key"
   end
 
   def test_agent_name_defaults_and_the_resolver_is_asked_once_per_tool
@@ -250,14 +250,14 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, %(<span class="badge error">expected tool not called ×3</span>)
     assert_includes html, %(<span class="badge info">instruction change</span>)
     assert_includes html, "3 scenarios · gpt-5-mini"
-    assert_includes html, "s_slots · judge suggestion"
+    assert_includes html, "s_order · judge suggestion"
     assert_includes html, "missing tools"
-    assert_includes html, %(<b>search_slots</b><span class="note">Booking Match</span>)
-    assert_includes html, %(<span>served by</span><b>Booking Match</b><span class="badge warning xs">available · not enabled for Assistant</span>)
-    assert_includes html, "s_jobs is the exception"
-    assert_includes html, %(<a class="btn" target="_top" href="/activeagents/mcp/booking_match">Enable Booking Match for Assistant</a><span class="hint">MCP Services -&gt;</span>),
+    assert_includes html, %(<b>lookup_order</b><span class="note">Order Desk</span>)
+    assert_includes html, %(<span>served by</span><b>Order Desk</b><span class="badge warning xs">available · not enabled for Assistant</span>)
+    assert_includes html, "s_queue is the exception"
+    assert_includes html, %(<a class="btn" target="_top" href="/activeagents/mcp/order_desk">Enable Order Desk for Assistant</a><span class="hint">MCP Services -&gt;</span>),
                     "the action leaves the dashboard's report iframe rather than nesting the dashboard in it"
-    assert_includes html, "“Use search_slots for appointment questions.”"
+    assert_includes html, "“Use lookup_order for order questions.”"
     assert_not_includes html, "expected_tool_not_called"
   end
 
@@ -271,27 +271,27 @@ class EvalsReportTest < ActiveSupport::TestCase
   def test_html_matrix_colors_calls_against_expectations_and_links_to_the_details
     html = report.to_html
 
-    assert_includes html, %(<span class="group-name">diag</span><span class="count">3 scenarios</span>)
+    assert_includes html, %(<span class="group-name">desk</span><span class="count">3 scenarios</span>)
     assert_includes html, %(<span class="group-pass">1/3 passed</span><span class="group-pass">2/3 passed</span>)
     assert_includes html, %(<span class="group-pass text-error">0/1 passed</span><span class="group-pass text-success">1/1 passed</span>)
-    assert_includes html, %(<span class="expect">sync_status</span>)
+    assert_includes html, %(<span class="expect">index_status</span>)
     assert_includes html, %(<span class="g tone-success">[+]</span><span class="s tone-success">1.00</span>)
     assert_includes html, %(<span class="g tone-error">[!]</span><span class="s tone-error">0.50</span><span class="f">tool error</span>)
-    assert_includes html, %(<span class="call-hit">healthcheck</span><span>check_async</span>)
-    assert_includes html, %(<span class="call-err">sync_status ✗ ×2</span>)
+    assert_includes html, %(<span class="call-hit">inbox_status</span><span>check_async</span>)
+    assert_includes html, %(<span class="call-err">index_status ✗ ×2</span>)
     assert_includes html, "no tools called"
-    assert_includes html, %(<a href="#scenario-s_blame">s_blame</a>)
-    assert_includes html, %(<div id="scenario-s_blame">)
+    assert_includes html, %(<a href="#scenario-s_history">s_history</a>)
+    assert_includes html, %(<div id="scenario-s_history">)
     assert_includes html, "<details>"
     assert_includes html, %(<span class="badge success">passed · 1.00</span>)
     assert_includes html, %(<span class="badge error">failed · 0.50</span>)
     assert_includes html, "2.5s · 89 tokens · $0.0012"
-    assert_includes html, "<b>[!] tool error</b> — Tool sync_status returned an error while answering."
-    assert_includes html, "expects <b>search_slots</b>"
+    assert_includes html, "<b>[!] tool error</b> — Tool index_status returned an error while answering."
+    assert_includes html, "expects <b>lookup_order</b>"
     assert_includes html, "<footer>"
     assert_includes html, "judge rules"
     assert_includes html, "criteria response present"
-    assert_includes html, "evaluation Booking suite"
+    assert_includes html, "evaluation Support suite"
   end
 
   def test_html_escapes_prompts_answers_tool_names_and_metadata
@@ -333,9 +333,9 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   def test_the_matrix_renders_the_whole_prompt
-    prompt = "Find the next available dermatology slot, #{([ 'check it is not double booked' ] * 8).join(', ')}."
+    prompt = "Refund order ABC-123, #{([ 'check it was not already refunded' ] * 8).join(', ')}."
     html = Report.new(models: models.first(1), results: [
-      result(scenario("s_long", prompt), gpt, replay(answer: "Booked."))
+      result(scenario("s_long", prompt), gpt, replay(answer: "Refunded."))
     ]).to_html
 
     assert_operator prompt.length, :>, 200
@@ -345,7 +345,7 @@ class EvalsReportTest < ActiveSupport::TestCase
 
   def test_a_clean_run_keeps_the_what_to_fix_section
     html = Report.new(models: models.first(1), results: [
-      result(scenario("s_1", "Who changed the biography?"), gpt, replay(answer: "Alice did, on Monday."))
+      result(scenario("s_1", "Who changed the shipping policy?"), gpt, replay(answer: "Alice did, on Monday."))
     ]).to_html
 
     assert_includes html, "What to fix"
