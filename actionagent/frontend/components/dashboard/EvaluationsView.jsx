@@ -109,6 +109,12 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
 
   const [evaluations, setEvaluations] = useState([]);
   const [agents, setAgents] = useState([]);
+  // What the model pickers offer, from the list (see EvaluationForm): the
+  // provider a judge model runs on, whether reading the credentials that
+  // decide it failed, and the providers runs have credentials for.
+  const [judgeProvider, setJudgeProvider] = useState(undefined);
+  const [judgeProviderError, setJudgeProviderError] = useState(false);
+  const [modelProviders, setModelProviders] = useState(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   // Accordion state per evaluation; the first suite opens by default.
@@ -155,6 +161,9 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       const response = await fetch(`/api/evaluations${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
+      setJudgeProvider(data.judge_provider ?? null);
+      setJudgeProviderError(data.judge_provider_error === true);
+      setModelProviders(Array.isArray(data.model_providers) ? data.model_providers : null);
       let list = data.evaluations || [];
       let linkError = null;
       try {
@@ -173,6 +182,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       setLoadError(linkError);
     } catch (error) {
       setLoadError(error.message);
+      setModelProviders((current) => (current === undefined ? null : current));
     } finally {
       setIsLoading(false);
     }
@@ -428,6 +438,9 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
         <EvaluationForm
           agents={agents}
           agentId={agentId}
+          judgeProvider={judgeProvider}
+          judgeProviderError={judgeProviderError}
+          modelProviders={modelProviders}
           onCancel={() => setShowForm(false)}
           onCreated={async (evaluation) => {
             setShowForm(false);
@@ -520,6 +533,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                   {suite ? (
                     <ScenarioSuitePanel
                       evaluation={evaluation}
+                      modelProviders={modelProviders}
                       onChanged={fetchEvaluations}
                       onDelete={() => handleDelete(evaluation)}
                       deleting={deletingId === evaluation.id}

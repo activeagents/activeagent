@@ -4,6 +4,10 @@ import { Button, Chip, Empty, MicroLabel, MONO } from './primitives';
 import { splitModelLabel, timeAgo } from '../../utils/format';
 import { scenarioRowsForRun } from '../../utils/evaluationHistory.mjs';
 import { runDelta, runSpend } from '../../utils/evaluationRuns.mjs';
+import { buildModelOptions, parseModelList } from '../../utils/modelOptions.mjs';
+import { MODEL_PROVIDERS } from '../../utils/providerModels';
+import { useProviderModels } from '../../hooks/useProviderModels';
+import MultiModelPicker from './MultiModelPicker';
 import RunsList from './evaluations/RunsList';
 import CriteriaFooter from './evaluations/CriteriaFooter';
 import {
@@ -52,8 +56,12 @@ const inputStyle = {
 
 // `initialRunId` is the run a deep link (/evaluations/:id/runs/:run_id)
 // asks for; `onRunSelected` reports the run a click in the list picked, so
-// the page can put it in the URL.
-export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, deleting = false, initialRunId = null, onRunSelected }) {
+// the page can put it in the URL. `modelProviders` are the providers the
+// models field suggests models from: those runs have credentials for,
+// undefined until known and null when the evaluations list did not say.
+export default function ScenarioSuitePanel({
+  evaluation, modelProviders, onChanged, onDelete, deleting = false, initialRunId = null, onRunSelected,
+}) {
   const evaluationId = evaluation.id;
   const agentName = evaluation.agent?.name || 'Agent';
 
@@ -73,6 +81,12 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const [selectedRunId, setSelectedRunId] = useState(evaluation.latest_run?.id ?? null);
   const [details, setDetails] = useState({});
   const [modelsInput, setModelsInput] = useState((evaluation.compare_models || []).join(', '));
+  const runProviders = useMemo(
+    () => (modelProviders === undefined ? [] : (modelProviders ?? MODEL_PROVIDERS)),
+    [modelProviders],
+  );
+  const catalog = useProviderModels(runProviders);
+  const modelOptions = useMemo(() => buildModelOptions(catalog, { providers: runProviders }), [catalog, runProviders]);
   const [runError, setRunError] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -191,7 +205,7 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
 
   // --- actions ----------------------------------------------------------
 
-  const selectedModels = modelsInput.split(',').map((m) => m.trim()).filter(Boolean);
+  const selectedModels = parseModelList(modelsInput);
 
   const startRun = async (selection) => {
     setIsRunning(true);
@@ -391,13 +405,15 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
           <Button size="sm" onClick={() => { setEditText(scenariosToText(scenarios)); setEditError(null); setEditing(!editing); }}>
             {editing ? 'Cancel' : 'Edit scenarios'}
           </Button>
-          <input
-            type="text"
+          <MultiModelPicker
             value={modelsInput}
-            onChange={(e) => setModelsInput(e.target.value)}
+            onChange={setModelsInput}
+            models={modelOptions}
+            inputLabel="Models to run"
             placeholder="models, e.g. gpt-5-mini, ollama/qwen3:8b"
-            style={{ ...inputStyle, width: 250 }}
-            title="Comma-separated. Prefix with a provider (ollama/qwen3:8b) when the name alone is ambiguous; blank runs the agent's own model."
+            title="Blank runs the suite's saved models, or the agent's own model when it has none. Prefix a typed name with its provider (ollama/llama3.2) when the name alone is ambiguous."
+            style={{ ...inputStyle, minWidth: 250, maxWidth: 420 }}
+            testId="suite-models-picker"
           />
           <Button
             variant="primary"
