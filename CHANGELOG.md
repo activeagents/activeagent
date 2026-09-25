@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
+  which hosts driving RubyLLM conversations had been writing for themselves.
+  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
+  `require "active_agent/evals"` alone still does not) gives two helpers, for
+  RubyLLM 1.16 and later and for 2.x:
+  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
+    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
+    traces each call under the kind it serves. `temperature:` and a
+    `configure:` hook set the chat up; any other keyword must be one
+    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
+    built rather than failing every call. `on_usage:` reports each call's
+    model, tokens and cost.
+  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
+    `acts_as_chat` records of either RubyLLM generation are read through
+    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
+    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
+    the order the model made them in, each paired with the result that
+    answers it; one is errored when that result reports an error at its top
+    level — JSON whose `"error"` is a non-empty string, object or array, or
+    `true`; an MCP result with `"isError": true`; or the inspected
+    `{ error: "..." }` RubyLLM 1.x stores for a tool's error Hash with a
+    String error — with the error (JSON-encoded, at most 1,200 bytes) as its
+    detail. `input_tokens` counts the whole prompt, cache reads and writes
+    included. Cost is RubyLLM's own price, left nil when any message is
+    unpriced. The answer is the last reply after the last user message; a
+    conversation that stopped at a tool call or on the user's own message
+    has no answer and says so in its `error` (on RubyLLM 1.x, pass `answer:`
+    for a tool that ends the turn with `halt`).
+- **`ActionAgent::ProviderKey.credentials_for(owner)` and
+  `.apply_to(config, owner:)`** (`actionagent`) hand an owner's API keys to
+  code outside the engine — `{ "openai" => "sk-..." }`, or written through
+  `<provider>_api_key=` onto a `RubyLLM.context` config block or anything
+  shaped like one, returning the providers written rather than the keys. A
+  key is looked up in the order the engine's runs use: the host's
+  `provider_credentials_resolver`, then the owner's saved row. A resolver
+  answer that sends a provider to another endpoint (`uri_base`, `base_url`,
+  `api_base`, `host`) leaves it out, so a gateway's key never reaches the
+  public endpoint. On an install with an owner model, the owner must be an
+  instance of the model it keeps keys by, since rows are scoped by its id
+  alone; anything else raises `ArgumentError`. A saved credential that no
+  longer decrypts is skipped with a warning naming the error class, never
+  the value.
+
 ## [1.7.0] - 2026-09-24
 
 Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:

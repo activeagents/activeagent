@@ -386,6 +386,52 @@ stored ever reflects a fabricated response.
 Set `ActionAgent.execution_enabled = false` to run the mount as
 a read-only observability surface instead.
 
+### Using an owner's provider keys outside the engine
+
+The keys an owner saves under Settings -> Provider API Keys are meant for
+more than the dashboard's own runs. A host that calls models itself — a
+RubyLLM `acts_as_chat` app, an evaluation suite driven from a job — reads
+them through two class methods on `ActionAgent::ProviderKey`:
+
+```ruby
+ActionAgent::ProviderKey.credentials_for(account)
+# => { "anthropic" => "sk-ant-...", "openai" => "sk-..." }
+
+context = RubyLLM.context do |config|
+  ActionAgent::ProviderKey.apply_to(config, owner: account)   # config.openai_api_key = ..., and so on
+end
+```
+
+`credentials_for` returns a key for each API-key provider (`openai`,
+`anthropic`, `openrouter`) that has one, looked up in the order the engine's
+own runs use: your `provider_credentials_resolver` first, asked with the owner
+you pass, and the owner's saved row only for a provider the resolver answers
+nothing for. A resolver answer leaves the provider out when it carries no
+`api_key` or `access_token`, or when it points the provider at another
+endpoint (`uri_base`, `base_url`, `api_base` or `host`): a gateway's key is
+not handed out on its own, because a RubyLLM config would send it to the
+provider's public endpoint. An `ollama` host is a URL, not a key, and is left
+out too. A saved row whose credential no longer decrypts — a key rotation it
+missed — is skipped with a warning naming the error class, never the value, so
+one stale row does not take every provider down.
+
+On an install with an owner model, pass an instance of the model it keeps
+provider keys by: the `account_class`, or the `user_class` when no account
+class is configured (a decorator that delegates to one is unwrapped). Rows are
+scoped by that model's id alone, so both methods raise `ArgumentError` for
+anything else rather than read the keys of whichever owner shares its id. A
+nil owner reads no saved rows, only your resolver's keys; an install with no
+owner model reads every saved row.
+
+`apply_to` writes each key through `<provider>_api_key=` on whatever you hand
+it — a `RubyLLM.context` config block, or any object with those writers — and
+returns the providers it wrote, never the keys. A provider the owner has no
+key for keeps what the config already held; for a `RubyLLM.context`, that is
+the host's global key, the same fallback the engine's runs use. The engine
+takes on no RubyLLM dependency for it. The evaluation module's
+[RubyLLM judge](/framework/evaluations#rubyllm-hosts) is built to take the
+context this produces.
+
 Sandboxes are the one part that needs infrastructure the engine can't ship.
 It includes an in-memory backend and a registry; register your own to run
 agents in real containers:
