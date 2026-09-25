@@ -347,11 +347,11 @@ line; `# Heading` lines group related tasks so a group can be run on its own;
 options after `|` set expectations:
 
 ```text
-# Find records
-Which gynecologists in Charlotte have scheduling enabled? | tools: find_records
-Show me all providers with no license on file
-# Blame
-Who changed the biography for Dr. AbdelRazek? | contains: AbdelRazek
+# Open tickets
+Which open tickets mention a refund? | tools: find_tickets
+Show me all tickets with no assignee
+# Change history
+Who changed the shipping policy last week? | contains: policy
 ```
 
 | Option | Meaning |
@@ -362,12 +362,52 @@ Who changed the biography for Dr. AbdelRazek? | contains: AbdelRazek
 | `key: k` | A stable key, so results line up across re-imports |
 | `group: g` | Overrides the heading for this line |
 
-**Compare models** takes the candidates as a comma-separated list. A bare
-name infers its provider from the family (`claude-*` → Anthropic, `gpt-*` →
-OpenAI, `name:tag` → Ollama); prefix it to be explicit
+**Compare models** holds the candidates, one removable chip each, and
+submits them as a comma-separated list, which the API also accepts. Type to
+search the suggestions, and finish a name the list lacks with Enter or a
+comma. A bare name infers its provider from the family (`claude-*` →
+Anthropic, `gpt-*` → OpenAI, `name:tag` → Ollama); prefix it to be explicit
 (`ollama/qwen3:8b`, `openrouter/meta-llama/llama-3.3-70b-instruct`). Each
 candidate needs credentials the same way an agent run does — the owner's
 provider key or the host app's `config/active_agent.yml`.
+
+What the field suggests depends on the scenarios:
+
+- **With scenarios**, each candidate replays them, so the field suggests the
+  models of every provider the owner's runs have credentials for, from the
+  same catalogs as the agent builder. A model whose name alone would run on
+  another provider is offered with its provider in front: `ollama/llama3.2`,
+  or `openrouter/anthropic/claude-sonnet-4.5` for OpenRouter's copy of an
+  Anthropic model.
+- **Without scenarios**, each candidate selects the generations the agent
+  recorded under that model name. A provider usually records its dated id
+  (`gpt-4o-mini-2024-07-18` for a request for `gpt-4o-mini`), so the field
+  suggests the names the agent's generations were recorded under
+  (`GET /api/agents/:id/recorded_models`).
+
+Adding or clearing the scenarios renames the catalog models already chosen
+to match. **Judge model** suggests the models of the provider the judge runs
+on, named under the field: the first of Anthropic, OpenAI and OpenRouter
+with credentials, else Ollama when the owner configured a host.
+`GET /api/evaluations` reports that provider as `judge_provider`, and the
+providers runs can use as `model_providers`. A provider whose credentials
+cannot be read, such as a stored key that no longer decrypts, is left out of
+`model_providers`. When reading one fails before the judge's provider is
+found, `judge_provider` is null with `judge_provider_error: true`, and the
+field says the credentials could not be read.
+
+Replays and their judge use the credentials of the evaluated agent's owner.
+On an agent's page, which requests the list with `agent_id`, both fields
+describe that owner's credentials. The Evaluations page describes the
+signed-in owner's, which differ only for an agent someone else owns, as the
+host's `agent_scope_resolver` can allow. A host adapter
+(`ActionAgent.scenario_evaluation_adapter_resolver`) runs a suite with
+whatever credentials it chooses, which these fields do not describe.
+
+The catalogs come from `GET /api/provider_models`. When the host app loads
+RubyLLM, it appends the chat models that take and return text from
+RubyLLM's model registry for the provider (its bundled catalog, or the
+host's own model table) after the live or curated list.
 
 A run is queued (`EvaluationRunJob`) and its results land as each replay
 finishes. Each replay runs as the evaluation's owner when agents are owned

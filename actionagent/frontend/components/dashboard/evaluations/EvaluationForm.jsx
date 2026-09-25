@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { Button, Card, MicroLabel, MONO } from '../primitives';
+import ModelPicker from '../ModelPicker';
+import MultiModelPicker from '../MultiModelPicker';
+import { useProviderModels } from '../../../hooks/useProviderModels';
+import { MODEL_PROVIDERS } from '../../../utils/providerModels';
+import { buildModelOptions, parseModelList, requalifyModels, serializeModelList } from '../../../utils/modelOptions.mjs';
 
 // Creating an evaluation: which agent, which criteria, whether a judge model
 // defines or scores them, and — pasted as user messages — the scenarios that
@@ -25,17 +30,71 @@ const inputStyle = {
   background: 'var(--color-card)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text-primary)',
 };
 
-export default function EvaluationForm({ agents, agentId, onCreated, onCancel }) {
+const hintStyle = { margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)' };
+
+const PROVIDER_NAMES = { openai: 'OpenAI', anthropic: 'Anthropic', ollama: 'Ollama', openrouter: 'OpenRouter' };
+
+// From GET /api/evaluations:
+//   - judgeProvider:       the provider the judge runs on, null when none
+//                          has credentials or they could not be read, and
+//                          undefined until known
+//   - judgeProviderError:  true when the credentials could not be read
+//   - modelProviders:      the providers runs have credentials for, null
+//                          when the evaluations list did not say, and
+//                          undefined until known
+export default function EvaluationForm({
+  agents, agentId, judgeProvider, judgeProviderError = false, modelProviders, onCreated, onCancel,
+}) {
   const [form, setForm] = useState({
     agent_id: agentId ? String(agentId) : '', name: '', sample_size: 20,
     criteria: RULE_CRITERIA.map((c) => c.key),
     containsPattern: '', llmJudgePrompt: '',
     judgeKind: 'manual', judgeModel: '', compareModels: '', scenariosText: '',
+    // The `restore` requalifyModels returned for compareModels: what each
+    // bare name stood for before the scenarios were cleared.
+    compareRestore: new Map(),
   });
   const [formError, setFormError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fieldId = useId();
+
+  const runProviders = useMemo(
+    () => (modelProviders === undefined ? [] : (modelProviders ?? MODEL_PROVIDERS)),
+    [modelProviders],
+  );
+  const catalog = useProviderModels(
+    judgeProvider && !runProviders.includes(judgeProvider) ? [...runProviders, judgeProvider] : runProviders,
+  );
+  const recordedModels = useRecordedModels(form.agent_id);
+
+  // The judge runs judge_model as its provider's own model id.
+  const judgeOptions = useMemo(
+    () => (judgeProvider ? buildModelOptions(catalog, { providers: [judgeProvider], qualify: false }) : []),
+    [catalog, judgeProvider],
+  );
+  // With scenarios, each compared model replays them, so the catalog is
+  // offered with each name resolving to its provider the way a scenario run
+  // reads it. Without, the names select the agent's generations by the model
+  // name each was recorded under, so those names are offered.
+  const hasScenarios = Boolean(form.scenariosText.trim());
+  const compareOptions = useMemo(
+    () => (hasScenarios ? buildModelOptions(catalog, { providers: runProviders }) : recordedModels),
+    [catalog, runProviders, hasScenarios, recordedModels],
+  );
 
   const update = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+  // Adding or clearing the scenarios changes how each compared model is
+  // read, so the catalog models already chosen are renamed to match. Adding
+  // back scenarios that were cleared restores the names chosen with them.
+  const updateScenarios = (scenariosText) => setForm((prev) => {
+    const qualify = Boolean(scenariosText.trim());
+    if (qualify === Boolean(prev.scenariosText.trim())) return { ...prev, scenariosText };
+
+    const { models, restore } = requalifyModels(parseModelList(prev.compareModels), catalog, {
+      providers: runProviders, qualify, restore: prev.compareRestore,
+    });
+    return { ...prev, scenariosText, compareModels: serializeModelList(models), compareRestore: restore };
+  });
   const toggleCriterion = (key, checked) =>
     update({ criteria: checked ? [...form.criteria, key] : form.criteria.filter((k) => k !== key) });
 
@@ -69,7 +128,7 @@ export default function EvaluationForm({ agents, agentId, onCreated, onCancel })
               ? 'judge_defined'
               : (form.llmJudgePrompt.trim() ? 'llm' : 'rules'),
             judge_model: form.judgeModel.trim() || undefined,
-            compare_models: form.compareModels.split(',').map((m) => m.trim()).filter(Boolean),
+            compare_models: parseModelList(form.compareModels),
             criteria: form.judgeKind === 'judge_defined' ? [] : buildCriteria(),
             scenarios_text: form.scenariosText.trim() || undefined,
           },
@@ -153,24 +212,37 @@ export default function EvaluationForm({ agents, agentId, onCreated, onCancel })
             </select>
           </div>
           <div>
-            <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>Judge model (optional)</MicroLabel>
-            <input
-              type="text"
+            <MicroLabel as="label" htmlFor={`${fieldId}-judge`} style={{ display: 'block', marginBottom: 6 }}>Judge model (optional)</MicroLabel>
+            <ModelPicker
+              id={`${fieldId}-judge`}
+              aria-describedby={judgeProvider === undefined ? undefined : `${fieldId}-judge-provider`}
               value={form.judgeModel}
-              onChange={(e) => update({ judgeModel: e.target.value })}
-              placeholder="e.g. claude-opus-5"
+              models={judgeOptions}
+              onChange={(value) => update({ judgeModel: value })}
               style={{ ...inputStyle, width: '100%', fontFamily: MONO, fontSize: 12 }}
             />
+            {judgeProvider !== undefined && (
+              <p id={`${fieldId}-judge-provider`} style={hintStyle}>
+                {judgeProviderHint(judgeProvider, judgeProviderError)}
+              </p>
+            )}
           </div>
           <div>
-            <MicroLabel as="label" style={{ display: 'block', marginBottom: 6 }}>Compare models (optional, comma-separated)</MicroLabel>
-            <input
-              type="text"
+            <MicroLabel as="label" htmlFor={`${fieldId}-compare`} style={{ display: 'block', marginBottom: 6 }}>Compare models (optional)</MicroLabel>
+            <MultiModelPicker
+              inputId={`${fieldId}-compare`}
+              describedBy={`${fieldId}-compare-hint`}
               value={form.compareModels}
-              onChange={(e) => update({ compareModels: e.target.value })}
+              onChange={(value) => update({ compareModels: value })}
+              models={compareOptions}
               placeholder="e.g. claude-haiku-4-5, qwen3:8b"
               style={{ ...inputStyle, width: '100%', fontFamily: MONO, fontSize: 12 }}
             />
+            <p id={`${fieldId}-compare-hint`} style={hintStyle}>
+              {hasScenarios
+                ? 'Each model replays the scenarios. Any model name can be typed.'
+                : "Compares the agent's generations recorded under each model name. Add scenarios to try any model."}
+            </p>
           </div>
         </div>
 
@@ -180,9 +252,9 @@ export default function EvaluationForm({ agents, agentId, onCreated, onCancel })
           </MicroLabel>
           <textarea
             value={form.scenariosText}
-            onChange={(e) => update({ scenariosText: e.target.value })}
+            onChange={(e) => updateScenarios(e.target.value)}
             rows={form.scenariosText ? 8 : 3}
-            placeholder={'# Find records\nWhich catalog items are available? | tools: find_records\n# Change history\nWho updated the description for the sample notebook?'}
+            placeholder={'# Open tickets\nWhich open tickets mention a refund? | tools: find_tickets\n# Change history\nWho changed the shipping policy last week?'}
             style={{ ...inputStyle, width: '100%', fontFamily: MONO, fontSize: 12, lineHeight: '18px' }}
           />
           <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)', textWrap: 'pretty' }}>
@@ -244,4 +316,34 @@ export default function EvaluationForm({ agents, agentId, onCreated, onCancel })
       </form>
     </Card>
   );
+}
+
+// Returns the hint under the judge model field for a known judgeProvider.
+function judgeProviderHint(judgeProvider, judgeProviderError) {
+  if (judgeProvider) return `The judge runs on ${PROVIDER_NAMES[judgeProvider] || judgeProvider}.`;
+  if (judgeProviderError) {
+    return "Provider credentials could not be read, so the judge's provider is unknown. Check the provider API keys in Settings.";
+  }
+  return 'No provider has credentials for a judge. Add a provider API key in Settings.';
+}
+
+// Returns the model names the agent's generations were recorded under, most
+// recently used first; empty while loading, without an agent, or when the
+// request fails.
+function useRecordedModels(agentId) {
+  const [models, setModels] = useState([]);
+
+  useEffect(() => {
+    setModels([]);
+    if (!agentId) return undefined;
+
+    let cancelled = false;
+    fetch(`/api/agents/${encodeURIComponent(agentId)}/recorded_models`)
+      .then((response) => (response.ok ? response.json() : {}))
+      .then((data) => { if (!cancelled && Array.isArray(data.models)) setModels(data.models); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [agentId]);
+
+  return models;
 }

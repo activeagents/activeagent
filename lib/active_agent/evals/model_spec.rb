@@ -20,6 +20,10 @@ module ActiveAgent
     class ModelSpec
       DEFAULT_PROVIDERS = %w[openai anthropic ollama openrouter].freeze
 
+      # The dashboard's model pickers resolve names with a JavaScript copy of
+      # these rules and of .parse (actionagent/frontend/utils/modelOptions.mjs).
+      # actionagent/test/fixtures/model_spec_cases.json holds the cases both
+      # are tested against, so a change here needs the same change there.
       DEFAULT_INFERENCE_RULES = [
         [ /\Aclaude/i, "anthropic" ],
         [ /\A(gpt-|o\d|chatgpt|text-embedding)/i, "openai" ],

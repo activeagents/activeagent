@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "support/ruby_llm_constant"
 
 # Credentials on a host that never ran `rails db:encryption:init` (#387): the
 # engine derives encryption keys, so API keys and provider credentials can be
 # created and the MCP facade can authenticate. Also the live Anthropic model
 # lookup, which called a helper the engine never defined (#390).
 class CredentialsTest < ActionDispatch::IntegrationTest
+  include RubyLLMConstant
+
   def setup
     ActionAgent::ApiKey.delete_all
     ActionAgent::ProviderKey.delete_all
@@ -79,7 +82,8 @@ class CredentialsTest < ActionDispatch::IntegrationTest
       .to_return(status: 200, body: { data: [ { id: "claude-sonnet-5" }, { id: "claude-opus-5" } ] }.to_json,
                  headers: { "Content-Type" => "application/json" })
 
-    get "/activeagents/api/provider_models", params: { provider: "anthropic" }
+    # Without RubyLLM, whose registry would add its own models after these.
+    without_ruby_llm { get "/activeagents/api/provider_models", params: { provider: "anthropic" } }
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -93,7 +97,7 @@ class CredentialsTest < ActionDispatch::IntegrationTest
       .to_return(status: 200, body: { data: ids.map { |id| { id: id } } }.to_json,
                  headers: { "Content-Type" => "application/json" })
 
-    get "/activeagents/api/provider_models", params: { provider: "openrouter" }
+    without_ruby_llm { get "/activeagents/api/provider_models", params: { provider: "openrouter" } }
 
     assert_response :success
     body = JSON.parse(response.body)

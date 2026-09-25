@@ -197,12 +197,12 @@ test('a save writes no tool list for a service offering everything, and one when
 
 test('a save keeps a service the roster does not describe, and its connection details', () => {
   const body = payload();
-  const previous = [{ key: 'booking', url: 'https://booking.internal/mcp' }, { key: 'playwright', url: 'http://local/mcp' }];
+  const previous = [{ key: 'shipping', url: 'https://shipping.internal/mcp' }, { key: 'playwright', url: 'http://local/mcp' }];
   const state = serviceState(body, previous);
 
   assert.deepEqual(mcpServersFor(body, state, previous), [
     { key: 'playwright', url: 'http://local/mcp' },
-    { key: 'booking', url: 'https://booking.internal/mcp' },
+    { key: 'shipping', url: 'https://shipping.internal/mcp' },
   ]);
 });
 

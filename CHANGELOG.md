@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Model pickers on the Evaluations page** (`actionagent`). The judge model
+  and the models to compare, on the new-evaluation form and on a scenario
+  suite, are chosen from type-ahead suggestions, and a model the suggestions
+  lack can still be typed. The compare fields hold one removable chip per
+  model and still submit the same comma-separated list.
+  - With scenarios, the suggestions are the catalogs the agent builder uses,
+    for the providers the owner's runs have credentials for. A model whose
+    name alone would run elsewhere is offered with its provider in front, as
+    `ModelSpec.parse` reads it: `ollama/llama3.2`, or
+    `openrouter/anthropic/claude-sonnet-4.5` for OpenRouter's copy of an
+    Anthropic model.
+  - Without scenarios, a compared model selects the generations recorded
+    under its name, usually the provider's dated id, so the suggestions are
+    the names the agent's generations were recorded under, from the new
+    `GET /api/agents/:id/recorded_models`. Adding or clearing the scenarios
+    renames the catalog models already chosen to match.
+  - The judge field suggests the models of the provider the judge runs on
+    and says which provider that is, or that the credentials deciding it
+    could not be read.
+
+  `GET /api/evaluations` reports that provider as `judge_provider` and the
+  providers runs can use as `model_providers`
+  (`AgentExecutionService.available_providers`). Runs and their judge use
+  the evaluated agent's owner's credentials, so both fields describe that
+  owner's when `agent_id` scopes the list, and the signed-in owner's
+  otherwise. `judge_provider` is null when no provider has credentials, and
+  also when reading them raised, which `judge_provider_error: true` marks.
+  `model_providers` leaves out a provider whose credentials cannot be read.
+  Either way the list still loads.
+- **`GET /api/provider_models` lists the host's RubyLLM registry**
+  (`actionagent`). When the host app loads RubyLLM, the chat models its
+  registry lists for the provider that take and return text (RubyLLM's
+  bundled catalog, or the host's own model table) follow the live or curated
+  list, each once, so the builder's preselected default is unchanged. That
+  leaves out the speech, transcription, moderation and completion-only
+  models RubyLLM counts as chat models, which its registry lists with no
+  modalities or as taking audio, and with them the few chat models it lists
+  with no modalities, which can still be typed. A registry that raises is
+  logged and leaves the list as it was.
+
 ## [1.7.0] - 2026-09-24
 
 Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:

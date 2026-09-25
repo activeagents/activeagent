@@ -2,14 +2,22 @@
 
 module ActionAgent
   module Api
-    # Model catalogs for the agent builder/editor dropdowns.
+    # Model catalogs for the dashboard's model pickers: the agent builder and
+    # editor, and the evaluation forms.
     #
     # Hosted providers get a curated list of current models (kept here, server
     # side, so the UI can't drift stale). Ollama is queried live from the
     # account's configured host (Settings -> Provider API Keys, falling back to
     # the platform config) so locally pulled models appear; OpenRouter is
-    # queried from its public catalog. Live lookups fall back to the curated
-    # list on any failure.
+    # queried from its public catalog, and Anthropic from its Models API with
+    # the account's key. Live lookups fall back to the curated list on any
+    # failure.
+    #
+    # When the host app loads RubyLLM, the chat models its registry lists for
+    # the provider that take and return text follow: RubyLLM's bundled
+    # catalog, or the host's own model table when it configured one. The list
+    # stays de-duplicated, and its first id, the builder's preselected
+    # default, is always the live or curated one.
     class ProviderModelsController < BaseController
       before_action :require_owner!
 
@@ -42,7 +50,7 @@ module ActionAgent
           source = "curated"
         end
 
-        render json: { provider: provider, models: models, source: source }
+        render json: { provider: provider, models: (models + registry_models(provider)).uniq, source: source }
       end
 
       private
@@ -104,6 +112,29 @@ module ActionAgent
       rescue StandardError => e
         Rails.logger.warn("[ProviderModels] openrouter lookup failed: #{e.message}")
         nil
+      end
+
+      # Returns the ids of the chat models RubyLLM's registry lists for
+      # +provider+ that take and return text. Empty without RubyLLM, or when
+      # the registry raises. This engine's provider names are RubyLLM's own
+      # slugs.
+      #
+      # `chat_models` alone is not enough: RubyLLM counts a model as a chat
+      # model whenever its output modalities name no other kind, none at all
+      # included. That takes in the speech, transcription, moderation and
+      # completion-only models its registry lists with no modalities, and the
+      # transcription models it lists as taking audio. The few chat models it
+      # lists with no modalities are left out with them.
+      def registry_models(provider)
+        return [] unless defined?(::RubyLLM) && ::RubyLLM.respond_to?(:models)
+
+        ::RubyLLM.models.by_provider(provider).chat_models.filter_map do |model|
+          modalities = model.modalities
+          model.id.presence if Array(modalities&.input).include?("text") && Array(modalities&.output).include?("text")
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[ProviderModels] RubyLLM registry lookup failed: #{e.message}")
+        []
       end
 
       def fetch_json(uri)
