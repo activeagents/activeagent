@@ -127,13 +127,12 @@ module ActionAgent
       end
 
       # Traces belong to an agent by foreign key once AgentRegistrar attributes
-      # them; older rows predate that, so fall back to the class name.
+      # them; older rows predate that, so fall back to the agent's identity.
       def traces_for_agent(agent_id)
         agent = owner_agents.find_by(id: agent_id)
         return ActionAgent.trace_model.none unless agent
 
-        ActionAgent.trace_model.where(agent_id: agent.id)
-          .or(ActionAgent.trace_model.where(agent_id: nil, agent_class: agent.telemetry_agent_class))
+        owned_traces.where(agent_id: agent.id).or(agent.unattributed_telemetry_traces(owned_traces))
       end
 
       # The dashboard-wide time window, shared with Traces. Absent means "all".

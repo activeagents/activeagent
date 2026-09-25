@@ -9,6 +9,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
+  which hosts driving RubyLLM conversations had been writing for themselves.
+  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
+  `require "active_agent/evals"` alone still does not) gives two helpers, for
+  RubyLLM 1.16 and later and for 2.x:
+  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
+    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
+    traces each call under the kind it serves. `temperature:` and a
+    `configure:` hook set the chat up; any other keyword must be one
+    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
+    built rather than failing every call. `on_usage:` reports each call's
+    model, tokens and cost.
+  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
+    `acts_as_chat` records of either RubyLLM generation are read through
+    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
+    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
+    the order the model made them in, each paired with the result that
+    answers it; one is errored when that result reports an error at its top
+    level — JSON whose `"error"` is a non-empty string, object or array, or
+    `true`; an MCP result with `"isError": true`; or the inspected
+    `{ error: "..." }` RubyLLM 1.x stores for a tool's error Hash with a
+    String error — with the error (JSON-encoded, at most 1,200 bytes) as its
+    detail. `input_tokens` counts the whole prompt, cache reads and writes
+    included. Cost is RubyLLM's own price, left nil when any message is
+    unpriced. The answer is the last reply after the last user message; a
+    conversation that stopped at a tool call or on the user's own message
+    has no answer and says so in its `error` (on RubyLLM 1.x, pass `answer:`
+    for a tool that ends the turn with `halt`).
+- **`ActionAgent::ProviderKey.credentials_for(owner)` and
+  `.apply_to(config, owner:)`** (`actionagent`) hand an owner's API keys to
+  code outside the engine — `{ "openai" => "sk-..." }`, or written through
+  `<provider>_api_key=` onto a `RubyLLM.context` config block or anything
+  shaped like one, returning the providers written rather than the keys. A
+  key is looked up in the order the engine's runs use: the host's
+  `provider_credentials_resolver`, then the owner's saved row. A resolver
+  answer that sends a provider to another endpoint (`uri_base`, `base_url`,
+  `api_base`, `host`) leaves it out, so a gateway's key never reaches the
+  public endpoint. On an install with an owner model, the owner must be an
+  instance of the model it keeps keys by, since rows are scoped by its id
+  alone; anything else raises `ArgumentError`. A saved credential that no
+  longer decrypts is skipped with a warning naming the error class, never
+  the value.
+
+## [1.7.0] - 2026-09-24
+
+Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:
+a mounted engine collects the evaluation reports applications publish with
+`ActiveAgent::Evals::Publisher`, whose failures now say what the collector
+refused and whether to retry; observed agents read their own traces in
+evaluation criteria, the Tools and Traces tabs and deploy markers; host apps
+extend the engine's models and controllers through concerns and mirror their
+agent classes into the dashboard; and the Evaluations page is rebuilt around
+runs. Run the install generator after upgrading (see Upgrading below).
+
+Upgrading: the install generator emits two new migrations, both guarded
+column by column: `ensure_agent_release_columns`, which adds the agent release
+columns an install generated fresh on 1.6.2-1.6.4 never got (and those on
+tables with a custom `table_name_prefix`), and `add_evaluation_report_identity`
+for the evaluation report collector. Re-run
+`bin/rails generate action_agent:install --skip` (`--skip` keeps your
+initializer) and `bin/rails db:migrate`. A traces-only install needs neither;
+if you re-run the generator there, pass `--traces_only` again, or it emits the
+whole dashboard schema. Nothing else changes until an application publishes a
+report to the mount.
+
+### Added
+
 - **Host concerns for the engine's models and controllers** (`actionagent`).
   `ActionAgent.model_concerns` is included into
   `ActionAgent::ApplicationRecord` as it loads, and so into every engine
@@ -69,48 +136,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `allowed_tools` as an `mcp_toolset` entry in `tools` (every other tool of
   the server disabled), beside any tools the request already declares
   (#328, by @dark-panda).
-- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
-  which hosts driving RubyLLM conversations had been writing for themselves.
-  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
-  `require "active_agent/evals"` alone still does not) gives two helpers, for
-  RubyLLM 1.16 and later and for 2.x:
-  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
-    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
-    traces each call under the kind it serves. `temperature:` and a
-    `configure:` hook set the chat up; any other keyword must be one
-    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
-    built rather than failing every call. `on_usage:` reports each call's
-    model, tokens and cost.
-  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
-    `acts_as_chat` records of either RubyLLM generation are read through
-    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
-    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
-    the order the model made them in, each paired with the result that
-    answers it; one is errored when that result reports an error at its top
-    level — JSON whose `"error"` is a non-empty string, object or array, or
-    `true`; an MCP result with `"isError": true`; or the inspected
-    `{ error: "..." }` RubyLLM 1.x stores for a tool's error Hash with a
-    String error — with the error (JSON-encoded, at most 1,200 bytes) as its
-    detail. `input_tokens` counts the whole prompt, cache reads and writes
-    included. Cost is RubyLLM's own price, left nil when any message is
-    unpriced. The answer is the last reply after the last user message; a
-    conversation that stopped at a tool call or on the user's own message
-    has no answer and says so in its `error` (on RubyLLM 1.x, pass `answer:`
-    for a tool that ends the turn with `halt`).
-- **`ActionAgent::ProviderKey.credentials_for(owner)` and
-  `.apply_to(config, owner:)`** (`actionagent`) hand an owner's API keys to
-  code outside the engine — `{ "openai" => "sk-..." }`, or written through
-  `<provider>_api_key=` onto a `RubyLLM.context` config block or anything
-  shaped like one, returning the providers written rather than the keys. A
-  key is looked up in the order the engine's runs use: the host's
-  `provider_credentials_resolver`, then the owner's saved row. A resolver
-  answer that sends a provider to another endpoint (`uri_base`, `base_url`,
-  `api_base`, `host`) leaves it out, so a gateway's key never reaches the
-  public endpoint. On an install with an owner model, the owner must be an
-  instance of the model it keeps keys by, since rows are scoped by its id
-  alone; anything else raises `ArgumentError`. A saved credential that no
-  longer decrypts is skipped with a warning naming the error class, never
-  the value.
+- **A mounted engine collects published evaluation reports** (`actionagent`).
+  An application that runs its agents itself and evaluates them in-process
+  publishes the finished report with `ActiveAgent::Evals::Publisher`; until
+  now a self-hosted install had nowhere to receive it. On a full install (not
+  one generated with `--traces_only`, which answers 501),
+  `POST <mount>/api/evaluation_reports` takes the version-1 envelope and
+  returns the receipt the publisher checks, and
+  `ActionAgent::EvaluationReportImport` stores it as the engine's own rows:
+  the observed agent for the report's `source` and `agent_name`, an evaluation
+  named for its suite and scope (`orders (eu, support)`), its scenarios, and a
+  complete run with a result per scenario and model. The Evaluations page
+  shows it the way it shows a run the dashboard executed, with the summary
+  recomputed from the stored results. The endpoint authenticates exactly as
+  trace ingest does (`ingest_api_key`, or the tenant's key in multi-tenant
+  mode), takes only `application/json`, and places a report's agent wherever
+  `trace_owner_resolver` puts that tenant's traced agents. A `run_id` is
+  stored once per tenant, or once per install, and compared exactly: 201 for a
+  new report, 200 for an identical retry, 409 for different content. Invalid
+  reports, and an evaluation name the report does not own, are 422; a cap an
+  operator has to lift (observed agents per owner, 100 evaluations per agent,
+  2,000 scenarios per evaluation) is 403; a new report over the new
+  `:evaluation_report` quota kind or past 30 new reports a minute from a key
+  is 429. An identical retry is never refused by the quota or the rate limit.
+  Bodies over 2 MiB are 413, and Rails never parses the body into params, so
+  nothing past the limit is read. `usage_recorder` is told
+  `:evaluation_report` for each stored report. Evaluation runs gain
+  `external_tenant`, `external_run_id` and `external_report_digest`, unique on
+  the first two (binary on MySQL); see Upgrading above.
+  `docs/evals/publication.md` documents the endpoint.
 
 ### Changed
 
@@ -120,6 +174,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   like every other engine model (`actionagent`), so it carries the model
   concerns above, `AdapterAware` and the ownership API (`owner_association`,
   `for_owner`) from the same place. Its table name is unchanged.
+- `Api::TracesController`'s bearer authentication and its 429 quota body
+  live in `ActionAgent::Api::IngestAuthentication` (`actionagent`), which the
+  evaluation report collector shares. A host subclass that overrides
+  `authenticate_api_key!` is unaffected. The tenant's
+  `increment_telemetry_usage!` is still called for each trace ingest request,
+  and not for a report post.
+- `add_agent_releases` reads `ActionAgent.table_name_prefix` for the tables
+  it alters (`actionagent`), so a newly generated copy works on an install
+  with a custom prefix. The trace table keeps its fixed name.
+- A collector's rejection of `ActiveAgent::Evals::Publisher` says what it
+  refused and whether to retry. The message carries the `error` string of a
+  JSON object response body beside the HTTP status — control characters and
+  runs of whitespace collapsed to one space, the API key replaced with
+  `[FILTERED]`, cut to 200 characters; nothing else from the body — and what
+  to do next: never retry the report under the same `run_id` on a 409,
+  publish a smaller selection on a 413, correct the report on a 422, retry
+  later on a 408, 429 or 5xx, and resolve the cause first on anything else,
+  such as a 401 or 403. `Publisher::Error` carries `status`, `detail` and
+  `retryable?`.
 
 ### Deprecated
 
@@ -129,6 +202,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Telemetry criteria (`trace_error_rate`, `trace_latency`) score an observed
+  agent from its own traces (`actionagent`). They selected traces by
+  `Agent#telemetry_agent_class`, which appends `Agent` to a class name
+  lacking it, so an agent observed from an application reporting `SupportBot`
+  found no traces and scored nothing, and observed agents of one class ending
+  in `Agent` read each other's actions. `Agent#telemetry_traces` selects the
+  traces `AgentRegistrar` attributed to the agent, plus unattributed ones with
+  its service, class and action. Deleting an observed agent leaves its traces
+  unattributed, so the agent registered again for them still reads them. The
+  agent's Traces tab, its Tools tab usage
+  columns and the Interactions list filtered to it use the same selection. The
+  Traces tab asks for it with `GET /api/traces?agent_id=`, which answers 404
+  for an agent the caller cannot see; `agent=` still filters by class. On the
+  Metrics page filtered to a class, an observed agent's deploy markers now
+  show under the class its traces report (`Agent#reported_agent_class`).
+  Authored and mirrored agents read the traces they did before.
 - `Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later` run
   their job instead of raising `ArgumentError: unknown keywords` in the
   worker (#346).
@@ -144,6 +233,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installed (`openai` for OpenAI, Ollama and OpenRouter; `anthropic` for
   Anthropic) when the provider is chosen, with a validation error naming
   the gem, instead of failing on its first run (`actionagent`, #416).
+- A fresh `action_agent:install` creates the agent release columns with the
+  dashboard tables (`actionagent`): `release_digest` on agents,
+  `release_digest` and `revision` on agent versions, and `agent_version_id`
+  on agent runs and evaluation runs. The generator emits `add_agent_releases`
+  before the create-table migration, so on a fresh install it found none of
+  those tables and added nothing, and creating an agent run or an evaluation
+run raised `NoMethodError` on `agent_version_id`. An install generated
+that way on 1.6.2-1.6.4 gets the columns from the new
+`ensure_agent_release_columns` migration (see Upgrading above).
+- Every failure of `ActiveAgent::Evals::Publisher` to deliver a report
+  raises `Publisher::Error`. A malformed response (`Net::HTTPBadResponse`,
+  `Net::HTTPHeaderSyntaxError`, or a `Zlib::Error` from corrupt compression)
+  escaped as its own class and is now a retryable `Publisher::Error`. A
+  report that cannot be encoded as JSON (invalid UTF-8, `NaN`, nesting too
+  deep) is now a non-retryable one raised before anything is sent: it escaped
+  as `JSON::GeneratorError`, or was blamed on the collector as invalid JSON.
+  Only a network failure keeps its underlying error as `cause`, so a response
+  body or report content never reaches a log through the exception chain.
+  Invalid arguments raise `ArgumentError`, now also for a `report` that does
+  not convert to a hash (a string raised `NoMethodError` and `nil` published
+  an empty report) and a `nil` timeout (`TypeError`).
+- The publisher strips whitespace around its API key, so the key it sends is
+  the one it filters from a collector's explanation, and refuses a key with
+  characters other than visible ASCII.
 
 ### Security
 

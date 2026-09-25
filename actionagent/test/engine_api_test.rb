@@ -172,9 +172,33 @@ end
 # resolved from configuration, so one set of controllers serves a single-user
 # install, a per-user install and a multi-tenant platform.
 class DashboardOwnershipTest < ActiveSupport::TestCase
+  # An ownable model whose owned_by the test declares itself, so it can
+  # declare it under one configuration and read it under another.
+  class StaleOwnerProbe < ActionAgent::ApplicationRecord
+    self.table_name = "active_agent_agents"
+    include ActionAgent::Ownable
+  end
+
   def teardown
     ActionAgent.user_class = nil
     ActionAgent.account_class = nil
+  end
+
+  # owned_by declares its belongs_to from the configuration when the class
+  # loads. A model first loaded while a test configured another owner class
+  # kept that declaration for the rest of the process, and assigning an
+  # owner of the configured class raised AssociationTypeMismatch.
+  test "an owner of the configured class is assigned and read after the configuration changed" do
+    ActionAgent.account_class = "Post"
+    StaleOwnerProbe.owned_by(:account)
+    ActionAgent.account_class = "User"
+    user = User.create!(name: "Tenant", email: "tenant-#{SecureRandom.hex(3)}@example.com", age: 30)
+
+    probe = StaleOwnerProbe.new
+    probe.owner = user
+
+    assert_equal user.id, probe.account_id
+    assert_equal user, probe.owner
   end
 
   test "nothing is owned when the host app configures no owner model" do

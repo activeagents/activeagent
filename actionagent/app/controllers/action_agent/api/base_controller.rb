@@ -16,8 +16,9 @@ module ActionAgent
     # forgery protection ApplicationController turns on: the dashboard sends
     # the page's CSRF token with every mutating request (frontend
     # utils/apiFetch.mjs). Endpoints that authenticate with a bearer token
-    # instead — the telemetry ingest endpoint (Api::TracesController) and
-    # the MCP facade (Api::MCPController) — are exempt.
+    # instead — the telemetry ingest endpoint (Api::TracesController), the
+    # evaluation report collector (Api::EvaluationReportsController) and the
+    # MCP facade (Api::MCPController) — are exempt.
     class BaseController < ActionAgent::ApplicationController
       # Rails 8.2 verifies forgery protection from the browser's Sec-Fetch-Site
       # header, renamed the failure to InvalidCrossOriginRequest, and deprecated

@@ -27,6 +27,11 @@ ActionAgent::Engine.routes.draw do
     # Authenticated with a bearer token, not a session.
     resources :traces, only: [ :create ]
 
+    # The collector for evaluation reports an application ran itself
+    # (ActiveAgent::Evals::Publisher), at <mount>/api/evaluation_reports.
+    # Authenticated like trace ingest, with a bearer token.
+    resources :evaluation_reports, only: [ :create ]
+
     # A JSON API has no :new or :edit forms to serve.
     resources :agents, except: [ :new, :edit ] do
       member do
