@@ -50,6 +50,9 @@ ActionAgent::Engine.routes.draw do
         # and a fresh one to pin a first message to.
         get :conversations
         post :conversations, action: :create_conversation
+        # The evaluation form's models field: the model names this agent's
+        # generations were recorded under.
+        get :recorded_models
       end
       collection do
         get :presets

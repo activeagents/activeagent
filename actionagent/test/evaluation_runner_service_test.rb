@@ -35,6 +35,27 @@ class ActionAgentEvaluationRunnerServiceTest < ActiveSupport::TestCase
     assert_equal 1, resolved
   end
 
+  # Resolves the judge provider with `config` standing in for the host's
+  # provider config, so the test environment's own keys play no part.
+  def judge_provider_for_owner(config: {})
+    ActiveAgent.stub(:configuration, config) { ActionAgent::EvaluationRunnerService.judge_provider_for(nil) }
+  end
+
+  test "an owner's judge runs on the first provider with credentials, and on Ollama only after the rest" do
+    ActionAgent::ProviderKey.delete_all
+    assert_nil judge_provider_for_owner
+
+    ActionAgent::ProviderKey.create!(provider: "ollama", credential: "http://localhost:11434")
+    assert_equal :ollama, judge_provider_for_owner
+
+    ActionAgent::ProviderKey.create!(provider: "openrouter", credential: "sk-or-judge")
+    assert_equal :openrouter, judge_provider_for_owner
+
+    assert_equal :openai, judge_provider_for_owner(config: { openai: { access_token: "sk-host-config" } })
+  ensure
+    ActionAgent::ProviderKey.delete_all
+  end
+
   test "malformed or non-numeric judge scores are unscorable" do
     [ '{"score": "0.9"}', '{"score": true}', '{"score": null}', '{"score": {}}',
       '{"score": 0.9oops}', '{"score": 1e999}', '{"score": NaN}', "{}", "no json here", nil ].each do |content|

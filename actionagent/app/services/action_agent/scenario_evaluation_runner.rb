@@ -21,6 +21,11 @@ module ActionAgent
   class ScenarioEvaluationRunner < EvaluationRunnerService
     Evals = ActiveAgent::Evals
 
+    # The providers a candidate model name resolves against. `mock` is the
+    # framework's test double, accepted so the test suite can compare cohorts
+    # offline.
+    CANDIDATE_PROVIDERS = (Agent::PROVIDERS + %w[mock]).freeze
+
     # `run` is an EvaluationRun created ahead of time (by run_later!, so the
     # UI can show it pending while the job waits); absent, one is created here.
     def self.call(evaluation, selection: {}, run: nil)
@@ -126,15 +131,14 @@ module ActionAgent
     end
 
     # The models to compare: an explicit selection, else the evaluation's
-    # compare_models, else the agent as configured. `mock` is the framework's
-    # test double, accepted so the test suite can compare cohorts offline.
+    # compare_models, else the agent as configured.
     def model_specs
       names = Array(@selection[:models]).presence || @evaluation.compare_models
-      specs = Evals::ModelSpec.parse_all(names, default_provider: @evaluation.agent.provider, providers: Agent::PROVIDERS + %w[mock])
+      specs = Evals::ModelSpec.parse_all(names, default_provider: @evaluation.agent.provider, providers: CANDIDATE_PROVIDERS)
       # parse_all resolves a bare name against `providers:` but passes through a
       # `provider/model` whose provider is not in that list, so the run would
       # otherwise reach the replay with a provider nothing can serve.
-      unsupported = specs.map(&:provider).uniq - (Agent::PROVIDERS + %w[mock])
+      unsupported = specs.map(&:provider).uniq - CANDIDATE_PROVIDERS
       raise ArgumentError, "unsupported model provider: #{unsupported.to_sentence}" if unsupported.any?
 
       return specs if specs.any?

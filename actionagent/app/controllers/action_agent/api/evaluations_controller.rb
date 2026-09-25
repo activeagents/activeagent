@@ -38,12 +38,28 @@ module ActionAgent
       # 50 client-side hides an agent whose evaluations are not among the account's
       # 50 most recent. The scope is already restricted to the current user's
       # agents, so an id outside it simply returns nothing.
+      #
+      # Three fields feed the dashboard's model pickers. They describe the
+      # credentials of #picker_credentials_owner:
+      #   - judge_provider:        the provider a judge model runs on, null
+      #                            when none has credentials or the lookup
+      #                            raised
+      #   - judge_provider_error:  true when that lookup raised, as it does
+      #                            when a stored key no longer decrypts
+      #   - model_providers:       the providers agent runs have credentials
+      #                            for, leaving out any whose credentials
+      #                            cannot be read
       def index
         scope = evaluations_scope
         scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
         evaluations = scope.includes(:agent, :evaluation_runs, :scenarios).recent.limit(50)
+        owner = picker_credentials_owner
 
-        render json: { evaluations: evaluations.map { |evaluation| serialize(evaluation) } }
+        render json: {
+          evaluations: evaluations.map { |evaluation| serialize(evaluation) },
+          **judge_provider_fields(owner),
+          model_providers: AgentExecutionService.available_providers(owner)
+        }
       end
 
       # Runs listed per evaluation on GET /api/evaluations/:id. The rest of
@@ -222,6 +238,25 @@ module ActionAgent
         # response always carries one.
         evaluation.evaluation_runs.recent.first ||
           evaluation.evaluation_runs.create!(status: :failed, error_message: e.message, completed_at: Time.current)
+      end
+
+      # Returns whose credentials the index's model picker fields describe.
+      # Agent runs and their judge use the evaluated agent's owner's
+      # credentials, so a list scoped to one agent reads that agent's owner,
+      # and an unscoped list the signed-in owner.
+      def picker_credentials_owner
+        agent = owner_agents.find_by(id: params[:agent_id]) if params[:agent_id].present?
+        agent ? agent.owner : current_owner
+      end
+
+      # Returns the index's judge_provider and judge_provider_error for
+      # +owner+. A lookup that raises, from a key that no longer decrypts or a
+      # host credentials hook that fails, is logged and reported as an error.
+      def judge_provider_fields(owner)
+        { judge_provider: EvaluationRunnerService.judge_provider_for(owner)&.to_s, judge_provider_error: false }
+      rescue StandardError => e
+        Rails.logger.warn("[Evaluations] judge provider lookup failed: #{e.class}: #{e.message}")
+        { judge_provider: nil, judge_provider_error: true }
       end
 
       def evaluations_scope

@@ -49,6 +49,12 @@ module ActionAgent
       new(agent_record, run).call
     end
 
+    # Returns the providers in Agent::PROVIDERS a run on +owner+'s behalf has
+    # credentials for, in that order (see #available_providers).
+    def self.available_providers(owner)
+      new(nil, nil, owner: owner).available_providers
+    end
+
     # Tool-call keywords that name the caller. The model's arguments and the
     # run's actor share one keyword namespace by the time they reach a tool,
     # so anything a model emits under these names is dropped before the call:
@@ -56,11 +62,21 @@ module ActionAgent
     # documents a model reads are attacker-reachable.
     ACTOR_KEYWORDS = %i[actor current_user].freeze
 
-    def initialize(agent_record, run)
+    # +owner+ is whose provider credentials the run uses: the agent record's
+    # owner unless given.
+    def initialize(agent_record, run, owner: nil)
       @agent_record = agent_record
       @run = run
+      @owner = owner
       @tool_invocations = []
       @event_sequence = 0
+    end
+
+    # Returns the providers in Agent::PROVIDERS the owner's credentials, or
+    # the host's config, let a run use: #provider_available? for each.
+    # @return [Array<String>]
+    def available_providers
+      Agent::PROVIDERS.select { |name| provider_available?(name) }
     end
 
     # The caller this run executes on behalf of, or nil when it runs
@@ -943,7 +959,7 @@ module ActionAgent
     # The agent's owner under the configured mode; nil when the install
     # has no owner model at all.
     def owner
-      @owner ||= @agent_record.owner
+      @owner ||= @agent_record&.owner
     end
 
     def record_trace(root_span)
