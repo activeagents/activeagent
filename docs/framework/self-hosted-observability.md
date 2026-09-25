@@ -20,6 +20,7 @@ all you need.
 | Traces + span waterfall | ✓ | ✓ |
 | Metrics (24h aggregates, per-agent stats) | ✓ | ✓ |
 | Ingest API for remote apps | ✓ (`<mount>/api/traces`) | ✓ (`https://api.activeagents.ai/v1/traces`) |
+| Evaluation reports published by remote apps | ✓ (`<mount>/api/evaluation_reports`, not on a `--traces_only` install) | When the platform offers it (`https://api.activeagents.ai/v1/evaluations`) |
 | Agent builder, runs, versions | ✓ | ✓ |
 | Interactions (tool-call conversations), evaluations, scorecards, cost estimates | ✓ | ✓ |
 | Agents as an MCP server | ✓ (`<mount>/mcp`) | ✓ |
@@ -31,7 +32,9 @@ feature surface is the same one, not a smaller version of it.
 
 The wire format is identical too, so the choice is per-environment, not
 per-app: the same `config/active_agent.yml` switches between them (see
-[Getting traces in](#getting-traces-in)).
+[Getting traces in](#getting-traces-in)). An evaluation report is published
+the same way to a mount, or to the platform once it collects them (see
+[Getting evaluation reports in](#getting-evaluation-reports-in)).
 
 ## Install
 
@@ -62,6 +65,13 @@ The generator creates:
 - `db/migrate/*_create_active_agent_evaluation_scenarios.rb` — scenario
   suites and their per-scenario, per-model results (re-run the generator on
   an existing install to get it),
+- `db/migrate/*_ensure_agent_release_columns.rb` and
+  `db/migrate/*_add_evaluation_report_identity.rb` — the agent release
+  columns wherever an earlier install lacks them, and the identity of a run
+  an application published rather than the dashboard executed. Both are
+  no-ops on a fresh install, whose tables already carry the columns; re-run
+  the generator on an existing install to get them (with `--traces_only`
+  again on a traces-only install, which needs neither),
 - `mount ActionAgent::Engine => "/activeagents"` in
   `config/routes.rb`,
 - `config/initializers/action_agent.rb` — authentication,
@@ -131,7 +141,8 @@ ActionAgent.configure do |config|
 end
 ```
 
-The ingest API authenticates separately. In single-tenant mode it accepts
+The ingest API — trace ingest and the evaluation report collector —
+authenticates separately. In single-tenant mode it accepts
 unauthenticated posts by default (fine for same-app `local_storage`, not
 for a network-reachable mount) — set an ingest key whenever other
 machines can reach it:
@@ -141,8 +152,9 @@ config.ingest_api_key = Rails.application.credentials.dig(:active_agent, :ingest
 ```
 
 Requests without a matching `Authorization: Bearer <key>` header get a
-401. The telemetry reporter and `ruby_llm_telemetry` already send their
-configured `api_key` as a Bearer header, so remote apps need no changes.
+401. The telemetry reporter, `ruby_llm_telemetry` and
+`ActiveAgent::Evals::Publisher` already send their configured `api_key` as
+a Bearer header, so remote apps need no changes.
 
 ## Getting traces in
 
@@ -186,8 +198,39 @@ base class, so your app's `current_account` helper is not on them); ingest
 then authenticates per-account `telemetry_api_key` Bearer tokens and
 processes asynchronously via
 `ActionAgent::ProcessTelemetryTracesJob` (requires an Active Job backend),
-and every dashboard query scopes to the current account. Most self-hosted
-installs should leave this off.
+the evaluation report collector authenticates the same tokens, and every
+dashboard query scopes to the current account. Most self-hosted installs
+should leave this off.
+
+## Getting evaluation reports in
+
+An application that runs its agents itself can evaluate them in-process with
+`ActiveAgent::Evals` and publish the finished report to your mount with
+`ActiveAgent::Evals::Publisher`. The engine stores it as its own evaluation
+rows — an observed agent for the report's `source` and `agent_name`, an
+evaluation named for its suite and scope, and a complete run — so the
+Evaluations page shows it the way it shows a run the dashboard executed. The
+dashboard never executes that application's agent.
+
+```ruby
+ActiveAgent::Evals::Publisher.new(
+  endpoint: "https://activeagents.example.com/api/evaluation_reports",
+  api_key: Rails.application.credentials.dig(:active_agent, :ingest_api_key)
+).call(report: report, run_id: report.metadata.fetch("run_id"),
+       source: "support-app", agent_name: "SupportBot", suite: "orders")
+```
+
+The endpoint is `<mount>/api/evaluation_reports`, authenticated with the same
+key as trace ingest (the tenant's key in multi-tenant mode), and it takes only
+`Content-Type: application/json`, so a web page cannot post to it cross-site. A
+`run_id` is stored once per install, or once per tenant: an identical retry
+returns the stored run with HTTP 200, and different content under that
+`run_id` is a 409. A host that meters its install answers the
+`:evaluation_report` kind from `quota_checker`, asked only for a report that
+would be stored (a denial is a 429), and `usage_recorder` is told of each
+stored report. An install generated with `--traces_only` has no evaluation
+tables and answers 501. The envelope, the validation rules and every response are in
+[Publishing an externally executed evaluation](/evals/publication).
 
 ## RubyLLM applications
 
@@ -275,9 +318,10 @@ there rather than being skipped. Set them in an initializer: the classes
 load after the initializers have run, and a concern added later is not
 applied.
 
-The trace ingest endpoint, `ActionAgent::Api::TracesController`, is not a
-dashboard controller — it authenticates with a bearer token and inherits
-`ActionController::API` — so controller concerns do not reach it.
+The ingest endpoints, `ActionAgent::Api::TracesController` and
+`ActionAgent::Api::EvaluationReportsController`, are not dashboard
+controllers — they authenticate with a bearer token and inherit
+`ActionController::API` — so controller concerns do not reach them.
 
 `authentication_method` still decides who is admitted. A controller
 concern puts your app's session helpers on the engine's controllers, and
@@ -326,9 +370,9 @@ call the concern through a method the engine does not define, such as
   `enabled: true` (and `local_storage: true` for same-app storage) under
   the *current* environment key in `config/active_agent.yml`.
 - **403 in production** — set `config.authentication_method` (see above).
-- **401 from ingest** — the poster's `api_key` doesn't match
-  `config.ingest_api_key` (single-tenant) or an account
-  `telemetry_api_key` (multi-tenant).
+- **401 from ingest or the evaluation report collector** — the poster's
+  `api_key` doesn't match `config.ingest_api_key` (single-tenant) or an
+  account `telemetry_api_key` (multi-tenant).
 - **Console metrics page has no chart** — install `groupdate`.
 
 ## Running agents from the dashboard
