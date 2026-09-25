@@ -299,13 +299,59 @@ class EvalsRubyLLMGlueCases < Minitest::Test
     assert_equal "Rate limited\nretry later",
       detail.call('{"content": [{"type": "text", "text": "Rate limited"}, {"type": "text", "text": "retry later"}], "isError": true}'),
       "an MCP tool result"
+    assert_equal "boom", detail.call('{:ok=>false, :error=>"boom"}'), "error need not be the first key"
+    assert_equal "denied", detail.call('{"error": true, "message": "denied"}')
     assert_nil detail.call('{"result": 1, "error": null}')
     assert_nil detail.call('{"error": false}')
+    assert_nil detail.call('{"error": 0, "data": []}'), "a status code of zero is not a failure"
     assert_nil detail.call('{"content": [], "isError": false}')
     assert_nil detail.call("{:error=>nil}")
-    assert_nil detail.call("the error log is empty")
     assert_operator detail.call({ "error" => "x" * 50_000 }.to_json).bytesize, :<=,
       ActiveAgent::Evals::RubyLLM::DETAIL_LIMIT
+  end
+
+  # Only a whole inspected Hash with a top-level error counts: a tool that
+  # returns source code, a log line or a nested error succeeded.
+  def test_replay_does_not_read_errors_into_text_results
+    detail = ->(content) { tool_result_detail(content) }
+
+    assert_nil detail.call("the error log is empty")
+    assert_nil detail.call('error: "something"'), "plain text"
+    assert_nil detail.call('status: ok, error: "none"'), "a log line"
+    assert_nil detail.call('res.status(404).json({ error: "Not found" })'), "source code"
+    assert_nil detail.call({ items: [ { id: 1, error: "retry later" } ], ok: true }.to_s), "a nested error"
+    assert_nil detail.call({ note: "{:error=>\"quoted\"}" }.to_s), "an error inside a string"
+    assert_nil detail.call('{"items": [{"error": "retry later"}]}'), "a nested error in JSON"
+  end
+
+  def test_replay_keeps_error_details_valid_utf8
+    inspected = "{:error=>\"caf\\xC3 x\"}"
+    binary = "{\"status\": \"ok \xFF\"}".dup.force_encoding(Encoding::UTF_8)
+
+    detail = tool_result_detail(inspected)
+    assert detail.valid_encoding?, detail.inspect
+    replay = ActiveAgent::Evals::RubyLLM.replay(tool_turn(binary))
+    assert_equal "done", replay.answer, "a result with invalid bytes must not fail the replay"
+    assert JSON.generate(replay.tool_calls)
+  end
+
+  # A provider can reuse a call id in a later turn; each result answers the
+  # call that was still waiting for it.
+  def test_replay_pairs_a_reused_call_id_with_the_call_it_answers
+    call = ->(id) { { id => ToolCall.new(id: id, name: "lookup_order", arguments: {}) } }
+    messages = [
+      Message2.new(role: :user, content: "Where is it?"),
+      Message2.new(role: :assistant, tool_calls: call.call("c1")),
+      Message2.new(role: :tool, content: '{"error": "timed out"}', tool_call_id: "c1"),
+      Message2.new(role: :assistant, tool_calls: call.call("c1")),
+      Message2.new(role: :tool, content: '{"status": "shipped"}', tool_call_id: "c1"),
+      Message2.new(role: :assistant, content: "Shipped.")
+    ]
+
+    replay = ActiveAgent::Evals::RubyLLM.replay(messages)
+
+    assert_equal [ true, false ], replay.tool_calls.map { |tool_call| tool_call["error"] }
+    assert_equal "timed out", replay.tool_calls.first["detail"]
   end
 
   def test_a_conversation_that_stopped_at_a_tool_call_has_no_answer
@@ -365,13 +411,29 @@ class EvalsRubyLLMGlueCases < Minitest::Test
     assert_equal [], replay.tool_calls
   end
 
-  def test_replay_of_a_conversation_without_an_answer
+  def test_replay_of_a_conversation_the_model_never_answered
     replay = ActiveAgent::Evals::RubyLLM.replay([ Message.new(role: "user", content: "Hi") ])
 
     assert_nil replay.answer
-    refute replay.errored?
+    assert_equal "The conversation ended on a user message without a reply", replay.error
     assert_equal 0, replay.total_tokens
     assert_equal [], replay.tool_calls
+  end
+
+  # The run failed after the new prompt was saved: the previous turn's reply
+  # must not be scored as this one's answer.
+  def test_an_earlier_turns_reply_is_not_the_answer
+    messages = [
+      Message.new(role: "user", content: "Hi"),
+      Message.new(role: "assistant", content: "Hello!", input_tokens: 5, output_tokens: 2),
+      Message.new(role: "user", content: "Where is order ABC-123?"),
+      Message.new(role: "system", content: "Answer briefly.")
+    ]
+
+    replay = ActiveAgent::Evals::RubyLLM.replay(messages)
+
+    assert_nil replay.answer
+    assert_equal "The conversation ended on a user message without a reply", replay.error
   end
 
   private
@@ -381,12 +443,15 @@ class EvalsRubyLLMGlueCases < Minitest::Test
     Gem::Version.new(::RubyLLM::VERSION) >= Gem::Version.new("2") ? { cache_read_tokens: count } : { cached_tokens: count }
   end
 
-  def tool_result_detail(content)
-    messages = [
+  def tool_turn(content)
+    [
       Message2.new(role: :assistant, tool_calls: { "c" => ToolCall.new(id: "c", name: "t", arguments: {}) }),
       Message2.new(role: :tool, content: content, tool_call_id: "c"),
       Message2.new(role: :assistant, content: "done")
     ]
-    ActiveAgent::Evals::RubyLLM.replay(messages).tool_calls.first["detail"]
+  end
+
+  def tool_result_detail(content)
+    ActiveAgent::Evals::RubyLLM.replay(tool_turn(content)).tool_calls.first["detail"]
   end
 end

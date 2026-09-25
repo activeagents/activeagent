@@ -36,16 +36,22 @@ class EvalsRubyLLMConversationTest < ActiveSupport::TestCase
   end
 
   test "records mid-way through RubyLLM 2's upgrade read the conversation, not the legacy columns" do
-    output = run_conversation("legacy")
-    skip "the upgrade window is a RubyLLM 2 state (ruby_llm #{output['ruby_llm']})" unless output["legacy"]
+    version = Gem.loaded_specs["ruby_llm"]&.version
+    skip "the upgrade window is a RubyLLM 2 state (ruby_llm #{version})" if version && version < Gem::Version.new("2")
 
+    output = run_conversation("legacy")
+    skip output["records"]["skipped"] if output["records"].key?("skipped")
+
+    assert output["legacy"], "the script ran without the legacy columns"
     assert_replays_the_conversation output.fetch("records"), "records with legacy columns"
   end
 
   private
 
   def run_conversation(*arguments)
-    raw = IO.popen([ RbConfig.ruby, "-I#{LIB}", SCRIPT, *arguments ], err: %i[child out], &:read)
+    # -EUTF-8: RubyLLM reads its bundled model registry with the default
+    # external encoding, which a machine without a UTF-8 locale leaves ASCII.
+    raw = IO.popen([ RbConfig.ruby, "-EUTF-8", "-I#{LIB}", SCRIPT, *arguments ], err: %i[child out], &:read)
     JSON.parse(raw.lines.last.to_s)
   rescue JSON::ParserError
     flunk "the conversation script did not print its replays:\n#{raw}"

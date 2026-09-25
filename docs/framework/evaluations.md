@@ -205,25 +205,33 @@ into a `Replay`. Records are read through their own `to_llm`, so the replay
 sees what RubyLLM itself would send the model, whichever schema the table has.
 
 - **Tool calls** come in the order the model made them. A call is errored
-  when the result answering it reports an error: JSON with a present
-  `"error"`, an MCP result with `"isError": true`, or the inspected
-  `{ error: "..." }` RubyLLM 1.x stores when a tool returns an error Hash. The
-  error is the call's `detail`, JSON-encoded unless it is a string and cut to
-  1,200 bytes.
+  when the result answering it reports an error at its top level: JSON whose
+  `"error"` is a non-empty string, object or array, or `true`; an MCP result
+  with `"isError": true`; or the inspected `{ error: "..." }` RubyLLM 1.x
+  stores when a tool returns an error Hash with a String error. Text that
+  merely mentions an error — a log line, source code — is a successful
+  result. The error is the call's `detail`, JSON-encoded unless it is a
+  string and cut to 1,200 bytes.
 - **Tokens** are summed over the assistant messages. `input_tokens` is the
   whole prompt: RubyLLM counts cache reads and writes apart from its `input`,
   and the replay adds them back.
 - **Cost** is the sum of RubyLLM's own price for each assistant message, and
   is left nil when any of them is unpriced rather than reporting part of it.
-- **The answer** is the last assistant message's content. A conversation that
-  stopped on a tool call — a tool awaiting approval, a run cut short — has no
-  answer, and the replay's `error` says which call it stopped at.
+- **The answer** is the last assistant message after the last user message.
+  A conversation that stopped before answering has no answer, and the
+  replay's `error` says where it stopped: at a tool call or its result (a
+  tool awaiting approval, a run cut short), or on the user's own message (a
+  run that failed after the prompt was saved). On RubyLLM 1.x a tool that
+  ends the turn with `halt` also leaves its result last; for such scenarios
+  pass the content `ask` returned as `answer:`.
 
 `answer:`, `error:` and `cost:` override what the messages say;
 `duration_ms:` and `metadata:` pass through.
 
 Put together with a correlation, and with the replays and judge calls reported
-through the `activeagents-telemetry-ruby_llm` adapter:
+through the `activeagents-telemetry-ruby_llm` adapter (0.3.0 or later, whose
+`with_agent` takes `attributes:`, `on_trace:` and `synchronous:`; 0.3.1 or
+later on RubyLLM 2.x, for token counts):
 
 ```ruby
 require "active_agent/evals/ruby_llm"

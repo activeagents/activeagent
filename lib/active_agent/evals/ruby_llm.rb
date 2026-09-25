@@ -36,11 +36,11 @@ module ActiveAgent
       # `chat` keywords the judge sets itself, so they are not `chat_options`.
       JUDGE_CHAT_KEYWORDS = %i[model provider assume_model_exists context].freeze
 
-      # A Ruby-inspected Hash with an `error` key holding a String, the way
-      # RubyLLM 1.x stores a tool that returned `{ error: "..." }`: it keeps
-      # the result's `to_s`, so the tool message reads `{:error=>"..."}`, or
-      # `{error: "..."}` on Ruby 3.4.
-      INSPECTED_ERROR = /(?:\A|[{,])\s*(?::error\s*=>|error:|"error"\s*=>)\s*("(?:[^"\\]|\\.)*")/m
+      # An `error` key holding a String, as Ruby inspects it: RubyLLM 1.x
+      # keeps a tool result's `to_s`, so a tool that returned
+      # `{ error: "..." }` stores `{:error=>"..."}`, or `{error: "..."}` on
+      # Ruby 3.4. Tried only at the top level of a whole inspected Hash.
+      INSPECTED_ERROR_KEY = /\G\s*(?::error\s*=>|error:|"error"\s*=>)\s*("(?:[^"\\]|\\.)*")/m
 
       class << self
         # Builds a Judge whose completions come from a RubyLLM chat.
@@ -59,7 +59,7 @@ module ActiveAgent
         #
         #   ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "gpt-5-mini", provider: :openai,
         #                                     temperature: 0,
-        #                                     configure: ->(chat) { chat.with_provider_options(seed: 7) })
+        #                                     configure: ->(chat) { chat.with_headers("X-Request-Tag" => "eval") })
         #
         # @param label [String] how reports name the judge
         # @param model [String] the judge model
@@ -104,21 +104,24 @@ module ActiveAgent
         #
         # - **Tool calls** are every message's calls in the order the model made
         #   them, each `{ "name", "arguments", "error", "detail" }`. A call is
-        #   errored when the `tool` message answering it (matched on
-        #   `tool_call_id`) reports an error: JSON or a Hash with a present
-        #   `"error"`, an MCP result with `"isError": true`, or the inspected
-        #   Hash RubyLLM 1.x stores for a tool that returned `{ error: "..." }`.
-        #   `detail` is the error, JSON-encoded unless it is a String, cut to
-        #   DETAIL_LIMIT bytes.
+        #   errored when the `tool` message answering it (the next one with its
+        #   `tool_call_id`) reports an error at its top level: JSON or a Hash
+        #   whose `"error"` is a non-empty String, Hash or Array, or `true`; an
+        #   MCP result with `"isError": true`; or the inspected Hash RubyLLM 1.x
+        #   stores for a tool that returned `{ error: "..." }`. `detail` is the
+        #   error, JSON-encoded unless it is a String, cut to DETAIL_LIMIT bytes.
         # - **Tokens** sum the assistant messages. `input_tokens` is the whole
         #   prompt: RubyLLM's `input` plus its cache reads and writes, which it
         #   counts apart.
         # - **Cost** sums each assistant message's RubyLLM `cost.total` when
         #   every one of them is priced, and is nil otherwise.
-        # - **The answer** is the last assistant message's content. A
-        #   conversation that stopped on a tool call — the last message is a
-        #   tool call or its result — has no answer, and the replay records
-        #   that as its error rather than scoring an empty reply.
+        # - **The answer** is the content of the last assistant message after the
+        #   last user message. A conversation that stopped before answering —
+        #   its last message is a tool call, a tool result or the user's own
+        #   message — has no answer, and the replay records why as its error
+        #   rather than scoring an empty or earlier reply. On RubyLLM 1.x a tool
+        #   that ends the turn with `halt` leaves its result last too: pass the
+        #   content `ask` returned as `answer:` for such scenarios.
         #
         # `answer:`, `error:` and `cost:` override what the messages say.
         #
@@ -131,16 +134,16 @@ module ActiveAgent
         # @return [Replay]
         def replay(messages, answer: nil, duration_ms: nil, error: nil, cost: nil, metadata: {})
           messages = messages.to_a.map { |message| message.respond_to?(:to_llm) ? message.to_llm : message }
-          pending = pending_tool_calls(messages)
+          unfinished = unfinished_reason(messages)
           tokens = token_totals(messages)
 
           Replay.new(
-            answer: answer.nil? && pending.nil? ? final_answer(messages) : answer,
+            answer: answer.nil? && unfinished.nil? ? final_answer(messages) : answer,
             tool_calls: extract_tool_calls(messages),
             duration_ms: duration_ms,
             input_tokens: tokens[:input],
             output_tokens: tokens[:output],
-            error: replay_error(error, answer, pending),
+            error: replay_error(error, answer, unfinished),
             cost: cost.nil? ? conversation_cost(messages) : cost,
             metadata: metadata
           )
@@ -184,22 +187,24 @@ module ActiveAgent
           model.presence&.to_s
         end
 
+        # Each result is paired with the call it answers: the latest call with
+        # its id that no earlier result has answered, so an id a provider
+        # reuses in a later turn is still told apart.
         def extract_tool_calls(messages)
-          results = messages.each_with_object({}) do |message, by_call|
-            next unless role_of(message) == "tool" && message.respond_to?(:tool_call_id)
+          open_calls = {}
 
-            by_call[message.tool_call_id] = message unless message.tool_call_id.nil?
-          end
-
-          messages.flat_map { |message| ordered_tool_calls(message) }.map do |tool_call|
-            detail = results[tool_call.id]&.then { |result| tool_error(result.content) }
-
-            {
-              "name" => tool_call.name.to_s,
-              "arguments" => tool_call.arguments,
-              "error" => !detail.nil?,
-              "detail" => detail
-            }.compact
+          messages.each_with_object([]) do |message, calls|
+            if role_of(message) == "tool"
+              call = open_calls.delete(message.tool_call_id) if message.respond_to?(:tool_call_id)
+              detail = call && tool_error(message.content)
+              call&.merge!("error" => true, "detail" => detail) if detail
+            else
+              ordered_tool_calls(message).each do |tool_call|
+                call = { "name" => tool_call.name.to_s, "arguments" => tool_call.arguments, "error" => false }
+                open_calls[tool_call.id] = call
+                calls << call
+              end
+            end
           end
         end
 
@@ -226,17 +231,24 @@ module ActiveAgent
         # The detail of the error a tool reported, or nil when it succeeded.
         def tool_error(content)
           content = content.text if !content.is_a?(String) && content.respond_to?(:text)
+          content = content.scrub if content.is_a?(String)
           payload = content.is_a?(Hash) ? content : parse_json(content)
           return error_from_payload(payload) if payload.is_a?(Hash)
           return unless content.is_a?(String)
 
-          literal = content[INSPECTED_ERROR, 1]
+          literal = inspected_error(content.strip)
           truncate_detail(unquote(literal)) if literal
         end
 
         def error_from_payload(payload)
-          error = payload["error"] || payload[:error]
-          return truncate_detail(error.is_a?(String) ? error : error.to_json) if error.present?
+          error = payload.key?("error") ? payload["error"] : payload[:error]
+          if (error.is_a?(String) || error.is_a?(Hash) || error.is_a?(Array)) && error.present?
+            return truncate_detail(error.is_a?(String) ? error : error.to_json)
+          end
+          if error == true
+            message = payload["message"] || payload[:message]
+            return truncate_detail(message.is_a?(String) && message.present? ? message : payload.to_json)
+          end
           return unless (payload["isError"] || payload[:isError]) == true
 
           texts = Array(payload["content"] || payload[:content]).filter_map do |part|
@@ -245,12 +257,44 @@ module ActiveAgent
           truncate_detail(texts.any? ? texts.join("\n") : payload.to_json)
         end
 
+        # The String literal an inspected Hash holds under a top-level `error`
+        # key, or nil. Only a whole Hash (`{...}`) qualifies, and a key is
+        # tried only where one starts at the Hash's own level: after its
+        # opening brace or a comma outside any string or nested structure.
+        def inspected_error(text)
+          return unless text.start_with?("{") && text.end_with?("}")
+
+          depth = 0
+          quoted = false
+          index = 0
+          while index < text.length
+            char = text[index]
+            if quoted
+              index += 1 if char == "\\"
+              quoted = false if char == '"'
+            elsif char == '"'
+              quoted = true
+            elsif char == "{" || char == "["
+              depth += 1
+            elsif char == "}" || char == "]"
+              depth -= 1
+            end
+
+            if !quoted && depth == 1 && (char == "{" || char == ",")
+              literal = text.match(INSPECTED_ERROR_KEY, index + 1)&.[](1)
+              return literal if literal
+            end
+            index += 1
+          end
+          nil
+        end
+
         # Reads back a Ruby String literal from an inspected Hash. `undump`
         # takes only ASCII, so the characters beyond it are escaped first.
         def unquote(literal)
-          literal.gsub(/[^\x00-\x7F]/) { |char| format("\\u{%x}", char.ord) }.undump.force_encoding(Encoding::UTF_8)
-        rescue RuntimeError, EncodingError
-          literal[1...-1]
+          literal.gsub(/[^\x00-\x7F]/) { |char| format("\\u{%x}", char.ord) }.undump.force_encoding(Encoding::UTF_8).scrub
+        rescue RuntimeError, EncodingError, ArgumentError
+          literal[1...-1].scrub
         end
 
         def truncate_detail(detail)
@@ -304,32 +348,39 @@ module ActiveAgent
           nil
         end
 
-        # The calls of the last assistant message, when the conversation
-        # stopped at them: the last message is that tool call, or the result
-        # of one, with no answer after it.
-        def pending_tool_calls(messages)
-          last = messages.last
+        # Why the conversation has no answer, or nil when it has one: it
+        # stopped at a tool call or a tool's result, or on the user's own
+        # message. System messages do not count as the last word.
+        def unfinished_reason(messages)
+          last = messages.reverse.find { |message| role_of(message) != "system" }
           return if last.nil?
 
-          stopped = role_of(last) == "tool" || (role_of(last) == "assistant" && tool_calls_of(last).any?)
-          return unless stopped
+          case role_of(last)
+          when "user"
+            "The conversation ended on a user message without a reply"
+          when "tool", "assistant"
+            return if role_of(last) == "assistant" && tool_calls_of(last).none?
 
-          assistant = messages.reverse.find { |message| role_of(message) == "assistant" }
-          assistant ? tool_calls_of(assistant) : []
+            assistant = messages.reverse.find { |message| role_of(message) == "assistant" }
+            names = (assistant ? tool_calls_of(assistant) : []).map { |call| call.name.to_s }.uniq
+            "The conversation stopped at #{names.any? ? "a call to #{names.join(', ')}" : 'a tool result'} " \
+              "without a final answer"
+          end
         end
 
-        def replay_error(error, answer, pending)
+        def replay_error(error, answer, unfinished)
           return "#{error.class}: #{error.message}" if error.is_a?(Exception)
           return error unless error.nil?
-          return if pending.nil? || !answer.nil?
 
-          names = pending.map { |call| call.name.to_s }.uniq
-          "The conversation stopped at #{names.any? ? "a call to #{names.join(', ')}" : 'a tool result'} " \
-            "without a final answer"
+          unfinished if answer.nil?
         end
 
+        # The last assistant message after the last user message, so an
+        # earlier turn's reply never stands in for this one.
         def final_answer(messages)
-          content = messages.reverse.find { |message| role_of(message) == "assistant" }&.content
+          last_prompt = messages.rindex { |message| role_of(message) == "user" }
+          turn = last_prompt ? messages.drop(last_prompt + 1) : messages
+          content = turn.reverse.find { |message| role_of(message) == "assistant" }&.content
           content = content.text if !content.nil? && !content.is_a?(String) && content.respond_to?(:text)
           content
         end

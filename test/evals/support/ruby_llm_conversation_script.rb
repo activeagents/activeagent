@@ -10,11 +10,12 @@
 #
 #   ruby -Ilib test/evals/support/ruby_llm_conversation_script.rb [legacy]
 #
-# `legacy` (RubyLLM 2 only) keeps the columns a RubyLLM 1.x `messages` table
-# had (`tool_call_id`, `input_tokens`, `output_tokens`) with values that
-# disagree with the conversation, the way a table reads between RubyLLM 2's
-# upgrade migration and its cleanup; the replay must not read them. On
-# RubyLLM 1.x those columns are the conversation, so the flag is ignored.
+# `legacy` (RubyLLM 2 only) replays the records alone, keeping the columns a
+# RubyLLM 1.x `messages` table had (`tool_call_id`, `input_tokens`,
+# `output_tokens`) with values that disagree with the conversation, the way a
+# table reads between RubyLLM 2's upgrade migration and its cleanup; the
+# replay must not read them. On RubyLLM 1.x those columns are the
+# conversation, so the flag is ignored.
 require "json"
 require "active_record"
 require "sqlite3"
@@ -92,13 +93,15 @@ def replay_json(messages)
   ActiveAgent::Evals::RubyLLM.replay(messages, duration_ms: 5).to_h.transform_keys(&:to_s)
 end
 
-# Plain RubyLLM::Chat messages.
-stub_openai!
-options = { model: "gpt-4o-mini", provider: :openai, assume_model_exists: true }
-options[:protocol] = :chat_completions if V2
-chat = RubyLLM.chat(**options).with_tools(*TOOLS)
-chat.ask("Where is order ABC-123?")
-output["values"] = replay_json(chat.messages)
+# Plain RubyLLM::Chat messages. The legacy run is about records only.
+unless LEGACY
+  stub_openai!
+  options = { model: "gpt-4o-mini", provider: :openai, assume_model_exists: true }
+  options[:protocol] = :chat_completions if V2
+  chat = RubyLLM.chat(**options).with_tools(*TOOLS)
+  chat.ask("Where is order ABC-123?")
+  output["values"] = replay_json(chat.messages)
+end
 
 # acts_as_chat records, in the schema RubyLLM's install generator writes.
 if !V2 && !RubyLLM.config.respond_to?(:use_new_acts_as=)
@@ -107,10 +110,22 @@ else
   ActiveRecord::Base.establish_connection(adapter: "sqlite3", database: ":memory:")
   ActiveRecord::Migration.verbose = false
 
+  # RubyLLM's railtie requires these under Rails; a release that renames one
+  # reads as a skip naming the file rather than a crash.
+  internals = if V2
+    %w[payload_helpers model tool_call usage batch chat_methods message_methods acts_as]
+  else
+    %w[payload_helpers chat_methods message_methods model_methods tool_call_methods acts_as]
+  end
+  begin
+    internals.each { |file| require "ruby_llm/active_record/#{file}" }
+  rescue LoadError => e
+    output["records"] = { "skipped" => "ruby_llm #{RubyLLM::VERSION}: #{e.message}" }
+    puts JSON.generate(output)
+    exit
+  end
+
   if V2
-    %w[payload_helpers model tool_call usage batch chat_methods message_methods acts_as].each do |file|
-      require "ruby_llm/active_record/#{file}"
-    end
 
     ActiveRecord::Schema.define do
       create_table :ruby_llm_models do |t|
@@ -192,10 +207,6 @@ else
       acts_as_message
     end
   else
-    %w[payload_helpers chat_methods message_methods model_methods tool_call_methods acts_as].each do |file|
-      require "ruby_llm/active_record/#{file}"
-    end
-
     ActiveRecord::Schema.define do
       create_table :models do |t|
         t.string :model_id, null: false

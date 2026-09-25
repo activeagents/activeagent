@@ -16,6 +16,9 @@ module ActionAgent
     # Providers addressed by host URL instead of a key.
     HOST_PROVIDERS = %w[ollama].freeze
     PROVIDERS = (KEY_PROVIDERS + HOST_PROVIDERS).freeze
+    # Resolver options that point a provider somewhere other than its public
+    # endpoint — a proxy or gateway whose key is meant for that endpoint only.
+    ENDPOINT_OPTIONS = %w[uri_base base_url api_base host].freeze
 
     include Ownable
     owned_by :account, :user
@@ -31,21 +34,26 @@ module ActionAgent
       if: :host_based?
 
     class << self
-      # The API keys the engine's own runs would use for +owner+,
-      # `{ "openai" => "sk-...", ... }` — one entry per KEY_PROVIDERS provider
-      # that has one. Host-addressed providers (ollama) are left out: their
-      # credential is a URL, not a key.
+      # The API keys for +owner+, `{ "openai" => "sk-...", ... }` — one entry
+      # per KEY_PROVIDERS provider that has one. Host-addressed providers
+      # (ollama) are left out: their credential is a URL, not a key.
       #
-      # A key is looked up the way generation runs look it up: the host's
-      # `ActionAgent.provider_credentials_resolver` first, and only when it
-      # answers nothing for a provider, the owner's saved row. A resolver
-      # answer without a key (`access_token`/`api_key`) leaves the provider
-      # out, as a run would then fall back to the host's own configuration.
+      # Each key is looked up in the order generation runs use: the host's
+      # `ActionAgent.provider_credentials_resolver`, asked with +owner+, and
+      # only when it answers nothing for a provider, the owner's saved row.
+      # A resolver answer leaves the provider out when it carries no key
+      # (`api_key`/`access_token`) — a run would then use the host's own
+      # configuration — or when it also sends the provider to another
+      # endpoint (ENDPOINT_OPTIONS), since a gateway's key must not reach the
+      # public endpoint a RubyLLM config would pair it with.
       #
-      # +owner+ must be the model this install keeps provider keys by — the
-      # configured `account_class`, or `user_class` when there is none —
-      # because rows are scoped by its id alone, and another model's id would
-      # read someone else's keys. Anything else raises ArgumentError.
+      # On an install with an owner model, +owner+ must be an instance of the
+      # model this install keeps provider keys by — the configured
+      # `account_class`, or `user_class` when there is none — because rows
+      # are scoped by its id alone, and another model's id would read someone
+      # else's keys. Anything else raises ArgumentError. A nil owner reads no
+      # saved rows (only the resolver's keys), and an install with no owner
+      # model reads every saved row.
       #
       # A saved credential that no longer decrypts (a key rotation the row
       # missed) is skipped with a warning rather than raised, so one stale row
@@ -56,7 +64,7 @@ module ActionAgent
       # @return [Hash{String => String}]
       # @raise [ArgumentError] when +owner+ is not an instance of the owner model
       def credentials_for(owner)
-        check_owner!(owner)
+        owner = owner_record(owner)
         saved = nil
 
         KEY_PROVIDERS.sort.each_with_object({}) do |provider, credentials|
@@ -93,13 +101,17 @@ module ActionAgent
 
       private
 
-      def check_owner!(owner)
+      # +owner+ itself — unwrapped from a SimpleDelegator-style decorator —
+      # once it is known to be an instance of the owner model.
+      def owner_record(owner)
+        owner = owner.__getobj__ while defined?(::Delegator) && owner.is_a?(::Delegator)
         association = owner_association
-        return if owner.nil? || association.nil?
+        return owner if owner.nil? || association.nil?
 
         class_name = ActionAgent.public_send(Ownable::CLASS_FOR.fetch(association))
         owner_class = class_name.to_s.safe_constantize
-        return if owner_class.nil? || owner.is_a?(owner_class)
+        raise ArgumentError, "provider keys are kept per #{association}, but #{class_name} does not load" if owner_class.nil?
+        return owner if owner.is_a?(owner_class)
 
         raise ArgumentError,
               "this install keeps provider keys per #{association} (#{class_name}), but was given a #{owner.class.name}"
@@ -113,9 +125,16 @@ module ActionAgent
         end
       end
 
+      # The key a resolver answer carries, in the order the providers' own
+      # options read it (`api_key`, then `access_token`), or nil when it
+      # carries none or sends the provider to another endpoint.
       def key_from(options)
-        options = options.to_h
-        options[:access_token] || options["access_token"] || options[:api_key] || options["api_key"]
+        return unless options.respond_to?(:to_hash)
+
+        options = options.to_hash.stringify_keys
+        return if ENDPOINT_OPTIONS.any? { |name| options[name].present? }
+
+        options["api_key"].presence || options["access_token"].presence
       end
     end
 
