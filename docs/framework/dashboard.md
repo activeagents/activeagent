@@ -604,6 +604,7 @@ only by the dashboard's user:
 
 ```
 app/            the checkout
+db/             the sandbox's SQLite databases, when the checkout uses SQLite (see below)
 runtime.json    the manifest the checkout wrote (made owner-only, 0600)
 state.json      { pid, port, started_at, step_pid, code_sessions: { "<id>" => pid } }
 state.lock      what changes to state.json are serialized on
@@ -617,7 +618,8 @@ checkout can take minutes) and does the following, in order:
 1. Fetches the ref, one commit deep, into `app/`. The GitHub token is only in
    the environment of that fetch. It never appears on a command line, and it
    is never written to `.git/config`.
-2. Reads `.activeagents/sandbox.yml` from the checkout, if there is one.
+2. Reads `.activeagents/sandbox.yml` from the checkout, if there is one, and
+   gives the sandbox [databases of its own](#a-database-per-sandbox).
 3. Runs each `setup` command.
 4. Picks a free port and runs the `manifest` command.
 5. Starts the `start` command in its own process group, with its output in
@@ -665,7 +667,8 @@ start: bin/rails server -b 127.0.0.1 -p $PORT        # default; must serve on 12
   exit 0. `start` must keep running.
 - Each command's environment is the sanitized dashboard environment, plus
   `PORT`, `ACTION_AGENT_SANDBOX_MANIFEST` (an absolute path inside the
-  workspace) and `ACTION_AGENT_SANDBOX_SESSION_ID`, plus the file's `env`.
+  workspace) and `ACTION_AGENT_SANDBOX_SESSION_ID`, plus the sandbox's
+  [database variables](#a-database-per-sandbox), plus the file's `env`.
   The port is picked after setup, when it was last seen free; nothing holds it
   until the server binds it, so a server that finds it taken fails the boot
   rather than being mistaken for the process that took it (step 6).
@@ -716,13 +719,61 @@ through. Because `RAILS_ENV` is dropped, a Rails checkout boots in development
 unless its `env` sets it. A checkout that needs a key of its own sets it in
 `env`, or reads it from its own credentials.
 
+### A database per sandbox
+
+A checkout's `config/database.yml` usually names a fixed development
+database. For a checkout of the app you run the dashboard from, that is
+*your* development database, and its `db:prepare` would migrate it. So every
+sandbox boots on databases of its own, set through the variables Rails
+merges over `database.yml`: `DATABASE_URL` for the `primary` database, and
+`<NAME>_DATABASE_URL` for any other, as for the `queue` and `cache`
+databases Rails 8's Solid Queue and Solid Cache add
+(`QUEUE_DATABASE_URL`, `CACHE_DATABASE_URL`).
+
+The backend reads the adapter and database name of each entry in the
+checkout's `config/database.yml`, for the environment the checkout boots in
+(`RAILS_ENV` from `env`, or `development`):
+
+| Adapter | Each database becomes | When the sandbox is terminated |
+|---|---|---|
+| `sqlite3` | `sqlite3:<workspace>/db/development.sqlite3` (`development_<name>.sqlite3` for the others) | removed with the workspace |
+| `postgresql`, `postgis` | `postgresql:///<database>_sandbox_<first 8 of the session id>` | dropped with the checkout's own `bin/rails db:drop` |
+| `mysql2`, `trilogy` | `mysql2:///<database>_sandbox_<first 8 of the session id>` | the same |
+| anything else | left as configured, and logged | — |
+
+- The URLs name only the database. Rails merges a URL over the entry, so the
+  host, port, user and password stay what `database.yml` or the environment
+  (`PGHOST`, `PGPORT`, `PGUSER`) say. `PGPASSWORD` is a secret the
+  sanitizing drops: use `~/.pgpass`, or set it in `env`.
+- A replica (`replica: true`) reads its primary's database. An entry with
+  `database_tasks: false` is a database the app does not manage, and is left
+  alone. So is one given as a `url:`, which Rails lets no variable override.
+- `SKIP_TEST_DATABASE=1` is set too: without it, `db:prepare` in development
+  also prepares the test database, which is still yours.
+- Claude Code sessions get the same variables, so a `bin/rails db:migrate`
+  a session runs lands in the sandbox's database.
+- The drop runs after the server has stopped, with the sandbox's
+  environment and the URLs the backend recorded when it booted, and is given
+  60 seconds. It is best effort: a failed drop is logged and the sandbox goes
+  anyway. A boot that fails drops what its setup may have created.
+- `database.yml` is never evaluated in the dashboard. Its ERB tags are
+  blanked out and the rest is read as plain YAML. When that does not parse,
+  the first `adapter:` line is taken as the primary database's. The file is
+  read only at `config/database.yml` in the checkout root: an app nested
+  deeper sets its own (the SQLite path of this repository's `test/dummy` is
+  relative, so already inside the checkout).
+- `logs/setup.log` begins with a `# sandbox database:` line for each decision.
+
+To choose a database yourself, set its variable in `env`; whatever `env`
+sets is left alone, and never dropped:
+
+```yaml
+env:
+  DATABASE_URL: postgresql:///shop_experiments
+```
+
 **Known limits of the local backend.**
 
-- **Databases.** A checkout boots with its own `config/database.yml`. If it
-  names a fixed development database, as most Rails apps do, a checkout of the
-  same app you run the dashboard from uses *your* development database, and
-  its `db:prepare` migrates it. Give the checkout a database of its own in
-  `.activeagents/sandbox.yml` (for example `DATABASE_URL: sqlite3:storage/sandbox.sqlite3`).
 - **Code reloading.** In development, Active Job's default async adapter runs
   jobs inside the web process, and a reloading app holds the reloader while a
   job runs. A checkout boot (up to `local_sandbox_boot_timeout`) or a Claude

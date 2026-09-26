@@ -14,6 +14,9 @@ module ActionAgent
   #
   #   <session_id>/
   #     app/          the checkout
+  #     db/           its SQLite databases, if it uses SQLite (see
+  #                   LocalSandboxDatabases; state.json records the
+  #                   database variables it was given)
   #     runtime.json  the manifest the checkout wrote (see SandboxManifest)
   #     state.json    { pid, port, started_at, code_sessions: { "<id>" => pid } },
   #                   plus the commit checked out, the boot step running
@@ -78,6 +81,8 @@ module ActionAgent
     # How often a running Claude Code session looks for a cancel in
     # state.json.
     CANCEL_CHECK_INTERVAL = 0.5
+    # How long terminate waits on the checkout's `bin/rails db:drop`.
+    DATABASE_DROP_TIMEOUT = 60
     MODEL_NAME = %r{\A[A-Za-z0-9][A-Za-z0-9._:/@\[\]-]{0,127}\z}
 
     # Never inherited from the dashboard: its database, its keys, and the
@@ -350,7 +355,9 @@ module ActionAgent
 
       secrets = sandbox_secrets(sandbox, credentials)
       argv = claude_argv(code_session)
+      database_env = read_state(workspace)["database_env"]
       env = self.class.sanitized_environment
+        .merge(database_env.is_a?(Hash) ? database_env.transform_values(&:to_s) : {})
         .merge(credentials.to_h { |name, value| [ name.to_s, value.to_s ] })
         .merge(
           "CLAUDE_CONFIG_DIR" => workspace.join("claude").to_s,
@@ -425,7 +432,8 @@ module ActionAgent
 
       app = workspace.join("app")
       config = Config.load(app)
-      env = self.class.sanitized_environment.merge(config.env).merge(
+      databases = assign_databases(workspace, app, config, spec)
+      env = self.class.sanitized_environment.merge(databases).merge(config.env).merge(
         # Merged after the file's env, so a checkout cannot move them.
         SandboxManifest::PATH_ENV => workspace.join("runtime.json").to_s,
         SESSION_ID_ENV => session_id
@@ -465,8 +473,71 @@ module ActionAgent
       # failing step's log tail.
       unless booted
         stop_groups([ server_pid ].compact)
+        # A setup that got as far as db:prepare created the databases.
+        drop_databases(workspace) if workspace
         remove_workspace(workspace) if workspace
       end
+    end
+
+    # The sandbox's own databases (see LocalSandboxDatabases), recorded in
+    # state.json before setup can create them: a terminate, in this process
+    # or after a restart, drops what is recorded there. Claude Code sessions
+    # get them too, so a `bin/rails db:migrate` a session runs lands in the
+    # sandbox's database rather than the developer's.
+    def assign_databases(workspace, app, config, spec)
+      plan = LocalSandboxDatabases.plan(
+        app: app, workspace: workspace, session_id: workspace.basename.to_s, overrides: config.env,
+        fallback_name: spec[:repository].to_s.split("/").last
+      )
+      if plan.notes.any?
+        File.open(log_path(workspace, "setup"), "a") do |file|
+          plan.notes.each { |line| file.puts("# sandbox database: #{line}") }
+        end
+      end
+      return {} if plan.empty?
+
+      update_state(workspace) do |state|
+        state["database_env"] = plan.env
+        state["drop_databases"] = plan.drop
+      end
+      plan.env
+    end
+
+    # Drops the server databases a sandbox was given (PostgreSQL, MySQL),
+    # with the checkout's own `bin/rails db:drop`: the adapter, its gem and
+    # its credentials are the checkout's. Best effort and bounded: a drop
+    # that fails or hangs is logged and the sandbox goes anyway. Only ever
+    # with the URLs recorded here, merged last, so whatever the checkout's
+    # files now say, nothing but the sandbox's own databases is named.
+    def drop_databases(workspace)
+      state = read_state(workspace)
+      database_env = state["database_env"]
+      return unless state["drop_databases"] && database_env.is_a?(Hash) && database_env.any?
+
+      app = workspace.join("app")
+      return unless app.join("bin", "rails").file?
+
+      file_env = begin
+        Config.load(app).env
+      rescue Error
+        {}
+      end
+      env = self.class.sanitized_environment.merge(file_env).merge(database_env.transform_values(&:to_s)).merge(
+        SESSION_ID_ENV => workspace.basename.to_s
+      )
+      output, status = capture(env, [ "bin/rails", "db:drop" ], chdir: app, limit: 64 * 1024, timeout: database_drop_timeout,
+        err: [ :child, :out ])
+      return if status&.success?
+
+      Rails.logger.warn("[ActionAgent] sandbox #{workspace.basename}: could not drop its databases " \
+        "(#{status ? describe(status) : "timed out"}): #{output.to_s.force_encoding(Encoding::UTF_8).scrub.lines.last(5).join.strip}")
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] sandbox #{workspace.basename}: could not drop its databases: #{e.class.name}: #{e.message}")
+    end
+
+    # A method, so the tests can shorten it.
+    def database_drop_timeout
+      DATABASE_DROP_TIMEOUT
     end
 
     def prepare_workspace(workspace)
@@ -1296,6 +1367,9 @@ module ActionAgent
         return false
       end
 
+      # After the server is gone: PostgreSQL refuses to drop a database
+      # while anything is connected to it.
+      drop_databases(workspace)
       remove_workspace(workspace)
       true
     end

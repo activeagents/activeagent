@@ -1035,6 +1035,188 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert_not File.exist?(marker), "the filter's command never ran"
   end
 
+  # --- A database per sandbox ----------------------------------------------
+
+  SQLITE_DATABASE_YML = <<~YAML
+    default: &default
+      adapter: sqlite3
+      pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+      timeout: 5000
+
+    development:
+      primary:
+        <<: *default
+        database: storage/development.sqlite3
+      queue:
+        <<: *default
+        database: storage/development_queue.sqlite3
+        migrations_paths: db/queue_migrate
+
+    test:
+      <<: *default
+      database: storage/test.sqlite3
+  YAML
+
+  POSTGRES_DATABASE_YML = <<~YAML
+    default: &default
+      adapter: postgresql
+      encoding: unicode
+      max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+    development:
+      primary:
+        <<: *default
+        database: shop_development
+      primary_replica:
+        <<: *default
+        database: shop_development
+        replica: true
+      cache:
+        <<: *default
+        database: <%= ENV.fetch("CACHE_DB") { "shop_cache" } %>
+      analytics:
+        <<: *default
+        database: warehouse
+        database_tasks: false
+  YAML
+
+  test "a sqlite checkout boots on databases of its own, in its workspace" do
+    yml = sandbox_yml(manifest: "env > tmp/manifest_env.txt && #{ruby_command("fake_manifest")}")
+    sandbox = sandbox_double(create_origin!(yml, files: { "config/database.yml" => SQLITE_DATABASE_YML }))
+    @backend.create_sandbox(sandbox)
+
+    workspace = workspace(sandbox)
+    setup_env = env_file(workspace.join("app/tmp/setup_env.txt"))
+    server_env = server_record(workspace)["env"]
+    manifest_env = env_file(workspace.join("app/tmp/manifest_env.txt"))
+
+    { "setup" => setup_env, "manifest" => manifest_env, "server" => server_env }.each do |step, env|
+      assert_equal "sqlite3:#{workspace}/db/development.sqlite3", env["DATABASE_URL"], step
+      assert_equal "sqlite3:#{workspace}/db/development_queue.sqlite3", env["QUEUE_DATABASE_URL"], step
+      assert_equal "1", env["SKIP_TEST_DATABASE"], "#{step}: db:prepare leaves the developer's test database alone"
+    end
+    # Not the test process's own DATABASE_URL, which the sanitizing drops.
+    assert_not_equal ENV["DATABASE_URL"], server_env["DATABASE_URL"]
+    assert workspace.join("db").directory?
+    assert_includes workspace.join("logs/setup.log").read, "# sandbox database: DATABASE_URL=sqlite3:#{workspace}/db/development.sqlite3"
+
+    # Claude Code works on the same databases, not the developer's.
+    @backend.run_code_session(sandbox, code_session) { |_event| }
+    claude_env = JSON.parse(workspace.join("claude/invocation.json").read)["env"]
+    assert_equal setup_env["DATABASE_URL"], claude_env["DATABASE_URL"]
+    assert_equal setup_env["QUEUE_DATABASE_URL"], claude_env["QUEUE_DATABASE_URL"]
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+    assert_not workspace.exist?, "the sqlite files go with the workspace"
+  end
+
+  test "a PostgreSQL checkout gets per-sandbox databases, dropped when it is terminated" do
+    drop_log = @tmp.join("db-drop.txt")
+    sandbox = sandbox_double(create_origin!(files: {
+      "config/database.yml" => POSTGRES_DATABASE_YML, "bin/rails" => fake_rails(drop_log)
+    }))
+    @backend.create_sandbox(sandbox)
+
+    short = sandbox.session_id.delete("-").first(8)
+    workspace = workspace(sandbox)
+    server_env = server_record(workspace)["env"]
+    assert_equal "postgresql:///shop_development_sandbox_#{short}", server_env["DATABASE_URL"]
+    assert_equal server_env["DATABASE_URL"], server_env["PRIMARY_REPLICA_DATABASE_URL"], "a replica reads its primary"
+    # An ERB database name is never evaluated: the repository's name stands in.
+    assert_equal "postgresql:///shop_development_cache_sandbox_#{short}", server_env["CACHE_DATABASE_URL"]
+    assert_not server_env.key?("ANALYTICS_DATABASE_URL"), "a database the app does not manage is left alone"
+    assert_not drop_log.exist?
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+
+    drop = drop_log.read
+    assert_includes drop, "argv=db:drop"
+    assert_includes drop, "DATABASE_URL=postgresql:///shop_development_sandbox_#{short}"
+    assert_includes drop, "CACHE_DATABASE_URL=postgresql:///shop_development_cache_sandbox_#{short}"
+    assert_includes drop, "SKIP_TEST_DATABASE=1"
+    assert_includes drop, "FIXTURE_FLAVOR=local", "db:drop runs with the sandbox.yml env too"
+    assert_not workspace.exist?
+  end
+
+  test "a failed boot still drops the databases its setup may have created" do
+    drop_log = @tmp.join("db-drop.txt")
+    origin = create_origin!(sandbox_yml(setup: [ "exit 3" ]),
+      files: { "config/database.yml" => POSTGRES_DATABASE_YML, "bin/rails" => fake_rails(drop_log) })
+
+    assert_raises(Backend::Error) { @backend.create_sandbox(sandbox_double(origin)) }
+
+    assert_includes drop_log.read, "argv=db:drop"
+  end
+
+  test "sandbox.yml's env overrides the default database" do
+    drop_log = @tmp.join("db-drop.txt")
+    yml = YAML.safe_load(sandbox_yml)
+    yml["env"]["DATABASE_URL"] = "postgresql:///chosen_by_the_checkout"
+    sandbox = sandbox_double(create_origin!(yml.to_yaml, files: {
+      "config/database.yml" => "development:\n  adapter: postgresql\n  database: shop_development\n",
+      "bin/rails" => fake_rails(drop_log)
+    }))
+    @backend.create_sandbox(sandbox)
+
+    workspace = workspace(sandbox)
+    server_env = server_record(workspace)["env"]
+    assert_equal "postgresql:///chosen_by_the_checkout", server_env["DATABASE_URL"]
+    assert_not server_env.key?("SKIP_TEST_DATABASE")
+    assert_includes workspace.join("logs/setup.log").read, "DATABASE_URL: left to .activeagents/sandbox.yml"
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+    assert_not drop_log.exist?, "a database the checkout chose is never dropped"
+  end
+
+  test "reading database.yml never runs its ERB in the dashboard" do
+    app = @tmp.join("app").tap(&:mkpath)
+    app.join("config").mkpath
+    pwned = @tmp.join("pwned")
+    app.join("config/database.yml").write(<<~YAML)
+      development:
+        adapter: postgresql
+        database: <%= File.write(#{pwned.to_s.inspect}, "ran") && "evil" %>
+        <% system("touch #{pwned}-too") %>
+        host: <%= `touch #{pwned}-backtick` %>
+    YAML
+
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12-3456", fallback_name: "shop")
+
+    assert_not pwned.exist?
+    assert_not Pathname("#{pwned}-too").exist?
+    assert_not Pathname("#{pwned}-backtick").exist?
+    assert_equal "postgresql:///shop_development_sandbox_abcdef12", plan.env["DATABASE_URL"]
+    assert plan.drop
+
+    # ERB that leaves no YAML behind still names its adapter.
+    app.join("config/database.yml").write("<% if true %>\ndevelopment: <%= 1 %>: [\n  adapter: mysql2\n<% end %>\n")
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12-3456", fallback_name: "shop")
+    assert_equal "mysql2:///shop_development_sandbox_abcdef12", plan.env["DATABASE_URL"]
+
+    # An adapter it does not know is left as the checkout configured it.
+    app.join("config/database.yml").write("development:\n  adapter: <%= ENV['ADAPTER'] %>\n  database: x\n")
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12-3456")
+    assert plan.empty?
+    assert_match(/adapter is unknown/, plan.notes.join)
+
+    # A database.yml that is a link out of the checkout is not read.
+    app.join("config/database.yml").delete
+    File.symlink(@tmp.join("elsewhere.yml").tap { |file| file.write("development:\n  adapter: sqlite3\n") }, app.join("config/database.yml"))
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12-3456")
+    assert plan.empty?
+    assert_match(/outside the checkout/, plan.notes.join)
+  end
+
+  test "a url: entry, which Rails lets no variable override, is left to sandbox.yml" do
+    app = @tmp.join("app").tap { |dir| dir.join("config").mkpath }
+    app.join("config/database.yml").write("development:\n  url: postgres://localhost/shop\n")
+
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12")
+
+    assert plan.empty?
+    assert_match(/own url:/, plan.notes.join)
+  end
+
   private
 
   # A listener on a free port, as another process could bind the port the
@@ -1096,19 +1278,34 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
   # A git repository to clone, with a README for Claude Code to edit, a file
   # for it to delete, and tmp/ ignored as a Rails app ignores it.
   # +sandbox_yml+ nil commits none.
-  def create_origin!(sandbox_yml = self.sandbox_yml)
+  def create_origin!(sandbox_yml = self.sandbox_yml, files: {})
     origin = @tmp.join("origin-#{SecureRandom.hex(4)}")
     origin.join(".activeagents").mkpath
     origin.join("README.md").write("# Fixture app\n")
     origin.join("OBSOLETE.md").write("Nothing needs this file.\n")
     origin.join(".gitignore").write("tmp/\n")
     origin.join(".activeagents/sandbox.yml").write(sandbox_yml) if sandbox_yml
+    files.each do |path, content|
+      origin.join(path).dirname.mkpath
+      origin.join(path).write(content)
+      origin.join(path).chmod(0o755) if path.start_with?("bin/")
+    end
 
     git(origin, "init", "-q", "-b", "main")
     git(origin, "add", "-A")
     git(origin, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", "-c", "commit.gpgsign=false",
       "commit", "-q", "-m", "Fixture app")
     "file://#{origin}"
+  end
+
+  # A bin/rails that records how it was run (its arguments and environment)
+  # to +log+, outside the workspace, which terminate removes.
+  def fake_rails(log)
+    "#!/bin/sh\n{ echo \"argv=$*\"; env; } > #{log.to_s.shellescape}\n"
+  end
+
+  def env_file(path)
+    path.read.lines.to_h { |line| line.chomp.split("=", 2) }
   end
 
   def git(dir, *args)
