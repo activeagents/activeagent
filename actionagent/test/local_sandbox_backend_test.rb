@@ -746,20 +746,25 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     configuration&.each { |name, value| ActionAgent.instance_variable_set(name, value) }
   end
 
-  test "claude_login_status keeps only whether and how Claude Code is logged in, for a minute" do
+  test "claude_login_status keeps only whether and how Claude Code is logged in" do
     home = @tmp.join("home").tap { |dir| dir.join(".claude").mkpath }
 
     Bundler.stub(:unbundled_env, ENV.to_h.merge("HOME" => home.to_s)) do
       assert_equal({ logged_in: false, auth_method: nil, api_provider: nil }, Backend.claude_login_status)
 
+      # Logged out is re-asked within seconds, so "Check again" after
+      # `claude /login` turns green without waiting out the minute.
       home.join(".claude/.credentials.json").write("{}")
-      assert_not Backend.claude_login_status[:logged_in], "the answer is cached"
-
-      Backend.reset_claude_login_status!
+      assert_not Backend.claude_login_status[:logged_in], "a moment later the answer is still cached"
+      sleep Backend::LOGGED_OUT_STATUS_TTL + 0.2
       status = Backend.claude_login_status
       assert_equal({ logged_in: true, auth_method: "claude.ai", api_provider: "firstParty" }, status)
       assert_not_includes status.to_json, "developer@example.com"
       assert_not_includes status.to_json, "Fixture Org"
+
+      # Logged in is trusted for the full minute.
+      home.join(".claude/.credentials.json").delete
+      assert Backend.claude_login_status[:logged_in], "a logged-in answer is cached"
     end
   end
 
