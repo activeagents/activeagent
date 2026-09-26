@@ -3,7 +3,10 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { timeAgo } from '../../utils/format';
 import {
   CODE_SESSION_POLL_INTERVAL_MS,
+  MODEL_CHOICE_STORAGE_KEY,
+  OTHER_MODEL_CHOICE,
   apiErrorMessage,
+  codeSessionRequestBody,
   codeSessionNeverRan,
   codeSessionStatus,
   diffLines,
@@ -13,8 +16,13 @@ import {
   isCodeSessionFinished,
   isCodeSessionSettled,
   mergeEvents,
+  modelForRequest,
+  modelOptions,
+  parseModelChoice,
   pollGivesUp,
+  serializeModelChoice,
   sessionCounts,
+  sessionModelLabel,
   sessionResultLine,
   sessionSummary,
   sessionTitle,
@@ -24,6 +32,25 @@ import {
 
 // The composer's limit, as the model validates it.
 const MAX_PROMPT_CHARACTERS = 20000;
+
+// The model choice the composer last used, in this browser. Storage can be
+// missing or refuse (a private window, blocked site data): then it is the
+// default, and nothing is remembered.
+const readModelChoice = () => {
+  try {
+    return parseModelChoice(window.localStorage.getItem(MODEL_CHOICE_STORAGE_KEY));
+  } catch (_error) {
+    return parseModelChoice(null);
+  }
+};
+
+const rememberModelChoice = (choice, custom) => {
+  try {
+    window.localStorage.setItem(MODEL_CHOICE_STORAGE_KEY, serializeModelChoice(choice, custom));
+  } catch (_error) {
+    // Not remembered; the session still runs on it.
+  }
+};
 
 // Where a transcript or diff is read: a shade apart from the card's rows.
 const surfaceStyle = (darkMode) => ({ backgroundColor: darkMode ? '#1a1a1a' : '#ffffff' });
@@ -62,6 +89,7 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
   const [reloadTick, setReloadTick] = useState(0);
   const [listTick, setListTick] = useState(0);
   const [prompt, setPrompt] = useState('');
+  const [modelChoice, setModelChoice] = useState(readModelChoice);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState(null);
@@ -178,16 +206,25 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
   };
 
+  const modelError = modelForRequest(modelChoice.choice, modelChoice.custom).error || null;
+  const chooseModel = (next) => {
+    setModelChoice((current) => {
+      const value = { ...current, ...next };
+      rememberModelChoice(value.choice, value.custom);
+      return value;
+    });
+  };
+
   const run = async () => {
     const text = prompt.trim();
-    if (!text || blockedReason || submitting) return;
+    if (!text || blockedReason || submitting || modelError) return;
     setSubmitting(true);
     setError(null);
     try {
       const res = await fetch(base, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify(codeSessionRequestBody(text, modelChoice.choice, modelChoice.custom)),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -252,6 +289,32 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
           placeholder="What should Claude Code do in this checkout?"
           className={`w-full px-3 py-2 border rounded-lg text-sm disabled:opacity-60 ${darkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900'}`}
         />
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor={`code-session-model-${sandbox.session_id}`} className={`text-xs ${muted}`}>Model</label>
+          <select
+            id={`code-session-model-${sandbox.session_id}`}
+            value={modelChoice.choice}
+            onChange={(e) => chooseModel({ choice: e.target.value })}
+            disabled={submitting}
+            className={`px-2 py-1 border rounded text-xs ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+          >
+            {modelOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          {modelChoice.choice === OTHER_MODEL_CHOICE && (
+            <input
+              type="text"
+              value={modelChoice.custom}
+              onChange={(e) => chooseModel({ custom: e.target.value })}
+              disabled={submitting}
+              maxLength={100}
+              placeholder="claude-sonnet-4-5"
+              aria-label="Model id"
+              aria-invalid={Boolean(modelError)}
+              className={`flex-1 min-w-[10rem] px-2 py-1 border rounded text-xs font-mono ${darkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900'}`}
+            />
+          )}
+        </div>
+        {modelError && modelChoice.custom.trim() && <p className={`text-xs ${darkMode ? 'text-red-300' : 'text-red-700'}`}>{modelError}</p>}
         <div className="flex items-center justify-between gap-3">
           <p className={`text-xs ${muted}`}>
             {blockedReason === 'not_connected' && (
@@ -272,7 +335,7 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
           <button
             type="button"
             onClick={run}
-            disabled={Boolean(blockedReason) || submitting || !prompt.trim()}
+            disabled={Boolean(blockedReason) || submitting || !prompt.trim() || Boolean(modelError)}
             className="shrink-0 px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
           >
             {submitting ? 'Starting…' : 'Run Claude Code'}
@@ -300,6 +363,7 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
                 >
                   <StatusBadge tone={tone}>{label}</StatusBadge>
                   <span className={`flex-1 truncate ${strong}`}>{sessionTitle(session.prompt)}</span>
+                  <span className={`shrink-0 text-xs font-mono ${muted}`}>{sessionModelLabel(session)}</span>
                   <span className={`shrink-0 text-xs ${muted}`}>{timeAgo(session.created_at)}</span>
                 </button>
               );
@@ -345,7 +409,7 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
         <div className="flex items-center gap-2 min-w-0">
           <StatusBadge tone={tone}>{label}</StatusBadge>
           <span className={`text-xs truncate ${muted}`}>
-            {[sessionCounts(session), session.model].filter(Boolean).join(' · ')}
+            {[sessionCounts(session), sessionModelLabel(session)].filter(Boolean).join(' · ')}
           </span>
         </div>
         {active && (

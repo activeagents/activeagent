@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   apiErrorMessage,
+  codeSessionRequestBody,
+  modelForRequest,
+  modelOptions,
+  parseModelChoice,
+  serializeModelChoice,
+  sessionModelLabel,
   codeSessionNeverRan,
   codeSessionStatus,
   diffLines,
@@ -528,4 +534,31 @@ test('a cancelled session is settled only once the server says no diff is pendin
   assert.equal(isCodeSessionDiffPending({ status: 'running', diff_pending: true }), false);
   assert.equal(isCodeSessionSettled({ status: 'succeeded' }), true);
   assert.equal(codeSessionNeverRan({ status: 'failed', diff_pending: false, diff: null }), false);
+});
+
+test('model choices: the default sends no model, aliases and a typed id send theirs', () => {
+  assert.deepEqual(modelOptions().map((option) => option.value), ['default', 'sonnet', 'opus', 'haiku', 'other']);
+  assert.equal(modelOptions()[0].label, "Default (Claude Code's own)");
+
+  assert.deepEqual(modelForRequest('default'), { model: null });
+  assert.deepEqual(modelForRequest('opus'), { model: 'opus' });
+  assert.deepEqual(modelForRequest('other', '  claude-sonnet-4-5[1m] '), { model: 'claude-sonnet-4-5[1m]' });
+  assert.match(modelForRequest('other', '   ').error, /Enter a model id/);
+  assert.match(modelForRequest('other', '--dangerously-skip-permissions').error, /not a Claude Code model name/);
+  assert.match(modelForRequest('other', 'a b').error, /not a Claude Code model name/);
+  assert.deepEqual(modelForRequest('something-stale'), { model: null }, 'an unknown choice is the default');
+
+  assert.deepEqual(codeSessionRequestBody('Hi', 'default', ''), { prompt: 'Hi' });
+  assert.deepEqual(codeSessionRequestBody('Hi', 'haiku', 'ignored'), { prompt: 'Hi', model: 'haiku' });
+  assert.deepEqual(codeSessionRequestBody('Hi', 'other', 'claude-opus-4-1'), { prompt: 'Hi', model: 'claude-opus-4-1' });
+
+  const remembered = serializeModelChoice('other', 'claude-opus-4-1');
+  assert.deepEqual(parseModelChoice(remembered), { choice: 'other', custom: 'claude-opus-4-1' });
+  assert.deepEqual(parseModelChoice(serializeModelChoice('sonnet')), { choice: 'sonnet', custom: '' });
+  for (const raw of [null, '', 'not json', '[]', '{"choice":"gpt"}', '42']) {
+    assert.deepEqual(parseModelChoice(raw), { choice: 'default', custom: '' }, String(raw));
+  }
+
+  assert.equal(sessionModelLabel({ model: 'opus' }), 'opus');
+  assert.equal(sessionModelLabel({ model: null }), 'default model');
 });

@@ -889,8 +889,12 @@ workspaces.
 When a sandbox is **ready**, its card in Settings → Integrations shows a
 Claude Code panel. **Run Claude Code** stays disabled until Claude Code is
 connected (see [Claude Code](#claude-code)). Write a prompt, and the dashboard
-runs Claude Code headless in the checkout. The panel shows each event as it
-arrives:
+runs Claude Code headless in the checkout. The **Model** select next to it
+picks what the session runs on: *Default (Claude Code's own)* sends no
+model, `sonnet`, `opus` and `haiku` are Claude Code's aliases, and *Other…*
+takes a full model id (`claude-sonnet-4-5`). The panel remembers the last
+choice in this browser. Each session in the list, and the open one, shows
+its model. The panel shows each event as it arrives:
 
 - the assistant's text;
 - each tool call and its result;
@@ -910,7 +914,8 @@ stored in `active_agent_code_sessions`. An existing install gets that table by
 running `rails generate action_agent:install` and `rails db:migrate` again.
 The API offers the same actions:
 
-- `GET` and `POST /api/sandboxes/:session_id/code_sessions`;
+- `GET` and `POST /api/sandboxes/:session_id/code_sessions` (`prompt`, and
+  an optional `model`);
 - `GET …/code_sessions/:id?after=N`, which returns events from index N, and
   the diff once the session has finished;
 - `POST …/code_sessions/:id/cancel`.
