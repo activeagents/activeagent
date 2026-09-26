@@ -54,6 +54,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     default, the `sonnet`, `opus` and `haiku` aliases, or any model id under
     *Other…*. It remembers the last choice per browser, and each session
     shows the model it ran on.
+  - A run can use a checkout sandbox without the agent being edited:
+    `sandbox_id` on `POST /api/evaluations/:id/run` (and on the runner's
+    `/api/agents/:id/execute` and `/test`) gives that run's tool dispatcher
+    the sandbox's `sandbox:<session_id>` runtime, as if the agent listed it.
+    The sandbox must be the caller's, a ready `app_runtime` sandbox, and the
+    agent owner's; anything else is a `422`. The run records which sandbox
+    it used (`run.sandbox`), and a scenario suite's **Run against sandbox**
+    select, its Runs list and the run report show it.
 - **Claude Code connection** (`actionagent`, #478). Settings -> Integrations
   stores a `claude setup-token` token (`sk-ant-oat…`) or an Anthropic API key
   as the `claude_code` provider key. It is encrypted, write-only, and not an

@@ -4,6 +4,7 @@ module ActionAgent
   module Api
     class AgentsController < BaseController
       include AgentSerialization
+      include RunSandbox
 
       # Ranking for the agent cards. Every dimension except "recent" reads the
       # scorecard, which is computed in Ruby over both execution sources, so
@@ -23,7 +24,7 @@ module ActionAgent
       # same reason as the rest and one more: a keyword splat wins over the
       # arguments before it, so a client sending params[params][actor] would
       # otherwise name the caller its own run is authorized as.
-      RESERVED_EXECUTION_KEYS = [ :attachments, :action, :actor, :current_user ].freeze
+      RESERVED_EXECUTION_KEYS = [ :attachments, :action, :actor, :current_user, :runtime_sandbox ].freeze
 
       before_action :set_agent, only: [
         :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics,
@@ -167,13 +168,16 @@ module ActionAgent
       #
       # JSON as before, or multipart from the runner's composer: the new
       # user message, its files (attachments[]) and the conversation to
-      # continue (params[context_id], or a top-level context_id).
+      # continue (params[context_id], or a top-level context_id). A
+      # `sandbox_id` runs it against that checkout sandbox's app runtime
+      # too, without editing the agent (see RunSandbox); so does /test.
       def execute
         run = @agent.execute(
           execution_prompt,
           action: params[:action_name],
           attachments: uploaded_attachments,
           actor: agent_actor,
+          runtime_sandbox: run_sandbox_for(@agent, params[:sandbox_id])&.runtime_server_key,
           **execution_params
         )
         record_execution_usage
@@ -188,6 +192,7 @@ module ActionAgent
           action: params[:action_name],
           attachments: uploaded_attachments,
           actor: agent_actor,
+          runtime_sandbox: run_sandbox_for(@agent, params[:sandbox_id])&.runtime_server_key,
           **execution_params
         )
         record_execution_usage

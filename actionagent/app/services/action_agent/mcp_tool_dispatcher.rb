@@ -12,12 +12,25 @@ module ActionAgent
   # Only HTTP transports are dispatchable. A stdio server runs as a child
   # process of whatever launched it, so the dashboard has no address to call —
   # those stay listable and attributable without being callable.
+  #
+  # A single run can also reach a checkout sandbox's app runtime the agent
+  # does not name (+extra_server_keys+, "sandbox:<session_id>"): evaluating
+  # an agent against a checkout someone is experimenting in, without saving
+  # that sandbox on the agent. Such a key is treated as if the agent had it
+  # enabled, and resolves exactly as a saved one does: through
+  # SandboxSession.runtime_server_entry, among the agent's owner's sessions,
+  # and only while it is live. Only runtime keys are taken; a catalog server
+  # the agent does not enable stays out of reach.
   class MCPToolDispatcher
     HTTP_TRANSPORTS = %w[http streamable_http sse].freeze
 
-    def initialize(agent)
+    attr_reader :extra_server_keys
+
+    def initialize(agent, extra_server_keys: [])
       @agent = agent
       @resolver = EvaluationToolResolver.new(agent)
+      @extra_server_keys = Array(extra_server_keys).map { |key| key.to_s.strip }
+        .select { |key| SandboxSession.runtime_server_key?(key) }.uniq
       @clients = {}
       @listed_by = {}
     end
@@ -32,7 +45,7 @@ module ActionAgent
     # Whether the agent names any server the dashboard can call. An agent with
     # none has nothing to execute beyond the engine's own toolbox.
     def any_reachable_server?
-      resolver.declared_server_keys.any? do |key|
+      server_keys.any? do |key|
         entry = catalog_entry(key)
         entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
       end
@@ -78,7 +91,7 @@ module ActionAgent
       @discovery_errors = {}
       @listed_by = {}
 
-      resolver.declared_server_keys.flat_map do |key|
+      server_keys.flat_map do |key|
         entry = catalog_entry(key)
         next [] unless entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
 
@@ -113,7 +126,7 @@ module ActionAgent
     # execution that follows cannot produce a meaningful result, so a caller
     # can fail loudly instead of scoring an answer the model invented.
     def all_servers_failed?
-      keys = resolver.declared_server_keys.select do |key|
+      keys = server_keys.select do |key|
         entry = catalog_entry(key)
         entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
       end
@@ -124,6 +137,23 @@ module ActionAgent
     private
 
     attr_reader :agent, :resolver, :listed_by
+
+    # The servers this dispatcher calls: the agent's own, then any runtime
+    # this run was given on top of them.
+    def server_keys
+      declared = resolver.declared_server_keys
+      declared + extra_server_keys.reject { |key| declared.include?(normalize(key)) }
+    end
+
+    # Whether the agent enabled +key+, or this run was given it.
+    def enabled?(key)
+      resolver.status_for(key) == EvaluationToolResolver::ENABLED ||
+        extra_server_keys.any? { |extra| normalize(extra) == normalize(key) }
+    end
+
+    def normalize(key)
+      key.to_s.strip.downcase
+    end
 
     # The catalog entry for the server that serves this tool, but only when the
     # agent configured that server and the entry carries an http url. Scoping to
@@ -169,7 +199,7 @@ module ActionAgent
     # http url to call; nil otherwise.
     def reachable_entry(key)
       return nil if key.blank?
-      return nil unless resolver.status_for(key) == EvaluationToolResolver::ENABLED
+      return nil unless enabled?(key)
 
       entry = catalog_entry(key)
       return nil unless entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS)

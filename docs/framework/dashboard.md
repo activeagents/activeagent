@@ -542,6 +542,38 @@ runs and evaluations of that agent call the checkout's own tools. The lookup
 is scoped to the agent's owner, so one tenant cannot name another tenant's
 sandbox.
 
+### Running against a sandbox without editing the agent
+
+A checkout sandbox is where you try a change: boot a branch, perhaps have a
+[Claude Code session](#claude-code-sessions) edit an agent's tools there, and
+then see how the agent does with them. For that, a single run can use a
+sandbox's runtime without the key being saved on the agent. In a scenario
+suite, pick it in **Run against sandbox** next to the models field (the
+select lists your ready checkout sandboxes). Every replay of that run is
+offered the runtime's tools beside the agent's own, and calls them there, as
+if the agent listed `sandbox:<session_id>`. The next run, and the agent's
+saved `mcp_servers`, are unchanged.
+
+The run records the sandbox it used, and the Runs list, the suite's summary
+line and the run report all name it (`against acme/shop@experiment ·
+1a2b3c4d`). The API takes the same thing as `sandbox_id`:
+
+| Endpoint | What `sandbox_id` does |
+|---|---|
+| `POST /api/evaluations/:id/run` | Every replay of this run reaches the sandbox's runtime. The run's `sandbox` (and `selection.sandbox`) is `{ session_id, server_key, repository, repository_ref }` |
+| `POST /api/agents/:id/execute`, `POST /api/agents/:id/test` | This runner run reaches it. The run's summary carries `sandbox_id` |
+
+The sandbox must be yours (in your current account, in a multi-tenant
+install), an `app_runtime` sandbox, and ready. It must also belong to the
+agent's owner, because the runtime is resolved among that owner's sessions,
+as a saved key is. Anything else is refused with `422` and a message saying
+which (`code: "sandbox_refused"`). A sampling evaluation, which scores
+recorded generations rather than running the agent, and a suite a host
+adapter replays, cannot run against a sandbox. A queued run whose sandbox has
+stopped by the time it starts fails, saying so, rather than replaying without
+the tools it was meant to test. The runtime's token is never in a response
+or a stored record: runs store only the `sandbox:<session_id>` key.
+
 ### Claude Code
 
 Settings -> Integrations also connects **Claude Code**. Paste the token

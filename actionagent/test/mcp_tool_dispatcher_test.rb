@@ -381,6 +381,37 @@ class MCPToolDispatcherRuntimeTest < ActiveSupport::TestCase
     assert_dispatched_to_runtime([ { "key" => @session.runtime_server_key, "name" => "acme/docs@main (sandbox)" } ])
   end
 
+  test "a runtime given for one run dispatches as if the agent enabled it, and only a runtime is taken" do
+    stub_runtime
+    agent = agent_with([])
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent, extra_server_keys: [ @session.runtime_server_key, "playwright", "" ])
+
+    assert_equal [ @session.runtime_server_key ], dispatcher.extra_server_keys, "a catalog server is not the run's to add"
+    assert dispatcher.any_reachable_server?
+    assert_equal %w[lookup_order], dispatcher.tool_definitions.map { |tool| tool[:name] }
+    assert_equal({ text: "order A-17 shipped" }, dispatcher.call("lookup_order", { "id" => "A-17" }))
+    assert_equal [], agent.mcp_servers
+    assert_not ActionAgent::MCPToolDispatcher.new(agent).any_reachable_server?, "the next run without it does not reach it"
+  end
+
+  test "a runtime given for one run still resolves among the agent's owner's sessions only" do
+    WebMock::RequestRegistry.instance.reset!
+    ActionAgent.user_class = "User"
+    owner = User.create!(email: "owner-#{SecureRandom.hex(3)}@example.com", name: "Owner", age: 30)
+    stranger = User.create!(email: "stranger-#{SecureRandom.hex(3)}@example.com", name: "Stranger", age: 30)
+    @session.update_columns(user_id: owner.id)
+    agent = agent_with([])
+    agent.user_id = stranger.id
+
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent, extra_server_keys: [ @session.runtime_server_key ])
+
+    assert_empty dispatcher.tool_definitions
+    assert_nil dispatcher.call("lookup_order", { "id" => "A-17" })
+    assert_not_requested(:post, RUNTIME_URL)
+  ensure
+    ActionAgent.user_class = nil
+  end
+
   test "a runtime that has expired is neither offered nor dispatched to" do
     stub_runtime
     dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ @session.runtime_server_key ]))

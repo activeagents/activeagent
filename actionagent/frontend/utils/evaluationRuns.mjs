@@ -437,3 +437,48 @@ export const samplingFixItems = (evaluation, run) => {
   }
   return items;
 };
+
+// --- runs against a checkout sandbox ----------------------------------------
+//
+// A scenario run can replay against a checkout sandbox's app runtime without
+// the agent being edited: the run's `sandbox_id` (a session id) adds that
+// runtime's tools to every replay. The run then records the sandbox it used
+// as `run.sandbox` ({ session_id, server_key, repository, repository_ref };
+// only the session id while it is still queued).
+
+// The caller's checkout sandboxes a run can use, from GET
+// /api/sandboxes?sandbox_type=app_runtime: ready ones only, newest first as
+// listed, labelled by checkout.
+export const runSandboxOptions = (sandboxes) => (Array.isArray(sandboxes) ? sandboxes : [])
+  .filter((sandbox) => sandbox && sandbox.session_id && sandbox.status === 'ready'
+    && (sandbox.sandbox_type == null || sandbox.sandbox_type === 'app_runtime')
+    // Listed without a key until its backend reported the runtime endpoint.
+    && !('runtime_server_key' in sandbox && !sandbox.runtime_server_key))
+  .map((sandbox) => ({ value: sandbox.session_id, label: sandboxLabel(sandbox) }));
+
+// "acme/shop@main · 1a2b3c4d": the checkout, then the session's first
+// characters, which tell two sandboxes of one branch apart.
+export const sandboxLabel = (sandbox) => {
+  if (!sandbox || !sandbox.session_id) return null;
+  const checkout = [sandbox.repository, sandbox.repository_ref].filter(Boolean).join('@');
+  const id = String(sandbox.session_id).slice(0, 8);
+  return checkout ? `${checkout} · ${id}` : `sandbox ${id}`;
+};
+
+// How a run names the sandbox it replayed against, or null for a run on
+// the agent's own servers.
+export const runSandboxLabel = (run) => sandboxLabel(run?.sandbox);
+
+// The body of POST /api/evaluations/:id/run: the selection, the models, and
+// the sandbox when one is chosen.
+export const runRequestBody = (selection = {}, models = [], sandboxId = null) => {
+  const body = { ...selection, models };
+  if (sandboxId) body.sandbox_id = sandboxId;
+  return body;
+};
+
+// The chosen sandbox, while it is still one of the options; otherwise none,
+// so a sandbox that stopped is never sent.
+export const keepSandboxChoice = (choice, options) => (
+  choice && (options || []).some((option) => option.value === choice) ? choice : ''
+);
