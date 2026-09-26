@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
+  Provider API Keys gains a **Test connection** for Ollama that reports
+  whether the server is reachable, the round-trip time and the models it
+  serves, before or after saving (`POST <mount>/api/provider_keys/test`,
+  read-only). The host is accepted as a bare server address
+  (`http://localhost:11434`; the OpenAI-compatible `/v1` path is added) and
+  an optional **API key** is stored beside it and sent as a Bearer token,
+  for a server behind an authenticating proxy or Ollama Cloud. The agent
+  builder's live Ollama model list uses the same probe and key. When no host
+  is configured the card shows the host app's `config/active_agent.yml`
+  default. The install generator emits a guarded `add_provider_key_api_key`
+  migration for existing installs; re-run
+  `bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`.
+
 ## [1.7.0] - 2026-09-24
 
 Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:
