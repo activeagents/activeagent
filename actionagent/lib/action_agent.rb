@@ -519,6 +519,17 @@ module ActionAgent
     # @return [Boolean]
     attr_accessor :mcp_schema_tools
 
+    # Whether the MCP facade (POST <mount>/mcp) offers the dashboard's own
+    # evaluation and telemetry tools — evaluations_list, evaluations_get,
+    # evaluations_run, evaluation_runs_get, evaluation_runs_compare,
+    # traces_search, traces_get — so a client's coding harness can run an
+    # agent's evaluations and read its traces while it edits the agent. Each
+    # reads under the key's owner, as the dashboard's JSON API reads under the
+    # signed-in owner. On by default; set it to false to leave the facade
+    # serving agents and schema tools only.
+    # @return [Boolean]
+    attr_accessor :mcp_dashboard_tools
+
     # Directory scanned for SchemaTools subclasses when {#schema_tools} is
     # unset. Relative to the host's root. Set to nil to disable discovery and
     # require an explicit declaration. Classes built at runtime with
@@ -561,6 +572,14 @@ module ActionAgent
     # @return [Boolean]
     def mcp_schema_tools?
       @mcp_schema_tools != false
+    end
+
+    # Whether the MCP facade serves the dashboard's evaluation and telemetry
+    # tools.
+    #
+    # @return [Boolean]
+    def mcp_dashboard_tools?
+      @mcp_dashboard_tools != false
     end
 
     # Returns whether agent execution is permitted.
@@ -758,6 +777,7 @@ module ActionAgent
       @schema_tools = nil
       @schema_tools_path = "app/agent_tools"
       @mcp_schema_tools = nil
+      @mcp_dashboard_tools = nil
     end
 
     # Host-declared schema tool classes, resolved from names and filtered to

@@ -23,6 +23,19 @@ machine instead.
 
 ### Added
 
+- **Evaluation and telemetry tools on the MCP facade** (`actionagent`). The
+  dashboard's MCP server now offers `evaluations_list`, `evaluations_get`,
+  `evaluations_run`, `evaluation_runs_get`, `evaluation_runs_compare`,
+  `traces_search` and `traces_get`, so a developer's own coding harness can
+  run an agent's evaluations, read the fix items and failing traces, and
+  iterate on the agent in its own checkout without the dashboard holding a
+  model login. The tools read under the API key's owner exactly as the JSON
+  API reads under the signed-in owner, run through the same execution,
+  quota and sandbox checks as `POST /api/evaluations/:id/run`, bound their
+  output, and mask the owner's credentials. Their names cannot collide with
+  schema tools or agent tools. `ActionAgent.mcp_dashboard_tools = false`
+  turns them off.
+
 - **Local checkout sandboxes and Claude Code sessions** (`actionagent`, #489).
   A new `:local` sandbox backend (`config.sandbox_service = :local`) makes
   **Start sandbox** work on a developer's machine without containers. It

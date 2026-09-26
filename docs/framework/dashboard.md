@@ -482,7 +482,8 @@ as a Bearer token. Connect a client with:
   "headers": { "Authorization": "Bearer aa_..." } }
 ```
 
-`tools/list` offers two kinds of tool:
+`tools/list` offers three kinds of tool: the two below, and the dashboard's
+[evaluation and telemetry tools](#evaluations-and-telemetry-from-your-coding-harness).
 
 | Tool | What a call does |
 |---|---|
@@ -501,6 +502,49 @@ generation, so neither `execution_enabled` nor the execution quota applies to
 them. Set `ActionAgent.mcp_schema_tools = false` to keep schema tools
 reachable only through agents. `agent://<slug>` resources return each
 agent's live scorecard.
+
+### Evaluations and telemetry from your coding harness
+
+The facade also serves the dashboard's own evaluation and telemetry tools, so
+the coding harness you already use (Claude Code, Codex, Cursor, …) can edit an
+agent in your checkout, run its evaluations, read what failed, and try again.
+The harness brings its own model and login; the dashboard only answers the
+calls.
+
+| Tool | What a call does |
+|---|---|
+| `evaluations_list` | Lists the evaluations of the key's agents, newest first, each with its latest run's status and score; `agent` (slug or id) filters to one agent |
+| `evaluations_get` | One evaluation: its criteria, its scenarios and its 10 most recent runs |
+| `evaluations_run` | Starts a run. Takes the same selection as `POST /api/evaluations/:id/run`: `scenario_ids`, `keys`, `group`, `models` and `sandbox_id`. A scenario suite runs in the background and comes back `pending` with its run id; a sampling evaluation finishes before the call returns |
+| `evaluation_runs_get` | One run (the latest by default): status, scores, usage, fix items and per-scenario, per-model results, each naming its telemetry trace when one was recorded. `failed_only` and `limit` narrow the results |
+| `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
+| `traces_search` | Summary rows of traces, newest first, filtered by `agent` (class name or dashboard slug), `status` (`error` or `ok`), `service`, `since_minutes`, `min_tokens` and `min_duration_ms`; at most 100 |
+| `traces_get` | One trace by id, OpenTelemetry trace id or its first 8 characters: spans, tool calls with their arguments and results, tokens, estimated cost and failed spans |
+
+A typical loop: `evaluations_run`, poll `evaluation_runs_get` until the run is
+`complete`, read the fix items and a failing result's trace with
+`traces_get`, edit the agent, run again, and check the change with
+`evaluation_runs_compare`. Passing `sandbox_id` runs the evaluation against a
+checkout sandbox's app tools without editing the agent (see
+[checkout sandboxes](#github-connections-and-checkout-sandboxes)).
+
+The tools read what the JSON API reads for the key's owner: evaluations of
+the agents the owner can reach, and traces of the owner's tenant (every trace,
+in an install that is not multi-tenant). Another owner's evaluation or trace
+answers exactly as a nonexistent one does. `evaluations_run` is checked the
+way the JSON API checks a run: a scenario suite needs `execution_enabled` and
+execution quota, which answer as JSON-RPC errors as they do for `run_<slug>`,
+while an observed agent, an unknown id or a sandbox the run cannot use comes
+back as a tool result with `isError`. Strings longer than 1,000 characters are
+cut and end in `…[truncated: N more characters]`, long lists end in
+`[truncated: N more items]`, and the owner's credentials (API key, provider
+keys, GitHub token, sandbox runtime tokens) are masked from every result.
+
+These names are a noun family followed by a verb. Schema tools are always
+`find_`, `count_` or `get_` plus a model name, and agent tools are
+`run_<slug>`, so no host model (a `Trace` or `Evaluation` model included) and
+no agent slug can produce one of them. Set `ActionAgent.mcp_dashboard_tools =
+false` to leave the facade serving agents and schema tools only.
 
 ## GitHub connections and checkout sandboxes
 
