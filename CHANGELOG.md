@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ActiveAgent::Evals::Publisher#verify!` asks the collector whether it is up
+  and accepts the key before a run is paid for. It posts an empty JSON object,
+  which a compatible collector refuses with a 422 naming `version`, without
+  storing anything; anything else raises `Publisher::Error` with a delivery's
+  status, detail and guidance.
+- `ActiveAgent::Evals::Publisher#endpoint` returns the collector URL.
+
+### Changed
+
+- A `Publisher::Error` for a 401, 403, 404, 415 or 501 rejection says what the
+  status means at a collector — a refused key, an account an operator must act
+  on, an endpoint that is not a collector, a rewritten `Content-Type`, an
+  install with no evaluation store — in place of the generic guidance.
+
 ## [1.7.0] - 2026-09-24
 
 Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:
