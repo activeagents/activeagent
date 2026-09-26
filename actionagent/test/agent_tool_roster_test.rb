@@ -14,6 +14,9 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
     ActionAgent::Agent.delete_all
     ActionAgent::TelemetryTrace.delete_all
     ActionAgent::AgentContext.delete_all
+    # Live checkout runtimes are listed beside the catalog, so one left over
+    # would change how many services a roster has.
+    ActionAgent::SandboxSession.delete_all
     # The dummy app declares no schema tools; Post's stand in for a host's
     # (find_posts, count_posts, get_post).
     @previous_schema_tools = ActionAgent.schema_tools
@@ -205,6 +208,25 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
     assert playwright["tools"].all? { |tool| tool["enabled"] }
     assert_equal false, service_named(body, "git")["enabled"]
     assert_equal "available", service_named(body, "git")["status"]
+  end
+
+  test "every service the dashboard calls over http reads as Streamable HTTP with its url" do
+    previous = ActionAgent.mcp_catalog
+    ActionAgent.mcp_catalog = [
+      { key: "records", name: "Records", transport: "http", url: "https://host.example/mcp/records" },
+      { key: "booking", name: "Booking", transport: "streamable_http", url: "https://booking.example/mcp" },
+      { key: "legacy", name: "Legacy", transport: "sse", url: "https://legacy.example/sse" }
+    ]
+
+    body = roster_for(create_agent)
+
+    assert_equal "Streamable HTTP · https://host.example/mcp/records", service_named(body, "records")["transport"]
+    assert_equal "Streamable HTTP · https://booking.example/mcp", service_named(body, "booking")["transport"]
+    assert_equal "Streamable HTTP · https://legacy.example/sse", service_named(body, "legacy")["transport"]
+    # A stdio server has no url to call; it is described by its command.
+    assert_equal "stdio · npx @modelcontextprotocol/server-slack", service_named(body, "slack")["transport"]
+  ensure
+    ActionAgent.mcp_catalog = previous
   end
 
   test "a service entry naming some of its tools offers only those" do

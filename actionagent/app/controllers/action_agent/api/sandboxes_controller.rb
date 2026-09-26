@@ -12,6 +12,9 @@ module ActionAgent
       # development, so it bypassed that safeguard too.
 
       before_action :require_execution_enabled!, only: [ :run, :compare ]
+      # A checkout runs the owner's code (setup, server): the same gates as
+      # running an agent, like MCPServersController#launch.
+      before_action :gate_checkout!, only: [ :create ]
       before_action :enforce_execution_quota!, only: [ :compare ]
       before_action :set_sandbox, only: [ :show, :run, :destroy ]
 
@@ -83,14 +86,33 @@ module ActionAgent
       end
 
       # GET /api/sandboxes
-      # List available sandbox types and sample tasks
+      # List available sandbox types and sample tasks, and the caller's own
+      # sandboxes (?sandbox_type= narrows them), with what the Settings ->
+      # Integrations view needs to offer Claude Code sessions in a checkout.
       def index
         render json: {
           sandbox_types: SandboxSession::SANDBOX_TYPES,
           free_tier_limits: SandboxSession::FREE_TIER_LIMITS,
           templates: free_tier_templates,
-          sample_tasks: sample_tasks
+          sample_tasks: sample_tasks,
+          sandboxes: listed_sandboxes.map(&:summary),
+          code_sessions_supported: code_sessions_supported?,
+          # Found through the key's own owner column, as
+          # SandboxSession#runtime_environment finds the credential it hands a
+          # checkout: a provider key is account-owned before user-owned.
+          claude_code_connected: owned(ProviderKey).exists?(provider: "claude_code")
         }
+      end
+
+      # Refuses a checkout the owner may not start. Usage is recorded by
+      # #create once the sandbox saved: a request refused for its own
+      # content (a repository that is not selected, say) runs nothing, so it
+      # must not spend a plan run.
+      def gate_checkout!
+        return unless checkout_requested?
+
+        require_execution_enabled!
+        enforce_execution_quota! unless performed?
       end
 
       # POST /api/sandboxes
@@ -108,6 +130,9 @@ module ActionAgent
         if @sandbox.save
           @sandbox.provision!
           @sandbox.reload # Reload to get updated status after provisioning
+          # Counted once the checkout exists, as MCPServersController#launch
+          # counts a launched server.
+          record_execution_usage if checkout_requested?
           render json: { sandbox: @sandbox.summary }, status: :created
         else
           render json: { errors: @sandbox.errors.full_messages }, status: :unprocessable_entity
@@ -165,16 +190,56 @@ module ActionAgent
       end
 
       # DELETE /api/sandboxes/:session_id
-      # End sandbox session
+      # End sandbox session. Expiring it enqueues SandboxCleanupJob, which
+      # terminates whatever the backend runs for it (a checkout's processes
+      # included); one still provisioning is released by
+      # SandboxProvisionJob when its backend returns.
       def destroy
         @sandbox.expire!
-        render json: { deleted: true }
+        render json: { deleted: true, sandbox: @sandbox.summary }
       end
 
       private
 
       def set_sandbox
-        @sandbox = owned(SandboxSession).find_by!(session_id: params[:id])
+        @sandbox = account_scoped(owned(SandboxSession)).find_by!(session_id: params[:id])
+      end
+
+      def checkout_requested?
+        params[:sandbox_type].to_s == "app_runtime"
+      end
+
+      # A checkout runs on its account's GitHub token and Claude Code
+      # credential, so in a multi-tenant install it is listed, shown and
+      # stopped only within the caller's current account, as
+      # CodeSessionsController finds it: listing another account's checkout
+      # as Ready offered a Claude Code panel that then answered 404. Other
+      # sandbox types are the caller's own wherever they were opened.
+      def account_scoped(scope)
+        return scope unless current_account
+
+        scope.where.not(sandbox_type: "app_runtime").or(scope.where(account_id: current_account.id))
+      end
+
+      # Whether the configured backend can run Claude Code sessions. A
+      # backend that cannot even be loaded (a misspelled class in
+      # ActionAgent.sandbox_backends, or a class file requiring an SDK the
+      # host doesn't bundle, which raises LoadError) cannot, and must not
+      # take the rest of this listing down with it.
+      def code_sessions_supported?
+        SandboxOrchestrator.new.supports?(:code_session)
+      rescue StandardError, LoadError => e
+        Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
+        false
+      end
+
+      # The caller's sandboxes that have not expired, newest first. A failed
+      # one stays listed so its error can be read; one past its expiry but
+      # not reaped yet stays listed so it can still be stopped.
+      def listed_sandboxes
+        scope = account_scoped(owned(SandboxSession)).where.not(status: :expired).recent.limit(20)
+        type = params[:sandbox_type]
+        type.is_a?(String) && type.present? ? scope.by_type(type) : scope
       end
 
       # An app_runtime sandbox also names the checkout: one of the owner's

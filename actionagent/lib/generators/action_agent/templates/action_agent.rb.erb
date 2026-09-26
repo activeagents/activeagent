@@ -105,6 +105,40 @@ ActionAgent.configure do |config|
   # config.assistant_enabled = true
 
   # ==========================================================================
+  # Sandboxes
+  # ==========================================================================
+  #
+  # Which backend boots sandboxes: :mock (the default, in memory, runs
+  # nothing), :local, or one you register in sandbox_backends to run them in
+  # containers. The SANDBOX_BACKEND environment variable overrides it.
+  #
+  # config.sandbox_service = :local
+  # config.sandbox_backends = { "cloud_run" => "CloudRunService" }
+  #
+  # :local clones a repository connected in Settings -> Integrations onto
+  # this machine and boots it as child processes of the dashboard, as the
+  # checkout's .activeagents/sandbox.yml says. That runs the repository's
+  # code, and Claude Code sessions in it, with the dashboard's privileges, so
+  # it is off outside development and test until you enable it here.
+  #
+  # config.local_sandboxes_enabled = true
+  # config.local_sandbox_root = Rails.root.join("tmp/action_agent/sandboxes")
+  # config.local_sandbox_boot_timeout = 600   # seconds, for checkout, setup and boot
+  #
+  # Claude Code sessions in a ready checkout. Nobody is there to answer a
+  # permission prompt: "acceptEdits" lets a session edit files in the
+  # checkout and run filesystem commands, and anything else that would ask
+  # is denied.
+  #
+  # config.claude_code_command = "claude"
+  # config.claude_code_permission_mode = "acceptEdits"
+  # config.claude_code_max_turns = nil        # Claude Code's own default
+  # config.claude_code_timeout = 1800         # seconds
+  #
+  # Expired sandboxes are stopped by `bin/rails action_agent:sandbox:reap`.
+  # Schedule it every few minutes.
+
+  # ==========================================================================
   # UI
   # ==========================================================================
   #

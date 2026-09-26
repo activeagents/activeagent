@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Local checkout sandboxes and Claude Code sessions** (`actionagent`, #489).
+  A new `:local` sandbox backend (`config.sandbox_service = :local`) makes
+  **Start sandbox** work on a developer's machine without containers. It
+  clones the repository under `tmp/action_agent/sandboxes`, runs the setup
+  the checkout's optional `.activeagents/sandbox.yml` names (`env`, `setup`,
+  `manifest`, `start`), and boots the app on `127.0.0.1`. It then registers
+  the app's MCP facade as the `sandbox:<session_id>` server. Every process
+  starts from a sanitized copy of the dashboard's environment: without its
+  database and Redis URLs, Rails keys and environment, Bundler and Ruby
+  settings, git repository and config variables, `SSH_AUTH_SOCK`,
+  model-provider and Claude Code settings, variables named like a secret, or
+  URLs carrying credentials. The GitHub token reaches
+  only the fetch, and the Claude Code credential reaches only Claude Code.
+  `:local` runs the owner's code with the dashboard's privileges, so it is off
+  outside development and test unless
+  `ActionAgent.local_sandboxes_enabled = true`.
+  - `bin/rails action_agent:sandbox:manifest` writes the booted app's
+    `{mcp_path, mcp_token}` for the backend.
+  - `bin/rails action_agent:sandbox:reap` expires overdue sandboxes and stops
+    them.
+  - A ready sandbox runs headless Claude Code sessions (`--permission-mode
+    acceptEdits` by default). You start them from Settings -> Integrations, or
+    through `/api/sandboxes/:session_id/code_sessions`. Their events stream
+    into the dashboard, and the checkout's diff follows.
+  - New options: `local_sandboxes_enabled`, `local_sandbox_root`,
+    `local_sandbox_boot_timeout`, `claude_code_command`,
+    `claude_code_permission_mode`, `claude_code_max_turns` and
+    `claude_code_timeout`.
+  - `app_runtime` sandboxes now provision in the background and last 2 hours.
+  - Run `rails g action_agent:install` to add the
+    `create_active_agent_code_sessions` migration.
+  - This repository's own `.activeagents/sandbox.yml` boots `test/dummy`.
 - **Claude Code connection** (`actionagent`, #478). Settings -> Integrations
   stores a `claude setup-token` token (`sk-ant-oat…`) or an Anthropic API key
   as the `claude_code` provider key. It is encrypted, write-only, and not an

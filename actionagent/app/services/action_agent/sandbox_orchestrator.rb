@@ -3,16 +3,14 @@
 module ActionAgent
   # SandboxOrchestrator
   #
-  # Unified interface for managing agent sandbox sessions.
-  # Supports multiple backends for cloud-agnostic deployment:
-  #
-  #   - incus:     Self-hosted Incus containers (any Linux host)
-  #   - cloud_run: Google Cloud Run Jobs (serverless)
-  #   - kubernetes: Kubernetes pods (GKE, EKS, self-hosted k8s)
+  # Unified interface for managing agent sandbox sessions. The engine ships
+  # two backends — :mock (in-memory, runs nothing) and :local (checkouts as
+  # child processes of the dashboard) — and a host registers the rest
+  # (Incus, Cloud Run, Kubernetes) in ActionAgent.sandbox_backends.
   #
   # Configuration:
-  #   Set SANDBOX_BACKEND environment variable to choose backend.
-  #   Default: "incus" for simplicity
+  #   ActionAgent.sandbox_service, or the SANDBOX_BACKEND environment
+  #   variable, which wins. Default: :mock.
   #
   # Usage:
   #   orchestrator = SandboxOrchestrator.new
@@ -21,14 +19,21 @@ module ActionAgent
   #   orchestrator.terminate(container_id)
   #
   class SandboxOrchestrator
-    # The engine ships only the in-memory backend. Anything that talks to
-    # real infrastructure (Incus, Kubernetes, Cloud Run) is registered by
-    # the app that operates it, so the engine carries none of those SDKs:
+    # Anything that talks to real infrastructure (Incus, Kubernetes, Cloud
+    # Run) is registered by the app that operates it, so the engine carries
+    # none of those SDKs:
     #
     #   ActionAgent.sandbox_backends = {
     #     "cloud_run" => "CloudRunService"
     #   }
-    BUILT_IN_BACKENDS = { "mock" => "ActionAgent::MockSandboxBackend" }.freeze
+    #
+    # The engine also ships :local, which boots app_runtime checkouts as
+    # child processes of the dashboard itself (see LocalSandboxBackend and
+    # ActionAgent.local_sandboxes_enabled?).
+    BUILT_IN_BACKENDS = {
+      "mock" => "ActionAgent::MockSandboxBackend",
+      "local" => "ActionAgent::LocalSandboxBackend"
+    }.freeze
 
     # Backends disagree on what to call each verb. Candidates are tried in
     # order and the first the backend responds to wins, so a host-registered
@@ -38,7 +43,11 @@ module ActionAgent
       status: %i[status container_status pod_status job_status],
       terminate: %i[terminate terminate_pod cancel_job],
       list: %i[list_sandboxes list_sandbox_pods list_jobs],
-      cleanup: %i[cleanup_expired cleanup_expired_pods cleanup_expired_jobs]
+      cleanup: %i[cleanup_expired cleanup_expired_pods cleanup_expired_jobs],
+      # Claude Code sessions inside an app_runtime checkout. Optional: a
+      # backend without them simply cannot run sessions (see #supports?).
+      code_session: %i[run_code_session],
+      cancel_code_session: %i[cancel_code_session]
     }.freeze
 
     class UnsupportedBackendError < StandardError; end
@@ -156,6 +165,35 @@ module ActionAgent
     # @return [Integer] Number of sandboxes cleaned up
     def cleanup_expired
       @backend.public_send(adapter_method(:cleanup))
+    end
+
+    # The handle the backend would give +sandbox_session+'s sandbox, for a
+    # backend that derives it from the session (nil otherwise).
+    def handle_for(sandbox_session)
+      @backend.respond_to?(:handle_for) ? @backend.handle_for(sandbox_session) : nil
+    end
+
+    # Whether the backend can name a session's sandbox without a recorded
+    # handle (see #handle_for).
+    def derives_handles?
+      @backend.respond_to?(:handle_for)
+    end
+
+    # Whether the backend implements +verb+ (an ADAPTER_METHODS key).
+    def supports?(verb)
+      ADAPTER_METHODS.fetch(verb).any? { |m| @backend.respond_to?(m) }
+    end
+
+    # Runs a Claude Code session in +sandbox_session+'s checkout, yielding
+    # each stream-json event (a Hash) as it arrives. Returns the backend's
+    # outcome: { exit_status:, diff: }.
+    def run_code_session(sandbox_session, code_session, &on_event)
+      @backend.public_send(adapter_method(:code_session), sandbox_session, code_session, &on_event)
+    end
+
+    # Stops a running Claude Code session.
+    def cancel_code_session(sandbox_session, code_session)
+      @backend.public_send(adapter_method(:cancel_code_session), sandbox_session, code_session)
     end
 
     # Check if the backend is healthy

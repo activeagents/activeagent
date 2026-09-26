@@ -345,6 +345,10 @@ ActionAgent.configure do |config|
   # The Ask ActiveAgents assistant is a development and CI tool, on in
   # development and test only. Turn it on elsewhere deliberately:
   # config.assistant_enabled = true
+
+  # Boot GitHub checkouts as local processes (development and test only
+  # unless local_sandboxes_enabled is set):
+  # config.sandbox_service = :local
 end
 ```
 
@@ -355,7 +359,21 @@ app that mounts `ActionAgent::Engine`. Provider credentials still come from
 dashboard's own per-owner keys layer on top of it rather than replacing it.
 
 **[Dev Console](/framework/dashboard)** covers `authentication_method`,
-`multi_tenant`, `account_class` and `trace_model_class`;
+`multi_tenant`, `account_class` and `trace_model_class`. Its
+[Local checkout sandboxes](/framework/dashboard#local-checkout-sandboxes)
+section covers the sandbox and Claude Code options:
+
+| Option | Default |
+|---|---|
+| `sandbox_service` | `:mock` (`SANDBOX_BACKEND` overrides it) |
+| `local_sandboxes_enabled` | unset: on in development and test, off elsewhere |
+| `local_sandbox_root` | `Rails.root.join("tmp/action_agent/sandboxes")` |
+| `local_sandbox_boot_timeout` | `600` seconds |
+| `claude_code_command` | `"claude"` |
+| `claude_code_permission_mode` | `"acceptEdits"` |
+| `claude_code_max_turns` | `nil` (Claude Code's own default) |
+| `claude_code_timeout` | `1800` seconds |
+
 **[Self-Hosted Dashboard](/framework/self-hosted-observability)** adds
 `ingest_api_key`, `current_account_resolver`, `trace_retention`,
 `execution_enabled`, `assistant_enabled`, `sandbox_backends`, `layout`, and

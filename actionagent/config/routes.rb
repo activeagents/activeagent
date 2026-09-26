@@ -63,14 +63,20 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
-    # Sandboxes. The engine ships the in-memory backend; an operator registers
-    # real ones (see ActionAgent.sandbox_backends).
+    # Sandboxes. The engine ships the in-memory and local backends; an
+    # operator registers the rest (see ActionAgent.sandbox_backends).
     resources :sandboxes, param: :id, only: [ :index, :create, :show, :destroy ] do
       collection do
         post :compare
       end
       member do
         post :run
+      end
+      # Claude Code sessions in an app_runtime sandbox's checkout.
+      resources :code_sessions, only: [ :index, :create, :show ] do
+        member do
+          post :cancel
+        end
       end
     end
 
