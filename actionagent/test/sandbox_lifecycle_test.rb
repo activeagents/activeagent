@@ -90,6 +90,11 @@ class SandboxLifecycleTest < ActionDispatch::IntegrationTest
     ActionAgent.sandbox_service = @original_service
     ActionAgent.user_class = nil
     ActionAgent.current_user_resolver = nil
+    ActionAgent.account_class = nil
+    ActionAgent.current_account_resolver = nil
+    ActionAgent.multi_tenant = false
+    ActionAgent.usage_recorder = nil
+    ActionAgent.quota_checker = nil
   end
 
   test "a checkout is provisioned in the background and polled until ready" do
@@ -408,6 +413,108 @@ class SandboxLifecycleTest < ActionDispatch::IntegrationTest
     assert_equal [ ready, failed, browser ].map(&:session_id), body["sandboxes"].map { |s| s["session_id"] }
     assert_equal true, body["code_sessions_supported"]
     assert_equal true, body["claude_code_connected"]
+  end
+
+  test "a checkout refused for its request spends no run, and one that starts spends exactly one" do
+    recorded = []
+    ActionAgent.usage_recorder = ->(_owner, kind) { recorded << kind }
+
+    post "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/not-selected" }, as: :json
+
+    assert_response :unprocessable_entity
+    assert_empty recorded, "a checkout that was never created is not counted"
+    assert_equal 0, ActionAgent::SandboxSession.count
+
+    post "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/docs" }, as: :json
+
+    assert_response :created
+    assert_equal [ :execution ], recorded
+  end
+
+  test "a checkout over the host's quota is refused before it is created, and not counted" do
+    recorded = []
+    ActionAgent.quota_checker = ->(_owner, kind) { "No executions left" if kind == :execution }
+    ActionAgent.usage_recorder = ->(_owner, kind) { recorded << kind }
+
+    post "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/docs" }, as: :json
+
+    assert_response :payment_required
+    assert_empty recorded
+    assert_equal 0, ActionAgent::SandboxSession.count
+  end
+
+  test "checkouts are listed, shown and stopped only within the caller's current account" do
+    ActionAgent.user_class = "User"
+    ActionAgent.account_class = "User" # the dummy app has no Account
+    ActionAgent.multi_tenant = true
+    me = User.create!(email: "me-#{SecureRandom.hex(3)}@example.com", name: "Me", age: 30)
+    first = User.create!(email: "first-#{SecureRandom.hex(3)}@example.com", name: "First", age: 30)
+    second = User.create!(email: "second-#{SecureRandom.hex(3)}@example.com", name: "Second", age: 30)
+    account = first
+    ActionAgent.current_user_resolver = ->(_controller) { me }
+    ActionAgent.current_account_resolver = ->(_controller) { account }
+
+    mine_here = sandbox_for(me, status: :ready, created_at: 3.minutes.ago).tap { |s| s.update_columns(account_id: first.id) }
+    mine_there = sandbox_for(me, status: :ready, created_at: 2.minutes.ago).tap { |s| s.update_columns(account_id: second.id) }
+    browser = sandbox_for(me, status: :ready, sandbox_type: "playwright_mcp", created_at: 1.minute.ago)
+
+    get "/activeagents/api/sandboxes"
+    assert_response :success
+    assert_equal [ browser, mine_here ].map(&:session_id), JSON.parse(response.body)["sandboxes"].map { |s| s["session_id"] },
+      "another account's checkout is not listed as Ready, since its Claude Code panel would 404"
+
+    get "/activeagents/api/sandboxes/#{mine_there.session_id}"
+    assert_response :not_found
+    delete "/activeagents/api/sandboxes/#{mine_there.session_id}"
+    assert_response :not_found
+    assert mine_there.reload.ready?
+    get "/activeagents/api/sandboxes/#{browser.session_id}"
+    assert_response :success
+
+    account = second
+    get "/activeagents/api/sandboxes"
+    assert_equal [ browser, mine_there ].map(&:session_id), JSON.parse(response.body)["sandboxes"].map { |s| s["session_id"] }
+    get "/activeagents/api/sandboxes/#{mine_there.session_id}"
+    assert_response :success
+  end
+
+  test "the reaper retries an expired checkout with no handle whose derived terminate failed" do
+    ProbeBackend.define_method(:handle_for) { |session| "probe-#{session.session_id}" }
+    session = ActionAgent::SandboxSession.create!(sandbox_type: "app_runtime", repository: "acme/docs")
+    # The provision job died mid-boot: provisioning, no handle.
+    session.update_columns(status: ActionAgent::SandboxSession.statuses[:provisioning])
+    handle = "probe-#{session.session_id}"
+    ProbeBackend.terminate_result = false
+
+    perform_enqueued_jobs { session.expire! }
+    assert_equal 1, ProbeBackend.calls.count([ :terminate, handle ])
+
+    ProbeBackend.terminate_result = true
+    assert_equal 0, ActionAgent::SandboxCleanupJob.cleanup_expired!, "nothing newly expired"
+    perform_enqueued_jobs
+
+    assert_equal 2, ProbeBackend.calls.count([ :terminate, handle ]), "the reaper tried the derived handle again"
+
+    # Bounded: a row left alone for more than a day is no longer retried,
+    # nor is a sandbox type the backend cannot name without a handle.
+    session.update_columns(updated_at: 2.days.ago)
+    browser = ActionAgent::SandboxSession.create!(sandbox_type: "playwright_mcp")
+    browser.update_columns(status: ActionAgent::SandboxSession.statuses[:expired])
+    ActionAgent::SandboxCleanupJob.cleanup_expired!
+    perform_enqueued_jobs
+    assert_equal 2, ProbeBackend.calls.count([ :terminate, handle ])
+    assert_equal 2, ProbeBackend.calls.count { |call| call.first == :terminate }
+  ensure
+    ProbeBackend.remove_method(:handle_for)
+  end
+
+  test "the reaper does not retry handle-less rows for a backend that cannot derive handles" do
+    session = ActionAgent::SandboxSession.create!(sandbox_type: "app_runtime", repository: "acme/docs")
+    session.update_columns(status: ActionAgent::SandboxSession.statuses[:expired])
+
+    ActionAgent::SandboxCleanupJob.cleanup_expired!
+
+    assert_no_enqueued_jobs(only: ActionAgent::SandboxCleanupJob)
   end
 
   private

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   apiErrorMessage,
+  codeSessionNeverRan,
   codeSessionStatus,
   diffLines,
   diffStats,
@@ -11,7 +12,9 @@ import {
   fmtExpiry,
   groupSandboxes,
   isCodeSessionActive,
+  isCodeSessionDiffPending,
   isCodeSessionFinished,
+  isCodeSessionSettled,
   isSandboxBooting,
   isSandboxReady,
   MAX_POLL_FAILURES,
@@ -481,4 +484,48 @@ test('a poll gives up on a refusal, or after failing too often in a row', () => 
   assert.equal(pollGivesUp(503, MAX_POLL_FAILURES - 1), false);
   assert.equal(pollGivesUp(503, MAX_POLL_FAILURES), true);
   assert.equal(pollGivesUp(null, MAX_POLL_FAILURES), true);
+});
+
+test('an API retry reads its attempt and cause, whatever of them was sent', () => {
+  assert.deepEqual(
+    eventRows({ type: 'system', subtype: 'api_retry', attempt: 2, max_retries: 10, error_status: 529, error: 'overloaded_error' }),
+    [{ kind: 'system', text: 'API retry 2/10 · 529 overloaded_error' }],
+  );
+  assert.deepEqual(eventRows({ type: 'system', subtype: 'api_retry', attempt: 1, max_retries: 5 }),
+    [{ kind: 'system', text: 'API retry 1/5' }]);
+  assert.deepEqual(eventRows({ type: 'system', subtype: 'api_retry', attempt: 3, error: 'rate_limit_error' }),
+    [{ kind: 'system', text: 'API retry 3 · rate_limit_error' }]);
+  assert.deepEqual(eventRows({ type: 'system', subtype: 'api_retry' }), [{ kind: 'system', text: 'API retry ?' }]);
+});
+
+// A cancel finishes a running session at once, but its Claude Code may still
+// be stopping: events and then the diff can still arrive. The poll runs, and
+// the diff reads as pending, until the server says the session settled.
+test('a cancelled session is settled only once the server says no diff is pending', () => {
+  const stopping = { status: 'cancelled', diff_pending: true, diff: null, event_count: 3 };
+  const settled = { status: 'cancelled', diff_pending: false, diff: 'diff --git a/x b/x\n', event_count: 5 };
+  const refused = { status: 'cancelled', diff_pending: false, diff: null, event_count: 0, started_at: '2026-09-26T10:00:00Z' };
+  const queued = { status: 'cancelled', diff_pending: false, diff: null, event_count: 0, started_at: null };
+
+  assert.equal(isCodeSessionSettled(stopping), false, 'polled on after the cancel');
+  assert.equal(isCodeSessionDiffPending(stopping), true);
+  assert.equal(codeSessionNeverRan(stopping), false);
+
+  assert.equal(isCodeSessionSettled(settled), true);
+  assert.equal(isCodeSessionDiffPending(settled), false);
+  assert.equal(codeSessionNeverRan(settled), false);
+
+  // Started by the job, but refused by the backend: nothing is coming,
+  // although started_at is set.
+  assert.equal(isCodeSessionSettled(refused), true);
+  assert.equal(isCodeSessionDiffPending(refused), false);
+  assert.equal(codeSessionNeverRan(refused), true);
+  assert.equal(codeSessionNeverRan(queued), true);
+
+  // A running session is not settled, whatever it says; an older server that
+  // sends no diff_pending has nothing still to come once finished.
+  assert.equal(isCodeSessionSettled({ status: 'running', diff_pending: true }), false);
+  assert.equal(isCodeSessionDiffPending({ status: 'running', diff_pending: true }), false);
+  assert.equal(isCodeSessionSettled({ status: 'succeeded' }), true);
+  assert.equal(codeSessionNeverRan({ status: 'failed', diff_pending: false, diff: null }), false);
 });

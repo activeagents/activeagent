@@ -76,6 +76,7 @@ module ActionAgent
         code_session.diff = outcome[:diff]
 
         if code_session.cancelled?
+          # Settled now, with its diff (see CodeSession#diff_pending?).
           code_session.finished_at ||= Time.current
         elsif succeeded?(result_event, outcome)
           code_session.assign_attributes(status: :succeeded, finished_at: Time.current)
@@ -135,11 +136,19 @@ module ActionAgent
       Rails.logger.warn("Failed to stop cancelled Claude Code session #{code_session.id}: #{e.message}")
     end
 
+    # Settles a session that ended without an outcome from the backend: it
+    # raised, refused to start Claude Code, or was never asked to. A session
+    # cancelled meanwhile stays cancelled, but is settled too: no diff is
+    # coming for it (see CodeSession#diff_pending?).
     def fail!(code_session, message)
       # A save that raised leaves unsaved changes behind, and locking a dirty
       # record raises: start from the row as stored.
       code_session.reload
       code_session.with_lock do
+        if code_session.cancelled?
+          code_session.update!(finished_at: Time.current) if code_session.finished_at.nil?
+          next
+        end
         next if code_session.finished?
 
         code_session.update!(status: :failed, error_message: message.truncate(MAX_ERROR_MESSAGE), finished_at: Time.current)

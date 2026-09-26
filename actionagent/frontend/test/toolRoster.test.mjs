@@ -8,6 +8,7 @@ import {
   emptyToolsHint,
   isSandboxRuntime,
   isStoppedRuntime,
+  isUndocumented,
   mcpServersFor,
   rosterStats,
   serviceRows,
@@ -284,4 +285,20 @@ test('durations and last-seen read the way the columns are sized for', () => {
   assert.equal(fmtAgo('2026-03-01T11:48:00Z', now), '12m ago');
   assert.equal(fmtAgo('2026-03-01T10:00:00Z', now), '2h ago');
   assert.equal(fmtAgo('2026-02-26T12:00:00Z', now), '3d ago');
+});
+
+// The MCP Services page and the Tools tab badge the same rows: a stopped
+// runtime is "not running", and never also "undocumented", although neither
+// it nor a live one is in the catalog.
+test('a sandbox runtime is never undocumented, live or stopped', () => {
+  const live = { key: 'sandbox:4f1c2d', runtime: true, known: true };
+  const stopped = { key: 'sandbox:gone', known: false };
+  const unknown = { key: 'booking', known: false };
+
+  assert.equal(isUndocumented(stopped), false);
+  assert.equal(isStoppedRuntime(stopped), true);
+  assert.equal(isUndocumented(live), false);
+  assert.equal(isUndocumented(unknown), true);
+  assert.equal(isUndocumented({ key: 'github', known: true }), false);
+  assert.equal(isUndocumented(null), false);
 });

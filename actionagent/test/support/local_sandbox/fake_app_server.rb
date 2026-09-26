@@ -4,12 +4,13 @@
 # sandbox.yml's `start`. Plain Ruby and the standard library only: sandbox
 # processes run without the dashboard's bundle.
 #
-#   ruby fake_app_server.rb [serve|hang] [record_path]
+#   ruby fake_app_server.rb [serve|stubborn|hang] [record_path]
 #
-# serve  answers the manifest's MCP path the way the engine's facade does: 405
-#        to a GET, and JSON-RPC to a POST that carries the manifest's bearer
-#        token (401 without it).
-# hang   never listens, so the boot times out.
+# serve     answers the manifest's MCP path the way the engine's facade does:
+#           405 to a GET, and JSON-RPC to a POST that carries the manifest's
+#           bearer token (401 without it).
+# stubborn  serves, but ignores SIGTERM: only SIGKILL stops it.
+# hang      never listens, so the boot times out.
 #
 # Either way it first starts a `sleep` in its own process group, so a test can
 # show that stopping the sandbox stops the whole group, and writes its pids and
@@ -26,6 +27,8 @@ Dir.mkdir(File.dirname(record)) unless Dir.exist?(File.dirname(record))
 File.write(record, JSON.generate(
   "pid" => Process.pid, "pgid" => Process.getpgrp, "child_pid" => child, "env" => ENV.to_h
 ))
+
+trap("TERM") { puts "fake app server: ignoring SIGTERM" } if mode == "stubborn"
 
 if mode == "hang"
   puts "fake app server: booting forever"

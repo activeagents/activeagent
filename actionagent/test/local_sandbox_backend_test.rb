@@ -102,7 +102,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert orchestrator.supports?(:code_session)
 
     workspace = workspace(sandbox)
-    assert_equal %w[app claude logs runtime.json state.json], workspace.children.map { |child| child.basename.to_s }.sort
+    assert_equal %w[app claude logs runtime.json state.json state.lock], workspace.children.map { |child| child.basename.to_s }.sort
     assert_equal %w[checkout.log manifest.log server.log setup.log], workspace.join("logs").children.map { |log| log.basename.to_s }.sort
 
     # The token reached the fetch and nothing else: not the repository's
@@ -201,13 +201,23 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
       "OLLAMA_HOST" => "x", "CLAUDETTE_HOME" => "/home/dev/claudette",
       # Secrets without a telltale word in their name.
       "DB_PASS" => "x", "MYSQL_PWD" => "x", "LOCKBOX_MASTER_KEY" => "x", "SENTRY_DSN" => "x",
-      "SLACK_WEBHOOK_URL" => "x", "GITHUB_PAT" => "x", "CACHE_STORE" => "redis://:hunter2@cache:6379/0"
+      "SLACK_WEBHOOK_URL" => "x", "GITHUB_PAT" => "x", "CACHE_STORE" => "redis://:hunter2@cache:6379/0",
+      # A token as a URL's username, with no password; and one further in.
+      "UPSTREAM_REPO" => "https://ghp_abc0123456789@github.com/acme/shop.git",
+      "MIRRORS" => "git://mirror.test/shop https://x-access-token:ghs_abc@github.com/acme/shop",
+      # The dashboard's own git configuration, and its SSH agent: the
+      # checkout's code has no business with either.
+      "GIT_CONFIG_GLOBAL" => "/home/dev/.gitconfig", "GIT_CONFIG_SYSTEM" => "/etc/gitconfig", "GIT_CONFIG_NOSYSTEM" => "1",
+      "SSH_AUTH_SOCK" => "/tmp/ssh-agent.sock",
+      # An @ that is not a URL's userinfo stays.
+      "DOCS_URL" => "https://example.com/users/@me", "EMAIL" => "dev@example.com"
     }
 
     env = Backend.sanitized_environment(source)
 
     assert_equal %w[
-      ASDF_DIR CLAUDETTE_HOME CURL_CA_BUNDLE HOME HTTPS_PROXY LANG MISE_SHELL PATH RBENV_VERSION SSL_CERT_FILE TMPDIR
+      ASDF_DIR CLAUDETTE_HOME CURL_CA_BUNDLE DOCS_URL EMAIL HOME HTTPS_PROXY LANG MISE_SHELL PATH RBENV_VERSION SSL_CERT_FILE
+      TMPDIR
     ], env.keys.sort
   end
 
@@ -690,7 +700,325 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert_equal 0, @backend.cleanup_expired
   end
 
-  private
+  test "an exception raised into a boot stops the setup step it interrupted" do
+    step = @tmp.join("step.pid")
+    leftover = @tmp.join("leftover.pid")
+    setup = [ "echo $$ > #{step}; sleep 600 & echo $! > #{leftover}; echo 'setup is hanging'; sleep 600" ]
+    sandbox = sandbox_double(create_origin!(sandbox_yml(setup: setup)))
+    # What a worker shutting down raises into its threads: no StandardError.
+    shutdown = Class.new(Exception)
+    thread = Thread.new { @backend.create_sandbox(sandbox) }
+    thread.report_on_exception = false
+
+    pids = wait_until { [ step, leftover ].map { |file| Integer(file.read.strip, exception: false) if file.exist? }.then { |all| all.all? && all } }
+    @pids_to_reap.concat(pids)
+    assert_equal pids.first, read_json(workspace(sandbox).join("state.json"))["step_pid"], "the running step is recorded"
+
+    thread.raise(shutdown)
+
+    assert_raises(shutdown) { thread.join(15) }
+    assert_gone(*pids)
+    assert_not workspace(sandbox).exist?
+  end
+
+  test "terminate stops a boot step recorded by a process that has since died" do
+    session_id = SecureRandom.uuid
+    workspace = ActionAgent.local_sandbox_root.join(session_id).tap(&:mkpath)
+    leftover = @tmp.join("leftover.pid")
+    # What a dashboard that crashed mid-setup leaves behind: the step's
+    # process group, still running, and state.json naming it. Without the
+    # session id in its environment, so only the record finds it.
+    step = Process.spawn("sh", "-c", "sleep 600 & echo $! > #{leftover}; wait", pgroup: true)
+    Process.detach(step)
+    @pids_to_reap << -step
+    child = wait_until { Integer(leftover.read.strip, exception: false) if leftover.exist? }
+    starts = { step.to_s => @backend.send(:process_start, step) }
+    workspace.join("state.json").write(JSON.generate("step_pid" => step, "process_starts" => starts))
+
+    assert @backend.terminate("local-#{session_id}")
+
+    assert_gone step, child
+    assert_not workspace.exist?
+  end
+
+  test "a cancelled session that ignores SIGTERM is killed once the grace has passed" do
+    sandbox = boot!
+    @backend.define_singleton_method(:stop_grace) { 1 }
+    session = code_session(id: 15, prompt: "SLEEP, STUBBORN")
+    outcome = nil
+    thread = Thread.new { outcome = @backend.run_code_session(sandbox, session) { |_event| } }
+    thread.report_on_exception = false
+    pids = wait_for_code_session(sandbox, "15")
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    # From another backend, as the controller's cancel would be.
+    assert Backend.new.cancel_code_session(sandbox, session)
+
+    assert thread.join(10), "the session outlived its cancel (claude_code_timeout is 20s)"
+    assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 8
+    assert_equal 137, outcome[:exit_status], "stopped by SIGKILL"
+    assert_gone pids["pid"], pids["child_pid"]
+    assert_includes workspace(sandbox).join("logs/claude-15.log").read, "ignoring SIGTERM"
+    state = read_json(workspace(sandbox).join("state.json"))
+    assert_equal({}, state["code_sessions"])
+    assert_equal({}, state["cancelling_code_sessions"])
+  end
+
+  test "a listener that took the sandbox's port is not taken for its server, nor handed the token" do
+    unless File.readable?("/proc/net/tcp") || system("command -v lsof >/dev/null 2>&1")
+      skip "needs /proc/net/tcp or lsof to tell who listens"
+    end
+
+    foreign, port, requests, listener = foreign_listener
+    sandbox = sandbox_double(create_origin!)
+    @backend.define_singleton_method(:free_port) { port }
+
+    error = assert_raises(Backend::Error) { @backend.create_sandbox(sandbox) }
+
+    assert_match(/\ASandbox server failed: the server exited with status \d+ before it answered on port #{port} \(another process was listening/,
+      error.message)
+    seen = []
+    seen << requests.pop until requests.empty?
+    assert seen.any?, "the probe reached the listener"
+    seen.flatten.each { |line| assert_not_includes line, MCP_TOKEN, "the listener was handed the MCP token" }
+    assert_not workspace(sandbox).exist?
+  ensure
+    foreign&.close
+    listener&.join(1)
+  end
+
+  test "where nothing says who listens, only an answer as the sandbox's facade gives counts" do
+    @backend.define_singleton_method(:sandbox_listener?) { |_port, _pgid, _session_id| nil }
+
+    # The fixture refuses a ping without the manifest's token and answers one with it.
+    boot!
+
+    foreign, port, _requests, listener = foreign_listener
+    @backend.define_singleton_method(:free_port) { port }
+    error = assert_raises(Backend::Error) { @backend.create_sandbox(sandbox_double(create_origin!)) }
+    assert_match(/another process was listening/, error.message)
+  ensure
+    foreign&.close
+    listener&.join(1)
+  end
+
+  test "a start time read from ps is the same in any time zone" do
+    skip "needs ps" unless system("command -v ps >/dev/null 2>&1")
+
+    @backend.define_singleton_method(:procfs?) { false }
+    pid = Process.spawn("sleep", "30")
+
+    here = with_env("TZ" => "America/Los_Angeles") { @backend.send(:process_start, pid) }
+    there = with_env("TZ" => "Asia/Tokyo", "LC_ALL" => "de_DE.UTF-8") { @backend.send(:process_start, pid) }
+
+    assert here.present?
+    assert_equal here, there
+  ensure
+    if pid
+      Process.kill("KILL", pid)
+      Process.wait(pid)
+    end
+  end
+
+  test "terminate keeps a sandbox whose recorded group lives on but cannot be identified" do
+    # No /proc, and no start time recorded: nothing tells the process apart
+    # from one that reused its pid.
+    @backend.define_singleton_method(:procfs?) { false }
+    unknown = Process.spawn("sleep", "600", pgroup: true)
+    session_id = SecureRandom.uuid
+    workspace = ActionAgent.local_sandbox_root.join(session_id).tap(&:mkpath)
+    workspace.join("state.json").write(JSON.generate("pid" => unknown, "port" => 1))
+    handle = "local-#{session_id}"
+
+    assert_equal false, @backend.terminate(handle), "the handle is kept for a retry"
+    assert workspace.join("state.json").file?, "the only record of it is kept"
+    assert_not process_gone?(unknown), "never signalled"
+    sandbox = sandbox_double("file://#{@tmp}").tap { |double| double.session_id = session_id }
+    error = assert_raises(Backend::Error) { @backend.create_sandbox(sandbox) }
+    assert_match(/still has processes from an earlier boot that could not be stopped/, error.message)
+
+    Process.kill("KILL", unknown)
+    Process.wait(unknown)
+    unknown = nil
+    assert @backend.terminate(handle), "once it is gone, the workspace goes too"
+    assert_not workspace.exist?
+  ensure
+    if unknown
+      Process.kill("KILL", unknown)
+      Process.wait(unknown)
+    end
+  end
+
+  test "terminate spares a live process whose start time does not match the one recorded" do
+    stranger = Process.spawn("sleep", "600", pgroup: true)
+    # Reaped as soon as it exits: without /proc, kill(0) cannot tell a
+    # zombie from a live process.
+    reaper = Process.detach(stranger)
+    [ true, false ].each do |procfs|
+      @backend.define_singleton_method(:procfs?) { false } unless procfs
+      skip "needs ps" unless procfs || system("command -v ps >/dev/null 2>&1")
+
+      recorded = @backend.send(:process_start, stranger)
+      mismatch = recorded.is_a?(Integer) ? recorded + 1 : "Thu Jan  1 00:00:00 1970"
+      workspace = ActionAgent.local_sandbox_root.join(SecureRandom.uuid).tap(&:mkpath)
+      workspace.join("state.json").write(JSON.generate("pid" => stranger, "process_starts" => { stranger.to_s => mismatch }))
+
+      assert @backend.terminate("local-#{workspace.basename}")
+
+      assert_not workspace.exist?
+      assert_not process_gone?(stranger), "an unrelated process was signalled (procfs: #{procfs})"
+    end
+
+    # The same record with its true start time does stop it.
+    workspace = ActionAgent.local_sandbox_root.join(SecureRandom.uuid).tap(&:mkpath)
+    starts = { stranger.to_s => @backend.send(:process_start, stranger) }
+    workspace.join("state.json").write(JSON.generate("pid" => stranger, "process_starts" => starts))
+    assert @backend.terminate("local-#{workspace.basename}")
+    assert reaper.join(5), "the recorded process was not stopped"
+  ensure
+    begin
+      Process.kill("KILL", stranger) if stranger
+    rescue SystemCallError
+      # Stopped by the test, as it should be.
+    end
+  end
+
+  test "state.json is replaced whole, never left half written" do
+    workspace = ActionAgent.local_sandbox_root.join(SecureRandom.uuid).tap(&:mkpath)
+    @backend.send(:update_state, workspace) { |state| state["pid"] = 1234 }
+    first = workspace.join("state.json").stat.ino
+
+    # JSON cannot write NaN: the update fails after the state was changed.
+    assert_raises(JSON::GeneratorError) do
+      @backend.send(:update_state, workspace) do |state|
+        state["pid"] = 99
+        state["bad"] = Float::NAN
+      end
+    end
+
+    assert_equal({ "pid" => 1234 }, JSON.parse(workspace.join("state.json").read), "the last good state is kept")
+    @backend.send(:update_state, workspace) { |state| state["port"] = 1 }
+    assert_equal({ "pid" => 1234, "port" => 1 }, JSON.parse(workspace.join("state.json").read))
+    assert_not_equal first, workspace.join("state.json").stat.ino, "replaced by a rename, not rewritten in place"
+    assert_equal 0o600, workspace.join("state.json").stat.mode & 0o777
+    assert_equal %w[state.json state.lock], workspace.children.map { |child| child.basename.to_s }.sort, "no temporary file is left"
+
+    other = ActionAgent.local_sandbox_root.join(SecureRandom.uuid).tap(&:mkpath)
+    assert_raises(Errno::ENOENT) { @backend.send(:update_state, other, create: false) { |state| state["x"] = 1 } }
+    assert_not other.join("state.json").exist?
+  end
+
+  test "terminate also stops a process that left the sandbox's process group" do
+    skip "needs /proc to find it" unless File.exist?("/proc/self/environ")
+    skip "needs setsid" unless system("command -v setsid >/dev/null 2>&1")
+
+    escaped = @tmp.join("escaped.pid")
+    start = "setsid sh -c 'echo $$ > #{escaped}; exec sleep 600' & exec #{ruby_command("fake_app_server")}"
+    sandbox = sandbox_double(create_origin!(sandbox_yml(start: start)))
+    @backend.create_sandbox(sandbox)
+    record = server_record(workspace(sandbox))
+    pid = wait_until { Integer(escaped.read.strip, exception: false) if escaped.exist? }
+    @pids_to_reap << pid
+    wait_until { File.exist?("/proc/#{pid}") && File.binread("/proc/#{pid}/environ").include?("ACTION_AGENT_SANDBOX_SESSION_ID=") }
+    assert_not_equal record["pgid"], Process.getpgid(pid), "it left the server's group"
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+
+    assert_gone record["pid"], pid
+  end
+
+  test "a server that starts outside the sandbox's process group is known by its session id, and stopped" do
+    skip "needs /proc to find it" unless File.exist?("/proc/self/environ")
+    skip "needs setsid" unless system("command -v setsid >/dev/null 2>&1")
+
+    # The shell `start` runs stays in the recorded group; the server it
+    # starts leads a session of its own, as a daemonizing server would.
+    start = "setsid #{ruby_command("fake_app_server")} & wait"
+    sandbox = sandbox_double(create_origin!(sandbox_yml(start: start)))
+    result = @backend.create_sandbox(sandbox)
+    record = server_record(workspace(sandbox))
+    assert_not_equal read_json(workspace(sandbox).join("state.json"))["pid"], record["pgid"]
+    uri = URI(result[:mcp_url])
+    assert_equal "200", rpc(uri, token: MCP_TOKEN).code
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+
+    assert_gone record["pid"], record["child_pid"]
+  end
+
+  test "local sandboxes are off by default outside development and test" do
+    ActionAgent.local_sandboxes_enabled = nil
+
+    Rails.stub(:env, ActiveSupport::EnvironmentInquirer.new("production")) do
+      assert_equal false, ActionAgent.local_sandboxes_enabled?
+      error = assert_raises(Backend::Error) { @backend.create_sandbox(sandbox_double("file://#{@tmp}")) }
+      assert_match(/Local sandboxes are disabled/, error.message)
+    end
+    assert_not ActionAgent.local_sandbox_root.exist?
+    assert ActionAgent.local_sandboxes_enabled?, "on by default in test"
+  end
+
+  test "a filesystem monitor or hooks set in the checkout's git config never run" do
+    sandbox = boot!
+    app = workspace(sandbox).join("app")
+    monitor = @tmp.join("fsmonitor-ran")
+    hook = @tmp.join("hook-ran")
+    hooks = @tmp.join("hooks").tap(&:mkpath)
+    # `git add` writes the index, which runs post-index-change.
+    hooks.join("post-index-change").write("#!/bin/sh\ntouch #{hook}\n")
+    hooks.join("post-index-change").chmod(0o755)
+    # What a session steered by the repository's content could write.
+    system("git", "-C", app.to_s, "config", "core.fsmonitor", "touch #{monitor}; false", exception: true)
+    system("git", "-C", app.to_s, "config", "core.hooksPath", hooks.to_s, exception: true)
+
+    outcome = @backend.run_code_session(sandbox, code_session) { |_event| }
+
+    assert_includes outcome[:diff], "+Edited by the fake Claude Code."
+    assert_not monitor.exist?, "the fsmonitor command ran"
+    assert_not hook.exist?, "the checkout's hook ran"
+  end
+
+  test "terminate kills a server that ignores SIGTERM" do
+    @backend.define_singleton_method(:stop_grace) { 1 }
+    sandbox = sandbox_double(create_origin!(sandbox_yml(start: ruby_command("fake_app_server", "stubborn"))))
+    @backend.create_sandbox(sandbox)
+    record = server_record(workspace(sandbox))
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+
+    assert_gone record["pid"], record["child_pid"]
+    assert_not workspace(sandbox).exist?
+  end
+
+  test "a booted workspace is readable by its owner alone" do
+    sandbox = boot!
+    workspace = workspace(sandbox)
+
+    { "." => 0o700, "logs" => 0o700, "claude" => 0o700, "state.json" => 0o600, "runtime.json" => 0o600 }.each do |path, mode|
+      assert_equal format("%o", mode), format("%o", workspace.join(path).stat.mode & 0o777), path
+    end
+  end
+
+  test "the configured permission mode reaches Claude Code" do
+    ActionAgent.claude_code_permission_mode = "plan"
+    sandbox = boot!
+
+    @backend.run_code_session(sandbox, code_session) { |_event| }
+
+    argv = JSON.parse(workspace(sandbox).join("claude/invocation.json").read)["argv"]
+    assert_equal "plan", argv[argv.index("--permission-mode") + 1]
+  end
+
+  test "the backend refuses a model name that reads as an option" do
+    sandbox = sandbox_double("file://#{@tmp}")
+    workspace(sandbox).join("app").mkpath
+
+    [ "--dangerously-skip-permissions", "-p", "sonnet --verbose" ].each do |model|
+      error = assert_raises(Backend::Error) { @backend.run_code_session(sandbox, code_session(model: model)) { |_event| } }
+      assert_equal "#{model.inspect} is not a model name", error.message
+    end
+    assert_not workspace(sandbox).join("claude/invocation.json").exist?, "Claude Code never ran"
+  end
 
   test "a checkout whose git config defines a filter driver is not diffed" do
     sandbox = boot!
@@ -705,6 +1033,30 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
     assert_match(/diff not recorded/, outcome[:diff])
     assert_not File.exist?(marker), "the filter's command never ran"
+  end
+
+  private
+
+  # A listener on a free port, as another process could bind the port the
+  # backend picked: 405 to anything, each request's head recorded.
+  def foreign_listener
+    server = TCPServer.new("127.0.0.1", 0)
+    requests = Queue.new
+    listener = Thread.new do
+      loop do
+        client = server.accept
+        request = []
+        while (line = client.gets) && line != "\r\n"
+          request << line.chomp
+        end
+        requests << request
+        client.write("HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+        client.close
+      end
+    rescue IOError
+      # Closed at the end of the test.
+    end
+    [ server, server.addr[1], requests, listener ]
   end
 
   def boot!

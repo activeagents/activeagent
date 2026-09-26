@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { isSandboxRuntime } from '../../utils/toolRoster.mjs';
+import { isSandboxRuntime, isStoppedRuntime, isUndocumented } from '../../utils/toolRoster.mjs';
 
 const REFRESH_INTERVAL_MS = 60000;
 
@@ -252,7 +252,15 @@ export default function McpServersView({ focusServer, onOpenTools }) {
                             sandbox runtime
                           </span>
                         )}
-                        {!server.known && (
+                        {isStoppedRuntime(server) && (
+                          <span
+                            style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', background: darkMode ? 'rgba(245,158,11,0.15)' : '#fffbeb', color: darkMode ? '#fcd34d' : '#b45309' }}
+                            title="This checkout sandbox has stopped; agents may still name its runtime"
+                          >
+                            not running
+                          </span>
+                        )}
+                        {isUndocumented(server) && (
                           <span
                             style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', background: colors.borderLight, color: colors.textMuted }}
                             title="Seen in your traffic but not in the platform catalog"

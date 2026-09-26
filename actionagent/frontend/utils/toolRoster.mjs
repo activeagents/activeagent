@@ -65,6 +65,11 @@ export const isSandboxRuntime = (row) => Boolean(
 // back.
 export const isStoppedRuntime = (row) => isSandboxRuntime(row) && !row.known;
 
+// Seen in traffic but not in the platform catalog. A sandbox runtime is not
+// in the catalog either, but the dashboard started it: a stopped one is "not
+// running", never "undocumented".
+export const isUndocumented = (row) => Boolean(row) && !row.known && !isSandboxRuntime(row);
+
 // What the Tools tab says for a service that lists no tools. A live runtime
 // has none recorded because it lists them when the agent runs; a stopped one
 // never will.
