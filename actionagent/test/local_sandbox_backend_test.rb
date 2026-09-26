@@ -12,7 +12,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
   FIXTURES = File.expand_path("support/local_sandbox", __dir__)
   GITHUB_TOKEN = "ghs_fixtureCheckoutToken0123456789abcdef"
-  CLAUDE_CREDENTIAL = "sk-ant-oat01-fixtureCredential-0123456789"
+  CLAUDE_CREDENTIAL = "sk-ant-api03-fixtureCredential-0123456789"
   MCP_TOKEN = "fixture-mcp-token-0123456789"
   # What an Authorization: Basic header for the checkout would carry.
   BASIC_AUTH = [ "x-access-token:#{GITHUB_TOKEN}" ].pack("m0")
@@ -26,6 +26,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
   CONFIG = %i[
     local_sandbox_boot_timeout claude_code_command claude_code_permission_mode claude_code_max_turns claude_code_timeout
+    claude_code_auth
   ].freeze
 
   def setup
@@ -43,6 +44,8 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     ActionAgent.claude_code_max_turns = nil
     ActionAgent.claude_code_permission_mode = "acceptEdits"
     ActionAgent.claude_code_command = fake_claude_command
+    ActionAgent.claude_code_auth = :api_key
+    Backend.reset_claude_login_status!
 
     # The readiness probe and these tests talk to the booted fixture over
     # loopback, which VCR and WebMock refuse by default.
@@ -67,6 +70,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     @pids_to_reap.compact.each { |pid| reap(pid) }
 
     @saved_config.each { |name, value| ActionAgent.public_send("#{name}=", value) }
+    Backend.reset_claude_login_status!
     VCR.turn_on!
     config = WebMock::Config.instance
     config.allow_net_connect, config.allow_localhost, config.allow, config.net_http_connect_on_start = @webmock
@@ -263,7 +267,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert_equal workspace.join("app").realpath.to_s, File.realpath(invocation["cwd"])
 
     env = invocation["env"]
-    assert_equal CLAUDE_CREDENTIAL, env["CLAUDE_CODE_OAUTH_TOKEN"]
+    assert_equal CLAUDE_CREDENTIAL, env["ANTHROPIC_API_KEY"]
     assert_equal workspace.join("claude").to_s, env["CLAUDE_CONFIG_DIR"]
     %w[DISABLE_AUTOUPDATER DISABLE_TELEMETRY DISABLE_ERROR_REPORTING CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC].each do |name|
       assert_equal "1", env[name], name
@@ -681,7 +685,116 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     workspace(sandbox).join("app").mkpath
     sandbox.runtime_environment = {}
     error = assert_raises(Backend::Error) { @backend.run_code_session(sandbox, code_session) { |_event| } }
-    assert_match(/Connect Claude Code in Settings → Integrations/, error.message)
+    assert_match(/connect an Anthropic API key in Settings → Integrations/, error.message)
+  end
+
+  test "with :local_login a session runs on the machine's own login, and the dashboard passes no credential" do
+    ActionAgent.claude_code_auth = :local_login
+    home = logged_in_home
+    sandbox = boot!
+    # No Claude Code connection at all: the machine's login is enough.
+    sandbox.runtime_environment = {}
+    # The dashboard's own Claude Code variables, as when it runs inside a
+    # Claude Code session, are still dropped; HOME is kept.
+    dashboard_env = ENV.to_h.merge(
+      "HOME" => home.to_s,
+      "ANTHROPIC_API_KEY" => "sk-ant-api03-dashboardsOwnKey-0123456789",
+      "CLAUDE_CODE_OAUTH_TOKEN" => "sk-ant-oat01-dashboardsOwnToken-0123456789",
+      "CLAUDE_CONFIG_DIR" => @tmp.join("dashboards-claude-config").to_s
+    )
+
+    outcome = Bundler.stub(:unbundled_env, dashboard_env) do
+      @backend.run_code_session(sandbox, code_session) { |_event| }
+    end
+
+    assert_equal 0, outcome[:exit_status]
+    assert_includes outcome[:diff], "+Edited by the fake Claude Code."
+    assert_not workspace(sandbox).join("claude/invocation.json").exist?, "the session did not use the workspace's config"
+    env = JSON.parse(home.join(".claude/invocation.json").read)["env"]
+    assert_equal home.to_s, env["HOME"]
+    assert_not env.key?("CLAUDE_CONFIG_DIR"), "Claude Code finds the user's own configuration and login"
+    assert_not env.key?("ANTHROPIC_API_KEY")
+    assert_not env.key?("CLAUDE_CODE_OAUTH_TOKEN")
+    assert_equal "1", env["DISABLE_TELEMETRY"]
+  end
+
+  test "with :local_login a stored API key is not handed to the session either" do
+    ActionAgent.claude_code_auth = :local_login
+    home = logged_in_home
+    sandbox = boot!
+
+    Bundler.stub(:unbundled_env, ENV.to_h.merge("HOME" => home.to_s)) do
+      @backend.run_code_session(sandbox, code_session) { |_event| }
+    end
+
+    env = JSON.parse(home.join(".claude/invocation.json").read)["env"]
+    assert_not env.key?("ANTHROPIC_API_KEY")
+    assert(env.values.none? { |value| value.include?(CLAUDE_CREDENTIAL) })
+  end
+
+  test "claude_code_auth is :api_key by default and takes only :api_key or :local_login" do
+    configuration = ActionAgent.instance_variables.index_with { |name| ActionAgent.instance_variable_get(name) }
+    ActionAgent.reset!
+    assert_equal :api_key, ActionAgent.claude_code_auth
+
+    ActionAgent.claude_code_auth = "local_login"
+    assert_equal :local_login, ActionAgent.claude_code_auth
+    error = assert_raises(ArgumentError) { ActionAgent.claude_code_auth = :setup_token }
+    assert_match(/must be :api_key or :local_login/, error.message)
+    assert_equal :local_login, ActionAgent.claude_code_auth
+  ensure
+    configuration&.each { |name, value| ActionAgent.instance_variable_set(name, value) }
+  end
+
+  test "claude_login_status keeps only whether and how Claude Code is logged in" do
+    home = @tmp.join("home").tap { |dir| dir.join(".claude").mkpath }
+
+    Bundler.stub(:unbundled_env, ENV.to_h.merge("HOME" => home.to_s)) do
+      assert_equal({ logged_in: false, auth_method: nil, api_provider: nil }, Backend.claude_login_status)
+
+      # Logged out is re-asked within seconds, so "Check again" after
+      # `claude /login` turns green without waiting out the minute.
+      home.join(".claude/.credentials.json").write("{}")
+      assert_not Backend.claude_login_status[:logged_in], "a moment later the answer is still cached"
+      sleep Backend::LOGGED_OUT_STATUS_TTL + 0.2
+      status = Backend.claude_login_status
+      assert_equal({ logged_in: true, auth_method: "claude.ai", api_provider: "firstParty" }, status)
+      assert_not_includes status.to_json, "developer@example.com"
+      assert_not_includes status.to_json, "Fixture Org"
+
+      # Logged in is trusted for the full minute.
+      home.join(".claude/.credentials.json").delete
+      assert Backend.claude_login_status[:logged_in], "a logged-in answer is cached"
+    end
+  end
+
+  test "a Claude Code CLI that fails or is missing reads as logged out" do
+    home = logged_in_home
+
+    Bundler.stub(:unbundled_env, ENV.to_h.merge("HOME" => home.to_s)) do
+      ActionAgent.claude_code_command = fake_claude_command(broken_auth: true)
+      assert_equal({ logged_in: false, auth_method: nil, api_provider: nil }, Backend.claude_login_status)
+
+      ActionAgent.claude_code_command = @tmp.join("no-such-claude").to_s
+      assert_equal({ logged_in: false, auth_method: nil, api_provider: nil }, Backend.claude_login_status)
+    end
+  end
+
+  test "login status parsing reads loggedIn, authMethod and apiProvider and nothing else" do
+    logged_out = { logged_in: false, auth_method: nil, api_provider: nil }
+    assert_equal logged_out, Backend.parse_login_status("")
+    assert_equal logged_out, Backend.parse_login_status("not json")
+    assert_equal logged_out, Backend.parse_login_status("[true]")
+    assert_equal logged_out, Backend.parse_login_status('{"loggedIn": "true", "authMethod": "claude.ai"}')
+    assert_equal logged_out, Backend.parse_login_status('{"loggedIn": false, "authMethod": "claude.ai"}')
+
+    assert_equal({ logged_in: true, auth_method: "api_key", api_provider: "firstParty" },
+      Backend.parse_login_status('{"loggedIn": true, "authMethod": "api_key", "apiProvider": "firstParty", "email": "x@y"}'))
+    # Anything but a short label is not shown.
+    assert_equal({ logged_in: true, auth_method: nil, api_provider: nil },
+      Backend.parse_login_status({ "loggedIn" => true, "authMethod" => "a\nb", "apiProvider" => "x" * 100 }.to_json))
+    assert_equal({ logged_in: true, auth_method: nil, api_provider: nil },
+      Backend.parse_login_status({ "loggedIn" => true, "authMethod" => { "token" => "sk-ant-oat01-x" } }.to_json))
   end
 
   test "handles the backend did not issue are left alone" do
@@ -1035,6 +1148,188 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert_not File.exist?(marker), "the filter's command never ran"
   end
 
+  # --- A database per sandbox ----------------------------------------------
+
+  SQLITE_DATABASE_YML = <<~YAML
+    default: &default
+      adapter: sqlite3
+      pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+      timeout: 5000
+
+    development:
+      primary:
+        <<: *default
+        database: storage/development.sqlite3
+      queue:
+        <<: *default
+        database: storage/development_queue.sqlite3
+        migrations_paths: db/queue_migrate
+
+    test:
+      <<: *default
+      database: storage/test.sqlite3
+  YAML
+
+  POSTGRES_DATABASE_YML = <<~YAML
+    default: &default
+      adapter: postgresql
+      encoding: unicode
+      max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+    development:
+      primary:
+        <<: *default
+        database: shop_development
+      primary_replica:
+        <<: *default
+        database: shop_development
+        replica: true
+      cache:
+        <<: *default
+        database: <%= ENV.fetch("CACHE_DB") { "shop_cache" } %>
+      analytics:
+        <<: *default
+        database: warehouse
+        database_tasks: false
+  YAML
+
+  test "a sqlite checkout boots on databases of its own, in its workspace" do
+    yml = sandbox_yml(manifest: "env > tmp/manifest_env.txt && #{ruby_command("fake_manifest")}")
+    sandbox = sandbox_double(create_origin!(yml, files: { "config/database.yml" => SQLITE_DATABASE_YML }))
+    @backend.create_sandbox(sandbox)
+
+    workspace = workspace(sandbox)
+    setup_env = env_file(workspace.join("app/tmp/setup_env.txt"))
+    server_env = server_record(workspace)["env"]
+    manifest_env = env_file(workspace.join("app/tmp/manifest_env.txt"))
+
+    { "setup" => setup_env, "manifest" => manifest_env, "server" => server_env }.each do |step, env|
+      assert_equal "sqlite3:#{workspace}/db/development.sqlite3", env["DATABASE_URL"], step
+      assert_equal "sqlite3:#{workspace}/db/development_queue.sqlite3", env["QUEUE_DATABASE_URL"], step
+      assert_equal "1", env["SKIP_TEST_DATABASE"], "#{step}: db:prepare leaves the developer's test database alone"
+    end
+    # Not the test process's own DATABASE_URL, which the sanitizing drops.
+    assert_not_equal ENV["DATABASE_URL"], server_env["DATABASE_URL"]
+    assert workspace.join("db").directory?
+    assert_includes workspace.join("logs/setup.log").read, "# sandbox database: DATABASE_URL=sqlite3:#{workspace}/db/development.sqlite3"
+
+    # Claude Code works on the same databases, not the developer's.
+    @backend.run_code_session(sandbox, code_session) { |_event| }
+    claude_env = JSON.parse(workspace.join("claude/invocation.json").read)["env"]
+    assert_equal setup_env["DATABASE_URL"], claude_env["DATABASE_URL"]
+    assert_equal setup_env["QUEUE_DATABASE_URL"], claude_env["QUEUE_DATABASE_URL"]
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+    assert_not workspace.exist?, "the sqlite files go with the workspace"
+  end
+
+  test "a PostgreSQL checkout gets per-sandbox databases, dropped when it is terminated" do
+    drop_log = @tmp.join("db-drop.txt")
+    sandbox = sandbox_double(create_origin!(files: {
+      "config/database.yml" => POSTGRES_DATABASE_YML, "bin/rails" => fake_rails(drop_log)
+    }))
+    @backend.create_sandbox(sandbox)
+
+    short = sandbox.session_id.delete("-").first(8)
+    workspace = workspace(sandbox)
+    server_env = server_record(workspace)["env"]
+    assert_equal "postgresql:///shop_development_sandbox_#{short}", server_env["DATABASE_URL"]
+    assert_equal server_env["DATABASE_URL"], server_env["PRIMARY_REPLICA_DATABASE_URL"], "a replica reads its primary"
+    # An ERB database name is never evaluated: the repository's name stands in.
+    assert_equal "postgresql:///shop_development_cache_sandbox_#{short}", server_env["CACHE_DATABASE_URL"]
+    assert_not server_env.key?("ANALYTICS_DATABASE_URL"), "a database the app does not manage is left alone"
+    assert_not drop_log.exist?
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+
+    drop = drop_log.read
+    assert_includes drop, "argv=db:drop"
+    assert_includes drop, "DATABASE_URL=postgresql:///shop_development_sandbox_#{short}"
+    assert_includes drop, "CACHE_DATABASE_URL=postgresql:///shop_development_cache_sandbox_#{short}"
+    assert_includes drop, "SKIP_TEST_DATABASE=1"
+    assert_includes drop, "FIXTURE_FLAVOR=local", "db:drop runs with the sandbox.yml env too"
+    assert_not workspace.exist?
+  end
+
+  test "a failed boot still drops the databases its setup may have created" do
+    drop_log = @tmp.join("db-drop.txt")
+    origin = create_origin!(sandbox_yml(setup: [ "exit 3" ]),
+      files: { "config/database.yml" => POSTGRES_DATABASE_YML, "bin/rails" => fake_rails(drop_log) })
+
+    assert_raises(Backend::Error) { @backend.create_sandbox(sandbox_double(origin)) }
+
+    assert_includes drop_log.read, "argv=db:drop"
+  end
+
+  test "sandbox.yml's env overrides the default database" do
+    drop_log = @tmp.join("db-drop.txt")
+    yml = YAML.safe_load(sandbox_yml)
+    yml["env"]["DATABASE_URL"] = "postgresql:///chosen_by_the_checkout"
+    sandbox = sandbox_double(create_origin!(yml.to_yaml, files: {
+      "config/database.yml" => "development:\n  adapter: postgresql\n  database: shop_development\n",
+      "bin/rails" => fake_rails(drop_log)
+    }))
+    @backend.create_sandbox(sandbox)
+
+    workspace = workspace(sandbox)
+    server_env = server_record(workspace)["env"]
+    assert_equal "postgresql:///chosen_by_the_checkout", server_env["DATABASE_URL"]
+    assert_not server_env.key?("SKIP_TEST_DATABASE")
+    assert_includes workspace.join("logs/setup.log").read, "DATABASE_URL: left to .activeagents/sandbox.yml"
+
+    assert @backend.terminate("local-#{sandbox.session_id}")
+    assert_not drop_log.exist?, "a database the checkout chose is never dropped"
+  end
+
+  test "reading database.yml never runs its ERB in the dashboard" do
+    app = @tmp.join("app").tap(&:mkpath)
+    app.join("config").mkpath
+    pwned = @tmp.join("pwned")
+    app.join("config/database.yml").write(<<~YAML)
+      development:
+        adapter: postgresql
+        database: <%= File.write(#{pwned.to_s.inspect}, "ran") && "evil" %>
+        <% system("touch #{pwned}-too") %>
+        host: <%= `touch #{pwned}-backtick` %>
+    YAML
+
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12-3456", fallback_name: "shop")
+
+    assert_not pwned.exist?
+    assert_not Pathname("#{pwned}-too").exist?
+    assert_not Pathname("#{pwned}-backtick").exist?
+    assert_equal "postgresql:///shop_development_sandbox_abcdef12", plan.env["DATABASE_URL"]
+    assert plan.drop
+
+    # ERB that leaves no YAML behind still names its adapter.
+    app.join("config/database.yml").write("<% if true %>\ndevelopment: <%= 1 %>: [\n  adapter: mysql2\n<% end %>\n")
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12-3456", fallback_name: "shop")
+    assert_equal "mysql2:///shop_development_sandbox_abcdef12", plan.env["DATABASE_URL"]
+
+    # An adapter it does not know is left as the checkout configured it.
+    app.join("config/database.yml").write("development:\n  adapter: <%= ENV['ADAPTER'] %>\n  database: x\n")
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12-3456")
+    assert plan.empty?
+    assert_match(/adapter is unknown/, plan.notes.join)
+
+    # A database.yml that is a link out of the checkout is not read.
+    app.join("config/database.yml").delete
+    File.symlink(@tmp.join("elsewhere.yml").tap { |file| file.write("development:\n  adapter: sqlite3\n") }, app.join("config/database.yml"))
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12-3456")
+    assert plan.empty?
+    assert_match(/outside the checkout/, plan.notes.join)
+  end
+
+  test "a url: entry, which Rails lets no variable override, is left to sandbox.yml" do
+    app = @tmp.join("app").tap { |dir| dir.join("config").mkpath }
+    app.join("config/database.yml").write("development:\n  url: postgres://localhost/shop\n")
+
+    plan = ActionAgent::LocalSandboxDatabases.plan(app: app, workspace: @tmp, session_id: "abcdef12")
+
+    assert plan.empty?
+    assert_match(/own url:/, plan.notes.join)
+  end
+
   private
 
   # A listener on a free port, as another process could bind the port the
@@ -1059,6 +1354,15 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     [ server, server.addr[1], requests, listener ]
   end
 
+  # A HOME whose Claude Code is logged in, as `claude /login` leaves it
+  # (the fake CLI only looks for the file).
+  def logged_in_home
+    @tmp.join("home").tap do |home|
+      home.join(".claude").mkpath
+      home.join(".claude/.credentials.json").write("{}")
+    end
+  end
+
   def boot!
     sandbox_double(create_origin!).tap { |sandbox| @backend.create_sandbox(sandbox) }
   end
@@ -1070,7 +1374,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
       checkout_spec: {
         repository: "acme/shop", ref: "main", clone_url: clone_url, username: "x-access-token", token: GITHUB_TOKEN
       },
-      runtime_environment: { "CLAUDE_CODE_OAUTH_TOKEN" => CLAUDE_CREDENTIAL }
+      runtime_environment: { "ANTHROPIC_API_KEY" => CLAUDE_CREDENTIAL }
     )
   end
 
@@ -1096,19 +1400,34 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
   # A git repository to clone, with a README for Claude Code to edit, a file
   # for it to delete, and tmp/ ignored as a Rails app ignores it.
   # +sandbox_yml+ nil commits none.
-  def create_origin!(sandbox_yml = self.sandbox_yml)
+  def create_origin!(sandbox_yml = self.sandbox_yml, files: {})
     origin = @tmp.join("origin-#{SecureRandom.hex(4)}")
     origin.join(".activeagents").mkpath
     origin.join("README.md").write("# Fixture app\n")
     origin.join("OBSOLETE.md").write("Nothing needs this file.\n")
     origin.join(".gitignore").write("tmp/\n")
     origin.join(".activeagents/sandbox.yml").write(sandbox_yml) if sandbox_yml
+    files.each do |path, content|
+      origin.join(path).dirname.mkpath
+      origin.join(path).write(content)
+      origin.join(path).chmod(0o755) if path.start_with?("bin/")
+    end
 
     git(origin, "init", "-q", "-b", "main")
     git(origin, "add", "-A")
     git(origin, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", "-c", "commit.gpgsign=false",
       "commit", "-q", "-m", "Fixture app")
     "file://#{origin}"
+  end
+
+  # A bin/rails that records how it was run (its arguments and environment)
+  # to +log+, outside the workspace, which terminate removes.
+  def fake_rails(log)
+    "#!/bin/sh\n{ echo \"argv=$*\"; env; } > #{log.to_s.shellescape}\n"
+  end
+
+  def env_file(path)
+    path.read.lines.to_h { |line| line.chomp.split("=", 2) }
   end
 
   def git(dir, *args)
@@ -1121,9 +1440,10 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
   # The fake CLI behind a wrapper in the test's tmpdir: the exact Ruby running
   # the tests, whatever the fixture's executable bit or PATH say.
-  def fake_claude_command(legacy: false)
-    wrapper = @tmp.join(legacy ? "claude-legacy" : "claude")
-    arguments = [ RbConfig.ruby, File.join(FIXTURES, "fake_claude.rb"), *("--legacy-cli" if legacy) ].shelljoin
+  def fake_claude_command(legacy: false, broken_auth: false)
+    flag = ("--legacy-cli" if legacy) || ("--broken-auth" if broken_auth)
+    wrapper = @tmp.join([ "claude", flag&.delete_prefix("--") ].compact.join("-"))
+    arguments = [ RbConfig.ruby, File.join(FIXTURES, "fake_claude.rb"), *flag ].shelljoin
     wrapper.write("#!/bin/sh\nexec #{arguments} \"$@\"\n")
     wrapper.chmod(0o755)
     wrapper.to_s

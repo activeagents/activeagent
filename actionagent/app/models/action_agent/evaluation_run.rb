@@ -25,6 +25,19 @@ module ActionAgent
       value.is_a?(Hash) ? value : {}
     end
 
+    # The checkout sandbox a scenario run replayed against
+    # (ScenarioEvaluationRunner records it), as { "session_id", "server_key",
+    # "repository", "repository_ref" }; nil for a run against the agent's own
+    # servers only.
+    def sandbox
+      value = selection["sandbox"]
+      return value if value.is_a?(Hash)
+
+      # Still pending: run_later! recorded only what was asked for.
+      id = selection["sandbox_id"]
+      { "session_id" => id } if id.is_a?(String) && id.present?
+    end
+
     # The candidate models a scenario run compared, in the order they were
     # requested; empty for a generation-sampling run.
     def models
@@ -211,7 +224,8 @@ module ActionAgent
           "evaluation" => evaluation.name,
           "agent" => evaluation.agent&.name,
           "run" => id,
-          "finished" => completed_at&.iso8601
+          "finished" => completed_at&.iso8601,
+          "sandbox" => sandbox_label
         }.compact.merge(report_metadata),
         verdict: recorded_verdict,
         judge_label: judge_label,
@@ -225,6 +239,14 @@ module ActionAgent
 
     ModelSpec = ActiveAgent::Evals::ModelSpec
     private_constant :ModelSpec
+
+    # How the report's header names the sandbox: its checkout and session.
+    def sandbox_label
+      return nil unless sandbox
+
+      checkout = [ sandbox["repository"], sandbox["repository_ref"] ].compact_blank.join("@")
+      [ checkout.presence, "sandbox #{sandbox["session_id"].to_s.first(8)}" ].compact.join(" · ")
+    end
 
     # The candidate specs the run was asked to compare, keyed by
     # [provider, model] in the order requested. ScenarioEvaluationRunner

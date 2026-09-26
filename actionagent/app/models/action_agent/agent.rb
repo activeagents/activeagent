@@ -322,11 +322,16 @@ module ActionAgent
     # before the job is enqueued, so a worker on another machine finds them
     # attached. +params+ (provider/model overrides, the context_id of a
     # conversation to continue) are kept on the run as input_params.
-    def execute(input_prompt, action: nil, attachments: [], actor: nil, **params)
+    #
+    # +runtime_sandbox+ is a "sandbox:<session_id>" key whose app runtime this
+    # run reaches as if the agent had it in mcp_servers, without saving it on
+    # the agent. The caller checks the sandbox is theirs and live; the
+    # dispatcher still resolves it among this agent's owner's sessions only.
+    def execute(input_prompt, action: nil, attachments: [], actor: nil, runtime_sandbox: nil, **params)
       ensure_executable!
       run = create_run(
         input_prompt, action: action, attachments: attachments, params: params,
-        actor: actor, status: :pending
+        actor: actor, runtime_sandbox: runtime_sandbox, status: :pending
       )
 
       # Queue the execution job
@@ -336,11 +341,11 @@ module ActionAgent
     end
 
     # Quick test execution (synchronous)
-    def test_execute(input_prompt, action: nil, attachments: [], actor: nil, **params)
+    def test_execute(input_prompt, action: nil, attachments: [], actor: nil, runtime_sandbox: nil, **params)
       ensure_executable!
       run = create_run(
         input_prompt, action: action, attachments: attachments, params: params,
-        actor: actor, status: :running, started_at: Time.current
+        actor: actor, runtime_sandbox: runtime_sandbox, status: :running, started_at: Time.current
       )
       run.actor = actor
 
@@ -393,16 +398,21 @@ module ActionAgent
 
     # Refuses files before creating anything: a run that exists but lost
     # its attachments would execute against the wrong prompt.
-    def create_run(input_prompt, action:, attachments:, params:, actor: nil, **attributes)
+    def create_run(input_prompt, action:, attachments:, params:, actor: nil, runtime_sandbox: nil, **attributes)
       files = Array.wrap(attachments).compact
       raise AgentRun::AttachmentsUnavailable if files.any? && !AgentRun.attachments_available?
+
+      input_params = AgentRun.params_with_actor(params, actor)
+      if SandboxSession.runtime_server_key?(runtime_sandbox)
+        input_params = input_params.merge(AgentRun::SANDBOX_PARAM => runtime_sandbox.to_s)
+      end
 
       run = agent_runs.create!(
         input_prompt: input_prompt,
         action_name: normalized_action(action),
         # The caller is recorded beside the run's own parameters rather than
         # among them: a client may send provider overrides, never an actor.
-        input_params: AgentRun.params_with_actor(params, actor),
+        input_params: input_params,
         trace_id: SecureRandom.uuid,
         **attributes
       )

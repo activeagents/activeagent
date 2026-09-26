@@ -285,21 +285,21 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     connections = assistant.configuration[:connections]
     assert_equal({ supported: true, connected: false }, connections[:github])
     # The default :mock backend runs (pretend) Claude Code sessions.
-    assert_equal({ supported: true, connected: false }, connections[:claude_code])
+    assert_equal({ supported: true, connected: false, auth: "api_key" }, connections[:claude_code])
     assert_equal({ supported: false }, connections[:coi])
 
     ActionAgent::GithubConnection.create!(access_token: "gho_hidden_fixture", github_user_id: 42, login: "octocat")
-    ActionAgent::ProviderKey.create!(provider: "claude_code", credential: "sk-ant-oat01-hidden_fixture")
+    ActionAgent::ProviderKey.create!(provider: "claude_code", credential: "sk-ant-api03-hidden_fixture")
     connections = assistant.configuration[:connections]
     assert connections.dig(:github, :connected)
     assert connections.dig(:claude_code, :connected)
     assert_not_includes connections.to_json, "gho_hidden_fixture"
-    assert_not_includes connections.to_json, "sk-ant-oat01-hidden_fixture"
+    assert_not_includes connections.to_json, "sk-ant-api03-hidden_fixture"
 
     no_sessions = Object.new
     no_sessions.define_singleton_method(:supports?) { |verb| verb != :code_session }
     ActionAgent::SandboxOrchestrator.stub(:new, no_sessions) do
-      assert_equal({ supported: false, connected: true }, assistant.configuration.dig(:connections, :claude_code))
+      assert_equal({ supported: false, connected: true, auth: "api_key" }, assistant.configuration.dig(:connections, :claude_code))
     end
     # A misspelled backend class raises NameError; a class file that requires
     # an SDK the host doesn't bundle raises LoadError, which is no
@@ -310,7 +310,8 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     ].each do |error|
       unloadable = ->(*) { raise error }
       ActionAgent::SandboxOrchestrator.stub(:new, unloadable) do
-        assert_equal({ supported: false, connected: true }, assistant.configuration.dig(:connections, :claude_code), error.class.name)
+        assert_equal({ supported: false, connected: true, auth: "api_key" }, assistant.configuration.dig(:connections, :claude_code),
+          error.class.name)
       end
     end
 
@@ -326,7 +327,7 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     ActionAgent::ProviderKey.delete_all
     stranger = @owner.id + 1
     ActionAgent::GithubConnection.create!(user_id: stranger, access_token: "gho_fixture", github_user_id: 42, login: "octocat")
-    ActionAgent::ProviderKey.create!(user_id: stranger, provider: "claude_code", credential: "sk-ant-oat01-fixture")
+    ActionAgent::ProviderKey.create!(user_id: stranger, provider: "claude_code", credential: "sk-ant-api03-fixture")
 
     connections = assistant.configuration[:connections]
     assert_not connections.dig(:github, :connected)
@@ -336,10 +337,46 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     assert assistant.configuration.dig(:connections, :github, :connected)
     assert_not assistant.configuration.dig(:connections, :claude_code, :connected)
 
-    ActionAgent::ProviderKey.create!(user_id: @owner.id, provider: "claude_code", credential: "sk-ant-oat01-owner_fixture")
+    ActionAgent::ProviderKey.create!(user_id: @owner.id, provider: "claude_code", credential: "sk-ant-api03-owner_fixture")
     assert assistant.configuration.dig(:connections, :claude_code, :connected)
   ensure
     ActionAgent.user_class = original_user_class
+  end
+
+  test "a subscription token stored by an earlier version does not connect Claude Code for the assistant" do
+    ActionAgent::ProviderKey.delete_all
+    ActionAgent::ProviderKey.new(provider: "claude_code", credential: "sk-ant-oat01-stored_fixture").save!(validate: false)
+
+    connections = assistant.configuration[:connections]
+    assert_equal({ supported: true, connected: false, auth: "api_key" }, connections[:claude_code])
+    assert_not_includes connections.to_json, "sk-ant-oat01-stored_fixture"
+  end
+
+  test "with :local_login connections report this machine's Claude Code login, and only :local runs sessions" do
+    original = [ ActionAgent.claude_code_auth, ActionAgent.sandbox_service ]
+    ActionAgent.claude_code_auth = :local_login
+    ActionAgent::ProviderKey.delete_all
+    logged_in = { logged_in: true, auth_method: "claude.ai", api_provider: "firstParty" }
+    logged_out = { logged_in: false, auth_method: nil, api_provider: nil }
+
+    # The :mock backend is not this machine: sessions are refused there, and
+    # the CLI is never asked.
+    ActionAgent::LocalSandboxBackend.stub(:claude_login_status, -> { flunk "asked the CLI" }) do
+      assert_equal({ supported: false, connected: false, auth: "local_login", login: { logged_in: false, auth_method: nil } },
+        assistant.configuration.dig(:connections, :claude_code))
+    end
+
+    ActionAgent.sandbox_service = :local
+    ActionAgent::LocalSandboxBackend.stub(:claude_login_status, logged_in) do
+      assert_equal({ supported: true, connected: true, auth: "local_login", login: { logged_in: true, auth_method: "claude.ai" } },
+        assistant.configuration.dig(:connections, :claude_code))
+    end
+    ActionAgent::LocalSandboxBackend.stub(:claude_login_status, logged_out) do
+      assert_equal({ supported: true, connected: false, auth: "local_login", login: { logged_in: false, auth_method: nil } },
+        assistant.configuration.dig(:connections, :claude_code))
+    end
+  ensure
+    ActionAgent.claude_code_auth, ActionAgent.sandbox_service = original
   end
 
   test "host credentials take priority then scoped provider keys then configuration" do

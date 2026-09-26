@@ -7,8 +7,14 @@
 #
 # * --help lists --permission-prompts, unless the first argument is
 #   --legacy-cli (an older CLI without it).
+# * `auth status --json` reports a login when $HOME/.claude/.credentials.json
+#   exists (where `claude /login` leaves one), along with an email the
+#   dashboard must never pass on; logged out, it says so and exits 1. After
+#   --broken-auth as the first argument it prints garbage and exits 2.
 # * The prompt is read from stdin, and the invocation (argv, environment,
-#   working directory, prompt) is written to $CLAUDE_CONFIG_DIR/invocation.json.
+#   working directory, prompt) is written to invocation.json in
+#   $CLAUDE_CONFIG_DIR, or in $HOME/.claude without one (a session on the
+#   machine's own login).
 # * A prompt containing SLEEP starts a `sleep` in its process group, writes
 #   both pids to $CLAUDE_CONFIG_DIR/pids.json and waits to be stopped. With
 #   STUBBORN too it ignores SIGTERM, so only SIGKILL stops it.
@@ -24,7 +30,28 @@ $stdout.sync = true
 $stderr.sync = true
 
 legacy = ARGV.first == "--legacy-cli"
-argv = legacy ? ARGV.drop(1) : ARGV
+broken_auth = ARGV.first == "--broken-auth"
+argv = legacy || broken_auth ? ARGV.drop(1) : ARGV
+
+config_dir = ENV["CLAUDE_CONFIG_DIR"] || File.join(ENV.fetch("HOME"), ".claude")
+
+if argv.first(2) == %w[auth status]
+  if broken_auth
+    puts "Segmentation fault (not really)"
+    exit 2
+  end
+
+  if File.exist?(File.join(config_dir, ".credentials.json"))
+    puts JSON.pretty_generate(
+      "loggedIn" => true, "authMethod" => "claude.ai", "apiProvider" => "firstParty",
+      "email" => "developer@example.com", "orgName" => "Fixture Org", "subscriptionType" => "max"
+    )
+    exit 0
+  end
+
+  puts JSON.pretty_generate("loggedIn" => false, "authMethod" => "none", "apiProvider" => "firstParty")
+  exit 1
+end
 
 if argv.include?("--help")
   puts "Usage: claude [options] [command] [prompt]"
@@ -33,7 +60,6 @@ if argv.include?("--help")
   exit 0
 end
 
-config_dir = ENV.fetch("CLAUDE_CONFIG_DIR")
 prompt = $stdin.read
 File.write(File.join(config_dir, "invocation.json"),
   JSON.generate("argv" => argv, "env" => ENV.to_h, "cwd" => Dir.pwd, "prompt" => prompt))
@@ -61,7 +87,7 @@ if prompt.include?("COMMIT")
   exit 0
 end
 
-credential = ENV["CLAUDE_CODE_OAUTH_TOKEN"].to_s
+credential = ENV["ANTHROPIC_API_KEY"].to_s
 File.open("README.md", "a") { |file| file.puts("Edited by the fake Claude Code.") }
 File.delete("OBSOLETE.md")
 File.write("NOTES.md", "A new file the session wrote (credential: #{credential}).\n")

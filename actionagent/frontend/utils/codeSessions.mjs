@@ -522,3 +522,163 @@ export const diffStats = (diff) => {
   const removed = lines.filter((line) => line.kind === 'del').length;
   return `${plural(files, 'file')} changed · +${added} −${removed}`;
 };
+
+// --- The model a session runs on ------------------------------------------
+//
+// The composer's model select. "default" sends no model, so Claude Code
+// picks its own; the aliases are the ones its --model takes; "other" takes
+// a full model id typed in. The server checks the same pattern
+// (CodeSessionsController::MODEL_NAME), since the name becomes a CLI
+// argument; checking it here too says what is wrong before a round trip.
+
+export const DEFAULT_MODEL_CHOICE = 'default';
+export const OTHER_MODEL_CHOICE = 'other';
+export const CLAUDE_CODE_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'];
+export const CLAUDE_CODE_MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:[\]-]{0,99}$/;
+// Where the last choice is remembered, per browser.
+export const MODEL_CHOICE_STORAGE_KEY = 'actionagent.claudeCode.modelChoice';
+
+export const modelOptions = () => [
+  { value: DEFAULT_MODEL_CHOICE, label: "Default (Claude Code's own)" },
+  ...CLAUDE_CODE_MODEL_ALIASES.map((alias) => ({ value: alias, label: alias })),
+  { value: OTHER_MODEL_CHOICE, label: 'Other…' },
+];
+
+const isKnownChoice = (choice) => choice === DEFAULT_MODEL_CHOICE || choice === OTHER_MODEL_CHOICE
+  || CLAUDE_CODE_MODEL_ALIASES.includes(choice);
+
+// What a choice sends: { model } (null for Claude Code's default), or
+// { error } when "Other…" holds nothing usable.
+export const modelForRequest = (choice, custom = '') => {
+  if (!isKnownChoice(choice) || choice === DEFAULT_MODEL_CHOICE) return { model: null };
+  if (choice !== OTHER_MODEL_CHOICE) return { model: choice };
+
+  const model = String(custom ?? '').trim();
+  if (!model) return { error: 'Enter a model id, or pick one of the options.' };
+  if (!CLAUDE_CODE_MODEL_NAME.test(model)) {
+    return { error: `"${truncate(model, 40)}" is not a Claude Code model name (letters, digits and . _ : [ ] -).` };
+  }
+  return { model };
+};
+
+// The request body for a new session.
+export const codeSessionRequestBody = (prompt, choice, custom) => {
+  const { model } = modelForRequest(choice, custom);
+  return model ? { prompt, model } : { prompt };
+};
+
+// The remembered choice, from what localStorage held (a string, or null);
+// anything unreadable falls back to the default.
+export const parseModelChoice = (raw) => {
+  const fallback = { choice: DEFAULT_MODEL_CHOICE, custom: '' };
+  if (typeof raw !== 'string' || !raw) return fallback;
+  try {
+    const value = JSON.parse(raw);
+    if (!isObject(value) || !isKnownChoice(value.choice)) return fallback;
+    const custom = typeof value.custom === 'string' ? value.custom.slice(0, 100) : '';
+    return { choice: value.choice, custom };
+  } catch (_error) {
+    return fallback;
+  }
+};
+
+export const serializeModelChoice = (choice, custom = '') => JSON.stringify({
+  choice: isKnownChoice(choice) ? choice : DEFAULT_MODEL_CHOICE,
+  custom: String(custom ?? '').slice(0, 100),
+});
+
+// How a session's model reads in the list and the detail.
+export const sessionModelLabel = (session) => session?.model || 'default model';
+
+// --- How Claude Code authenticates ------------------------------------------
+//
+// GET /api/sandboxes says how this install runs Claude Code
+// (ActionAgent.claude_code_auth) and whether the caller's is usable:
+//
+//   claude_code_auth       "api_key" | "local_login"
+//   claude_code_connected  true when sessions can run
+//   claude_code_login      { logged_in, auth_method } — local_login only
+//
+// "api_key" runs sessions on an Anthropic API key the owner connects here.
+// "local_login" runs them on the dashboard machine's own Claude Code login
+// (`claude /login`), which the dashboard never sees. A Claude subscription
+// token (`claude setup-token`) is never accepted: Anthropic does not let
+// third-party apps hold Claude.ai credentials. One an earlier version stored
+// comes back from /api/provider_keys as needs_replacing.
+
+export const CLAUDE_CODE_API_KEY = 'api_key';
+export const CLAUDE_CODE_LOCAL_LOGIN = 'local_login';
+export const CLAUDE_CODE_LOGIN_COMMAND = 'claude /login';
+export const CLAUDE_CODE_API_KEY_PLACEHOLDER = 'sk-ant-api03-…';
+export const CLAUDE_CONSOLE_URL = 'https://platform.claude.com';
+export const CLAUDE_CODE_POLICY_URL = 'https://code.claude.com/docs/en/legal-and-compliance.md';
+
+// The sandbox listing's Claude Code fields, read defensively: anything but
+// "local_login" is the API-key mode, and only a literal true counts.
+export const claudeCodeAuth = (data) => {
+  const login = isObject(data?.claude_code_login) ? data.claude_code_login : {};
+  const localLogin = data?.claude_code_auth === CLAUDE_CODE_LOCAL_LOGIN;
+  return {
+    mode: localLogin ? CLAUDE_CODE_LOCAL_LOGIN : CLAUDE_CODE_API_KEY,
+    connected: data?.claude_code_connected === true,
+    loggedIn: localLogin && login.logged_in === true,
+    authMethod: localLogin && typeof login.auth_method === 'string' && login.auth_method ? login.auth_method : null,
+  };
+};
+
+// What the Claude Code card shows, from the listing's fields (claudeCodeAuth)
+// and the stored key's row from /api/provider_keys (null while either
+// loads).
+//
+//   view         "loading" | "local_login" | "api_key"
+//   status       the line under the card's title
+//   tone         "success" | "error" | "neutral"
+//   keyForm      whether the card offers to connect, update or remove a key
+//   needsReplacing  a stored subscription token that must become an API key
+//   loginHint    the command to run on this machine, when logged out
+export const claudeCodeCardState = (auth, keyRow) => {
+  if (!auth) return { view: 'loading', status: 'Loading…', tone: 'neutral', keyForm: false, needsReplacing: false, loginHint: null };
+
+  if (auth.mode === CLAUDE_CODE_LOCAL_LOGIN) {
+    const how = auth.authMethod ? ` (${auth.authMethod})` : '';
+    return {
+      view: CLAUDE_CODE_LOCAL_LOGIN,
+      status: auth.loggedIn ? `Using this machine's Claude Code login · logged in${how}` : "Using this machine's Claude Code login · not logged in",
+      tone: auth.loggedIn ? 'success' : 'error',
+      keyForm: false,
+      needsReplacing: false,
+      loginHint: auth.loggedIn ? null : CLAUDE_CODE_LOGIN_COMMAND,
+    };
+  }
+
+  if (!keyRow) return { view: 'loading', status: 'Loading…', tone: 'neutral', keyForm: false, needsReplacing: false, loginHint: null };
+  if (keyRow.configured && keyRow.needs_replacing === true) {
+    return {
+      view: CLAUDE_CODE_API_KEY,
+      status: 'Needs an API key: the stored subscription token is no longer used',
+      tone: 'error',
+      keyForm: true,
+      needsReplacing: true,
+      loginHint: null,
+    };
+  }
+  return {
+    view: CLAUDE_CODE_API_KEY,
+    status: keyRow.configured ? `Connected (${keyRow.hint})` : 'Not connected',
+    tone: keyRow.configured ? 'success' : 'neutral',
+    keyForm: true,
+    needsReplacing: false,
+    loginHint: null,
+  };
+};
+
+// Why the session panel's composer is locked for want of Claude Code, or
+// null when it can run. `loginHint` is the command to show beside the text.
+// Nothing known yet reads as not connected: the server refuses then anyway.
+export const claudeCodeNotConnectedHint = (auth) => {
+  if (auth?.connected === true) return null;
+  if (auth?.mode === CLAUDE_CODE_LOCAL_LOGIN) {
+    return { text: 'Claude Code is not logged in on this machine. Run', loginHint: CLAUDE_CODE_LOGIN_COMMAND, after: 'as the user the dashboard runs as.' };
+  }
+  return { text: 'Connect an Anthropic API key under Claude Code below to run sessions in this checkout.', loginHint: null, after: null };
+};

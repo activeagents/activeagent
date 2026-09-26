@@ -542,17 +542,97 @@ runs and evaluations of that agent call the checkout's own tools. The lookup
 is scoped to the agent's owner, so one tenant cannot name another tenant's
 sandbox.
 
+### Running against a sandbox without editing the agent
+
+A checkout sandbox is where you try a change: boot a branch, perhaps have a
+[Claude Code session](#claude-code-sessions) edit an agent's tools there, and
+then see how the agent does with them. For that, a single run can use a
+sandbox's runtime without the key being saved on the agent. In a scenario
+suite, pick it in **Run against sandbox** next to the models field (the
+select lists your ready checkout sandboxes). Every replay of that run is
+offered the runtime's tools beside the agent's own, and calls them there, as
+if the agent listed `sandbox:<session_id>`. The next run, and the agent's
+saved `mcp_servers`, are unchanged.
+
+The run records the sandbox it used, and the Runs list, the suite's summary
+line and the run report all name it (`against acme/shop@experiment ·
+1a2b3c4d`). The API takes the same thing as `sandbox_id`:
+
+| Endpoint | What `sandbox_id` does |
+|---|---|
+| `POST /api/evaluations/:id/run` | Every replay of this run reaches the sandbox's runtime. The run's `sandbox` (and `selection.sandbox`) is `{ session_id, server_key, repository, repository_ref }` |
+| `POST /api/agents/:id/execute`, `POST /api/agents/:id/test` | This runner run reaches it. The run's summary carries `sandbox_id` |
+
+The sandbox must be yours (in your current account, in a multi-tenant
+install), an `app_runtime` sandbox, and ready. It must also belong to the
+agent's owner, because the runtime is resolved among that owner's sessions,
+as a saved key is. Anything else is refused with `422` and a message saying
+which (`code: "sandbox_refused"`). A sampling evaluation, which scores
+recorded generations rather than running the agent, and a suite a host
+adapter replays, cannot run against a sandbox. A queued run whose sandbox has
+stopped by the time it starts fails, saying so, rather than replaying without
+the tools it was meant to test. The runtime's token is never in a response
+or a stored record: runs store only the `sandbox:<session_id>` key.
+
 ### Claude Code
 
-Settings -> Integrations also connects **Claude Code**. Paste the token
-`claude setup-token` prints (`sk-ant-oat01-…`), or an Anthropic API key. It is
-stored like a provider key (encrypted, write-only, masked in the UI) under the
-provider name `claude_code`, and never offered as an agent provider. A
-checkout backend reads `sandbox_session.runtime_environment`, which is
-`{ "CLAUDE_CODE_OAUTH_TOKEN" => … }` or `{ "ANTHROPIC_API_KEY" => … }`, and
-gives it to the Claude Code sessions it runs in the checkout, and to nothing
-else: the `:local` backend never puts it in the environment of the checkout's
-setup, manifest or server (see [Claude Code sessions](#claude-code-sessions)).
+Settings -> Integrations also connects **Claude Code**, in one of two ways,
+set by `ActionAgent.claude_code_auth`:
+
+- **`:api_key`** (the default). Paste an Anthropic API key (`sk-ant-api03-…`)
+  from the [Claude Console](https://platform.claude.com), or one issued
+  through a supported cloud provider. It is stored like a provider key
+  (encrypted, write-only, masked in the UI) under the provider name
+  `claude_code`, and never offered as an agent provider. A checkout backend
+  reads `sandbox_session.runtime_environment`, which is
+  `{ "ANTHROPIC_API_KEY" => … }`, and gives it to the Claude Code sessions it
+  runs in the checkout, and to nothing else: the `:local` backend never puts it
+  in the environment of the checkout's setup, manifest or server (see
+  [Claude Code sessions](#claude-code-sessions)).
+- **`:local_login`**, with the [`:local` backend](#local-checkout-sandboxes)
+  only. Sessions run `claude` on the dashboard's machine with that machine's
+  own Claude Code login: whatever `claude /login` (or `claude auth login`) set
+  up for the dashboard's OS user, in `~/.claude` or the system keychain. The
+  dashboard never reads, copies or stores that credential. It only runs
+  `claude auth status --json` (at most once a minute) to show whether the
+  machine is logged in, and keeps nothing from it but `loggedIn` and the login
+  method. No key is asked for. Any other backend refuses Claude Code sessions
+  in this mode, since the login cannot leave the machine.
+
+```ruby
+ActionAgent.configure do |config|
+  config.sandbox_service = :local
+  config.claude_code_auth = :local_login
+end
+```
+
+::: warning Claude subscription tokens are not accepted
+The dashboard does not store a Claude subscription login: the token
+`claude setup-token` prints (`sk-ant-oat…`) is refused. Anthropic's
+[Claude Code legal and compliance terms](https://code.claude.com/docs/en/legal-and-compliance.md)
+say that products built on Claude should use API key authentication, and that
+third-party developers may not collect, store or route requests through
+Claude.ai credentials on their users' behalf. Sign-in to a Claude account must
+go through Anthropic's own flow, which is what `:local_login` relies on.
+
+A token stored by an earlier version is never handed to a session: the owner
+sees Claude Code as needing an API key (`needs_replacing: true` in
+`GET /api/provider_keys`) until they paste one. Delete the stored tokens with
+`bin/rails action_agent:claude_code:purge_subscription_tokens`.
+:::
+
+`GET /api/sandboxes` reports which mode is in use and whether sessions can
+run, never a credential:
+
+| Field | Meaning |
+|---|---|
+| `claude_code_auth` | `"api_key"` or `"local_login"` |
+| `claude_code_connected` | an API key is stored (`api_key`), or this machine is logged in (`local_login`) |
+| `claude_code_login` | `{ logged_in, auth_method }`, in `local_login` mode only |
+| `code_sessions_supported` | the backend runs sessions, and runs them in this mode |
+
+The dashboard assistant's configuration reports the same under
+`connections.claude_code` (`supported`, `connected`, `auth`, `login`).
 
 ## Local checkout sandboxes
 
@@ -569,7 +649,10 @@ end
 
 It needs `git` and `sh` on the dashboard's `PATH`, plus whatever the checkout's
 own setup needs (Ruby and Bundler for a Rails app). Claude Code sessions also
-need the `claude` CLI.
+need the `claude` CLI, and either an Anthropic API key connected in Settings ->
+Integrations or, with `claude_code_auth = :local_login`, the machine's own
+Claude Code login (run `claude /login` once as the dashboard's user). See
+[Claude Code](#claude-code).
 
 ::: warning The local backend runs the owner's code with the dashboard's privileges
 The checkout's setup commands, its server and every Claude Code session run as
@@ -596,6 +679,7 @@ config.local_sandboxes_enabled = true
 | `claude_code_permission_mode` | `"acceptEdits"` | `--permission-mode` for every session |
 | `claude_code_max_turns` | `nil` (Claude Code's own default) | `--max-turns` for every session |
 | `claude_code_timeout` | `1800` (seconds) | How long a session may run before it is stopped |
+| `claude_code_auth` | `:api_key` | How sessions authenticate: the owner's stored API key, or `:local_login` for this machine's own Claude Code login (see [Claude Code](#claude-code)) |
 
 ### What a sandbox runs
 
@@ -604,11 +688,12 @@ only by the dashboard's user:
 
 ```
 app/            the checkout
+db/             the sandbox's SQLite databases, when the checkout uses SQLite (see below)
 runtime.json    the manifest the checkout wrote (made owner-only, 0600)
 state.json      { pid, port, started_at, step_pid, code_sessions: { "<id>" => pid } }
 state.lock      what changes to state.json are serialized on
 logs/           checkout, setup, manifest, server and claude-<id> logs
-claude/         CLAUDE_CONFIG_DIR for Claude Code sessions
+claude/         CLAUDE_CONFIG_DIR for Claude Code sessions (unused with claude_code_auth = :local_login)
 ```
 
 Its handle is `local-<session_id>`. Provisioning runs in a background job (a
@@ -617,7 +702,8 @@ checkout can take minutes) and does the following, in order:
 1. Fetches the ref, one commit deep, into `app/`. The GitHub token is only in
    the environment of that fetch. It never appears on a command line, and it
    is never written to `.git/config`.
-2. Reads `.activeagents/sandbox.yml` from the checkout, if there is one.
+2. Reads `.activeagents/sandbox.yml` from the checkout, if there is one, and
+   gives the sandbox [databases of its own](#a-database-per-sandbox).
 3. Runs each `setup` command.
 4. Picks a free port and runs the `manifest` command.
 5. Starts the `start` command in its own process group, with its output in
@@ -639,7 +725,7 @@ after the dashboard itself died mid-boot still stops it.
 Steps 1 to 6 share `local_sandbox_boot_timeout`. If a step fails, runs out of
 time, or the server exits, everything the backend started is stopped. The
 sandbox then fails with a message that names the step and ends with the last
-lines of that step's log. The GitHub token and the Claude Code credential are
+lines of that step's log. The GitHub token and the Claude Code API key are
 scrubbed from that message. When the sandbox is ready, its MCP server
 (`sandbox:<session_id>`) is
 `http://127.0.0.1:$PORT<mcp_path>`, with the manifest's token.
@@ -665,12 +751,13 @@ start: bin/rails server -b 127.0.0.1 -p $PORT        # default; must serve on 12
   exit 0. `start` must keep running.
 - Each command's environment is the sanitized dashboard environment, plus
   `PORT`, `ACTION_AGENT_SANDBOX_MANIFEST` (an absolute path inside the
-  workspace) and `ACTION_AGENT_SANDBOX_SESSION_ID`, plus the file's `env`.
+  workspace) and `ACTION_AGENT_SANDBOX_SESSION_ID`, plus the sandbox's
+  [database variables](#a-database-per-sandbox), plus the file's `env`.
   The port is picked after setup, when it was last seen free; nothing holds it
   until the server binds it, so a server that finds it taken fails the boot
   rather than being mistaken for the process that took it (step 6).
   `manifest` and `start` get `PORT`; `setup` does not.
-- The GitHub token is never in that environment. The Claude Code credential
+- The GitHub token is never in that environment. The Claude Code API key
   isn't either: only Claude Code sessions get it.
 - Unknown keys are ignored. A malformed file fails provisioning, and the
   sandbox's error says what is wrong with it.
@@ -716,13 +803,61 @@ through. Because `RAILS_ENV` is dropped, a Rails checkout boots in development
 unless its `env` sets it. A checkout that needs a key of its own sets it in
 `env`, or reads it from its own credentials.
 
+### A database per sandbox
+
+A checkout's `config/database.yml` usually names a fixed development
+database. For a checkout of the app you run the dashboard from, that is
+*your* development database, and its `db:prepare` would migrate it. So every
+sandbox boots on databases of its own, set through the variables Rails
+merges over `database.yml`: `DATABASE_URL` for the `primary` database, and
+`<NAME>_DATABASE_URL` for any other, as for the `queue` and `cache`
+databases Rails 8's Solid Queue and Solid Cache add
+(`QUEUE_DATABASE_URL`, `CACHE_DATABASE_URL`).
+
+The backend reads the adapter and database name of each entry in the
+checkout's `config/database.yml`, for the environment the checkout boots in
+(`RAILS_ENV` from `env`, or `development`):
+
+| Adapter | Each database becomes | When the sandbox is terminated |
+|---|---|---|
+| `sqlite3` | `sqlite3:<workspace>/db/development.sqlite3` (`development_<name>.sqlite3` for the others) | removed with the workspace |
+| `postgresql`, `postgis` | `postgresql:///<database>_sandbox_<first 8 of the session id>` | dropped with the checkout's own `bin/rails db:drop` |
+| `mysql2`, `trilogy` | `mysql2:///<database>_sandbox_<first 8 of the session id>` | the same |
+| anything else | left as configured, and logged | — |
+
+- The URLs name only the database. Rails merges a URL over the entry, so the
+  host, port, user and password stay what `database.yml` or the environment
+  (`PGHOST`, `PGPORT`, `PGUSER`) say. `PGPASSWORD` is a secret the
+  sanitizing drops: use `~/.pgpass`, or set it in `env`.
+- A replica (`replica: true`) reads its primary's database. An entry with
+  `database_tasks: false` is a database the app does not manage, and is left
+  alone. So is one given as a `url:`, which Rails lets no variable override.
+- `SKIP_TEST_DATABASE=1` is set too: without it, `db:prepare` in development
+  also prepares the test database, which is still yours.
+- Claude Code sessions get the same variables, so a `bin/rails db:migrate`
+  a session runs lands in the sandbox's database.
+- The drop runs after the server has stopped, with the sandbox's
+  environment and the URLs the backend recorded when it booted, and is given
+  60 seconds. It is best effort: a failed drop is logged and the sandbox goes
+  anyway. A boot that fails drops what its setup may have created.
+- `database.yml` is never evaluated in the dashboard. Its ERB tags are
+  blanked out and the rest is read as plain YAML. When that does not parse,
+  the first `adapter:` line is taken as the primary database's. The file is
+  read only at `config/database.yml` in the checkout root: an app nested
+  deeper sets its own (the SQLite path of this repository's `test/dummy` is
+  relative, so already inside the checkout).
+- `logs/setup.log` begins with a `# sandbox database:` line for each decision.
+
+To choose a database yourself, set its variable in `env`; whatever `env`
+sets is left alone, and never dropped:
+
+```yaml
+env:
+  DATABASE_URL: postgresql:///shop_experiments
+```
+
 **Known limits of the local backend.**
 
-- **Databases.** A checkout boots with its own `config/database.yml`. If it
-  names a fixed development database, as most Rails apps do, a checkout of the
-  same app you run the dashboard from uses *your* development database, and
-  its `db:prepare` migrates it. Give the checkout a database of its own in
-  `.activeagents/sandbox.yml` (for example `DATABASE_URL: sqlite3:storage/sandbox.sqlite3`).
 - **Code reloading.** In development, Active Job's default async adapter runs
   jobs inside the web process, and a reloading app holds the reloader while a
   job runs. A checkout boot (up to `local_sandbox_boot_timeout`) or a Claude
@@ -836,10 +971,16 @@ workspaces.
 ### Claude Code sessions
 
 When a sandbox is **ready**, its card in Settings → Integrations shows a
-Claude Code panel. **Run Claude Code** stays disabled until Claude Code is
-connected (see [Claude Code](#claude-code)). Write a prompt, and the dashboard
-runs Claude Code headless in the checkout. The panel shows each event as it
-arrives:
+Claude Code panel. **Run Claude Code** stays disabled until Claude Code can
+run: an Anthropic API key is connected, or, with `claude_code_auth =
+:local_login`, this machine's Claude Code is logged in (see
+[Claude Code](#claude-code)). Write a prompt, and the dashboard
+runs Claude Code headless in the checkout. The **Model** select next to it
+picks what the session runs on: *Default (Claude Code's own)* sends no
+model, `sonnet`, `opus` and `haiku` are Claude Code's aliases, and *Other…*
+takes a full model id (`claude-sonnet-4-5`). The panel remembers the last
+choice in this browser. Each session in the list, and the open one, shows
+its model. The panel shows each event as it arrives:
 
 - the assistant's text;
 - each tool call and its result;
@@ -859,7 +1000,8 @@ stored in `active_agent_code_sessions`. An existing install gets that table by
 running `rails generate action_agent:install` and `rails db:migrate` again.
 The API offers the same actions:
 
-- `GET` and `POST /api/sandboxes/:session_id/code_sessions`;
+- `GET` and `POST /api/sandboxes/:session_id/code_sessions` (`prompt`, and
+  an optional `model`);
 - `GET …/code_sessions/:id?after=N`, which returns events from index N, and
   the diff once the session has finished;
 - `POST …/code_sessions/:id/cancel`.
@@ -881,14 +1023,19 @@ The prompt goes in on standard input, never on the command line. The session
 runs in the checkout, in its own process group. Its environment is the
 sanitized one, plus:
 
-- the Claude Code credential (`CLAUDE_CODE_OAUTH_TOKEN` or
-  `ANTHROPIC_API_KEY`);
-- `CLAUDE_CONFIG_DIR`, set to the sandbox's own `claude/` directory;
+- with `claude_code_auth = :api_key`, the owner's key as `ANTHROPIC_API_KEY`,
+  and `CLAUDE_CONFIG_DIR` set to the sandbox's own `claude/` directory;
+- with `:local_login`, no credential and no `CLAUDE_CONFIG_DIR`: Claude Code
+  reads the dashboard user's own configuration and login from `HOME`, which
+  the sanitized environment keeps. The dashboard's own `CLAUDE_*` and
+  `ANTHROPIC_*` variables are still dropped, so a session never picks up a key
+  or a base URL from the dashboard's environment. The user's `~/.claude`
+  settings (hooks, MCP servers, permissions) apply to these sessions too;
 - `DISABLE_AUTOUPDATER`, `DISABLE_TELEMETRY`, `DISABLE_ERROR_REPORTING` and
   `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, each set to `1`.
 
 A session still running after `claude_code_timeout` is stopped and fails. The
-backend scrubs the checkout token and the Claude Code credential from the
+backend scrubs the checkout token and the Claude Code API key from the
 recorded events and the diff. A session keeps at most 1,000 events, and a diff
 of at most 500 KB.
 

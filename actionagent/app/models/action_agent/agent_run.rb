@@ -28,6 +28,11 @@ module ActionAgent
     # Underscored so it cannot collide with a provider override, and
     # stripped from anything a client sends (see Api::AgentsController).
     ACTOR_PARAM = "_actor_gid"
+    # The key a checkout sandbox's app runtime this one run also reaches is
+    # recorded under ("sandbox:<session_id>"; never its token). Set only by
+    # the server, after it checked the caller owns that sandbox, and
+    # stripped from anything a client sends, as the actor is.
+    SANDBOX_PARAM = "_sandbox_server"
 
     # +input_params+ with the caller recorded alongside them.
     #
@@ -42,7 +47,7 @@ module ActionAgent
     # @param actor [Object, nil] the caller
     # @return [Hash]
     def self.params_with_actor(params, actor)
-      params = (params || {}).to_h.except(ACTOR_PARAM, ACTOR_PARAM.to_sym)
+      params = (params || {}).to_h.except(ACTOR_PARAM, ACTOR_PARAM.to_sym, SANDBOX_PARAM, SANDBOX_PARAM.to_sym)
       gid = actor.respond_to?(:to_global_id) ? actor.to_global_id.to_s : nil
       gid ? params.merge(ACTOR_PARAM => gid) : params
     rescue StandardError => e
@@ -64,6 +69,19 @@ module ActionAgent
     end
 
     attr_writer :actor
+
+    # The "sandbox:<session_id>" runtime this run reaches beside the agent's
+    # own MCP servers, or nil.
+    # @return [String, nil]
+    def sandbox_server_key
+      key = input_params[SANDBOX_PARAM] if input_params.is_a?(Hash)
+      key.to_s.presence if SandboxSession.runtime_server_key?(key)
+    end
+
+    # The session id of that sandbox, for a summary.
+    def sandbox_id
+      sandbox_server_key&.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)
+    end
 
     # Whether this run knows who it is for. A run with a recorded actor that
     # no longer resolves is *not* unattributed — it is broken, and callers
@@ -247,6 +265,7 @@ module ActionAgent
         instructions_preview: output_metadata&.dig("instructions")&.truncate(120),
         attachments: attachment_manifest,
         context_id: context_id,
+        sandbox_id: sandbox_id,
         created_at: created_at,
         error: error_message
       }
