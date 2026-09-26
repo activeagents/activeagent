@@ -92,6 +92,9 @@ module ActionAgent
     # take, and what its authMethod and apiProvider may look like to be
     # shown (a short label, never free text).
     LOGIN_STATUS_TTL = 60
+    # A logged-out answer is re-asked soon: someone who just ran
+    # `claude /login` clicks "Check again" and expects it to turn green.
+    LOGGED_OUT_STATUS_TTL = 3
     LOGIN_STATUS_TIMEOUT = 10
     LOGIN_LABEL = /\A[A-Za-z0-9][A-Za-z0-9._ -]{0,63}\z/
     LOGGED_OUT = { logged_in: false, auth_method: nil, api_provider: nil }.freeze
@@ -290,8 +293,8 @@ module ActionAgent
       # never in it. A CLI that is missing, fails or answers something else
       # reads as logged out.
       #
-      # Asked at most once a LOGIN_STATUS_TTL per command: the listing that
-      # shows it is polled.
+      # Asked at most once a LOGIN_STATUS_TTL per command (a logged-out
+      # answer, LOGGED_OUT_STATUS_TTL): the listing that shows it is polled.
       #
       # @return [Hash] { logged_in: Boolean, auth_method: String?, api_provider: String? }
       def claude_login_status
@@ -304,7 +307,9 @@ module ActionAgent
         status = new.send(:read_claude_login_status, command)
         @login_status_lock.synchronize do
           @login_status[command] = {
-            status: status, until: Process.clock_gettime(Process::CLOCK_MONOTONIC) + LOGIN_STATUS_TTL
+            status: status,
+            until: Process.clock_gettime(Process::CLOCK_MONOTONIC) +
+              (status[:logged_in] ? LOGIN_STATUS_TTL : LOGGED_OUT_STATUS_TTL)
           }
         end
         status
