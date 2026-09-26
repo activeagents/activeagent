@@ -92,6 +92,10 @@ is not a compatible collector, and `verify!` raises rather than returning
 `true`. The probe is part of the collector contract; see
 [Self-hosted collector](#self-hosted-collector).
 
+On a single-tenant install whose mount requires no ingest key, there is no key
+to prove: a 422 there confirms the collector is reachable and its evaluation
+store is migrated, and nothing more.
+
 `Publisher#endpoint` returns the collector URL as a string, for a message that
 names where a report goes.
 
