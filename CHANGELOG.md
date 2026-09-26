@@ -22,6 +22,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default. The install generator emits a guarded `add_provider_key_api_key`
   migration for existing installs; re-run
   `bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`.
+- **A model comparison table on comparison runs** (`actionagent`,
+  `activeagent`). A run over several models now leads its Models section
+  with one row per model, best first: passed, mean score, average latency,
+  average tokens per scenario, cost (and per scenario), and the model's
+  typical fault — its most frequent one with the diagnosis of a result that
+  carries it. The scenario suite panel, the sampling run detail and the
+  standalone HTML report (`ActiveAgent::Evals::ReportHtml`) all render it.
+- **What to fix, filtered by model** (`actionagent`, `activeagent`). On a
+  comparison run the fix list takes a model chip, narrowing to the items
+  attributed to that model and counting what that model alone produced,
+  since one model may need more instruction than another. The standalone
+  report filters through radio chips and stylesheet rules — it still ships
+  no script.
+
+### Fixed
+
+- **A nested scenario expectation written as one value** (`activeagent`).
+  `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
+  list of one, the shape the persisted scenario and the dashboard's matrix
+  read; an object-list import with a lone value used to break the suite
+  panel. The matrix also tolerates scenarios persisted before this.
 
 ## [1.7.0] - 2026-09-24
 
