@@ -576,15 +576,63 @@ or a stored record: runs store only the `sandbox:<session_id>` key.
 
 ### Claude Code
 
-Settings -> Integrations also connects **Claude Code**. Paste the token
-`claude setup-token` prints (`sk-ant-oat01-…`), or an Anthropic API key. It is
-stored like a provider key (encrypted, write-only, masked in the UI) under the
-provider name `claude_code`, and never offered as an agent provider. A
-checkout backend reads `sandbox_session.runtime_environment`, which is
-`{ "CLAUDE_CODE_OAUTH_TOKEN" => … }` or `{ "ANTHROPIC_API_KEY" => … }`, and
-gives it to the Claude Code sessions it runs in the checkout, and to nothing
-else: the `:local` backend never puts it in the environment of the checkout's
-setup, manifest or server (see [Claude Code sessions](#claude-code-sessions)).
+Settings -> Integrations also connects **Claude Code**, in one of two ways,
+set by `ActionAgent.claude_code_auth`:
+
+- **`:api_key`** (the default). Paste an Anthropic API key (`sk-ant-api03-…`)
+  from the [Claude Console](https://platform.claude.com), or one issued
+  through a supported cloud provider. It is stored like a provider key
+  (encrypted, write-only, masked in the UI) under the provider name
+  `claude_code`, and never offered as an agent provider. A checkout backend
+  reads `sandbox_session.runtime_environment`, which is
+  `{ "ANTHROPIC_API_KEY" => … }`, and gives it to the Claude Code sessions it
+  runs in the checkout, and to nothing else: the `:local` backend never puts it
+  in the environment of the checkout's setup, manifest or server (see
+  [Claude Code sessions](#claude-code-sessions)).
+- **`:local_login`**, with the [`:local` backend](#local-checkout-sandboxes)
+  only. Sessions run `claude` on the dashboard's machine with that machine's
+  own Claude Code login: whatever `claude /login` (or `claude auth login`) set
+  up for the dashboard's OS user, in `~/.claude` or the system keychain. The
+  dashboard never reads, copies or stores that credential. It only runs
+  `claude auth status --json` (at most once a minute) to show whether the
+  machine is logged in, and keeps nothing from it but `loggedIn` and the login
+  method. No key is asked for. Any other backend refuses Claude Code sessions
+  in this mode, since the login cannot leave the machine.
+
+```ruby
+ActionAgent.configure do |config|
+  config.sandbox_service = :local
+  config.claude_code_auth = :local_login
+end
+```
+
+::: warning Claude subscription tokens are not accepted
+The dashboard does not store a Claude subscription login: the token
+`claude setup-token` prints (`sk-ant-oat…`) is refused. Anthropic's
+[Claude Code legal and compliance terms](https://code.claude.com/docs/en/legal-and-compliance.md)
+say that products built on Claude should use API key authentication, and that
+third-party developers may not collect, store or route requests through
+Claude.ai credentials on their users' behalf. Sign-in to a Claude account must
+go through Anthropic's own flow, which is what `:local_login` relies on.
+
+A token stored by an earlier version is never handed to a session: the owner
+sees Claude Code as needing an API key (`needs_replacing: true` in
+`GET /api/provider_keys`) until they paste one. Delete the stored tokens with
+`bin/rails action_agent:claude_code:purge_subscription_tokens`.
+:::
+
+`GET /api/sandboxes` reports which mode is in use and whether sessions can
+run, never a credential:
+
+| Field | Meaning |
+|---|---|
+| `claude_code_auth` | `"api_key"` or `"local_login"` |
+| `claude_code_connected` | an API key is stored (`api_key`), or this machine is logged in (`local_login`) |
+| `claude_code_login` | `{ logged_in, auth_method }`, in `local_login` mode only |
+| `code_sessions_supported` | the backend runs sessions, and runs them in this mode |
+
+The dashboard assistant's configuration reports the same under
+`connections.claude_code` (`supported`, `connected`, `auth`, `login`).
 
 ## Local checkout sandboxes
 
@@ -601,7 +649,10 @@ end
 
 It needs `git` and `sh` on the dashboard's `PATH`, plus whatever the checkout's
 own setup needs (Ruby and Bundler for a Rails app). Claude Code sessions also
-need the `claude` CLI.
+need the `claude` CLI, and either an Anthropic API key connected in Settings ->
+Integrations or, with `claude_code_auth = :local_login`, the machine's own
+Claude Code login (run `claude /login` once as the dashboard's user). See
+[Claude Code](#claude-code).
 
 ::: warning The local backend runs the owner's code with the dashboard's privileges
 The checkout's setup commands, its server and every Claude Code session run as
@@ -628,6 +679,7 @@ config.local_sandboxes_enabled = true
 | `claude_code_permission_mode` | `"acceptEdits"` | `--permission-mode` for every session |
 | `claude_code_max_turns` | `nil` (Claude Code's own default) | `--max-turns` for every session |
 | `claude_code_timeout` | `1800` (seconds) | How long a session may run before it is stopped |
+| `claude_code_auth` | `:api_key` | How sessions authenticate: the owner's stored API key, or `:local_login` for this machine's own Claude Code login (see [Claude Code](#claude-code)) |
 
 ### What a sandbox runs
 
@@ -641,7 +693,7 @@ runtime.json    the manifest the checkout wrote (made owner-only, 0600)
 state.json      { pid, port, started_at, step_pid, code_sessions: { "<id>" => pid } }
 state.lock      what changes to state.json are serialized on
 logs/           checkout, setup, manifest, server and claude-<id> logs
-claude/         CLAUDE_CONFIG_DIR for Claude Code sessions
+claude/         CLAUDE_CONFIG_DIR for Claude Code sessions (unused with claude_code_auth = :local_login)
 ```
 
 Its handle is `local-<session_id>`. Provisioning runs in a background job (a
@@ -673,7 +725,7 @@ after the dashboard itself died mid-boot still stops it.
 Steps 1 to 6 share `local_sandbox_boot_timeout`. If a step fails, runs out of
 time, or the server exits, everything the backend started is stopped. The
 sandbox then fails with a message that names the step and ends with the last
-lines of that step's log. The GitHub token and the Claude Code credential are
+lines of that step's log. The GitHub token and the Claude Code API key are
 scrubbed from that message. When the sandbox is ready, its MCP server
 (`sandbox:<session_id>`) is
 `http://127.0.0.1:$PORT<mcp_path>`, with the manifest's token.
@@ -705,7 +757,7 @@ start: bin/rails server -b 127.0.0.1 -p $PORT        # default; must serve on 12
   until the server binds it, so a server that finds it taken fails the boot
   rather than being mistaken for the process that took it (step 6).
   `manifest` and `start` get `PORT`; `setup` does not.
-- The GitHub token is never in that environment. The Claude Code credential
+- The GitHub token is never in that environment. The Claude Code API key
   isn't either: only Claude Code sessions get it.
 - Unknown keys are ignored. A malformed file fails provisioning, and the
   sandbox's error says what is wrong with it.
@@ -919,8 +971,10 @@ workspaces.
 ### Claude Code sessions
 
 When a sandbox is **ready**, its card in Settings → Integrations shows a
-Claude Code panel. **Run Claude Code** stays disabled until Claude Code is
-connected (see [Claude Code](#claude-code)). Write a prompt, and the dashboard
+Claude Code panel. **Run Claude Code** stays disabled until Claude Code can
+run: an Anthropic API key is connected, or, with `claude_code_auth =
+:local_login`, this machine's Claude Code is logged in (see
+[Claude Code](#claude-code)). Write a prompt, and the dashboard
 runs Claude Code headless in the checkout. The **Model** select next to it
 picks what the session runs on: *Default (Claude Code's own)* sends no
 model, `sonnet`, `opus` and `haiku` are Claude Code's aliases, and *Other…*
@@ -969,14 +1023,19 @@ The prompt goes in on standard input, never on the command line. The session
 runs in the checkout, in its own process group. Its environment is the
 sanitized one, plus:
 
-- the Claude Code credential (`CLAUDE_CODE_OAUTH_TOKEN` or
-  `ANTHROPIC_API_KEY`);
-- `CLAUDE_CONFIG_DIR`, set to the sandbox's own `claude/` directory;
+- with `claude_code_auth = :api_key`, the owner's key as `ANTHROPIC_API_KEY`,
+  and `CLAUDE_CONFIG_DIR` set to the sandbox's own `claude/` directory;
+- with `:local_login`, no credential and no `CLAUDE_CONFIG_DIR`: Claude Code
+  reads the dashboard user's own configuration and login from `HOME`, which
+  the sanitized environment keeps. The dashboard's own `CLAUDE_*` and
+  `ANTHROPIC_*` variables are still dropped, so a session never picks up a key
+  or a base URL from the dashboard's environment. The user's `~/.claude`
+  settings (hooks, MCP servers, permissions) apply to these sessions too;
 - `DISABLE_AUTOUPDATER`, `DISABLE_TELEMETRY`, `DISABLE_ERROR_REPORTING` and
   `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, each set to `1`.
 
 A session still running after `claude_code_timeout` is stopped and fails. The
-backend scrubs the checkout token and the Claude Code credential from the
+backend scrubs the checkout token and the Claude Code API key from the
 recorded events and the diff. A session keeps at most 1,000 events, and a diff
 of at most 500 KB.
 

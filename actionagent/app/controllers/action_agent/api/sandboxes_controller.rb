@@ -97,10 +97,7 @@ module ActionAgent
           sample_tasks: sample_tasks,
           sandboxes: listed_sandboxes.map(&:summary),
           code_sessions_supported: code_sessions_supported?,
-          # Found through the key's own owner column, as
-          # SandboxSession#runtime_environment finds the credential it hands a
-          # checkout: a provider key is account-owned before user-owned.
-          claude_code_connected: owned(ProviderKey).exists?(provider: "claude_code")
+          **claude_code_status
         }
       end
 
@@ -226,11 +223,35 @@ module ActionAgent
       # ActionAgent.sandbox_backends, or a class file requiring an SDK the
       # host doesn't bundle, which raises LoadError) cannot, and must not
       # take the rest of this listing down with it.
+      #
+      # Nor can one whose Claude Code authentication does not work there
+      # (ActionAgent.claude_code_auth = :local_login needs :local).
       def code_sessions_supported?
-        SandboxOrchestrator.new.supports?(:code_session)
+        orchestrator = SandboxOrchestrator.new
+        orchestrator.supports?(:code_session) && ClaudeCodeAuth.backend_refusal(orchestrator).nil?
       rescue StandardError, LoadError => e
         Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
         false
+      end
+
+      # Whether the caller's Claude Code can run sessions, by
+      # ClaudeCodeAuth's rule: an API key they connected, or this machine's
+      # own login. Never a credential.
+      #
+      #   claude_code_auth       "api_key" | "local_login"
+      #   claude_code_connected  Boolean
+      #   claude_code_login      { logged_in:, auth_method: } (local_login only)
+      #
+      # The key is found through its own owner column, as
+      # SandboxSession#runtime_environment finds the credential it hands a
+      # checkout: a provider key is account-owned before user-owned.
+      def claude_code_status
+        status = ClaudeCodeAuth.status(owned(ProviderKey))
+        {
+          claude_code_auth: status[:mode],
+          claude_code_connected: status[:connected],
+          claude_code_login: status[:login]
+        }.compact
       end
 
       # The caller's sandboxes that have not expired, newest first. A failed

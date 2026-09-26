@@ -14,7 +14,8 @@ module ActionAgent
   # A connection credential (Claude Code) is stored the same way but is not a
   # generation provider: no agent runs "on" it. It is handed to runtimes that
   # need it — a checkout sandbox runs Claude Code sessions with it — through
-  # #runtime_environment.
+  # #runtime_environment. For Claude Code that is an Anthropic API key only
+  # (see CLAUDE_CODE_CREDENTIAL).
   class ProviderKey < ApplicationRecord
     # Providers that authenticate with an API key.
     KEY_PROVIDERS = %w[openai anthropic openrouter].freeze
@@ -25,9 +26,18 @@ module ActionAgent
     CONNECTION_PROVIDERS = %w[claude_code].freeze
     PROVIDERS = (KEY_PROVIDERS + HOST_PROVIDERS + CONNECTION_PROVIDERS).freeze
 
-    # `claude setup-token` prints a long-lived OAuth token (sk-ant-oat01-…);
-    # an Anthropic API key (sk-ant-api03-…) works for Claude Code too.
-    CLAUDE_CODE_CREDENTIAL = /\Ask-ant-(oat|api)\d{2}-[A-Za-z0-9_-]+\z/
+    # Only an Anthropic API key (sk-ant-api03-…, from the Claude Console or
+    # a supported cloud provider). Anthropic does not let third-party
+    # products collect, store or route requests through Claude.ai
+    # subscription credentials (a `claude setup-token` token, sk-ant-oat…):
+    # https://code.claude.com/docs/en/legal-and-compliance.md. A developer
+    # who wants their own subscription on their own machine uses
+    # ActionAgent.claude_code_auth = :local_login instead, where the
+    # dashboard never touches the credential.
+    CLAUDE_CODE_CREDENTIAL = /\Ask-ant-api\d{2}-[A-Za-z0-9_-]+\z/
+    # A Claude subscription token, as earlier versions stored. Recognized so
+    # a stored one is never handed out (see #needs_replacing?).
+    SUBSCRIPTION_TOKEN_PREFIX = "sk-ant-oat"
 
     include Ownable
     owned_by :account, :user
@@ -43,8 +53,23 @@ module ActionAgent
       if: :host_based?
     validates :credential, format: {
       with: CLAUDE_CODE_CREDENTIAL,
-      message: "must be a token from `claude setup-token` (sk-ant-oat…) or an Anthropic API key (sk-ant-api…)"
+      message: "must be an Anthropic API key (sk-ant-api…) from the Claude Console (https://platform.claude.com). " \
+        "Claude subscription tokens (`claude setup-token`, sk-ant-oat…) cannot be stored: Anthropic does not allow " \
+        "third-party apps to hold Claude.ai credentials. To use your own Claude login on this machine, set " \
+        "ActionAgent.claude_code_auth = :local_login with the :local sandbox backend instead"
     }, if: -> { provider == "claude_code" }
+
+    # Deletes every Claude Code connection that still holds a Claude
+    # subscription token (see #needs_replacing?), whoever owns it. The
+    # credential is encrypted, so each is read to tell. Their owners see
+    # Claude Code as not connected, and connect an API key again.
+    #
+    # @return [Integer] how many were deleted
+    def self.purge_subscription_tokens!
+      where(provider: "claude_code").find_each.count do |key|
+        key.needs_replacing? && key.destroy!
+      end
+    end
 
     def self.kind_of_provider(provider)
       if HOST_PROVIDERS.include?(provider) then "host"
@@ -72,18 +97,26 @@ module ActionAgent
 
     # Environment variables a runtime needs to use this credential, for the
     # credentials that are consumed by a process rather than a provider
-    # client: Claude Code reads an OAuth token from CLAUDE_CODE_OAUTH_TOKEN
-    # and an API key from ANTHROPIC_API_KEY.
+    # client: Claude Code reads an API key from ANTHROPIC_API_KEY.
+    #
+    # A subscription token stored before those were refused is never handed
+    # to a process: it yields nothing, as if Claude Code were not connected,
+    # until it is replaced with an API key.
     #
     # @return [Hash{String => String}]
     def runtime_environment
       return {} unless provider == "claude_code"
+      return {} if needs_replacing? || !CLAUDE_CODE_CREDENTIAL.match?(credential.to_s)
 
-      if credential.start_with?("sk-ant-oat")
-        { "CLAUDE_CODE_OAUTH_TOKEN" => credential }
-      else
-        { "ANTHROPIC_API_KEY" => credential }
-      end
+      { "ANTHROPIC_API_KEY" => credential }
+    end
+
+    # A Claude Code connection that still holds a Claude subscription token
+    # (sk-ant-oat…), stored by an earlier version. It is no longer used and
+    # must be replaced with an API key; `bin/rails
+    # action_agent:claude_code:purge_subscription_tokens` deletes them all.
+    def needs_replacing?
+      provider == "claude_code" && credential.to_s.start_with?(SUBSCRIPTION_TOKEN_PREFIX)
     end
 
     # "sk-a…Q2z9" for keys; hosts are shown in full.

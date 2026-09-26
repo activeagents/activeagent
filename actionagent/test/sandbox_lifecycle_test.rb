@@ -8,7 +8,7 @@ require "test_helper"
 # checkout is a set of child processes of the dashboard itself.
 class SandboxLifecycleTest < ActionDispatch::IntegrationTest
   GITHUB_TOKEN = "gho_lifecycle_secret_token"
-  CLAUDE_TOKEN = "sk-ant-oat01-lifecycleSecret_123"
+  CLAUDE_TOKEN = "sk-ant-api03-lifecycleSecret_123"
 
   # Records what the engine asks of a backend. The orchestrator builds a new
   # backend for every call, so what it saw lives on the class.
@@ -141,7 +141,7 @@ class SandboxLifecycleTest < ActionDispatch::IntegrationTest
     ActionAgent::ProviderKey.create!(provider: "claude_code", credential: CLAUDE_TOKEN)
     ProbeBackend.create_error = RuntimeError.new(
       "setup failed: git fetch https://x-access-token:#{GITHUB_TOKEN}@github.com/acme/docs.git " \
-      "with CLAUDE_CODE_OAUTH_TOKEN=#{CLAUDE_TOKEN}"
+      "with ANTHROPIC_API_KEY=#{CLAUDE_TOKEN}"
     )
 
     post "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/docs" }, as: :json
@@ -404,6 +404,8 @@ class SandboxLifecycleTest < ActionDispatch::IntegrationTest
     assert body.key?("sample_tasks")
     assert_equal false, body["code_sessions_supported"], "the probe backend cannot run Claude Code"
     assert_equal false, body["claude_code_connected"], "another owner's Claude Code key is not the caller's"
+    assert_equal "api_key", body["claude_code_auth"]
+    assert_not body.key?("claude_code_login"), "only a machine's own login has a login status"
 
     ActionAgent::ProviderKey.create!(provider: "claude_code", credential: CLAUDE_TOKEN, user_id: me.id)
     ActionAgent.sandbox_service = :mock

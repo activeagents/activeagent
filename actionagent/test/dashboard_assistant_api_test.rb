@@ -41,18 +41,18 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     assert_equal %w[openai anthropic ollama openrouter], data["providers"].map { |provider| provider["id"] }
     assert_equal({
       "github" => { "supported" => true, "connected" => false },
-      "claude_code" => { "supported" => true, "connected" => false },
+      "claude_code" => { "supported" => true, "connected" => false, "auth" => "api_key" },
       "coi" => { "supported" => false }
     }, data["connections"])
 
     ActionAgent::GithubConnection.create!(access_token: "gho_hidden_fixture", github_user_id: 42, login: "octocat")
-    ActionAgent::ProviderKey.create!(provider: "claude_code", credential: "sk-ant-oat01-hidden_fixture")
+    ActionAgent::ProviderKey.create!(provider: "claude_code", credential: "sk-ant-api03-hidden_fixture")
     get "/activeagents/api/dashboard_assistant"
     assert_response :success
     assert response.parsed_body.dig("connections", "github", "connected")
     assert response.parsed_body.dig("connections", "claude_code", "connected")
     assert_not_includes response.body, "gho_hidden_fixture"
-    assert_not_includes response.body, "sk-ant-oat01-hidden_fixture"
+    assert_not_includes response.body, "sk-ant-api03-hidden_fixture"
   end
 
   test "missing consent and credentials fail before recording usage" do

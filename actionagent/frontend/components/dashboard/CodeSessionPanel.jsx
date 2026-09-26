@@ -28,6 +28,7 @@ import {
   sessionTitle,
   transcriptRows,
   upsertBy,
+  claudeCodeNotConnectedHint,
 } from '../../utils/codeSessions.mjs';
 
 // The composer's limit, as the model validates it.
@@ -79,7 +80,9 @@ export function StatusBadge({ tone = 'neutral', children }) {
 // sandbox. A prompt starts one; the selected session's stream-json
 // transcript is polled incrementally (`?after=N`) until it finishes, then
 // its diff is shown. One session runs per checkout at a time.
-export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onRecheckConnection }) {
+// `claudeCode` is claudeCodeAuth of the sandbox listing: whether sessions can
+// run, by an API key connected below or this machine's own Claude Code login.
+export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnection }) {
   const { darkMode } = useTheme();
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/code_sessions`;
   const [sessions, setSessions] = useState(null); // summaries, newest first
@@ -175,9 +178,10 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
   // the composer unlocks when the checkout is free again.
   const activeSession = (sessions || []).find(isCodeSessionActive) || null;
   const watchedId = activeSession && activeSession.id !== selectedId ? activeSession.id : null;
-  // Why the composer is locked: no Claude Code credential, or the checkout
-  // is busy with another session.
-  const blockedReason = !claudeCodeConnected ? 'not_connected' : activeSession ? 'busy' : null;
+  // Why the composer is locked: Claude Code cannot run (no API key, or this
+  // machine is not logged in), or the checkout is busy with another session.
+  const notConnected = claudeCodeNotConnectedHint(claudeCode);
+  const blockedReason = notConnected ? 'not_connected' : activeSession ? 'busy' : null;
   useEffect(() => {
     if (watchedId == null) return undefined;
     let cancelled = false;
@@ -319,7 +323,8 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
           <p className={`text-xs ${muted}`}>
             {blockedReason === 'not_connected' && (
               <>
-                Connect Claude Code below to run sessions in this checkout.{' '}
+                {notConnected.text}
+                {notConnected.loginHint && <> <code className="font-mono">{notConnected.loginHint}</code> {notConnected.after}</>}{' '}
                 {onRecheckConnection && <button type="button" onClick={onRecheckConnection} className={linkButton}>Check again</button>}
               </>
             )}

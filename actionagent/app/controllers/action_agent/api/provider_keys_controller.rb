@@ -5,7 +5,7 @@ module ActionAgent
     # Per-account LLM provider credentials (Settings -> Provider API Keys).
     # API keys are write-only: responses carry a masked hint, never the key.
     # Ollama's credential is a host URL and is echoed back in full. Claude
-    # Code's connection token is stored here too, write-only like a key.
+    # Code's connection API key is stored here too, write-only like a key.
     class ProviderKeysController < BaseController
       before_action :require_owner!
 
@@ -48,6 +48,10 @@ module ActionAgent
           kind: ProviderKey.kind_of_provider(provider),
           configured: record.present?,
           hint: record&.display_hint,
+          # A Claude Code connection still holding a Claude subscription token
+          # from an earlier version: never used, and the UI asks for an API
+          # key in its place.
+          needs_replacing: record.present? && record.needs_replacing?,
           updated_at: record&.updated_at&.iso8601
         }
       end

@@ -198,13 +198,20 @@ module ActionAgent
     # assistant's configuration endpoint (booleans only, never a token). The
     # model is not told: it starts nothing, and sandboxes and Claude Code
     # sessions are started from that view (see LIMITATIONS).
+    #
+    # Claude Code is connected by ClaudeCodeAuth's rule, as the sandbox
+    # listing reports it: an API key the owner connected (auth "api_key"), or
+    # this machine's own login (auth "local_login", with its status).
     def connections
+      claude_code = ClaudeCodeAuth.status(ProviderKey.for_owner(@owner))
       {
         github: { supported: true, connected: GithubConnection.for_owner(@owner).exists? },
         claude_code: {
           supported: code_sessions_supported?,
-          connected: ProviderKey.for_owner(@owner).exists?(provider: "claude_code")
-        },
+          connected: claude_code[:connected],
+          auth: claude_code[:mode],
+          login: claude_code[:login]
+        }.compact,
         coi: { supported: false }
       }
     end
@@ -215,8 +222,12 @@ module ActionAgent
     # requires an SDK the host doesn't bundle) runs none, and must not take
     # the assistant's configuration down with it. The SDK case raises
     # LoadError, a ScriptError rather than a StandardError.
+    #
+    # Nor can one whose Claude Code authentication does not work there
+    # (ActionAgent.claude_code_auth = :local_login needs :local).
     def code_sessions_supported?
-      SandboxOrchestrator.new.supports?(:code_session)
+      orchestrator = SandboxOrchestrator.new
+      orchestrator.supports?(:code_session) && ClaudeCodeAuth.backend_refusal(orchestrator).nil?
     rescue StandardError, LoadError => e
       Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
       false
