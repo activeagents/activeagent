@@ -179,6 +179,13 @@ module ActionAgent
       @backend.respond_to?(:handle_for)
     end
 
+    # Whether the backend runs sandboxes as processes of the dashboard, on
+    # its own machine and as its own user (LocalSandboxBackend): the only
+    # place ActionAgent.claude_code_auth = :local_login can work.
+    def local?
+      @backend.is_a?(LocalSandboxBackend)
+    end
+
     # Whether the backend implements +verb+ (an ADAPTER_METHODS key).
     def supports?(verb)
       ADAPTER_METHODS.fetch(verb).any? { |m| @backend.respond_to?(m) }
@@ -188,6 +195,11 @@ module ActionAgent
     # each stream-json event (a Hash) as it arrives. Returns the backend's
     # outcome: { exit_status:, diff: }.
     def run_code_session(sandbox_session, code_session, &on_event)
+      # Checked when a session is requested too; this covers one queued
+      # before the configuration changed.
+      refusal = ClaudeCodeAuth.backend_refusal(self)
+      raise UnsupportedBackendError, refusal if refusal
+
       @backend.public_send(adapter_method(:code_session), sandbox_session, code_session, &on_event)
     end
 

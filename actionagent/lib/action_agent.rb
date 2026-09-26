@@ -104,6 +104,9 @@ require "action_agent/compatibility"
 #   end
 #
 module ActionAgent
+  # What ActionAgent.claude_code_auth may be set to.
+  CLAUDE_CODE_AUTH_MODES = %i[api_key local_login].freeze
+
   class << self
     # Deprecation warnings for this gem, routed through Rails' machinery so a
     # host app can silence or escalate them like any other.
@@ -333,6 +336,33 @@ module ActionAgent
     # seconds.
     # @return [Integer]
     attr_accessor :claude_code_timeout
+
+    # How Claude Code sessions authenticate.
+    #
+    # :api_key (the default) runs them on the Anthropic API key the owner
+    # connected in Settings -> Integrations, handed to the session as
+    # ANTHROPIC_API_KEY. It is the only credential the dashboard stores:
+    # Anthropic does not let third-party products collect, store or route
+    # requests through Claude.ai subscription credentials
+    # (https://code.claude.com/docs/en/legal-and-compliance.md).
+    #
+    # :local_login runs `claude` on whatever login this machine's user set up
+    # with `claude /login` (or `claude auth login`), which Claude Code keeps
+    # under ~/.claude or in the keychain. The dashboard never reads, copies
+    # or stores it; it only asks `claude auth status` whether there is one.
+    # That login is the dashboard user's own, so this works with the :local
+    # sandbox backend only, and other backends refuse Claude Code sessions.
+    # @return [Symbol] :api_key or :local_login
+    attr_reader :claude_code_auth
+
+    def claude_code_auth=(value)
+      mode = value.to_s.to_sym
+      unless CLAUDE_CODE_AUTH_MODES.include?(mode)
+        raise ArgumentError, "ActionAgent.claude_code_auth must be :api_key or :local_login, not #{value.inspect}"
+      end
+
+      @claude_code_auth = mode
+    end
 
     # Whether the dashboard may execute agents against real providers.
     # Disable to run the dashboard as a read-only observability surface.
@@ -704,6 +734,7 @@ module ActionAgent
       @claude_code_permission_mode = "acceptEdits"
       @claude_code_max_turns = nil
       @claude_code_timeout = 1800
+      @claude_code_auth = :api_key
       @execution_enabled = true
       @run_host_agent_classes = false
       @assistant_enabled = nil

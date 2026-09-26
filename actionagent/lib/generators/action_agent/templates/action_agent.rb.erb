@@ -135,6 +135,16 @@ ActionAgent.configure do |config|
   # config.claude_code_max_turns = nil        # Claude Code's own default
   # config.claude_code_timeout = 1800         # seconds
   #
+  # How sessions authenticate. :api_key (the default) uses the Anthropic API
+  # key connected in Settings -> Integrations (from the Claude Console,
+  # https://platform.claude.com). :local_login, with the :local backend only,
+  # uses this machine's own Claude Code login (`claude /login`); the dashboard
+  # never reads or stores it. Claude subscription tokens (`claude
+  # setup-token`) are not accepted: Anthropic does not allow third-party apps
+  # to hold Claude.ai credentials.
+  #
+  # config.claude_code_auth = :local_login
+  #
   # Expired sandboxes are stopped by `bin/rails action_agent:sandbox:reap`.
   # Schedule it every few minutes.
 

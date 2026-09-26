@@ -7,7 +7,7 @@ require "test_helper"
 # the sandbox backend, polled for their transcript, cancelled.
 class CodeSessionsApiTest < ActionDispatch::IntegrationTest
   GITHUB_TOKEN = "gho_code_session_secret"
-  CLAUDE_TOKEN = "sk-ant-oat01-codeSessionSecret_123"
+  CLAUDE_TOKEN = "sk-ant-api03-codeSessionSecret_123"
 
   # A backend whose Claude Code session the test scripts. The orchestrator
   # builds a new backend for every call, so the script lives on the class.
@@ -42,6 +42,18 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # The scripted session, on a backend that is the :local one as far as
+  # ActionAgent.claude_code_auth = :local_login is concerned.
+  class ScriptedLocalBackend < ActionAgent::LocalSandboxBackend
+    def run_code_session(sandbox_session, code_session, &on_event)
+      ScriptedBackend.new.run_code_session(sandbox_session, code_session, &on_event)
+    end
+
+    def cancel_code_session(sandbox_session, code_session)
+      ScriptedBackend.new.cancel_code_session(sandbox_session, code_session)
+    end
+  end
+
   # Boots sandboxes but cannot run Claude Code in them.
   class SandboxOnlyBackend
     def create_sandbox(session) = { container_name: "plain-#{session.session_id}", url: "http://127.0.0.1:9" }
@@ -62,6 +74,7 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     @original_service = ActionAgent.sandbox_service
     ActionAgent.sandbox_backends = {
       "scripted" => ScriptedBackend.name,
+      "scripted_local" => ScriptedLocalBackend.name,
       "sandbox_only" => SandboxOnlyBackend.name
     }
 
@@ -84,6 +97,7 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     ActionAgent.account_class = nil
     ActionAgent.current_account_resolver = nil
     ActionAgent.multi_tenant = false
+    ActionAgent.claude_code_auth = :api_key
   end
 
   test "a session runs in a ready checkout, and its transcript is polled from an offset" do
@@ -177,7 +191,90 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
   test "a session is refused until Claude Code is connected" do
     ActionAgent::ProviderKey.delete_all
 
-    assert_refused(@sandbox, :unprocessable_entity, /Connect Claude Code in Settings -> Integrations/)
+    assert_refused(@sandbox, :unprocessable_entity, /connect an Anthropic API key in Settings -> Integrations/)
+  end
+
+  test "a subscription token stored by an earlier version does not count as connected" do
+    ActionAgent::ProviderKey.delete_all
+    ActionAgent::ProviderKey.new(provider: "claude_code", credential: "sk-ant-oat01-storedLongAgo_123").save!(validate: false)
+
+    assert_refused(@sandbox, :unprocessable_entity, /connect an Anthropic API key in Settings -> Integrations/)
+  end
+
+  test ":local_login is refused on a backend other than :local, with the reason" do
+    ActionAgent.claude_code_auth = :local_login
+    use_scripted_backend
+
+    assert_refused(@sandbox, :unprocessable_entity, /works only with the :local sandbox backend, not scripted/)
+
+    get "/activeagents/api/sandboxes"
+    body = JSON.parse(response.body)
+    assert_equal false, body["code_sessions_supported"]
+    assert_equal "local_login", body["claude_code_auth"]
+    assert_equal false, body["claude_code_connected"]
+    assert_equal({ "logged_in" => false, "auth_method" => nil }, body["claude_code_login"])
+  end
+
+  test "a queued session is not started once :local_login is set for a backend other than :local" do
+    use_scripted_backend
+    post sessions_path, params: { prompt: "Add a README" }, as: :json
+    id = JSON.parse(response.body).dig("code_session", "id")
+
+    ActionAgent.claude_code_auth = :local_login
+    perform_enqueued_jobs
+
+    session = ActionAgent::CodeSession.find(id)
+    assert session.failed?
+    assert_match(/works only with the :local sandbox backend/, session.error_message)
+    assert_empty ScriptedBackend.runs
+  end
+
+  test "with :local_login a session needs this machine's Claude Code login, not a stored key" do
+    ActionAgent.claude_code_auth = :local_login
+    ActionAgent.sandbox_service = :scripted_local
+    ActionAgent::ProviderKey.delete_all
+    logged_out = { logged_in: false, auth_method: nil, api_provider: nil }
+    logged_in = { logged_in: true, auth_method: "claude.ai", api_provider: "firstParty" }
+
+    ActionAgent::LocalSandboxBackend.stub(:claude_login_status, logged_out) do
+      assert_refused(@sandbox, :unprocessable_entity, /not logged in on this machine: run `claude \/login`/)
+
+      get "/activeagents/api/sandboxes"
+      body = JSON.parse(response.body)
+      assert_equal true, body["code_sessions_supported"]
+      assert_equal false, body["claude_code_connected"]
+      assert_equal({ "logged_in" => false, "auth_method" => nil }, body["claude_code_login"])
+    end
+
+    ScriptedBackend.script = lambda do |emit|
+      emit.call("type" => "result", "subtype" => "success", "is_error" => false, "result" => "Done", "num_turns" => 1)
+      { exit_status: 0, diff: "", stderr_tail: "" }
+    end
+    ActionAgent::LocalSandboxBackend.stub(:claude_login_status, logged_in) do
+      get "/activeagents/api/sandboxes"
+      body = JSON.parse(response.body)
+      assert_equal "local_login", body["claude_code_auth"]
+      assert_equal true, body["claude_code_connected"]
+      assert_equal({ "logged_in" => true, "auth_method" => "claude.ai" }, body["claude_code_login"])
+
+      session = run_session!("Add a README")
+      assert session.succeeded?, session.error_message
+      assert_equal [ [ @sandbox.session_id, session.id, "Add a README" ] ], ScriptedBackend.runs
+    end
+  end
+
+  test "with :api_key the listing reports the stored key and no login" do
+    get "/activeagents/api/sandboxes"
+    body = JSON.parse(response.body)
+
+    assert_equal "api_key", body["claude_code_auth"]
+    assert_equal true, body["claude_code_connected"]
+    assert_not body.key?("claude_code_login")
+    assert_not_includes response.body, CLAUDE_TOKEN
+
+    ActionAgent::ProviderKey.delete_all
+    get "/activeagents/api/sandboxes"
+    assert_equal false, JSON.parse(response.body)["claude_code_connected"]
   end
 
   test "only one session runs in a checkout at a time" do
@@ -332,13 +429,13 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     use_scripted_backend
     ScriptedBackend.script = lambda do |emit|
       emit.call("type" => "system", "subtype" => "init")
-      raise "claude could not start with CLAUDE_CODE_OAUTH_TOKEN=#{CLAUDE_TOKEN}"
+      raise "claude could not start with ANTHROPIC_API_KEY=#{CLAUDE_TOKEN}"
     end
 
     session = run_session!
 
     assert session.failed?
-    assert_equal "claude could not start with CLAUDE_CODE_OAUTH_TOKEN=[REDACTED]", session.error_message
+    assert_equal "claude could not start with ANTHROPIC_API_KEY=[REDACTED]", session.error_message
     assert session.finished_at
     assert_equal 1, session.events.size, "what arrived before the error is kept"
   end

@@ -12,7 +12,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
   FIXTURES = File.expand_path("support/local_sandbox", __dir__)
   GITHUB_TOKEN = "ghs_fixtureCheckoutToken0123456789abcdef"
-  CLAUDE_CREDENTIAL = "sk-ant-oat01-fixtureCredential-0123456789"
+  CLAUDE_CREDENTIAL = "sk-ant-api03-fixtureCredential-0123456789"
   MCP_TOKEN = "fixture-mcp-token-0123456789"
   # What an Authorization: Basic header for the checkout would carry.
   BASIC_AUTH = [ "x-access-token:#{GITHUB_TOKEN}" ].pack("m0")
@@ -26,6 +26,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
   CONFIG = %i[
     local_sandbox_boot_timeout claude_code_command claude_code_permission_mode claude_code_max_turns claude_code_timeout
+    claude_code_auth
   ].freeze
 
   def setup
@@ -43,6 +44,8 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     ActionAgent.claude_code_max_turns = nil
     ActionAgent.claude_code_permission_mode = "acceptEdits"
     ActionAgent.claude_code_command = fake_claude_command
+    ActionAgent.claude_code_auth = :api_key
+    Backend.reset_claude_login_status!
 
     # The readiness probe and these tests talk to the booted fixture over
     # loopback, which VCR and WebMock refuse by default.
@@ -67,6 +70,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     @pids_to_reap.compact.each { |pid| reap(pid) }
 
     @saved_config.each { |name, value| ActionAgent.public_send("#{name}=", value) }
+    Backend.reset_claude_login_status!
     VCR.turn_on!
     config = WebMock::Config.instance
     config.allow_net_connect, config.allow_localhost, config.allow, config.net_http_connect_on_start = @webmock
@@ -263,7 +267,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert_equal workspace.join("app").realpath.to_s, File.realpath(invocation["cwd"])
 
     env = invocation["env"]
-    assert_equal CLAUDE_CREDENTIAL, env["CLAUDE_CODE_OAUTH_TOKEN"]
+    assert_equal CLAUDE_CREDENTIAL, env["ANTHROPIC_API_KEY"]
     assert_equal workspace.join("claude").to_s, env["CLAUDE_CONFIG_DIR"]
     %w[DISABLE_AUTOUPDATER DISABLE_TELEMETRY DISABLE_ERROR_REPORTING CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC].each do |name|
       assert_equal "1", env[name], name
@@ -681,7 +685,111 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     workspace(sandbox).join("app").mkpath
     sandbox.runtime_environment = {}
     error = assert_raises(Backend::Error) { @backend.run_code_session(sandbox, code_session) { |_event| } }
-    assert_match(/Connect Claude Code in Settings → Integrations/, error.message)
+    assert_match(/connect an Anthropic API key in Settings → Integrations/, error.message)
+  end
+
+  test "with :local_login a session runs on the machine's own login, and the dashboard passes no credential" do
+    ActionAgent.claude_code_auth = :local_login
+    home = logged_in_home
+    sandbox = boot!
+    # No Claude Code connection at all: the machine's login is enough.
+    sandbox.runtime_environment = {}
+    # The dashboard's own Claude Code variables, as when it runs inside a
+    # Claude Code session, are still dropped; HOME is kept.
+    dashboard_env = ENV.to_h.merge(
+      "HOME" => home.to_s,
+      "ANTHROPIC_API_KEY" => "sk-ant-api03-dashboardsOwnKey-0123456789",
+      "CLAUDE_CODE_OAUTH_TOKEN" => "sk-ant-oat01-dashboardsOwnToken-0123456789",
+      "CLAUDE_CONFIG_DIR" => @tmp.join("dashboards-claude-config").to_s
+    )
+
+    outcome = Bundler.stub(:unbundled_env, dashboard_env) do
+      @backend.run_code_session(sandbox, code_session) { |_event| }
+    end
+
+    assert_equal 0, outcome[:exit_status]
+    assert_includes outcome[:diff], "+Edited by the fake Claude Code."
+    assert_not workspace(sandbox).join("claude/invocation.json").exist?, "the session did not use the workspace's config"
+    env = JSON.parse(home.join(".claude/invocation.json").read)["env"]
+    assert_equal home.to_s, env["HOME"]
+    assert_not env.key?("CLAUDE_CONFIG_DIR"), "Claude Code finds the user's own configuration and login"
+    assert_not env.key?("ANTHROPIC_API_KEY")
+    assert_not env.key?("CLAUDE_CODE_OAUTH_TOKEN")
+    assert_equal "1", env["DISABLE_TELEMETRY"]
+  end
+
+  test "with :local_login a stored API key is not handed to the session either" do
+    ActionAgent.claude_code_auth = :local_login
+    home = logged_in_home
+    sandbox = boot!
+
+    Bundler.stub(:unbundled_env, ENV.to_h.merge("HOME" => home.to_s)) do
+      @backend.run_code_session(sandbox, code_session) { |_event| }
+    end
+
+    env = JSON.parse(home.join(".claude/invocation.json").read)["env"]
+    assert_not env.key?("ANTHROPIC_API_KEY")
+    assert(env.values.none? { |value| value.include?(CLAUDE_CREDENTIAL) })
+  end
+
+  test "claude_code_auth is :api_key by default and takes only :api_key or :local_login" do
+    configuration = ActionAgent.instance_variables.index_with { |name| ActionAgent.instance_variable_get(name) }
+    ActionAgent.reset!
+    assert_equal :api_key, ActionAgent.claude_code_auth
+
+    ActionAgent.claude_code_auth = "local_login"
+    assert_equal :local_login, ActionAgent.claude_code_auth
+    error = assert_raises(ArgumentError) { ActionAgent.claude_code_auth = :setup_token }
+    assert_match(/must be :api_key or :local_login/, error.message)
+    assert_equal :local_login, ActionAgent.claude_code_auth
+  ensure
+    configuration&.each { |name, value| ActionAgent.instance_variable_set(name, value) }
+  end
+
+  test "claude_login_status keeps only whether and how Claude Code is logged in, for a minute" do
+    home = @tmp.join("home").tap { |dir| dir.join(".claude").mkpath }
+
+    Bundler.stub(:unbundled_env, ENV.to_h.merge("HOME" => home.to_s)) do
+      assert_equal({ logged_in: false, auth_method: nil, api_provider: nil }, Backend.claude_login_status)
+
+      home.join(".claude/.credentials.json").write("{}")
+      assert_not Backend.claude_login_status[:logged_in], "the answer is cached"
+
+      Backend.reset_claude_login_status!
+      status = Backend.claude_login_status
+      assert_equal({ logged_in: true, auth_method: "claude.ai", api_provider: "firstParty" }, status)
+      assert_not_includes status.to_json, "developer@example.com"
+      assert_not_includes status.to_json, "Fixture Org"
+    end
+  end
+
+  test "a Claude Code CLI that fails or is missing reads as logged out" do
+    home = logged_in_home
+
+    Bundler.stub(:unbundled_env, ENV.to_h.merge("HOME" => home.to_s)) do
+      ActionAgent.claude_code_command = fake_claude_command(broken_auth: true)
+      assert_equal({ logged_in: false, auth_method: nil, api_provider: nil }, Backend.claude_login_status)
+
+      ActionAgent.claude_code_command = @tmp.join("no-such-claude").to_s
+      assert_equal({ logged_in: false, auth_method: nil, api_provider: nil }, Backend.claude_login_status)
+    end
+  end
+
+  test "login status parsing reads loggedIn, authMethod and apiProvider and nothing else" do
+    logged_out = { logged_in: false, auth_method: nil, api_provider: nil }
+    assert_equal logged_out, Backend.parse_login_status("")
+    assert_equal logged_out, Backend.parse_login_status("not json")
+    assert_equal logged_out, Backend.parse_login_status("[true]")
+    assert_equal logged_out, Backend.parse_login_status('{"loggedIn": "true", "authMethod": "claude.ai"}')
+    assert_equal logged_out, Backend.parse_login_status('{"loggedIn": false, "authMethod": "claude.ai"}')
+
+    assert_equal({ logged_in: true, auth_method: "api_key", api_provider: "firstParty" },
+      Backend.parse_login_status('{"loggedIn": true, "authMethod": "api_key", "apiProvider": "firstParty", "email": "x@y"}'))
+    # Anything but a short label is not shown.
+    assert_equal({ logged_in: true, auth_method: nil, api_provider: nil },
+      Backend.parse_login_status({ "loggedIn" => true, "authMethod" => "a\nb", "apiProvider" => "x" * 100 }.to_json))
+    assert_equal({ logged_in: true, auth_method: nil, api_provider: nil },
+      Backend.parse_login_status({ "loggedIn" => true, "authMethod" => { "token" => "sk-ant-oat01-x" } }.to_json))
   end
 
   test "handles the backend did not issue are left alone" do
@@ -1241,6 +1349,15 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     [ server, server.addr[1], requests, listener ]
   end
 
+  # A HOME whose Claude Code is logged in, as `claude /login` leaves it
+  # (the fake CLI only looks for the file).
+  def logged_in_home
+    @tmp.join("home").tap do |home|
+      home.join(".claude").mkpath
+      home.join(".claude/.credentials.json").write("{}")
+    end
+  end
+
   def boot!
     sandbox_double(create_origin!).tap { |sandbox| @backend.create_sandbox(sandbox) }
   end
@@ -1252,7 +1369,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
       checkout_spec: {
         repository: "acme/shop", ref: "main", clone_url: clone_url, username: "x-access-token", token: GITHUB_TOKEN
       },
-      runtime_environment: { "CLAUDE_CODE_OAUTH_TOKEN" => CLAUDE_CREDENTIAL }
+      runtime_environment: { "ANTHROPIC_API_KEY" => CLAUDE_CREDENTIAL }
     )
   end
 
@@ -1318,9 +1435,10 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
   # The fake CLI behind a wrapper in the test's tmpdir: the exact Ruby running
   # the tests, whatever the fixture's executable bit or PATH say.
-  def fake_claude_command(legacy: false)
-    wrapper = @tmp.join(legacy ? "claude-legacy" : "claude")
-    arguments = [ RbConfig.ruby, File.join(FIXTURES, "fake_claude.rb"), *("--legacy-cli" if legacy) ].shelljoin
+  def fake_claude_command(legacy: false, broken_auth: false)
+    flag = ("--legacy-cli" if legacy) || ("--broken-auth" if broken_auth)
+    wrapper = @tmp.join([ "claude", flag&.delete_prefix("--") ].compact.join("-"))
+    arguments = [ RbConfig.ruby, File.join(FIXTURES, "fake_claude.rb"), *flag ].shelljoin
     wrapper.write("#!/bin/sh\nexec #{arguments} \"$@\"\n")
     wrapper.chmod(0o755)
     wrapper.to_s

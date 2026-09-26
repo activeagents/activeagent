@@ -6,9 +6,11 @@ module ActionAgent
     # sandboxes (Settings -> Integrations): start one with a prompt, poll its
     # transcript, cancel it.
     #
-    # A session runs with the owner's connected Claude Code credential and
-    # edits the checkout, so starting one is execution — gated, and counted
-    # against the host app's quota, like running an agent.
+    # A session runs on the owner's Anthropic API key (or, with
+    # ActionAgent.claude_code_auth = :local_login, this machine's own Claude
+    # Code login; see ClaudeCodeAuth) and edits the checkout, so starting one
+    # is execution — gated, and counted against the host app's quota, like
+    # running an agent.
     class CodeSessionsController < BaseController
       before_action :require_owner!
       before_action :require_execution_enabled!, only: [ :create ]
@@ -119,7 +121,7 @@ module ActionAgent
           return "The #{orchestrator.backend_name} sandbox backend cannot run Claude Code sessions"
         end
 
-        "Connect Claude Code in Settings -> Integrations first" if sandbox.runtime_environment.blank?
+        ClaudeCodeAuth.backend_refusal(orchestrator) || ClaudeCodeAuth.credential_refusal(sandbox)
       end
 
       # The session of this sandbox that is queued or running, if any: one

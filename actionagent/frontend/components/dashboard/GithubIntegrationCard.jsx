@@ -13,6 +13,7 @@ import {
   replaceBy,
   sandboxStatus,
   upsertBy,
+  claudeCodeAuth,
 } from '../../utils/codeSessions.mjs';
 
 // What the OAuth callback reports back through ?github=… on its redirect.
@@ -75,7 +76,7 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(data, `Could not list your sandboxes (HTTP ${res.status}).`));
       setSandboxes(data.sandboxes || []);
-      setSandboxSupport({ codeSessions: Boolean(data.code_sessions_supported), claudeCode: Boolean(data.claude_code_connected) });
+      setSandboxSupport({ codeSessions: Boolean(data.code_sessions_supported), claudeCode: claudeCodeAuth(data) });
     } catch (e) {
       setError(e.message);
     }
@@ -325,7 +326,7 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
         {ready && sandboxSupport?.codeSessions && (
           <CodeSessionPanel
             sandbox={sandbox}
-            claudeCodeConnected={sandboxSupport.claudeCode}
+            claudeCode={sandboxSupport.claudeCode}
             onRecheckConnection={loadSandboxes}
           />
         )}

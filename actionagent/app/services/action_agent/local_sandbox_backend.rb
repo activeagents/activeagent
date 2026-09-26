@@ -25,7 +25,9 @@ module ActionAgent
   #                   whether a terminate is under way
   #     state.lock    what changes to state.json are serialized on
   #     logs/         checkout, setup, manifest, server and claude-<id> logs
-  #     claude/       CLAUDE_CONFIG_DIR for Claude Code sessions
+  #     claude/       CLAUDE_CONFIG_DIR for Claude Code sessions (with
+  #                   ActionAgent.claude_code_auth = :api_key; with
+  #                   :local_login they use the user's own configuration)
   #
   # The orchestrator builds a new backend for every call, and the dashboard
   # may restart while a sandbox runs, so whatever a later call needs lives in
@@ -38,7 +40,9 @@ module ActionAgent
   # Every process starts from a sanitized copy of the dashboard's environment
   # (see .sanitized_environment), so a checkout never sees the dashboard's
   # database or secrets. The GitHub token reaches only the fetch, and the
-  # Claude Code credential only Claude Code.
+  # Claude Code API key only Claude Code. With
+  # ActionAgent.claude_code_auth = :local_login no credential is passed at
+  # all: Claude Code runs on the machine's own login.
   class LocalSandboxBackend
     class Error < RuntimeError; end
 
@@ -84,6 +88,13 @@ module ActionAgent
     # How long terminate waits on the checkout's `bin/rails db:drop`.
     DATABASE_DROP_TIMEOUT = 60
     MODEL_NAME = %r{\A[A-Za-z0-9][A-Za-z0-9._:/@\[\]-]{0,127}\z}
+    # `claude auth status`: how long its answer is trusted, how long it may
+    # take, and what its authMethod and apiProvider may look like to be
+    # shown (a short label, never free text).
+    LOGIN_STATUS_TTL = 60
+    LOGIN_STATUS_TIMEOUT = 10
+    LOGIN_LABEL = /\A[A-Za-z0-9][A-Za-z0-9._ -]{0,63}\z/
+    LOGGED_OUT = { logged_in: false, auth_method: nil, api_provider: nil }.freeze
 
     # Never inherited from the dashboard: its database, its keys, and the
     # Ruby/Bundler setup of its own bundle (a checkout has its own Gemfile).
@@ -263,6 +274,67 @@ module ActionAgent
 
     @cli_support = {}
     @cli_support_lock = Mutex.new
+    @login_status = {}
+    @login_status_lock = Mutex.new
+
+    class << self
+      # Whether this machine's Claude Code is logged in, for
+      # ActionAgent.claude_code_auth = :local_login: what
+      # `<claude_code_command> auth status --json` says, run with the
+      # sanitized environment (so it reads the user's own ~/.claude, as a
+      # session will) and bounded in time.
+      #
+      # Only whether it is logged in and how (authMethod, apiProvider) is
+      # kept. The rest of that output (an account's email, its organization)
+      # is never logged, stored or returned, and the credential itself is
+      # never in it. A CLI that is missing, fails or answers something else
+      # reads as logged out.
+      #
+      # Asked at most once a LOGIN_STATUS_TTL per command: the listing that
+      # shows it is polled.
+      #
+      # @return [Hash] { logged_in: Boolean, auth_method: String?, api_provider: String? }
+      def claude_login_status
+        command = ActionAgent.claude_code_command.to_s
+        @login_status_lock.synchronize do
+          cached = @login_status[command]
+          return cached[:status] if cached && Process.clock_gettime(Process::CLOCK_MONOTONIC) < cached[:until]
+        end
+
+        status = new.send(:read_claude_login_status, command)
+        @login_status_lock.synchronize do
+          @login_status[command] = {
+            status: status, until: Process.clock_gettime(Process::CLOCK_MONOTONIC) + LOGIN_STATUS_TTL
+          }
+        end
+        status
+      end
+
+      # Forgets the cached login status, so the next call asks the CLI again.
+      def reset_claude_login_status!
+        @login_status_lock.synchronize { @login_status.clear }
+      end
+
+      # The fields of `claude auth status --json` the dashboard keeps.
+      def parse_login_status(output)
+        data = JSON.parse(output.to_s.strip)
+        return LOGGED_OUT unless data.is_a?(Hash) && data["loggedIn"] == true
+
+        {
+          logged_in: true,
+          auth_method: login_label(data["authMethod"]),
+          api_provider: login_label(data["apiProvider"])
+        }
+      rescue JSON::ParserError
+        LOGGED_OUT
+      end
+
+      private
+
+      def login_label(value)
+        value if value.is_a?(String) && LOGIN_LABEL.match?(value)
+      end
+    end
 
     # Clones the session's checkout, boots it as sandbox.yml says, and waits
     # until its MCP facade answers.
@@ -350,9 +422,7 @@ module ActionAgent
       app = workspace.join("app")
       raise Error, "Sandbox #{session_id} has no local checkout: start the sandbox again" unless app.directory?
 
-      credentials = sandbox.runtime_environment.to_h
-      raise Error, "Claude Code is not connected: Connect Claude Code in Settings → Integrations" if credentials.empty?
-
+      credentials = session_credentials(sandbox)
       secrets = sandbox_secrets(sandbox, credentials)
       argv = claude_argv(code_session)
       database_env = read_state(workspace)["database_env"]
@@ -360,14 +430,20 @@ module ActionAgent
         .merge(database_env.is_a?(Hash) ? database_env.transform_values(&:to_s) : {})
         .merge(credentials.to_h { |name, value| [ name.to_s, value.to_s ] })
         .merge(
-          "CLAUDE_CONFIG_DIR" => workspace.join("claude").to_s,
           SESSION_ID_ENV => session_id,
           "DISABLE_AUTOUPDATER" => "1",
           "DISABLE_TELEMETRY" => "1",
           "DISABLE_ERROR_REPORTING" => "1",
           "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC" => "1"
         )
-      FileUtils.mkdir_p(workspace.join("claude"), mode: 0o700)
+      # With an API key a session gets a Claude Code configuration of its
+      # own, in the workspace. With the machine's own login it must use the
+      # user's: that is where `claude /login` left the credentials (HOME,
+      # which the sanitized environment keeps, or the keychain).
+      unless ClaudeCodeAuth.local_login?
+        env["CLAUDE_CONFIG_DIR"] = workspace.join("claude").to_s
+        FileUtils.mkdir_p(workspace.join("claude"), mode: 0o700)
+      end
 
       run_claude(workspace, code_session, argv, env, secrets, &on_event)
     end
@@ -892,6 +968,16 @@ module ActionAgent
       end
     end
 
+    def read_claude_login_status(command)
+      output, status = capture(self.class.sanitized_environment, [ command, "auth", "status", "--json" ],
+        chdir: Dir.tmpdir, limit: 64 * 1024, timeout: LOGIN_STATUS_TIMEOUT)
+      # A logged-out CLI may exit non-zero and still say so; one stopped at
+      # the timeout said nothing to trust.
+      status.nil? ? LOGGED_OUT : self.class.parse_login_status(output)
+    rescue SystemCallError
+      LOGGED_OUT
+    end
+
     def run_claude(workspace, code_session, argv, env, secrets, &on_event)
       key = code_session.id.to_s
       log = log_path(workspace, "claude-#{key}")
@@ -1141,6 +1227,20 @@ module ActionAgent
     # not run here.
     def git_command(app)
       [ "git", "-C", app.to_s, "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null" ]
+    end
+
+    # The Claude Code variables a session runs with. An API key comes from
+    # the owner's connection. The machine's own login needs none: `claude`
+    # finds it itself, and the dashboard neither reads nor passes it on.
+    def session_credentials(sandbox)
+      return {} if ClaudeCodeAuth.local_login?
+
+      credentials = sandbox.runtime_environment.to_h
+      if credentials.empty?
+        raise Error, "Claude Code is not connected: connect an Anthropic API key in Settings → Integrations"
+      end
+
+      credentials
     end
 
     def sandbox_secrets(sandbox, credentials)
