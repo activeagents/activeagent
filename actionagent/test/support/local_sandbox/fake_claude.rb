@@ -10,7 +10,8 @@
 # * The prompt is read from stdin, and the invocation (argv, environment,
 #   working directory, prompt) is written to $CLAUDE_CONFIG_DIR/invocation.json.
 # * A prompt containing SLEEP starts a `sleep` in its process group, writes
-#   both pids to $CLAUDE_CONFIG_DIR/pids.json and waits to be stopped.
+#   both pids to $CLAUDE_CONFIG_DIR/pids.json and waits to be stopped. With
+#   STUBBORN too it ignores SIGTERM, so only SIGKILL stops it.
 # * A prompt containing COMMIT commits everything in the checkout, as a
 #   session may on its own, and reports a result.
 # * Anything else edits README.md, deletes OBSOLETE.md, writes a new NOTES.md,
@@ -44,11 +45,12 @@ end
 emit("type" => "system", "subtype" => "init", "model" => "fake-claude", "session_id" => "fake-session", "cwd" => Dir.pwd)
 
 if prompt.include?("SLEEP")
+  trap("TERM") { warn "fake claude: ignoring SIGTERM" } if prompt.include?("STUBBORN")
   child = Process.spawn("sleep", "600")
   File.write(File.join(config_dir, "pids.json"), JSON.generate("pid" => Process.pid, "child_pid" => child))
   emit("type" => "assistant", "message" => { "content" => [ { "type" => "text", "text" => "Sleeping until stopped" } ] })
-  sleep 600
-  exit 0
+  # A trapped SIGTERM wakes a sleep, so it sleeps again.
+  loop { sleep 600 }
 end
 
 if prompt.include?("COMMIT")

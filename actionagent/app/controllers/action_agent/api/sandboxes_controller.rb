@@ -104,14 +104,15 @@ module ActionAgent
         }
       end
 
+      # Refuses a checkout the owner may not start. Usage is recorded by
+      # #create once the sandbox saved: a request refused for its own
+      # content (a repository that is not selected, say) runs nothing, so it
+      # must not spend a plan run.
       def gate_checkout!
-        return unless params[:sandbox_type].to_s == "app_runtime"
+        return unless checkout_requested?
 
         require_execution_enabled!
-        return if performed?
-
-        enforce_execution_quota!
-        record_execution_usage unless performed?
+        enforce_execution_quota! unless performed?
       end
 
       # POST /api/sandboxes
@@ -129,6 +130,9 @@ module ActionAgent
         if @sandbox.save
           @sandbox.provision!
           @sandbox.reload # Reload to get updated status after provisioning
+          # Counted once the checkout exists, as MCPServersController#launch
+          # counts a launched server.
+          record_execution_usage if checkout_requested?
           render json: { sandbox: @sandbox.summary }, status: :created
         else
           render json: { errors: @sandbox.errors.full_messages }, status: :unprocessable_entity
@@ -198,7 +202,23 @@ module ActionAgent
       private
 
       def set_sandbox
-        @sandbox = owned(SandboxSession).find_by!(session_id: params[:id])
+        @sandbox = account_scoped(owned(SandboxSession)).find_by!(session_id: params[:id])
+      end
+
+      def checkout_requested?
+        params[:sandbox_type].to_s == "app_runtime"
+      end
+
+      # A checkout runs on its account's GitHub token and Claude Code
+      # credential, so in a multi-tenant install it is listed, shown and
+      # stopped only within the caller's current account, as
+      # CodeSessionsController finds it: listing another account's checkout
+      # as Ready offered a Claude Code panel that then answered 404. Other
+      # sandbox types are the caller's own wherever they were opened.
+      def account_scoped(scope)
+        return scope unless current_account
+
+        scope.where.not(sandbox_type: "app_runtime").or(scope.where(account_id: current_account.id))
       end
 
       # Whether the configured backend can run Claude Code sessions. A
@@ -217,7 +237,7 @@ module ActionAgent
       # one stays listed so its error can be read; one past its expiry but
       # not reaped yet stays listed so it can still be stopped.
       def listed_sandboxes
-        scope = owned(SandboxSession).where.not(status: :expired).recent.limit(20)
+        scope = account_scoped(owned(SandboxSession)).where.not(status: :expired).recent.limit(20)
         type = params[:sandbox_type]
         type.is_a?(String) && type.present? ? scope.by_type(type) : scope
       end

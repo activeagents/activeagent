@@ -10,6 +10,7 @@ import {
   fmtDuration,
   isSandboxRuntime,
   isStoppedRuntime,
+  isUndocumented,
   mcpServersFor,
   rosterStats,
   serviceRows,
@@ -372,7 +373,7 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
                           not running
                         </Badge>
                       )}
-                      {!service.known && !isSandboxRuntime(service) && (
+                      {isUndocumented(service) && (
                         <Badge size={10} title="Seen in your traffic but not in the platform catalog">undocumented</Badge>
                       )}
                       {service.partial && <Badge tone="warning" size={10}>{service.partialLabel}</Badge>}

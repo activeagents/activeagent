@@ -33,6 +33,7 @@ module ActionAgent
       # still hold a handle: try again. Collected first, so the sessions
       # expired below are not enqueued twice.
       unreleased = SandboxSession.expired.where.not(cloud_run_job_id: [ nil, "" ]).pluck(:id)
+      unreleased += unrecorded_checkouts
 
       count = 0
       SandboxSession.expired_sessions.active.find_each do |sandbox|
@@ -43,6 +44,28 @@ module ActionAgent
       unreleased.each { |id| perform_later(id) }
       count
     end
+
+    # Checkouts whose boot never recorded a handle can still hold processes
+    # (see #derived_handle), and a failed terminate of one left nothing
+    # behind that says so. Retried only where the backend derives handles,
+    # and only for a day after the row last changed: a released one is
+    # indistinguishable from an unreleased one, and a terminate of a
+    # sandbox that is gone is a cheap no-op, so the window is what bounds
+    # the retries.
+    RETRY_UNRECORDED_FOR = 1.day
+    RETRY_UNRECORDED_LIMIT = 100
+
+    def self.unrecorded_checkouts
+      return [] unless SandboxOrchestrator.new.derives_handles?
+
+      SandboxSession.expired.by_type("app_runtime").where(cloud_run_job_id: [ nil, "" ])
+        .where(updated_at: RETRY_UNRECORDED_FOR.ago..)
+        .order(updated_at: :desc).limit(RETRY_UNRECORDED_LIMIT).pluck(:id)
+    rescue StandardError, LoadError => e
+      Rails.logger.warn("[ActionAgent] sandbox backend unavailable to the reaper: #{e.message}")
+      []
+    end
+    private_class_method :unrecorded_checkouts
 
     private
 

@@ -4,11 +4,14 @@ import { timeAgo } from '../../utils/format';
 import {
   CODE_SESSION_POLL_INTERVAL_MS,
   apiErrorMessage,
+  codeSessionNeverRan,
   codeSessionStatus,
   diffLines,
   diffStats,
   isCodeSessionActive,
+  isCodeSessionDiffPending,
   isCodeSessionFinished,
+  isCodeSessionSettled,
   mergeEvents,
   pollGivesUp,
   sessionCounts,
@@ -94,9 +97,12 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
   }, [fetchSessions]);
 
   // The selected session: fetched from its first event, then polled for the
-  // events after the ones held until it finishes. Stops on unmount, on a
-  // different selection, on a finished status, or when pollGivesUp: on a
-  // refusal (4xx), or after MAX_POLL_FAILURES failures in a row.
+  // events after the ones held until it settles. Stops on unmount, on a
+  // different selection, once the server says nothing more will be
+  // recorded (a cancelled session is finished at once, but its Claude Code
+  // may still be stopping, adding events and then its diff), or when
+  // pollGivesUp: on a refusal (4xx), or after MAX_POLL_FAILURES failures in
+  // a row.
   useEffect(() => {
     if (selectedId == null) return undefined;
     let cancelled = false;
@@ -122,7 +128,7 @@ export default function CodeSessionPanel({ sandbox, claudeCodeConnected, onReche
         setDetailError(null);
         setDetail({ ...session, events });
         setSessions((list) => upsertBy(list || [], sessionSummary(session), 'id'));
-        if (isCodeSessionFinished(session)) again = false;
+        if (isCodeSessionSettled(session)) again = false;
       } catch (e) {
         if (cancelled) return;
         failures += 1;
@@ -327,9 +333,10 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
   const { label, tone } = codeSessionStatus(session.status);
   const active = isCodeSessionActive(session);
   const finished = isCodeSessionFinished(session);
-  // Cancelled while still queued: CodeSessionJob skips it, so Claude Code
-  // never ran and no transcript or diff will ever be recorded.
-  const neverStarted = session.status === 'cancelled' && !session.started_at;
+  // Cancelled before Claude Code ran (in the queue, or refused by the
+  // backend once cancelled): the server settled it with no diff, and no
+  // transcript or diff will ever be recorded.
+  const neverStarted = codeSessionNeverRan(session);
   const dropped = Number(session.dropped_events_count) || 0;
 
   return (
@@ -381,8 +388,9 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
       {finished && loaded && (
         <DiffView
           diff={session.diff}
-          // Only a session stopped mid-run has a diff still to come.
-          pending={session.status === 'cancelled' && !neverStarted}
+          // The server's word: a session stopped mid-run has its diff
+          // taken once its Claude Code has stopped.
+          pending={isCodeSessionDiffPending(session)}
           onReload={onReload}
           muted={muted}
           linkButton={linkButton}

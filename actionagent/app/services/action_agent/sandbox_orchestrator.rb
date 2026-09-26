@@ -173,6 +173,12 @@ module ActionAgent
       @backend.respond_to?(:handle_for) ? @backend.handle_for(sandbox_session) : nil
     end
 
+    # Whether the backend can name a session's sandbox without a recorded
+    # handle (see #handle_for).
+    def derives_handles?
+      @backend.respond_to?(:handle_for)
+    end
+
     # Whether the backend implements +verb+ (an ADAPTER_METHODS key).
     def supports?(verb)
       ADAPTER_METHODS.fetch(verb).any? { |m| @backend.respond_to?(m) }

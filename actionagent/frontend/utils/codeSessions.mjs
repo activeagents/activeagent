@@ -158,6 +158,22 @@ export const isCodeSessionActive = (session) => ['queued', 'running'].includes(s
 
 export const isCodeSessionFinished = (session) => ['succeeded', 'failed', 'cancelled'].includes(session?.status);
 
+// Whether the server may still record a finished session's diff (and more
+// of its transcript): a session cancelled while running is finished at
+// once, but its Claude Code is still stopping. The server says so in
+// diff_pending; one that does not send it has nothing still to come.
+export const isCodeSessionDiffPending = (session) => isCodeSessionFinished(session) && session?.diff_pending === true;
+
+// Finished, with nothing more to record: what a poll of the session runs
+// until.
+export const isCodeSessionSettled = (session) => isCodeSessionFinished(session) && !isCodeSessionDiffPending(session);
+
+// Cancelled, and settled with no diff: the job recorded that Claude Code
+// never ran (cancelled in the queue, or refused by the backend before it
+// started), so no transcript or diff will ever come.
+export const codeSessionNeverRan = (session) => session?.status === 'cancelled'
+  && isCodeSessionSettled(session) && session?.diff == null && !(Number(session?.event_count) > 0);
+
 // What a session has to show for itself so far: its event count while it
 // runs, the turns, cost and duration Claude Code reported once it finished.
 // Beside a status badge, so without the status.
@@ -353,6 +369,13 @@ const systemRow = (event) => {
     return { kind: 'system', text: ['Session started', ...parts.filter(Boolean)].join(' · ') };
   }
   if (event.subtype === 'compact_boundary') return { kind: 'system', text: 'Conversation compacted' };
+  if (event.subtype === 'api_retry') {
+    // "API retry 2/10 · 529 Overloaded", leaving out whatever was not sent.
+    const attempt = event.attempt ?? '?';
+    const count = event.max_retries != null ? `${attempt}/${event.max_retries}` : String(attempt);
+    const cause = [event.error_status, event.error].filter((part) => part != null && part !== '').join(' ');
+    return { kind: 'system', text: [`API retry ${count}`, cause].filter(Boolean).join(' · ') };
+  }
   return { kind: 'system', text: event.subtype ? `System: ${humanize(event.subtype).toLowerCase()}` : 'System event' };
 };
 

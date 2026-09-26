@@ -16,8 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the checkout's optional `.activeagents/sandbox.yml` names (`env`, `setup`,
   `manifest`, `start`), and boots the app on `127.0.0.1`. It then registers
   the app's MCP facade as the `sandbox:<session_id>` server. Every process
-  starts from a sanitized copy of the dashboard's environment, with no
-  database URLs, keys or credential-like variables. The GitHub token reaches
+  starts from a sanitized copy of the dashboard's environment: without its
+  database and Redis URLs, Rails keys and environment, Bundler and Ruby
+  settings, git repository and config variables, `SSH_AUTH_SOCK`,
+  model-provider and Claude Code settings, variables named like a secret, or
+  URLs carrying credentials. The GitHub token reaches
   only the fetch, and the Claude Code credential reaches only Claude Code.
   `:local` runs the owner's code with the dashboard's privileges, so it is off
   outside development and test unless

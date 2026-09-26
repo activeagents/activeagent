@@ -78,7 +78,10 @@ module ActionAgent
           next unless @code_session.queued? || @code_session.running?
 
           was_running = @code_session.running?
-          @code_session.update!(status: :cancelled, finished_at: Time.current)
+          # A queued session is settled at once: nothing will ever run it. A
+          # running one is settled by CodeSessionJob once its Claude Code has
+          # stopped and its diff was taken (see CodeSession#diff_pending?).
+          @code_session.update!(status: :cancelled, finished_at: was_running ? nil : Time.current)
         end
 
         # A queued session never started: CodeSessionJob skips it. A running

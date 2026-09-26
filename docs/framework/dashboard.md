@@ -604,8 +604,9 @@ only by the dashboard's user:
 
 ```
 app/            the checkout
-runtime.json    the manifest the checkout wrote
-state.json      { pid, port, started_at, code_sessions: { "<id>" => pid } }
+runtime.json    the manifest the checkout wrote (made owner-only, 0600)
+state.json      { pid, port, started_at, step_pid, code_sessions: { "<id>" => pid } }
+state.lock      what changes to state.json are serialized on
 logs/           checkout, setup, manifest, server and claude-<id> logs
 claude/         CLAUDE_CONFIG_DIR for Claude Code sessions
 ```
@@ -623,7 +624,17 @@ checkout can take minutes) and does the following, in order:
    `logs/server.log`, and records its pid and port in `state.json`.
 6. Polls `GET http://127.0.0.1:$PORT<mcp_path>` with
    `Accept: application/json` until it answers `405`, which means the engine
-   is mounted and serving (`401` and `200` count too).
+   is mounted and serving (`401` and `200` count too). The answer must come
+   from the sandbox's own server: nothing reserves the port between picking
+   it and the server binding it, and another process could take it first.
+   On Linux the backend checks in `/proc` that the listening socket belongs
+   to the server's process group (or to a process carrying the sandbox's
+   `ACTION_AGENT_SANDBOX_SESSION_ID`); elsewhere it asks `lsof`. Only where
+   neither can say does it send the manifest's token, and then the listener
+   must refuse a JSON-RPC `ping` without it (`401`) and accept one with it.
+
+While a step runs, its pid is in `state.json` as `step_pid`, so a terminate
+after the dashboard itself died mid-boot still stops it.
 
 Steps 1 to 6 share `local_sandbox_boot_timeout`. If a step fails, runs out of
 time, or the server exits, everything the backend started is stopped. The
@@ -655,8 +666,10 @@ start: bin/rails server -b 127.0.0.1 -p $PORT        # default; must serve on 12
 - Each command's environment is the sanitized dashboard environment, plus
   `PORT`, `ACTION_AGENT_SANDBOX_MANIFEST` (an absolute path inside the
   workspace) and `ACTION_AGENT_SANDBOX_SESSION_ID`, plus the file's `env`.
-  The port is picked after setup, so it is still free when the server binds
-  it. `manifest` and `start` get `PORT`; `setup` does not.
+  The port is picked after setup, when it was last seen free; nothing holds it
+  until the server binds it, so a server that finds it taken fails the boot
+  rather than being mistaken for the process that took it (step 6).
+  `manifest` and `start` get `PORT`; `setup` does not.
 - The GitHub token is never in that environment. The Claude Code credential
   isn't either: only Claude Code sessions get it.
 - Unknown keys are ignored. A malformed file fails provisioning, and the
@@ -670,11 +683,16 @@ before Bundler set it up (`Bundler.with_unbundled_env`), then drops:
   `RAILS_MASTER_KEY`, `RAILS_ENV`, `RACK_ENV`, `PORT`,
   `ACTIVE_RECORD_ENCRYPTION_*`, `BUNDLE_GEMFILE`, `BUNDLE_*`, `RUBYOPT` and
   `RUBYLIB`;
-- `BUNDLER_*`, and git's repository-location and config variables
-  (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
-  `GIT_COMMON_DIR`, `GIT_CONFIG*`, `GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n` and
-  the like), which a git hook sets and which would point the checkout's git at
-  the dashboard's own repository;
+- `SSH_AUTH_SOCK`: the checkout's code does not get the developer's SSH
+  agent;
+- `BUNDLER_*`, and git's repository-location and config variables:
+  `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+  `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, `GIT_NAMESPACE`,
+  `GIT_PREFIX`, `GIT_QUARANTINE_PATH`, `GIT_CONFIG`, `GIT_CONFIG_GLOBAL`,
+  `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_NOSYSTEM`, `GIT_CONFIG_PARAMETERS`,
+  `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_n` and `GIT_CONFIG_VALUE_n`. A git hook
+  sets some of them, and they would point the checkout's git at the
+  dashboard's own repository or configuration;
 - the dashboard's own model-provider and Claude Code settings: every
   `ANTHROPIC_*`, `CLAUDE_*`, `CLAUDECODE`, `OPENAI_*`, `OPEN_AI_*`,
   `OPENROUTER_*`, `OPEN_ROUTER_*` and `OLLAMA_*` variable. A dashboard run from
@@ -685,10 +703,11 @@ before Bundler set it up (`Bundler.with_unbundled_env`), then drops:
 - every variable whose name looks like a secret: it contains `SECRET`,
   `TOKEN`, `PASSWORD`, `PASSWD`, `PASSPHRASE`, `API_KEY`, `APIKEY`,
   `PRIVATE_KEY`, `CREDENTIAL`, `ACCESS_KEY` or `WEBHOOK`, or ends in `_KEY`,
-  `DSN`, `PASS`, `PWD` or `PAT` (`DB_PASS`, `MYSQL_PWD`, `LOCKBOX_MASTER_KEY`,
-  `SENTRY_DSN`, `GITHUB_PAT`);
-- every variable whose value is a URL carrying a password
-  (`redis://:secret@cache:6379`), whatever its name.
+  `DSN`, `_PASS`, `_PWD` or `_PAT` (`DB_PASS`, `MYSQL_PWD`, `LOCKBOX_MASTER_KEY`,
+  `SENTRY_DSN`, `GITHUB_PAT`; a bare `PASS`, `PWD` or `PAT` counts too);
+- every variable whose value holds a URL with credentials in it, whatever its
+  name: a password (`redis://:secret@cache:6379`) or a token as the username
+  alone (`https://ghp_x@github.com`). Any `user@` in a URL counts.
 
 Everything else is kept: `PATH`, `HOME`, `LANG`, `TMPDIR`, proxy and CA
 variables, and rbenv, mise and asdf settings. Processes are spawned with
@@ -712,9 +731,23 @@ unless its `env` sets it. A checkout that needs a key of its own sets it in
   gets in the way.
 - **Filters.** When a checkout's git config defines filter drivers, which a
   session could add, the session's diff is not recorded rather than running
-  their commands.
+  their commands. The backend's own git commands also run with
+  `core.fsmonitor=false` and `core.hooksPath=/dev/null`, so a filesystem
+  monitor or hook the session set in `.git/config` does not run either.
 - **macOS.** Without `/proc`, the backend identifies its processes by their
-  start time from `ps`, and never signals a pid it cannot identify.
+  start time from `ps` (read in UTC, so a restart under another `TZ` still
+  recognizes them), and never signals a pid it cannot identify. A terminate
+  that finds such a process still alive keeps the workspace and its
+  `state.json`, logs it, and reports the sandbox as not released, so the
+  reaper tries again.
+- **Processes that leave the group.** Stopping a sandbox signals its process
+  groups. A process that calls `setsid` (or otherwise daemonizes) leaves its
+  group and is not reached that way. On Linux the backend also stops every
+  process whose environment carries the sandbox's
+  `ACTION_AGENT_SANDBOX_SESSION_ID`, but one that also rewrote its
+  environment (a long process title does) escapes both, and keeps running
+  after the sandbox is stopped. Without `/proc`, any process that called
+  `setsid` does.
 
 This repository boots its own dummy app this way. Its
 [`.activeagents/sandbox.yml`](https://github.com/activeagents/activeagent/blob/main/.activeagents/sandbox.yml)
@@ -748,11 +781,14 @@ and reaches no agents over MCP. In that case, and for an app that isn't Rails,
 
 - **Stop** on a sandbox (`DELETE /api/sandboxes/:session_id`) expires it and
   terminates it.
-- Terminating sends `SIGTERM` to the server's process group and to any running
-  Claude Code session. After about 10 seconds it sends `SIGKILL`, then removes
-  the workspace.
-- A pid is signalled only if that workspace's `state.json` recorded it. A
-  sandbox that is already gone counts as stopped.
+- Terminating sends `SIGTERM` to the server's process group, to a boot step
+  still running and to any running Claude Code session. After about 10
+  seconds it sends `SIGKILL`, then removes the workspace.
+- A pid is signalled only if that workspace's `state.json` recorded it, and
+  only while it is still the process recorded there (by its start time). A
+  sandbox that is already gone counts as stopped. One whose recorded process
+  is alive but cannot be stopped or identified is kept, with its handle, and
+  the reaper tries again.
 - An `app_runtime` sandbox expires 2 hours after it is created. Other sandbox
   types expire after 15 minutes.
 
@@ -765,7 +801,12 @@ bin/rails action_agent:sandbox:reap   # prints "Expired N sandbox session(s)"
 It expires every session that is past its expiry and still pending,
 provisioning, ready or running, and terminates each one through
 `ActionAgent::SandboxCleanupJob`. It also retries sessions whose earlier
-terminate failed. Run it from cron, or as a Solid Queue recurring task:
+terminate failed: those that still hold a handle and, for a backend that
+derives a sandbox's handle from its session (`:local` does), expired
+`app_runtime` sessions with no handle that changed within the last day (at
+most 100 per run). A checkout whose boot never recorded a handle may still
+have processes, and nothing else records that a terminate of it failed. Run
+it from cron, or as a Solid Queue recurring task:
 
 ```yaml
 # config/recurring.yml
@@ -805,7 +846,12 @@ arrives:
 - the final result line, with turns, cost and duration.
 
 When the session finishes, the panel shows the checkout's `git diff`, with new
-files included. **Cancel** stops a running session.
+files included. **Cancel** stops a running session: `SIGTERM`, then `SIGKILL`
+if Claude Code has not exited about 10 seconds later. A cancelled session is
+marked cancelled at once, but its events and diff are recorded until Claude
+Code has stopped. Its `diff_pending` stays `true` until then, and the panel
+keeps polling. A session that never ran (cancelled in the queue, or before
+Claude Code started) settles with no diff and `diff_pending: false`.
 
 Only one session runs per sandbox at a time. Each one counts as an execution:
 `execution_enabled` must be on, and the execution quota applies. Sessions are

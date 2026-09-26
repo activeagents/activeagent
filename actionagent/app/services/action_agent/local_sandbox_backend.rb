@@ -16,9 +16,11 @@ module ActionAgent
   #     app/          the checkout
   #     runtime.json  the manifest the checkout wrote (see SandboxManifest)
   #     state.json    { pid, port, started_at, code_sessions: { "<id>" => pid } },
-  #                   plus the commit checked out, when each recorded process
-  #                   started, cancels that found nothing to stop yet, and
+  #                   plus the commit checked out, the boot step running
+  #                   (step_pid), when each recorded process started, cancels
+  #                   sent and cancels that found nothing to stop yet, and
   #                   whether a terminate is under way
+  #     state.lock    what changes to state.json are serialized on
   #     logs/         checkout, setup, manifest, server and claude-<id> logs
   #     claude/       CLAUDE_CONFIG_DIR for Claude Code sessions
   #
@@ -26,7 +28,8 @@ module ActionAgent
   # may restart while a sandbox runs, so whatever a later call needs lives in
   # state.json rather than in instance variables. Calls race each other
   # through that file (a cancel or a terminate while Claude Code starts), so
-  # it is only ever changed under an exclusive lock.
+  # it is only ever changed under an exclusive lock, and replaced whole (see
+  # #update_state) so a crash never leaves it half written.
   #
   # How a checkout boots is up to its .activeagents/sandbox.yml (see Config).
   # Every process starts from a sanitized copy of the dashboard's environment
@@ -50,7 +53,8 @@ module ActionAgent
     # serving; 401 and 200 also mean something is up and answering there.
     READY_STATUSES = [ 405, 401, 200 ].freeze
     POLL_INTERVAL = 0.25
-    # Between SIGTERM and SIGKILL when stopping a sandbox.
+    # Between SIGTERM and SIGKILL when stopping a sandbox, or a cancelled
+    # Claude Code session.
     STOP_GRACE = 10
     LOG_TAIL_LINES = 20
     LOG_TAIL_BYTES = 64 * 1024
@@ -70,6 +74,10 @@ module ActionAgent
     # How long output may keep arriving after Claude Code itself exited.
     OUTPUT_DRAIN_GRACE = 2
     HELP_TIMEOUT = 15
+    PS_ENVIRONMENT = { "TZ" => "UTC", "LC_ALL" => "C", "LANG" => "C" }.freeze
+    # How often a running Claude Code session looks for a cancel in
+    # state.json.
+    CANCEL_CHECK_INTERVAL = 0.5
     MODEL_NAME = %r{\A[A-Za-z0-9][A-Za-z0-9._:/@\[\]-]{0,127}\z}
 
     # Never inherited from the dashboard: its database, its keys, and the
@@ -77,13 +85,16 @@ module ActionAgent
     DROPPED_VARIABLES = %w[
       DATABASE_URL REDIS_URL SECRET_KEY_BASE RAILS_MASTER_KEY RAILS_ENV RACK_ENV PORT
       BUNDLE_GEMFILE RUBYOPT RUBYLIB
+      SSH_AUTH_SOCK
     ].freeze
     DROPPED_VARIABLE_PATTERN = /
       _DATABASE_URL\z | \AACTIVE_RECORD_ENCRYPTION_ | \ABUNDLER?_ |
-      # Where git finds a repository. Set when the dashboard runs under a git
-      # hook, and they would point the checkout's git at the dashboard's own.
+      # Where git finds a repository, and its configuration. Set when the
+      # dashboard runs under a git hook, and they would point the checkout's
+      # git at the dashboard's own repository or config.
       \AGIT_(?:DIR|WORK_TREE|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|
-        NAMESPACE|PREFIX|QUARANTINE_PATH|CONFIG|CONFIG_PARAMETERS|CONFIG_COUNT|CONFIG_KEY_\d+|CONFIG_VALUE_\d+)\z |
+        NAMESPACE|PREFIX|QUARANTINE_PATH|CONFIG|CONFIG_PARAMETERS|CONFIG_COUNT|CONFIG_KEY_\d+|CONFIG_VALUE_\d+|
+        CONFIG_GLOBAL|CONFIG_SYSTEM|CONFIG_NOSYSTEM)\z |
       # The dashboard's own model-provider and Claude Code settings. A
       # developer often runs the dashboard from inside Claude Code, which
       # exports CLAUDECODE, CLAUDE_CODE_* (its own session id among them) and
@@ -97,8 +108,10 @@ module ActionAgent
       # DB_PASS, MYSQL_PWD, LOCKBOX_MASTER_KEY, SENTRY_DSN, SLACK_WEBHOOK_URL, GITHUB_PAT
       (?:\A|_)PASS\z | (?:\A|_)PWD\z | _KEY\z | DSN\z | WEBHOOK | (?:\A|_)PAT\z
     /xi
-    # A URL carrying a password (redis://:secret@host), whatever its name.
-    CREDENTIALED_URL = %r{\A[a-z][a-z0-9+.-]*://[^/\s@]*:[^/\s@]+@}i
+    # A URL carrying credentials, whatever its name: a password
+    # (redis://:secret@host) or a token as the username alone
+    # (https://ghp_x@github.com). Any userinfo counts, anywhere in the value.
+    CREDENTIALED_URL = %r{[a-z][a-z0-9+.-]*://[^/\s@]+@}i
 
     # Fetches the checkout with the token in this process's environment only.
     # Git gets the credential through GIT_CONFIG_* for the one fetch: never in
@@ -262,23 +275,30 @@ module ActionAgent
       session_id = session_id!(session.session_id)
       # A retried provision (say the dashboard restarted mid-boot) starts
       # clean rather than on a half-built checkout next to a stray server.
-      discard(session_id)
+      unless discard(session_id)
+        raise Error, "Sandbox #{session_id} still has processes from an earlier boot that could not be stopped; " \
+          "see the dashboard log"
+      end
       boot(session_id, spec, [ spec[:token], *session.runtime_environment.values ])
     end
 
-    # Stops the sandbox's server and any Claude Code sessions it recorded,
-    # then removes its workspace. Returns true, also when there was nothing
-    # to stop.
     # A sandbox's handle follows from its session id, so one whose boot was
     # never recorded can still be found and stopped.
     def handle_for(session)
       "local-#{session.session_id}"
     end
 
+    # Stops the sandbox's server, its boot step and any Claude Code sessions
+    # it recorded, then removes its workspace. Returns true, also when there
+    # was nothing to stop.
+    #
+    # False when something the sandbox recorded is still alive and could
+    # not be stopped (or told apart from an unrelated process): its
+    # workspace, and state.json with it, is kept, so the handle is kept for
+    # the reaper to try again.
     def terminate(handle)
       session_id = session_id_from(handle)
-      discard(session_id) if session_id
-      true
+      session_id ? discard(session_id) : true
     end
 
     # @return [Hash] { status: "running" | "stopped" | "not_found", pid:, port: }
@@ -346,7 +366,10 @@ module ActionAgent
     end
 
     # Stops a running Claude Code session: SIGTERM to its process group. The
-    # run_code_session that started it then finishes with what it has.
+    # run_code_session that started it then finishes with what it has. The
+    # cancel is noted in state.json too, and run_code_session, which watches
+    # for it, sends SIGKILL once STOP_GRACE has passed: a CLI that ignores
+    # SIGTERM would otherwise run on until claude_code_timeout.
     #
     # The session is marked running before Claude Code starts (the --help
     # probe alone can take seconds), so a cancel can find no process yet.
@@ -362,7 +385,11 @@ module ActionAgent
       update_state(workspace, create: false) do |state|
         pid = state_hash(state, "code_sessions")[key]
         if pid
-          signal_group(pid, "TERM") if recorded_group?(pid, session_id, state)
+          if recorded_group?(pid, session_id, state)
+            signal_group(pid, "TERM")
+            # Wall-clock time: the session may run in another process.
+            state_hash(state, "cancelling_code_sessions")[key] ||= Time.now.to_f
+          end
         else
           cancels = state_hash(state, "cancelled_code_sessions")
           cancels.delete_if { |_id, at| !at.is_a?(Numeric) || at < Time.now.to_f - CANCEL_MEMORY }
@@ -408,14 +435,16 @@ module ActionAgent
         run_step!(workspace, "setup", command, env: env, chdir: app, deadline: deadline, secrets: secrets)
       end
 
-      # Picked after setup, which can take minutes, so the port is still
-      # free when the server binds it.
+      # Picked after setup, which can take minutes, so that the port is
+      # likely still free when the server binds it. Nothing reserves it
+      # meanwhile: #wait_until_ready! only accepts an answer from a listener
+      # of the server's own process group.
       port = free_port
       env = env.merge("PORT" => port.to_s)
       manifest = run_manifest!(workspace, config, env, deadline, secrets)
 
       server_pid, waiter = start_server(workspace, config, env, port)
-      wait_until_ready!(workspace, port, manifest["mcp_path"], waiter, deadline, secrets)
+      wait_until_ready!(workspace, port, manifest, server_pid, waiter, deadline, secrets)
       booted = true
 
       {
@@ -455,6 +484,7 @@ module ActionAgent
         "CHECKOUT_REF" => spec[:ref].presence || "HEAD",
         "CHECKOUT_USERNAME" => spec[:username].presence || "x-access-token",
         "CHECKOUT_TOKEN" => spec[:token].to_s,
+        SESSION_ID_ENV => workspace.basename.to_s,
         # Fail rather than prompt when the token is refused.
         "GIT_TERMINAL_PROMPT" => "0",
         "GIT_ASKPASS" => ""
@@ -482,6 +512,9 @@ module ActionAgent
       log = log_path(workspace, "manifest")
       fail_step!("manifest", "`#{config.manifest}` wrote nothing to $#{SandboxManifest::PATH_ENV}", log, secrets) unless path.file?
 
+      # Written by the checkout's command, with its umask: the MCP token in
+      # it is for the dashboard alone.
+      File.chmod(0o600, path)
       manifest = SandboxManifest.parse(path.read)
       URI.parse("http://127.0.0.1#{manifest["mcp_path"]}")
       manifest
@@ -493,20 +526,59 @@ module ActionAgent
     # output in logs/<step>.log. Anything it left running in that group is
     # stopped too: a setup command is not a way to start services the
     # sandbox never records (that is what `start` is for).
+    #
+    # The group is stopped however the wait ends: the deadline, or any
+    # exception at all (a worker shutting down raises into this thread with
+    # Thread#raise, which is no StandardError). While it runs its pid is in
+    # state.json as step_pid, so a terminate after this process itself died
+    # (a crashed dashboard, a killed worker) stops a hung `bundle install`
+    # too; nothing else would, the deadline having died with this process.
     def run_step!(workspace, step, command, env:, chdir:, deadline:, secrets:, label: command)
       log = log_path(workspace, step)
       File.open(log, "a") { |file| file.puts("$ #{label}") }
 
-      pid = spawn_group(env, "sh", "-c", command, chdir: chdir, in: File::NULL, out: [ log.to_s, "a" ], err: [ :child, :out ])
-      waiter = Process.detach(pid)
-      finished = waiter.join(time_left(deadline))
-      stop_groups([ pid ], grace: finished ? 1 : STOP_GRACE)
+      pid = nil
+      waiter = nil
+      finished = false
+      # Deferred until the group is recorded or stopped, so an interrupt
+      # never lands between the spawn and the ensure that stops it.
+      Thread.handle_interrupt(Object => :never) do
+        pid = spawn_group(env, "sh", "-c", command, chdir: chdir, in: File::NULL, out: [ log.to_s, "a" ], err: [ :child, :out ])
+        begin
+          Thread.handle_interrupt(Object => :immediate) do
+            record_step(workspace, pid)
+            waiter = Process.detach(pid)
+            finished = waiter.join(time_left(deadline))
+          end
+        ensure
+          stop_groups([ pid ], grace: finished ? 1 : stop_grace)
+          forget_step(workspace, pid)
+        end
+      end
 
       unless finished
         fail_step!(step, "`#{label}` did not finish within the boot timeout (#{ActionAgent.local_sandbox_boot_timeout}s)", log, secrets)
       end
       status = waiter.value
       fail_step!(step, "`#{label}` exited with #{describe(status)}", log, secrets) unless status.success?
+    end
+
+    def record_step(workspace, pid)
+      update_state(workspace) do |state|
+        state["step_pid"] = pid
+        record_process_start(state, pid)
+      end
+    end
+
+    def forget_step(workspace, pid)
+      update_state(workspace, create: false) do |state|
+        next unless state["step_pid"] == pid
+
+        state.delete("step_pid")
+        state_hash(state, "process_starts").delete(pid.to_s)
+      end
+    rescue SystemCallError
+      # The workspace is gone: nothing left to forget it in.
     end
 
     def start_server(workspace, config, env, port)
@@ -518,41 +590,164 @@ module ActionAgent
       # Reaped by this thread for as long as the dashboard lives; after a
       # restart the recorded pid is all that is left, hence state.json.
       waiter = Process.detach(pid)
+      recorded = false
       begin
         update_state(workspace) do |state|
           state.merge!("pid" => pid, "port" => port, "started_at" => Time.current.iso8601(3))
           state_hash(state, "code_sessions")
           record_process_start(state, pid)
         end
-      rescue StandardError
-        # Unrecorded, nothing could ever stop it later.
-        stop_groups([ pid ])
-        raise
+        recorded = true
+      ensure
+        # Unrecorded, nothing could ever stop it later, whatever the
+        # exception (see #run_step!).
+        stop_groups([ pid ]) unless recorded
       end
       [ pid, waiter ]
     end
 
-    def wait_until_ready!(workspace, port, mcp_path, waiter, deadline, secrets)
+    # Polls until the MCP path answers, and the answer comes from the
+    # server this sandbox started. The port was free when it was picked, but
+    # nothing held it after: another process can bind it first, and then
+    # answers in the server's place — and would be handed the MCP token.
+    def wait_until_ready!(workspace, port, manifest, server_pid, waiter, deadline, secrets)
       log = log_path(workspace, "server")
+      mcp_path = manifest["mcp_path"]
       uri = URI.parse("http://127.0.0.1:#{port}#{mcp_path}")
       last_status = nil
+      foreign = false
 
       loop do
         unless waiter.alive?
-          fail_step!("server", "the server exited with #{describe(waiter.value)} before it answered on port #{port}", log, secrets)
+          taken = foreign ? " (another process was listening on port #{port})" : ""
+          fail_step!("server", "the server exited with #{describe(waiter.value)} before it answered on port #{port}#{taken}",
+            log, secrets)
         end
 
         status = probe(uri)
-        return if READY_STATUSES.include?(status)
+        if READY_STATUSES.include?(status)
+          return if served_by_sandbox?(uri, server_pid, workspace.basename.to_s, manifest["mcp_token"])
+
+          foreign = true
+        end
 
         last_status = status if status
         if monotonic >= deadline
-          answered = last_status ? " (last answer: #{last_status})" : ""
+          answered =
+            if foreign then " (port #{port} answered, but not from the sandbox's server)"
+            elsif last_status then " (last answer: #{last_status})"
+            else ""
+            end
           fail_step!("server", "the server did not answer #{mcp_path} on port #{port} within the boot timeout " \
             "(#{ActionAgent.local_sandbox_boot_timeout}s)#{answered}", log, secrets)
         end
         sleep POLL_INTERVAL
       end
+    end
+
+    # Whether what listens on +uri+'s port is the sandbox's server (process
+    # group +pgid+). Asked of the system where it can say (/proc on Linux,
+    # lsof elsewhere); the token is never sent before. Where it cannot say,
+    # the listener must answer as only the sandbox's own MCP facade would:
+    # refuse a request without the manifest's token and accept one with it.
+    def served_by_sandbox?(uri, pgid, session_id, token)
+      owned = sandbox_listener?(uri.port, pgid, session_id)
+      return owned unless owned.nil?
+
+      rpc_status(uri, nil) == 401 && rpc_status(uri, token).to_i.between?(200, 299)
+    end
+
+    # true or false when the system can say whether the sandbox listens on
+    # +port+: a process of the server's group +pgid+ or, where /proc shows
+    # environments, one carrying the sandbox's session id (a server that
+    # starts its workers in groups of their own). nil when it cannot say.
+    def sandbox_listener?(port, pgid, session_id)
+      unless procfs?
+        listeners = lsof_listeners(port)
+        return listeners&.any? { |pid| group_of(pid) == pgid }
+      end
+
+      inodes = listening_socket_inodes(port)
+      return nil if inodes.blank?
+      return true if group_members(pgid).any? { |pid| socket_inodes(pid).intersect?(inodes) }
+
+      # Another user's process does not show its descriptors: whoever holds
+      # the socket then is not the sandbox, whose processes are this one's.
+      marker = "#{SESSION_ID_ENV}=#{session_id}"
+      Dir.children("/proc").any? do |entry|
+        next false unless entry.match?(/\A\d+\z/) && socket_inodes(entry).intersect?(inodes)
+
+        File.binread("/proc/#{entry}/environ").split("\0").include?(marker)
+      rescue SystemCallError
+        false
+      end
+    end
+
+    # The inodes of the TCP sockets listening on +port+, from
+    # /proc/net/tcp and tcp6; nil when neither can be read.
+    def listening_socket_inodes(port)
+      inodes = nil
+      %w[/proc/net/tcp /proc/net/tcp6].each do |table|
+        lines = File.readlines(table).drop(1)
+        inodes ||= Set.new
+        lines.each do |line|
+          # sl local_address rem_address st tx:rx tr:when retrnsmt uid timeout inode
+          fields = line.split
+          next unless fields[3] == "0A" && fields[1].to_s.split(":").last.to_i(16) == port
+
+          inodes << fields[9]
+        end
+      rescue SystemCallError
+        next
+      end
+      inodes
+    end
+
+    def group_members(pgid)
+      Dir.children("/proc").select do |entry|
+        next false unless entry.match?(/\A\d+\z/)
+
+        state, _ppid, group = proc_stat(entry)
+        group.to_i == pgid && !%w[Z X].include?(state)
+      end
+    end
+
+    def socket_inodes(pid)
+      Dir.children("/proc/#{pid}/fd").filter_map do |fd|
+        File.readlink("/proc/#{pid}/fd/#{fd}")[/\Asocket:\[(\d+)\]\z/, 1]
+      rescue SystemCallError
+        nil
+      end.to_set
+    rescue SystemCallError
+      Set.new
+    end
+
+    # The pids listening on +port+ as lsof reports them; nil without lsof.
+    def lsof_listeners(port)
+      output, _status = Open3.capture2("lsof", "-nP", "-a", "-iTCP:#{port}", "-sTCP:LISTEN", "-Fp", err: File::NULL)
+      output.lines.filter_map { |line| Integer(line[/\Ap(\d+)/, 1], exception: false) }
+    rescue SystemCallError
+      nil
+    end
+
+    def group_of(pid)
+      Process.getpgid(pid)
+    rescue SystemCallError
+      nil
+    end
+
+    # The HTTP status a JSON-RPC ping to +uri+ answers with, carrying
+    # +token+ as its bearer when given; nil while nothing answers.
+    def rpc_status(uri, token)
+      request = Net::HTTP::Post.new(uri, "Content-Type" => "application/json", "Accept" => "application/json, text/event-stream")
+      request["Authorization"] = "Bearer #{token}" if token
+      request.body = JSON.generate(jsonrpc: "2.0", id: "readiness", method: "ping")
+      http = Net::HTTP.new(uri.host, uri.port, nil)
+      http.open_timeout = 1
+      http.read_timeout = 2
+      http.start { |connection| connection.request(request).code.to_i }
+    rescue SystemCallError, IOError, Timeout::Error, Net::HTTPBadResponse
+      nil
     end
 
     # The HTTP status a GET on the MCP path answers with, or nil while
@@ -651,6 +846,9 @@ module ActionAgent
         [ stdin_read, stdout_write, stderr_write ].each(&:close)
       end
       waiter = Process.detach(pid)
+      # When a cancel was first seen here (monotonic): from then on the
+      # session gets STOP_GRACE to end on SIGTERM, then SIGKILL.
+      cancel_seen = nil
       case record_code_session(workspace, key, pid)
       when :terminating
         # Stopped by the ensure below, before it had the prompt.
@@ -658,6 +856,7 @@ module ActionAgent
       when :cancelled
         # Runs its course like any cancelled session: it ends on SIGTERM.
         signal_group(pid, "TERM")
+        cancel_seen = monotonic
       end
 
       # The prompt goes in on stdin, never argv, where `ps` would show it.
@@ -665,10 +864,24 @@ module ActionAgent
       stderr_tail = []
       reader = background { copy_stderr(stderr_read, log, secrets, stderr_tail) }
 
-      finished = stream_events(stdout_read, waiter, deadline, secrets, &on_event) && waiter.join(time_left(deadline))
+      # A cancel sent from another call (or process) is read from
+      # state.json, where cancel_code_session notes it.
+      next_check = monotonic
+      stop_by = lambda do
+        if cancel_seen.nil? && monotonic >= next_check
+          next_check = monotonic + CANCEL_CHECK_INTERVAL
+          cancel_seen = cancel_noted(workspace, key)
+        end
+        cancel_seen ? [ deadline, cancel_seen + stop_grace ].min : deadline
+      end
+
+      finished = stream_events(stdout_read, waiter, stop_by, secrets, &on_event) && waiter.join(time_left(stop_by.call))
       unless finished
-        stop_groups([ pid ])
-        raise Error, "Claude Code did not finish within #{ActionAgent.claude_code_timeout}s and was stopped"
+        # Cancelled, and SIGTERM did not end it within the grace: SIGKILL,
+        # and the session finishes like any cancelled one.
+        raise Error, "Claude Code did not finish within #{ActionAgent.claude_code_timeout}s and was stopped" unless cancel_seen
+
+        stop_groups([ pid ], grace: 0)
       end
 
       # Whatever the session left running in the background goes too.
@@ -676,12 +889,12 @@ module ActionAgent
       reader.join(OUTPUT_DRAIN_GRACE)
 
       {
-        exit_status: exit_code(waiter.value),
+        exit_status: waiter.join(OUTPUT_DRAIN_GRACE) ? exit_code(waiter.value) : 128 + Signal.list.fetch("KILL"),
         diff: capture_diff(workspace, secrets),
         stderr_tail: SecretScrubber.scrub(stderr_tail.join("\n"), secrets)
       }
     ensure
-      stop_groups([ pid ]) if pid
+      stop_groups([ pid ], grace: cancel_seen ? 0 : stop_grace) if pid
       [ stdin_write, stdout_read, stderr_read ].each { |io| io&.close unless io&.closed? }
       writer&.join(1)
       reader&.join(1)
@@ -724,14 +937,25 @@ module ActionAgent
       :terminating
     end
 
+    # When a cancel_code_session for session +key+ signalled it, as a
+    # monotonic time; nil while none has.
+    def cancel_noted(workspace, key)
+      at = read_state(workspace).dig("cancelling_code_sessions", key)
+      at.is_a?(Numeric) ? monotonic - (Time.now.to_f - at).clamp(0, Float::INFINITY) : nil
+    rescue SystemCallError
+      nil
+    end
+
     # Reads stream-json from +io+ until it closes, yielding each line as an
-    # event. Returns false when the deadline passed first.
-    def stream_events(io, waiter, deadline, secrets, &on_event)
+    # event. Returns false when the deadline +stop_by+ answers (it can move
+    # earlier, on a cancel) passed first.
+    def stream_events(io, waiter, stop_by, secrets, &on_event)
       buffer = String.new(encoding: Encoding::BINARY)
       skipping = false
       exited_at = nil
 
       loop do
+        deadline = stop_by.call
         return false if monotonic >= deadline
 
         # Claude Code exited but something it started still holds stdout.
@@ -857,12 +1081,13 @@ module ActionAgent
       [ token, *credentials.values ].compact.map(&:to_s)
     end
 
-    # Drops the session's pid, and a cancel it may have left unanswered.
+    # Drops the session's pid, and the cancels it may have left.
     def forget_code_session(workspace, key)
       update_state(workspace, create: false) do |state|
         pid = state_hash(state, "code_sessions").delete(key)
         state_hash(state, "process_starts").delete(pid.to_s) if pid
         state_hash(state, "cancelled_code_sessions").delete(key)
+        state_hash(state, "cancelling_code_sessions").delete(key)
       end
     rescue Errno::ENOENT
       # Terminated meanwhile: the workspace, and its state, are gone.
@@ -905,19 +1130,26 @@ module ActionAgent
       [ reader, writer ].each { |io| io&.close unless io&.closed? }
     end
 
-    # TERM to each group, KILL to whatever is left after +grace+, then a
-    # moment for the kernel to finish them off.
-    def stop_groups(pids, grace: STOP_GRACE)
+    # TERM to each group, KILL to whatever is left after +grace+ (STOP_GRACE
+    # by default), then a moment for the kernel to finish them off.
+    def stop_groups(pids, grace: nil)
+      grace ||= stop_grace
       live = pids.select { |pid| group_alive?(pid) }
       return if live.empty?
 
       live.each { |pid| signal_group(pid, "TERM") }
-      deadline = deadline_after(grace)
+      # Not deadline_after, for which 0 means no limit: here it means none.
+      deadline = monotonic + grace
       sleep 0.1 while live.any? { |pid| group_alive?(pid) } && monotonic < deadline
 
       live.each { |pid| signal_group(pid, "KILL") if group_alive?(pid) }
       deadline = deadline_after(2)
       sleep 0.05 while live.any? { |pid| group_alive?(pid) } && monotonic < deadline
+    end
+
+    # A method, not the constant alone, so the tests can shorten it.
+    def stop_grace
+      STOP_GRACE
     end
 
     def signal_group(pgid, signal)
@@ -981,8 +1213,11 @@ module ActionAgent
       return Integer(proc_stat(pid)[19], exception: false) if procfs?
 
       # No /proc (macOS): ps reports the start time to the second, enough to
-      # tell a reused pid apart. nil when the process is gone.
-      output, status = Open3.capture2("ps", "-o", "lstart=", "-p", pid.to_s)
+      # tell a reused pid apart. nil when the process is gone. Written in the
+      # local time zone and language, so pinned to UTC and C: a dashboard
+      # restarted under another TZ would otherwise read every recorded
+      # process as a stranger.
+      output, status = Open3.capture2(PS_ENVIRONMENT, "ps", "-o", "lstart=", "-p", pid.to_s)
       status.success? ? output.strip.presence : nil
     rescue SystemCallError
       nil
@@ -994,31 +1229,37 @@ module ActionAgent
     end
 
     # Whether +pid+, read from state.json, may be signalled as this
-    # sandbox's process group. A pid is reused once its process is gone, so
-    # where /proc shows the process it must be the one recorded: started
-    # when state.json says, or, for a pid recorded without a start time,
-    # carrying this sandbox's session id in its environment. Where it is gone
-    # there is nothing to confuse: a group id is not reused while any process
-    # of the group lives.
+    # sandbox's process group (see #group_identity).
     def recorded_group?(pid, session_id, state)
-      return false unless signalable?(pid)
+      group_identity(pid, session_id, state) == :ours
+    end
+
+    # What +pid+, read from state.json, is now: :ours, :stranger or
+    # :unknown. A pid is reused once its process is gone, so where the
+    # process is there it must be the one recorded: started when state.json
+    # says, or, for a pid recorded without a start time, carrying this
+    # sandbox's session id in its environment. Where it is gone there is
+    # nothing to confuse: a group id is not reused while any process of the
+    # group lives. :unknown when nothing can tell (no start time recorded,
+    # and no /proc to read its environment, or no permission to read it):
+    # such a pid is never signalled, and never forgotten either.
+    def group_identity(pid, session_id, state)
+      return :stranger unless signalable?(pid)
 
       started = state["process_starts"][pid.to_s] if state["process_starts"].is_a?(Hash)
       if started
         current = process_start(pid)
-        return current.nil? || current == started
+        return current.nil? || current == started ? :ours : :stranger
       end
-      # Nothing to identify it by (no start time recorded, and no /proc to
-      # read its environment): never signal a pid that may have been reused.
-      return false unless procfs?
+      return :unknown unless procfs?
 
       environ = File.binread("/proc/#{pid}/environ")
       # A zombie's environment reads empty, and its pid is still its own.
-      environ.empty? || environ.split("\0").include?("#{SESSION_ID_ENV}=#{session_id}")
+      environ.empty? || environ.split("\0").include?("#{SESSION_ID_ENV}=#{session_id}") ? :ours : :stranger
     rescue Errno::ENOENT, Errno::ESRCH
-      true
+      :ours
     rescue Errno::EACCES, Errno::EPERM
-      false
+      :unknown
     end
 
     # Stops everything the workspace recorded, then removes it. The
@@ -1026,9 +1267,15 @@ module ActionAgent
     # Claude Code session that records itself later finds the mark and stops
     # on its own (see #record_code_session), and one that recorded itself
     # earlier is among the pids stopped here.
+    #
+    # Returns false, keeping the workspace, when a recorded group is still
+    # alive afterwards and is not known to be a stranger's: one that could
+    # not be stopped, or not told apart from an unrelated process. Removing
+    # state.json would drop the only record of it; kept, the next terminate
+    # tries again.
     def discard(session_id)
       workspace = workspace_for(session_id)
-      return unless workspace.exist?
+      return true unless workspace.exist?
 
       state = begin
         update_state(workspace) { |current| current["terminating"] = true }
@@ -1036,8 +1283,66 @@ module ActionAgent
         {}
       end
       sessions = state["code_sessions"].is_a?(Hash) ? state["code_sessions"].values : []
-      stop_groups([ state["pid"], *sessions ].uniq.select { |pid| recorded_group?(pid, session_id, state) })
+      recorded = [ state["pid"], state["step_pid"], *sessions ].uniq.select { |pid| signalable?(pid) }
+      identities = recorded.index_with { |pid| group_identity(pid, session_id, state) }
+      stop_groups(recorded.select { |pid| identities[pid] == :ours })
+      stop_escaped(session_id)
+
+      left = recorded.select { |pid| identities[pid] != :stranger && group_alive?(pid) }
+      if left.any?
+        Rails.logger.error("[ActionAgent] sandbox #{session_id}: process groups #{left.join(", ")} are still alive and " \
+          "could not be #{left.any? { |pid| identities[pid] == :unknown } ? "identified" : "stopped"}; " \
+          "keeping #{workspace} so a later terminate can try again")
+        return false
+      end
+
       remove_workspace(workspace)
+      true
+    end
+
+    # Processes of this sandbox that left its process groups (setsid, a
+    # daemonizing server) and so escaped #stop_groups, found where /proc
+    # shows every process's environment: exactly this sandbox's session id,
+    # never this process or its group. One that also rewrote its
+    # environment (a long process title) is not found.
+    def stop_escaped(session_id)
+      return unless procfs?
+
+      marker = "#{SESSION_ID_ENV}=#{session_id}"
+      own_group = Process.getpgrp
+      escaped = Dir.children("/proc").filter_map do |entry|
+        next unless entry.match?(/\A\d+\z/)
+
+        pid = entry.to_i
+        next if pid == Process.pid
+
+        state, _ppid, group = proc_stat(entry)
+        next if state.nil? || %w[Z X].include?(state) || group.to_i == own_group
+
+        pid if File.binread("/proc/#{pid}/environ").split("\0").include?(marker)
+      rescue SystemCallError
+        nil
+      end
+      return if escaped.empty?
+
+      escaped.each { |pid| signal_process(pid, "TERM") }
+      deadline = deadline_after(stop_grace)
+      sleep 0.1 while escaped.any? { |pid| process_alive?(pid) } && monotonic < deadline
+      escaped.each { |pid| signal_process(pid, "KILL") if process_alive?(pid) }
+    end
+
+    def signal_process(pid, signal)
+      return false unless pid.is_a?(Integer) && pid > 1 && pid != Process.pid
+
+      Process.kill(signal, pid)
+      true
+    rescue Errno::ESRCH, Errno::EPERM
+      false
+    end
+
+    def process_alive?(pid)
+      state, = proc_stat(pid)
+      !state.nil? && !%w[Z X].include?(state)
     end
 
     # Moved aside before it is deleted: a Claude Code session finishing in
@@ -1093,26 +1398,48 @@ module ActionAgent
       SESSION_ID.match?(session_id) ? session_id : nil
     end
 
+    # No lock needed: state.json is only ever replaced whole (see
+    # #update_state), so a read sees one version or the next.
     def read_state(workspace)
-      File.open(workspace.join("state.json"), File::RDONLY) do |file|
-        file.flock(File::LOCK_SH)
-        parse_state(file.read)
-      end
-    rescue Errno::ENOENT
+      parse_state(File.read(workspace.join("state.json")))
+    rescue Errno::ENOENT, Errno::ENOTDIR
       {}
     end
 
     # Read-modify-write under an exclusive lock: a Claude Code session
     # records its pid while terminate may be reading the same file.
+    #
+    # The new state goes to a temporary file in the workspace, which is then
+    # renamed over state.json: a crash mid-write leaves the old version, not
+    # a truncated one. The lock is on state.lock, which is never replaced; a
+    # lock on state.json itself would stay on the inode the rename
+    # unlinked, and cover nothing. Raises Errno::ENOENT when there is no
+    # state.json and +create+ is false, or no workspace at all.
     def update_state(workspace, create: true)
-      File.open(workspace.join("state.json"), File::RDWR | (create ? File::CREAT : 0), 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        state = parse_state(file.read)
+      path = workspace.join("state.json")
+      File.open(workspace.join("state.lock"), File::RDWR | File::CREAT, 0o600) do |lock|
+        lock.flock(File::LOCK_EX)
+        current = begin
+          File.read(path)
+        rescue Errno::ENOENT
+          raise unless create
+
+          nil
+        end
+        state = parse_state(current)
         yield state
-        file.rewind
-        file.truncate(0)
-        file.write(JSON.generate(state))
-        file.flush
+
+        temporary = workspace.join(".state.json.#{SecureRandom.hex(4)}")
+        begin
+          File.open(temporary, File::WRONLY | File::CREAT | File::EXCL, 0o600) do |file|
+            file.write(JSON.generate(state))
+            file.flush
+            file.fsync
+          end
+          File.rename(temporary, path)
+        ensure
+          FileUtils.rm_f(temporary)
+        end
         state
       end
     end

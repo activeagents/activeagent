@@ -36,6 +36,17 @@ module ActionAgent
       succeeded? || failed? || cancelled?
     end
 
+    # Whether an outcome and a diff may still be recorded for this session.
+    # finished_at is set once nothing more will be: by CodeSessionJob when it
+    # settles a session it ran (whatever the backend returned, raised or
+    # refused), or by the cancel of a session that never left the queue. A
+    # session cancelled while running is finished at once but settled only
+    # when its Claude Code has stopped, so its diff may still come, and its
+    # transcript still grow, until then.
+    def diff_pending?
+      finished_at.nil?
+    end
+
     # The values that must never be stored: the checkout token and the
     # Claude Code credential this session ran with.
     def secrets
@@ -95,6 +106,9 @@ module ActionAgent
         input_tokens: input_tokens,
         output_tokens: output_tokens,
         event_count: events.size + dropped_events_count.to_i,
+        # What a client polls until: false once nothing about the session
+        # changes any more.
+        diff_pending: diff_pending?,
         started_at: started_at&.iso8601,
         finished_at: finished_at&.iso8601,
         created_at: created_at&.iso8601

@@ -81,6 +81,9 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     ActionAgent.usage_recorder = nil
     ActionAgent.user_class = nil
     ActionAgent.current_user_resolver = nil
+    ActionAgent.account_class = nil
+    ActionAgent.current_account_resolver = nil
+    ActionAgent.multi_tenant = false
   end
 
   test "a session runs in a ready checkout, and its transcript is polled from an offset" do
@@ -350,6 +353,11 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
       post "#{sandbox_path}/#{id}/cancel"
       assert_response :success
       assert_equal [ id ], ScriptedBackend.cancelled, "the cancel stops the process at once"
+      cancelled = JSON.parse(response.body)["code_session"]
+      assert_equal "cancelled", cancelled["status"]
+      assert_equal true, cancelled["diff_pending"], "Claude Code is still stopping, so its diff is still to come"
+      get "#{sandbox_path}/#{id}"
+      assert_equal true, JSON.parse(response.body).dig("code_session", "diff_pending")
       emit.call("type" => "assistant", "message" => { "role" => "assistant", "content" => [ { "type" => "text", "text" => "Stopping" } ] })
       emit.call("type" => "assistant", "message" => { "role" => "assistant", "content" => [ { "type" => "text", "text" => "Stopped" } ] })
       { exit_status: 143, diff: "diff --git a/half b/half\n", stderr_tail: "Terminated" }
@@ -364,6 +372,105 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     assert session.finished_at
     assert_equal 3, session.events.size
     assert_includes session.diff, "diff --git a/half b/half", "what the session changed before it stopped is kept"
+    get "#{sessions_path}/#{session.id}"
+    shown = JSON.parse(response.body)["code_session"]
+    assert_equal false, shown["diff_pending"], "settled once the job recorded the diff"
+    assert_includes shown["diff"], "diff --git a/half b/half"
+  end
+
+  test "a session the backend refused after a cancel is settled with no diff to come" do
+    use_scripted_backend
+    sandbox_path = sessions_path
+    ScriptedBackend.script = lambda do |_emit|
+      # Claimed by the job; the cancel lands before the backend spawned
+      # Claude Code, which then refuses to start it at all.
+      id = ActionAgent::CodeSession.sole.id
+      post "#{sandbox_path}/#{id}/cancel"
+      assert_equal true, JSON.parse(response.body).dig("code_session", "diff_pending")
+      raise ActionAgent::LocalSandboxBackend::Error, "Claude Code session #{id} was cancelled before it started"
+    end
+
+    session = run_session!
+
+    assert session.cancelled?, "the refusal does not turn the cancel into a failure"
+    assert_nil session.error_message
+    assert session.finished_at
+    get "#{sessions_path}/#{session.id}"
+    shown = JSON.parse(response.body)["code_session"]
+    assert_equal false, shown["diff_pending"], "nothing ran, so no diff is coming"
+    assert_nil shown["diff"]
+  end
+
+  test "a queued session is unsettled until a cancel settles it" do
+    use_scripted_backend
+    post sessions_path, params: { prompt: "Fix it" }, as: :json
+    id = JSON.parse(response.body).dig("code_session", "id")
+    get "#{sessions_path}/#{id}"
+    assert_equal true, JSON.parse(response.body).dig("code_session", "diff_pending"), "queued: everything is still to come"
+
+    post "#{sessions_path}/#{id}/cancel"
+    assert_equal false, JSON.parse(response.body).dig("code_session", "diff_pending"),
+      "cancelled in the queue: nothing will ever run it"
+  end
+
+  test "a session's sandbox must belong to the caller's current account" do
+    ActionAgent.user_class = "User"
+    ActionAgent.account_class = "User" # the dummy app has no Account
+    ActionAgent.multi_tenant = true
+    me = User.create!(email: "me-#{SecureRandom.hex(3)}@example.com", name: "Me", age: 30)
+    first = User.create!(email: "first-#{SecureRandom.hex(3)}@example.com", name: "First", age: 30)
+    second = User.create!(email: "second-#{SecureRandom.hex(3)}@example.com", name: "Second", age: 30)
+    @sandbox.update_columns(user_id: me.id, account_id: second.id)
+    theirs = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: "Theirs", user_id: me.id, account_id: second.id)
+    account = first
+    ActionAgent.current_user_resolver = ->(_controller) { me }
+    ActionAgent.current_account_resolver = ->(_controller) { account }
+
+    # The caller owns the sandbox, but switched to another account.
+    assert_refused(@sandbox, :not_found, /not found/)
+    get sessions_path
+    assert_response :not_found
+    get "#{sessions_path}/#{theirs.id}"
+    assert_response :not_found
+    post "#{sessions_path}/#{theirs.id}/cancel"
+    assert_response :not_found
+    assert theirs.reload.queued?
+
+    account = second
+    get sessions_path
+    assert_response :success
+    assert_equal [ theirs.id ], JSON.parse(response.body)["code_sessions"].map { |cs| cs["id"] }
+  end
+
+  test "a transcript keeps its first 1,000 events and counts the rest" do
+    session = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: "Go")
+    # The first 999 as the column holds them; the last two through the cap.
+    session.update_column(:events, Array.new(999) { |index| { "type" => "assistant", "n" => index } })
+
+    session.append_event!({ "type" => "assistant", "n" => 999 })
+    session.append_event!({ "type" => "result", "n" => 1000 })
+
+    session.reload
+    assert_equal ActionAgent::CodeSession::MAX_EVENTS, session.events.size
+    assert_equal 999, session.events.last["n"]
+    assert_equal 1, session.dropped_events_count
+    assert_equal 1_001, session.summary[:event_count]
+    assert_equal 1, session.details[:dropped_events_count]
+  end
+
+  test "a diff over 500 KB is truncated with a notice" do
+    session = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: "Go")
+
+    session.update!(diff: "+#{"x" * 600_000}\n")
+
+    stored = session.reload.diff
+    assert_operator stored.bytesize, :<, 600_000
+    assert stored.start_with?("+#{"x" * 1000}")
+    assert stored.end_with?("\n… diff truncated")
+    assert_equal ActionAgent::CodeSession::MAX_DIFF_BYTES + "\n… diff truncated".bytesize, stored.bytesize
+
+    session.update!(diff: "+small\n")
+    assert_equal "+small\n", session.reload.diff, "a diff under the limit is kept whole"
   end
 
   test "a session cancelled before Claude Code started is stopped once it has" do
@@ -409,8 +516,6 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     assert_equal 2, session.events.size
   end
 
-  private
-
   test "a session queued behind a Stop never starts Claude Code" do
     use_scripted_backend
     post sessions_path, params: { prompt: "Fix the failing test" }, as: :json
@@ -425,7 +530,10 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     assert session.failed?
     assert_match(/stopped before the session started/, session.error_message)
     assert_empty ScriptedBackend.runs, "the backend was never asked to run it"
+    assert_not session.diff_pending?, "settled: nothing will run it"
   end
+
+  private
 
   def sessions_path(sandbox = @sandbox)
     "/activeagents/api/sandboxes/#{sandbox.session_id}/code_sessions"
