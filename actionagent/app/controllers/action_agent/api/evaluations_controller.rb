@@ -10,6 +10,8 @@ module ActionAgent
     # than sampling recorded generations, and can be narrowed to a group, to
     # specific scenarios, or to specific models.
     class EvaluationsController < BaseController
+      include RunSandbox
+
       rescue_from ActiveAgent::Evals::ScenarioParser::ParseError do |error|
         render json: { errors: [ error.message ] }, status: :unprocessable_entity
       end
@@ -100,10 +102,17 @@ module ActionAgent
 
       # POST /api/evaluations/:id/run
       # A scenario suite accepts a selection: scenario_ids[], keys[], group,
-      # models[] (or a comma-separated `models` string).
+      # models[] (or a comma-separated `models` string), and `sandbox_id`: a
+      # checkout sandbox of the caller's whose app runtime every replay of
+      # this run reaches as well, without the agent being edited (see
+      # RunSandbox). The run records which one it used.
       def run
         evaluation = current_evaluation
-        run = start_run(evaluation, selection_params)
+        selection = selection_params
+        if (sandbox = requested_run_sandbox(evaluation))
+          selection[:sandbox_id] = sandbox.session_id
+        end
+        run = start_run(evaluation, selection)
         evaluation.reload
 
         render json: {
@@ -275,6 +284,27 @@ module ActionAgent
         params.require(:scenario).permit(:prompt, :group, :notes, :enabled, :key, expectations: {})
       end
 
+      # The sandbox a run was asked to use, checked (RunSandbox), or nil.
+      # Only a scenario suite executes the agent, and only its own replay
+      # does: a sampling run scores recorded generations, and a host adapter
+      # replays in the host's runtime, where no dashboard dispatcher runs.
+      def requested_run_sandbox(evaluation)
+        source = params[:evaluation].is_a?(ActionController::Parameters) && params[:evaluation].key?(:selection) ? params[:evaluation][:selection] : params
+        sandbox_id = source[:sandbox_id].presence || params[:sandbox_id].presence
+        return nil if sandbox_id.blank?
+
+        unless evaluation.scenario_suite?
+          raise RunSandbox::Refused, "Only a scenario evaluation runs the agent; this one scores recorded generations, " \
+            "so it cannot run against a sandbox"
+        end
+        if ActionAgent.scenario_evaluation_adapter_resolver&.call(evaluation).respond_to?(:call)
+          raise RunSandbox::Refused, "This install replays scenarios through its own adapter, which cannot reach a " \
+            "dashboard sandbox"
+        end
+
+        run_sandbox_for(evaluation.agent, sandbox_id)
+      end
+
       # scenario_ids, keys, group and models narrow a scenario run. `models`
       # may arrive as an array or as the comma-separated field the form posts.
       def selection_params
@@ -402,7 +432,10 @@ module ActionAgent
           samples_evaluated: run.samples_evaluated,
           samples_passed: run.samples_passed,
           completed_at: run.completed_at&.iso8601,
-          created_at: run.created_at.iso8601
+          created_at: run.created_at.iso8601,
+          # The checkout sandbox the run replayed against, if any: session id
+          # and checkout, never its token.
+          sandbox: run.sandbox
         }
       end
 

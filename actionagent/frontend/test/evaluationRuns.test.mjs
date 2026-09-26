@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  criterionExpectation, criterionGroup, criterionLabel, judgeCallsText, judgeLabel, modelScorecard, runCohorts,
-  runDelta, runLabel, runNumber, runSpend, runsMeta, samplingFixItems, spendSummary,
+  criterionExpectation, criterionGroup, criterionLabel, judgeCallsText, judgeLabel, keepSandboxChoice, modelScorecard,
+  runCohorts, runDelta, runLabel, runNumber, runRequestBody, runSandboxLabel, runSandboxOptions, runSpend, runsMeta,
+  samplingFixItems, sandboxLabel, spendSummary,
 } from '../utils/evaluationRuns.mjs';
 
 const sampling = {
@@ -151,4 +152,35 @@ test('a sampling run asks to fix what its own data says', () => {
   assert.equal(items[3].scope, '1 criterion · 1 model');
   assert.deepEqual(items[3].details, ['latency · b 0.62 · expects ≤ 5s · 6/12 passed']);
   assert.deepEqual(samplingFixItems(sampling, { status: 'complete', scores: { latency: { score: 1.0 } } }), []);
+});
+
+test('a run can target one of the caller ready checkout sandboxes, and names it', () => {
+  const sandboxes = [
+    { session_id: '1a2b3c4d-0000', sandbox_type: 'app_runtime', repository: 'acme/shop', repository_ref: 'experiment', status: 'ready' },
+    { session_id: '5e6f7a8b-0000', sandbox_type: 'app_runtime', repository: 'acme/shop', repository_ref: null, status: 'provisioning' },
+    { session_id: '9c0d1e2f-0000', sandbox_type: 'playwright_mcp', status: 'ready' },
+    { session_id: 'aaaabbbb-0000', repository: 'acme/docs', status: 'ready' },
+    { session_id: 'cccc0000-0000', sandbox_type: 'app_runtime', repository: 'acme/shop', status: 'ready', runtime_server_key: null },
+    null,
+  ];
+
+  assert.deepEqual(runSandboxOptions(sandboxes), [
+    { value: '1a2b3c4d-0000', label: 'acme/shop@experiment · 1a2b3c4d' },
+    { value: 'aaaabbbb-0000', label: 'acme/docs · aaaabbbb' },
+  ]);
+  assert.deepEqual(runSandboxOptions(undefined), []);
+  assert.equal(sandboxLabel({ session_id: 'ffffeeee-1' }), 'sandbox ffffeeee');
+  assert.equal(sandboxLabel(null), null);
+
+  assert.equal(runSandboxLabel({ sandbox: { session_id: '1a2b3c4d-0000', repository: 'acme/shop', repository_ref: 'main' } }), 'acme/shop@main · 1a2b3c4d');
+  assert.equal(runSandboxLabel({ sandbox: null }), null);
+  assert.equal(runSandboxLabel({}), null);
+
+  assert.deepEqual(runRequestBody({ group: 'Find' }, ['mock/a'], '1a2b3c4d-0000'), { group: 'Find', models: ['mock/a'], sandbox_id: '1a2b3c4d-0000' });
+  assert.deepEqual(runRequestBody({}, [], ''), { models: [] });
+
+  const options = runSandboxOptions(sandboxes);
+  assert.equal(keepSandboxChoice('1a2b3c4d-0000', options), '1a2b3c4d-0000');
+  assert.equal(keepSandboxChoice('5e6f7a8b-0000', options), '', 'a sandbox that is no longer ready is dropped');
+  assert.equal(keepSandboxChoice('', options), '');
 });

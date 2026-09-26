@@ -3,7 +3,9 @@ import { navigateTo } from '../../utils/dashboardPath';
 import { Button, Chip, Empty, MicroLabel, MONO } from './primitives';
 import { splitModelLabel, timeAgo } from '../../utils/format';
 import { scenarioRowsForRun } from '../../utils/evaluationHistory.mjs';
-import { runDelta, runSpend } from '../../utils/evaluationRuns.mjs';
+import {
+  keepSandboxChoice, runDelta, runRequestBody, runSandboxLabel, runSandboxOptions, runSpend,
+} from '../../utils/evaluationRuns.mjs';
 import RunsList from './evaluations/RunsList';
 import CriteriaFooter from './evaluations/CriteriaFooter';
 import {
@@ -75,6 +77,10 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
   const [modelsInput, setModelsInput] = useState((evaluation.compare_models || []).join(', '));
   const [runError, setRunError] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  // "Run against sandbox": the caller's ready checkout sandboxes, and the one
+  // chosen ('' runs on the agent's own servers only).
+  const [sandboxOptions, setSandboxOptions] = useState([]);
+  const [sandboxId, setSandboxId] = useState('');
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [editError, setEditError] = useState(null);
@@ -189,6 +195,23 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
     return () => { cancelled = true; clearTimeout(timer); };
   }, [pollId, pollTick, fetchRunDetail, fetchSuite, onChanged]);
 
+  // The checkout sandboxes a run can replay against. Listing them is a
+  // convenience: a dashboard without sandboxes (or one that refuses the
+  // listing) just offers none.
+  const fetchSandboxes = useCallback(async () => {
+    try {
+      const response = await fetch('/api/sandboxes?sandbox_type=app_runtime');
+      if (!response.ok) return;
+      const data = await response.json();
+      const options = runSandboxOptions(data.sandboxes);
+      setSandboxOptions(options);
+      setSandboxId((current) => keepSandboxChoice(current, options));
+    } catch (_error) {
+      // None offered.
+    }
+  }, []);
+  useEffect(() => { fetchSandboxes(); }, [fetchSandboxes]);
+
   // --- actions ----------------------------------------------------------
 
   const selectedModels = modelsInput.split(',').map((m) => m.trim()).filter(Boolean);
@@ -200,10 +223,15 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
       const response = await fetch(`/api/evaluations/${evaluationId}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...selection, models: selectedModels }),
+        body: JSON.stringify(runRequestBody(selection, selectedModels, sandboxId)),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || 'Run failed to start');
+      if (!response.ok) {
+        // A sandbox that stopped since it was listed: list again, so it is
+        // no longer offered.
+        if (data.code === 'sandbox_refused') fetchSandboxes();
+        throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || 'Run failed to start');
+      }
       const run = data.run;
       setRuns((prev) => [run, ...prev.filter((r) => r.id !== run.id)]);
       setRunCount((count) => (count == null ? null : count + 1));
@@ -362,7 +390,8 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
       agentName,
       `${plural(scenarioCount, 'scenario')}${groupCount ? ` in ${plural(groupCount, 'group')}` : ''} × ${plural(columns.length, 'model')}`,
       run.status === 'failed' ? 'failed' : `${totals.passed}/${totals.total} passed`,
-    ].join(' · ')
+      runSandboxLabel(run) && `against ${runSandboxLabel(run)}`,
+    ].filter(Boolean).join(' · ')
     : `${agentName} · ${plural(scenarioTotal, 'scenario')}${groups.length ? ` in ${plural(groups.length, 'group')}` : ''} · ${loadError ? 'not loaded' : loaded ? 'no runs yet' : 'loading…'}`;
 
   const reportPath = run && run.status === 'complete' ? `/evaluations/${evaluationId}/runs/${run.id}/report` : null;
@@ -399,6 +428,21 @@ export default function ScenarioSuitePanel({ evaluation, onChanged, onDelete, de
             style={{ ...inputStyle, width: 250 }}
             title="Comma-separated. Prefix with a provider (ollama/qwen3:8b) when the name alone is ambiguous; blank runs the agent's own model."
           />
+          {sandboxOptions.length > 0 && (
+            <select
+              value={sandboxId}
+              onChange={(e) => setSandboxId(e.target.value)}
+              style={{ ...inputStyle, maxWidth: 260 }}
+              aria-label="Run against sandbox"
+              title="Replays also reach this checkout sandbox's app runtime, as if the agent listed it in its MCP servers. The agent is not changed."
+              data-testid="suite-run-sandbox"
+            >
+              <option value="">Run against: agent's own tools</option>
+              {sandboxOptions.map((option) => (
+                <option key={option.value} value={option.value}>{`Run against sandbox ${option.label}`}</option>
+              ))}
+            </select>
+          )}
           <Button
             variant="primary"
             size="sm"
