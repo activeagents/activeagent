@@ -522,3 +522,70 @@ export const diffStats = (diff) => {
   const removed = lines.filter((line) => line.kind === 'del').length;
   return `${plural(files, 'file')} changed · +${added} −${removed}`;
 };
+
+// --- The model a session runs on ------------------------------------------
+//
+// The composer's model select. "default" sends no model, so Claude Code
+// picks its own; the aliases are the ones its --model takes; "other" takes
+// a full model id typed in. The server checks the same pattern
+// (CodeSessionsController::MODEL_NAME), since the name becomes a CLI
+// argument; checking it here too says what is wrong before a round trip.
+
+export const DEFAULT_MODEL_CHOICE = 'default';
+export const OTHER_MODEL_CHOICE = 'other';
+export const CLAUDE_CODE_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'];
+export const CLAUDE_CODE_MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:[\]-]{0,99}$/;
+// Where the last choice is remembered, per browser.
+export const MODEL_CHOICE_STORAGE_KEY = 'actionagent.claudeCode.modelChoice';
+
+export const modelOptions = () => [
+  { value: DEFAULT_MODEL_CHOICE, label: "Default (Claude Code's own)" },
+  ...CLAUDE_CODE_MODEL_ALIASES.map((alias) => ({ value: alias, label: alias })),
+  { value: OTHER_MODEL_CHOICE, label: 'Other…' },
+];
+
+const isKnownChoice = (choice) => choice === DEFAULT_MODEL_CHOICE || choice === OTHER_MODEL_CHOICE
+  || CLAUDE_CODE_MODEL_ALIASES.includes(choice);
+
+// What a choice sends: { model } (null for Claude Code's default), or
+// { error } when "Other…" holds nothing usable.
+export const modelForRequest = (choice, custom = '') => {
+  if (!isKnownChoice(choice) || choice === DEFAULT_MODEL_CHOICE) return { model: null };
+  if (choice !== OTHER_MODEL_CHOICE) return { model: choice };
+
+  const model = String(custom ?? '').trim();
+  if (!model) return { error: 'Enter a model id, or pick one of the options.' };
+  if (!CLAUDE_CODE_MODEL_NAME.test(model)) {
+    return { error: `"${truncate(model, 40)}" is not a Claude Code model name (letters, digits and . _ : [ ] -).` };
+  }
+  return { model };
+};
+
+// The request body for a new session.
+export const codeSessionRequestBody = (prompt, choice, custom) => {
+  const { model } = modelForRequest(choice, custom);
+  return model ? { prompt, model } : { prompt };
+};
+
+// The remembered choice, from what localStorage held (a string, or null);
+// anything unreadable falls back to the default.
+export const parseModelChoice = (raw) => {
+  const fallback = { choice: DEFAULT_MODEL_CHOICE, custom: '' };
+  if (typeof raw !== 'string' || !raw) return fallback;
+  try {
+    const value = JSON.parse(raw);
+    if (!isObject(value) || !isKnownChoice(value.choice)) return fallback;
+    const custom = typeof value.custom === 'string' ? value.custom.slice(0, 100) : '';
+    return { choice: value.choice, custom };
+  } catch (_error) {
+    return fallback;
+  }
+};
+
+export const serializeModelChoice = (choice, custom = '') => JSON.stringify({
+  choice: isKnownChoice(choice) ? choice : DEFAULT_MODEL_CHOICE,
+  custom: String(custom ?? '').slice(0, 100),
+});
+
+// How a session's model reads in the list and the detail.
+export const sessionModelLabel = (session) => session?.model || 'default model';

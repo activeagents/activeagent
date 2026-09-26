@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     PostgreSQL and MySQL, which terminate drops with the checkout's
     `bin/rails db:drop`. Setting a variable in `sandbox.yml`'s `env`
     overrides it.
+  - The Claude Code panel has a **Model** select: Claude Code's own
+    default, the `sonnet`, `opus` and `haiku` aliases, or any model id under
+    *Other…*. It remembers the last choice per browser, and each session
+    shows the model it ran on.
 - **Claude Code connection** (`actionagent`, #478). Settings -> Integrations
   stores a `claude setup-token` token (`sk-ant-oat…`) or an Anthropic API key
   as the `claude_code` provider key. It is encrypted, write-only, and not an
