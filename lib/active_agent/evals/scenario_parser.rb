@@ -125,6 +125,10 @@ module ActiveAgent
         expectations = (entry["expectations"] || entry["expect"] || {}).to_h.stringify_keys
         %w[tools contains not_contains].each do |field|
           expectations[field] = Array(entry[field]) if entry.key?(field)
+          # A nested expectation written as one value ({ contains: "30" })
+          # is a list of one: the persisted scenario and the dashboard's
+          # matrix read each field as an array.
+          expectations[field] = Array(expectations[field]) if expectations.key?(field)
         end
 
         scenario(

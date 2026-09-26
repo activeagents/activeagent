@@ -3,11 +3,13 @@ import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MONO, TONE } from 
 import { navigateTo } from '../../../utils/dashboardPath';
 import { fmtMs, fmtScore, splitModelLabel, timeAgo } from '../../../utils/format';
 import {
+  modelComparisonRows,
   CRITERION_GROUPS, PASS_THRESHOLD, cellStats, criterionEntries, criterionExpectation, criterionGroup, criterionLabel,
   findCriterion, modelScorecard, plural, runCohorts, runLabel, runModels, runNumber, runSpend,
   samplingFixItems, truncate,
 } from '../../../utils/evaluationRuns.mjs';
 import ModelScorecard from './ModelScorecard';
+import ModelComparisonTable from './ModelComparisonTable';
 import SpendStrip from './SpendStrip';
 import CriteriaFooter from './CriteriaFooter';
 
@@ -216,6 +218,11 @@ export default function EvaluationRunDetail({
           <div style={{ fontSize: 13, color: 'var(--color-text-cell)', marginTop: 6 }}>Scores appear once the run completes.</div>
         </Card>
       ) : (
+        <>
+        {/* Comparison runs read across first: one row per model, best first. */}
+        {models.length > 1 && (
+          <ModelComparisonTable rows={modelComparisonRows(run, { columns: models })} unit="interaction" judgedBy={verdict?.judge || null} />
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
           {columns.map((model) => {
             const card = modelScorecard(run, model);
@@ -247,6 +254,7 @@ export default function EvaluationRunDetail({
             );
           })}
         </div>
+        </>
       )}
 
       {(verdict || missing.length > 0) && (

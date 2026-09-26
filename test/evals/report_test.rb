@@ -399,4 +399,35 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes rebuilt.to_html, "judged by gpt-4o-mini"
     assert_equal 0, asked, "a run that was already ruled on is not re-litigated"
   end
+
+  def test_html_reads_the_comparison_across_and_filters_the_fixes_by_model
+    html = report.to_html
+
+    # One row per model, best first: passed, mean score, latency, tokens per
+    # scenario, cost per scenario and the typical fault with its diagnosis.
+    table = html[%r{<div class="compare">(.*?)</table></div>}m, 1]
+    assert table, "the models panel leads with the comparison table"
+    assert_includes table, "<th class=\"fault\">Typical fault</th>"
+    rows = table.scan(%r{<td class="model-cell"><span class="name">([^<]+)</span>})
+    assert_equal [ [ "llama-3.1-8b" ], [ "gpt-5-mini" ] ].sort, rows.sort
+    assert_match(%r{<tr>\s*<td class="model-cell"><span class="name">llama-3.1-8b</span>.*?3/5.*?gpt-5-mini}m, table, "the higher pass rate leads")
+    assert_includes table, "★ pick"
+    assert_includes table, "/scenario</span>"
+    assert_match(/expected tool not called ×\d+ <span class="detail">· s_\w+: /, table)
+
+    # The fix cards carry their models, and a chip per model narrows the list
+    # through the stylesheet alone — the page still ships no script.
+    assert_includes html, %(<input type="radio" name="fix-model" value="all" checked>)
+    assert_includes html, %(<input type="radio" name="fix-model" value="m0">)
+    assert_match(/<div class="fix" data-models="m[01]( m[01])?">/, html)
+    assert_includes html, %(.fix-section:has(input[value="m0"]:checked) .fix[data-models]:not([data-models~="m0"]) { display: none; })
+    assert_not_includes html, "<script"
+  end
+
+  def test_html_of_a_single_model_run_has_no_comparison_table_or_filter
+    html = report(models: models.first(1), results: results.select { |r| r.label == models.first.label }).to_html
+
+    assert_not_includes html, %(class="compare")
+    assert_not_includes html, %(name="fix-model")
+  end
 end

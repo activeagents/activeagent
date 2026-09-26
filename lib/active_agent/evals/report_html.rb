@@ -178,6 +178,9 @@ module ActiveAgent
           DesignTokens.css(scope: ":root.theme-dark", tokens: DesignTokens::DARK, color_scheme: "dark"),
           STYLES,
           ".mx { grid-template-columns: minmax(240px, 1.6fr) 150px repeat(#{@models.size}, minmax(170px, 1fr)); }",
+          # One rule per model: with that chip checked, hide every fix card
+          # attributed to other models (cards attributed to none stay).
+          *@models.each_index.map { |i| ".fix-section:has(input[value=\"m#{i}\"]:checked) .fix[data-models]:not([data-models~=\"m#{i}\"]) { display: none; }" },
           ".matrix .inner { min-width: #{390 + 185 * @models.size}px; }"
         ].join("\n")
       end
@@ -233,10 +236,76 @@ module ActiveAgent
         <<~PANEL
           <div class="panel">
           <div class="panel-head"><span class="micro">Models</span><span class="right">judged by #{h(judged_by)}</span></div>
+          #{html_comparison_table if comparing?}
           #{blocks.join}
           #{verdict_row}
           </div>
         PANEL
+      end
+
+      # The comparison read across: one row per model, best first (pass rate,
+      # then mean score) — passed, mean score, average latency, average
+      # tokens per scenario, cost, and the model's typical fault. The blocks
+      # under it carry the same figures per model with bars and every fault.
+      def html_comparison_table
+        rows = summary_by_model.sort_by do |label, stats|
+          total = stats["scenarios"].to_i
+          [ total.positive? ? -stats["passed"].to_f / total : 0.0, -(stats["avg_score"] || -1).to_f, @models.index(model_by_label(label)).to_i ]
+        end
+
+        <<~TABLE
+          <div class="compare"><table>
+          <thead><tr><th>Model</th><th class="num">Passed</th><th class="num">Mean score</th><th class="num">Avg latency</th><th class="num" title="Average input + output tokens per scenario">Avg tokens</th><th class="num" title="Cohort spend, and per scenario">Cost</th><th class="fault">Typical fault</th></tr></thead>
+          <tbody>#{rows.map { |label, stats| html_comparison_row(label, stats) }.join}</tbody>
+          </table></div>
+        TABLE
+      end
+
+      def html_comparison_row(label, stats)
+        short, provider = split_label(model_by_label(label))
+        total = stats["scenarios"].to_i
+        ratio = total.positive? ? stats["passed"].to_f / total : 0.0
+        pick = comparing? && winner == label ? %(<span class="pick" title="picked by the judge">★ pick</span>) : ""
+        per = ->(value) { value.nil? || total.zero? ? nil : value.to_f / total }
+        avg_tokens = per.call(stats["input_tokens"].to_i + stats["output_tokens"].to_i)
+        tokens_cell = avg_tokens ? h(fmt_k(avg_tokens.round)) : "—"
+        tokens_title = avg_tokens ? %( title="#{per.call(stats['input_tokens']).to_f.round} in · #{per.call(stats['output_tokens']).to_f.round} out per scenario") : ""
+        per_cost = per.call(stats["cost"])
+        cost_cell = stats["cost"].nil? ? "—" : h(fmt_cost(stats["cost"]))
+        cost_cell += "<span class=\"per\">#{h(fmt_cost(per_cost))}/scenario</span>" if per_cost
+
+        <<~ROW
+          <tr>
+          <td class="model-cell"><span class="name">#{h(short)}</span>#{pick}<span class="provider">#{h(provider)}</span></td>
+          <td class="num ratio tone-#{tone_for(ratio)}">#{total.positive? ? "#{stats['passed']}/#{total}" : '—'}</td>
+          <td class="num">#{h(fmt_mean_score(stats['avg_score']))}</td>
+          <td class="num">#{h(fmt_ms(stats['avg_duration_ms']))}</td>
+          <td class="num"#{tokens_title}>#{tokens_cell}</td>
+          <td class="num">#{cost_cell}</td>
+          <td class="fault">#{typical_fault_text(label, stats)}</td>
+          </tr>
+        ROW
+      end
+
+      # "missing content ×2 · refund_window: The answer is missing expected
+      # content: 30." — the model's most frequent fault, and the diagnosis of
+      # the first result that carries it; "no faults" for a clean cohort.
+      def typical_fault_text(label, stats)
+        tally = stats["faults"] || {}
+        return %(<span class="clean">no faults</span>) if tally.empty?
+
+        mine = @results.select { |result| result.label == label }
+        example_of = ->(fault) { mine.find { |result| result.fault == fault } }
+        # Most frequent first; between equals, a fault a result can explain,
+        # then a specific fault over the judge's catch-all, then the name.
+        fault, count = tally.min_by { |name, n| [ -n, example_of.call(name) ? 0 : 1, name == "low_quality" ? 1 : 0, name ] }
+        example = example_of.call(fault)
+        head = "#{fault_name(fault)} ×#{count}"
+        return h(head) unless example&.summary.present?
+
+        detail = "#{example.scenario.key}: #{example.summary}"
+        detail = "#{detail[0, 119]}…" if detail.length > 120
+        "#{h(head)} <span class=\"detail\">· #{h(detail)}</span>"
       end
 
       def html_model_block(label, stats)
@@ -277,11 +346,34 @@ module ActiveAgent
           end
 
         <<~FIXES
-          <section class="section" aria-label="Recommendations">
+          <section class="section fix-section" aria-label="Recommendations">
           <div class="section-head"><span class="micro">What to fix</span><span class="meta">#{h(meta)}</span></div>
+          #{html_fix_filter(items) if comparing? && items.any?}
           #{body}
           </section>
         FIXES
+      end
+
+      # A model filter for the fix cards — a fault one model keeps making is
+      # that model's to fix, so the list narrows to what was attributed to
+      # it. Radio chips and stylesheet rules alone (the page carries no
+      # script): each card names its models in data-models, and a checked
+      # model hides every card that does not name it. Cards attributed to no
+      # model (an older run) stay under every filter.
+      def html_fix_filter(items)
+        chips = [ %(<label class="chip pick-model"><input type="radio" name="fix-model" value="all" checked><span>all models #{items.size}</span></label>) ]
+        @models.each_with_index do |spec, index|
+          count = items.count { |item| Array(item["models"]).empty? || item["models"].include?(spec.label) }
+          chips << %(<label class="chip pick-model"><input type="radio" name="fix-model" value="m#{index}"><span>#{h(short_name(spec))} #{count}</span></label>)
+        end
+        %(<div class="fix-filter"><span class="micro sm">for</span>#{chips.join}</div>)
+      end
+
+      def fix_model_tokens(item)
+        labels = Array(item["models"])
+        return "" if labels.empty?
+
+        labels.filter_map { |label| (index = @models.index(model_by_label(label))) && "m#{index}" }.join(" ")
       end
 
       def html_fix_card(item)
@@ -297,7 +389,8 @@ module ActiveAgent
         parts << html_fix_server(item["server"]) if item["server"]
         parts << %(<div class="note">#{h(item['note'])}</div>) if item["note"].present?
         parts << html_fix_action(item["action"]) if item["action"]
-        %(<div class="fix">#{parts.join}</div>)
+        models = fix_model_tokens(item)
+        %(<div class="fix"#{%( data-models="#{models}") if models.present?}>#{parts.join}</div>)
       end
 
       def html_fix_tools(item)
@@ -557,6 +650,24 @@ module ActiveAgent
         .tok .in { color: var(--color-token-in); }
         .tok .out { color: var(--color-token-out); }
         .faults { display: flex; gap: 6px; flex-wrap: wrap; }
+        .compare { overflow-x: auto; border-top: 1px solid var(--color-border-light); }
+        .compare table { width: 100%; border-collapse: collapse; }
+        .compare th { padding: 8px 12px; text-align: left; vertical-align: bottom; white-space: nowrap; font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-muted); background: var(--color-muted); }
+        .compare td { padding: 9px 12px; vertical-align: top; border-top: 1px solid var(--color-border-light); font-size: 13px; color: var(--color-text-cell); }
+        .compare th.num, .compare td.num { text-align: right; }
+        .compare td.num { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+        .compare td.ratio { font-weight: 600; }
+        .compare .per { display: block; font-weight: 400; color: var(--color-text-muted); }
+        .compare .model-cell { white-space: nowrap; }
+        .compare .model-cell .name { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--color-text-primary); }
+        .compare .model-cell .provider { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
+        .compare .pick { margin-left: 6px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--color-warning-text); }
+        .compare th.fault, .compare td.fault { width: 34%; }
+        .compare td.fault .detail { color: var(--color-text-secondary); }
+        .fix-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .pick-model { cursor: pointer; border: 1px solid var(--color-border); background: var(--color-card); }
+        .pick-model input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .pick-model:has(input:checked) { border-color: var(--color-accent-ui); background: var(--color-accent-ui-tint); color: var(--color-accent-ui); }
         .clean { font-family: var(--font-mono); font-size: 11px; color: var(--color-success-text); }
         .verdict { padding: 10px 12px; border-top: 1px solid var(--color-border-light); font-size: 12px; line-height: 18px; color: var(--color-text-cell); }
         .verdict .micro { margin-right: 8px; }
