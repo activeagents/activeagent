@@ -60,7 +60,8 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
 
     assert_migration "db/migrate/ensure_agent_release_columns.rb"
     assert_migration "db/migrate/add_evaluation_report_identity.rb"
-    assert_equal EARLIER_MIGRATIONS.size + 2, Dir[File.join(destination_root, "db/migrate/*.rb")].size
+    assert_migration "db/migrate/add_provider_key_api_key.rb"
+    assert_equal EARLIER_MIGRATIONS.size + 3, Dir[File.join(destination_root, "db/migrate/*.rb")].size
   end
 
   test "a traces-only install has no evaluation runs to alter" do
