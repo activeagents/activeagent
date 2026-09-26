@@ -41,6 +41,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Run `rails g action_agent:install` to add the
     `create_active_agent_code_sessions` migration.
   - This repository's own `.activeagents/sandbox.yml` boots `test/dummy`.
+  - Every `:local` sandbox boots on databases of its own, so a checkout of
+    the dashboard's own app no longer migrates the developer's development
+    database. The backend reads the adapter from the checkout's
+    `config/database.yml` without running its ERB, and sets `DATABASE_URL`
+    and `<NAME>_DATABASE_URL` (`QUEUE_DATABASE_URL`, `CACHE_DATABASE_URL`):
+    SQLite files in the workspace, or `<database>_sandbox_<id>` on
+    PostgreSQL and MySQL, which terminate drops with the checkout's
+    `bin/rails db:drop`. Setting a variable in `sandbox.yml`'s `env`
+    overrides it.
 - **Claude Code connection** (`actionagent`, #478). Settings -> Integrations
   stores a `claude setup-token` token (`sk-ant-oat…`) or an Anthropic API key
   as the `claude_code` provider key. It is encrypted, write-only, and not an
