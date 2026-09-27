@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-09-26
+
+Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release:
+Ollama hosts in Settings can be tested and can be remote, with an optional
+Bearer API key; comparison runs lead with a per-model table and filter the
+fix list by model; and a scenario expectation written as one value imports
+as a list. Run the install generator after upgrading to add
+`provider_keys.api_key`.
+
 ### Added
 
 - **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
