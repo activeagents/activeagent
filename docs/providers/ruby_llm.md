@@ -8,6 +8,14 @@ The RubyLLM provider gives your agents access to 15+ LLM providers through [Ruby
 
 ## Configuration
 
+### Installation
+
+The provider supports ruby_llm 1.x. ruby_llm 2.0 renamed the APIs it calls, so pin the major version:
+
+```bash
+bundle add ruby_llm --version "~> 1.0"
+```
+
 ### Basic Setup
 
 Configure RubyLLM in your agent:

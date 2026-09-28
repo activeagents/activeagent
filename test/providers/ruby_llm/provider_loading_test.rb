@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "active_agent/providers/_base_provider"
 
 # The require_gem! guard in ruby_llm_provider.rb only checks that the
 # ruby_llm gem's namespace exists, so the loading paths can be exercised
@@ -43,6 +44,14 @@ class RubyLLMProviderLoadingTest < ActiveSupport::TestCase
 
     klass = ActiveAgent::Base.provider_load("RubyLLM")
     assert_equal ActiveAgent::Providers::RubyLLMProvider, klass
+  end
+
+  test "supports ruby_llm 1.x and refuses 2.0" do
+    requirement = Gem::Requirement.new(GEM_LOADERS.fetch(:ruby_llm)[1])
+
+    assert requirement.satisfied_by?(Gem::Version.new("1.0.0"))
+    assert requirement.satisfied_by?(Gem::Version.new("1.16.0"))
+    assert_not requirement.satisfied_by?(Gem::Version.new("2.0.0"))
   end
 
   test "service name remap handles Rubyllm and RubyLlm variations" do

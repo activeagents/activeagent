@@ -49,6 +49,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with no modalities, which can still be typed. A registry that raises is
   logged and leaves the list as it was.
 
+### Changed
+
+- **The RubyLLM provider requires ruby_llm 1.x** (`activeagent`). ruby_llm
+  2.0 renamed the APIs `RubyLLMProvider` calls, and the open `>= 1.0`
+  requirement let `bundle update` install it. The provider now requires
+  `~> 1.0` until it supports 2.0 (#502). Loading it with an unsupported
+  version names the supported range and the loaded version, instead of
+  asking for a gem that is already in the Gemfile. Pin
+  `gem "ruby_llm", "~> 1.0"` if your bundle resolved 2.0.
+
 ## [1.7.0] - 2026-09-24
 
 Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:
