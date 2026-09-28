@@ -2,7 +2,7 @@
 
 require_relative "_base_provider"
 
-require_gem!(:ruby_llm, __FILE__) unless defined?(::RubyLLM)
+require_gem!(:ruby_llm, __FILE__)
 
 require_relative "ruby_llm/_types"
 require_relative "ruby_llm/tool_proxy"
