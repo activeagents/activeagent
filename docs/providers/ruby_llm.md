@@ -171,6 +171,14 @@ class WeatherAgent < ApplicationAgent
 end
 ```
 
+## Structured Output
+
+The provider passes a `json_schema` response format to RubyLLM (see [Structured Output](/actions/structured_output)). Like RubyLLM's own `with_schema`, it makes the schema **strict unless the format sets `strict: false`**, and names it `response` when the format gives no `name`.
+
+This differs from the OpenAI provider, which leaves `strict` unset, so OpenAI treats the schema as non-strict. A schema that works under `generate_with :openai` can therefore be rejected under `generate_with :ruby_llm`: for example, one with optional properties, or an object without `additionalProperties: false`. Add `strict: false` to the format's `json_schema`, or make the schema meet strict mode's rules.
+
+`json_object` is not supported, because RubyLLM has no JSON object mode; the provider raises `ArgumentError` for it.
+
 ## Embeddings
 
 Generate embeddings through RubyLLM's unified embedding API:
