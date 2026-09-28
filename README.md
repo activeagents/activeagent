@@ -54,6 +54,9 @@ bundle add openai
 # OpenRouter (uses OpenAI-compatible API)
 bundle add openai
 
+# Requesty (uses OpenAI-compatible API)
+bundle add openai
+
 # RubyLLM (unified API for 15+ providers)
 bundle add ruby_llm
 ```
