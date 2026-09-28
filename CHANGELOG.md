@@ -59,6 +59,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   asking for a gem that is already in the Gemfile. Pin
   `gem "ruby_llm", "~> 1.0"` if your bundle resolved 2.0.
 
+### Fixed
+
+- **Tool calls sent back through the RubyLLM provider** (`activeagent`).
+  After a tool ran, the follow-up request repeated the model's tool call
+  with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI
+  received them JSON-encoded twice, and Anthropic received a string for
+  `tool_use.input`, which its API requires to be an object. The same
+  happened when a stored conversation containing a tool call was replayed.
+  The provider now hands ruby_llm the parsed arguments (#501).
+
 ## [1.7.0] - 2026-09-24
 
 Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:
