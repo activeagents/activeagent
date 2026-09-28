@@ -48,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Tool calls sent back through the RubyLLM provider** (`activeagent`).
+  After a tool ran, the follow-up request repeated the model's tool call
+  with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI
+  received them JSON-encoded twice, and Anthropic received a string for
+  `tool_use.input`, which its API requires to be an object. The same
+  happened when a stored conversation containing a tool call was replayed.
+  The provider now hands ruby_llm the parsed arguments (#501).
 - **A nested scenario expectation written as one value** (`activeagent`).
   `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
   list of one, the shape the persisted scenario and the dashboard's matrix

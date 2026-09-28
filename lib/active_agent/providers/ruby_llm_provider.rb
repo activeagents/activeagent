@@ -345,10 +345,32 @@ module ActiveAgent
           call = ::RubyLLM::ToolCall.new(
             id: id,
             name: tc.dig(:function, :name) || tc[:name],
-            arguments: tc.dig(:function, :arguments) || tc[:input]&.to_json || "{}"
+            arguments: ruby_llm_tool_arguments(tc.dig(:function, :arguments) || tc[:input])
           )
           hash[id] = call
         end
+      end
+
+      # ActiveAgent keeps a tool call's arguments as the JSON string the
+      # model sent; RubyLLM takes them as a Hash and renders them itself
+      # (JSON-encoded for OpenAI, as the input object for Anthropic).
+      #
+      # A string that is not valid JSON, such as arguments a model cut off
+      # mid-way in a stored conversation, is passed through unchanged.
+      #
+      # @param arguments [String, Hash, nil]
+      # @return [Hash, String]
+      def ruby_llm_tool_arguments(arguments)
+        case arguments
+        when Hash
+          arguments.deep_stringify_keys
+        when String
+          arguments.blank? ? {} : JSON.parse(arguments)
+        else
+          {}
+        end
+      rescue JSON::ParserError
+        arguments
       end
 
       # Converts ActiveAgent tool definitions to RubyLLM ToolProxy objects.

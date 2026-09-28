@@ -1039,7 +1039,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     assert_equal 1, result.size
     assert result.key?("call_1")
     assert_equal "get_weather", result["call_1"].name
-    assert_equal '{"location":"NYC"}', result["call_1"].arguments
+    assert_equal({ "location" => "NYC" }, result["call_1"].arguments)
   end
 
   test "convert_tool_calls_for_ruby_llm converts flat format" do
@@ -1051,6 +1051,41 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
 
     assert_equal 1, result.size
     assert_equal "search", result["call_1"].name
+    assert_equal({ "query" => "test" }, result["call_1"].arguments)
+  end
+
+  test "convert_tool_calls_for_ruby_llm keeps Hash arguments as a Hash" do
+    tool_calls = [
+      { id: "call_1", type: "function", function: { name: "search", arguments: { query: "test" } } }
+    ]
+
+    result = @provider.send(:convert_tool_calls_for_ruby_llm, tool_calls)
+
+    assert_equal({ "query" => "test" }, result["call_1"].arguments)
+  end
+
+  test "convert_tool_calls_for_ruby_llm reads blank or missing arguments as no arguments" do
+    tool_calls = [
+      { id: "call_1", type: "function", function: { name: "now", arguments: "" } },
+      { id: "call_2", type: "function", function: { name: "now" } }
+    ]
+
+    result = @provider.send(:convert_tool_calls_for_ruby_llm, tool_calls)
+
+    assert_equal({}, result["call_1"].arguments)
+    assert_equal({}, result["call_2"].arguments)
+  end
+
+  # A stored conversation can hold arguments a model cut off mid-JSON; the
+  # turn is still sent rather than failing the whole request.
+  test "convert_tool_calls_for_ruby_llm passes arguments that are not JSON through unchanged" do
+    tool_calls = [
+      { id: "call_1", type: "function", function: { name: "search", arguments: '{"query":' } }
+    ]
+
+    result = @provider.send(:convert_tool_calls_for_ruby_llm, tool_calls)
+
+    assert_equal '{"query":', result["call_1"].arguments
   end
 
   test "convert_tool_calls_for_ruby_llm returns nil for nil" do
