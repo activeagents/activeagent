@@ -68,6 +68,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tool_use.input`, which its API requires to be an object. The same
   happened when a stored conversation containing a tool call was replayed.
   The provider now hands ruby_llm the parsed arguments (#501).
+- **Structured output through the RubyLLM provider** (`activeagent`). A
+  `json_schema` response_format reached ruby_llm unchanged, but ruby_llm
+  reads `{ name:, schema:, strict: }`, so OpenAI received a schema with a
+  null name and body, and the Anthropic request raised inside ruby_llm
+  before it was sent. The provider now converts it, naming the schema
+  `response` and making it strict unless the format says otherwise, as
+  ruby_llm's own `with_schema` does. A `text` format asks for plain text;
+  `json_object`, which ruby_llm has no mode for, and a `json_schema`
+  without a schema now raise `ArgumentError` instead of sending a request
+  the API rejects (#501).
 
 ## [1.7.0] - 2026-09-24
 

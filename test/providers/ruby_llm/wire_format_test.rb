@@ -90,7 +90,116 @@ class RubyLLMWireFormatTest < ActiveSupport::TestCase
     assert_equal({ "city" => "Boston" }, tool_use["input"])
   end
 
+  # --- Structured output ---
+
+  GREETING_SCHEMA = {
+    type: "object",
+    properties: { text: { type: "string" } },
+    required: [ "text" ],
+    additionalProperties: false
+  }.freeze
+
+  test "sends OpenAI the name, schema and strict flag of a json_schema response_format" do
+    bodies = stub_responses(OPENAI_ENDPOINT, openai_response(content: '{"text":"hello"}'))
+
+    greeting_provider(
+      model: "gpt-4o-mini",
+      response_format: { type: "json_schema", json_schema: { name: "greeting", strict: false, schema: GREETING_SCHEMA } }
+    ).prompt
+
+    assert_equal(
+      { "type" => "json_schema",
+        "json_schema" => { "name" => "greeting", "schema" => GREETING_SCHEMA.deep_stringify_keys, "strict" => false } },
+      bodies.last["response_format"]
+    )
+  end
+
+  test "names the schema response and makes it strict when the response_format leaves them out" do
+    bodies = stub_responses(OPENAI_ENDPOINT, openai_response(content: '{"text":"hello"}'))
+
+    greeting_provider(
+      model: "gpt-4o-mini",
+      response_format: { type: "json_schema", json_schema: { schema: GREETING_SCHEMA } }
+    ).prompt
+
+    assert_equal "response", bodies.last.dig("response_format", "json_schema", "name")
+    assert_equal true, bodies.last.dig("response_format", "json_schema", "strict")
+  end
+
+  test "sends Anthropic the schema of a json_schema response_format" do
+    bodies = stub_responses(ANTHROPIC_ENDPOINT, anthropic_response(content: [ { type: "text", text: '{"text":"hello"}' } ]))
+
+    greeting_provider(
+      model: "claude-haiku-4-5",
+      response_format: { type: "json_schema", json_schema: { name: "greeting", strict: true, schema: GREETING_SCHEMA } }
+    ).prompt
+
+    assert_equal({ "format" => { "type" => "json_schema", "schema" => GREETING_SCHEMA.deep_stringify_keys } },
+                 bodies.last["output_config"])
+  end
+
+  # The agent turns response_format's json_schema into string keys before
+  # the provider sees it.
+  test "sends the schema an agent's prompt declares" do
+    bodies = stub_responses(OPENAI_ENDPOINT, openai_response(content: '{"text":"hello"}'))
+    agent_class = Class.new(ApplicationAgent) do
+      def self.name = "WireFormatGreetingAgent"
+      generate_with :ruby_llm, model: "gpt-4o-mini"
+
+      def greet
+        prompt(message: "Say hello",
+               response_format: { type: "json_schema", json_schema: { name: "greeting", schema: GREETING_SCHEMA } })
+      end
+    end
+
+    agent_class.greet.generate_now
+
+    assert_equal "greeting", bodies.last.dig("response_format", "json_schema", "name")
+    assert_equal GREETING_SCHEMA.deep_stringify_keys, bodies.last.dig("response_format", "json_schema", "schema")
+  end
+
+  test "asks for plain text when the response_format is text" do
+    [ { type: "text" }, :text ].each do |response_format|
+      bodies = stub_responses(OPENAI_ENDPOINT, openai_response(content: "hello"))
+
+      greeting_provider(model: "gpt-4o-mini", response_format: response_format).prompt
+
+      assert_not bodies.last.key?("response_format"), "for #{response_format.inspect}"
+    end
+  end
+
+  test "refuses a json_object response_format, which ruby_llm has no mode for" do
+    stub = stub_request(:post, OPENAI_ENDPOINT)
+
+    error = assert_raises(ArgumentError) do
+      greeting_provider(model: "gpt-4o-mini", response_format: { type: "json_object" }).prompt
+    end
+
+    assert_match "json_object", error.message
+    assert_not_requested stub
+  end
+
+  test "refuses a json_schema response_format without a schema" do
+    stub = stub_request(:post, OPENAI_ENDPOINT)
+
+    error = assert_raises(ArgumentError) do
+      greeting_provider(model: "gpt-4o-mini", response_format: { type: "json_schema" }).prompt
+    end
+
+    assert_match "schema", error.message
+    assert_not_requested stub
+  end
+
   private
+
+  def greeting_provider(model:, response_format:)
+    ActiveAgent::Providers::RubyLLMProvider.new(
+      service: "RubyLLM",
+      model: model,
+      messages: [ { role: "user", content: "Say hello" } ],
+      response_format: response_format
+    )
+  end
 
   def weather_provider(model:)
     ActiveAgent::Providers::RubyLLMProvider.new(
