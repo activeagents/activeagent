@@ -9,26 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.0] - 2026-09-26
 
-Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release:
-Ollama hosts in Settings can be tested and can be remote, with an optional
-Bearer API key; comparison runs lead with a per-model table and filter the
-fix list by model; and a scenario expectation written as one value imports
-as a list. Run the install generator after upgrading to add
-`provider_keys.api_key`.
+Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release.
+Settings -> Integrations connects GitHub and Claude Code. A connected
+repository's checkout boots as a sandbox, on a developer's machine with the new
+`:local` backend, where Claude Code sessions run and an evaluation can run
+against the checkout without the agent being edited. The dashboard's MCP
+server gains evaluation and telemetry tools for a developer's own coding
+harness. Ollama hosts can be tested and can be remote, with an optional Bearer
+API key. Comparison runs lead with a per-model table and filter the fix list
+by model. A publisher can check its collector before a run.
 
-Upgrading: the Claude Code connection now stores Anthropic API keys only.
-Anthropic does not let third-party products collect, store or route requests
-through Claude.ai subscription credentials
+Upgrading: run `bin/rails generate action_agent:install --skip` and
+`bin/rails db:migrate`. The generator adds what an install lacks:
+`provider_keys.api_key` and the `github_connections` and `code_sessions`
+tables.
+
+The Claude Code connection stores Anthropic API keys only. Anthropic does not
+let third-party products collect, store or route requests through Claude.ai
+subscription credentials
 ([Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance.md)),
-so a `claude setup-token` token (`sk-ant-oat…`) is refused. One stored before
-this change is never handed to a session: its owner sees Claude Code as
-needing an API key (`needs_replacing: true` in `GET /api/provider_keys`)
-until they paste one. Run
-`bin/rails action_agent:claude_code:purge_subscription_tokens` once to delete
-the stored tokens; it prints how many it removed. A developer who wants
-sessions on their own Claude login sets `config.claude_code_auth =
-:local_login` with the `:local` backend and runs `claude /login` on that
-machine instead.
+so a `claude setup-token` token (`sk-ant-oat…`) is refused. An install that
+stored one while running a pre-release build never hands it to a session: its
+owner sees Claude Code as needing an API key (`needs_replacing: true` in
+`GET /api/provider_keys`) until they paste one.
+`bin/rails action_agent:claude_code:purge_subscription_tokens` deletes the
+stored tokens and prints how many it removed. A developer who wants sessions on
+their own Claude login sets `config.claude_code_auth = :local_login` with the
+`:local` backend and runs `claude /login` on that machine instead.
 
 ### Added
 
