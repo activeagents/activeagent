@@ -17,6 +17,7 @@ Connect agents to external services via [Model Context Protocol](https://modelco
 | **OpenAI**     | ✅      | Via Responses API |
 | **Anthropic**  | ⚠️      | Beta |
 | **OpenRouter** | 🚧      | In development |
+| **DeepSeek**   | ❌      | Not supported — `mcp_servers` is ignored, not rejected, so the request succeeds without the server's data |
 | **Ollama**     | ❌      | Not supported |
 | **RubyLLM**    | ❌      | Not supported (use provider-specific integration) |
 | **Mock**       | ❌      | Not supported |

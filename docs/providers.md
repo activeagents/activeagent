@@ -18,6 +18,12 @@ Providers connect your agents to AI services through a unified interface. Switch
 
 <<< @/../test/dummy/app/agents/providers/open_router_agent.rb#agent{ruby} [OpenRouter]
 
+```ruby [DeepSeek]
+class DeepSeekAgent < ApplicationAgent
+  generate_with :deepseek, model: "deepseek-flash"
+end
+```
+
 <<< @/../test/dummy/app/agents/providers/mock_agent.rb#agent{ruby} [Mock]
 
 ```ruby [RubyLLM]
@@ -67,6 +73,13 @@ Access 200+ models from OpenAI, Anthropic, Google, Meta, and more through one AP
 Access 15+ LLM providers (OpenAI, Anthropic, Gemini, Bedrock, Azure, Ollama, and more) through RubyLLM's unified API. Switch models by changing a single parameter.
 
 **Choose when:** You want a single gem to access multiple providers, prefer RubyLLM's configuration model, or want to switch between providers without changing provider configuration.
+
+### [DeepSeek](/providers/deepseek)
+**Best for:** Cost-sensitive extraction and classification, native JSON and tool calling
+
+DeepSeek's OpenAI-compatible API, served natively rather than emulated: JSON output and tool calling come from the API. Thinking mode runs by default and is billed, so review its cost implications before choosing it for high-volume work.
+
+**Choose when:** You want OpenAI-compatible behaviour at DeepSeek's pricing. Note that server-side MCP is not supported.
 
 ### [Mock](/providers/mock)
 **Best for:** Testing, development, offline work
