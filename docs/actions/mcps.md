@@ -12,20 +12,25 @@ Connect agents to external services via [Model Context Protocol](https://modelco
 
 ## Provider Support
 
-Every provider can use MCP servers. Where a provider serves MCP itself, ActiveAgent passes the declaration through; everywhere else ActiveAgent runs the server itself and hands the model the tools it offers. See [Who runs the server](#who-runs-the-server).
+Every provider can use MCP servers. Where a provider's own API speaks MCP it runs the server itself, and the tool schemas never enter the prompt; everywhere else ActiveAgent runs the server and hands the model the tools it offers. See [Who runs the server](#who-runs-the-server).
 
-| Provider                      | `url:` servers  | `command:` servers |
-|:------------------------------|:----------------|:-------------------|
-| **Anthropic**                 | Provider (beta) | ActiveAgent        |
-| **OpenAI** (Responses API)    | Provider        | ActiveAgent        |
-| **OpenAI** (Chat Completions) | ActiveAgent     | ActiveAgent        |
-| **DeepSeek**                  | ActiveAgent     | ActiveAgent        |
-| **Ollama**                    | ActiveAgent     | ActiveAgent        |
-| **OpenRouter**                | ActiveAgent     | ActiveAgent        |
-| **RubyLLM**                   | ActiveAgent     | ActiveAgent        |
-| **Gemini**, **Azure**, **Requesty**, **Mock**, and any other provider | ActiveAgent | ActiveAgent |
+| Provider                      | `url:` servers | `command:` servers | Notes |
+|:------------------------------|:--------------:|:------------------:|:------|
+| **Anthropic**                 | 🟩             | 🟦                 | Provider support is beta |
+| **Azure**                     | 🟦             | 🟦                 | |
+| **DeepSeek**                  | 🟦             | 🟦                 | Ignores `mcp_servers` rather than rejecting it |
+| **Gemini**                    | 🟦             | 🟦                 | |
+| **Mock**                      | 🟦             | 🟦                 | Accepted, but Mock never emits tool calls |
+| **Ollama**                    | 🟦             | 🟦                 | |
+| **OpenAI** (Chat Completions) | 🟦             | 🟦                 | |
+| **OpenAI** (Responses API)    | 🟩             | 🟦                 | |
+| **OpenRouter**                | 🟦             | 🟦                 | |
+| **Requesty**                  | 🟦             | 🟦                 | |
+| **RubyLLM**                   | 🟦             | 🟦                 | |
 
-A `command:` server is always client-side, even on a provider that accepts an MCP URL: a provider can be handed a URL, but not a process on your machine to spawn and talk to.
+🟩 the provider runs the server · 🟦 ActiveAgent runs the server
+
+A `command:` server is always run by ActiveAgent, even on a provider that accepts an MCP URL: a provider can be handed a URL, but not a process on your machine to spawn and talk to.
 
 ## MCP Format
 
