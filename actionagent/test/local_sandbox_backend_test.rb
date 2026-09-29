@@ -1239,15 +1239,21 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert_equal "postgresql:///shop_development_cache_sandbox_#{short}", server_env["CACHE_DATABASE_URL"]
     assert_not server_env.key?("ANALYTICS_DATABASE_URL"), "a database the app does not manage is left alone"
     assert_not drop_log.exist?
+    state = JSON.parse(workspace.join("state.json").read)
+    assert_equal({
+      "primary" => server_env["DATABASE_URL"], "cache" => server_env["CACHE_DATABASE_URL"]
+    }, state["database_drop_targets"])
+    assert_equal "development", state["database_rails_env"]
 
     assert @backend.terminate("local-#{sandbox.session_id}")
 
     drop = drop_log.read
-    assert_includes drop, "argv=db:drop"
+    assert_includes drop, "argv=runner"
+    assert_includes drop, "ACTION_AGENT_SANDBOX_DATABASE_DROP_TARGETS=#{state['database_drop_targets'].to_json}"
     assert_includes drop, "DATABASE_URL=postgresql:///shop_development_sandbox_#{short}"
     assert_includes drop, "CACHE_DATABASE_URL=postgresql:///shop_development_cache_sandbox_#{short}"
     assert_includes drop, "SKIP_TEST_DATABASE=1"
-    assert_includes drop, "FIXTURE_FLAVOR=local", "db:drop runs with the sandbox.yml env too"
+    assert_includes drop, "FIXTURE_FLAVOR=local", "database cleanup runs with the sandbox.yml env too"
     assert_not workspace.exist?
   end
 
@@ -1258,7 +1264,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
     assert_raises(Backend::Error) { @backend.create_sandbox(sandbox_double(origin)) }
 
-    assert_includes drop_log.read, "argv=db:drop"
+    assert_includes drop_log.read, "argv=runner"
   end
 
   test "sandbox.yml's env overrides the default database" do

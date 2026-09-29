@@ -405,8 +405,8 @@ class MCPToolDispatcherRuntimeTest < ActiveSupport::TestCase
 
     dispatcher = ActionAgent::MCPToolDispatcher.new(agent, extra_server_keys: [ @session.runtime_server_key ])
 
-    assert_empty dispatcher.tool_definitions
-    assert_nil dispatcher.call("lookup_order", { "id" => "A-17" })
+    assert_raises(ActionAgent::MCPToolDispatcher::SandboxUnavailable) { dispatcher.tool_definitions }
+    assert_match(/no longer running/, dispatcher.call("lookup_order", { "id" => "A-17" })[:error])
     assert_not_requested(:post, RUNTIME_URL)
   ensure
     ActionAgent.user_class = nil

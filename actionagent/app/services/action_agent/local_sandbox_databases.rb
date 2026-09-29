@@ -41,9 +41,13 @@ module ActionAgent
     # What the backend does with a checkout's databases.
     #
     # env      the variables to add to every boot step's environment
-    # drop     whether terminate drops them (server databases)
+    # drop_targets the named server database URLs terminate may drop
     # notes    one line per decision, for the setup log
-    Plan = Struct.new(:env, :drop, :notes, keyword_init: true) do
+    Plan = Struct.new(:env, :drop_targets, :rails_env, :notes, keyword_init: true) do
+      def drop
+        drop_targets.any?
+      end
+
       def empty?
         env.empty?
       end
@@ -71,27 +75,32 @@ module ActionAgent
 
     def plan
       env = {}
-      drop = false
-      entries = read_entries
-      primary_url = nil
+      drop_targets = {}
+      entries = read_entries || []
+      urls = {}
 
-      entries&.each do |name, config|
-        variable = name == "primary" ? "DATABASE_URL" : "#{name.upcase}_DATABASE_URL"
-        next note("#{variable}: left to .activeagents/sandbox.yml") if @overrides.key?(variable)
+      # Resolve writers before their replicas, independent of YAML order.
+      entries.sort_by { |_name, config| truthy?(config["replica"]) ? 1 : 0 }.each do |name, config|
+        variable = database_variable(name)
+        if @overrides.key?(variable)
+          urls[name] = @overrides[variable] unless config.key?("url")
+          note("#{variable}: left to .activeagents/sandbox.yml")
+          next
+        end
 
-        url, server = url_for(name, config, primary_url)
+        url, server = url_for(name, config, entries, urls)
         next unless url
 
-        primary_url ||= url
+        urls[name] = url
         env[variable] = url
-        drop ||= server
+        drop_targets[name] = url if server
         note("#{variable}=#{url}")
       end
 
       # db:prepare and db:drop in development also reach the test
       # database, unless DATABASE_URL is set; that one is the developer's.
       env["SKIP_TEST_DATABASE"] = "1" if env.any? && !@overrides.key?("SKIP_TEST_DATABASE")
-      Plan.new(env: env, drop: drop, notes: @notes)
+      Plan.new(env: env, drop_targets: drop_targets, rails_env: rails_env, notes: @notes)
     end
 
     private
@@ -165,7 +174,7 @@ module ActionAgent
     end
 
     # [url, server?] for one entry, or nil when it is left alone.
-    def url_for(name, config, primary_url)
+    def url_for(name, config, entries, urls)
       unless config.is_a?(Hash)
         note("#{name}: not a mapping; left alone")
         return nil
@@ -175,12 +184,11 @@ module ActionAgent
         note("#{name}: has its own url:, which Rails does not let a variable override; set it in .activeagents/sandbox.yml")
         return nil
       end
-      # A replica reads what its primary writes.
-      return [ primary_url, false ] if truthy?(config["replica"]) && primary_url
       if config.key?("database_tasks") && !truthy?(config["database_tasks"])
         note("#{name}: database_tasks is off (a database the app does not manage); left alone")
         return nil
       end
+      return [ replica_url(name, config, entries, urls), false ] if truthy?(config["replica"])
 
       adapter = config["adapter"].to_s
       if FILE_ADAPTERS.include?(adapter)
@@ -193,6 +201,29 @@ module ActionAgent
         Rails.logger.info("[ActionAgent] sandbox #{@session_id}: #{CONFIG_PATH} #{name}: #{what}; its database is left as configured")
         nil
       end
+    end
+
+    # Hostnames can differ between a writer and its read replica. Match the
+    # adapter and literal database name, but refuse ambiguous or ERB-derived
+    # identities instead of silently reading another database.
+    def replica_url(name, config, entries, urls)
+      database = config["database"].to_s
+      matches = if database.present? && !database.include?(ERB_OUTPUT)
+        entries.select do |_candidate, entry|
+          !truthy?(entry["replica"]) && entry["adapter"] == config["adapter"] && entry["database"] == database
+        end
+      else
+        []
+      end
+      url = urls[matches.first.first] if matches.one?
+      return url if url.present?
+
+      raise ArgumentError, "#{CONFIG_PATH}: cannot identify a unique sandbox database for replica #{name}; " \
+        "set #{database_variable(name)} in .activeagents/sandbox.yml"
+    end
+
+    def database_variable(name)
+      name == "primary" ? "DATABASE_URL" : "#{name.upcase}_DATABASE_URL"
     end
 
     def truthy?(value)

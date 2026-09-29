@@ -97,6 +97,7 @@ module ActionAgent
 
     def call
       @agent_record.ensure_executable!
+      mcp_dispatcher.ensure_extra_servers_live!
       root_span = @root_span = build_root_span
       record_prompt_span(root_span)
       llm_span = root_span.add_span(
