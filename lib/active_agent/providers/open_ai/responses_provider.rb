@@ -25,6 +25,13 @@ module ActiveAgent
           Responses::RequestType.new
         end
 
+        # The Responses API accepts remote MCP servers, so those are served by
+        # the provider as they always were. A local process cannot be handed to
+        # it, so a `command:` declaration runs client-side instead.
+        #
+        # @return [Array<Symbol>]
+        def native_mcp_transports = [ :url ]
+
         protected
 
         # @see BaseProvider#prepare_prompt_request

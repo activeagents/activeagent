@@ -100,16 +100,17 @@ module ActiveAgent
 
       class ProvidersError < StandardError; end
 
-      attr_internal :options, :context, :trace_id,   # Setup
-                    :request, :message_stack,        # Runtime
-                    :stream_broadcaster, :streaming, # Callback (Streams)
-                    :stream_completion_pending,      # Callback (Streams)
-                    :stream_completion_result,       # Callback (Streams)
-                    :tools_function,                 # Callback (Tools)
-                    :usage_stack,                    # Usage Tracking
-                    :stream_usage_index,             # Usage Tracking (Streams)
-                    :max_tool_turns, :tool_turns,    # Tool-loop safety
-                    :instrumentation_enabled        # Per-generation privacy
+      attr_internal :options, :context, :trace_id,      # Setup
+                    :request, :message_stack,          # Runtime
+                    :mcp_bridge,                       # Runtime (MCP)
+                    :stream_broadcaster, :streaming,   # Callback (Streams)
+                    :stream_completion_pending,        # Callback (Streams)
+                    :stream_completion_result,         # Callback (Streams)
+                    :tools_function,                   # Callback (Tools)
+                    :usage_stack,                      # Usage Tracking
+                    :stream_usage_index,               # Usage Tracking (Streams)
+                    :max_tool_turns, :tool_turns,      # Tool-loop safety
+                    :instrumentation_enabled          # Per-generation privacy
 
       # Upper bound on tool-calling round-trips within one generation. A
       # model that keeps emitting tool calls otherwise recurses until the
@@ -213,56 +214,83 @@ module ActiveAgent
         end
       end
 
-      # Whether this provider leaves MCP to the caller instead of running it
-      # server-side.
+      # The MCP server transports this provider can serve through its own API.
       #
-      # Defaults to false so every provider keeps the behaviour it had: `mcps:`
-      # is forwarded and the provider runs the loop. A provider that has no
-      # server-side MCP opts in, and its `mcps:` declarations are served by
-      # {MCPBridge} instead.
+      # `:url` is a remote server, which a provider that speaks MCP can simply
+      # be handed. `:command` is a local process, and no provider can serve one:
+      # nothing but this process is going to spawn it, so those always run
+      # client-side whatever the provider supports.
       #
-      # @return [Boolean]
-      def client_side_mcp? = false
+      # Empty by default, which is what makes the bridge the universal path —
+      # every provider supports `mcps:` whether or not its API does.
+      #
+      # @return [Array<Symbol>]
+      def native_mcp_transports = []
 
       protected
 
       # Request parameters for a real prompt, with `mcps:` resolved.
       #
+      # Declarations the provider can serve itself are left in `mcps:` for it to
+      # translate; the rest are served by {MCPBridge}, which exposes their tools
+      # as ordinary tools the provider can already call.
+      #
       # @return [Hash]
       def prompt_context
-        params = strip_client_side_mcps
-        bridge = mcp_bridge
+        native, bridged = partition_mcp_servers(context[:mcps])
+        parameters      = without_mcp_options(context)
 
-        return params if bridge.nil? || bridge.empty?
+        parameters = parameters.merge(mcps: native) if native.any?
 
-        params.merge(tools: bridge.merge_tools(params[:tools]))
+        self.mcp_bridge = bridged.any? ? MCPBridge.new(bridged) : nil
+
+        return parameters if mcp_bridge.nil?
+
+        parameters.merge(tools: mcp_bridge.merge_tools(parameters[:tools]))
       end
 
       # Request parameters for a preview.
       #
-      # A preview does not resolve `mcps:` into tools, because discovering them
-      # means connecting to the servers — and a preview must not do I/O. It does
-      # drop the declaration for a client-side provider, which cannot accept it.
+      # Discovering a server's tools means connecting to it, and a preview must
+      # not perform I/O, so a preview keeps only the declarations the provider
+      # serves itself. A client-side server therefore does not appear in a
+      # preview at all — its tools are unknown until it is connected to.
       #
       # @return [Hash]
       def preview_context
-        strip_client_side_mcps
+        native, = partition_mcp_servers(context[:mcps])
+        parameters = without_mcp_options(context)
+
+        native.any? ? parameters.merge(mcps: native) : parameters
       end
 
-      # Removes `mcps:` from the request for providers that cannot accept it.
+      # Splits `mcps:` into what the provider serves and what the bridge serves.
       #
-      # @return [Hash]
-      def strip_client_side_mcps
-        return context unless client_side_mcp? && context[:mcps].present?
+      # @param declarations [Array<Hash>, Hash, nil]
+      # @return [Array<Array<Hash>>] the provider's declarations, then the
+      #   bridge's
+      # @raise [ArgumentError] when `mcp_strategy: :server` was asked for and the
+      #   provider cannot serve one of the declarations
+      def partition_mcp_servers(declarations)
+        declarations = normalize_mcp_declarations(declarations)
 
-        context.except(:mcps)
+        case mcp_strategy
+        when :client
+          [ [], declarations ]
+        when :server
+          declarations.each { |declaration| assert_mcp_servable!(declaration) }
+
+          [ declarations, [] ]
+        else
+          declarations.partition { |declaration| native_mcp_transports.include?(mcp_transport(declaration)) }
+        end
       end
 
-      # @return [MCPBridge, nil] bridge over the declared servers, if any
-      def mcp_bridge
-        return nil unless client_side_mcp? && context[:mcps].present?
-
-        @mcp_bridge ||= MCPBridge.new(context[:mcps])
+      # @return [Symbol] how to serve `mcps:`: `:auto` (default, native where the
+      #   provider can and client-side otherwise), `:client` to always run the
+      #   servers here, or `:server` to require the provider to run them
+      def mcp_strategy
+        (context[:mcp_strategy] || :auto).to_sym
       end
 
       # Invokes a tool, on an MCP server when one provides it and on the agent's
@@ -272,11 +300,53 @@ module ActiveAgent
       # @param kwargs [Hash] tool arguments
       # @return [Object] the tool's result
       def call_tool_function(name, **kwargs)
-        bridge = mcp_bridge
-
-        return bridge.call(name, **kwargs) if bridge&.owns?(name)
+        return mcp_bridge.call(name, **kwargs) if mcp_bridge&.owns?(name)
 
         tools_function.call(name, **kwargs)
+      end
+
+      # Removes the MCP options, which are instructions to this class rather than
+      # parameters any provider accepts.
+      #
+      # @param parameters [Hash]
+      # @return [Hash]
+      def without_mcp_options(parameters)
+        parameters.except(:mcps, :mcp_strategy)
+      end
+
+      # @param declarations [Array<Hash>, Hash, nil]
+      # @return [Array<Hash>]
+      def normalize_mcp_declarations(declarations)
+        return [] if declarations.blank?
+        # `Array(hash)` would split a lone declaration into pairs.
+        return [ declarations ] if declarations.is_a?(Hash)
+
+        Array(declarations)
+      end
+
+      # @param declaration [Hash]
+      # @return [Symbol, nil] `:url`, `:command`, or nil when neither is declared
+      def mcp_transport(declaration)
+        return nil unless declaration.is_a?(Hash)
+        return :url if declaration[:url].present?
+        return :command if declaration[:command].present?
+
+        nil
+      end
+
+      # @param declaration [Hash]
+      # @return [void]
+      # @raise [ArgumentError] when the provider cannot serve the declaration
+      def assert_mcp_servable!(declaration)
+        transport = mcp_transport(declaration)
+
+        unless transport && native_mcp_transports.include?(transport)
+          fail ArgumentError,
+               "#{service_name} cannot serve #{transport ? "a #{transport.inspect}" : "this"} MCP server itself, " \
+               "but `mcp_strategy: :server` requires it to. Servers it can serve: " \
+               "#{native_mcp_transports.any? ? native_mcp_transports.inspect : "none"}. " \
+               "Use `mcp_strategy: :auto` to run the rest client-side."
+        end
       end
 
       # @param name [String, nil]

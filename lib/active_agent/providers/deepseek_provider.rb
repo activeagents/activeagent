@@ -41,13 +41,6 @@ module ActiveAgent
       def self.prompt_request_type
         namespace::Chat::RequestType.new
       end
-
-      # DeepSeek has no server-side MCP. It ignores `mcp_servers` rather than
-      # rejecting it, so a request carrying one returns 200 and the model simply
-      # answers without the server's data.
-      #
-      # @return [Boolean]
-      def client_side_mcp? = true
     end
   end
 end

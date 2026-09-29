@@ -34,6 +34,14 @@ module ActiveAgent
         ::Anthropic::Client.new(**options.serialize)
       end
 
+      # Anthropic takes remote MCP servers through `mcp_servers`, so those are
+      # served by the provider as they always were — its own tool loop, with no
+      # tool schemas in the prompt. It cannot be handed a local process, so a
+      # `command:` declaration runs client-side instead.
+      #
+      # @return [Array<Symbol>]
+      def native_mcp_transports = [ :url ]
+
       protected
 
       # Removes forced tool choice after first use to prevent endless looping.
