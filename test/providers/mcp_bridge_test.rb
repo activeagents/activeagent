@@ -10,6 +10,10 @@ require "active_agent/providers/mcp_bridge"
 # here is the glue, not the protocol.
 class MCPBridgeTest < ActiveSupport::TestCase
   # Stands in for a connected client.
+  #
+  # `call_tool` returns the JSON-RPC envelope, which is what the real client
+  # does — an earlier version of this fake returned the tool result directly and
+  # hid a bug that only a live server exposed.
   class FakeClient
     attr_reader :calls
 
@@ -24,7 +28,9 @@ class MCPBridgeTest < ActiveSupport::TestCase
     def call_tool(name:, arguments:)
       @calls << { name:, arguments: }
 
-      @results.fetch(name) { { "content" => [ { "type" => "text", "text" => "#{name} answered" } ] } }
+      result = @results.fetch(name) { { "content" => [ { "type" => "text", "text" => "#{name} answered" } ] } }
+
+      { "jsonrpc" => "2.0", "id" => 1, "result" => result }
     end
   end
 
@@ -145,6 +151,38 @@ class MCPBridgeTest < ActiveSupport::TestCase
     bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
 
     assert_equal structured, bridge.call("weather")
+  end
+
+  test "unwraps the JSON-RPC envelope the client returns" do
+    client = FakeClient.new(tools: [ tool("one") ])
+
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal "one answered", bridge.call("one")
+  end
+
+  test "returns a JSON-RPC error to the model instead of raising" do
+    client = FakeClient.new(tools: [ tool("one") ])
+    client.define_singleton_method(:call_tool) do |name:, arguments:|
+      { "jsonrpc" => "2.0", "id" => 1, "error" => { "code" => -32_602, "message" => "Unknown tool" } }
+    end
+
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal "Unknown tool", bridge.call("one")
+  end
+
+  # A tool is free to use `result` as a field name, so only the envelope's own
+  # marker justifies unwrapping.
+  test "does not unwrap a result that merely has a result key" do
+    client = FakeClient.new(
+      tools:   [ tool("one") ],
+      results: { "one" => { "result" => "kept", "content" => [ { "type" => "text", "text" => "block" } ] } }
+    )
+
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal "block", bridge.call("one")
   end
 
   test "refuses a tool that no server provides" do

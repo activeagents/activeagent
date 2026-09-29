@@ -208,11 +208,23 @@ module ActiveAgent
       # model. Structured content is preferred when the server sends it, since
       # it is the machine-readable form; otherwise the text blocks are joined.
       #
+      # `MCP::Client#call_tool` returns the whole JSON-RPC envelope, so the tool
+      # result sits one level down. That is unwrapped first — keyed off the
+      # envelope's own marker rather than the presence of `result`, which a tool
+      # is free to use as a field name.
+      #
       # @param result [Object]
       # @return [String, Hash]
       def flatten_result(result)
         result = result.to_h if result.respond_to?(:to_h) && !result.is_a?(Hash)
         return result unless result.is_a?(Hash)
+
+        if result.key?(:jsonrpc) || result.key?("jsonrpc")
+          error = result[:error] || result["error"]
+          return error_message(error) if error
+
+          result = result[:result] || result["result"] || {}
+        end
 
         structured = result[:structuredContent] || result["structuredContent"]
         return structured if structured
@@ -225,6 +237,20 @@ module ActiveAgent
 
           block[:text] || block["text"] if block.is_a?(Hash)
         end.join("\n")
+      end
+
+      # Renders a JSON-RPC error for the model. It is returned as tool content
+      # rather than raised: the model can often recover from a bad argument,
+      # and a raise here would surface as a failed generation instead.
+      #
+      # @param error [Hash, String, nil]
+      # @return [String]
+      def error_message(error)
+        case error
+        when Hash then (error[:message] || error["message"] || error.inspect).to_s
+        when nil  then "The MCP server returned an empty error."
+        else error.to_s
+        end
       end
 
       # @param servers [Array<Hash>, Hash, nil]
