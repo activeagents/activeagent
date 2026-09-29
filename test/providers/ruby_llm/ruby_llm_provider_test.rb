@@ -29,7 +29,8 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     end
 
     def embed(text, model:, dimensions:)
-      ::RubyLLM::Embedding.new(vectors: Array.new(1536) { rand * 2 - 1 }, model: model)
+      model_id = model.respond_to?(:id) ? model.id : model
+      ::RubyLLM::Embedding.new(vectors: Array.new(1536) { rand * 2 - 1 }, model: model_id)
     end
 
     private
@@ -913,7 +914,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
 
   # --- max_tokens pass-through ---
 
-  test "max_tokens is passed to provider via params" do
+  test "max_tokens is passed through the installed RubyLLM API" do
     capturing_provider = Class.new(FakeProvider) do
       def complete(messages, **kwargs)
         @last_kwargs = kwargs
@@ -936,7 +937,12 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
 
       provider.prompt
 
-      assert_equal({ max_tokens: 256 }, custom.last_kwargs[:params])
+      if ::RubyLLM::VERSION.to_i >= 2
+        assert_equal 256, custom.last_kwargs[:max_output_tokens]
+        assert_nil custom.last_kwargs[:params]
+      else
+        assert_equal({ max_tokens: 256 }, custom.last_kwargs[:params])
+      end
     end
   end
 
@@ -944,6 +950,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     @provider.prompt
 
     assert_nil @fake_provider.last_kwargs[:params]
+    assert_nil @fake_provider.last_kwargs[:max_output_tokens]
   end
 
   # --- ToolProxy conversion ---
@@ -1116,7 +1123,8 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   end
 
   def stub_model_info(model_id)
-    ::RubyLLM::Model::Info.new(id: model_id, provider: "openai")
+    model_class = defined?(::RubyLLM::Model::Info) ? ::RubyLLM::Model::Info : ::RubyLLM::Model
+    model_class.new(id: model_id, provider: "openai")
   end
 
   def tool_definition(name, description: "A test tool", parameters: nil)
