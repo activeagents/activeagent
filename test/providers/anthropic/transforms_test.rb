@@ -438,14 +438,51 @@ module Providers
           ]
         }
 
-        result =  transforms.cleanup_serialized_request(hash, {})
+        result = transforms.cleanup_serialized_request(hash, {})
 
-        assert_nil result[:messages][0][:id]
-        assert_nil result[:messages][0][:model]
-        assert_nil result[:messages][0][:stop_reason]
-        assert_nil result[:messages][0][:type]
-        assert_nil result[:messages][0][:usage]
+        # Assert on key absence rather than on nil: a present-but-nil key is
+        # exactly what the API rejects with "Extra inputs are not permitted".
+        assert_equal %i[content role], result[:messages][0].keys.sort
         assert_equal "hello", result[:messages][0][:content]
+      end
+
+      # `diagnostics` joined the response model in anthropic 1.74.0, after
+      # `container` had already caused an outage. The allowlist is what keeps
+      # whichever field the gem adds next from doing the same.
+      test "cleanup_serialized_request strips a response field added after the denylist was written" do
+        hash = {
+          messages: [
+            { role: "assistant", content: "hello", diagnostics: nil, container: nil }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_equal %i[content role], result[:messages][0].keys.sort
+      end
+
+      test "cleanup_serialized_request strips a response field the gem has not shipped yet" do
+        hash = {
+          messages: [
+            { role: "assistant", content: "hello", some_future_response_field: { nested: true } }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_equal %i[content role], result[:messages][0].keys.sort
+      end
+
+      test "cleanup_serialized_request keeps the beta-only request keys" do
+        hash = {
+          messages: [
+            { role: "user", content: "hello", clear_at: "2026-01-01T00:00:00Z", output_config: { effort: "low" } }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_equal %i[clear_at content output_config role], result[:messages][0].keys.sort
       end
 
       # `container` is emitted on every Messages API response (null unless the code

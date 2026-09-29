@@ -11,6 +11,11 @@ module ActiveAgent
       # - Expand: shortcuts → API format (string → content blocks, consecutive messages → grouped)
       # - Compress: API format → shortcuts (single content blocks → strings for efficiency)
       module Transforms
+        # Keys Anthropic accepts on a request message. `MessageParam` carries
+        # `role` and `content`; the beta `BetaMessageParam` adds `clear_at` and
+        # `output_config`.
+        MESSAGE_PARAM_KEYS = %i[role content clear_at output_config].freeze
+
         class << self
           # Converts gem model object to hash via JSON round-trip.
           #
@@ -570,26 +575,25 @@ module ActiveAgent
           # @param gem_object [Object] original gem object (unused but for consistency)
           # @return [Hash] cleaned request hash
           def cleanup_serialized_request(hash, defaults, gem_object = nil)
-            # Remove response-only fields from messages
+            # Reduce every message to the keys a request message may carry.
             #
-            # `container` is returned by the Messages API on every response (null
-            # unless the code execution tool ran). Because multi-turn requests and
-            # the json_object emulation retry re-submit prior assistant responses
-            # verbatim, it has to be stripped here: Anthropic only accepts `role`
-            # and `content` per message and rejects the leftover with
-            # "messages.N.container: Extra inputs are not permitted". The
-            # request-level `container` parameter is a separate, valid field and
-            # is deliberately left alone.
+            # Anthropic returns response-only fields on every message, and
+            # multi-turn requests plus the json_object emulation retry re-submit
+            # prior assistant responses verbatim, so each one would otherwise be
+            # sent straight back and rejected with
+            # "messages.N.<field>: Extra inputs are not permitted".
+            #
+            # An allowlist rather than a denylist because the response model
+            # keeps growing: `container` and then `diagnostics` each arrived in a
+            # gem release, and the beta API adds `context_management` and
+            # `input_transformations` beyond both. Enumerating the fields the
+            # request accepts cannot fall behind that way.
+            #
+            # The request-level `container` parameter is a separate, valid field
+            # and is deliberately left alone.
             if hash[:messages]
               hash[:messages].each do |msg|
-                msg.delete(:id)
-                msg.delete(:container)
-                msg.delete(:model)
-                msg.delete(:stop_reason)
-                msg.delete(:stop_sequence)
-                msg.delete(:stop_details)
-                msg.delete(:type)
-                msg.delete(:usage)
+                msg.select! { |key, _| MESSAGE_PARAM_KEYS.include?(key) }
               end
             end
 
