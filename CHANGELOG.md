@@ -16,13 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepSeek as `system` messages rather than OpenAI's `developer` role, which
   DeepSeek answers with a 422 — it accepts only system, user, assistant, tool and
   latest_reminder, so an agent using `instructions: true` fails outright until
-  that role is folded in. Thinking mode is
-  turned **off** by default: DeepSeek enables it unless asked otherwise and bills
-  the reasoning whether or not the answer needed it — a one-line JSON extraction
-  measured 83 output tokens with thinking at its default against 7 with it
-  disabled. Opt in per prompt with `thinking: { type: "enabled" }`, which is also
-  what re-enables `temperature`, `presence_penalty` and `frequency_penalty`, all
-  of which DeepSeek ignores while thinking.
+  that role is folded in. Everything else is left to DeepSeek, including thinking
+  mode — the provider's API is the authority on how it wants to be called. Worth
+  knowing if you use the sampling parameters: DeepSeek bills thinking whether or
+  not the answer needed it, and ignores `temperature`, `presence_penalty` and
+  `frequency_penalty` while thinking. A one-line JSON extraction measured 83
+  output tokens at DeepSeek's default against 7 with `thinking: { type:
+  "disabled" }`, which any prompt can pass.
 
 - **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
   Provider API Keys gains a **Test connection** for Ollama that reports
@@ -64,6 +64,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A caller's `output_config` was dropped whenever `response_format` was set**
+  (`activeagent`). Anthropic's `output_config` carries `effort` as well as the
+  `format` that `response_format` derives, and the derived hash replaced the
+  whole parameter — so setting both silently lost the `effort`. The two are now
+  merged, with the caller's own keys winning.
+- **An unrecognized `response_format` type was forwarded as `output_config`**
+  (`activeagent`). A `response_format` whose `type` was not one of
+  `json_schema`, `json_object` or `text` fell through to a pass-through branch
+  that assigned the hash to `output_config` unmodified, so `{ type: "grammar"
+  }` went out where Anthropic expects `{ format: { type: "json_schema", schema:
+  ... } }` and rejects anything else. Only a schema produces an `output_config`
+  now; a hash already shaped as `output_config` is still passed through, and
+  everything else falls back to the prompt handling.
 - **The missing-gem error named a gem that was already in the bundle**
   (`activeagent`). A provider whose client gem is absent raised "The 'openai'
   gem is required ... add it to your Gemfile", which reads as nonsense to
