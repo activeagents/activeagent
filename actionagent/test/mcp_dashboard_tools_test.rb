@@ -357,7 +357,9 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     mine = User.create!(email: "mine-#{SecureRandom.hex(3)}@example.com", name: "Mine", age: 30)
     theirs = User.create!(email: "theirs-#{SecureRandom.hex(3)}@example.com", name: "Theirs", age: 30)
     @key.update_columns(account_id: mine.id)
-    own = create_trace(agent_class: "SupportAgent", service: "tenant-#{mine.id}")
+    # Starts with a letter, so the lookup of `other`'s numeric id below cannot
+    # match it as a trace id prefix.
+    own = create_trace(agent_class: "SupportAgent", service: "tenant-#{mine.id}", trace_id: "e#{SecureRandom.hex(16)[1..]}")
     other = create_trace(agent_class: "SupportAgent", service: "tenant-#{theirs.id}")
 
     rows = structured(call_tool("traces_search"))["traces"]
@@ -413,8 +415,7 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
   end
 
   def create_trace(agent_class:, status: "OK", error: nil, timestamp: Time.current, input: 10, output: 10,
-                   spans: 1, big_attribute: nil, service: "support-hub")
-    trace_id = SecureRandom.hex(16)
+                   spans: 1, big_attribute: nil, service: "support-hub", trace_id: SecureRandom.hex(16))
     rows = [ {
       "span_id" => "root", "parent_span_id" => nil, "name" => "#{agent_class}.answer", "type" => "root",
       "start_time" => timestamp.iso8601(6), "duration_ms" => 120.0, "status" => status,
