@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The RubyLLM provider supports ruby_llm 1.16 and 2.x** (`activeagent`).
+  The adapter handles 2.x's tool interface, token limits, embedding model
+  objects, usage and finish reasons while keeping the 1.16 API working.
+  Requiring `>= 1.16, < 3` prevents Bundler from selecting an older 1.x
+  release without the APIs the adapter calls. Rails main can now resolve
+  RubyLLM 2.x alongside Active Storage's Marcel 2 dependency. CI also runs
+  the full suite with RubyLLM 1.16 to retain coverage of that version.
+  Unsupported-version errors name the loaded version and both bounds (#508).
+
 ## [1.7.1] - 2026-09-29
 
 Releases `activeagent` and `actionagent` 1.7.1 from one tag. A patch on 1.7.0:
