@@ -571,9 +571,19 @@ module ActiveAgent
           # @return [Hash] cleaned request hash
           def cleanup_serialized_request(hash, defaults, gem_object = nil)
             # Remove response-only fields from messages
+            #
+            # `container` is returned by the Messages API on every response (null
+            # unless the code execution tool ran). Because multi-turn requests and
+            # the json_object emulation retry re-submit prior assistant responses
+            # verbatim, it has to be stripped here: Anthropic only accepts `role`
+            # and `content` per message and rejects the leftover with
+            # "messages.N.container: Extra inputs are not permitted". The
+            # request-level `container` parameter is a separate, valid field and
+            # is deliberately left alone.
             if hash[:messages]
               hash[:messages].each do |msg|
                 msg.delete(:id)
+                msg.delete(:container)
                 msg.delete(:model)
                 msg.delete(:stop_reason)
                 msg.delete(:stop_sequence)

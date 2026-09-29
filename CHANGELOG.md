@@ -66,6 +66,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `json_object`, which ruby_llm has no mode for, and a `json_schema`
   without a schema now raise `ArgumentError` instead of sending a request
   the API rejects (#501).
+- **Anthropic replayed the response-only `container` field back to the API**
+  (`activeagent`). Every Messages API response carries a top-level `container`
+  (null unless the code execution tool ran) and multi-turn requests, plus the
+  `json_object` emulation retry, re-submit prior assistant responses verbatim.
+  `cleanup_serialized_request` stripped the other response-only fields but not
+  this one, so the follow-up request was rejected with
+  `messages.N.container: Extra inputs are not permitted`. Messages now keep only
+  `role` and `content`; the request-level `container` parameter is unchanged.
 - **A nested scenario expectation written as one value** (`activeagent`).
   `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
   list of one, the shape the persisted scenario and the dashboard's matrix

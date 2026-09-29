@@ -448,6 +448,50 @@ module Providers
         assert_equal "hello", result[:messages][0][:content]
       end
 
+      # `container` is emitted on every Messages API response (null unless the code
+      # execution tool ran) and is replayed by multi-turn requests and the
+      # json_object emulation retry, which Anthropic rejects with
+      # "messages.N.container: Extra inputs are not permitted".
+      test "cleanup_serialized_request strips the response-only container from messages" do
+        hash = {
+          messages: [
+            { role: "assistant", content: "hello", container: nil, id: "msg_123" }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        # A present-but-nil key is what the API rejects, so assert on key absence
+        # rather than on the value being nil.
+        assert_not result[:messages][0].key?(:container)
+        assert_equal "hello", result[:messages][0][:content]
+      end
+
+      test "cleanup_serialized_request strips a populated container from messages" do
+        hash = {
+          messages: [
+            { role: "assistant", content: "hello", container: { id: "cont_123" } }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_not result[:messages][0].key?(:container)
+        assert_equal "hello", result[:messages][0][:content]
+      end
+
+      test "cleanup_serialized_request keeps the request-level container parameter" do
+        hash = {
+          model:     "claude-3",
+          messages:  [ { role: "user", content: "hello" } ],
+          container: { id: "cont_123" }
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_equal({ id: "cont_123" }, result[:container])
+      end
+
       test "cleanup_serialized_request compresses content" do
         hash = {
           messages: [
