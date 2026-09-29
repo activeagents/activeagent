@@ -49,6 +49,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`json_object` responses lost their `{` whenever thinking was on**
+  (`activeagent`). The Anthropic `json_object` emulation prefills an assistant
+  turn and re-attaches the `{` to the response, but looked for it in the *first*
+  content block. With thinking enabled the response opens with a `thinking`
+  block, which carries `thinking` rather than `text`, so the lookup came back nil
+  and the `{` was silently never prepended — leaving a bare continuation that
+  cannot be parsed, and sending the retry loop after an answer it can never
+  accept. The brace now goes on the last text block. Reported against
+  DeepSeek's Anthropic-compatible endpoint, which runs thinking by default.
+- **Response-only fields were replayed back to the Anthropic API**
+  (`activeagent`). Multi-turn requests and the `json_object` emulation retry
+  re-submit prior assistant responses verbatim, and `cleanup_serialized_request`
+  decided what to strip from a denylist. The Messages API returns more than that
+  list covers — `container`, then `diagnostics`, and on the beta API
+  `context_management` and `input_transformations` — so each new field was sent
+  straight back and rejected with
+  `messages.N.<field>: Extra inputs are not permitted`. Messages are now cut down
+  to the keys a request message may carry (`role` and `content`, plus the
+  beta-only `clear_at` and `output_config`), so a field added by a future gem
+  release cannot leak. The request-level `container` parameter is unchanged.
 - **Tool calls sent back through the RubyLLM provider** (`activeagent`).
   After a tool ran, the follow-up request repeated the model's tool call
   with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI
