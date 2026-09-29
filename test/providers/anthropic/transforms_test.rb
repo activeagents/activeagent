@@ -51,6 +51,77 @@ module Providers
         assert_equal original, params
       end
 
+      # normalize_params response_format -> output_config tests
+      test "normalize_params derives output_config from a json_schema response_format" do
+        params = {
+          messages:        [ { role: "user", content: "hello" } ],
+          response_format: { type: "json_schema", json_schema: { schema: { type: "object" } } }
+        }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal "json_schema", result[:output_config][:format][:type]
+        assert_not result.key?(:response_format)
+      end
+
+      # `output_config` carries `effort` as well as `format`, so a caller who
+      # sets both must keep both.
+      test "normalize_params keeps a caller's output_config alongside a json_schema response_format" do
+        params = {
+          messages:        [ { role: "user", content: "hello" } ],
+          response_format: { type: "json_schema", json_schema: { schema: { type: "object" } } },
+          output_config:   { effort: "high" }
+        }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal "high", result[:output_config][:effort]
+        assert_equal "json_schema", result[:output_config][:format][:type]
+      end
+
+      test "normalize_params lets the caller's own output_config win" do
+        schema = { type: "object", properties: { a: { type: "string" } } }
+
+        params = {
+          messages:        [ { role: "user", content: "hello" } ],
+          response_format: { type: "json_schema", json_schema: { schema: { type: "object" } } },
+          output_config:   { format: { type: "json_schema", schema: schema } }
+        }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal schema[:properties], result[:output_config][:format][:schema][:properties]
+      end
+
+      test "normalize_params leaves a caller's output_config alone without a response_format" do
+        params = { messages: [ { role: "user", content: "hello" } ], output_config: { effort: "low" } }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal({ effort: "low" }, result[:output_config])
+      end
+
+      # Anthropic's `format.type` is only ever `json_schema` and `schema` is
+      # required, so a schema-less request has no output_config to build —
+      # sending one would be rejected.
+      test "normalize_params adds no output_config for a format Anthropic cannot express" do
+        params = { messages: [ { role: "user", content: "hello" } ], response_format: { type: "json_object" } }
+
+        result = transforms.normalize_params(params)
+
+        assert_not result.key?(:output_config)
+      end
+
+      # The prompt layer resolves a named schema to its Hash first, so a bare
+      # String here is a caller that skipped that step — it must not raise.
+      test "normalize_params adds no output_config when json_schema carries no schema" do
+        params = { messages: [ { role: "user", content: "hello" } ], response_format: { type: "json_schema", json_schema: "named_elsewhere" } }
+
+        result = transforms.normalize_params(params)
+
+        assert_not result.key?(:output_config)
+      end
+
       # normalize_messages tests
       test "normalize_messages converts string to user message" do
         result = transforms.normalize_messages([ "hello" ])
@@ -476,13 +547,18 @@ module Providers
       test "cleanup_serialized_request keeps the beta-only request keys" do
         hash = {
           messages: [
-            { role: "user", content: "hello", clear_at: "2026-01-01T00:00:00Z", output_config: { effort: "low" } }
+            { role: "system", content: "hello", clear_at: "next_user_message", output_config: { effort: "low" } }
           ]
         }
 
         result = transforms.cleanup_serialized_request(hash, {})
 
-        assert_equal %i[clear_at content output_config role], result[:messages][0].keys.sort
+        # Asserting the whole message, not just its keys: the point is that the
+        # beta-only fields survive with their values intact.
+        assert_equal(
+          { role: "system", content: "hello", clear_at: "next_user_message", output_config: { effort: "low" } },
+          result[:messages][0]
+        )
       end
 
       # `container` is emitted on every Messages API response (null unless the code

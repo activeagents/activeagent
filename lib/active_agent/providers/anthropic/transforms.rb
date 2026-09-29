@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/hash/deep_merge"
 require "active_support/core_ext/hash/keys"
 
 module ActiveAgent
@@ -13,7 +14,9 @@ module ActiveAgent
       module Transforms
         # Keys Anthropic accepts on a request message. `MessageParam` carries
         # `role` and `content`; the beta `BetaMessageParam` adds `clear_at` and
-        # `output_config`.
+        # `output_config`, both of which it permits only on `role: "system"`
+        # messages. `clear_at` is the enum `next_user_message`/`never` — a
+        # timestamp is not a value the API takes.
         MESSAGE_PARAM_KEYS = %i[role content clear_at output_config].freeze
 
         class << self
@@ -39,7 +42,14 @@ module ActiveAgent
             # Normalize json_schema response_format → output_config (Anthropic's native structured output field)
             if params[:response_format]
               output_config = normalize_response_format(params.delete(:response_format))
-              params[:output_config] = output_config if output_config
+
+              # Merge rather than replace: `output_config` also carries `effort`,
+              # and a caller who sets both expects both. The caller's own keys
+              # win, being the more explicit of the two. A caller-supplied
+              # `output_config` with no `response_format` is left untouched, and
+              # nothing is written when there is neither — the gem rejects an
+              # explicit nil here.
+              params[:output_config] = output_config.deep_merge(params[:output_config] || {}) if output_config
             end
 
             # Handle mcps parameter (common format) -> transforms to mcp_servers (provider format)
@@ -230,10 +240,13 @@ module ActiveAgent
           # → { format: { type: "json_schema", schema: {...} } }
           #
           # Notes:
+          # - Anthropic's `format.type` is only ever `json_schema`, and `schema`
+          #   is required, so anything else has no output_config to build.
           # - Anthropic requires `additionalProperties: false` on all object schemas.
           #   This is auto-injected into any object schemas that don't have it set.
           # - Anthropic does not use OpenAI's `name` or `strict` fields in output_config.format.
-          # - json_object is not handled here; it remains prompt-emulated.
+          # - json_object is not handled here; it remains prompt-emulated, because
+          #   Anthropic has no schema-less JSON mode to request.
           # - text is not handled here; Anthropic returns plain text by default.
           #
           # @param format [Hash, Symbol, String] ActiveAgent common response_format
@@ -244,25 +257,22 @@ module ActiveAgent
               format_hash = format.deep_symbolize_keys
 
               if format_hash[:type].to_s == "json_schema"
-                schema = format_hash[:json_schema]&.dig(:schema)
-                if schema
-                  schema = inject_additional_properties(schema.deep_dup)
-                end
-                {
-                  format: {
-                    type: "json_schema",
-                    schema: schema
-                  }.compact
-                }
-              elsif format_hash[:type].to_s == "json_object"
-                # json_object is not handled here; it remains prompt-emulated.
-                nil
-              elsif format_hash[:type].to_s == "text"
-                # text is not handled here; it remains prompt-emulated.
-                nil
-              else
-                # Pass through (already properly structured or Anthropic native format)
+                # A named schema (a String) is resolved to its Hash by the prompt
+                # layer before it reaches here, so anything that is not a Hash
+                # carries no inline schema to send.
+                json_schema = format_hash[:json_schema]
+                schema = json_schema[:schema] if json_schema.is_a?(Hash)
+                return nil unless schema
+
+                { format: { type: "json_schema", schema: inject_additional_properties(schema.deep_dup) } }
+              elsif format_hash.key?(:format)
+                # Already in Anthropic's own output_config shape; pass it through.
                 format_hash
+              else
+                # `json_object`, `text`, and anything else: there is no
+                # output_config to build. Sending one would be rejected, so a
+                # schema-less json_schema falls back rather than 400s.
+                nil
               end
             when Symbol, String
               # Bare :json_schema without a schema cannot use native output_config.
