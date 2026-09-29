@@ -60,6 +60,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The missing-gem error named a gem that was already in the bundle**
+  (`activeagent`). A provider whose client gem is absent raised "The 'openai'
+  gem is required ... add it to your Gemfile", which reads as nonsense to
+  someone whose bundle already has `ruby-openai`: both gems define `OpenAI`,
+  only one can be installed at a time, so adding the second fails at `bundle
+  install` instead of fixing anything. The error now names the gem that owns the
+  constant, says the two cannot coexist, and gives the Gemfile line to replace.
 - **`json_object` responses lost their `{` whenever thinking was on**
   (`activeagent`). The Anthropic `json_object` emulation prefills an assistant
   turn and re-attaches the `{` to the response, but looked for it in the *first*

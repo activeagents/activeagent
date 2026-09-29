@@ -14,13 +14,28 @@ GEM_LOADERS = {
   ruby_llm:  [ "ruby_llm",  [ ">= 1.16", "< 3" ], "ruby_llm" ]
 }
 
+# Gems that define the same top-level constant as the client a provider asks
+# for. A bundle can then look like it already satisfies the provider while the
+# gem it actually needs is missing.
+#
+# `openai` and `ruby-openai` both define `OpenAI`, and only the former carries
+# the typed request models every OpenAI-family provider is written against — so
+# "add the openai gem" reads as nonsense to someone whose bundle already has an
+# `OpenAI` constant.
+#
+# @private
+GEM_CONFLICTS = {
+  openai: { gem: "ruby-openai", constant: "OpenAI" }
+}.freeze
+
 # Requires a provider's gem dependency.
 #
 # @param type [Symbol] provider type (:anthropic, :openai)
 # @param file_name [String] for error context
 # @return [void]
-# @raise [LoadError] when the gem is not installed, or when the loaded
-#   version is outside the supported range
+# @raise [LoadError] when the gem is not installed, when the loaded version is
+#   outside the supported range, or when a different gem already defines the
+#   client constant
 def require_gem!(type, file_name)
   gem_name, requirement, package_name = GEM_LOADERS.fetch(type)
   requirements = Array(requirement)
@@ -36,8 +51,32 @@ def require_gem!(type, file_name)
                        "Add `gem \"#{gem_name}\", #{requirements.map(&:inspect).join(', ')}` to your Gemfile and run `bundle update #{gem_name}`."
     end
 
+    if (conflict = gem_conflict_for(type))
+      raise LoadError, "#{provider_name} needs the '#{gem_name}' gem, but this bundle has '#{conflict[:gem]}'. " \
+                       "Both define #{conflict[:constant]}, so the two cannot be installed together — " \
+                       "replace `gem \"#{conflict[:gem]}\"` with `gem \"#{gem_name}\"` in your Gemfile and run `bundle install`."
+    end
+
     raise LoadError, "The '#{gem_name}' gem is required for #{provider_name}. Please add it to your Gemfile and run `bundle install`."
   end
+end
+
+# Finds a gem in the bundle that already defines the constant the provider's
+# client needs, if there is one.
+#
+# @param type [Symbol] provider type
+# @return [Hash, nil] the conflicting gem's name and the constant it defines
+# @api private
+def gem_conflict_for(type)
+  conflict = GEM_CONFLICTS[type]
+  return unless conflict
+
+  # An activated gem is the usual case. The constant check catches the rest:
+  # the gem may sit in the bundle unrequired, and if its constant is already
+  # defined then the collision is real either way.
+  return conflict if Gem.loaded_specs.key?(conflict[:gem])
+
+  conflict if Object.const_defined?(conflict[:constant])
 end
 
 module ActiveAgent
