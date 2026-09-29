@@ -36,8 +36,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report filters through radio chips and stylesheet rules — it still ships
   no script.
 
+### Changed
+
+- **The RubyLLM provider requires ruby_llm 1.x** (`activeagent`). ruby_llm
+  2.0 renamed the APIs `RubyLLMProvider` calls, and the open `>= 1.0`
+  requirement let `bundle update` install it. The provider now requires
+  `~> 1.0` until it supports 2.0 (#502). Loading it with an unsupported
+  version names the supported range and the loaded version, instead of
+  asking for a gem that is already in the Gemfile. Pin
+  `gem "ruby_llm", "~> 1.0"` if your bundle resolved 2.0.
+
 ### Fixed
 
+- **Tool calls sent back through the RubyLLM provider** (`activeagent`).
+  After a tool ran, the follow-up request repeated the model's tool call
+  with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI
+  received them JSON-encoded twice, and Anthropic received a string for
+  `tool_use.input`, which its API requires to be an object. The same
+  happened when a stored conversation containing a tool call was replayed.
+  The provider now hands ruby_llm the parsed arguments (#501).
+- **Structured output through the RubyLLM provider** (`activeagent`). A
+  `json_schema` response_format reached ruby_llm unchanged, but ruby_llm
+  reads `{ name:, schema:, strict: }`, so OpenAI received a schema with a
+  null name and body, and the Anthropic request raised inside ruby_llm
+  before it was sent. The provider now converts it, naming the schema
+  `response` and making it strict unless the format says otherwise, as
+  ruby_llm's own `with_schema` does. A `text` format asks for plain text;
+  `json_object`, which ruby_llm has no mode for, and a `json_schema`
+  without a schema now raise `ArgumentError` instead of sending a request
+  the API rejects (#501).
 - **A nested scenario expectation written as one value** (`activeagent`).
   `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
   list of one, the shape the persisted scenario and the dashboard's matrix
