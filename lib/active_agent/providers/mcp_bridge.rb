@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+require "uri"
+require "active_support/core_ext/hash/keys"
+require "active_support/core_ext/object/deep_dup"
+
 module ActiveAgent
   module Providers
     # Runs MCP servers from the client side.
@@ -32,7 +36,19 @@ module ActiveAgent
 
       # Schema handed to a tool that declares none. Providers expect an object
       # schema, and MCP permits omitting it.
-      EMPTY_SCHEMA = { type: "object", properties: {} }.freeze
+      #
+      # Frozen, and handed out as a copy, because one constant would otherwise
+      # be a single mutable object serving every tool of every server in the
+      # process — a transform that wrote to it would corrupt it for everyone.
+      EMPTY_SCHEMA = { type: "object", properties: {}.freeze }.freeze
+
+      # Seconds to wait for a server to answer before abandoning the connection.
+      #
+      # A stdio read blocks forever without one, so a server that accepts a
+      # request and never replies holds the generation open until the worker is
+      # restarted. Generous, since a tool call can legitimately be slow; set
+      # `read_timeout:` on a declaration to override it.
+      DEFAULT_READ_TIMEOUT = 30
 
       # A declared server, paired with the client connected to it.
       Server = Struct.new(:name, :declaration, :client, keyword_init: true)
@@ -44,10 +60,47 @@ module ActiveAgent
         @declarations = normalize_all(servers)
         @tools        = nil
         @ownership    = {}
+        @servers      = []
       end
 
       # @return [Boolean] whether no servers were declared
       def empty? = @declarations.empty?
+
+      # Closes every connection this bridge opened.
+      #
+      # A stdio server is a process this process spawned, and it is reaped only
+      # by its transport's `close` — so a bridge that is simply dropped leaks a
+      # child process per generation, which accumulates in a long-lived worker.
+      # The wrapper exposes no `close` of its own; the transport is where it
+      # lives.
+      #
+      # Idempotent, and deliberately never raises: it runs while a generation is
+      # finishing, often from an `ensure`, and a teardown failure must not
+      # replace the error that generation was already carrying. Closing resets
+      # the discovered tools, so a bridge that is closed and used again
+      # reconnects rather than handing back stale clients.
+      #
+      # @return [void]
+      def close
+        servers    = @servers || []
+        @servers   = []
+        @tools     = nil
+        @ownership = {}
+
+        servers.each do |server|
+          transport = server.client.transport if server.client.respond_to?(:transport)
+          next unless transport.respond_to?(:close)
+
+          begin
+            transport.close
+          rescue StandardError
+            # Best effort — see above. A server that will not shut down cleanly
+            # is not worth failing a finished generation over.
+          end
+        end
+
+        nil
+      end
 
       # Every tool the declared servers offer, in the common format.
       #
@@ -125,6 +178,7 @@ module ActiveAgent
       def discover
         @tools     = []
         @ownership = {}
+        @servers   = []
 
         @declarations.each do |declaration|
           server = connect(declaration)
@@ -147,27 +201,40 @@ module ActiveAgent
 
       # Connects a client to one declared server.
       #
+      # The server is recorded before it is connected, because `connect` starts a
+      # stdio process and only then handshakes: a handshake that fails — a
+      # mistyped command, a server that never answers — has already spawned a
+      # process, and recording it afterwards would leave that process with
+      # nothing to reap it.
+      #
       # @param declaration [Hash]
       # @return [Server]
       def connect(declaration)
         self.class.load_mcp!
 
         client = MCP::Client.new(transport: transport_for(declaration))
-        client.connect
+        server = Server.new(name: declaration[:name], declaration:, client:)
+        @servers << server
 
-        Server.new(name: declaration[:name], declaration:, client:)
+        client.connect
+        server
       end
 
       # @param declaration [Hash]
       # @return [Object] an MCP transport
       def transport_for(declaration)
         if declaration[:url]
-          MCP::Client::HTTP.new(url: declaration[:url], headers: headers_for(declaration))
+          MCP::Client::HTTP.new(
+            url:     declaration[:url],
+            headers: headers_for(declaration),
+            **{ max_reconnection_wait: declaration[:max_reconnection_wait] }.compact
+          )
         elsif declaration[:command]
           MCP::Client::Stdio.new(
-            command: declaration[:command],
-            args:    Array(declaration[:args]),
-            env:     declaration[:env]
+            command:      declaration[:command],
+            args:         Array(declaration[:args]),
+            env:          declaration[:env],
+            read_timeout: read_timeout_for(declaration)
           )
         else
           fail ArgumentError,
@@ -175,6 +242,26 @@ module ActiveAgent
                "got #{declaration.inspect}."
         end
       end
+
+      # The bounded wait for a server to answer.
+      #
+      # @param declaration [Hash]
+      # @return [Numeric]
+      # @raise [ArgumentError] when a declared timeout is not a positive number
+      def read_timeout_for(declaration)
+        timeout = declaration[:read_timeout]
+        return DEFAULT_READ_TIMEOUT if timeout.nil?
+
+        unless timeout.is_a?(Numeric) && timeout.positive?
+          fail ArgumentError,
+               "`read_timeout:` on an MCP server must be a positive number of seconds, got #{timeout.inspect}."
+        end
+
+        timeout
+      end
+
+      # @return [Hash] a fresh copy of {EMPTY_SCHEMA}, safe for a caller to mutate
+      def empty_schema = EMPTY_SCHEMA.deep_dup
 
       # @param declaration [Hash]
       # @return [Hash] request headers for the server
@@ -199,7 +286,7 @@ module ActiveAgent
           {
             name:        name,
             description: tool.description,
-            parameters:  tool.input_schema || EMPTY_SCHEMA
+            parameters:  tool.input_schema || empty_schema
           }.compact
         end
       end
@@ -270,9 +357,30 @@ module ActiveAgent
         end
 
         declaration = server.deep_symbolize_keys
-        declaration[:name] ||= (declaration[:url].presence || declaration[:command].presence || "unnamed server").to_s
+        declaration[:name] ||= default_name(declaration)
 
         declaration
+      end
+
+      # A display name for a declaration that gave none.
+      #
+      # Deliberately the host rather than the whole URL. An MCP endpoint usually
+      # carries its key in the path (`https://mcp.example.com/<key>/v2/mcp`),
+      # and this name reaches error messages, which reach log aggregators and
+      # error trackers — so the URL is the one part of the declaration that must
+      # not be copied into them.
+      #
+      # @param declaration [Hash]
+      # @return [String]
+      def default_name(declaration)
+        return "command: #{File.basename(declaration[:command].to_s)}" if declaration[:command].present?
+
+        url = declaration[:url]
+        return "unnamed server" if url.blank?
+
+        URI.parse(url).host || "unnamed server"
+      rescue URI::InvalidURIError
+        "unnamed server"
       end
 
       # @param tool [Hash, Object, String, Symbol]

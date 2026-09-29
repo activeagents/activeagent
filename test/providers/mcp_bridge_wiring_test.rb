@@ -156,6 +156,54 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
     end
   end
 
+  # A bridged server holds a live connection, and for a `command:` server that
+  # connection is a process. It has to be released when the generation that
+  # opened it finishes — the garbage collector would never reap it, so a
+  # long-lived worker would accumulate orphans.
+  test "releases the bridge once the generation finishes" do
+    with_bridge do |bridge|
+      closes = track_close(bridge)
+
+      # A local, because `define_singleton_method` runs its block with the
+      # provider as `self`, so the test's own helpers are out of scope there.
+      response = response_double
+
+      subject = provider(DeepSeekProvider, mcps: URL_SERVER)
+      subject.define_singleton_method(:resolve_prompt) { response }
+
+      subject.prompt
+
+      assert_equal 1, closes.size, "the connections must be closed, not left to the garbage collector"
+      assert_nil subject.send(:mcp_bridge)
+    end
+  end
+
+  test "releases the bridge when the generation raises" do
+    with_bridge do |bridge|
+      closes = track_close(bridge)
+
+      subject = provider(DeepSeekProvider, mcps: URL_SERVER)
+      subject.define_singleton_method(:resolve_prompt) { raise "the provider exploded" }
+
+      error = assert_raises(RuntimeError) { subject.prompt }
+
+      assert_equal "the provider exploded", error.message
+      assert_equal 1, closes.size, "a failed generation must not leave its connections open"
+    end
+  end
+
+  test "releases an earlier bridge when a later call on the same provider replaces it" do
+    with_bridge do |bridge|
+      closes = track_close(bridge)
+
+      subject = provider(DeepSeekProvider, mcps: URL_SERVER)
+      subject.send(:prompt_context)
+      subject.send(:prompt_context)
+
+      assert_equal 1, closes.size, "the first bridge must be released when the second replaces it"
+    end
+  end
+
   private
 
   # Builds a provider whose `mcps:` partitioning is then exercised directly. No
@@ -165,17 +213,41 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
   end
 
   # Replaces the bridge the provider builds with one whose `connect` is stubbed,
-  # so no transport is opened.
-  def with_bridge(&)
+  # so no transport is opened. The stand-in is yielded, so a test can watch what
+  # a generation does to it.
+  def with_bridge(&test)
     client = FakeClient.new
 
     bridge = ActiveAgent::Providers::MCPBridge.new(URL_SERVER)
     bridge.define_singleton_method(:connect) do |declaration|
-      ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+      server = ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+
+      instance_variable_get(:@servers) << server
+      server
     end
 
     # A lambda, not the bridge itself: Minitest's `stub` calls a value that
     # responds to `call`, and the bridge has a public `call` method of its own.
-    ActiveAgent::Providers::MCPBridge.stub(:new, ->(*) { bridge }, &)
+    ActiveAgent::Providers::MCPBridge.stub(:new, ->(*) { bridge }) { test.call(bridge) }
+  end
+
+  # Replaces the bridge's `close` with a recorder. The stubbed `connect` opens no
+  # transport, so the real `close` would have nothing to act on.
+  #
+  # @return [Array] appended to once per close
+  def track_close(bridge)
+    closes = []
+    bridge.define_singleton_method(:close) do
+      closes << :closed
+      nil
+    end
+
+    closes
+  end
+
+  # A real response, not a stub: the instrumentation path reads `usage`,
+  # `finish_reason`, `model` and `id` straight off it.
+  def response_double
+    ActiveAgent::Providers::Common::PromptResponse.new(raw_response: {})
   end
 end

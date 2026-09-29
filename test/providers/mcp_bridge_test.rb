@@ -15,12 +15,13 @@ class MCPBridgeTest < ActiveSupport::TestCase
   # does — an earlier version of this fake returned the tool result directly and
   # hid a bug that only a live server exposed.
   class FakeClient
-    attr_reader :calls
+    attr_reader :calls, :transport
 
-    def initialize(tools: [], results: {})
-      @tools   = tools
-      @results = results
-      @calls   = []
+    def initialize(tools: [], results: {}, transport: nil)
+      @tools     = tools
+      @results   = results
+      @transport = transport
+      @calls     = []
     end
 
     def tools = @tools
@@ -31,6 +32,24 @@ class MCPBridgeTest < ActiveSupport::TestCase
       result = @results.fetch(name) { { "content" => [ { "type" => "text", "text" => "#{name} answered" } ] } }
 
       { "jsonrpc" => "2.0", "id" => 1, "result" => result }
+    end
+  end
+
+  # Stands in for a transport, which is where `close` lives: the client wrapper
+  # exposes none of its own, so a bridge that closed the client rather than its
+  # transport would leak every server it ever connected to.
+  class FakeTransport
+    attr_reader :closes
+
+    def initialize(raise_on_close: false)
+      @closes         = 0
+      @raise_on_close = raise_on_close
+    end
+
+    def close
+      @closes += 1
+
+      raise "the server refused to shut down" if @raise_on_close
     end
   end
 
@@ -207,13 +226,47 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_not bridge.owns?("two")
   end
 
-  test "takes the server name from the url when none is given" do
+  test "takes the server name from the url's host when none is given" do
     bridge = build_bridge(
       { url: "https://alpha.test/mcp" },
-      { "https://alpha.test/mcp" => FakeClient.new(tools: [ tool("one") ]) }
+      { "alpha.test" => FakeClient.new(tools: [ tool("one") ]) }
     )
 
     assert_equal %w[one], bridge.tools.pluck(:name)
+  end
+
+  # An MCP endpoint usually carries its key in the path, and this name reaches
+  # error messages — which reach log aggregators and error trackers.
+  test "keeps a url's path, which may carry the key, out of the derived name" do
+    bridge = ActiveAgent::Providers::MCPBridge.new(nil)
+    name   = bridge.send(:normalize, { url: "https://mcp.example.com/sk-live-secret/v2/mcp" })[:name]
+
+    assert_equal "mcp.example.com", name
+    assert_not_includes name, "sk-live-secret"
+  end
+
+  test "names a command declaration by the executable it runs" do
+    bridge = ActiveAgent::Providers::MCPBridge.new(nil)
+
+    assert_equal "command: mcp-server", bridge.send(:normalize, { command: "/opt/bin/mcp-server" })[:name]
+  end
+
+  test "falls back to a placeholder when it cannot derive a name" do
+    bridge = ActiveAgent::Providers::MCPBridge.new(nil)
+
+    assert_equal "unnamed server", bridge.send(:normalize, { url: "not a url" })[:name]
+  end
+
+  test "does not leak a key from a nameless url into a collision error" do
+    bridge = build_bridge(
+      [ { url: "https://alpha.test/sk-live-secret/mcp" }, { url: "https://alpha.test/sk-other-secret/mcp" } ],
+      { "alpha.test" => FakeClient.new(tools: [ tool("one") ]) }
+    )
+
+    error = assert_raises(ActiveAgent::Providers::MCPBridge::DuplicateToolError) { bridge.tools }
+
+    assert_not_includes error.message, "sk-live-secret"
+    assert_not_includes error.message, "sk-other-secret"
   end
 
   test "requires each declaration to be a Hash" do
@@ -249,6 +302,120 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_includes error.message, "`url:` or a `command:`"
   end
 
+  # A stdio read blocks forever without a timeout, so a server that accepts a
+  # request and never answers would hold the generation open until the worker is
+  # restarted. The gem exposes no reader for this, and an unbounded read is the
+  # failure being guarded against, so reaching in is the only way to assert it.
+  test "bounds the stdio read so a silent server cannot block the generation" do
+    bridge    = ActiveAgent::Providers::MCPBridge.new(nil)
+    transport = bridge.send(:transport_for, { command: "mcp-server" })
+
+    assert_equal ActiveAgent::Providers::MCPBridge::DEFAULT_READ_TIMEOUT,
+                 transport.instance_variable_get(:@read_timeout)
+  end
+
+  test "honours a declared read timeout" do
+    bridge = ActiveAgent::Providers::MCPBridge.new(nil)
+
+    assert_equal 2, bridge.send(:read_timeout_for, { read_timeout: 2 })
+  end
+
+  test "refuses a read timeout that would lift the bound entirely" do
+    bridge = ActiveAgent::Providers::MCPBridge.new(nil)
+
+    error = assert_raises(ArgumentError) { bridge.send(:read_timeout_for, { read_timeout: 0 }) }
+
+    assert_includes error.message, "positive number"
+  end
+
+  test "gives each schema-less tool its own schema object" do
+    bridge = build_bridge(
+      { name: "alpha", url: "https://alpha.test/mcp" },
+      { "alpha" => FakeClient.new(tools: [ tool("one", input_schema: nil), tool("two", input_schema: nil) ]) }
+    )
+
+    first, second = bridge.tools.map { |converted| converted[:parameters] }
+
+    assert_equal({ type: "object", properties: {} }, first)
+    assert_not_same first, second, "one shared schema would let a transform corrupt every other tool"
+  end
+
+  test "keeps the shared empty schema frozen so it cannot be corrupted" do
+    assert_predicate ActiveAgent::Providers::MCPBridge::EMPTY_SCHEMA, :frozen?
+  end
+
+  test "closes every transport it opened" do
+    alpha = FakeTransport.new
+    beta  = FakeTransport.new
+
+    bridge = build_bridge(
+      [ { name: "alpha", url: "https://alpha.test/mcp" }, { name: "beta", url: "https://beta.test/mcp" } ],
+      { "alpha" => FakeClient.new(tools: [ tool("one") ], transport: alpha),
+        "beta"  => FakeClient.new(tools: [ tool("two") ], transport: beta) }
+    )
+
+    bridge.tools
+    bridge.close
+
+    assert_equal 1, alpha.closes
+    assert_equal 1, beta.closes
+  end
+
+  test "closes a server it reached even when a later one fails to connect" do
+    alpha = FakeTransport.new
+
+    bridge = build_bridge(
+      [ { name: "alpha", url: "https://alpha.test/mcp" }, { name: "beta", url: "https://beta.test/mcp" } ],
+      # `beta` is absent, so connecting to it raises part-way through discovery.
+      { "alpha" => FakeClient.new(tools: [ tool("one") ], transport: alpha) }
+    )
+
+    assert_raises(KeyError) { bridge.tools }
+
+    bridge.close
+
+    assert_equal 1, alpha.closes, "a half-finished discovery must still reap what it opened"
+  end
+
+  test "can be closed twice without closing a transport twice" do
+    alpha = FakeTransport.new
+
+    bridge = build_bridge(
+      { name: "alpha", url: "https://alpha.test/mcp" },
+      { "alpha" => FakeClient.new(tools: [ tool("one") ], transport: alpha) }
+    )
+
+    bridge.tools
+    2.times { bridge.close }
+
+    assert_equal 1, alpha.closes
+  end
+
+  test "does not raise when a server refuses to shut down" do
+    bridge = build_bridge(
+      { name: "alpha", url: "https://alpha.test/mcp" },
+      { "alpha" => FakeClient.new(tools: [ tool("one") ], transport: FakeTransport.new(raise_on_close: true)) }
+    )
+
+    bridge.tools
+
+    assert_nil bridge.close, "a teardown failure must not replace the error the generation was carrying"
+  end
+
+  test "rediscovers after being closed rather than handing back stale clients" do
+    bridge = build_bridge(
+      { name: "alpha", url: "https://alpha.test/mcp" },
+      { "alpha" => FakeClient.new(tools: [ tool("one") ]) }
+    )
+
+    assert_equal %w[one], bridge.tools.pluck(:name)
+
+    bridge.close
+
+    assert_equal %w[one], bridge.tools.pluck(:name)
+    assert bridge.owns?("one"), "the rediscovers must restore ownership, not just the tool list"
+  end
+
   test "sends an authorization token as a bearer header" do
     bridge = ActiveAgent::Providers::MCPBridge.new([ { url: "https://alpha.test/mcp" } ])
 
@@ -265,13 +432,18 @@ class MCPBridgeTest < ActiveSupport::TestCase
 
   # Builds a bridge whose `connect` returns a stand-in client, so no transport is
   # opened and no server is needed.
+  #
+  # The stub mirrors the real `connect` in recording the server it reaches, so
+  # `close` sees the same set of connections it would in production.
   def build_bridge(declarations, clients_by_name)
     bridge = ActiveAgent::Providers::MCPBridge.new(declarations)
 
     bridge.define_singleton_method(:connect) do |declaration|
       client = clients_by_name.fetch(declaration[:name])
+      server = ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
 
-      ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+      instance_variable_get(:@servers) << server
+      server
     end
 
     bridge

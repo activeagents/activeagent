@@ -26,9 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the choice explicit where it matters — `:auto` (the default) defers to the
   provider, `:client` always runs the servers, and `:server` requires the provider
   to and raises naming what it can serve. Two tools sharing a name are refused
-  rather than resolved, since the model cannot say which it meant. Needs
-  `gem "mcp"`, loaded only when a bridge is built, so the dependency stays
-  optional for everyone else.
+  rather than resolved, since the model cannot say which it meant. Connections
+  are released when the generation ends, including when it raises, because a
+  `command:` server is a process and one left running outlives the agent that
+  spawned it; `read_timeout:` (30 seconds by default) bounds how long a stdio
+  server may take to answer, since an unbounded read would otherwise let a
+  silent server hold the generation open. A server named after its host rather
+  than its whole URL, so a key embedded in an MCP endpoint cannot reach an error
+  message. Needs `gem "mcp"`, loaded only when a bridge is built, so the
+  dependency stays optional for everyone else.
 
 - **A DeepSeek provider** (`activeagent`). `generate_with :deepseek` talks to
   DeepSeek's OpenAI-compatible endpoint with `deepseek-flash` as the default

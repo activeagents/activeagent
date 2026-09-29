@@ -39,19 +39,26 @@ A server is reached either over HTTP (`url:`) or by running a local process that
 ```ruby
 # Remote server, over HTTP
 {
-  name: "server_name",        # Required: server identifier
+  name: "server_name",        # Optional: server identifier, defaults to the host
   url: "https://server.url",  # Required: MCP endpoint
   authorization: "token"      # Optional: auth token
 }
 
 # Local server, over stdio
 {
-  name: "server_name",             # Required: server identifier
+  name: "server_name",             # Optional: server identifier, defaults to the command
   command: "mcp-server-files",     # Required: executable to run
   args: [ "--root", "/tmp" ],      # Optional: arguments
-  env: { "TOKEN" => "secret" }     # Optional: environment
+  env: { "TOKEN" => "secret" },    # Optional: environment
+  read_timeout: 10                 # Optional: seconds to wait for an answer
 }
 ```
+
+`name:` is optional, and the host is used when it is missing. Give one anyway if you declare two servers on the same host, so a name collision can be told apart from a tool collision.
+
+`read_timeout:` bounds how long a `command:` server may take to answer, and defaults to 30 seconds. A stdio read has no bound of its own, so a server that accepts a request and never replies would otherwise hold the generation open indefinitely. For a `url:` server, `max_reconnection_wait:` passes through to the HTTP transport.
+
+Connections are opened when the generation starts and released when it ends, including when it raises — a `command:` server is a process, and one left running would outlive the agent that spawned it.
 
 ### Single Server
 

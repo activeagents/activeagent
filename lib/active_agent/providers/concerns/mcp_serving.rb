@@ -57,11 +57,30 @@ module ActiveAgent
 
         parameters = parameters.merge(mcps: native) if native.any?
 
+        # Release a bridge left by an earlier call on this instance before this
+        # one replaces the field, or its connections outlive the generation that
+        # opened them.
+        mcp_release_bridge!
         self.mcp_bridge = bridged.any? ? MCPBridge.new(bridged) : nil
 
         return parameters if mcp_bridge.nil?
 
         parameters.merge(tools: mcp_bridge.merge_tools(parameters[:tools]))
+      end
+
+      # Closes the bridge's server connections, if one was built.
+      #
+      # A bridged server holds a live connection, and for a `command:` server
+      # that connection is a process. It has to be released when the generation
+      # that opened it finishes — the garbage collector would never reap it, so
+      # a long-lived worker would accumulate orphans until it ran out of PIDs.
+      #
+      # Safe to call when no bridge was built, and safe to call twice.
+      #
+      # @return [void]
+      def mcp_release_bridge!
+        mcp_bridge&.close
+        self.mcp_bridge = nil
       end
 
       # Request parameters for a preview, keeping only what the provider serves.

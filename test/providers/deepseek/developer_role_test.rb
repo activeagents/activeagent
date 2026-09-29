@@ -59,6 +59,39 @@ class DeepseekDeveloperRoleTest < ActiveSupport::TestCase
     refute_includes serialized_messages(request).pluck(:role), "developer"
   end
 
+  # The messages belong to the caller: the provider keeps the very hash the
+  # prompt was given, so rewriting a role in place would rewrite it for every
+  # other provider that prompt reaches, and for every reuse of the context.
+  test "does not rewrite the caller's own messages" do
+    messages = [ { role: "developer", content: "Be terse." } ]
+
+    build_request(messages:)
+
+    assert_equal [ { role: "developer", content: "Be terse." } ], messages
+  end
+
+  test "does not rewrite the caller's own instructions" do
+    instructions = [ "First." ]
+
+    build_request(instructions:)
+
+    assert_equal [ "First." ], instructions
+  end
+
+  # `Array(hash)` splits a lone Hash into pairs, which is not what one message or
+  # one instruction means.
+  test "accepts a single message that is not in an array" do
+    request = build_request(messages: { role: "user", content: "hi" })
+
+    assert_equal [ { role: "user", content: "hi" } ], serialized_messages(request)
+  end
+
+  test "accepts a single instruction that is not in an array" do
+    request = build_request(instructions: "You are terse.")
+
+    assert_equal [ { role: "system", content: "You are terse." } ], serialized_messages(request)
+  end
+
   private
 
   def build_request(**params)

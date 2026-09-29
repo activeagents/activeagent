@@ -188,6 +188,11 @@ module ActiveAgent
 
       # Executes prompt request with error handling and instrumentation.
       #
+      # The generation is wrapped so that a client-side MCP bridge is released
+      # however it ends. A bridged server holds a live connection — for a
+      # `command:` server, a process — and the tool loop that uses it finishes
+      # here, inside `resolve_prompt`, streaming included.
+      #
       # @return [ActiveAgent::Providers::Common::PromptResponse]
       def prompt
         self.request = prompt_request_type.cast(prompt_context.except(:trace_id))
@@ -198,6 +203,8 @@ module ActiveAgent
 
           response
         end
+      ensure
+        mcp_release_bridge!
       end
 
       # Executes embedding request with error handling and instrumentation.

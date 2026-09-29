@@ -70,18 +70,49 @@ module ActiveAgent
               # merges consecutive same-role messages into a single message
               # with content parts, which DeepSeek accepts — unlike `developer`,
               # the part that actually fails.
-              params[:messages] = Array(params.delete(:instructions)).map { |text| { role: "system", content: text } } +
-                                  Array(params[:messages] || [])
+              params[:messages] = wrap(params.delete(:instructions)).map { |text| { role: "system", content: text } } +
+                                  wrap(params[:messages])
             end
 
-            Array(params[:messages]).each do |message|
-              next unless message.is_a?(Hash)
+            messages = wrap(params[:messages])
+            return if messages.empty?
 
-              key = message.key?(:role) ? :role : (message.key?("role") ? "role" : nil)
-              next unless key && message[key].to_s == "developer"
+            params[:messages] = messages.map do |message|
+              next message unless message.is_a?(Hash)
 
-              message[key] = "system"
+              key = role_key(message)
+              next message unless key && message[key].to_s == "developer"
+
+              # A copy: the messages are the caller's own hashes — the provider
+              # keeps the very `context` the prompt was given — so rewriting one
+              # in place would rewrite it for every other provider that prompt
+              # reaches, and for every later reuse of the same context.
+              message.dup.tap { |copy| copy[key] = "system" }
             end
+          end
+
+          # Wraps a value that may be a single item, a list, or absent.
+          #
+          # `Array(hash)` splits a lone Hash into pairs, which is not what a
+          # single message or instruction means.
+          #
+          # @param value [Object, Array, nil]
+          # @return [Array]
+          def wrap(value)
+            return [] if value.nil?
+            return [ value ] if value.is_a?(Hash)
+
+            Array(value)
+          end
+
+          # @param message [Hash]
+          # @return [Symbol, String, nil] whichever key the message spells its
+          #   role with, since a caller may use either
+          def role_key(message)
+            return :role if message.key?(:role)
+            return "role" if message.key?("role")
+
+            nil
           end
         end
       end
