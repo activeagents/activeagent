@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A DeepSeek provider** (`activeagent`). `generate_with :deepseek` talks to
+  DeepSeek's OpenAI-compatible endpoint with `deepseek-flash` as the default
+  model, so JSON output and tool calling come from the API rather than being
+  emulated, and `api_key` falls back to `DEEPSEEK_API_KEY`. Thinking mode is
+  turned **off** by default: DeepSeek enables it unless asked otherwise and bills
+  the reasoning whether or not the answer needed it — a one-line JSON extraction
+  measured 83 output tokens with thinking at its default against 7 with it
+  disabled. Opt in per prompt with `thinking: { type: "enabled" }`, which is also
+  what re-enables `temperature`, `presence_penalty` and `frequency_penalty`, all
+  of which DeepSeek ignores while thinking.
+
 - **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
   Provider API Keys gains a **Test connection** for Ollama that reports
   whether the server is reachable, the round-trip time and the models it
