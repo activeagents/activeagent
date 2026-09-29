@@ -41,7 +41,7 @@ bundle add openai  # OpenRouter uses OpenAI-compatible API
 ```
 
 ```bash [RubyLLM]
-bundle add ruby_llm  # Unified API for 15+ providers
+bundle add ruby_llm --version "~> 1.0"  # Unified API for 15+ providers
 ```
 
 :::

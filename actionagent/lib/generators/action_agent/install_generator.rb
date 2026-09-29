@@ -102,11 +102,21 @@ module ActionAgent
       # shipped. Emitted after them, so on a fresh install it runs once the
       # table exists, finds the columns the create-table migration made, and
       # changes nothing.
-      return if existing_migration?("add_evaluation_report_identity")
+      unless existing_migration?("add_evaluation_report_identity")
+        migration_template(
+          "add_evaluation_report_identity.rb.erb",
+          "db/migrate/add_evaluation_report_identity.rb"
+        )
+      end
+
+      # A remote Ollama's optional API key arrived after the dashboard tables
+      # shipped. Guarded, so on a fresh install it finds the column the
+      # create-table migration made and changes nothing.
+      return if existing_migration?("add_provider_key_api_key")
 
       migration_template(
-        "add_evaluation_report_identity.rb.erb",
-        "db/migrate/add_evaluation_report_identity.rb"
+        "add_provider_key_api_key.rb.erb",
+        "db/migrate/add_provider_key_api_key.rb"
       )
     end
 

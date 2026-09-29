@@ -167,4 +167,12 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
     assert_equal [ "history" ], scenario.expected_tools
     assert_equal({ "tools" => [ "history" ] }, scenario.expectations)
   end
+
+  def test_a_nested_expectation_written_as_one_value_is_a_list_of_one
+    parsed = ActiveAgent::Evals::ScenarioParser.parse([ { key: "refund", prompt: "Can I get a refund?", expectations: { contains: "30", not_contains: "yes, we price" } } ].to_json)
+
+    assert_equal 1, parsed.size
+    assert_equal({ "contains" => [ "30" ], "not_contains" => [ "yes, we price" ] }, parsed.first["expectations"])
+    assert_equal [ "30" ], ActiveAgent::Evals::ScenarioParser.scenarios([ { prompt: "Can I get a refund?", expect: { contains: "30" } } ].to_json).first.expected_patterns
+  end
 end

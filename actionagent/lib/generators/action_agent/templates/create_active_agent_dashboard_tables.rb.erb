@@ -326,6 +326,8 @@ class CreateActiveAgentDashboardTables < ActiveRecord::Migration<%= migration_ve
     create_table "#{prefix}provider_keys" do |t|
       t.string :provider, null: false
       t.string :credential, null: false
+      # Optional Bearer key for a host-based provider (remote Ollama).
+      t.string :api_key
       t.bigint :user_id
       t.bigint :account_id
       t.timestamps

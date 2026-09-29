@@ -148,7 +148,11 @@ ActionAgent::Engine.routes.draw do
     # Credentials: dashboard API keys (token shown once on create) and the
     # owner's own LLM provider credentials, both encrypted at rest.
     resources :api_keys, only: [ :index, :create, :destroy ]
-    resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider
+    resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider do
+      # Reachability + model list for host-based providers (Ollama), for a
+      # submitted or the stored host. Read-only.
+      post :test, on: :collection
+    end
 
     # Model catalogs for the agent builder (Ollama queried live from the
     # configured host; hosted providers curated).

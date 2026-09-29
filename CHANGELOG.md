@@ -7,21 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-09-26
+
+Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release:
+Ollama hosts in Settings can be tested and can be remote, with an optional
+Bearer API key; comparison runs lead with a per-model table and filter the
+fix list by model; and a scenario expectation written as one value imports
+as a list. Run the install generator after upgrading to add
+`provider_keys.api_key`.
+
 ### Added
 
-- `ActiveAgent::Evals::Publisher#verify!` asks the collector whether it is up
+- **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
+  Provider API Keys gains a **Test connection** for Ollama that reports
+  whether the server is reachable, the round-trip time and the models it
+  serves, before or after saving (`POST <mount>/api/provider_keys/test`,
+  read-only). The host is accepted as a bare server address
+  (`http://localhost:11434`; the OpenAI-compatible `/v1` path is added) and
+  an optional **API key** is stored beside it and sent as a Bearer token,
+  for a server behind an authenticating proxy or Ollama Cloud. The agent
+  builder's live Ollama model list uses the same probe and key. When no host
+  is configured the card shows the host app's `config/active_agent.yml`
+  default. The install generator emits a guarded `add_provider_key_api_key`
+  migration for existing installs; re-run
+  `bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`.
+- **A model comparison table on comparison runs** (`actionagent`,
+  `activeagent`). A run over several models now leads its Models section
+  with one row per model, best first: passed, mean score, average latency,
+  average tokens per scenario, cost (and per scenario), and the model's
+  typical fault — its most frequent one with the diagnosis of a result that
+  carries it. The scenario suite panel, the sampling run detail and the
+  standalone HTML report (`ActiveAgent::Evals::ReportHtml`) all render it.
+- **What to fix, filtered by model** (`actionagent`, `activeagent`). On a
+  comparison run the fix list takes a model chip, narrowing to the items
+  attributed to that model and counting what that model alone produced,
+  since one model may need more instruction than another. The standalone
+  report filters through radio chips and stylesheet rules — it still ships
+  no script.
+
+- **A publisher can check its collector before a run** (`activeagent`).
+  `ActiveAgent::Evals::Publisher#verify!` asks the collector whether it is up
   and accepts the key before a run is paid for. It posts an empty JSON object,
   which a compatible collector refuses with a 422 naming `version`, without
   storing anything; anything else raises `Publisher::Error` with a delivery's
-  status, detail and guidance.
-- `ActiveAgent::Evals::Publisher#endpoint` returns the collector URL.
+  status, detail and guidance. `Publisher#endpoint` returns the collector URL.
 
 ### Changed
 
-- A `Publisher::Error` for a 401, 403, 404, 415 or 501 rejection says what the
-  status means at a collector — a refused key, an account an operator must act
-  on, an endpoint that is not a collector, a rewritten `Content-Type`, an
-  install with no evaluation store — in place of the generic guidance.
+- **The RubyLLM provider requires ruby_llm 1.x** (`activeagent`). ruby_llm
+  2.0 renamed the APIs `RubyLLMProvider` calls, and the open `>= 1.0`
+  requirement let `bundle update` install it. The provider now requires
+  `~> 1.0` until it supports 2.0 (#502). Loading it with an unsupported
+  version names the supported range and the loaded version, instead of
+  asking for a gem that is already in the Gemfile. Pin
+  `gem "ruby_llm", "~> 1.0"` if your bundle resolved 2.0.
+- **Collector rejections say what the status means** (`activeagent`). A
+  `Publisher::Error` for a 401, 403, 404, 415 or 501 rejection names a refused
+  key, an account an operator must act on, an endpoint that is not a
+  collector, a rewritten `Content-Type`, or an install with no evaluation
+  store, in place of the generic guidance.
+
+### Fixed
+
+- **Tool calls sent back through the RubyLLM provider** (`activeagent`).
+  After a tool ran, the follow-up request repeated the model's tool call
+  with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI
+  received them JSON-encoded twice, and Anthropic received a string for
+  `tool_use.input`, which its API requires to be an object. The same
+  happened when a stored conversation containing a tool call was replayed.
+  The provider now hands ruby_llm the parsed arguments (#501).
+- **Structured output through the RubyLLM provider** (`activeagent`). A
+  `json_schema` response_format reached ruby_llm unchanged, but ruby_llm
+  reads `{ name:, schema:, strict: }`, so OpenAI received a schema with a
+  null name and body, and the Anthropic request raised inside ruby_llm
+  before it was sent. The provider now converts it, naming the schema
+  `response` and making it strict unless the format says otherwise, as
+  ruby_llm's own `with_schema` does. A `text` format asks for plain text;
+  `json_object`, which ruby_llm has no mode for, and a `json_schema`
+  without a schema now raise `ArgumentError` instead of sending a request
+  the API rejects (#501).
+- **A nested scenario expectation written as one value** (`activeagent`).
+  `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
+  list of one, the shape the persisted scenario and the dashboard's matrix
+  read; an object-list import with a lone value used to break the suite
+  panel. The matrix also tolerates scenarios persisted before this.
 
 ## [1.7.0] - 2026-09-24
 
