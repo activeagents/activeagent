@@ -59,16 +59,20 @@ module ActionAgent
         owned(ProviderKey).find_by(provider: provider)
       end
 
+      # Same probe as Settings -> "Test connection", so the builder's dropdown
+      # and the settings page agree on what the host serves (including the
+      # optional Bearer key for remote servers).
       def live_ollama_models
         host = ollama_host
         return nil unless host
 
-        data = fetch_json(URI.join("#{host.chomp('/')}/", "models"))
-        ids = Array(data&.dig("data")).filter_map { |model| model["id"] }
-        [ ids.sort, "live" ] if ids.any?
-      rescue StandardError => e
-        Rails.logger.warn("[ProviderModels] ollama lookup failed: #{e.message}")
-        nil
+        result = OllamaHostProbe.call(host: host, api_key: owner_provider_key("ollama")&.api_key)
+        unless result.ok
+          Rails.logger.warn("[ProviderModels] ollama lookup failed: #{result.error}")
+          return nil
+        end
+
+        [ result.models, "live" ] if result.models.any?
       end
 
       # Queries the Anthropic Models API with the account's key (newest first,

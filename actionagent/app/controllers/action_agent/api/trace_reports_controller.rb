@@ -16,9 +16,19 @@ module ActionAgent
       DEFAULT_LIMIT = 500
 
       # GET /api/traces
+      #
+      # Params:
+      #   minutes   the window in minutes, DEFAULT_WINDOW_MINUTES when absent
+      #   agent_id  an agent the caller can see. Everything in the response,
+      #             `agents` and `agent_ids` included, is narrowed to that
+      #             agent's traces (Agent#telemetry_traces). 404 for an agent
+      #             the caller cannot see.
+      #   agent     an agent_class, narrowing `traces` only
+      #   service   a service_name, narrowing `traces` only
+      #   status    "error" for failed traces only
       def index
         window = params.fetch(:minutes, DEFAULT_WINDOW_MINUTES).to_i.clamp(1, MAX_WINDOW_MINUTES)
-        window_scope = traces_scope.for_date_range(window.minutes.ago, Time.current)
+        window_scope = agent_scope(traces_scope).for_date_range(window.minutes.ago, Time.current)
 
         scope = window_scope
         scope = scope.for_agent(params[:agent]) if params[:agent].present?
@@ -52,6 +62,15 @@ module ActionAgent
 
       def traces_scope
         ActionAgent.trace_model.for_account(current_account)
+      end
+
+      # +scope+ narrowed to the traces of the agent `agent_id` names, looked
+      # up among the agents the caller can see.
+      def agent_scope(scope)
+        agent_id = integer_param(:agent_id)
+        return scope unless agent_id
+
+        owner_agents.find(agent_id).telemetry_traces(scope)
       end
 
       # One grouped query. A class can appear under several agent records

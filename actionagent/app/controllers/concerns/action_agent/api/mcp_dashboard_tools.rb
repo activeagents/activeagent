@@ -494,7 +494,7 @@ module ActionAgent
       def dashboard_tool_secrets
         @dashboard_tool_secrets ||= [
           @api_key&.token,
-          *owned(ProviderKey).limit(SECRET_LOOKUP_LIMIT).pluck(:credential),
+          *owned(ProviderKey).limit(SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
           *owned(GithubConnection).limit(SECRET_LOOKUP_LIMIT).pluck(:access_token),
           *owned(SandboxSession).where.not(runtime_mcp_token: nil).order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:runtime_mcp_token)
         ].compact

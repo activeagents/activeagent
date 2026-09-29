@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 11) do
+ActiveRecord::Schema[8.0].define(version: 13) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -228,6 +228,9 @@ ActiveRecord::Schema[8.0].define(version: 11) do
     t.datetime "created_at", null: false
     t.text "error_message"
     t.bigint "evaluation_id", null: false
+    t.string "external_report_digest"
+    t.string "external_run_id"
+    t.string "external_tenant"
     t.integer "samples_evaluated", default: 0
     t.integer "samples_passed", default: 0
     t.json "scores", default: {}
@@ -235,6 +238,7 @@ ActiveRecord::Schema[8.0].define(version: 11) do
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index [ "evaluation_id" ], name: "index_active_agent_evaluation_runs_on_evaluation_id"
+    t.index [ "external_tenant", "external_run_id" ], name: "index_active_agent_evaluation_runs_on_external_identity", unique: true
   end
 
   create_table "active_agent_evaluation_scenario_results", force: :cascade do |t|
@@ -308,6 +312,7 @@ ActiveRecord::Schema[8.0].define(version: 11) do
 
   create_table "active_agent_provider_keys", force: :cascade do |t|
     t.bigint "account_id"
+    t.string "api_key"
     t.datetime "created_at", null: false
     t.string "credential", null: false
     t.string "provider", null: false

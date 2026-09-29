@@ -247,6 +247,18 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_equal 0, failed["results_omitted"]
   end
 
+  test "a remote Ollama host's API key is masked like the other credentials" do
+    ActionAgent::ProviderKey.delete_all
+    ollama_key = "ollama_bearer_dashboard_tools_s3cret"
+    ActionAgent::ProviderKey.create!(provider: "ollama", credential: "http://ollama.internal:11434", api_key: ollama_key)
+    completed_run(output: "Order ABC-123 shipped. debug: #{ollama_key}")
+
+    result = structured(call_tool("evaluation_runs_get", { evaluation_id: @suite.id }))
+
+    assert_includes result["results"].find { |entry| entry["model"] == "mock/alpha" }["output"], ActionAgent::SecretScrubber::MASK
+    assert_not_includes response.body, ollama_key
+  end
+
   test "evaluation_runs_get pages results by limit and counts the rest" do
     run = @suite.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     scenario = @suite.scenarios.sole

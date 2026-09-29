@@ -27,6 +27,11 @@ ActionAgent::Engine.routes.draw do
     # Authenticated with a bearer token, not a session.
     resources :traces, only: [ :create ]
 
+    # The collector for evaluation reports an application ran itself
+    # (ActiveAgent::Evals::Publisher), at <mount>/api/evaluation_reports.
+    # Authenticated like trace ingest, with a bearer token.
+    resources :evaluation_reports, only: [ :create ]
+
     # A JSON API has no :new or :edit forms to serve.
     resources :agents, except: [ :new, :edit ] do
       member do
@@ -149,7 +154,11 @@ ActionAgent::Engine.routes.draw do
     # Credentials: dashboard API keys (token shown once on create) and the
     # owner's own LLM provider credentials, both encrypted at rest.
     resources :api_keys, only: [ :index, :create, :destroy ]
-    resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider
+    resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider do
+      # Reachability + model list for host-based providers (Ollama), for a
+      # submitted or the stored host. Read-only.
+      post :test, on: :collection
+    end
 
     # The owner's GitHub connection: the OAuth web flow (connect redirects to
     # GitHub, which returns to callback) and the repositories it makes

@@ -438,6 +438,151 @@ export const samplingFixItems = (evaluation, run) => {
   return items;
 };
 
+// --- model comparison table ---------------------------------------------------
+
+// The fault taxonomy renders lower-case with spaces.
+const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
+
+// One row per model cohort for the comparison table: passed/total, mean
+// score, average latency, average tokens per interaction, cost, and the
+// model's typical fault — its most frequent one, with the diagnosis of the
+// first result that carries it so the row says what went wrong, not only
+// how often. Rows are ordered best first (pass rate, then mean score), the
+// order a verdict is argued in. Cohort figures come from the run's recorded
+// summaries (`_models` / `_cohorts`); while a scenario run is still scoring,
+// passed and faults are counted from the results that have landed.
+//
+// `labelFor(result)` maps a result to its column label (the suite panel's
+// labelForResult); it defaults to the result's model name.
+export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labelFor = (r) => r?.model, columns = null } = {}) => {
+  const cohorts = runCohorts(run);
+  const byLabel = new Map(cohorts.map((cohort) => [cohort.label, cohort]));
+  const labels = columns && columns.length ? columns : cohorts.map((cohort) => cohort.label);
+  const winner = run?.scores?._verdict?.winner || null;
+
+  const rows = labels.map((label) => {
+    const cohort = byLabel.get(label) || {};
+    const mine = results.filter((result) => labelFor(result) === label);
+    const settled = mine.filter((result) => result?.status && result.status !== 'pending');
+    const total = cohort.samples ?? (scenarioCount || mine.length || null);
+    const passed = cohort.passed ?? settled.filter((result) => result.status === 'passed').length;
+    const faultTally = Object.keys(cohort.faults || {}).length
+      ? cohort.faults
+      : settled.reduce((tally, result) => (result.fault ? { ...tally, [result.fault]: (tally[result.fault] || 0) + 1 } : tally), {});
+    // Most frequent first; between equals, the fault a landed result can
+    // explain (so the row shows a diagnosis), then a specific fault over the
+    // judge's catch-all "low_quality", then the name.
+    const exampleOf = (fault) => mine.find((result) => result.fault === fault) || null;
+    const catchAll = (fault) => (fault === 'low_quality' ? 1 : 0);
+    const faults = Object.entries(faultTally).sort((a, b) =>
+      b[1] - a[1] || (exampleOf(b[0]) ? 1 : 0) - (exampleOf(a[0]) ? 1 : 0) || catchAll(a[0]) - catchAll(b[0]) || a[0].localeCompare(b[0]));
+    const [topFault, topCount] = faults[0] || [];
+    const example = topFault ? exampleOf(topFault) : null;
+    const divisor = total || null;
+    const perInteraction = (value) => (value == null || !divisor ? null : value / divisor);
+    const avgScore = cohort.avg_score ?? (settled.length && settled.some((r) => r.score != null)
+      ? settled.filter((r) => r.score != null).reduce((sum, r) => sum + Number(r.score), 0) / settled.filter((r) => r.score != null).length
+      : null);
+
+    return {
+      label,
+      model: cohort.model || label,
+      provider: cohort.provider || null,
+      winner: winner === label,
+      passed,
+      total,
+      // How many interactions have a score behind them: the cohort once the
+      // run recorded it, else the results that have settled so far.
+      scored: cohort.samples ?? settled.length,
+      passRate: total ? passed / total : null,
+      avgScore: avgScore == null ? null : Number(avgScore),
+      avgDurationMs: cohort.avg_duration_ms ?? null,
+      inputTokens: cohort.input_tokens ?? null,
+      outputTokens: cohort.output_tokens ?? null,
+      avgInputTokens: perInteraction(cohort.input_tokens),
+      avgOutputTokens: perInteraction(cohort.output_tokens),
+      avgTokens: cohort.input_tokens == null && cohort.output_tokens == null
+        ? null
+        : perInteraction((cohort.input_tokens || 0) + (cohort.output_tokens || 0)),
+      cost: cohort.cost ?? null,
+      costPerInteraction: perInteraction(cohort.cost),
+      faults: faults.map(([fault, count]) => ({ fault, name: faultWords(fault), count })),
+      typicalFault: topFault
+        ? {
+            fault: topFault,
+            name: faultWords(topFault),
+            count: topCount,
+            scenarioKey: example?.scenario_key || null,
+            summary: (example?.diagnosis?.summary || example?.recommendation || '').toString().trim() || null,
+          }
+        : null,
+    };
+  });
+
+  return rows.sort((a, b) =>
+    (b.passRate ?? -1) - (a.passRate ?? -1)
+    || (b.avgScore ?? -1) - (a.avgScore ?? -1)
+    || labels.indexOf(a.label) - labels.indexOf(b.label));
+};
+
+// The typical-fault cell as one line: "missing content ×2 · late_refund:
+// The answer is missing expected content: credit." — or "no faults" when
+// the cohort cleared everything, "—" before anything has been scored.
+export const typicalFaultText = (row, { max = 120 } = {}) => {
+  if (!row) return '—';
+  if (!row.typicalFault) return row.scored ? 'no faults' : '—';
+  const { name, count, scenarioKey, summary } = row.typicalFault;
+  const head = `${name} ×${count}`;
+  if (!summary) return head;
+  const detail = scenarioKey ? `${scenarioKey}: ${summary}` : summary;
+  return `${head} · ${truncate(detail, max)}`;
+};
+
+// Attributes each fix item per model from the results: how many of that
+// model's results carry the item's fault and which scenarios, so a list
+// filtered to one model counts what that model needs fixed rather than the
+// whole run. Instruction items are attributed by the scenarios the judge
+// suggested them for. `labelFor(result)` maps a result to its column.
+export const withModelBreakdown = (items = [], results = [], labelFor = (r) => r?.model) =>
+  items.map((item) => {
+    const mine = item.kind === 'instruction'
+      ? results.filter((r) => (item.scenario_keys || []).includes(r?.scenario_key) && r?.fault)
+      : results.filter((r) => r?.fault === item.fault);
+    if (!mine.length) return item;
+    const count_by_model = {};
+    const scenario_keys_by_model = {};
+    mine.forEach((r) => {
+      const label = labelFor(r);
+      if (!label) return;
+      count_by_model[label] = (count_by_model[label] || 0) + 1;
+      scenario_keys_by_model[label] = [...new Set([...(scenario_keys_by_model[label] || []), r.scenario_key].filter(Boolean))];
+    });
+    return { ...item, count_by_model, scenario_keys_by_model };
+  });
+
+// The fix items that concern one model cohort: those the runner attributed
+// to it, and any it attributed to nobody (an older run without `models`).
+// `label` null or "all" keeps every item. A filtered item is re-scoped to
+// that model — its count and scenarios become the model's own when a
+// breakdown is present (withModelBreakdown), and its "n models" reads for
+// the filter, not the whole run.
+export const fixItemsForModel = (items = [], label = null) => {
+  if (!label || label === 'all') return items;
+  return items
+    .filter((item) => !Array.isArray(item.models) || item.models.length === 0 || item.models.includes(label))
+    .map((item) => {
+      if (!Array.isArray(item.models) || !item.models.length) return item;
+      const scoped = { ...item, models: [label] };
+      if (item.count_by_model?.[label] != null) scoped.count = item.count_by_model[label];
+      if (item.scenario_keys_by_model?.[label]) scoped.scenario_keys = item.scenario_keys_by_model[label];
+      return scoped;
+    });
+};
+
+// Per-model item counts for the filter chips: { label => items naming it }.
+export const fixItemCountsByModel = (items = [], labels = []) =>
+  Object.fromEntries(labels.map((label) => [label, fixItemsForModel(items, label).length]));
+
 // --- runs against a checkout sandbox ----------------------------------------
 //
 // A scenario run can replay against a checkout sandbox's app runtime without

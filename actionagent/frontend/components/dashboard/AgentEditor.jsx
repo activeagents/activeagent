@@ -155,15 +155,6 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
   const [codePreview, setCodePreview] = useState('');
   const [providerModels, setProviderModels] = useState(FALLBACK_PROVIDER_MODELS);
 
-  // Correlation key between this Agent record and its telemetry traces
-  // (mirrors Agent#telemetry_agent_class for shallow agent objects).
-  const telemetryAgentClass = agent.telemetry_agent_class || agent.telemetryAgentClass ||
-    (() => {
-      const base = agent.agent_class_name || agent.agentClassName ||
-        `${(agent.name || '').replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()).replace(/[^a-zA-Z0-9]/g, '')}`;
-      return base.endsWith('Agent') ? base : `${base}Agent`;
-    })();
-
   // Load the provider's current model catalog. The agent's saved model is
   // always kept selectable even when not in the list (e.g. a locally pulled
   // Ollama model on another machine) so opening the editor can't clobber it.
@@ -323,7 +314,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
         />
       ) : isObservability ? (
         <div>
-          {activeTab === 'traces' && <TracesView agentClass={telemetryAgentClass} embedded />}
+          {activeTab === 'traces' && <TracesView agentId={agent.id} embedded />}
           {activeTab === 'metrics' && <AgentAnalytics agent={agent} embedded />}
           {activeTab === 'interactions' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

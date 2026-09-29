@@ -1,8 +1,9 @@
-import React from 'react';
-import { Badge, Button, Card, Empty, Glyph, MicroLabel, MonoLink, MONO } from './primitives';
+import React, { useState } from 'react';
+import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MonoLink, MONO } from './primitives';
 import { fmtCost, fmtK, fmtMs, fmtScore, splitModelLabel } from '../../utils/format';
-import { RUNS_PAGE, plural, runTotalOf, runsMeta } from '../../utils/evaluationRuns.mjs';
+import { RUNS_PAGE, fixItemCountsByModel, fixItemsForModel, modelComparisonRows, plural, runTotalOf, runsMeta, withModelBreakdown } from '../../utils/evaluationRuns.mjs';
 import ModelScorecard from './evaluations/ModelScorecard';
+import ModelComparisonTable from './evaluations/ModelComparisonTable';
 
 // The panels a scenario suite's expanded body is built from — Models, What
 // to fix, the scenario matrix and a scenario's drill-down — plus the
@@ -18,6 +19,13 @@ export { RUNS_PAGE, plural, runTotalOf, runsMeta };
 // Derivations
 
 const uniq = (list) => [...new Set(list)];
+
+// A scenario's expectation field as a list: older imports persisted a lone
+// value ({ contains: "30" }) where the parser now writes an array.
+const expectList = (scenario, field) => {
+  const value = scenario?.expectations?.[field];
+  return Array.isArray(value) ? value : value == null || value === '' ? [] : [value];
+};
 
 // The fault taxonomy renders lower-case with spaces: expected_tool_not_called
 // → "expected tool not called".
@@ -284,6 +292,14 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
       {columns.length === 0 && (
         <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>[ ] no models scored yet</Empty>
       )}
+      {/* Read across first: one row per model, best first. */}
+      {columns.length > 1 && (
+        <ModelComparisonTable
+          rows={modelComparisonRows(run, { results, scenarioCount, columns, labelFor: (result) => labelForResult(run, result) })}
+          unit="scenario"
+          judgedBy={judgedBy}
+        />
+      )}
       {columns.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
           {columns.map((label) => {
@@ -336,7 +352,18 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
 // ---------------------------------------------------------------------------
 // WHAT TO FIX
 
-export function FixList({ items, columns = [], agentName, onNavigate, onOpenScenario }) {
+export function FixList({ items, columns = [], agentName, onNavigate, onOpenScenario, run = null, results = [] }) {
+  // Which model cohort the list is read for. A fault one model keeps
+  // making is that model's to fix — more instruction, a different tool —
+  // so the list narrows to what the runner attributed to it, counted for
+  // that model alone.
+  const [model, setModel] = useState('all');
+  const filterable = columns.length > 1;
+  const selected = filterable ? model : 'all';
+  const attributed = filterable ? withModelBreakdown(items, results, (result) => labelForResult(run, result)) : items;
+  const visible = fixItemsForModel(attributed, selected);
+  const counts = filterable ? fixItemCountsByModel(attributed, columns) : {};
+
   const scopeFor = (item) => {
     const scenarios = plural((item.scenario_keys || []).length, 'scenario');
     if (item.kind === 'instruction') return `${(item.scenario_keys || []).join(', ')} · judge suggestion`;
@@ -348,8 +375,33 @@ export function FixList({ items, columns = [], agentName, onNavigate, onOpenScen
   };
 
   return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="fix-list">
+      {filterable && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }} data-testid="fix-list-model-filter">
+          <span style={mono(11)}>for</span>
+          <Chip square mono selected={selected === 'all'} onClick={() => setModel('all')} testId="fix-filter-all">{`all models ${items.length}`}</Chip>
+          {columns.map((label) => (
+            <Chip
+              key={label}
+              square
+              mono
+              selected={selected === label}
+              onClick={() => setModel(label)}
+              title={`Only what ${label} needs fixed`}
+              testId="fix-filter-model"
+            >
+              {`${splitModelLabel(label).short} ${counts[label] ?? 0}`}
+            </Chip>
+          ))}
+        </div>
+      )}
+      {visible.length === 0 && (
+        <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px' }}>
+          {`[+] nothing to fix for ${splitModelLabel(selected).short}`}
+        </Empty>
+      )}
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-      {items.map((item, index) => {
+      {visible.map((item, index) => {
         const info = item.kind === 'instruction';
         const tone = info ? 'info' : 'error';
         const tools = [];
@@ -429,6 +481,7 @@ export function FixList({ items, columns = [], agentName, onNavigate, onOpenScen
           </div>
         );
       })}
+    </div>
     </div>
   );
 }
@@ -518,7 +571,7 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
               )}
               {group.rows.map((scenario) => {
                 const open = openKey === scenario.key;
-                const expects = scenario.expectations?.tools || [];
+                const expects = expectList(scenario, 'tools');
                 const inSelection = runKeys.has(scenario.key) || Boolean(resultsByKey[scenario.key]);
                 const disabled = scenario.enabled === false;
                 return (
@@ -543,7 +596,7 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
                         {expects.map((name) => (
                           <span key={name} style={{ fontFamily: MONO, fontSize: 11, padding: '2px 6px', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-text-cell)', whiteSpace: 'nowrap' }}>{name}</span>
                         ))}
-                        {expects.length === 0 && (scenario.expectations?.contains || []).map((pattern) => (
+                        {expects.length === 0 && expectList(scenario, 'contains').map((pattern) => (
                           <span key={`contains-${pattern}`} style={{ fontFamily: MONO, fontSize: 11, padding: '2px 6px', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-text-cell)', whiteSpace: 'nowrap' }} title="the answer must contain this">{`contains: ${pattern}`}</span>
                         ))}
                       </div>
@@ -663,7 +716,7 @@ function ResultCard({ label, run, result, expects, running }) {
 // run skipped offers a replay instead of empty result cards, and a suite with
 // no run at all says so rather than blaming a run that never happened.
 export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, inRun = true, onRerun, onToggleEnabled, canMutate = true }) {
-  const expects = scenario.expectations?.tools || [];
+  const expects = expectList(scenario, 'tools');
   const results = resultsByKey[scenario.key] || {};
   const anyResult = columns.some((label) => results[label]);
   const covered = inRun || anyResult;
