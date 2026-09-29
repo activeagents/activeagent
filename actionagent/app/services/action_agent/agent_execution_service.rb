@@ -399,9 +399,10 @@ module ActionAgent
     # its reply, so agents can delegate to each other as a tool call. The
     # sub-run is a real AgentRun with its own trace.
     # One dispatcher per run, so every tool call shares the MCP sessions the
-    # first call opens.
+    # first call opens. A run given a checkout sandbox (an evaluation or a
+    # runner run against it) reaches that runtime too.
     def mcp_dispatcher
-      @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record)
+      @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record, extra_server_keys: [ @run.try(:sandbox_server_key) ].compact)
     end
 
     # Splits the offered schemas the way `tool_schemas` assembles them, so the

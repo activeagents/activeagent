@@ -112,11 +112,28 @@ module ActionAgent
       # A remote Ollama's optional API key arrived after the dashboard tables
       # shipped. Guarded, so on a fresh install it finds the column the
       # create-table migration made and changes nothing.
-      return if existing_migration?("add_provider_key_api_key")
+      unless existing_migration?("add_provider_key_api_key")
+        migration_template(
+          "add_provider_key_api_key.rb.erb",
+          "db/migrate/add_provider_key_api_key.rb"
+        )
+      end
+
+      # GitHub connections and checkout sandboxes, likewise later than the
+      # dashboard tables.
+      unless existing_migration?("create_active_agent_github_connections")
+        migration_template(
+          "create_active_agent_github_connections.rb.erb",
+          "db/migrate/create_active_agent_github_connections.rb"
+        )
+      end
+
+      # Claude Code sessions inside those checkouts.
+      return if existing_migration?("create_active_agent_code_sessions")
 
       migration_template(
-        "add_provider_key_api_key.rb.erb",
-        "db/migrate/add_provider_key_api_key.rb"
+        "create_active_agent_code_sessions.rb.erb",
+        "db/migrate/create_active_agent_code_sessions.rb"
       )
     end
 

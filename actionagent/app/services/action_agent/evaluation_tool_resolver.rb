@@ -80,6 +80,24 @@ module ActionAgent
       configured_keys.to_a
     end
 
+    # The tools the agent's entry for +key+ allows, or nil when that entry
+    # names none — which offers every tool the server serves. This is the rule
+    # AgentToolRoster#allowed_tools reads for the Tools tab, which saves
+    # {key, name, tools: [...]} when some are switched off and tools: [] when
+    # all are: a later entry for the same key wins, as it does there.
+    #
+    # @param key [String] a server key
+    # @return [Array<String>, nil]
+    def allowed_tools_for(key)
+      entry = configured_entries.select { |candidate| normalize(entry_key(candidate)) == normalize(key) }.last
+      return nil unless entry.respond_to?(:key?)
+
+      names = entry["tools"] || entry[:tools]
+      return nil if names.nil?
+
+      Array(names).filter_map { |tool| (tool.respond_to?(:key?) ? tool["name"] || tool[:name] : tool).to_s.strip.presence }
+    end
+
     private
 
     # The catalog's name when it has one; otherwise the name the agent's

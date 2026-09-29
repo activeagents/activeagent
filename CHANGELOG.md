@@ -16,7 +16,123 @@ fix list by model; and a scenario expectation written as one value imports
 as a list. Run the install generator after upgrading to add
 `provider_keys.api_key`.
 
+Upgrading: the Claude Code connection now stores Anthropic API keys only.
+Anthropic does not let third-party products collect, store or route requests
+through Claude.ai subscription credentials
+([Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance.md)),
+so a `claude setup-token` token (`sk-ant-oat…`) is refused. One stored before
+this change is never handed to a session: its owner sees Claude Code as
+needing an API key (`needs_replacing: true` in `GET /api/provider_keys`)
+until they paste one. Run
+`bin/rails action_agent:claude_code:purge_subscription_tokens` once to delete
+the stored tokens; it prints how many it removed. A developer who wants
+sessions on their own Claude login sets `config.claude_code_auth =
+:local_login` with the `:local` backend and runs `claude /login` on that
+machine instead.
+
 ### Added
+
+- **Evaluation and telemetry tools on the MCP facade** (`actionagent`). The
+  dashboard's MCP server now offers `evaluations_list`, `evaluations_get`,
+  `evaluations_run`, `evaluation_runs_get`, `evaluation_runs_compare`,
+  `traces_search` and `traces_get`, so a developer's own coding harness can
+  run an agent's evaluations, read the fix items and failing traces, and
+  iterate on the agent in its own checkout without the dashboard holding a
+  model login. The tools read under the API key's owner exactly as the JSON
+  API reads under the signed-in owner, run through the same execution,
+  quota and sandbox checks as `POST /api/evaluations/:id/run`, bound their
+  output, and mask the owner's credentials. Their names cannot collide with
+  schema tools or agent tools. `ActionAgent.mcp_dashboard_tools = false`
+  turns them off.
+
+- **Local checkout sandboxes and Claude Code sessions** (`actionagent`, #489).
+  A new `:local` sandbox backend (`config.sandbox_service = :local`) makes
+  **Start sandbox** work on a developer's machine without containers. It
+  clones the repository under `tmp/action_agent/sandboxes`, runs the setup
+  the checkout's optional `.activeagents/sandbox.yml` names (`env`, `setup`,
+  `manifest`, `start`), and boots the app on `127.0.0.1`. It then registers
+  the app's MCP facade as the `sandbox:<session_id>` server. Every process
+  starts from a sanitized copy of the dashboard's environment: without its
+  database and Redis URLs, Rails keys and environment, Bundler and Ruby
+  settings, git repository and config variables, `SSH_AUTH_SOCK`,
+  model-provider and Claude Code settings, variables named like a secret, or
+  URLs carrying credentials. The GitHub token reaches
+  only the fetch, and the Claude Code API key reaches only Claude Code.
+  `:local` runs the owner's code with the dashboard's privileges, so it is off
+  outside development and test unless
+  `ActionAgent.local_sandboxes_enabled = true`.
+  - `bin/rails action_agent:sandbox:manifest` writes the booted app's
+    `{mcp_path, mcp_token}` for the backend.
+  - `bin/rails action_agent:sandbox:reap` expires overdue sandboxes and stops
+    them.
+  - A ready sandbox runs headless Claude Code sessions (`--permission-mode
+    acceptEdits` by default). You start them from Settings -> Integrations, or
+    through `/api/sandboxes/:session_id/code_sessions`. Their events stream
+    into the dashboard, and the checkout's diff follows.
+  - New options: `local_sandboxes_enabled`, `local_sandbox_root`,
+    `local_sandbox_boot_timeout`, `claude_code_command`,
+    `claude_code_permission_mode`, `claude_code_max_turns`,
+    `claude_code_timeout` and `claude_code_auth`.
+  - `claude_code_auth = :local_login` runs sessions on the machine's own
+    Claude Code login (`claude /login`), with no stored key: the backend
+    passes no credential and no `CLAUDE_CONFIG_DIR`, so `claude` uses the
+    dashboard user's own `~/.claude` or keychain, which the dashboard never
+    reads. `LocalSandboxBackend.claude_login_status` asks
+    `claude auth status --json` (cached for a minute) and keeps only
+    `loggedIn` and the login method. `GET /api/sandboxes` reports
+    `claude_code_auth` and, in this mode, `claude_code_login`
+    (`{ logged_in, auth_method }`), and the assistant's
+    `connections.claude_code` the same as `auth` and `login`. Other backends
+    refuse sessions in this mode (`code_sessions_supported: false`, and a
+    `422` naming the reason).
+  - `app_runtime` sandboxes now provision in the background and last 2 hours.
+  - Run `rails g action_agent:install` to add the
+    `create_active_agent_code_sessions` migration.
+  - This repository's own `.activeagents/sandbox.yml` boots `test/dummy`.
+  - Every `:local` sandbox boots on databases of its own, so a checkout of
+    the dashboard's own app no longer migrates the developer's development
+    database. The backend reads the adapter from the checkout's
+    `config/database.yml` without running its ERB, and sets `DATABASE_URL`
+    and `<NAME>_DATABASE_URL` (`QUEUE_DATABASE_URL`, `CACHE_DATABASE_URL`):
+    SQLite files in the workspace, or `<database>_sandbox_<id>` on
+    PostgreSQL and MySQL, which terminate drops with the checkout's
+    `bin/rails db:drop`. Setting a variable in `sandbox.yml`'s `env`
+    overrides it.
+  - The Claude Code panel has a **Model** select: Claude Code's own
+    default, the `sonnet`, `opus` and `haiku` aliases, or any model id under
+    *Other…*. It remembers the last choice per browser, and each session
+    shows the model it ran on.
+  - A run can use a checkout sandbox without the agent being edited:
+    `sandbox_id` on `POST /api/evaluations/:id/run` (and on the runner's
+    `/api/agents/:id/execute` and `/test`) gives that run's tool dispatcher
+    the sandbox's `sandbox:<session_id>` runtime, as if the agent listed it.
+    The sandbox must be the caller's, a ready `app_runtime` sandbox, and the
+    agent owner's; anything else is a `422`. The run records which sandbox
+    it used (`run.sandbox`), and a scenario suite's **Run against sandbox**
+    select, its Runs list and the run report show it.
+- **Claude Code connection** (`actionagent`, #478). Settings -> Integrations
+  stores an Anthropic API key (`sk-ant-api…`, from the Claude Console) as the
+  `claude_code` provider key. It is encrypted, write-only, and not an agent
+  provider. `SandboxSession#runtime_environment` hands it to an
+  `app_runtime` backend as `ANTHROPIC_API_KEY`, so the checkout can run
+  Claude Code sessions. Claude subscription tokens (`claude setup-token`)
+  are refused, as Anthropic's terms require (see the upgrading note above).
+  `/api/provider_keys` rows now carry `kind` (`key`, `host` or
+  `connection`) and `needs_replacing`.
+- **GitHub connections and checkout sandboxes** (`actionagent`, #477).
+  Settings -> Integrations connects GitHub over OAuth
+  (`ActionAgent.github_client_id` / `github_client_secret`, or
+  `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`), stores the token encrypted,
+  and lets the owner choose which repositories the workspace may use. Only
+  repositories GitHub lists for the token can be selected. A new
+  `app_runtime` sandbox type checks out one of them: the backend receives
+  `sandbox_session.checkout_spec` (repository, ref, clone URL, token),
+  boots the app, and returns `mcp_url` / `mcp_token` from `create_sandbox`.
+  The session is then an MCP server keyed `sandbox:<session_id>`. An agent
+  that lists that key in `mcp_servers` runs, and is evaluated, with the
+  checkout's own tools. Lookups are scoped to the agent's owner. Run
+  `rails g action_agent:install` to add the
+  `create_active_agent_github_connections` migration.
 
 - **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
   Provider API Keys gains a **Test connection** for Ollama that reports
