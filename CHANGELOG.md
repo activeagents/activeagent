@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-09-29
+
+Releases `activeagent` and `actionagent` 1.7.1 from one tag. A patch on 1.7.0:
+the Evaluations page picks the judge and compared models from the provider
+catalogs, `GET /api/provider_models` lists the host's RubyLLM registry, and
+the RubyLLM provider requires ruby_llm 1.x and sends tool calls and structured
+output in the shape ruby_llm reads. No migrations.
+
 ### Added
 
 - **Model pickers on the Evaluations page** (`actionagent`). The judge model
