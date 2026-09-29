@@ -12,7 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A DeepSeek provider** (`activeagent`). `generate_with :deepseek` talks to
   DeepSeek's OpenAI-compatible endpoint with `deepseek-flash` as the default
   model, so JSON output and tool calling come from the API rather than being
-  emulated, and `api_key` falls back to `DEEPSEEK_API_KEY`. Thinking mode is
+  emulated, and `api_key` falls back to `DEEPSEEK_API_KEY`. Instructions reach
+  DeepSeek as `system` messages rather than OpenAI's `developer` role, which
+  DeepSeek answers with a 422 — it accepts only system, user, assistant, tool and
+  latest_reminder, so an agent using `instructions: true` fails outright until
+  that role is folded in. Thinking mode is
   turned **off** by default: DeepSeek enables it unless asked otherwise and bills
   the reasoning whether or not the answer needed it — a one-line JSON extraction
   measured 83 output tokens with thinking at its default against 7 with it

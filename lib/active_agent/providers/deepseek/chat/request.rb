@@ -42,7 +42,47 @@ module ActiveAgent
             params[:model]    ||= DEFAULT_MODEL
             params[:thinking] ||= DEFAULT_THINKING.dup
 
+            demote_developer_roles!(params)
+
             super
+          end
+
+          private
+
+          # Rewrites `developer` messages to `system` before the OpenAI
+          # transforms run.
+          #
+          # DeepSeek accepts system, user, assistant, tool and latest_reminder,
+          # and nothing else. It rejects the rest rather than ignoring them:
+          #
+          #   messages[0].role: unknown variant `developer`, expected one of
+          #   `system`, `user`, `assistant`, `tool`, `latest_reminder`
+          #
+          # That is a 422 on the whole request, and `developer` is the role it
+          # bites on: OpenAI treats it as the successor to `system`, so the
+          # OpenAI transforms express `instructions` as a developer message and
+          # any agent using them fails outright here.
+          #
+          # @param params [Hash] request parameters, mutated in place
+          # @return [void]
+          def demote_developer_roles!(params)
+            if params.key?(:instructions)
+              # One message per instruction to start. The request cleanup then
+              # merges consecutive same-role messages into a single message
+              # with content parts, which DeepSeek accepts — unlike `developer`,
+              # the part that actually fails.
+              params[:messages] = Array(params.delete(:instructions)).map { |text| { role: "system", content: text } } +
+                                  Array(params[:messages] || [])
+            end
+
+            Array(params[:messages]).each do |message|
+              next unless message.is_a?(Hash)
+
+              key = message.key?(:role) ? :role : (message.key?("role") ? "role" : nil)
+              next unless key && message[key].to_s == "developer"
+
+              message[key] = "system"
+            end
           end
         end
       end
