@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP servers run client-side on a provider that has none of its own**
+  (`activeagent`). `mcps:` was passthrough: the declaration is translated into
+  the provider's `mcp_servers` and the provider runs the tool loop, which only
+  works where the provider implements MCP. DeepSeek does not — it ignores
+  `mcp_servers`, returns 200, and answers without the server's data, so the
+  failure reads as a poor answer rather than as a configuration error. A
+  provider that opts in now has the servers run for it: each is connected to,
+  its tools are listed and merged with the agent's own, and a tool call is
+  routed to the server that owns it. The provider's tool loop is unchanged.
+  Two tools sharing a name are refused rather than resolved, since the model
+  cannot say which it meant. Needs `gem "mcp"`, loaded only when a bridge is
+  built, so the dependency stays optional for everyone else.
+
 - **A DeepSeek provider** (`activeagent`). `generate_with :deepseek` talks to
   DeepSeek's OpenAI-compatible endpoint with `deepseek-flash` as the default
   model, so JSON output and tool calling come from the API rather than being

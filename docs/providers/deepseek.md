@@ -109,11 +109,28 @@ class WeatherAgent < ApplicationAgent
 end
 ```
 
-## Server-Side MCP Is Not Supported
+## MCP Runs Client-Side
 
-DeepSeek has no equivalent of Anthropic's `mcp_servers`: the parameter is **ignored rather than rejected**, so a request carrying `mcps:` returns **200 with no tool call** and the model answers without the data the server would have supplied. There is no error to notice — the prompt simply lacks its content.
+DeepSeek has no server-side MCP: it **ignores `mcp_servers` rather than rejecting it**, so a request carrying one returns `200` with no tool call and the model answers without the data the server would have supplied. There is no error to notice — the prompt simply lacks its content.
 
-Fetch the data in Ruby and pass it in, which is also one completion instead of two:
+ActiveAgent works around this by running the servers itself, so `mcps:` behaves the same as it does elsewhere:
+
+```ruby
+class ResearchAgent < ApplicationAgent
+  generate_with :deepseek, model: "deepseek-flash"
+
+  def research(topic)
+    prompt(
+      "Find and summarize recent news about #{topic}.",
+      mcps: [ { name: "firecrawl", url: "https://mcp.firecrawl.dev/YOUR_KEY/v2/mcp" } ]
+    )
+  end
+end
+```
+
+Add `gem "mcp"` to your Gemfile; it is loaded only when a bridge is needed. See **[MCP](/actions/mcps)** for the details, including how name collisions are handled.
+
+If a server is only ever used to fetch a page, fetching it in Ruby and passing the content in is cheaper — one completion instead of two:
 
 ```ruby
 def select_currency_code
@@ -126,8 +143,6 @@ def select_currency_code
 end
 ```
 
-If you would rather keep the tool loop in the model, use a provider that runs MCP for you — see **[MCP](/actions/mcps)**.
-
 ## Differences from the OpenAI Provider
 
 | | Behaviour |
@@ -135,7 +150,7 @@ If you would rather keep the tool loop in the model, use a provider that runs MC
 | **Message roles** | DeepSeek accepts only `system`, `user`, `assistant`, `tool`, and `latest_reminder`. It **rejects the rest with a 422** rather than ignoring them. `instructions: true` is expressed by the OpenAI transforms as a `developer` message, and DeepSeek does not accept that role, so this provider folds instructions into `system` messages first. |
 | **Organization / project** | Not sent; DeepSeek has no such scoping. |
 | **`temperature` and friends** | Accepted, but ignored while thinking is on. |
-| **MCP** | Not supported. See [above](#server-side-mcp-is-not-supported). |
+| **MCP** | Runs client-side. See [above](#mcp-runs-client-side). |
 
 ## See Also
 
