@@ -79,7 +79,7 @@ Access 15+ LLM providers (OpenAI, Anthropic, Gemini, Bedrock, Azure, Ollama, and
 
 DeepSeek's OpenAI-compatible API, served natively rather than emulated: JSON output and tool calling come from the API. Thinking mode runs by default and is billed, so review its cost implications before choosing it for high-volume work.
 
-**Choose when:** You want OpenAI-compatible behaviour at DeepSeek's pricing. Note that server-side MCP is not supported.
+**Choose when:** You want OpenAI-compatible behaviour at DeepSeek's pricing. Note that server-side MCP is not supported; `mcps:` runs client-side, as it does for any provider without its own MCP.
 
 ### [Mock](/providers/mock)
 **Best for:** Testing, development, offline work

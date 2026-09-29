@@ -9,18 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **MCP servers run client-side on a provider that has none of its own**
-  (`activeagent`). `mcps:` was passthrough: the declaration is translated into
-  the provider's `mcp_servers` and the provider runs the tool loop, which only
-  works where the provider implements MCP. DeepSeek does not — it ignores
-  `mcp_servers`, returns 200, and answers without the server's data, so the
-  failure reads as a poor answer rather than as a configuration error. A
-  provider that opts in now has the servers run for it: each is connected to,
-  its tools are listed and merged with the agent's own, and a tool call is
-  routed to the server that owns it. The provider's tool loop is unchanged.
-  Two tools sharing a name are refused rather than resolved, since the model
-  cannot say which it meant. Needs `gem "mcp"`, loaded only when a bridge is
-  built, so the dependency stays optional for everyone else.
+- **MCP servers run client-side wherever a provider cannot serve them**
+  (`activeagent`). `mcps:` was passthrough: the declaration was translated into
+  the provider's `mcp_servers` and the provider ran the tool loop, which only
+  worked where the provider implemented MCP. Everywhere else the failure was
+  silent — DeepSeek ignores `mcp_servers`, returns 200, and answers without the
+  server's data, so it read as a poor answer rather than as a configuration
+  error. A provider now declares the transports it serves itself
+  (`native_mcp_transports`; Anthropic and the OpenAI Responses API serve `:url`)
+  and everything else is run for it: each server is connected to, its tools are
+  listed and merged with the agent's own, and a tool call is routed to the server
+  that owns it. The provider's tool loop is unchanged, so Ollama, RubyLLM,
+  OpenRouter and the OpenAI-compatible providers support MCP without any change
+  of their own. A `command:` (stdio) server always runs client-side, since a
+  provider can be handed a URL but not a process to spawn. `mcp_strategy:` makes
+  the choice explicit where it matters — `:auto` (the default) defers to the
+  provider, `:client` always runs the servers, and `:server` requires the provider
+  to and raises naming what it can serve. Two tools sharing a name are refused
+  rather than resolved, since the model cannot say which it meant. Needs
+  `gem "mcp"`, loaded only when a bridge is built, so the dependency stays
+  optional for everyone else.
 
 - **A DeepSeek provider** (`activeagent`). `generate_with :deepseek` talks to
   DeepSeek's OpenAI-compatible endpoint with `deepseek-flash` as the default

@@ -113,7 +113,7 @@ end
 
 DeepSeek has no server-side MCP: it **ignores `mcp_servers` rather than rejecting it**, so a request carrying one returns `200` with no tool call and the model answers without the data the server would have supplied. There is no error to notice — the prompt simply lacks its content.
 
-ActiveAgent works around this by running the servers itself, so `mcps:` behaves the same as it does elsewhere:
+ActiveAgent works around this by running the servers itself, so `mcps:` behaves the same as it does elsewhere. DeepSeek is not special here — it is the clearest case of a provider that cannot serve a server itself, which is why this is the example. Anthropic and the OpenAI Responses API are handed the server instead, and everything else is run client-side like this.
 
 ```ruby
 class ResearchAgent < ApplicationAgent
