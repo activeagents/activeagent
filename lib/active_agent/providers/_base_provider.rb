@@ -5,6 +5,7 @@ require_relative "concerns/exception_handler"
 require_relative "concerns/instrumentation"
 require_relative "concerns/previewable"
 require_relative "concerns/tool_choice_clearing"
+require_relative "mcp_bridge"
 
 # @private
 GEM_LOADERS = {
@@ -180,7 +181,7 @@ module ActiveAgent
       #
       # @return [String] markdown-formatted preview
       def preview
-        self.request = prompt_request_type.cast(context.except(:trace_id))
+        self.request = prompt_request_type.cast(preview_context.except(:trace_id))
         preview_prompt
       end
 
@@ -188,7 +189,7 @@ module ActiveAgent
       #
       # @return [ActiveAgent::Providers::Common::PromptResponse]
       def prompt
-        self.request = prompt_request_type.cast(context.except(:trace_id))
+        self.request = prompt_request_type.cast(prompt_context.except(:trace_id))
 
         instrument("prompt.active_agent") do |payload|
           response = resolve_prompt
@@ -212,7 +213,71 @@ module ActiveAgent
         end
       end
 
+      # Whether this provider leaves MCP to the caller instead of running it
+      # server-side.
+      #
+      # Defaults to false so every provider keeps the behaviour it had: `mcps:`
+      # is forwarded and the provider runs the loop. A provider that has no
+      # server-side MCP opts in, and its `mcps:` declarations are served by
+      # {MCPBridge} instead.
+      #
+      # @return [Boolean]
+      def client_side_mcp? = false
+
       protected
+
+      # Request parameters for a real prompt, with `mcps:` resolved.
+      #
+      # @return [Hash]
+      def prompt_context
+        params = strip_client_side_mcps
+        bridge = mcp_bridge
+
+        return params if bridge.nil? || bridge.empty?
+
+        params.merge(tools: bridge.merge_tools(params[:tools]))
+      end
+
+      # Request parameters for a preview.
+      #
+      # A preview does not resolve `mcps:` into tools, because discovering them
+      # means connecting to the servers — and a preview must not do I/O. It does
+      # drop the declaration for a client-side provider, which cannot accept it.
+      #
+      # @return [Hash]
+      def preview_context
+        strip_client_side_mcps
+      end
+
+      # Removes `mcps:` from the request for providers that cannot accept it.
+      #
+      # @return [Hash]
+      def strip_client_side_mcps
+        return context unless client_side_mcp? && context[:mcps].present?
+
+        context.except(:mcps)
+      end
+
+      # @return [MCPBridge, nil] bridge over the declared servers, if any
+      def mcp_bridge
+        return nil unless client_side_mcp? && context[:mcps].present?
+
+        @mcp_bridge ||= MCPBridge.new(context[:mcps])
+      end
+
+      # Invokes a tool, on an MCP server when one provides it and on the agent's
+      # own tool function otherwise.
+      #
+      # @param name [String] tool name
+      # @param kwargs [Hash] tool arguments
+      # @return [Object] the tool's result
+      def call_tool_function(name, **kwargs)
+        bridge = mcp_bridge
+
+        return bridge.call(name, **kwargs) if bridge&.owns?(name)
+
+        tools_function.call(name, **kwargs)
+      end
 
       # @param name [String, nil]
       # @raise [RuntimeError] when service name doesn't match provider

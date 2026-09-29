@@ -10,10 +10,9 @@ module ActiveAgent
     # Provides access to DeepSeek's OpenAI-compatible API.
     #
     # Extends OpenAI's Chat provider, which DeepSeek follows for request shape,
-    # response shape and tool calling. Thinking mode is off by default — see
-    # {DeepSeek::Chat::Request} — because DeepSeek turns it on unless told
-    # otherwise and charges for the reasoning whether or not the answer needs
-    # it.
+    # response shape and tool calling. Thinking mode is left to DeepSeek's own
+    # default — see {DeepSeek::Chat::Request} — because the provider's API is the
+    # authority on how it wants to be called.
     #
     # @example Configuration in active_agent.yml
     #   deepseek:
@@ -42,6 +41,13 @@ module ActiveAgent
       def self.prompt_request_type
         namespace::Chat::RequestType.new
       end
+
+      # DeepSeek has no server-side MCP. It ignores `mcp_servers` rather than
+      # rejecting it, so a request carrying one returns 200 and the model simply
+      # answers without the server's data.
+      #
+      # @return [Boolean]
+      def client_side_mcp? = true
     end
   end
 end

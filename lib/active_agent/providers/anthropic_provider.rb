@@ -223,7 +223,7 @@ module ActiveAgent
       # @return [Anthropic::Models::ToolResultBlockParam]
       def process_tool_call_function(api_function_call)
         instrument("tool_call.active_agent", tool_name: api_function_call[:name]) do
-          results = tools_function.call(
+          results = call_tool_function(
             api_function_call[:name], **api_function_call[:input]
           )
 
