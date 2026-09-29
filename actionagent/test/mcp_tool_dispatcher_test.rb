@@ -9,9 +9,9 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
   setup do
     @catalog = ActionAgent.mcp_catalog
     ActionAgent.mcp_catalog = [
-      { key: "records", name: "Records", description: "Record lookups.",
-        transport: "http", url: "https://host.example/mcp/records",
-        tool_hints: %w[count_records find_records] },
+      { key: "tickets", name: "Tickets", description: "Ticket lookups.",
+        transport: "http", url: "https://host.example/mcp/tickets",
+        tool_hints: %w[count_tickets find_tickets] },
       { key: "local", name: "Local", description: "A stdio server.",
         transport: "stdio", command: "npx local-mcp", tool_hints: %w[read_file] }
     ]
@@ -25,16 +25,16 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
   end
 
   test "a tool an agent's http server serves is dispatchable" do
-    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(%w[records]))
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(%w[tickets]))
 
-    assert dispatcher.dispatchable?("count_records")
+    assert dispatcher.dispatchable?("count_tickets")
   end
 
   test "a tool from a server the agent does not declare is left to the toolbox" do
     dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([]))
 
-    assert_not dispatcher.dispatchable?("count_records")
-    assert_nil dispatcher.call("count_records")
+    assert_not dispatcher.dispatchable?("count_tickets")
+    assert_nil dispatcher.call("count_tickets")
   end
 
   test "a stdio server is not dispatchable — the dashboard has no address to call" do
@@ -67,25 +67,25 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
     end
   end
 
-  def dispatcher_with_client(client, servers: %w[records])
+  def dispatcher_with_client(client, servers: %w[tickets])
     dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(servers))
-    dispatcher.instance_variable_get(:@clients)["records"] = client
+    dispatcher.instance_variable_get(:@clients)["tickets"] = client
     dispatcher
   end
 
   test "an unreachable server returns a scoreable error rather than raising" do
     dispatcher = dispatcher_with_client(StubClient.new(raises: "boom"))
 
-    result = dispatcher.call("count_records", { "model" => "Provider" })
+    result = dispatcher.call("count_tickets", { "status" => "open" })
 
-    assert_match(/count_records failed: boom/, result[:error])
+    assert_match(/count_tickets failed: boom/, result[:error])
   end
 
   test "a server's own tools/list becomes the schemas the model is offered" do
-    tools = [ { name: "count_records", description: "Counts rows.", parameters: { type: "object" } } ]
+    tools = [ { name: "count_tickets", description: "Counts rows.", parameters: { type: "object" } } ]
     dispatcher = dispatcher_with_client(StubClient.new(tools: tools))
 
-    assert_equal %w[count_records], dispatcher.tool_definitions.map { |tool| tool[:name] }
+    assert_equal %w[count_tickets], dispatcher.tool_definitions.map { |tool| tool[:name] }
   end
 
   test "a server whose tools/list fails contributes no schemas" do
@@ -101,10 +101,10 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
     dispatcher = dispatcher_with_client(StubClient.new(raises: "401 Unauthorized"))
     dispatcher.tool_definitions
 
-    assert_equal %w[records], dispatcher.discovery_errors.keys
-    error = dispatcher.discovery_errors["records"]
-    assert_includes error, "records"
-    assert_includes error, "https://host.example/mcp/records"
+    assert_equal %w[tickets], dispatcher.discovery_errors.keys
+    error = dispatcher.discovery_errors["tickets"]
+    assert_includes error, "tickets"
+    assert_includes error, "https://host.example/mcp/tickets"
     assert_includes error, "401 Unauthorized"
   end
 
@@ -138,7 +138,7 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
     dispatcher.tool_definitions
     assert dispatcher.all_servers_failed?
 
-    dispatcher.instance_variable_get(:@clients)["records"] = StubClient.new
+    dispatcher.instance_variable_get(:@clients)["tickets"] = StubClient.new
     dispatcher.tool_definitions
 
     assert_empty dispatcher.discovery_errors
@@ -149,7 +149,7 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
   # and its notification body is a bare `null` — which JSON.parse returns as nil
   # rather than a hash.
   test "a bare null notification body parses as an empty hash" do
-    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp/records")
+    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp/tickets")
     response = Struct.new(:body) do
       def [](_header) = "application/json"
     end.new("null")
@@ -158,14 +158,14 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
   end
 
   test "an https endpoint is requested over TLS, not plaintext on port 443" do
-    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp/records")
+    client = ActionAgent::MCPClient.new(url: "https://host.example/mcp/tickets")
 
     assert_equal "https", client.instance_variable_get(:@uri).scheme
     assert_equal 443, client.instance_variable_get(:@uri).port
   end
 
   test "an observed agent with a reachable server may execute" do
-    agent = agent_with(%w[records])
+    agent = agent_with(%w[tickets])
     agent.status = :observed
 
     assert_nothing_raised { agent.ensure_executable! }

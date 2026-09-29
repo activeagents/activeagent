@@ -9,15 +9,15 @@ import test from 'node:test';
 const scenarioKeysOf = (item) => item.scenario_keys || [];
 
 test('a fault card names the scenarios it came from', () => {
-  const item = { kind: 'fault', fault: 'tool_error', count: 2, scenario_keys: ['diagnostics_2', 'diagnostics_3'] };
+  const item = { kind: 'fault', fault: 'tool_error', count: 2, scenario_keys: ['help_center_2', 'help_center_3'] };
 
-  assert.deepEqual(scenarioKeysOf(item), ['diagnostics_2', 'diagnostics_3']);
+  assert.deepEqual(scenarioKeysOf(item), ['help_center_2', 'help_center_3']);
 });
 
 test('a judge suggestion names its scenario too, so it links like a fault', () => {
-  const item = { kind: 'instruction', fault: 'instruction change', count: 1, scenario_keys: ['blame_7'] };
+  const item = { kind: 'instruction', fault: 'instruction change', count: 1, scenario_keys: ['history_7'] };
 
-  assert.deepEqual(scenarioKeysOf(item), ['blame_7']);
+  assert.deepEqual(scenarioKeysOf(item), ['history_7']);
 });
 
 test('a card with no scenarios yields no link target', () => {

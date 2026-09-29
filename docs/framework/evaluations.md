@@ -197,13 +197,13 @@ that says which.
 report.fix_items.first
 # => { "kind" => "fault", "fault" => "expected_tool_not_called", "count" => 3,
 #      "scenario_keys" => [...], "models" => ["gpt-5-mini", "ollama/qwen3:8b"],
-#      "recommendation" => "Enable search_slots for the agent…",
+#      "recommendation" => "Enable refund_order for the agent…",
 #      "quote" => nil, "tools_label" => "missing tools",
-#      "tools" => [ { "name" => "search_slots", "note" => nil, "server" => {…} } ],
-#      "server" => { "key" => "scheduling", "name" => "Scheduling", "status" => "available" },
+#      "tools" => [ { "name" => "refund_order", "note" => nil, "server" => {…} } ],
+#      "server" => { "key" => "orders", "name" => "Orders", "status" => "available" },
 #      "note" => nil,
-#      "action" => { "label" => "Enable Scheduling for BookingAgent",
-#                    "hint" => "MCP Services ->", "path" => "/mcp/scheduling" } }
+#      "action" => { "label" => "Enable Orders for SupportAgent",
+#                    "hint" => "MCP Services ->", "path" => "/mcp/orders" } }
 ```
 
 Optional keywords on `Report.new` fill that in, and the HTML page renders

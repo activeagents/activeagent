@@ -6,33 +6,33 @@ require "tmpdir"
 
 class EvalsSuiteTest < ActiveSupport::TestCase
   CORE = <<~YAML
-    suite: assistant_dashboard
-    description: The V1 question catalog
+    suite: support_desk
+    description: Questions the support team asks every week
     groups:
-      - key: find_records
-        name: Find record(s)
+      - key: open_tickets
+        name: Open tickets
         scenarios:
-          - key: find_records_1
-            prompt: Which terms are under client control?
+          - key: open_tickets_1
+            prompt: Which tickets are waiting on the customer?
             expect:
-              tools: [find_records, count_records]
-          - key: find_records_2
-            prompt: Which gynecologists in Charlotte have scheduling enabled?
-      - key: analytics
-        name: Analytics
+              tools: [find_tickets, count_tickets]
+          - key: open_tickets_2
+            prompt: Which open tickets mention a refund?
+      - key: reports
+        name: Reports
         scenarios:
-          - key: analytics_1
-            prompt: How many appointments last month?
+          - key: reports_1
+            prompt: How many tickets were reopened last month?
             production_only: true
   YAML
 
   CLIENT = <<~YAML
     groups:
-      - key: find_records
+      - key: open_tickets
         scenarios:
-          - key: find_records_2
-            prompt: Which cardiologists in Dallas have scheduling enabled?
-          - key: find_records_99
+          - key: open_tickets_2
+            prompt: Which open tickets mention a late delivery?
+          - key: open_tickets_99
             prompt: A client-specific question
       - key: client_only
         name: Client only
@@ -43,8 +43,8 @@ class EvalsSuiteTest < ActiveSupport::TestCase
 
   def with_files
     Dir.mktmpdir do |dir|
-      core = File.join(dir, "assistant_dashboard.yml")
-      client = File.join(dir, "client", "assistant_dashboard.yml")
+      core = File.join(dir, "support_desk.yml")
+      client = File.join(dir, "client", "support_desk.yml")
       File.write(core, CORE)
       Dir.mkdir(File.dirname(client))
       File.write(client, CLIENT)
@@ -56,12 +56,12 @@ class EvalsSuiteTest < ActiveSupport::TestCase
     with_files do |core, _client|
       suite = ActiveAgent::Evals::Suite.load(core)
 
-      assert_equal "assistant_dashboard", suite.name
-      assert_equal "The V1 question catalog", suite.description
-      assert_equal %w[find_records analytics], suite.group_keys
-      assert_equal %w[find_records_1 find_records_2 analytics_1], suite.all_scenarios.map(&:key)
-      assert_equal [ "find_records", "count_records" ], suite.find("find_records_1").expected_tools
-      assert_equal "Find record(s)", suite.find("find_records_1").group_name
+      assert_equal "support_desk", suite.name
+      assert_equal "Questions the support team asks every week", suite.description
+      assert_equal %w[open_tickets reports], suite.group_keys
+      assert_equal %w[open_tickets_1 open_tickets_2 reports_1], suite.all_scenarios.map(&:key)
+      assert_equal [ "find_tickets", "count_tickets" ], suite.find("open_tickets_1").expected_tools
+      assert_equal "Open tickets", suite.find("open_tickets_1").group_name
       assert_equal [ 0, 1, 0 ], suite.all_scenarios.map(&:position)
     end
   end
@@ -70,15 +70,15 @@ class EvalsSuiteTest < ActiveSupport::TestCase
     with_files do |core, client|
       suite = ActiveAgent::Evals::Suite.load(core, client)
 
-      assert_equal "Which cardiologists in Dallas have scheduling enabled?", suite.find("find_records_2").prompt
-      assert_includes suite.scenarios(groups: [ "find_records" ]).map(&:key), "find_records_99"
+      assert_equal "Which open tickets mention a late delivery?", suite.find("open_tickets_2").prompt
+      assert_includes suite.scenarios(groups: [ "open_tickets" ]).map(&:key), "open_tickets_99"
       assert_equal "client_only", suite.group_keys.last
     end
   end
 
   def test_missing_files_are_skipped_and_none_at_all_raises
     with_files do |core, _client|
-      suite = ActiveAgent::Evals::Suite.load(core, "/nowhere/assistant_dashboard.yml")
+      suite = ActiveAgent::Evals::Suite.load(core, "/nowhere/support_desk.yml")
       assert_equal 3, suite.all_scenarios.size
     end
 
@@ -88,9 +88,9 @@ class EvalsSuiteTest < ActiveSupport::TestCase
   def test_scenarios_narrow_by_group_key_and_production_only
     suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
 
-    assert_equal [ "analytics_1" ], suite.scenarios(groups: %w[analytics]).map(&:key)
-    assert_equal [ "find_records_2" ], suite.scenarios(keys: %w[find_records_2]).map(&:key)
-    assert_equal %w[find_records_1 find_records_2], suite.scenarios(include_production_only: false).map(&:key)
+    assert_equal [ "reports_1" ], suite.scenarios(groups: %w[reports]).map(&:key)
+    assert_equal [ "open_tickets_2" ], suite.scenarios(keys: %w[open_tickets_2]).map(&:key)
+    assert_equal %w[open_tickets_1 open_tickets_2], suite.scenarios(include_production_only: false).map(&:key)
   end
 
   def test_find_raises_for_an_unknown_key

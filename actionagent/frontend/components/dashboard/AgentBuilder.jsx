@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AgentAvatar, { AGENT_PRESETS, INSTRUCTIONS, TOOLS } from '../AgentAvatar';
 import { ICONS } from '../../utils/designTokens';
-import { FALLBACK_PROVIDER_MODELS, fetchProviderModels } from '../../utils/providerModels';
+import { FALLBACK_PROVIDER_MODELS } from '../../utils/providerModels';
+import { useProviderModels } from '../../hooks/useProviderModels';
 import ModelPicker from './ModelPicker';
 
 const STEPS = [
@@ -16,7 +17,6 @@ const BASICS_FIELDS = ['name', 'slug', 'description', 'provider', 'model'];
 
 export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initialDraft = null }) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [providerModels, setProviderModels] = useState(FALLBACK_PROVIDER_MODELS);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -41,19 +41,21 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
     } : {})
   });
 
-  // Load the provider's current model catalog (Ollama/OpenRouter live,
-  // hosted providers curated server-side); keep the selection valid.
+  // The provider's current model catalog (Ollama/OpenRouter live, hosted
+  // providers curated server-side). A draft's own model stays selectable.
+  const loadedModels = useProviderModels([formData.provider]);
+  const providerModels = useMemo(() => {
+    const draftProvider = initialDraft?.model && initialDraft.provider;
+    if (!draftProvider || !loadedModels[draftProvider]) return loadedModels;
+    return { ...loadedModels, [draftProvider]: [...new Set([initialDraft.model, ...loadedModels[draftProvider]])] };
+  }, [loadedModels]);
+
+  // Keeps the selection one the provider's catalog lists as each list lands.
+  const availableModels = providerModels[formData.provider];
   useEffect(() => {
-    let cancelled = false;
-    fetchProviderModels(formData.provider).then(models => {
-      if (cancelled || models.length === 0) return;
-      const available = initialDraft?.provider === formData.provider && initialDraft.model
-        ? [...new Set([initialDraft.model, ...models])] : models;
-      setProviderModels(prev => ({ ...prev, [formData.provider]: available }));
-      setFormData(prev => available.includes(prev.model) ? prev : { ...prev, model: available[0] });
-    });
-    return () => { cancelled = true; };
-  }, [formData.provider]);
+    if (!availableModels?.length) return;
+    setFormData(prev => availableModels.includes(prev.model) ? prev : { ...prev, model: availableModels[0] });
+  }, [availableModels]);
 
   // What the server rejected on the last Create Agent: { errors, fieldErrors }.
   const [submitErrors, setSubmitErrors] = useState(null);

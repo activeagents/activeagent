@@ -45,8 +45,8 @@ class EvalsScorerTest < ActiveSupport::TestCase
 
   def test_expectations_add_their_own_keys
     scores = scorer(criteria: []).score(
-      scenario(tools: [ "find_records" ], contains: %w[Alice Monday Tuesday], not_contains: [ "Bob" ]),
-      replay(answer: "Alice changed it on Monday.", tool_calls: [ { "name" => "find_records" }, { "name" => "fetch_url", "error" => true } ])
+      scenario(tools: [ "find_tickets" ], contains: %w[Alice Monday Tuesday], not_contains: [ "Bob" ]),
+      replay(answer: "Alice changed it on Monday.", tool_calls: [ { "name" => "find_tickets" }, { "name" => "fetch_url", "error" => true } ])
     )
 
     assert_equal 1.0, scores["expected_tools"]
@@ -57,7 +57,7 @@ class EvalsScorerTest < ActiveSupport::TestCase
 
   def test_a_wrong_tool_that_succeeded_is_not_credited_as_a_success
     scores = scorer(criteria: []).score(
-      scenario(tools: [ "find_records" ]),
+      scenario(tools: [ "find_tickets" ]),
       replay(answer: "Alice changed it.", tool_calls: [ { "name" => "fetch_url" } ])
     )
 
@@ -89,7 +89,7 @@ class EvalsScorerTest < ActiveSupport::TestCase
 
     assert matches.call("costs $5 (approx", "(approx"), "an invalid regex is still a substring"
     assert matches.call("It costs $5 today", "$5"), "a regex anchor is literal when the text contains it"
-    assert matches.call("1,060 (locally) have none", "1,060 (locally)")
+    assert matches.call("40 (sample) have none", "40 (sample)")
     assert matches.call("Alice changed it", "alice|bob"), "a regex still matches"
     assert_not matches.call("Dr. Smith is here", "redacted")
   end

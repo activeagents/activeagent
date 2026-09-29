@@ -2,7 +2,7 @@
 
 require_relative "_base_provider"
 
-require_gem!(:ruby_llm, __FILE__) unless defined?(::RubyLLM)
+require_gem!(:ruby_llm, __FILE__)
 
 require_relative "ruby_llm/_types"
 require_relative "ruby_llm/tool_proxy"
@@ -59,7 +59,8 @@ module ActiveAgent
           tools: tools || {},
           temperature: parameters[:temperature]
         }
-        kwargs[:schema] = parameters[:response_format] if parameters[:response_format]
+        schema = ruby_llm_schema(parameters[:response_format])
+        kwargs[:schema] = schema if schema
 
         # Pass extra params (max_tokens, etc.) via RubyLLM's params: deep-merge
         max_tokens = parameters[:max_tokens] || options.max_tokens
@@ -345,9 +346,58 @@ module ActiveAgent
           call = ::RubyLLM::ToolCall.new(
             id: id,
             name: tc.dig(:function, :name) || tc[:name],
-            arguments: tc.dig(:function, :arguments) || tc[:input]&.to_json || "{}"
+            arguments: ruby_llm_tool_arguments(tc.dig(:function, :arguments) || tc[:input])
           )
           hash[id] = call
+        end
+      end
+
+      # ActiveAgent keeps a tool call's arguments as the JSON string the
+      # model sent; RubyLLM takes them as a Hash and renders them itself
+      # (JSON-encoded for OpenAI, as the input object for Anthropic).
+      #
+      # A string that is not valid JSON, such as arguments a model cut off
+      # mid-way in a stored conversation, is passed through unchanged.
+      #
+      # @param arguments [String, Hash, nil]
+      # @return [Hash, String]
+      def ruby_llm_tool_arguments(arguments)
+        case arguments
+        when Hash
+          arguments.deep_stringify_keys
+        when String
+          arguments.blank? ? {} : JSON.parse(arguments)
+        else
+          {}
+        end
+      rescue JSON::ParserError
+        arguments
+      end
+
+      # Converts ActiveAgent's response_format to the schema RubyLLM's
+      # complete takes, { name:, schema:, strict: }, filling the name and
+      # strict flag in the way RubyLLM::Chat#with_schema does.
+      #
+      # @param response_format [Hash, Symbol, String, nil] ActiveAgent common format
+      # @return [Hash, nil] nil when the response is plain text
+      # @raise [ArgumentError] for json_schema without a schema, and for any
+      #   other type, including json_object, which RubyLLM has no mode for
+      def ruby_llm_schema(response_format)
+        return nil if response_format.nil?
+
+        format = response_format.is_a?(Hash) ? response_format : { type: response_format.to_s }
+
+        case format[:type].to_s
+        when "text"
+          nil
+        when "json_schema"
+          json_schema = format[:json_schema] || {}
+          raise ArgumentError, "RubyLLMProvider needs a schema for a json_schema response_format" unless json_schema[:schema]
+
+          { name: json_schema[:name] || "response", schema: json_schema[:schema], strict: json_schema[:strict] != false }
+        else
+          raise ArgumentError, "RubyLLMProvider supports a json_schema or text response_format, not #{format[:type].inspect}; " \
+                               "ruby_llm has no JSON object mode, so give json_schema a schema instead"
         end
       end
 

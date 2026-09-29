@@ -74,10 +74,11 @@ export function Badge({ tone = 'muted', size = 11, children, title, style, testI
   );
 }
 
-// Mono uppercase micro-label.
-export function MicroLabel({ children, size = 11, color = 'var(--color-text-secondary)', spacing = '0.06em', style, as: Tag = 'span' }) {
+// Mono uppercase micro-label. `htmlFor` names the control an `as="label"`
+// labels.
+export function MicroLabel({ children, size = 11, color = 'var(--color-text-secondary)', spacing = '0.06em', style, as: Tag = 'span', htmlFor }) {
   return (
-    <Tag style={{ fontFamily: MONO, fontSize: size, fontWeight: 600, letterSpacing: spacing, textTransform: 'uppercase', color, ...style }}>
+    <Tag htmlFor={htmlFor} style={{ fontFamily: MONO, fontSize: size, fontWeight: 600, letterSpacing: spacing, textTransform: 'uppercase', color, ...style }}>
       {children}
     </Tag>
   );

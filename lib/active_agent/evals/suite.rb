@@ -8,17 +8,17 @@ module ActiveAgent
     # suite. That is how an app keeps a shared suite and lets a deployment add or
     # reword questions.
     #
-    #   suite: assistant_dashboard
-    #   description: The V1 question catalog
+    #   suite: support_desk
+    #   description: Questions the support team asks every week
     #   groups:
-    #     - key: find_records
-    #       name: Find record(s)
+    #     - key: open_tickets
+    #       name: Open tickets
     #       scenarios:
-    #         - key: find_records_1
-    #           prompt: Which medical search terms are under client control?
+    #         - key: open_tickets_1
+    #           prompt: Which open tickets mention a refund?
     #           expect:
-    #             tools: [find_records, count_records]
-    #           notes: Uniform locally.
+    #             tools: [find_tickets, count_tickets]
+    #           notes: The sample data has three.
     #           production_only: false
     class Suite
       class NotFound < StandardError; end

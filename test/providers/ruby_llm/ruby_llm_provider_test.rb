@@ -1,99 +1,18 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "ruby_llm"
+require "active_agent/providers/ruby_llm_provider"
 
-# Stub RubyLLM gem classes for testing without the gem installed.
-# These stubs match the real RubyLLM API surface used by the provider.
-#
-# When the real ruby_llm gem is already loaded (e.g. integration tests ran
-# first), we skip defining stubs and fall through to StubProvider only.
-unless defined?(::RubyLLM::Models)
-  module ::RubyLLM
-    def self.config
-      @config ||= Struct.new(:openai_api_key).new("test")
-    end
-
-    class Message
-      attr_accessor :role, :content, :tool_calls, :tool_call_id,
-                    :input_tokens, :output_tokens, :stop_reason
-
-      def initialize(role:, content: nil, tool_calls: nil, tool_call_id: nil, **_kwargs)
-        @role = role
-        @content = content
-        @tool_calls = tool_calls
-        @tool_call_id = tool_call_id
-        @input_tokens = nil
-        @output_tokens = nil
-        @stop_reason = nil
-      end
-
-      def tool_call?
-        tool_calls&.any?
-      end
-    end
-
-    class ToolCall
-      attr_accessor :id, :name, :arguments
-
-      def initialize(id:, name:, arguments: "{}")
-        @id = id
-        @name = name
-        @arguments = arguments
-      end
-    end
-
-    class Chunk
-      attr_accessor :content, :tool_calls, :finish_reason
-
-      def initialize(content: nil, tool_calls: nil, finish_reason: nil)
-        @content = content
-        @tool_calls = tool_calls
-        @finish_reason = finish_reason
-      end
-    end
-
-    module Model
-      class Info
-        attr_reader :id, :provider
-        def initialize(data)
-          data = { id: data } if data.is_a?(String)
-          @id = data[:id]
-          @provider = data[:provider] || "openai"
-        end
-      end
-    end
-
-    class Embedding
-      attr_accessor :vectors
-
-      def initialize(vectors:)
-        @vectors = vectors
-      end
-    end
-
-    # Use a module so it doesn't conflict with the real gem's class Models
-    module Models
-      @default_provider = nil
-
-      def self.resolve(model_id, **_kwargs)
-        [ Model::Info.new(id: model_id, provider: "openai"), @default_provider ]
-      end
-
-      def self.default_provider
-        @default_provider
-      end
-
-      def self.default_provider=(provider)
-        @default_provider = provider
-      end
-    end
-  end
-end
-
-# StubProvider lives outside the guard so it's always available for tests,
-# whether the real gem is loaded or not.
-module ::RubyLLM
-  class StubProvider
+# RubyLLMProvider's own logic -- the tool loop, streaming, usage, stop
+# reasons -- against the real ruby_llm gem's value objects (Message, Chunk,
+# ToolCall, Embedding). Models.resolve returns a FakeProvider in place of a
+# network-backed one. ruby_llm_wire_format_test.rb covers what reaches the
+# provider's API.
+class RubyLLMProviderTest < ActiveSupport::TestCase
+  # Stands in for a RubyLLM::Provider: records what complete and embed were
+  # called with and answers with real ruby_llm objects.
+  class FakeProvider
     attr_reader :last_messages, :last_kwargs
 
     def complete(messages, tools:, temperature:, model:, **kwargs, &block)
@@ -101,35 +20,30 @@ module ::RubyLLM
       @last_kwargs = { tools: tools, temperature: temperature, model: model }.merge(kwargs)
 
       if block_given?
-        block.call(Chunk.new(content: "Hello "))
-        block.call(Chunk.new(content: "world"))
-        block.call(Chunk.new(content: nil, finish_reason: "stop"))
+        block.call(::RubyLLM::Chunk.new(role: :assistant, content: "Hello "))
+        block.call(::RubyLLM::Chunk.new(role: :assistant, content: "world"))
         nil
       else
-        msg = Message.new(role: :assistant, content: "Hello from RubyLLM")
-        msg.input_tokens = 10
-        msg.output_tokens = 5
-        msg
+        reply("Hello from RubyLLM", input_tokens: 10, output_tokens: 5)
       end
     end
 
     def embed(text, model:, dimensions:)
-      Embedding.new(vectors: Array.new(1536) { rand * 2 - 1 })
+      ::RubyLLM::Embedding.new(vectors: Array.new(1536) { rand * 2 - 1 }, model: model)
+    end
+
+    private
+
+    def reply(content, tool_calls: nil, input_tokens: 5, output_tokens: 3)
+      ::RubyLLM::Message.new(role: :assistant, content: content, tool_calls: tool_calls,
+                             input_tokens: input_tokens, output_tokens: output_tokens)
     end
   end
 
-  # Set default provider for stub Models (no-op if real gem is loaded)
-  if defined?(::RubyLLM::Models) && ::RubyLLM::Models.respond_to?(:default_provider=)
-    ::RubyLLM::Models.default_provider = StubProvider.new
-  end
-end
-
-# RubyLLM stubs are defined above, so require_gem! will be skipped
-# via the `unless defined?(::RubyLLM)` guard in the provider file.
-require "active_agent/providers/ruby_llm_provider"
-
-class RubyLLMProviderTest < ActiveSupport::TestCase
   setup do
+    @fake_provider = FakeProvider.new
+    stub_resolve_with(@fake_provider)
+
     @provider = ActiveAgent::Providers::RubyLLMProvider.new(
       service: "RubyLLM",
       model: "gpt-4o-mini",
@@ -137,6 +51,10 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
         { role: "user", content: "Hello world" }
       ]
     )
+  end
+
+  teardown do
+    restore_resolve
   end
 
   # --- Basic provider setup ---
@@ -248,7 +166,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   end
 
   test "streaming with tool calls accumulates tool_calls" do
-    streaming_tool_provider = Class.new(::RubyLLM::StubProvider) do
+    streaming_tool_provider = Class.new(FakeProvider) do
       def initialize
         @call_count = 0
       end
@@ -259,6 +177,8 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
         if block_given? && @call_count == 1
           # Stream a tool call across chunks
           block.call(::RubyLLM::Chunk.new(
+            role: :assistant,
+            content: nil,
             tool_calls: {
               "call_1" => ::RubyLLM::ToolCall.new(
                 id: "call_1",
@@ -268,6 +188,8 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
             }
           ))
           block.call(::RubyLLM::Chunk.new(
+            role: :assistant,
+            content: nil,
             tool_calls: {
               "call_1" => ::RubyLLM::ToolCall.new(
                 id: "call_1",
@@ -276,18 +198,13 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
               )
             }
           ))
-          block.call(::RubyLLM::Chunk.new(finish_reason: "tool_calls"))
           nil
         elsif block_given?
           # Second streaming call after tool results - return text
-          block.call(::RubyLLM::Chunk.new(content: "It's 72F in Boston."))
-          block.call(::RubyLLM::Chunk.new(finish_reason: "stop"))
+          block.call(::RubyLLM::Chunk.new(role: :assistant, content: "It's 72F in Boston."))
           nil
         else
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "It's 72F in Boston.")
-          msg.input_tokens = 10
-          msg.output_tokens = 5
-          msg
+          reply("It's 72F in Boston.", input_tokens: 10, output_tokens: 5)
         end
       end
     end
@@ -352,7 +269,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   # --- Tool calling ---
 
   test "tool call extraction works correctly with multi-turn" do
-    tool_call_provider = Class.new(::RubyLLM::StubProvider) do
+    tool_call_provider = Class.new(FakeProvider) do
       def initialize
         @call_count = 0
       end
@@ -361,22 +278,15 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
         @call_count += 1
 
         if @call_count == 1
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "")
-          msg.tool_calls = {
+          reply("", tool_calls: {
             "call_123" => ::RubyLLM::ToolCall.new(
               id: "call_123",
               name: "get_weather",
               arguments: '{"location":"Boston"}'
             )
-          }
-          msg.input_tokens = 10
-          msg.output_tokens = 5
-          msg
+          }, input_tokens: 10, output_tokens: 5)
         else
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "The weather in Boston is sunny and 72F.")
-          msg.input_tokens = 20
-          msg.output_tokens = 10
-          msg
+          reply("The weather in Boston is sunny and 72F.", input_tokens: 20, output_tokens: 10)
         end
       end
     end
@@ -404,7 +314,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   end
 
   test "tool call response sets stop_reason to tool_use" do
-    tool_call_provider = Class.new(::RubyLLM::StubProvider) do
+    tool_call_provider = Class.new(FakeProvider) do
       def initialize
         @call_count = 0
       end
@@ -413,18 +323,11 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
         @call_count += 1
 
         if @call_count == 1
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "")
-          msg.tool_calls = {
+          reply("", tool_calls: {
             "call_1" => ::RubyLLM::ToolCall.new(id: "call_1", name: "test_tool", arguments: "{}")
-          }
-          msg.input_tokens = 5
-          msg.output_tokens = 3
-          msg
+          }, input_tokens: 5, output_tokens: 3)
         else
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "Done.")
-          msg.input_tokens = 10
-          msg.output_tokens = 5
-          msg
+          reply("Done.", input_tokens: 10, output_tokens: 5)
         end
       end
     end
@@ -445,7 +348,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   end
 
   test "tool call with hash arguments works" do
-    tool_call_provider = Class.new(::RubyLLM::StubProvider) do
+    tool_call_provider = Class.new(FakeProvider) do
       def initialize
         @call_count = 0
       end
@@ -454,22 +357,15 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
         @call_count += 1
 
         if @call_count == 1
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "")
-          msg.tool_calls = {
+          reply("", tool_calls: {
             "call_1" => ::RubyLLM::ToolCall.new(
               id: "call_1",
               name: "search",
               arguments: { query: "test" }  # Hash instead of string
             )
-          }
-          msg.input_tokens = 5
-          msg.output_tokens = 3
-          msg
+          }, input_tokens: 5, output_tokens: 3)
         else
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "Found it.")
-          msg.input_tokens = 10
-          msg.output_tokens = 5
-          msg
+          reply("Found it.", input_tokens: 10, output_tokens: 5)
         end
       end
     end
@@ -605,7 +501,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   end
 
   test "prepare_prompt_request clears tool_choice after forced tool is used" do
-    tool_call_provider = Class.new(::RubyLLM::StubProvider) do
+    tool_call_provider = Class.new(FakeProvider) do
       def initialize
         @call_count = 0
       end
@@ -614,18 +510,11 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
         @call_count += 1
 
         if @call_count == 1
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "")
-          msg.tool_calls = {
+          reply("", tool_calls: {
             "call_1" => ::RubyLLM::ToolCall.new(id: "call_1", name: "get_weather", arguments: '{"location":"NYC"}')
-          }
-          msg.input_tokens = 5
-          msg.output_tokens = 3
-          msg
+          }, input_tokens: 5, output_tokens: 3)
         else
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "72F in NYC.")
-          msg.input_tokens = 10
-          msg.output_tokens = 5
-          msg
+          reply("72F in NYC.", input_tokens: 10, output_tokens: 5)
         end
       end
     end
@@ -772,13 +661,9 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   # --- Empty/nil tool_calls ---
 
   test "empty tool_calls in response does not break extraction" do
-    empty_tool_provider = Class.new(::RubyLLM::StubProvider) do
+    empty_tool_provider = Class.new(FakeProvider) do
       def complete(messages, **kwargs)
-        msg = ::RubyLLM::Message.new(role: :assistant, content: "No tools needed.")
-        msg.tool_calls = {}
-        msg.input_tokens = 5
-        msg.output_tokens = 3
-        msg
+        reply("No tools needed.", tool_calls: {}, input_tokens: 5, output_tokens: 3)
       end
     end
 
@@ -797,13 +682,9 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   end
 
   test "nil tool_calls in response does not break extraction" do
-    nil_tool_provider = Class.new(::RubyLLM::StubProvider) do
+    nil_tool_provider = Class.new(FakeProvider) do
       def complete(messages, **kwargs)
-        msg = ::RubyLLM::Message.new(role: :assistant, content: "Just text.")
-        msg.tool_calls = nil
-        msg.input_tokens = 5
-        msg.output_tokens = 3
-        msg
+        reply("Just text.", tool_calls: nil, input_tokens: 5, output_tokens: 3)
       end
     end
 
@@ -826,7 +707,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   test "provider is cached across multi-turn calls" do
     resolve_call_count = 0
 
-    tool_call_provider = Class.new(::RubyLLM::StubProvider) do
+    tool_call_provider = Class.new(FakeProvider) do
       def initialize
         @call_count = 0
       end
@@ -835,18 +716,11 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
         @call_count += 1
 
         if @call_count == 1
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "")
-          msg.tool_calls = {
+          reply("", tool_calls: {
             "call_1" => ::RubyLLM::ToolCall.new(id: "call_1", name: "test", arguments: "{}")
-          }
-          msg.input_tokens = 5
-          msg.output_tokens = 3
-          msg
+          }, input_tokens: 5, output_tokens: 3)
         else
-          msg = ::RubyLLM::Message.new(role: :assistant, content: "Done.")
-          msg.input_tokens = 5
-          msg.output_tokens = 3
-          msg
+          reply("Done.", input_tokens: 5, output_tokens: 3)
         end
       end
     end
@@ -879,7 +753,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     resolve_kwargs = nil
     capturing_resolve = ->(model_id, **kwargs) {
       resolve_kwargs = kwargs
-      [ stub_model_info(model_id), ::RubyLLM::StubProvider.new ]
+      [ stub_model_info(model_id), FakeProvider.new ]
     }
 
     ::RubyLLM::Models.stub(:resolve, capturing_resolve) do
@@ -900,7 +774,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     resolve_kwargs = nil
     capturing_resolve = ->(model_id, **kwargs) {
       resolve_kwargs = kwargs
-      [ stub_model_info(model_id), ::RubyLLM::StubProvider.new ]
+      [ stub_model_info(model_id), FakeProvider.new ]
     }
 
     ::RubyLLM::Models.stub(:resolve, capturing_resolve) do
@@ -921,7 +795,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     resolve_kwargs = nil
     capturing_resolve = ->(model_id, **kwargs) {
       resolve_kwargs = kwargs
-      [ stub_model_info(model_id), ::RubyLLM::StubProvider.new ]
+      [ stub_model_info(model_id), FakeProvider.new ]
     }
 
     ::RubyLLM::Models.stub(:resolve, capturing_resolve) do
@@ -941,7 +815,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     resolve_kwargs = nil
     capturing_resolve = ->(model_id, **kwargs) {
       resolve_kwargs = kwargs
-      [ stub_model_info(model_id), ::RubyLLM::StubProvider.new ]
+      [ stub_model_info(model_id), FakeProvider.new ]
     }
 
     ::RubyLLM::Models.stub(:resolve, capturing_resolve) do
@@ -982,13 +856,13 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   # --- stop_reason from RubyLLM response ---
 
   test "stop_reason from RubyLLM response is preserved" do
-    stop_reason_provider = Class.new(::RubyLLM::StubProvider) do
+    stop_reason_provider = Class.new(FakeProvider) do
+      # ruby_llm 1.x messages have no stop_reason reader; this one gets one
+      # so the branch that preserves it stays covered.
       def complete(messages, **kwargs)
-        msg = ::RubyLLM::Message.new(role: :assistant, content: "Truncated")
-        msg.stop_reason = "length"
-        msg.input_tokens = 5
-        msg.output_tokens = 100
-        msg
+        reply("Truncated", input_tokens: 5, output_tokens: 100).tap do |msg|
+          msg.define_singleton_method(:stop_reason) { "length" }
+        end
       end
     end
 
@@ -1020,7 +894,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   end
 
   test "handles error from provider.complete" do
-    error_provider = Class.new(::RubyLLM::StubProvider) do
+    error_provider = Class.new(FakeProvider) do
       def complete(messages, **kwargs)
         raise StandardError, "API error"
       end
@@ -1040,13 +914,10 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   # --- max_tokens pass-through ---
 
   test "max_tokens is passed to provider via params" do
-    capturing_provider = Class.new(::RubyLLM::StubProvider) do
+    capturing_provider = Class.new(FakeProvider) do
       def complete(messages, **kwargs)
         @last_kwargs = kwargs
-        msg = ::RubyLLM::Message.new(role: :assistant, content: "Short.")
-        msg.input_tokens = 5
-        msg.output_tokens = 2
-        msg
+        reply("Short.", input_tokens: 5, output_tokens: 2)
       end
 
       def last_kwargs
@@ -1070,10 +941,9 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
   end
 
   test "max_tokens is not passed when not set" do
-    response = @provider.prompt
-    # Default StubProvider captures kwargs - params should not be set
-    stub_provider = ::RubyLLM::Models.default_provider
-    assert_nil stub_provider.last_kwargs[:params]
+    @provider.prompt
+
+    assert_nil @fake_provider.last_kwargs[:params]
   end
 
   # --- ToolProxy conversion ---
@@ -1169,7 +1039,7 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     assert_equal 1, result.size
     assert result.key?("call_1")
     assert_equal "get_weather", result["call_1"].name
-    assert_equal '{"location":"NYC"}', result["call_1"].arguments
+    assert_equal({ "location" => "NYC" }, result["call_1"].arguments)
   end
 
   test "convert_tool_calls_for_ruby_llm converts flat format" do
@@ -1181,6 +1051,41 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
 
     assert_equal 1, result.size
     assert_equal "search", result["call_1"].name
+    assert_equal({ "query" => "test" }, result["call_1"].arguments)
+  end
+
+  test "convert_tool_calls_for_ruby_llm keeps Hash arguments as a Hash" do
+    tool_calls = [
+      { id: "call_1", type: "function", function: { name: "search", arguments: { query: "test" } } }
+    ]
+
+    result = @provider.send(:convert_tool_calls_for_ruby_llm, tool_calls)
+
+    assert_equal({ "query" => "test" }, result["call_1"].arguments)
+  end
+
+  test "convert_tool_calls_for_ruby_llm reads blank or missing arguments as no arguments" do
+    tool_calls = [
+      { id: "call_1", type: "function", function: { name: "now", arguments: "" } },
+      { id: "call_2", type: "function", function: { name: "now" } }
+    ]
+
+    result = @provider.send(:convert_tool_calls_for_ruby_llm, tool_calls)
+
+    assert_equal({}, result["call_1"].arguments)
+    assert_equal({}, result["call_2"].arguments)
+  end
+
+  # A stored conversation can hold arguments a model cut off mid-JSON; the
+  # turn is still sent rather than failing the whole request.
+  test "convert_tool_calls_for_ruby_llm passes arguments that are not JSON through unchanged" do
+    tool_calls = [
+      { id: "call_1", type: "function", function: { name: "search", arguments: '{"query":' } }
+    ]
+
+    result = @provider.send(:convert_tool_calls_for_ruby_llm, tool_calls)
+
+    assert_equal '{"query":', result["call_1"].arguments
   end
 
   test "convert_tool_calls_for_ruby_llm returns nil for nil" do
@@ -1189,13 +1094,27 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
 
   private
 
-  # Helper to swap the provider returned by Models.resolve for a test block.
+  # Makes Models.resolve return provider_instance for every model until
+  # restore_resolve runs in teardown.
+  def stub_resolve_with(provider_instance)
+    @original_resolve = ::RubyLLM::Models.method(:resolve)
+    model_info = method(:stub_model_info)
+
+    ::RubyLLM::Models.define_singleton_method(:resolve) do |model_id, **_kwargs|
+      [ model_info.call(model_id), provider_instance ]
+    end
+  end
+
+  def restore_resolve
+    ::RubyLLM::Models.define_singleton_method(:resolve, @original_resolve)
+  end
+
+  # Swaps the provider returned by Models.resolve for a test block.
   def with_custom_provider(provider_instance, &block)
     resolve_stub = ->(model_id, **_kwargs) { [ stub_model_info(model_id), provider_instance ] }
     ::RubyLLM::Models.stub(:resolve, resolve_stub, &block)
   end
 
-  # Build a Model::Info compatible with both stub and real gem.
   def stub_model_info(model_id)
     ::RubyLLM::Model::Info.new(id: model_id, provider: "openai")
   end
