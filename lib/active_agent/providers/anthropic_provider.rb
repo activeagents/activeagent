@@ -40,7 +40,7 @@ module ActiveAgent
       # `command:` declaration runs client-side instead.
       #
       # @return [Array<Symbol>]
-      def native_mcp_transports = [ :url ]
+      def mcp_native_transports = [ :url ]
 
       protected
 

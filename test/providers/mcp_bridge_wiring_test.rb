@@ -37,13 +37,13 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
   end
 
   test "only Anthropic and OpenAI Responses can serve MCP themselves" do
-    assert_equal [ :url ], provider(AnthropicProvider).native_mcp_transports
-    assert_equal [ :url ], provider(ResponsesProvider).native_mcp_transports
+    assert_equal [ :url ], provider(AnthropicProvider).mcp_native_transports
+    assert_equal [ :url ], provider(ResponsesProvider).mcp_native_transports
   end
 
   test "the OpenAI-compatible providers have no MCP of their own" do
     [ DeepSeekProvider, OllamaProvider, OpenRouterProvider, RubyLLMProvider ].each do |klass|
-      assert_empty provider(klass).native_mcp_transports, "#{klass.service_name} should have no native MCP"
+      assert_empty provider(klass).mcp_native_transports, "#{klass.service_name} should have no native MCP"
     end
   end
 

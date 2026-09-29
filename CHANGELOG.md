@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   silent — DeepSeek ignores `mcp_servers`, returns 200, and answers without the
   server's data, so it read as a poor answer rather than as a configuration
   error. A provider now declares the transports it serves itself
-  (`native_mcp_transports`; Anthropic and the OpenAI Responses API serve `:url`)
+  (`mcp_native_transports`; Anthropic and the OpenAI Responses API serve `:url`)
   and everything else is run for it: each server is connected to, its tools are
   listed and merged with the agent's own, and a tool call is routed to the server
   that owns it. The provider's tool loop is unchanged, so Ollama, RubyLLM,

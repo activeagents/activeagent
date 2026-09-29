@@ -21,7 +21,7 @@ module ActiveAgent
     # optional dependency for anyone who does not declare `mcps:` against a
     # client-side provider.
     #
-    # @see ActiveAgent::Providers::BaseProvider#prompt_context
+    # @see ActiveAgent::Providers::MCPServing#mcp_resolved_context
     class MCPBridge
       # Raised when a bridge is built without the `mcp` gem installed.
       class MissingGemError < LoadError; end
