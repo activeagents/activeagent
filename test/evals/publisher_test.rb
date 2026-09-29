@@ -112,8 +112,12 @@ class EvalsPublisherTest < Minitest::Test
       429 => [ true, "retry later" ],
       408 => [ true, "retain the report and run_id for retry" ],
       503 => [ true, "retain the report and run_id for retry" ],
-      401 => [ false, "resolve the rejection before retrying" ],
-      403 => [ false, "resolve the rejection before retrying" ]
+      401 => [ false, "check the key against the collector's account" ],
+      403 => [ false, "resolve that before retrying" ],
+      404 => [ false, "nothing at the endpoint takes evaluation reports" ],
+      415 => [ false, "rewrites the Content-Type" ],
+      501 => [ false, "the collector has no evaluation store" ],
+      400 => [ false, "resolve the rejection before retrying" ]
     }.each do |status, (retryable, guidance)|
       error = rejection(status, { error: "reason #{status}" }.to_json)
       assert_equal status, error.status
@@ -206,6 +210,63 @@ class EvalsPublisherTest < Minitest::Test
       assert_raises(ArgumentError, report.inspect) { publisher.call(**arguments.merge(report: report)) }
     end
     assert_not_requested :post, ENDPOINT
+  end
+
+  def test_verify_is_true_when_the_collector_refuses_an_empty_report_without_storing_it
+    probe = stub_request(:post, ENDPOINT)
+      .with(body: "{}", headers: { "Authorization" => "Bearer private-test-key", "Content-Type" => "application/json" })
+      .to_return(status: 422, body: { error: "version must be 1" }.to_json)
+
+    assert_equal true, publisher.verify!
+    assert_requested probe, times: 1
+  end
+
+  def test_verify_refuses_a_422_that_is_not_the_collectors_refusal_of_the_empty_envelope
+    [ { error: "orders.total is required" }.to_json, "", "<html>Unprocessable</html>" ].each do |body|
+      stub_request(:post, ENDPOINT).to_return(status: 422, body: body)
+      error = assert_raises(Publisher::Error, body.inspect) { publisher.verify! }
+
+      assert_equal 422, error.status, body.inspect
+      assert_includes error.message, "not a compatible collector"
+      refute error.retryable?, body.inspect
+    end
+  end
+
+  def test_verify_raises_with_a_deliverys_guidance_for_a_refused_key_or_a_missing_collector
+    { 401 => "check the key against the collector's account",
+      404 => "nothing at the endpoint takes evaluation reports",
+      501 => "the collector has no evaluation store" }.each do |status, guidance|
+      stub_request(:post, ENDPOINT).to_return(status: status, body: { error: "private-test-key refused #{status}" }.to_json)
+      error = assert_raises(Publisher::Error, "HTTP #{status}") { publisher.verify! }
+
+      assert_equal status, error.status
+      assert_includes error.message, guidance
+      refute error.retryable?, "HTTP #{status}"
+      refute_includes error.message, "private-test-key"
+    end
+  end
+
+  def test_verify_refuses_a_collector_that_stores_an_empty_report
+    stub_request(:post, ENDPOINT).to_return(status: 201, body: receipt.to_json)
+    error = assert_raises(Publisher::Error) { publisher.verify! }
+
+    assert_includes error.message, "not a compatible collector"
+    refute error.retryable?
+    assert_nil error.status
+  end
+
+  def test_verify_is_a_retryable_delivery_failure_when_the_collector_is_unreachable
+    stub_request(:post, ENDPOINT).to_raise(Errno::ECONNREFUSED)
+    error = assert_raises(Publisher::Error) { publisher.verify! }
+
+    assert_equal "Evaluation delivery failed (Errno::ECONNREFUSED); start the collector or check the endpoint, then verify again", error.message
+    assert error.retryable?
+    assert_nil error.status
+    assert_instance_of Errno::ECONNREFUSED, error.cause
+  end
+
+  def test_endpoint_is_the_collector_url
+    assert_equal ENDPOINT, publisher.endpoint
   end
 
   def test_requires_a_secure_destination_and_a_key

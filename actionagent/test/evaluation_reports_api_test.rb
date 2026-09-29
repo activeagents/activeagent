@@ -327,6 +327,19 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
     assert_rejected envelope.merge("version" => 2), "version must be 1"
   end
 
+  # ActiveAgent::Evals::Publisher#verify! posts an empty object and reads this
+  # answer as the collector being ready: the key accepted, the body parsed, and
+  # the report refused as not version 1 with nothing stored.
+  test "refuses an empty object as not version 1 after accepting the key, storing nothing" do
+    ActionAgent.ingest_api_key = "install-key"
+
+    publish({}, token: "install-key")
+
+    assert_response :unprocessable_entity
+    assert_match "version must be 1", json_response["error"]
+    assert_equal 0, ActionAgent::EvaluationRun.count
+  end
+
   test "rejects a result whose label names no reported model" do
     payload = envelope
     payload["report"]["results"].first["label"] = "unknown-model"

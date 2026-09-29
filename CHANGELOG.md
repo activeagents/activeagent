@@ -45,6 +45,13 @@ as a list. Run the install generator after upgrading to add
   report filters through radio chips and stylesheet rules — it still ships
   no script.
 
+- **A publisher can check its collector before a run** (`activeagent`).
+  `ActiveAgent::Evals::Publisher#verify!` asks the collector whether it is up
+  and accepts the key before a run is paid for. It posts an empty JSON object,
+  which a compatible collector refuses with a 422 naming `version`, without
+  storing anything; anything else raises `Publisher::Error` with a delivery's
+  status, detail and guidance. `Publisher#endpoint` returns the collector URL.
+
 ### Changed
 
 - **The RubyLLM provider requires ruby_llm 1.x** (`activeagent`). ruby_llm
@@ -54,6 +61,11 @@ as a list. Run the install generator after upgrading to add
   version names the supported range and the loaded version, instead of
   asking for a gem that is already in the Gemfile. Pin
   `gem "ruby_llm", "~> 1.0"` if your bundle resolved 2.0.
+- **Collector rejections say what the status means** (`activeagent`). A
+  `Publisher::Error` for a 401, 403, 404, 415 or 501 rejection names a refused
+  key, an account an operator must act on, an endpoint that is not a
+  collector, a rewritten `Content-Type`, or an install with no evaluation
+  store, in place of the generic guidance.
 
 ### Fixed
 
