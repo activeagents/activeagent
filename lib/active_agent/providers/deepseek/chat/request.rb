@@ -8,39 +8,38 @@ module ActiveAgent
       module Chat
         # Chat completion request for DeepSeek.
         #
-        # Extends OpenAI::Chat::Request to turn thinking mode **off** by default.
+        # Extends OpenAI::Chat::Request with DeepSeek's defaults for the two
+        # things OpenAI cannot supply: the model name and the message roles.
         #
-        # DeepSeek runs thinking by default and does not require opting in. For
-        # the extraction and classification work agents typically do, that
-        # reasoning is charged for and thrown away — measured against
-        # `deepseek-flash`, "return a currency code as JSON" cost 87 output
-        # tokens with thinking left alone (80 of them reasoning) and 7 with it
-        # disabled.
+        # Everything else is left to DeepSeek. Its API is the authority on how
+        # it wants to be called, and a library that second-guesses that gets
+        # stale as the provider tunes itself — thinking mode, for one, is on by
+        # default and is the provider's call to make.
         #
-        # Opt back in per prompt when the task warrants it:
+        # Thinking is worth knowing about either way, because it changes what
+        # the other parameters do: DeepSeek bills the reasoning whether or not
+        # the answer needed it, and it ignores temperature, presence_penalty and
+        # frequency_penalty while thinking. A one-line JSON extraction measured
+        # 83 output tokens at DeepSeek's default against 7 with thinking
+        # disabled, so a prompt that wants those sampling parameters to bite, or
+        # wants to skip paying for reasoning it discards, can opt out itself:
         #
-        #   prompt "…", thinking: { type: "enabled" }
-        #
-        # DeepSeek also ignores temperature, presence_penalty and
-        # frequency_penalty while thinking is on, so disabling it makes those
-        # parameters take effect again.
+        #   prompt "…", thinking: { type: "disabled" }
         #
         # @see OpenAI::Chat::Request
         # @see https://api-docs.deepseek.com/guides/thinking_mode
         class Request < OpenAI::Chat::Request
-          # Model used when a prompt does not name one.
+          # Model used when a prompt does not name one. DeepSeek has no default
+          # of its own — the API requires `model` — so this is a convenience,
+          # not an override.
           DEFAULT_MODEL = "deepseek-flash"
-
-          # Thinking off, unless the caller says otherwise.
-          DEFAULT_THINKING = { type: "disabled" }.freeze
 
           # @param params [Hash] request parameters
           # @option params [String] :model (deepseek-flash)
-          # @option params [Hash] :thinking ({ type: "disabled" }) DeepSeek's
-          #   non-standard thinking toggle; `{ type: "enabled" }` opts back in
+          # @option params [Hash] :thinking DeepSeek's own thinking toggle,
+          #   passed through untouched; `{ type: "disabled" }` opts out
           def initialize(**params)
-            params[:model]    ||= DEFAULT_MODEL
-            params[:thinking] ||= DEFAULT_THINKING.dup
+            params[:model] ||= DEFAULT_MODEL
 
             demote_developer_roles!(params)
 

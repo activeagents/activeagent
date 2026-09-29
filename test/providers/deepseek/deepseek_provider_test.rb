@@ -111,21 +111,21 @@ module Providers
         assert_equal "deepseek-v4-pro", request.serialize[:model]
       end
 
-      # Thinking is on unless told otherwise, and it is billed whether or not
-      # the answer needed it, so the provider opts out by default.
-      test "disables thinking by default" do
+      # DeepSeek's API decides how DeepSeek behaves — including whether thinking
+      # runs — so the provider must not invent a default of its own.
+      test "leaves thinking to DeepSeek's default" do
         request = request_for(messages: [ { role: "user", content: "hi" } ])
 
-        assert_equal({ type: "disabled" }, request.serialize[:thinking])
+        assert_not request.serialize.key?(:thinking)
       end
 
-      test "allows thinking to be enabled per request" do
+      test "passes an explicit thinking setting through untouched" do
         request = request_for(
           messages: [ { role: "user", content: "hi" } ],
-          thinking: { type: "enabled" }
+          thinking: { type: "disabled" }
         )
 
-        assert_equal({ type: "enabled" }, request.serialize[:thinking])
+        assert_equal({ type: "disabled" }, request.serialize[:thinking])
       end
 
       test "passes response_format through for native JSON output" do
