@@ -48,6 +48,16 @@ class RubyLLMProtocolTest < ActiveSupport::TestCase
     assert_not ruby_llm.requests.last.key?(:protocol)
   end
 
+  # A config.yml value such as <%= ENV["RUBY_LLM_PROTOCOL"] %> reads as ""
+  # when the variable is unset; that means no override, on 1.16 as on 2.x.
+  test "leaves the protocol to ruby_llm when the option is blank" do
+    ruby_llm = ScriptedProvider.new(reply)
+
+    prompt(ruby_llm, protocol: "")
+
+    assert_not ruby_llm.requests.last.key?(:protocol)
+  end
+
   test "refuses the protocol option before sending anything when ruby_llm has no protocols" do
     skip "protocols exist in ruby_llm 2.x, #{::RubyLLM::VERSION} is loaded" if ruby_llm_2?
     ruby_llm = ScriptedProvider.new(reply)

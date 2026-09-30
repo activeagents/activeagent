@@ -139,7 +139,9 @@ production:
 
 To change it for every agent, set it on RubyLLM instead: `config.openai_protocol = :chat_completions` in `RubyLLM.configure`. A `protocol:` on an agent wins over that setting.
 
-Valid values are the protocol names of the RubyLLM provider that serves the model. For OpenAI those are `:responses` and `:chat_completions`; a name the provider doesn't have raises RubyLLM's error, which lists the ones it does. The option applies to prompts, not embeddings. It needs ruby_llm 2.x, because 1.16 has no other protocol to choose: with 1.16 installed the provider raises `ArgumentError` instead of ignoring it.
+The option works the same way for any RubyLLM provider with more than one protocol. xAI also defaults to `:responses` on ruby_llm 2.x; OpenRouter, Azure and DeepSeek default to `:chat_completions`, and `config.<provider>_protocol` (such as `config.xai_protocol`) changes each provider's default.
+
+Valid values are the protocol names of the RubyLLM provider that serves the model. For OpenAI those are `:responses` and `:chat_completions`; a name the provider doesn't have raises RubyLLM's error, which lists the ones it does. The option applies to prompts, not embeddings. It needs ruby_llm 2.x, because 1.16 has no other protocol to choose: with 1.16 installed the provider raises `ArgumentError` instead of ignoring it. A blank value, such as an unset environment variable in `config/active_agent.yml`, counts as no override.
 
 ## Provider-Specific Parameters
 
