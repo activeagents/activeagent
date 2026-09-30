@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tools reports `tool_use` as its `finish_reason` however the API ends it;
   OpenAI's Responses API ends one with `stop` (#502).
 
+### Fixed
+
+- **Streamed tool calls through the RubyLLM provider** (`activeagent`).
+  An API streams a tool call's arguments as fragments of one JSON string,
+  and only the first fragment says which call it belongs to. The provider
+  took every later fragment for a call of its own with no name, so a
+  streamed tool call ran twice, once with no arguments and once under no
+  name, and two streamed calls ran on arguments joined into invalid JSON.
+  Fragments now go to the call they belong to, for OpenAI (Chat Completions
+  and Responses) and Anthropic, on ruby_llm 1.16 and 2.x. Arguments an API
+  sends whole, as Gemini does, are serialized as JSON instead of Ruby's
+  `Hash#to_s`; and Anthropic's empty opening input no longer leaves `{}` in
+  front of the arguments (#502).
+
 ## [1.8.0] - 2026-09-29
 
 Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release.
