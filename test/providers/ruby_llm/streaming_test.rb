@@ -55,8 +55,14 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
     def endpoint = "https://api.openai.com/v1/chat/completions"
     def protocol = :chat_completions
 
-    def text(*deltas)
-      body(*deltas.map { |delta| chunk({ content: delta }) }, chunk({}, finish: "stop"))
+    # counted: false leaves out the usage chunk, as a server that does not
+    # report usage does.
+    def text(*deltas, counted: true)
+      usage = { model: model, choices: [], usage: { prompt_tokens: 12, completion_tokens: 4,
+                                                    prompt_tokens_details: { cached_tokens: 5 },
+                                                    completion_tokens_details: { reasoning_tokens: 2 } } }
+
+      body(*deltas.map { |delta| chunk({ content: delta }) }, chunk({}, finish: "stop"), *(counted ? [ usage ] : []))
     end
 
     def tool_calls(*calls)
@@ -69,6 +75,18 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
       end
 
       body(*chunks, chunk({}, finish: "tool_calls"))
+    end
+
+    def interleaved_tool_calls(*calls)
+      openings = calls.each_with_index.map do |call, index|
+        { index: index, id: call[:id], type: "function", function: { name: call[:name], arguments: "" } }
+      end
+      pieces = calls.map { |call| fragments(call[:arguments]) }
+      deltas = pieces.first.zip(*pieces.drop(1)).map do |row|
+        chunk({ tool_calls: row.each_with_index.map { |fragment, index| { index: index, function: { arguments: fragment } } } })
+      end
+
+      body(chunk({ tool_calls: openings }), *deltas, chunk({}, finish: "tool_calls"))
     end
 
     # [name, arguments] of each tool call the request repeats.
@@ -212,6 +230,24 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
       assert_equal "It's 72F.", response.messages.last.content
     end
 
+    test "preserves streamed usage and the final stop reason (#{stream.name})" do
+      pin_protocol(stream)
+      stub_streams(stream.endpoint, stream.text("Done."))
+
+      response = streaming_provider(stream).prompt
+
+      assert_not_nil response.usage
+      assert_equal(stream.name == :chat_completions ? 7 : 12, response.usage.input_tokens)
+      assert_equal 4, response.usage.output_tokens
+      assert_equal "end_turn", response.finish_reason
+      assert_equal "Done.", response.messages.last.content
+      assert_equal 1, response.messages.count { |message| message.role == "assistant" }
+      if stream.name == :chat_completions
+        assert_equal 5, response.usage.cached_tokens
+        assert_equal 2, response.usage.reasoning_tokens
+      end
+    end
+
     test "runs a tool once, with the arguments streamed across fragments (#{stream.name})" do
       pin_protocol(stream)
       requests = stub_streams(stream.endpoint,
@@ -241,6 +277,61 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
       assert_equal [ [ "get_weather", { "city" => "Boston" } ], [ "get_weather", { "city" => "Denver" } ] ],
                    stream.replayed_tool_calls(requests.last)
     end
+  end
+
+  test "reports no usage for a stream whose server counted no tokens" do
+    stream = STREAMS.first
+    pin_protocol(stream)
+    stub_streams(stream.endpoint, stream.text("Done.", counted: false))
+
+    response = streaming_provider(stream).prompt
+
+    assert_equal "Done.", response.messages.last.content
+    assert_equal "end_turn", response.finish_reason
+    assert_nil response.usage
+  end
+
+  # A turn that ends in tool calls is tool_use, whether its chunks say so
+  # (ruby_llm 1.16 has no finish reason to read) or end with :stop while the
+  # calls arrived in earlier chunks, as in OpenAI's Responses API.
+  test "a streamed turn that ends in tool calls is tool_use" do
+    call = ->(id) { ::RubyLLM::ToolCall.new(id: id, name: "get_weather", arguments: '{"city":"Boston"}') }
+    scripted = ScriptedProvider.new(
+      [ ::RubyLLM::Chunk.new(role: :assistant, content: nil, tool_calls: { 0 => call.("call_1") }) ],
+      [ ::RubyLLM::Chunk.new(role: :assistant, content: "Done.") ]
+    )
+
+    assert_equal [ "tool_use", "end_turn" ], turn_stop_reasons(scripted)
+  end
+
+  test "a streamed turn whose calls came before its :stop finish chunk is tool_use" do
+    skip_unless_ruby_llm_2!("Chunk#finish_reason")
+    call = ::RubyLLM::ToolCall.new(id: "call_1", name: "get_weather", arguments: '{"city":"Boston"}')
+    scripted = ScriptedProvider.new(
+      [ ::RubyLLM::Chunk.new(role: :assistant, content: nil, tool_calls: { 0 => call }),
+        ::RubyLLM::Chunk.new(role: :assistant, content: nil, finish_reason: :stop) ],
+      [ ::RubyLLM::Chunk.new(role: :assistant, content: "Done.", finish_reason: :stop) ]
+    )
+
+    assert_equal [ "tool_use", "end_turn" ], turn_stop_reasons(scripted)
+  end
+
+  test "keeps interleaved Chat Completions tool fragments separate through the real parser" do
+    skip_unless_ruby_llm_2!("stream indices for interleaved OpenAI tool calls")
+    stream = STREAMS.first
+    pin_protocol(stream)
+    requests = stub_streams(stream.endpoint,
+      stream.interleaved_tool_calls({ id: "call_1", name: "get_weather", arguments: '{"city":"Boston"}' },
+                                    { id: "call_2", name: "get_weather", arguments: '{"city":"Denver"}' }),
+      stream.text("Done."))
+    calls = []
+
+    response = streaming_provider(stream, tools_function: recording(calls)).prompt
+
+    assert_equal [ [ "get_weather", { city: "Boston" } ], [ "get_weather", { city: "Denver" } ] ], calls
+    assert_equal "Done.", response.message.content
+    assert_equal [ [ "get_weather", { "city" => "Boston" } ], [ "get_weather", { "city" => "Denver" } ] ],
+                 stream.replayed_tool_calls(requests.last)
   end
 
   # --- Fragments as ruby_llm hands them over ---
@@ -305,7 +396,62 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
     assert_equal [ [ "get_weather", {} ] ], calls
   end
 
+  test "merges partial cumulative usage without counting repeated chunks twice across tool turns" do
+    first = tool_chunk(0, id: "call_1", name: "get_weather", arguments: '{"city":"Boston"}')
+    counts = ->(**attributes) {
+      ::RubyLLM::Chunk.new(role: :assistant, content: nil, **ruby_llm_token_attributes(**attributes))
+    }
+    scripted = ScriptedProvider.new(
+      [ first, counts.call(input: 10, output: 1, cache_read: 5), counts.call(output: 3), counts.call(output: 3) ],
+      [ ::RubyLLM::Chunk.new(role: :assistant, content: "Done."), counts.call(input: 7, output: 2, thinking: 1) ]
+    )
+
+    with_ruby_llm_provider(scripted) do
+      response = streaming_provider(ANTHROPIC_STREAM).prompt
+
+      assert_not_nil response.usage
+      assert_equal 17, response.usage.input_tokens
+      assert_equal 5, response.usage.output_tokens
+      assert_equal 5, response.usage.cached_tokens
+      assert_equal 1, response.usage.reasoning_tokens
+      assert_equal "end_turn", response.finish_reason
+    end
+  end
+
+  test "preserves a streamed token limit stop after a trailing chunk without metadata" do
+    skip_unless_ruby_llm_2!("Chunk#finish_reason")
+    scripted = ScriptedProvider.new([
+      ::RubyLLM::Chunk.new(role: :assistant, content: "Partial.", finish_reason: :max_tokens),
+      ::RubyLLM::Chunk.new(role: :assistant, content: nil)
+    ])
+
+    with_ruby_llm_provider(scripted) do
+      response = streaming_provider(ANTHROPIC_STREAM).prompt
+
+      assert_equal "max_tokens", response.finish_reason
+      assert_nil response.usage
+      assert_equal "Partial.", response.messages.last.content
+    end
+  end
+
   private
+
+  # The stop reason each turn of a streamed tool loop reported, as the
+  # instrumentation event of its prompt request saw it.
+  def turn_stop_reasons(scripted)
+    reasons = []
+    subscriber = ActiveSupport::Notifications.subscribe("prompt.provider.active_agent") do |*, payload|
+      reasons << payload[:finish_reason]
+    end
+
+    with_ruby_llm_provider(scripted) do
+      streaming_provider(ANTHROPIC_STREAM, tools_function: ->(*, **) { { temp: 72 } }).prompt
+    end
+
+    reasons
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+  end
 
   # ruby_llm 1.16 has only Chat Completions, and no protocol to configure.
   def pin_protocol(stream)

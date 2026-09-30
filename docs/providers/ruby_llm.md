@@ -223,7 +223,7 @@ end
 
 ## Usage and Stop Reasons
 
-`response.usage` reports the tokens RubyLLM counted: `input_tokens` and `output_tokens`, plus `cached_tokens` (read from the prompt cache), `cache_creation_tokens` (written to it) and `reasoning_tokens` when the provider reports them. RubyLLM counts cached tokens apart from the input, so `input_tokens` leaves them out. `usage` is `nil` when the provider reported no counts.
+`response.usage` reports the tokens RubyLLM counted: `input_tokens` and `output_tokens`, plus `cached_tokens` (read from the prompt cache), `cache_creation_tokens` (written to it) and `reasoning_tokens` when the provider reports them. RubyLLM counts cached tokens apart from the input, so `input_tokens` leaves them out. `usage` is `nil` when the provider reported no counts. Partial counts are preserved, including cache-only or reasoning-only usage; missing input or output counts read as zero. Streaming reports the same usage fields, merging cumulative counts within each turn and adding usage across tool turns.
 
 `response.finish_reason` says why the model stopped: `end_turn`, `tool_use` (also for a response that calls tools, whatever the API calls its ending), `max_tokens` for a response cut off at the token limit, or `content_filter`. A reason ActiveAgent has no name for is passed through as the provider spelled it, such as Anthropic's `pause_turn`. Only ruby_llm 2.x reports why a response ended. With 1.16, `finish_reason` is `tool_use` when the model called a tool and `end_turn` otherwise, even for a response cut off at `max_tokens`.
 
@@ -236,6 +236,8 @@ class StreamingAgent < ApplicationAgent
   generate_with :ruby_llm, model: "gpt-4o-mini", stream: true
 end
 ```
+
+For interleaved parallel OpenAI tool calls, use ruby_llm 2.x. ruby_llm 1.16 discards the stream indices and can drop argument fragments when several calls share an event; the adapter can assemble sequential calls on 1.16 but cannot recover fragments the gem discarded.
 
 See [Streaming](/agents/streaming) for ActionCable integration and real-time updates.
 

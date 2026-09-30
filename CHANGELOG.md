@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Usage and stop reasons in RubyLLM streams** (`activeagent`). Streaming
+  preserves the final stop reason and token counts, including counts sent
+  across separate chunks. Cumulative counts are merged within a turn and
+  summed across tool turns. Cache-only and reasoning-only usage is also
+  preserved when input and output counts are absent (#502).
 - **Streamed tool calls through the RubyLLM provider** (`activeagent`).
   An API streams a tool call's arguments as fragments of one JSON string,
   and only the first fragment says which call it belongs to. The provider
@@ -38,7 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Responses) and Anthropic, on ruby_llm 1.16 and 2.x. Arguments an API
   sends whole, as Gemini does, are serialized as JSON instead of Ruby's
   `Hash#to_s`; and Anthropic's empty opening input no longer leaves `{}` in
-  front of the arguments (#502).
+  front of the arguments. Interleaved parallel OpenAI calls require
+  ruby_llm 2.x, since 1.16 discards their stream indices (#502).
 
 ## [1.8.0] - 2026-09-29
 
