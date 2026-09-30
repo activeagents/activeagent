@@ -393,6 +393,10 @@ module ActiveAgent
       # complete takes, { name:, schema:, strict: }, filling the name and
       # strict flag in the way RubyLLM::Chat#with_schema does.
       #
+      # A json_schema takes its name, schema and strict flag nested under
+      # +json_schema+ or beside +type+, the two shapes the OpenAI providers
+      # accept; a field given beside +type+ wins, as it does there.
+      #
       # @param response_format [Hash, Symbol, String, nil] ActiveAgent common format
       # @return [Hash, nil] nil when the response is plain text
       # @raise [ArgumentError] for json_schema without a schema, and for any
@@ -406,10 +410,12 @@ module ActiveAgent
         when "text"
           nil
         when "json_schema"
-          json_schema = format[:json_schema] || {}
-          raise ArgumentError, "RubyLLMProvider needs a schema for a json_schema response_format" unless json_schema[:schema]
+          nested = format[:json_schema] || {}
+          schema = format[:schema] || nested[:schema]
+          raise ArgumentError, "RubyLLMProvider needs a schema for a json_schema response_format" unless schema
 
-          { name: json_schema[:name] || "response", schema: json_schema[:schema], strict: json_schema[:strict] != false }
+          strict = format.fetch(:strict) { nested[:strict] }
+          { name: format[:name] || nested[:name] || "response", schema: schema, strict: strict != false }
         else
           raise ArgumentError, "RubyLLMProvider supports a json_schema or text response_format, not #{format[:type].inspect}; " \
                                "ruby_llm has no JSON object mode, so give json_schema a schema instead"
