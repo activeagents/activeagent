@@ -182,8 +182,8 @@ module ActiveAgent
         lines << "**Best model: #{winner}**" if winner
         lines << ""
         lines.concat(matrix_table)
-        lines.concat(recommendation_lines)
         lines.concat(detail_lines)
+        lines.concat(recommendation_lines)
         lines.join("\n")
       end
 
@@ -414,19 +414,6 @@ module ActiveAgent
         text.to_s.gsub("|") { "\\|" }
       end
 
-      def recommendation_lines
-        return [] if recommendations.empty?
-
-        lines = [ "", "## Recommendations", "" ]
-        recommendations.each do |entry|
-          lines << "- **#{entry['fault'].tr('_', ' ')}** ×#{entry['count']} (#{entry['scenario_keys'].join(', ')}): #{entry['recommendation']}"
-          entry["suggested_tools"].each do |tool|
-            lines << "  - suggested tool `#{tool['name']}`: #{tool['description']}"
-          end
-        end
-        lines
-      end
-
       def detail_lines
         lines = [ "", "## Answers", "" ]
         @results.each do |result|
@@ -444,6 +431,20 @@ module ActiveAgent
           lines << ""
         end
         lines
+      end
+
+      # Renders after `detail_lines`, whose trailing blank line separates the two sections.
+      def recommendation_lines
+        return [] if recommendations.empty?
+
+        lines = [ "## Recommendations", "" ]
+        recommendations.each do |entry|
+          lines << "- **#{entry['fault'].tr('_', ' ')}** ×#{entry['count']} (#{entry['scenario_keys'].join(', ')}): #{entry['recommendation']}"
+          entry["suggested_tools"].each do |tool|
+            lines << "  - suggested tool `#{tool['name']}`: #{tool['description']}"
+          end
+        end
+        lines << ""
       end
     end
   end
