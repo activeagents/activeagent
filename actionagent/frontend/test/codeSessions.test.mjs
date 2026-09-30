@@ -548,8 +548,8 @@ test('model choices: the default sends no model, aliases and a typed id send the
   assert.deepEqual(modelForRequest('opus'), { model: 'opus' });
   assert.deepEqual(modelForRequest('other', '  claude-sonnet-4-5[1m] '), { model: 'claude-sonnet-4-5[1m]' });
   assert.match(modelForRequest('other', '   ').error, /Enter a model id/);
-  assert.match(modelForRequest('other', '--dangerously-skip-permissions').error, /not a Claude Code model name/);
-  assert.match(modelForRequest('other', 'a b').error, /not a Claude Code model name/);
+  assert.match(modelForRequest('other', '--dangerously-skip-permissions').error, /not a model name/);
+  assert.match(modelForRequest('other', 'a b').error, /not a model name/);
   assert.deepEqual(modelForRequest('something-stale'), { model: null }, 'an unknown choice is the default');
 
   assert.deepEqual(codeSessionRequestBody('Hi', 'default', ''), { prompt: 'Hi' });
@@ -637,4 +637,23 @@ test('claudeCodeNotConnectedHint follows the mode', () => {
   assert.match(local.text, /not logged in on this machine/);
   assert.equal(local.loginHint, 'claude /login');
   assert.doesNotMatch(JSON.stringify(local), /setup-token/);
+});
+
+test('Codex chooses its own default or an explicit model without Claude aliases', () => {
+  assert.deepEqual(modelOptions('codex').map((option) => option.value), ['default', 'other']);
+  assert.deepEqual(codeSessionRequestBody('Check README', 'default', '', 'codex'), { prompt: 'Check README', runner: 'codex' });
+  assert.deepEqual(codeSessionRequestBody('Check README', 'other', 'test-model', 'codex'), { prompt: 'Check README', model: 'test-model', runner: 'codex' });
+});
+
+test('Codex transcript shows assistant text and command output with failed exits', () => {
+  const rows = transcriptRows([
+    { type: 'thread.started', thread_id: 'fixture' },
+    { type: 'item.started', item: { type: 'command_execution', command: 'ruby -v' } },
+    { type: 'item.completed', item: { type: 'command_execution', command: 'ruby -v', aggregated_output: 'command failed', exit_code: 1, status: 'completed' } },
+    { type: 'item.completed', item: { type: 'agent_message', text: 'Ruby is missing.' } },
+    { type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 5 } },
+  ]);
+  assert.deepEqual(rows.map((row) => row.kind), ['system', 'tool_use', 'tool_result', 'text']);
+  assert.equal(rows[2].isError, true);
+  assert.equal(rows[3].text, 'Ruby is missing.');
 });

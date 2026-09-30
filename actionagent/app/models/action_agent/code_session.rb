@@ -22,8 +22,10 @@ module ActionAgent
     # Per string inside an event: tool results can be whole files.
     MAX_EVENT_STRING = 4_000
     MAX_DIFF_BYTES = 500_000
+    RUNNERS = %w[claude_code codex].freeze
 
     validates :prompt, presence: true, length: { maximum: MAX_PROMPT_CHARACTERS }
+    validates :runner, inclusion: { in: RUNNERS }
 
     scope :recent, -> { order(created_at: :desc) }
 
@@ -51,7 +53,7 @@ module ActionAgent
     # Claude Code credential this session ran with.
     def secrets
       spec = sandbox_session.checkout_spec rescue nil
-      [ spec&.dig(:token), *sandbox_session.runtime_environment.values ].compact
+      [ spec&.dig(:token), *sandbox_session.runtime_environment(runner: runner).values ].compact
     end
 
     # Appends one stream-json event, scrubbed and bounded. Past MAX_EVENTS
@@ -77,7 +79,8 @@ module ActionAgent
 
       update!(
         result: event["result"].to_s.presence && SecretScrubber.scrub(event["result"].to_s, secrets).truncate(MAX_EVENT_STRING * 4),
-        claude_session_id: event["session_id"],
+        claude_session_id: runner == "claude_code" ? event["session_id"] : nil,
+        runner_session_id: event["session_id"],
         num_turns: event["num_turns"],
         duration_ms: event["duration_ms"],
         total_cost_usd: event["total_cost_usd"],
@@ -98,6 +101,7 @@ module ActionAgent
         status: status,
         prompt: prompt,
         model: model,
+        runner: runner,
         result: result,
         error_message: error_message,
         num_turns: num_turns,

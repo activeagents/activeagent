@@ -441,6 +441,24 @@ export const eventRows = (event, context = { toolNames: {} }) => {
   const mark = (rows) => (nested ? rows.map((row) => ({ ...row, nested: true })) : rows);
 
   switch (event.type) {
+    case 'thread.started':
+      return [{ kind: 'system', text: 'Codex session started' }];
+    case 'turn.started':
+    case 'turn.completed':
+      return [];
+    case 'item.started':
+    case 'item.updated':
+    case 'item.completed': {
+      const item = event.item || {};
+      if (event.type !== 'item.completed') return [];
+      if (item.type === 'agent_message') return [{ kind: 'text', text: String(item.text || '') }];
+      if (item.type === 'reasoning') return [{ kind: 'thinking', text: String(item.text || '') }];
+      if (item.type === 'command_execution') return [
+        { kind: 'tool_use', name: 'Command', summary: String(item.command || '') },
+        { kind: 'tool_result', text: String(item.aggregated_output || ''), isError: item.status === 'failed' || (item.exit_code != null && item.exit_code !== 0) },
+      ];
+      return [unknownRow(item.type || event.type, item)];
+    }
     case 'system':
       if (event.subtype === 'init' && event.cwd) context.cwd = event.cwd;
       return [systemRow(event)];
@@ -538,9 +556,9 @@ export const CLAUDE_CODE_MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:[\]-]{0,99}$/;
 // Where the last choice is remembered, per browser.
 export const MODEL_CHOICE_STORAGE_KEY = 'actionagent.claudeCode.modelChoice';
 
-export const modelOptions = () => [
-  { value: DEFAULT_MODEL_CHOICE, label: "Default (Claude Code's own)" },
-  ...CLAUDE_CODE_MODEL_ALIASES.map((alias) => ({ value: alias, label: alias })),
+export const modelOptions = (runner = 'claude_code') => [
+  { value: DEFAULT_MODEL_CHOICE, label: `Default (${runner === 'codex' ? 'Codex' : 'Claude Code'}'s own)` },
+  ...(runner === 'codex' ? [] : CLAUDE_CODE_MODEL_ALIASES.map((alias) => ({ value: alias, label: alias }))),
   { value: OTHER_MODEL_CHOICE, label: 'Other…' },
 ];
 
@@ -556,15 +574,16 @@ export const modelForRequest = (choice, custom = '') => {
   const model = String(custom ?? '').trim();
   if (!model) return { error: 'Enter a model id, or pick one of the options.' };
   if (!CLAUDE_CODE_MODEL_NAME.test(model)) {
-    return { error: `"${truncate(model, 40)}" is not a Claude Code model name (letters, digits and . _ : [ ] -).` };
+    return { error: `"${truncate(model, 40)}" is not a model name (letters, digits and . _ : [ ] -).` };
   }
   return { model };
 };
 
 // The request body for a new session.
-export const codeSessionRequestBody = (prompt, choice, custom) => {
+export const codeSessionRequestBody = (prompt, choice, custom, runner = 'claude_code') => {
   const { model } = modelForRequest(choice, custom);
-  return model ? { prompt, model } : { prompt };
+  const body = model ? { prompt, model } : { prompt };
+  return runner === 'claude_code' ? body : { ...body, runner };
 };
 
 // The remembered choice, from what localStorage held (a string, or null);

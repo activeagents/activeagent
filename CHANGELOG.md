@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - Unreleased
+
+### Added
+
+- Codex code sessions in checkout sandboxes. Connect an OpenAI API key under
+  Settings → Integrations and select Codex in the code-session panel. The local
+  backend runs `codex exec` with JSONL events, workspace-write sandboxing, stdin
+  prompts, per-sandbox configuration, cancellation, timeout and diff capture.
+- Explicit code-runner capability checks for host backends. Existing adapters
+  continue to support Claude Code without implicitly receiving Codex credentials.
+
+### Fixed
+
+- Inherited Codex settings and credentials are removed from sandbox process
+  environments. Each Codex run receives only its owner's selected connection.
+
+Upgrade both gems together, then run `bin/rails generate action_agent:install
+--skip` and `bin/rails db:migrate`. The migration adds runner identity to code
+sessions; existing sessions remain Claude Code sessions.
+
 ## [1.8.0] - 2026-09-29
 
 Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release.

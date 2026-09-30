@@ -65,7 +65,8 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_migration "db/migrate/add_provider_key_api_key.rb"
     assert_migration "db/migrate/create_active_agent_github_connections.rb"
     assert_migration "db/migrate/create_active_agent_code_sessions.rb"
-    assert_equal EARLIER_MIGRATIONS.size + 5, Dir[File.join(destination_root, "db/migrate/*.rb")].size
+    assert_migration "db/migrate/add_code_session_runner.rb"
+    assert_equal EARLIER_MIGRATIONS.size + 6, Dir[File.join(destination_root, "db/migrate/*.rb")].size
   end
 
   test "a fresh install emits the Claude Code sessions table with the dashboard's" do
@@ -80,7 +81,7 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
-  test "an install that predates Claude Code sessions gets their table alone" do
+  test "an install that predates code sessions gets the table and runner upgrade" do
     migrate = File.join(destination_root, "db/migrate")
     FileUtils.mkdir_p(migrate)
     installed = EARLIER_MIGRATIONS + %w[
@@ -95,7 +96,8 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
 
     assert_migration "db/migrate/create_active_agent_code_sessions.rb"
     emitted = Dir.children(migrate).reject { |file| file.start_with?("202501010000") }
-    assert_equal 1, emitted.size, "only the missing migration is emitted: #{emitted.inspect}"
+    assert_migration "db/migrate/add_code_session_runner.rb"
+    assert_equal 2, emitted.size, "only the missing migrations are emitted: #{emitted.inspect}"
     assert_equal 1, Dir.glob(File.join(migrate, "*_create_active_agent_github_connections.rb")).size
   end
 
@@ -105,6 +107,8 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     run_generator [ "--skip-routes" ]
 
     assert_equal 1, Dir.glob(File.join(destination_root, "db/migrate/*_create_active_agent_code_sessions.rb")).size
+    assert_equal 1, Dir.glob(File.join(destination_root, "db/migrate/*_add_code_session_runner.rb")).size
+    assert_operator migration_version("add_code_session_runner"), :>, migration_version("create_active_agent_code_sessions")
   end
 
   test "a traces-only install has no evaluation runs to alter" do

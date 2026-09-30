@@ -97,6 +97,8 @@ module ActionAgent
           sample_tasks: sample_tasks,
           sandboxes: listed_sandboxes.map(&:summary),
           code_sessions_supported: code_sessions_supported?,
+          codex_sessions_supported: codex_sessions_supported?,
+          codex_connected: owned(ProviderKey).where(provider: "codex").any? { |key| key.runtime_environment.present? },
           **claude_code_status
         }
       end
@@ -231,6 +233,12 @@ module ActionAgent
         orchestrator.supports?(:code_session) && ClaudeCodeAuth.backend_refusal(orchestrator).nil?
       rescue StandardError, LoadError => e
         Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
+        false
+      end
+
+      def codex_sessions_supported?
+        SandboxOrchestrator.new.supports_code_runner?("codex")
+      rescue StandardError, LoadError
         false
       end
 

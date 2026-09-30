@@ -349,6 +349,10 @@ module ActionAgent
     # @return [Integer]
     attr_accessor :claude_code_timeout
 
+    # Codex CLI sessions use the owner's OpenAI API key and workspace-write
+    # sandboxing. They share checkout lifecycle and cancellation with Claude.
+    attr_accessor :codex_command, :codex_timeout
+
     # How Claude Code sessions authenticate.
     #
     # :api_key (the default) runs them on the Anthropic API key the owner
@@ -772,6 +776,8 @@ module ActionAgent
       @claude_code_permission_mode = "acceptEdits"
       @claude_code_max_turns = nil
       @claude_code_timeout = 1800
+      @codex_command = "codex"
+      @codex_timeout = 1800
       @claude_code_auth = :api_key
       @execution_enabled = true
       @run_host_agent_classes = false

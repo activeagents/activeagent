@@ -82,7 +82,7 @@ export function StatusBadge({ tone = 'neutral', children }) {
 // its diff is shown. One session runs per checkout at a time.
 // `claudeCode` is claudeCodeAuth of the sandbox listing: whether sessions can
 // run, by an API key connected below or this machine's own Claude Code login.
-export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnection }) {
+export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheckConnection }) {
   const { darkMode } = useTheme();
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/code_sessions`;
   const [sessions, setSessions] = useState(null); // summaries, newest first
@@ -92,6 +92,8 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
   const [reloadTick, setReloadTick] = useState(0);
   const [listTick, setListTick] = useState(0);
   const [prompt, setPrompt] = useState('');
+  const [runner, setRunner] = useState('claude_code');
+  const runnerLabel = runner === 'codex' ? 'Codex' : 'Claude Code';
   const [modelChoice, setModelChoice] = useState(readModelChoice);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -102,7 +104,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
   const fetchSessions = useCallback(async () => {
     const res = await fetch(base);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(apiErrorMessage(data, `Could not load Claude Code sessions (HTTP ${res.status}).`));
+    if (!res.ok) throw new Error(apiErrorMessage(data, `Could not load code sessions (HTTP ${res.status}).`));
     return data.code_sessions || [];
   }, [base]);
 
@@ -180,7 +182,10 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
   const watchedId = activeSession && activeSession.id !== selectedId ? activeSession.id : null;
   // Why the composer is locked: Claude Code cannot run (no API key, or this
   // machine is not logged in), or the checkout is busy with another session.
-  const notConnected = claudeCodeNotConnectedHint(claudeCode);
+  const notConnected = runner === 'codex'
+    ? (!codex?.supported ? { text: 'This sandbox backend does not support Codex.' }
+      : !codex?.connected ? { text: 'Connect an OpenAI API key in the Codex integration below.' } : null)
+    : claudeCodeNotConnectedHint(claudeCode);
   const blockedReason = notConnected ? 'not_connected' : activeSession ? 'busy' : null;
   useEffect(() => {
     if (watchedId == null) return undefined;
@@ -214,7 +219,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
   const chooseModel = (next) => {
     setModelChoice((current) => {
       const value = { ...current, ...next };
-      rememberModelChoice(value.choice, value.custom);
+      if (runner === 'claude_code') rememberModelChoice(value.choice, value.custom);
       return value;
     });
   };
@@ -228,7 +233,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
       const res = await fetch(base, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(codeSessionRequestBody(text, modelChoice.choice, modelChoice.custom)),
+        body: JSON.stringify(codeSessionRequestBody(text, modelChoice.choice, modelChoice.custom, runner)),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -237,7 +242,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
           setSessions((list) => upsertBy(list || [], data.code_session, 'id'));
           setSelectedId(data.code_session.id);
         }
-        throw new Error(apiErrorMessage(data, `Could not start Claude Code (HTTP ${res.status}).`));
+        throw new Error(apiErrorMessage(data, `Could not start ${runnerLabel} (HTTP ${res.status}).`));
       }
       setSessions((list) => upsertBy(list || [], data.code_session, 'id'));
       setSelectedId(data.code_session.id);
@@ -277,11 +282,24 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
   return (
     <div className={`mt-2 p-3 rounded-lg border space-y-3 ${border}`}>
       <div className="flex items-center justify-between">
-        <p className={`text-sm font-medium ${strong}`}>Claude Code</p>
+        <p className={`text-sm font-medium ${strong}`}>Code sessions</p>
         <p className={`text-xs ${muted}`}>Edits this checkout; nothing is committed or pushed.</p>
       </div>
 
       <div className="space-y-2">
+        <label className={`flex items-center gap-2 text-xs ${muted}`}>
+          Agent
+          <select
+            aria-label="Coding agent"
+            value={runner}
+            onChange={(e) => { setRunner(e.target.value); setModelChoice(e.target.value === 'claude_code' ? readModelChoice() : parseModelChoice(null)); }}
+            disabled={submitting}
+            className={`px-2 py-1 border rounded ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+          >
+            <option value="claude_code">Claude Code</option>
+            <option value="codex" disabled={!codex?.supported}>Codex{!codex?.supported ? ' (backend unavailable)' : ''}</option>
+          </select>
+        </label>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -290,7 +308,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
           maxLength={MAX_PROMPT_CHARACTERS}
           // A busy checkout still takes a draft of the next prompt.
           disabled={blockedReason === 'not_connected' || submitting}
-          placeholder="What should Claude Code do in this checkout?"
+          placeholder={`What should ${runnerLabel} do in this checkout?`}
           className={`w-full px-3 py-2 border rounded-lg text-sm disabled:opacity-60 ${darkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900'}`}
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -302,7 +320,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
             disabled={submitting}
             className={`px-2 py-1 border rounded text-xs ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
           >
-            {modelOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            {modelOptions(runner).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
           {modelChoice.choice === OTHER_MODEL_CHOICE && (
             <input
@@ -311,7 +329,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
               onChange={(e) => chooseModel({ custom: e.target.value })}
               disabled={submitting}
               maxLength={100}
-              placeholder="claude-sonnet-4-5"
+              placeholder={runner === 'codex' ? 'Model id' : 'claude-sonnet-4-5'}
               aria-label="Model id"
               aria-invalid={Boolean(modelError)}
               className={`flex-1 min-w-[10rem] px-2 py-1 border rounded text-xs font-mono ${darkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900'}`}
@@ -343,7 +361,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
             disabled={Boolean(blockedReason) || submitting || !prompt.trim() || Boolean(modelError)}
             className="shrink-0 px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
           >
-            {submitting ? 'Starting…' : 'Run Claude Code'}
+            {submitting ? 'Starting…' : `Run ${runnerLabel}`}
           </button>
         </div>
         {error && <div className={errorBox}>{error}</div>}
@@ -367,6 +385,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, onRecheckConnect
                     : (darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100')}`}
                 >
                   <StatusBadge tone={tone}>{label}</StatusBadge>
+                  <span className={`text-xs ${muted}`}>{session.runner === 'codex' ? 'Codex' : 'Claude Code'}</span>
                   <span className={`flex-1 truncate ${strong}`}>{sessionTitle(session.prompt)}</span>
                   <span className={`shrink-0 text-xs font-mono ${muted}`}>{sessionModelLabel(session)}</span>
                   <span className={`shrink-0 text-xs ${muted}`}>{timeAgo(session.created_at)}</span>
@@ -437,9 +456,9 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
         {!loaded && <p className={`text-xs ${muted}`}>Loading transcript…</p>}
         {loaded && rows.length === 0 && (
           <p className={`text-xs ${muted}`}>
-            {session.status === 'queued' ? 'Waiting for the sandbox to start Claude Code…'
-              : active ? 'Claude Code is starting…'
-                : neverStarted ? 'Cancelled before Claude Code started.' : 'No transcript was recorded.'}
+            {session.status === 'queued' ? 'Waiting for the sandbox to start the agent…'
+              : active ? 'The agent is starting…'
+                : neverStarted ? 'Cancelled before the agent started.' : 'No transcript was recorded.'}
           </p>
         )}
         {rows.map((row) => <TranscriptRow key={row.key} row={row} darkMode={darkMode} muted={muted} strong={strong} />)}
@@ -536,7 +555,7 @@ function DiffView({ diff, pending, onReload, muted, linkButton, darkMode }) {
     // has stopped, which can land after the cancel did.
     return pending ? (
       <p className={`text-xs ${muted}`}>
-        The diff is recorded once Claude Code has stopped.{' '}
+        The diff is recorded once the agent has stopped.{' '}
         <button type="button" onClick={onReload} className={linkButton}>Refresh</button>
       </p>
     ) : <p className={`text-xs ${muted}`}>No diff was recorded.</p>;

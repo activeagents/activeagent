@@ -28,6 +28,7 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     def status(_handle) = { status: "running" }
     def list_sandboxes = []
     def cleanup_expired = 0
+    def code_runners = %w[claude_code codex]
 
     def run_code_session(sandbox_session, code_session, &on_event)
       self.class.runs << [ sandbox_session.session_id, code_session.id, code_session.prompt ]
@@ -628,6 +629,67 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     assert_match(/stopped before the session started/, session.error_message)
     assert_empty ScriptedBackend.runs, "the backend was never asked to run it"
     assert_not session.diff_pending?, "settled: nothing will run it"
+  end
+
+  test "Codex requires its own connection and an explicitly supported backend" do
+    use_scripted_backend
+    assert_refused(@sandbox, :unprocessable_entity, /connect an OpenAI API key/,
+      params: { prompt: "Check README", runner: "codex" })
+
+    ActionAgent::ProviderKey.create!(provider: "codex", credential: "sk-proj-fixtureCodexKey")
+    ActionAgent.sandbox_service = :mock
+    assert_refused(@sandbox, :unprocessable_entity, /cannot run Codex/,
+      params: { prompt: "Check README", runner: "codex" })
+  end
+
+  test "Codex native events produce a scrubbed result and preserve runner identity" do
+    use_scripted_backend
+    key = "sk-proj-fixtureCodexKey"
+    ActionAgent::ProviderKey.create!(provider: "codex", credential: key)
+    ScriptedBackend.script = lambda do |emit|
+      emit.call("type" => "thread.started", "thread_id" => "codex-fixture-1")
+      emit.call("type" => "item.completed", "item" => { "type" => "agent_message", "text" => "Checked #{key}" })
+      emit.call("type" => "turn.completed", "usage" => { "input_tokens" => 15, "output_tokens" => 9 })
+      { exit_status: 0, diff: "+#{key}", stderr_tail: "" }
+    end
+
+    post sessions_path, params: { prompt: "Check README", runner: "codex" }, as: :json
+    assert_response :created, response.body
+    perform_enqueued_jobs
+    session = ActionAgent::CodeSession.sole
+    assert session.succeeded?, session.error_message
+    assert_equal "codex", session.summary[:runner]
+    assert_equal "codex-fixture-1", session.runner_session_id
+    assert_nil session.claude_session_id
+    assert_equal "Checked [REDACTED]", session.result
+    assert_equal "+[REDACTED]", session.diff
+    assert_equal 15, session.input_tokens
+    assert_equal 9, session.output_tokens
+    assert_equal %w[thread.started item.completed turn.completed result], session.events.pluck("type")
+    assert_not_includes session.events.to_json, key
+  end
+
+  test "Codex fails on a failed turn or a missing terminal event even with exit zero" do
+    use_scripted_backend
+    ActionAgent::ProviderKey.create!(provider: "codex", credential: "sk-proj-fixtureCodexKey")
+    [ { "type" => "turn.failed", "error" => { "message" => "API request refused" } }, nil ].each do |event|
+      ScriptedBackend.script = lambda do |emit|
+        emit.call(event) if event
+        { exit_status: 0, diff: "", stderr_tail: "" }
+      end
+      post sessions_path, params: { prompt: "Check README", runner: "codex" }, as: :json
+      assert_response :created, response.body
+      id = JSON.parse(response.body).dig("code_session", "id")
+      perform_enqueued_jobs
+      session = ActionAgent::CodeSession.find(id)
+      assert session.failed?
+      assert_match(event ? /API request refused/ : /Codex ended without reporting a result/, session.error_message)
+    end
+  end
+
+  test "an unknown runner never queues a session" do
+    assert_refused(@sandbox, :unprocessable_entity, /runner must be claude_code or codex/,
+      params: { prompt: "Check README", runner: "shell" })
   end
 
   private

@@ -129,12 +129,15 @@ module ActionAgent
       end
 
       # Claude Code sessions inside those checkouts.
-      return if existing_migration?("create_active_agent_code_sessions")
-
-      migration_template(
-        "create_active_agent_code_sessions.rb.erb",
-        "db/migrate/create_active_agent_code_sessions.rb"
-      )
+      unless existing_migration?("create_active_agent_code_sessions")
+        migration_template(
+          "create_active_agent_code_sessions.rb.erb",
+          "db/migrate/create_active_agent_code_sessions.rb"
+        )
+      end
+      unless existing_migration?("add_code_session_runner")
+        migration_template("add_code_session_runner.rb.erb", "db/migrate/add_code_session_runner.rb")
+      end
     end
 
     def add_route

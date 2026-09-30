@@ -24,6 +24,7 @@ module ActionAgent
       # connection and the Claude Code key.
       secrets = code_session.secrets
       result_event = nil
+      codex_events = CodexSessionEvents.new if code_session.runner == "codex"
       stop_sent = false
       orchestrator = SandboxOrchestrator.new
       sandbox = code_session.sandbox_session
@@ -41,6 +42,10 @@ module ActionAgent
         # has no process to stop; an event means the process exists now, so
         # the stop is sent again, once.
         code_session.append_event!(event, secrets: secrets)
+        if codex_events
+          event = codex_events.consume(event)
+          code_session.append_event!(event, secrets: secrets) if event
+        end
         if code_session.cancelled? && !stop_sent
           stop_sent = true
           stop(orchestrator, sandbox, code_session)
@@ -54,7 +59,7 @@ module ActionAgent
       finish(code_session, outcome.to_h, result_event, secrets)
     rescue StandardError => e
       message = SecretScrubber.scrub(e.message.to_s, secrets || safe_secrets(code_session))
-      Rails.logger.error("Claude Code session #{code_session_id} failed: #{message}")
+      Rails.logger.error("Code session #{code_session_id} failed: #{message}")
       fail!(code_session, message) if code_session
     end
 
@@ -83,7 +88,7 @@ module ActionAgent
         else
           code_session.assign_attributes(
             status: :failed,
-            error_message: failure_message(result_event, outcome, secrets),
+            error_message: failure_message(result_event, outcome, secrets, label: code_session.runner == "codex" ? "Codex" : "Claude Code"),
             finished_at: Time.current
           )
         end
@@ -105,8 +110,8 @@ module ActionAgent
 
     # What went wrong, in Claude Code's own words when it reported a failure
     # and from the process otherwise.
-    def failure_message(result_event, outcome, secrets)
-      message = reported_failure(result_event) || process_failure(result_event, outcome)
+    def failure_message(result_event, outcome, secrets, label: "Claude Code")
+      message = reported_failure(result_event) || process_failure(result_event, outcome, label: label)
       SecretScrubber.scrub(message, secrets).truncate(MAX_ERROR_MESSAGE)
     end
 
@@ -119,12 +124,12 @@ module ActionAgent
         "Claude Code stopped: #{result_event['subtype']}"
     end
 
-    def process_failure(result_event, outcome)
+    def process_failure(result_event, outcome, label: "Claude Code")
       status = outcome[:exit_status]
       headline =
-        if !status.nil? && status != 0 then "Claude Code exited with status #{status}"
-        elsif result_event.nil? then "Claude Code ended without reporting a result"
-        else "Claude Code did not finish"
+        if !status.nil? && status != 0 then "#{label} exited with status #{status}"
+        elsif result_event.nil? then "#{label} ended without reporting a result"
+        else "#{label} did not finish"
         end
 
       [ headline, outcome[:stderr_tail].to_s.strip.presence ].compact.join(": ")
