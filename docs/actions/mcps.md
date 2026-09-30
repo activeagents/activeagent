@@ -172,7 +172,16 @@ ActiveAgent::Providers::MCPToolCache.configure(ttl: 300, max_entries: 100, enabl
 
 A cached list means no connection is opened at all — a connection happens when the model actually calls a tool. So a generation that never reaches for an MCP tool connects to nothing, and one that does connects once. A `command:` server is spawned on that first call rather than at the start of every generation.
 
-The cache is process-local and holds only plain data, so it is safe across a fork: a child gets a snapshot with no sockets or child processes in it. To pick up a server's new tools without waiting for the TTL, call `ActiveAgent::Providers::MCPToolCache.clear!` on deploy, or `refresh!` on a bridge. In a test suite, reset it between examples — it outlives a single test.
+The cache is process-local and holds only plain data, so it is safe across a fork: a child gets a snapshot with no sockets or child processes in it. To pick up a server's new tools without waiting for the TTL, call `ActiveAgent::Providers::MCPToolCache.clear!` on deploy, or `refresh!` on a bridge.
+
+::: warning Replaying MCP traffic in tests
+The cache is process-global, so it outlives a single example, and it changes how many requests a generation makes. Recorded HTTP fixtures usually cannot tell one MCP request from another — every call POSTs to the same URL — so they replay in order, and a skipped `tools/list` leaves them handing back the wrong body. Disable the cache where you replay MCP traffic, and reset it elsewhere:
+
+```ruby
+ActiveAgent::Providers::MCPToolCache.configure(enabled: false) # cassette-backed suites
+ActiveAgent::Providers::MCPToolCache.reset!                    # or reset between examples
+```
+:::
 
 **Sending the tool list with each request** cannot be cached away. Every API call is stateless and a model can only call a tool it was just told about, so the schemas go out on every turn of the tool loop and sit in the model's context. What you control is how much there is: a server offering 27 tools measured 14,659 input tokens per completion against 2,007 for one tool, and a tool loop pays that on each turn. `allowed_tools:` is the lever — restrict a server to what the agent actually calls.
 
