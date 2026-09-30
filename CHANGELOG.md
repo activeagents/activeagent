@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **What to fix comes after the scenario results** (`actionagent`,
+  `activeagent`). A run report now reads models, then the scenario results,
+  then What to fix. The scenario suite panel moves What to fix below the
+  scenario matrix. The standalone HTML report
+  (`ActiveAgent::Evals::ReportHtml`) moves its fix cards below the matrix and
+  the per-scenario details. `Report#to_markdown` moves its Recommendations
+  below its Answers. The sampling run detail already read in this order.
+  Each section's content is unchanged.
+
 ## [1.8.0] - 2026-09-29
 
 Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release.
