@@ -4,23 +4,53 @@ module ActionAgent
   # Routes a tool call to the MCP server that serves it.
   #
   # An agent names the servers it uses in +mcp_servers+, and a catalog entry
-  # carries the url to reach one over HTTP. A tool the agent's servers claim is
-  # called there; anything else returns nil, and the caller falls back to the
-  # engine's own AgentToolbox.
+  # carries the url to reach one over HTTP. A tool the agent's servers claim,
+  # and that the agent's entry for that server does not switch off, is called
+  # there; anything else returns nil, and the caller falls back to the engine's
+  # own AgentToolbox.
   #
   # Only HTTP transports are dispatchable. A stdio server runs as a child
   # process of whatever launched it, so the dashboard has no address to call —
   # those stay listable and attributable without being callable.
+  #
+  # A single run can also reach a checkout sandbox's app runtime the agent
+  # does not name (+extra_server_keys+, "sandbox:<session_id>"): evaluating
+  # an agent against a checkout someone is experimenting in, without saving
+  # that sandbox on the agent. Such a key is treated as if the agent had it
+  # enabled, and resolves exactly as a saved one does: through
+  # SandboxSession.runtime_server_entry, among the agent's owner's sessions,
+  # and only while it is live. Only runtime keys are taken; a catalog server
+  # the agent does not enable stays out of reach.
   class MCPToolDispatcher
     HTTP_TRANSPORTS = %w[http streamable_http sse].freeze
+    class SandboxUnavailable < MCPClient::Error; end
 
-    def initialize(agent)
-      @agent = agent
-      @resolver = EvaluationToolResolver.new(agent)
-      @clients = {}
+    attr_reader :extra_server_keys
+
+    # A runtime explicitly selected for this run must not silently disappear
+    # between enqueue, discovery and a tool call.
+    def ensure_extra_servers_live!
+      extra_server_keys.each do |key|
+        sandbox = SandboxSession.for_owner(agent.try(:owner)).find_by(session_id: key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX))
+        next if sandbox && (sandbox.ready? || sandbox.running?) && sandbox.runtime_server_entry
+
+        raise SandboxUnavailable, "Sandbox #{key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)} is no longer running; " \
+          "start it again, or run without it"
+      end
     end
 
-    # Whether this tool belongs to one of the agent's own reachable servers.
+    def initialize(agent, extra_server_keys: [])
+      @agent = agent
+      @resolver = EvaluationToolResolver.new(agent)
+      @extra_server_keys = Array(extra_server_keys).map { |key| key.to_s.strip }
+        .select { |key| SandboxSession.runtime_server_key?(key) }.uniq
+      @clients = {}
+      @listed_by = {}
+    end
+
+    # Whether this tool belongs to one of the agent's own reachable servers —
+    # by its name, or because one of them listed it in the last
+    # +tool_definitions+.
     def dispatchable?(tool_name)
       endpoint_for(tool_name).present?
     end
@@ -28,8 +58,8 @@ module ActionAgent
     # Whether the agent names any server the dashboard can call. An agent with
     # none has nothing to execute beyond the engine's own toolbox.
     def any_reachable_server?
-      resolver.declared_server_keys.any? do |key|
-        entry = MCPCatalog.find(key)
+      server_keys.any? do |key|
+        entry = catalog_entry(key)
         entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
       end
     end
@@ -41,6 +71,7 @@ module ActionAgent
     #
     # @return [Hash, nil] nil when no configured server claims the tool
     def call(tool_name, arguments = {})
+      ensure_extra_servers_live!
       endpoint = endpoint_for(tool_name)
       return nil unless endpoint
 
@@ -63,16 +94,37 @@ module ActionAgent
     # from a server that legitimately serves no tools — and an agent offered no
     # tools answers from the model alone, which reads as a confident, fabricated
     # result rather than a transport failure (#425).
+    #
+    # A server entry that carries an allow-list ({key, tools: [...]}, which the
+    # Tools tab saves when tools are switched off) contributes only the tools
+    # it names: a tool switched off is not offered.
+    #
+    # A sandbox explicitly selected for a run takes precedence for duplicate
+    # names and must answer discovery; its failure aborts the run.
+    #
+    # Each tool offered is also remembered against the server that listed it,
+    # which is how a call finds its way back (see endpoint_for).
     def tool_definitions
+      ensure_extra_servers_live!
       @discovery_errors = {}
+      @listed_by = {}
 
-      resolver.declared_server_keys.flat_map do |key|
-        entry = MCPCatalog.find(key)
+      server_keys.flat_map do |key|
+        entry = catalog_entry(key)
         next [] unless entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
 
         begin
-          client_for(entry).list_tools
+          client_for(entry).list_tools.select do |tool|
+            name = (tool[:name] || tool["name"]).to_s
+            next false if name.blank? || listed_by.key?(name) || !allowed?(key, name)
+
+            @listed_by[name] = key
+            true
+          end
         rescue MCPClient::Error => e
+          if extra_server_keys.include?(key)
+            raise SandboxUnavailable, "Cannot load tools from selected sandbox #{key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)}: #{e.message}"
+          end
           Rails.logger.warn("[MCPToolDispatcher] #{key} tools/list failed: #{e.message}")
           @discovery_errors[key] =
             "Cannot load tools from MCP server '#{key}' (#{entry[:url]}): #{e.message}. " \
@@ -95,8 +147,8 @@ module ActionAgent
     # execution that follows cannot produce a meaningful result, so a caller
     # can fail loudly instead of scoring an answer the model invented.
     def all_servers_failed?
-      keys = resolver.declared_server_keys.select do |key|
-        entry = MCPCatalog.find(key)
+      keys = server_keys.select do |key|
+        entry = catalog_entry(key)
         entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS) && entry[:url].present?
       end
 
@@ -105,28 +157,96 @@ module ActionAgent
 
     private
 
-    attr_reader :agent, :resolver
+    attr_reader :agent, :resolver, :listed_by
+
+    # The selected checkout replaces matching tools from the agent's normal
+    # servers. Discovery and dispatch must agree on that precedence.
+    def server_keys
+      declared = resolver.declared_server_keys
+      (extra_server_keys + declared).uniq { |key| normalize(key) }
+    end
+
+    # Whether the agent enabled +key+, or this run was given it.
+    def enabled?(key)
+      resolver.status_for(key) == EvaluationToolResolver::ENABLED ||
+        extra_server_keys.any? { |extra| normalize(extra) == normalize(key) }
+    end
+
+    def normalize(key)
+      key.to_s.strip.downcase
+    end
 
     # The catalog entry for the server that serves this tool, but only when the
     # agent configured that server and the entry carries an http url. Scoping to
     # the agent's own servers is what keeps one agent's tools from reaching
     # another's.
+    #
+    # The resolver names a server from the tool's own name: a namespace, a
+    # catalog hint, or an allow-list the agent's entry carries. A bare name
+    # from a server entry that lists no tools — a checkout runtime enabled as
+    # "sandbox:<id>", or {key, name} as the Tools tab saves it — gives it
+    # nothing to go on, and the tool the model was just offered would fall
+    # through to the toolbox. Prefer the server that listed the tool in
+    # tool_definitions: it is one the agent can reach, and it is where the
+    # schema the model called came from. Resolver hints are the fallback
+    # when no discovered schema names a server.
+    #
+    # Either way the server's allow-list has the last word. A tool the agent's
+    # entry leaves out goes to the toolbox, where the call fails, rather than
+    # to a server the user switched it off on — whether the catalog hints it
+    # there or the server lists it.
     def endpoint_for(tool_name)
-      key = resolver.server_key_for(tool_name)
-      return nil if key.blank?
-      return nil unless resolver.status_for(key) == EvaluationToolResolver::ENABLED
+      name = tool_name.to_s.strip
 
-      entry = MCPCatalog.find(key)
+      [ listed_by[name], resolver.server_key_for(name) ].each do |key|
+        entry = reachable_entry(key)
+        return entry if entry && allowed?(key, name)
+      end
+
+      nil
+    end
+
+    # Whether the agent's entry for +key+ lets this tool through: it names no
+    # allow-list, or its allow-list holds the tool, under its bare name or as
+    # called (+mcp__<server>__<tool>+).
+    def allowed?(key, tool_name)
+      allowed = resolver.allowed_tools_for(key)
+      return true if allowed.nil?
+
+      allowed.include?(tool_name) || allowed.include?(ActiveAgent::Telemetry::ToolOrigin.classify(tool_name)[:tool])
+    end
+
+    # The entry for +key+ when the agent enabled that server and it has an
+    # http url to call; nil otherwise.
+    def reachable_entry(key)
+      return nil if key.blank?
+      return nil unless enabled?(key)
+
+      entry = catalog_entry(key)
       return nil unless entry && entry[:transport].to_s.in?(HTTP_TRANSPORTS)
       return nil if entry[:url].blank?
 
       entry
     end
 
+    # A catalog server, or the app runtime of a checkout sandbox the agent's
+    # owner started (keys "sandbox:<session_id>"). The sandbox lookup is scoped
+    # to the agent's owner, so naming another tenant's session resolves to
+    # nothing.
+    def catalog_entry(key)
+      return MCPCatalog.find(key) unless SandboxSession.runtime_server_key?(key)
+
+      SandboxSession.runtime_server_entry(key, owner: agent.try(:owner))
+    end
+
     # One client per server for the life of this dispatcher, so a run's tool
     # calls share the MCP session the first call opens.
     def client_for(entry)
-      @clients[entry[:key]] ||= MCPClient.new(url: absolute_url(entry[:url]), label: entry[:name] || entry[:key])
+      @clients[entry[:key]] ||= MCPClient.new(
+        url: absolute_url(entry[:url]),
+        label: entry[:name] || entry[:key],
+        headers: entry[:headers] || {}
+      )
     end
 
     # A host registers its own servers with a path ("/mcp/diagnostic"), since it

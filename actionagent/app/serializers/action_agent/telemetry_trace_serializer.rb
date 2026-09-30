@@ -21,7 +21,16 @@ module ActionAgent
       @trace = trace
     end
 
+    def self.row(trace)
+      new(trace).row
+    end
+
     def summary
+      row.merge(spans: serialized_spans)
+    end
+
+    # The summary without its spans: one line of a trace listing.
+    def row
       {
         id: @trace.id,
         trace_id: @trace.trace_id,
@@ -48,8 +57,7 @@ module ActionAgent
           model: @trace.model,
           input_tokens: @trace.total_input_tokens,
           output_tokens: @trace.total_output_tokens
-        ),
-        spans: serialized_spans
+        )
       }
     end
 

@@ -4,6 +4,7 @@ module ActionAgent
   module Api
     class AgentsController < BaseController
       include AgentSerialization
+      include RunSandbox
 
       # Ranking for the agent cards. Every dimension except "recent" reads the
       # scorecard, which is computed in Ruby over both execution sources, so
@@ -18,16 +19,18 @@ module ActionAgent
       DEFAULT_LIST_SORT = "recent"
       # Conversations returned to the runner's picker when no limit is asked for.
       CONVERSATIONS_LIMIT = 50
+      # Model names returned by #recorded_models.
+      RECORDED_MODELS_LIMIT = 50
       # Keywords Agent#execute takes in its own right, which per-run overrides
       # must never supply (see #execution_params). `actor` is here for the
       # same reason as the rest and one more: a keyword splat wins over the
       # arguments before it, so a client sending params[params][actor] would
       # otherwise name the caller its own run is authorized as.
-      RESERVED_EXECUTION_KEYS = [ :attachments, :action, :actor, :current_user ].freeze
+      RESERVED_EXECUTION_KEYS = [ :attachments, :action, :actor, :current_user, :runtime_sandbox ].freeze
 
       before_action :set_agent, only: [
         :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics,
-        :tool_roster, :conversations, :create_conversation
+        :tool_roster, :conversations, :create_conversation, :recorded_models
       ]
       before_action :require_execution_enabled!, only: [ :execute, :test ]
       before_action :require_owner!, only: [ :execute, :test ]
@@ -167,13 +170,16 @@ module ActionAgent
       #
       # JSON as before, or multipart from the runner's composer: the new
       # user message, its files (attachments[]) and the conversation to
-      # continue (params[context_id], or a top-level context_id).
+      # continue (params[context_id], or a top-level context_id). A
+      # `sandbox_id` runs it against that checkout sandbox's app runtime
+      # too, without editing the agent (see RunSandbox); so does /test.
       def execute
         run = @agent.execute(
           execution_prompt,
           action: params[:action_name],
           attachments: uploaded_attachments,
           actor: agent_actor,
+          runtime_sandbox: run_sandbox_for(@agent, params[:sandbox_id])&.runtime_server_key,
           **execution_params
         )
         record_execution_usage
@@ -188,6 +194,7 @@ module ActionAgent
           action: params[:action_name],
           attachments: uploaded_attachments,
           actor: agent_actor,
+          runtime_sandbox: run_sandbox_for(@agent, params[:sandbox_id])&.runtime_server_key,
           **execution_params
         )
         record_execution_usage
@@ -266,12 +273,40 @@ module ActionAgent
       # What the Tools tab edits: the MCP services this agent can be given
       # and the tools it can be offered, each with the calls, errors and
       # latency recorded for it in the window.
+      #
+      # The checkout runtimes offered are the agent owner's — the only ones
+      # MCPToolDispatcher reaches for this agent — and of those, only the
+      # ones the caller may see as well. Intersected by id rather than with
+      # merge: both relations constrain the same owner column, and merge
+      # lets the second condition replace the first instead of adding to it.
       def tool_roster
+        runtimes = SandboxSession.runtime_server_listings(
+          SandboxSession.for_owner(@agent.owner).where(id: owned(SandboxSession).select(:id))
+        )
+
         render json: AgentToolRoster.new(
           agent: @agent,
           traces: owned_traces,
-          hours: params.fetch(:hours, ToolDiscovery::DEFAULT_WINDOW_HOURS).to_i
+          hours: params.fetch(:hours, ToolDiscovery::DEFAULT_WINDOW_HOURS).to_i,
+          runtimes: runtimes
         ).as_json
+      end
+
+      # GET /api/agents/:id/recorded_models
+      #
+      # The model names this agent's generations were recorded under, most
+      # recently used first. An evaluation without scenarios compares the
+      # generations recorded under each name it is given, so these are the
+      # names its models field suggests.
+      def recorded_models
+        generations = AgentGeneration.arel_table
+        models = @agent.generations.where.not(model: [ nil, "" ])
+          .group(generations[:model])
+          .order(Arel::Nodes::Descending.new(generations[:created_at].maximum))
+          .limit(RECORDED_MODELS_LIMIT)
+          .pluck(generations[:model])
+
+        render json: { models: models }
       end
 
       # GET /api/agents/:id/analytics

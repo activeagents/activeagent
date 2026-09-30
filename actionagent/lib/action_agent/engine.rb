@@ -24,6 +24,7 @@ module ActionAgent
       "mcp_client" => "MCPClient",
       "mcp_tool_dispatcher" => "MCPToolDispatcher",
       "mcp_controller" => "MCPController",
+      "mcp_dashboard_tools" => "MCPDashboardTools",
       "mcp_recording_middleware" => "MCPRecordingMiddleware",
       "mcp_servers_controller" => "MCPServersController",
       "playwright_mcp_client" => "PlaywrightMCPClient"

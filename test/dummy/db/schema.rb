@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 11) do
+ActiveRecord::Schema[8.0].define(version: 13) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -194,6 +194,33 @@ ActiveRecord::Schema[8.0].define(version: 11) do
     t.index [ "token" ], name: "index_active_agent_api_keys_on_token", unique: true
   end
 
+  create_table "active_agent_code_sessions", force: :cascade do |t|
+    t.bigint "account_id"
+    t.string "claude_session_id"
+    t.datetime "created_at", null: false
+    t.text "diff"
+    t.integer "dropped_events_count", default: 0, null: false
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.json "events", default: []
+    t.datetime "finished_at"
+    t.integer "input_tokens"
+    t.string "model"
+    t.integer "num_turns"
+    t.integer "output_tokens"
+    t.text "prompt", null: false
+    t.text "result"
+    t.bigint "sandbox_session_id", null: false
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.decimal "total_cost_usd", precision: 12, scale: 6
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_code_sessions_on_account_id"
+    t.index [ "sandbox_session_id" ], name: "index_active_agent_code_sessions_on_sandbox_session_id"
+    t.index [ "user_id" ], name: "index_active_agent_code_sessions_on_user_id"
+  end
+
   create_table "active_agent_evaluation_runs", force: :cascade do |t|
     t.bigint "agent_version_id"
     t.index [ "agent_version_id" ], name: "index_active_agent_evaluation_runs_on_agent_version_id"
@@ -268,6 +295,21 @@ ActiveRecord::Schema[8.0].define(version: 11) do
     t.index [ "agent_id", "name" ], name: "index_active_agent_evaluations_on_agent_id_and_name", unique: true
   end
 
+  create_table "active_agent_github_connections", force: :cascade do |t|
+    t.text "access_token", null: false
+    t.bigint "account_id"
+    t.string "avatar_url"
+    t.datetime "created_at", null: false
+    t.bigint "github_user_id", null: false
+    t.string "login", null: false
+    t.json "repositories", default: []
+    t.string "scopes"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_github_connections_on_account_id"
+    t.index [ "user_id" ], name: "index_active_agent_github_connections_on_user_id"
+  end
+
   create_table "active_agent_provider_keys", force: :cascade do |t|
     t.bigint "account_id"
     t.string "api_key"
@@ -336,8 +378,12 @@ ActiveRecord::Schema[8.0].define(version: 11) do
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
     t.json "mcp_servers", default: []
+    t.string "repository"
+    t.string "repository_ref"
     t.json "runs", default: []
     t.integer "runs_count", default: 0
+    t.text "runtime_mcp_token"
+    t.string "runtime_mcp_url"
     t.string "sandbox_type", default: "playwright_mcp"
     t.string "session_id", null: false
     t.integer "status", default: 0

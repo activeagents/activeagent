@@ -67,34 +67,34 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
 
   def test_headings_start_a_group_and_list_markers_are_stripped
     scenarios = parse(<<~TEXT)
-      # Find records
-      1. Which gynecologists in Charlotte have scheduling enabled?
-      - Show me all providers with no license on file
+      # Open tickets
+      1. Which open tickets mention a refund?
+      - Show me all tickets with no assignee
 
-      **Blame / audit**
-      * Who changed the biography for Dr. AbdelRazek?
+      **History / audit**
+      * Who changed the shipping policy last week?
     TEXT
 
-    assert_equal [ "Find records", "Find records", "Blame / audit" ], scenarios.map { |s| s["group"] }
-    assert_equal [ "find_records_1", "find_records_2", "blame_audit_1" ], scenarios.map { |s| s["key"] }
-    assert_equal "Who changed the biography for Dr. AbdelRazek?", scenarios.last["prompt"]
+    assert_equal [ "Open tickets", "Open tickets", "History / audit" ], scenarios.map { |s| s["group"] }
+    assert_equal [ "open_tickets_1", "open_tickets_2", "history_audit_1" ], scenarios.map { |s| s["key"] }
+    assert_equal "Who changed the shipping policy last week?", scenarios.last["prompt"]
   end
 
   def test_a_backticked_message_keeps_the_rest_of_the_line_as_notes
-    scenarios = parse("3. `Show me all providers with no license on file` — ✏️ reworded: 1,060 of 15,043 providers have no license row")
+    scenarios = parse("3. `Show me all tickets with no assignee` — ✏️ reworded: 12 of 40 sample tickets have no assignee")
 
-    assert_equal "Show me all providers with no license on file", scenarios.first["prompt"]
+    assert_equal "Show me all tickets with no assignee", scenarios.first["prompt"]
     assert_match(/reworded/, scenarios.first["notes"])
   end
 
   def test_inline_options_declare_expectations_keys_and_groups
-    scenarios = parse("Why is this provider not showing? | tools: record_visibility_status, sync_status | contains: index | key: vis_1 | group: Diagnostics")
+    scenarios = parse("Why is this article missing from the help center? | tools: article_status, search_index_status | contains: index | key: vis_1 | group: Help center")
 
     scenario = scenarios.first
-    assert_equal "Why is this provider not showing?", scenario["prompt"]
+    assert_equal "Why is this article missing from the help center?", scenario["prompt"]
     assert_equal "vis_1", scenario["key"]
-    assert_equal "Diagnostics", scenario["group"]
-    assert_equal %w[record_visibility_status sync_status], scenario["expectations"]["tools"]
+    assert_equal "Help center", scenario["group"]
+    assert_equal %w[article_status search_index_status], scenario["expectations"]["tools"]
     assert_equal [ "index" ], scenario["expectations"]["contains"]
   end
 
@@ -102,13 +102,13 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
     scenarios = parse(<<~JSON)
       [
         "Plain question",
-        {"prompt": "Who added the term?", "group": "Blame", "tools": ["find_records"], "not_contains": ["I cannot"]}
+        {"prompt": "Who closed the ticket?", "group": "History", "tools": ["find_tickets"], "not_contains": ["I cannot"]}
       ]
     JSON
 
     assert_equal "Plain question", scenarios.first["prompt"]
-    assert_equal "Blame", scenarios.last["group"]
-    assert_equal [ "find_records" ], scenarios.last["expectations"]["tools"]
+    assert_equal "History", scenarios.last["group"]
+    assert_equal [ "find_tickets" ], scenarios.last["expectations"]["tools"]
     assert_equal [ "I cannot" ], scenarios.last["expectations"]["not_contains"]
   end
 
@@ -125,27 +125,27 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
   end
 
   def test_a_short_line_ending_in_a_colon_starts_a_group_unless_it_is_a_question_or_carries_options
-    scenarios = parse("Find records:\nWhich providers have no license?\nWho changed it? | notes:")
+    scenarios = parse("Find tickets:\nWhich tickets have no assignee?\nWho changed it? | notes:")
 
-    assert_equal [ "Which providers have no license?", "Who changed it?" ], scenarios.map { |s| s["prompt"] }
-    assert_equal [ "Find records", "Find records" ], scenarios.map { |s| s["group"] }
+    assert_equal [ "Which tickets have no assignee?", "Who changed it?" ], scenarios.map { |s| s["prompt"] }
+    assert_equal [ "Find tickets", "Find tickets" ], scenarios.map { |s| s["group"] }
     assert_nil scenarios.last["notes"]
   end
 
   def test_a_hash_that_opens_a_message_is_not_a_heading
-    scenarios = parse("#1 priority: who changed the biography?\n# Blame\nWho changed it?")
+    scenarios = parse("#1 priority: who changed the shipping policy?\n# History\nWho changed it?")
 
-    assert_equal [ "#1 priority: who changed the biography?", "Who changed it?" ], scenarios.map { |s| s["prompt"] }
-    assert_equal [ nil, "Blame" ], scenarios.map { |s| s["group"] }
+    assert_equal [ "#1 priority: who changed the shipping policy?", "Who changed it?" ], scenarios.map { |s| s["prompt"] }
+    assert_equal [ nil, "History" ], scenarios.map { |s| s["group"] }
   end
 
   def test_inline_code_in_a_message_is_kept_as_part_of_the_prompt
-    scenarios = parse("What does `count_records` return for Charlotte?\n`Show me all providers` — 314 locally")
+    scenarios = parse("What does `count_tickets` return for the billing queue?\n`Show me all tickets` — 12 in the sample data")
 
-    assert_equal "What does count_records return for Charlotte?", scenarios.first["prompt"]
+    assert_equal "What does count_tickets return for the billing queue?", scenarios.first["prompt"]
     assert_nil scenarios.first["notes"]
-    assert_equal "Show me all providers", scenarios.last["prompt"]
-    assert_equal "314 locally", scenarios.last["notes"]
+    assert_equal "Show me all tickets", scenarios.last["prompt"]
+    assert_equal "12 in the sample data", scenarios.last["notes"]
   end
 
   def test_a_single_json_object_and_an_expect_sub_hash_are_accepted
@@ -160,10 +160,10 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
   end
 
   def test_scenarios_builds_structs
-    scenario = ActiveAgent::Evals::ScenarioParser.scenarios("# Blame\nWho? | tools: history").first
+    scenario = ActiveAgent::Evals::ScenarioParser.scenarios("# History\nWho? | tools: history").first
 
     assert_kind_of ActiveAgent::Evals::Scenario, scenario
-    assert_equal "blame_1", scenario.key
+    assert_equal "history_1", scenario.key
     assert_equal [ "history" ], scenario.expected_tools
     assert_equal({ "tools" => [ "history" ] }, scenario.expectations)
   end

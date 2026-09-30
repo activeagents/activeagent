@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import GithubIntegrationCard from './GithubIntegrationCard';
+import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
+import { clearProviderModels } from '../../utils/providerModels';
 
 const PROVIDER_META = {
   openai: { label: 'OpenAI', icon: '🤖', placeholder: 'sk-…' },
@@ -8,9 +11,23 @@ const PROVIDER_META = {
   ollama: { label: 'Ollama', icon: '🦙', placeholder: 'http://localhost:11434/v1' },
 };
 
+const TAB_IDS = ['profile', 'api-keys', 'integrations', 'notifications', 'billing'];
+
+// ?tab=… opens a tab directly; the GitHub OAuth callback lands on
+// ?tab=integrations&github=<outcome>.
+function initialQuery() {
+  const query = new URLSearchParams(window.location.search);
+  const tab = query.get('tab');
+  return { tab: TAB_IDS.includes(tab) ? tab : 'profile', github: query.get('github') };
+}
+
 export default function SettingsView({ user, account }) {
   const { darkMode, toggleDarkMode } = useTheme();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [{ tab: firstTab, github: githubCallback }] = useState(initialQuery);
+  const [activeTab, setActiveTab] = useState(firstTab);
+  // Bumped when the Claude Code card changes, so the GitHub card re-reads
+  // whether sandboxes can run Claude Code sessions.
+  const [integrationsVersion, setIntegrationsVersion] = useState(0);
 
   // API Keys tab state
   const [apiKeys, setApiKeys] = useState([]);
@@ -112,6 +129,9 @@ export default function SettingsView({ user, account }) {
       setProviderInput('');
       setProviderApiKeyInput('');
       setTestResults((prev) => ({ ...prev, [provider]: null }));
+      // A credential decides which models a provider lists (a live lookup
+      // with the new key, or an Ollama host's own models).
+      clearProviderModels();
       await loadKeys();
     } catch (e) {
       setKeysError(`Could not save the ${PROVIDER_META[provider]?.label || provider} credential${e.message !== 'save failed' ? `: ${e.message}` : '.'}`);
@@ -154,6 +174,7 @@ export default function SettingsView({ user, account }) {
       const res = await fetch(`/api/provider_keys/${provider}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
       setTestResults((prev) => ({ ...prev, [provider]: null }));
+      clearProviderModels();
       await loadKeys();
     } catch (e) {
       setKeysError('Could not remove the provider credential.');
@@ -178,6 +199,7 @@ export default function SettingsView({ user, account }) {
   const tabs = [
     { id: 'profile', label: 'Profile' },
     { id: 'api-keys', label: 'API Keys' },
+    { id: 'integrations', label: 'Integrations' },
     { id: 'notifications', label: 'Notifications' },
     { id: 'billing', label: 'Billing' },
   ];
@@ -415,7 +437,7 @@ export default function SettingsView({ user, account }) {
               account use these instead of the platform defaults. Keys are encrypted at rest.
             </p>
             <div className="space-y-4">
-              {providerKeys.map(({
+              {providerKeys.filter(({ kind }) => kind !== 'connection').map(({
                 provider, host_based: hostBased, configured, hint,
                 api_key_configured: apiKeyConfigured, api_key_hint: apiKeyHint, platform_default: platformDefault,
               }) => {
@@ -574,6 +596,26 @@ export default function SettingsView({ user, account }) {
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Integrations Tab */}
+      {activeTab === 'integrations' && (
+        <div className="space-y-6">
+          <div className="border rounded-lg p-6" style={cardStyle}>
+            <h3 className={`text-lg font-semibold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              Integrations
+            </h3>
+            <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Connect GitHub to choose which repositories this workspace may use. A sandbox started
+              from one boots that app's own runtime, so agents and evaluations can run with its tools,
+              and Claude Code can work on the checkout.
+            </p>
+            <GithubIntegrationCard callbackStatus={githubCallback} refreshKey={integrationsVersion} />
+          </div>
+          <div className="border rounded-lg p-6" style={cardStyle}>
+            <ClaudeCodeIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
           </div>
         </div>
       )}

@@ -233,8 +233,15 @@ Agent drafts open in the builder for review; they are not saved or run by chat.
 Conversation state resets on reload. Assistant generations disable framework
 traces and provider notifications, and message/history parameters are filtered
 before Rails request logging. Provider retention and any host middleware that
-records raw HTTP bodies still follow the host's policies. Repository connections, COI execution, Claude Code sessions
-and PR checks remain [planned work](/plans/dashboard-assistant/PLAN).
+records raw HTTP bodies still follow the host's policies.
+
+The assistant's configuration endpoint (`GET /api/dashboard_assistant`)
+reports whether GitHub and Claude Code are connected, as booleans with no
+tokens. The assistant itself isn't told, and it cannot connect them, start a
+checkout sandbox or run a Claude Code session; it points you to Settings →
+Integrations, where those live (see
+[Local checkout sandboxes](#local-checkout-sandboxes)). COI execution and PR
+checks remain [planned work](/plans/dashboard-assistant/PLAN).
 
 ## Metrics
 
@@ -347,11 +354,11 @@ line; `# Heading` lines group related tasks so a group can be run on its own;
 options after `|` set expectations:
 
 ```text
-# Find records
-Which gynecologists in Charlotte have scheduling enabled? | tools: find_records
-Show me all providers with no license on file
-# Blame
-Who changed the biography for Dr. AbdelRazek? | contains: AbdelRazek
+# Open tickets
+Which open tickets mention a refund? | tools: find_tickets
+Show me all tickets with no assignee
+# Change history
+Who changed the shipping policy last week? | contains: policy
 ```
 
 | Option | Meaning |
@@ -362,12 +369,52 @@ Who changed the biography for Dr. AbdelRazek? | contains: AbdelRazek
 | `key: k` | A stable key, so results line up across re-imports |
 | `group: g` | Overrides the heading for this line |
 
-**Compare models** takes the candidates as a comma-separated list. A bare
-name infers its provider from the family (`claude-*` → Anthropic, `gpt-*` →
-OpenAI, `name:tag` → Ollama); prefix it to be explicit
+**Compare models** holds the candidates, one removable chip each, and
+submits them as a comma-separated list, which the API also accepts. Type to
+search the suggestions, and finish a name the list lacks with Enter or a
+comma. A bare name infers its provider from the family (`claude-*` →
+Anthropic, `gpt-*` → OpenAI, `name:tag` → Ollama); prefix it to be explicit
 (`ollama/qwen3:8b`, `openrouter/meta-llama/llama-3.3-70b-instruct`). Each
 candidate needs credentials the same way an agent run does — the owner's
 provider key or the host app's `config/active_agent.yml`.
+
+What the field suggests depends on the scenarios:
+
+- **With scenarios**, each candidate replays them, so the field suggests the
+  models of every provider the owner's runs have credentials for, from the
+  same catalogs as the agent builder. A model whose name alone would run on
+  another provider is offered with its provider in front: `ollama/llama3.2`,
+  or `openrouter/anthropic/claude-sonnet-4.5` for OpenRouter's copy of an
+  Anthropic model.
+- **Without scenarios**, each candidate selects the generations the agent
+  recorded under that model name. A provider usually records its dated id
+  (`gpt-4o-mini-2024-07-18` for a request for `gpt-4o-mini`), so the field
+  suggests the names the agent's generations were recorded under
+  (`GET /api/agents/:id/recorded_models`).
+
+Adding or clearing the scenarios renames the catalog models already chosen
+to match. **Judge model** suggests the models of the provider the judge runs
+on, named under the field: the first of Anthropic, OpenAI and OpenRouter
+with credentials, else Ollama when the owner configured a host.
+`GET /api/evaluations` reports that provider as `judge_provider`, and the
+providers runs can use as `model_providers`. A provider whose credentials
+cannot be read, such as a stored key that no longer decrypts, is left out of
+`model_providers`. When reading one fails before the judge's provider is
+found, `judge_provider` is null with `judge_provider_error: true`, and the
+field says the credentials could not be read.
+
+Replays and their judge use the credentials of the evaluated agent's owner.
+On an agent's page, which requests the list with `agent_id`, both fields
+describe that owner's credentials. The Evaluations page describes the
+signed-in owner's, which differ only for an agent someone else owns, as the
+host's `agent_scope_resolver` can allow. A host adapter
+(`ActionAgent.scenario_evaluation_adapter_resolver`) runs a suite with
+whatever credentials it chooses, which these fields do not describe.
+
+The catalogs come from `GET /api/provider_models`. When the host app loads
+RubyLLM, it appends the chat models that take and return text from
+RubyLLM's model registry for the provider (its bundled catalog, or the
+host's own model table) after the live or curated list.
 
 A run is queued (`EvaluationRunJob`) and its results land as each replay
 finishes. Each replay runs as the evaluation's owner when agents are owned
@@ -475,7 +522,8 @@ as a Bearer token. Connect a client with:
   "headers": { "Authorization": "Bearer aa_..." } }
 ```
 
-`tools/list` offers two kinds of tool:
+`tools/list` offers three kinds of tool: the two below, and the dashboard's
+[evaluation and telemetry tools](#evaluations-and-telemetry-from-your-coding-harness).
 
 | Tool | What a call does |
 |---|---|
@@ -494,6 +542,605 @@ generation, so neither `execution_enabled` nor the execution quota applies to
 them. Set `ActionAgent.mcp_schema_tools = false` to keep schema tools
 reachable only through agents. `agent://<slug>` resources return each
 agent's live scorecard.
+
+### Evaluations and telemetry from your coding harness
+
+The facade also serves the dashboard's own evaluation and telemetry tools, so
+the coding harness you already use (Claude Code, Codex, Cursor, …) can edit an
+agent in your checkout, run its evaluations, read what failed, and try again.
+The harness brings its own model and login; the dashboard only answers the
+calls.
+
+| Tool | What a call does |
+|---|---|
+| `evaluations_list` | Lists the evaluations of the key's agents, newest first, each with its latest run's status and score; `agent` (slug or id) filters to one agent |
+| `evaluations_get` | One evaluation: its criteria, its scenarios and its 10 most recent runs |
+| `evaluations_run` | Starts a run. Takes the same selection as `POST /api/evaluations/:id/run`: `scenario_ids`, `keys`, `group`, `models` and `sandbox_id`. A scenario suite runs in the background and comes back `pending` with its run id; a sampling evaluation finishes before the call returns |
+| `evaluation_runs_get` | One run (the latest by default): status, scores, usage, fix items and per-scenario, per-model results, each naming its telemetry trace when one was recorded. `failed_only` and `limit` narrow the results |
+| `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
+| `traces_search` | Summary rows of traces, newest first, filtered by `agent` (class name or dashboard slug), `status` (`error` or `ok`), `service`, `since_minutes`, `min_tokens` and `min_duration_ms`; at most 100 |
+| `traces_get` | One trace by id, OpenTelemetry trace id or its first 8 characters: spans, tool calls with their arguments and results, tokens, estimated cost and failed spans |
+
+A typical loop: `evaluations_run`, poll `evaluation_runs_get` until the run is
+`complete`, read the fix items and a failing result's trace with
+`traces_get`, edit the agent, run again, and check the change with
+`evaluation_runs_compare`. Passing `sandbox_id` runs the evaluation against a
+checkout sandbox's app tools without editing the agent (see
+[checkout sandboxes](#github-connections-and-checkout-sandboxes)).
+
+The tools read what the JSON API reads for the key's owner: evaluations of
+the agents the owner can reach, and traces of the owner's tenant (every trace,
+in an install that is not multi-tenant). Another owner's evaluation or trace
+answers exactly as a nonexistent one does. `evaluations_run` is checked the
+way the JSON API checks a run: a scenario suite needs `execution_enabled` and
+execution quota, which answer as JSON-RPC errors as they do for `run_<slug>`,
+while an observed agent, an unknown id or a sandbox the run cannot use comes
+back as a tool result with `isError`. Strings longer than 1,000 characters are
+cut and end in `…[truncated: N more characters]`, long lists end in
+`[truncated: N more items]`, and the owner's credentials (API key, provider
+keys, GitHub token, sandbox runtime tokens) are masked from every result.
+
+These names are a noun family followed by a verb. Schema tools are always
+`find_`, `count_` or `get_` plus a model name, and agent tools are
+`run_<slug>`, so no host model (a `Trace` or `Evaluation` model included) and
+no agent slug can produce one of them. Set `ActionAgent.mcp_dashboard_tools =
+false` to leave the facade serving agents and schema tools only.
+
+## GitHub connections and checkout sandboxes
+
+Settings -> **Integrations** connects the owner's GitHub account over OAuth.
+The owner then chooses which repositories the workspace may use. Register a
+[GitHub OAuth app](https://github.com/settings/developers) whose callback URL
+is `<mount>/api/github_connection/callback` (for example
+`https://example.com/activeagents/api/github_connection/callback`), then
+configure it:
+
+```ruby
+ActionAgent.configure do |config|
+  config.github_client_id = Rails.application.credentials.dig(:github, :client_id)
+  config.github_client_secret = Rails.application.credentials.dig(:github, :client_secret)
+  # Default "repo read:user"; "public_repo read:user" for public checkouts only.
+  config.github_oauth_scopes = "repo read:user"
+end
+```
+
+Unset, both settings fall back to `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
+The token is encrypted at rest like a provider key and is never returned to
+the browser. The selection only keeps repositories GitHub lists for that
+token.
+
+**Start sandbox** on a selected repository creates an `app_runtime` sandbox
+session. A sandbox backend (see `ActionAgent.sandbox_backends`) does the
+following for that session:
+
+1. Reads `sandbox_session.checkout_spec`, which holds `repository`, `ref`,
+   `clone_url`, `username` and `token`, and clones it.
+2. Boots the app. If the app mounts this engine, its MCP facade serves the
+   app's agents and schema tools.
+3. Returns `mcp_url:` (and, when the facade needs one, `mcp_token:`, a
+   dashboard API key of the booted app) from `create_sandbox`.
+
+The session is then an MCP server keyed `sandbox:<session_id>`, shown on the
+sandbox as `runtime_server_key`. Add that key to an agent's MCP servers, and
+runs and evaluations of that agent call the checkout's own tools. The lookup
+is scoped to the agent's owner, so one tenant cannot name another tenant's
+sandbox.
+
+### Running against a sandbox without editing the agent
+
+A checkout sandbox is where you try a change: boot a branch, perhaps have a
+[Claude Code session](#claude-code-sessions) edit an agent's tools there, and
+then see how the agent does with them. For that, a single run can use a
+sandbox's runtime without the key being saved on the agent. In a scenario
+suite, pick it in **Run against sandbox** next to the models field (the
+select lists your ready checkout sandboxes). Every replay of that run is
+offered the runtime's tools beside the agent's own, and calls them there, as
+if the agent listed `sandbox:<session_id>`. When both serve the same tool
+name, the selected sandbox's schema and implementation take precedence;
+the model sees that tool only once. If the selected sandbox cannot list its
+tools, the run fails instead of falling back to the original server.
+The next run, and the agent's
+saved `mcp_servers`, are unchanged.
+
+The run records the sandbox it used, and the Runs list, the suite's summary
+line and the run report all name it (`against acme/shop@experiment ·
+1a2b3c4d`). The API takes the same thing as `sandbox_id`:
+
+| Endpoint | What `sandbox_id` does |
+|---|---|
+| `POST /api/evaluations/:id/run` | Every replay of this run reaches the sandbox's runtime. The run's `sandbox` (and `selection.sandbox`) is `{ session_id, server_key, repository, repository_ref }` |
+| `POST /api/agents/:id/execute`, `POST /api/agents/:id/test` | This runner run reaches it. The run's summary carries `sandbox_id` |
+
+The sandbox must be yours (in your current account, in a multi-tenant
+install), an `app_runtime` sandbox, and ready. It must also belong to the
+agent's owner, because the runtime is resolved among that owner's sessions,
+as a saved key is. Anything else is refused with `422` and a message saying
+which (`code: "sandbox_refused"`). A sampling evaluation, which scores
+recorded generations rather than running the agent, and a suite a host
+adapter replays, cannot run against a sandbox. A queued run whose sandbox has
+stopped by the time it starts fails, saying so, rather than replaying without
+the tools it was meant to test. The runtime's token is never in a response
+or a stored record: runs store only the `sandbox:<session_id>` key.
+
+### Claude Code
+
+Settings -> Integrations also connects **Claude Code**, in one of two ways,
+set by `ActionAgent.claude_code_auth`:
+
+- **`:api_key`** (the default). Paste an Anthropic API key (`sk-ant-api03-…`)
+  from the [Claude Console](https://platform.claude.com), or one issued
+  through a supported cloud provider. It is stored like a provider key
+  (encrypted, write-only, masked in the UI) under the provider name
+  `claude_code`, and never offered as an agent provider. A checkout backend
+  reads `sandbox_session.runtime_environment`, which is
+  `{ "ANTHROPIC_API_KEY" => … }`, and gives it to the Claude Code sessions it
+  runs in the checkout, and to nothing else: the `:local` backend never puts it
+  in the environment of the checkout's setup, manifest or server (see
+  [Claude Code sessions](#claude-code-sessions)).
+- **`:local_login`**, with the [`:local` backend](#local-checkout-sandboxes)
+  only. Sessions run `claude` on the dashboard's machine with that machine's
+  own Claude Code login: whatever `claude /login` (or `claude auth login`) set
+  up for the dashboard's OS user, in `~/.claude` or the system keychain. The
+  dashboard never reads, copies or stores that credential. It only runs
+  `claude auth status --json` (at most once a minute) to show whether the
+  machine is logged in, and keeps nothing from it but `loggedIn` and the login
+  method. No key is asked for. Any other backend refuses Claude Code sessions
+  in this mode, since the login cannot leave the machine.
+
+```ruby
+ActionAgent.configure do |config|
+  config.sandbox_service = :local
+  config.claude_code_auth = :local_login
+end
+```
+
+::: warning Claude subscription tokens are not accepted
+The dashboard does not store a Claude subscription login: the token
+`claude setup-token` prints (`sk-ant-oat…`) is refused. Anthropic's
+[Claude Code legal and compliance terms](https://code.claude.com/docs/en/legal-and-compliance.md)
+say that products built on Claude should use API key authentication, and that
+third-party developers may not collect, store or route requests through
+Claude.ai credentials on their users' behalf. Sign-in to a Claude account must
+go through Anthropic's own flow, which is what `:local_login` relies on.
+
+A token stored by an earlier version is never handed to a session: the owner
+sees Claude Code as needing an API key (`needs_replacing: true` in
+`GET /api/provider_keys`) until they paste one. Delete the stored tokens with
+`bin/rails action_agent:claude_code:purge_subscription_tokens`.
+:::
+
+`GET /api/sandboxes` reports which mode is in use and whether sessions can
+run, never a credential:
+
+| Field | Meaning |
+|---|---|
+| `claude_code_auth` | `"api_key"` or `"local_login"` |
+| `claude_code_connected` | an API key is stored (`api_key`), or this machine is logged in (`local_login`) |
+| `claude_code_login` | `{ logged_in, auth_method }`, in `local_login` mode only |
+| `code_sessions_supported` | the backend runs sessions, and runs them in this mode |
+
+The dashboard assistant's configuration reports the same under
+`connections.claude_code` (`supported`, `connected`, `auth`, `login`).
+
+## Local checkout sandboxes
+
+The engine ships a `:local` sandbox backend, so **Start sandbox** works on a
+developer's own machine with no containers. It clones the repository into a
+directory under the host app, runs the repository's setup, and boots it as child
+processes of the dashboard. Turn it on in the initializer:
+
+```ruby
+ActionAgent.configure do |config|
+  config.sandbox_service = :local   # or SANDBOX_BACKEND=local
+end
+```
+
+It needs `git` and `sh` on the dashboard's `PATH`, plus whatever the checkout's
+own setup needs (Ruby and Bundler for a Rails app). Claude Code sessions also
+need the `claude` CLI, and either an Anthropic API key connected in Settings ->
+Integrations or, with `claude_code_auth = :local_login`, the machine's own
+Claude Code login (run `claude /login` once as the dashboard's user). See
+[Claude Code](#claude-code).
+
+::: warning The local backend runs the owner's code with the dashboard's privileges
+The checkout's setup commands, its server and every Claude Code session run as
+the dashboard's own OS user, with its filesystem and its network. Environment
+sanitizing (below) keeps the dashboard's credentials and database out of their
+environment. It does not isolate them: a checkout can read any file that user
+can read. Use `:local` on a developer's machine, or on a single-user install
+where the person who connects GitHub is the person who runs the dashboard.
+
+It is **off outside development and test** unless you enable it:
+
+```ruby
+config.local_sandboxes_enabled = true
+```
+:::
+
+| Option | Default | What it sets |
+|---|---|---|
+| `sandbox_service` | `:mock` | The backend: `:mock` (in memory, runs nothing), `:local`, or one registered in `sandbox_backends`. `SANDBOX_BACKEND` overrides it |
+| `local_sandboxes_enabled` | unset: on in development and test, off elsewhere | Whether `:local` may run at all |
+| `local_sandbox_root` | `Rails.root.join("tmp/action_agent/sandboxes")` | Where each sandbox's workspace lives |
+| `local_sandbox_boot_timeout` | `600` (seconds) | The limit on checkout, setup, manifest and server start together |
+| `claude_code_command` | `"claude"` | The Claude Code executable |
+| `claude_code_permission_mode` | `"acceptEdits"` | `--permission-mode` for every session |
+| `claude_code_max_turns` | `nil` (Claude Code's own default) | `--max-turns` for every session |
+| `claude_code_timeout` | `1800` (seconds) | How long a session may run before it is stopped |
+| `claude_code_auth` | `:api_key` | How sessions authenticate: the owner's stored API key, or `:local_login` for this machine's own Claude Code login (see [Claude Code](#claude-code)) |
+
+### What a sandbox runs
+
+Each sandbox gets a workspace, `<local_sandbox_root>/<session_id>/`, readable
+only by the dashboard's user:
+
+```
+app/            the checkout
+db/             the sandbox's SQLite databases, when the checkout uses SQLite (see below)
+runtime.json    the manifest the checkout wrote (made owner-only, 0600)
+state.json      { pid, port, started_at, step_pid, code_sessions: { "<id>" => pid } }
+state.lock      what changes to state.json are serialized on
+logs/           checkout, setup, manifest, server and claude-<id> logs
+claude/         CLAUDE_CONFIG_DIR for Claude Code sessions (unused with claude_code_auth = :local_login)
+```
+
+Its handle is `local-<session_id>`. Provisioning runs in a background job (a
+checkout can take minutes) and does the following, in order:
+
+1. Fetches the ref, one commit deep, into `app/`. The GitHub token is only in
+   the environment of that fetch. It never appears on a command line, and it
+   is never written to `.git/config`.
+2. Reads `.activeagents/sandbox.yml` from the checkout, if there is one, and
+   gives the sandbox [databases of its own](#a-database-per-sandbox).
+3. Runs each `setup` command.
+4. Picks a free port and runs the `manifest` command.
+5. Starts the `start` command in its own process group, with its output in
+   `logs/server.log`, and records its pid and port in `state.json`.
+6. Polls `GET http://127.0.0.1:$PORT<mcp_path>` with
+   `Accept: application/json` until it answers `405`, which means the engine
+   is mounted and serving (`401` and `200` count too). The answer must come
+   from the sandbox's own server: nothing reserves the port between picking
+   it and the server binding it, and another process could take it first.
+   On Linux the backend checks in `/proc` that the listening socket belongs
+   to the server's process group (or to a process carrying the sandbox's
+   `ACTION_AGENT_SANDBOX_SESSION_ID`); elsewhere it asks `lsof`. Only where
+   neither can say does it send the manifest's token, and then the listener
+   must refuse a JSON-RPC `ping` without it (`401`) and accept one with it.
+
+While a step runs, its pid is in `state.json` as `step_pid`, so a terminate
+after the dashboard itself died mid-boot still stops it.
+
+Steps 1 to 6 share `local_sandbox_boot_timeout`. If a step fails, runs out of
+time, or the server exits, everything the backend started is stopped. The
+sandbox then fails with a message that names the step and ends with the last
+lines of that step's log. The GitHub token and the Claude Code API key are
+scrubbed from that message. When the sandbox is ready, its MCP server
+(`sandbox:<session_id>`) is
+`http://127.0.0.1:$PORT<mcp_path>`, with the manifest's token.
+
+### `.activeagents/sandbox.yml`
+
+A checkout says how it boots in an optional `.activeagents/sandbox.yml` at its
+root. Every key is optional. The example below shows the default `setup`,
+`manifest` and `start`, so a Rails app that mounts this engine needs no file
+at all:
+
+```yaml
+env:        # extra environment for setup, manifest and server (string values)
+  RAILS_ENV: development
+setup:      # run once after checkout, in order; default: ["bundle install", "bin/rails db:prepare"]
+  - bundle install
+  - bin/rails db:prepare
+manifest: bin/rails action_agent:sandbox:manifest    # default; must write the manifest JSON to $ACTION_AGENT_SANDBOX_MANIFEST
+start: bin/rails server -b 127.0.0.1 -p $PORT        # default; must serve on 127.0.0.1:$PORT and keep running
+```
+
+- Every command runs with `sh -c` in the checkout root. A setup command must
+  exit 0. `start` must keep running.
+- Each command's environment is the sanitized dashboard environment, plus
+  `PORT`, `ACTION_AGENT_SANDBOX_MANIFEST` (an absolute path inside the
+  workspace) and `ACTION_AGENT_SANDBOX_SESSION_ID`, plus the sandbox's
+  [database variables](#a-database-per-sandbox), plus the file's `env`.
+  The port is picked after setup, when it was last seen free; nothing holds it
+  until the server binds it, so a server that finds it taken fails the boot
+  rather than being mistaken for the process that took it (step 6).
+  `manifest` and `start` get `PORT`; `setup` does not.
+- The GitHub token is never in that environment. The Claude Code API key
+  isn't either: only Claude Code sessions get it.
+- Unknown keys are ignored. A malformed file fails provisioning, and the
+  sandbox's error says what is wrong with it.
+
+**Environment sanitizing.** A sandbox never inherits the dashboard's secrets or
+its database. The backend starts from the dashboard's environment as it was
+before Bundler set it up (`Bundler.with_unbundled_env`), then drops:
+
+- `DATABASE_URL`, any `*_DATABASE_URL`, `REDIS_URL`, `SECRET_KEY_BASE`,
+  `RAILS_MASTER_KEY`, `RAILS_ENV`, `RACK_ENV`, `PORT`,
+  `ACTIVE_RECORD_ENCRYPTION_*`, `BUNDLE_GEMFILE`, `BUNDLE_*`, `RUBYOPT` and
+  `RUBYLIB`;
+- `SSH_AUTH_SOCK`: the checkout's code does not get the developer's SSH
+  agent;
+- `BUNDLER_*`, and git's repository-location and config variables:
+  `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+  `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, `GIT_NAMESPACE`,
+  `GIT_PREFIX`, `GIT_QUARANTINE_PATH`, `GIT_CONFIG`, `GIT_CONFIG_GLOBAL`,
+  `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_NOSYSTEM`, `GIT_CONFIG_PARAMETERS`,
+  `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_n` and `GIT_CONFIG_VALUE_n`. A git hook
+  sets some of them, and they would point the checkout's git at the
+  dashboard's own repository or configuration;
+- the dashboard's own model-provider and Claude Code settings: every
+  `ANTHROPIC_*`, `CLAUDE_*`, `CLAUDECODE`, `OPENAI_*`, `OPEN_AI_*`,
+  `OPENROUTER_*`, `OPEN_ROUTER_*` and `OLLAMA_*` variable. A dashboard run from
+  inside Claude Code exports its own session's variables and an
+  `ANTHROPIC_BASE_URL`. A session that inherited them would join that session,
+  and the base URL would send the owner's credential elsewhere. A Claude Code
+  session gets exactly the variables the backend sets (below);
+- every variable whose name looks like a secret: it contains `SECRET`,
+  `TOKEN`, `PASSWORD`, `PASSWD`, `PASSPHRASE`, `API_KEY`, `APIKEY`,
+  `PRIVATE_KEY`, `CREDENTIAL`, `ACCESS_KEY` or `WEBHOOK`, or ends in `_KEY`,
+  `DSN`, `_PASS`, `_PWD` or `_PAT` (`DB_PASS`, `MYSQL_PWD`, `LOCKBOX_MASTER_KEY`,
+  `SENTRY_DSN`, `GITHUB_PAT`; a bare `PASS`, `PWD` or `PAT` counts too);
+- every variable whose value holds a URL with credentials in it, whatever its
+  name: a password (`redis://:secret@cache:6379`) or a token as the username
+  alone (`https://ghp_x@github.com`). Any `user@` in a URL counts.
+
+Everything else is kept: `PATH`, `HOME`, `LANG`, `TMPDIR`, proxy and CA
+variables, and rbenv, mise and asdf settings. Processes are spawned with
+exactly that environment (`unsetenv_others: true`), so nothing else leaks
+through. Because `RAILS_ENV` is dropped, a Rails checkout boots in development
+unless its `env` sets it. A checkout that needs a key of its own sets it in
+`env`, or reads it from its own credentials.
+
+### A database per sandbox
+
+A checkout's `config/database.yml` usually names a fixed development
+database. For a checkout of the app you run the dashboard from, that is
+*your* development database, and its `db:prepare` would migrate it. So every
+sandbox boots on databases of its own, set through the variables Rails
+merges over `database.yml`: `DATABASE_URL` for the `primary` database, and
+`<NAME>_DATABASE_URL` for any other, as for the `queue` and `cache`
+databases Rails 8's Solid Queue and Solid Cache add
+(`QUEUE_DATABASE_URL`, `CACHE_DATABASE_URL`).
+
+The backend reads the adapter and database name of each entry in the
+checkout's `config/database.yml`, for the environment the checkout boots in
+(`RAILS_ENV` from `env`, or `development`):
+
+| Adapter | Each database becomes | When the sandbox is terminated |
+|---|---|---|
+| `sqlite3` | `sqlite3:<workspace>/db/development.sqlite3` (`development_<name>.sqlite3` for the others) | removed with the workspace |
+| `postgresql`, `postgis` | `postgresql:///<database>_sandbox_<first 8 of the session id>` | dropped by the checkout's Rails database tasks, restricted to recorded sandbox databases |
+| `mysql2`, `trilogy` | `mysql2:///<database>_sandbox_<first 8 of the session id>` | the same |
+| anything else | left as configured, and logged | — |
+
+- The URLs name only the database. Rails merges a URL over the entry, so the
+  host, port, user and password stay what `database.yml` or the environment
+  (`PGHOST`, `PGPORT`, `PGUSER`) say. `PGPASSWORD` is a secret the
+  sanitizing drops: use `~/.pgpass`, or set it in `env`.
+- A replica (`replica: true`) reads the sandbox database of the writer with
+  the same adapter and literal database name, regardless of YAML order.
+  If the writer is ambiguous or its identity depends on ERB, boot refuses
+  rather than guessing; set the replica's `<NAME>_DATABASE_URL` in `env`.
+  An entry with
+  `database_tasks: false` is a database the app does not manage, and is left
+  alone. So is one given as a `url:`, which Rails lets no variable override.
+- `SKIP_TEST_DATABASE=1` is set too: without it, `db:prepare` in development
+  also prepares the test database, which is still yours.
+- Claude Code sessions get the same variables, so a `bin/rails db:migrate`
+  a session runs lands in the sandbox's database.
+- The drop runs after the server has stopped, in the recorded Rails
+  environment, and is given 60 seconds. A `bin/rails runner` script selects
+  only the named database URLs recorded at boot before invoking Rails'
+  protection checks and drop tasks. Overrides, new configurations and
+  configurations whose resolved URL changed are excluded. Old sandbox
+  state without this explicit list is not dropped automatically. Cleanup is
+  best effort: a failed drop is logged and the sandbox goes anyway.
+  A boot that fails uses the same restricted cleanup.
+- `database.yml` is never evaluated in the dashboard. Its ERB tags are
+  blanked out and the rest is read as plain YAML. When that does not parse,
+  the first `adapter:` line is taken as the primary database's. The file is
+  read only at `config/database.yml` in the checkout root: an app nested
+  deeper sets its own (the SQLite path of this repository's `test/dummy` is
+  relative, so already inside the checkout).
+- `logs/setup.log` begins with a `# sandbox database:` line for each decision.
+
+To choose a database yourself, set its variable in `env`; whatever `env`
+sets is left alone, and never dropped:
+
+```yaml
+env:
+  DATABASE_URL: postgresql:///shop_experiments
+```
+
+**Known limits of the local backend.**
+
+- **Code reloading.** In development, Active Job's default async adapter runs
+  jobs inside the web process, and a reloading app holds the reloader while a
+  job runs. A checkout boot (up to `local_sandbox_boot_timeout`) or a Claude
+  Code session (up to `claude_code_timeout`) can delay code reloading until it
+  finishes. Run jobs in a separate worker (Solid Queue, for example) if that
+  gets in the way.
+- **Filters.** When a checkout's git config defines filter drivers, which a
+  session could add, the session's diff is not recorded rather than running
+  their commands. The backend's own git commands also run with
+  `core.fsmonitor=false` and `core.hooksPath=/dev/null`, so a filesystem
+  monitor or hook the session set in `.git/config` does not run either.
+- **macOS.** Without `/proc`, the backend identifies its processes by their
+  start time from `ps` (read in UTC, so a restart under another `TZ` still
+  recognizes them), and never signals a pid it cannot identify. A terminate
+  that finds such a process still alive keeps the workspace and its
+  `state.json`, logs it, and reports the sandbox as not released, so the
+  reaper tries again.
+- **Processes that leave the group.** Stopping a sandbox signals its process
+  groups. A process that calls `setsid` (or otherwise daemonizes) leaves its
+  group and is not reached that way. On Linux the backend also stops every
+  process whose environment carries the sandbox's
+  `ACTION_AGENT_SANDBOX_SESSION_ID`, but one that also rewrote its
+  environment (a long process title does) escapes both, and keeps running
+  after the sandbox is stopped. Without `/proc`, any process that called
+  `setsid` does.
+
+This repository boots its own dummy app this way. Its
+[`.activeagents/sandbox.yml`](https://github.com/activeagents/activeagent/blob/main/.activeagents/sandbox.yml)
+shows a nested app, and a Gemfile that isn't at the root.
+
+### The manifest task
+
+The manifest tells the backend where the booted app's MCP facade answers and
+which bearer token opens it:
+
+```json
+{ "mcp_path": "/activeagents/mcp", "mcp_token": "aa_..." }
+```
+
+The engine ships `bin/rails action_agent:sandbox:manifest`, so every app that
+mounts it has the task. The task finds the engine's mount in the app's routes
+and writes the manifest to `$ACTION_AGENT_SANDBOX_MANIFEST`. When that
+variable is unset, it prints the manifest instead. The token belongs to a
+dashboard API key named "Checkout sandbox runtime", in the checkout's own
+database. The first run creates it, and later runs reuse it, so a sandbox
+that boots again doesn't add a key. If the engine is not mounted, the task
+exits non-zero with
+`action_agent:sandbox:manifest: ActionAgent::Engine is not mounted in this app's routes`.
+
+In an app whose API keys belong to an account or user, that key has no owner
+and reaches no agents over MCP. In that case, and for an app that isn't Rails,
+`manifest` can be any command that writes the JSON. `mcp_path` must start with
+`/`, and `mcp_token` is a string or `null`.
+
+### Stopping and reaping
+
+- **Stop** on a sandbox (`DELETE /api/sandboxes/:session_id`) expires it and
+  terminates it.
+- Terminating sends `SIGTERM` to the server's process group, to a boot step
+  still running and to any running Claude Code session. After about 10
+  seconds it sends `SIGKILL`, then removes the workspace.
+- A pid is signalled only if that workspace's `state.json` recorded it, and
+  only while it is still the process recorded there (by its start time). A
+  sandbox that is already gone counts as stopped. One whose recorded process
+  is alive but cannot be stopped or identified is kept, with its handle, and
+  the reaper tries again.
+- An `app_runtime` sandbox expires 2 hours after it is created. Other sandbox
+  types expire after 15 minutes.
+
+Nothing reaps expired sandboxes on its own. Schedule the reap task:
+
+```bash
+bin/rails action_agent:sandbox:reap   # prints "Expired N sandbox session(s)"
+```
+
+It expires every session that is past its expiry and still pending,
+provisioning, ready or running, and terminates each one through
+`ActionAgent::SandboxCleanupJob`. It also retries sessions whose earlier
+terminate failed: those that still hold a handle and, for a backend that
+derives a sandbox's handle from its session (`:local` does), expired
+`app_runtime` sessions with no handle that changed within the last day (at
+most 100 per run). A checkout whose boot never recorded a handle may still
+have processes, and nothing else records that a terminate of it failed. Run
+it from cron, or as a Solid Queue recurring task:
+
+```yaml
+# config/recurring.yml
+development:
+  reap_sandboxes:
+    command: "ActionAgent::SandboxCleanupJob.cleanup_expired!"
+    schedule: every 5 minutes
+
+production:
+  reap_sandboxes:
+    command: "ActionAgent::SandboxCleanupJob.cleanup_expired!"
+    schedule: every 5 minutes
+```
+
+The file Rails and the Solid Queue installer generate is keyed by environment
+(it starts with `production:`). Solid Queue reads only the current
+environment's key when the file has one, so a top-level `reap_sandboxes:`
+never runs there. Add the entry under each environment the file names.
+
+A sandbox runs in its own process groups, so stopping the dashboard doesn't
+stop its sandboxes. After a restart, `state.json` is how the dashboard finds
+them again. Provisioning, Claude Code sessions and cleanup run as Active Job
+jobs, and **Cancel** signals a session from the web process. Run the
+dashboard and its job workers on one machine, as one user, so they share the
+workspaces.
+
+### Claude Code sessions
+
+When a sandbox is **ready**, its card in Settings → Integrations shows a
+Claude Code panel. **Run Claude Code** stays disabled until Claude Code can
+run: an Anthropic API key is connected, or, with `claude_code_auth =
+:local_login`, this machine's Claude Code is logged in (see
+[Claude Code](#claude-code)). Write a prompt, and the dashboard
+runs Claude Code headless in the checkout. The **Model** select next to it
+picks what the session runs on: *Default (Claude Code's own)* sends no
+model, `sonnet`, `opus` and `haiku` are Claude Code's aliases, and *Other…*
+takes a full model id (`claude-sonnet-4-5`). The panel remembers the last
+choice in this browser. Each session in the list, and the open one, shows
+its model. The panel shows each event as it arrives:
+
+- the assistant's text;
+- each tool call and its result;
+- the final result line, with turns, cost and duration.
+
+When the session finishes, the panel shows the checkout's `git diff`, with new
+files included. **Cancel** stops a running session: `SIGTERM`, then `SIGKILL`
+if Claude Code has not exited about 10 seconds later. A cancelled session is
+marked cancelled at once, but its events and diff are recorded until Claude
+Code has stopped. Its `diff_pending` stays `true` until then, and the panel
+keeps polling. A session that never ran (cancelled in the queue, or before
+Claude Code started) settles with no diff and `diff_pending: false`.
+
+Only one session runs per sandbox at a time. Each one counts as an execution:
+`execution_enabled` must be on, and the execution quota applies. Sessions are
+stored in `active_agent_code_sessions`. An existing install gets that table by
+running `rails generate action_agent:install` and `rails db:migrate` again.
+The API offers the same actions:
+
+- `GET` and `POST /api/sandboxes/:session_id/code_sessions` (`prompt`, and
+  an optional `model`);
+- `GET …/code_sessions/:id?after=N`, which returns events from index N, and
+  the diff once the session has finished;
+- `POST …/code_sessions/:id/cancel`.
+
+The `:local` backend runs:
+
+```bash
+claude -p --output-format stream-json --verbose \
+  --permission-mode acceptEdits --no-session-persistence
+```
+
+It adds flags as needed:
+
+- `--permission-prompts none` when the installed CLI supports it;
+- `--max-turns N` when `claude_code_max_turns` is set;
+- `--model M` when the session names a model.
+
+The prompt goes in on standard input, never on the command line. The session
+runs in the checkout, in its own process group. Its environment is the
+sanitized one, plus:
+
+- with `claude_code_auth = :api_key`, the owner's key as `ANTHROPIC_API_KEY`,
+  and `CLAUDE_CONFIG_DIR` set to the sandbox's own `claude/` directory;
+- with `:local_login`, no credential and no `CLAUDE_CONFIG_DIR`: Claude Code
+  reads the dashboard user's own configuration and login from `HOME`, which
+  the sanitized environment keeps. The dashboard's own `CLAUDE_*` and
+  `ANTHROPIC_*` variables are still dropped, so a session never picks up a key
+  or a base URL from the dashboard's environment. The user's `~/.claude`
+  settings (hooks, MCP servers, permissions) apply to these sessions too;
+- `DISABLE_AUTOUPDATER`, `DISABLE_TELEMETRY`, `DISABLE_ERROR_REPORTING` and
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, each set to `1`.
+
+A session still running after `claude_code_timeout` is stopped and fails. The
+backend scrubs the checkout token and the Claude Code API key from the
+recorded events and the diff. A session keeps at most 1,000 events, and a diff
+of at most 500 KB.
+
+**Permission mode.** Sessions run in `acceptEdits` mode unless you set
+`claude_code_permission_mode`. In that mode, Claude Code may edit files in the
+checkout and run filesystem commands. Nobody is there to answer a permission
+prompt, so anything else that would ask is denied. `plan` keeps sessions
+read-only. Avoid `bypassPermissions`: it lets a session run any command as the
+dashboard's user.
 
 ## Authentication
 

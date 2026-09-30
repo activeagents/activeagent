@@ -17,6 +17,20 @@ require "vcr"
 require "webmock/minitest"
 require "minitest/mock"
 
+# webmock/minitest clears stubs from Minitest::Test#teardown, which a test
+# class that defines its own teardown without calling super never reaches.
+# Its stubs then answer every later test's requests: a stubbed chat
+# completion asking for a tool reaches an agent that has no such action.
+# after_teardown runs after every test, whatever the class does with
+# teardown.
+module WebMockResetAfterEachTest
+  def after_teardown
+    WebMock.reset!
+    super
+  end
+end
+Minitest::Test.prepend(WebMockResetAfterEachTest)
+
 # Action Cable reads config/cable.yml for the current environment the first
 # time its server class loads, and keeps what it read. With eager loading off
 # that first time is whichever test first broadcasts or renders the dashboard,

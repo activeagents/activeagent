@@ -4,7 +4,8 @@ import { Badge, Empty, Glyph, Panel, PassBar, MONO, toneFor } from '../primitive
 import { META_COLUMN, MetaStrip } from '../TelemetryObject';
 import { fmtCost, fmtScore, splitModelLabel, timeAgo } from '../../../utils/format';
 import {
-  judgeCallsText, judgeLabel, passRate, plural, runCohorts, runDelta, runLabel, runNumber, runSpend, runsMeta,
+  judgeCallsText, judgeLabel, passRate, plural, runCohorts, runDelta, runLabel, runNumber, runSandboxLabel, runSpend,
+  runsMeta,
 } from '../../../utils/evaluationRuns.mjs';
 import { agentUnit, fmtRate } from './SpendStrip';
 
@@ -67,7 +68,12 @@ export default function RunsList({
       number,
       latest: index === 0,
       when: timeAgo(run.completed_at || run.created_at),
-      meta: `@${agentName || evaluation?.agent?.name || 'agent'} · ${runLabel(evaluation, run)} · ${judgeLabel(evaluation, run)}`,
+      // A run against a checkout sandbox says which: its results are that
+      // checkout's, not the agent's own servers'.
+      meta: [
+        `@${agentName || evaluation?.agent?.name || 'agent'}`, runLabel(evaluation, run), judgeLabel(evaluation, run),
+        runSandboxLabel(run) && `against ${runSandboxLabel(run)}`,
+      ].filter(Boolean).join(' · '),
       bars: barsFor ? barsFor(run) : defaultBars(run),
       delta,
       spend,

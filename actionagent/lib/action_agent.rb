@@ -104,6 +104,9 @@ require "action_agent/compatibility"
 #   end
 #
 module ActionAgent
+  # What ActionAgent.claude_code_auth may be set to.
+  CLAUDE_CODE_AUTH_MODES = %i[api_key local_login].freeze
+
   class << self
     # Deprecation warnings for this gem, routed through Rails' machinery so a
     # host app can silence or escalate them like any other.
@@ -194,9 +197,10 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :layout
 
-    # Which sandbox backend to provision with: :mock (the only one the
-    # engine ships — an in-memory fake that runs nothing) or the name of a
-    # backend the host registered in sandbox_backends. An unregistered name
+    # Which sandbox backend to provision with: :mock (an in-memory fake that
+    # runs nothing), :local (checkouts cloned and booted as child processes
+    # of the dashboard itself — see local_sandboxes_enabled), or the name of
+    # a backend the host registered in sandbox_backends. An unregistered name
     # falls back to :mock with a logged warning.
     # @return [Symbol]
     attr_accessor :sandbox_service
@@ -303,6 +307,74 @@ module ActionAgent
     # sandbox_service.
     # @return [Hash{String => String}]
     attr_accessor :sandbox_backends
+
+    # Whether the :local sandbox backend may run. It clones the owner's
+    # repository onto the dashboard's own machine and runs its setup and
+    # server as child processes — the owner's code, with the dashboard's
+    # privileges — so it is for a developer's machine or a single-user
+    # install. Unset, it follows the environment: on in development and
+    # test, off everywhere else.
+    # @return [Boolean, nil]
+    attr_writer :local_sandboxes_enabled
+
+    # Where the :local backend keeps each sandbox's checkout, logs and
+    # process state (one directory per session). Unset, tmp/action_agent/sandboxes
+    # under the host app.
+    # @return [String, Pathname, nil]
+    attr_writer :local_sandbox_root
+
+    # How long the :local backend waits for a checkout's setup and server to
+    # come up before giving up, in seconds.
+    # @return [Integer]
+    attr_accessor :local_sandbox_boot_timeout
+
+    # The Claude Code executable a sandbox backend runs headless sessions
+    # with. The :local backend runs it on the dashboard's machine.
+    # @return [String]
+    attr_accessor :claude_code_command
+
+    # The permission mode Claude Code sessions run in. "acceptEdits" lets a
+    # session edit files in the checkout and run filesystem commands; with
+    # nobody to answer prompts, anything else that would ask is denied.
+    # @return [String]
+    attr_accessor :claude_code_permission_mode
+
+    # A cap on agentic turns per Claude Code session (nil for Claude Code's
+    # own default).
+    # @return [Integer, nil]
+    attr_accessor :claude_code_max_turns
+
+    # How long a Claude Code session may run before it is stopped, in
+    # seconds.
+    # @return [Integer]
+    attr_accessor :claude_code_timeout
+
+    # How Claude Code sessions authenticate.
+    #
+    # :api_key (the default) runs them on the Anthropic API key the owner
+    # connected in Settings -> Integrations, handed to the session as
+    # ANTHROPIC_API_KEY. It is the only credential the dashboard stores:
+    # Anthropic does not let third-party products collect, store or route
+    # requests through Claude.ai subscription credentials
+    # (https://code.claude.com/docs/en/legal-and-compliance.md).
+    #
+    # :local_login runs `claude` on whatever login this machine's user set up
+    # with `claude /login` (or `claude auth login`), which Claude Code keeps
+    # under ~/.claude or in the keychain. The dashboard never reads, copies
+    # or stores it; it only asks `claude auth status` whether there is one.
+    # That login is the dashboard user's own, so this works with the :local
+    # sandbox backend only, and other backends refuse Claude Code sessions.
+    # @return [Symbol] :api_key or :local_login
+    attr_reader :claude_code_auth
+
+    def claude_code_auth=(value)
+      mode = value.to_s.to_sym
+      unless CLAUDE_CODE_AUTH_MODES.include?(mode)
+        raise ArgumentError, "ActionAgent.claude_code_auth must be :api_key or :local_login, not #{value.inspect}"
+      end
+
+      @claude_code_auth = mode
+    end
 
     # Whether the dashboard may execute agents against real providers.
     # Disable to run the dashboard as a read-only observability surface.
@@ -415,6 +487,20 @@ module ActionAgent
     # @return [Boolean]
     attr_accessor :encrypt_credentials
 
+    # The GitHub OAuth App the dashboard's "Connect GitHub" flow authorizes
+    # against (Settings -> Integrations). Unset, each falls back to
+    # GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET, and the dashboard offers no
+    # connection when neither is present. Register the app's callback URL as
+    # <mount>/api/github_connection/callback.
+    # @return [String, nil]
+    attr_writer :github_client_id, :github_client_secret
+
+    # OAuth scopes requested on connect. +repo+ reaches private repositories
+    # so a sandbox can clone them; narrow it to "public_repo read:user" for
+    # public checkouts only.
+    # @return [String]
+    attr_accessor :github_oauth_scopes
+
     # MCP servers the host app itself serves or connects, appended to the
     # built-in catalog (MCPCatalog) so the MCP Services view lists them and
     # telemetry traffic attributes to them. Each entry is a hash shaped like
@@ -452,6 +538,17 @@ module ActionAgent
     # @return [Boolean]
     attr_accessor :mcp_schema_tools
 
+    # Whether the MCP facade (POST <mount>/mcp) offers the dashboard's own
+    # evaluation and telemetry tools — evaluations_list, evaluations_get,
+    # evaluations_run, evaluation_runs_get, evaluation_runs_compare,
+    # traces_search, traces_get — so a client's coding harness can run an
+    # agent's evaluations and read its traces while it edits the agent. Each
+    # reads under the key's owner, as the dashboard's JSON API reads under the
+    # signed-in owner. On by default; set it to false to leave the facade
+    # serving agents and schema tools only.
+    # @return [Boolean]
+    attr_accessor :mcp_dashboard_tools
+
     # Directory scanned for SchemaTools subclasses when {#schema_tools} is
     # unset. Relative to the host's root. Set to nil to disable discovery and
     # require an explicit declaration. Classes built at runtime with
@@ -471,6 +568,20 @@ module ActionAgent
     # Returns whether multi-tenant mode is enabled.
     #
     # @return [Boolean]
+    def github_client_id
+      @github_client_id.presence || ENV["GITHUB_CLIENT_ID"].presence
+    end
+
+    def github_client_secret
+      @github_client_secret.presence || ENV["GITHUB_CLIENT_SECRET"].presence
+    end
+
+    # Whether the GitHub OAuth flow can run on this install.
+    # @return [Boolean]
+    def github_oauth_configured?
+      github_client_id.present? && github_client_secret.present?
+    end
+
     def multi_tenant?
       @multi_tenant == true
     end
@@ -480,6 +591,14 @@ module ActionAgent
     # @return [Boolean]
     def mcp_schema_tools?
       @mcp_schema_tools != false
+    end
+
+    # Whether the MCP facade serves the dashboard's evaluation and telemetry
+    # tools.
+    #
+    # @return [Boolean]
+    def mcp_dashboard_tools?
+      @mcp_dashboard_tools != false
     end
 
     # Returns whether agent execution is permitted.
@@ -497,6 +616,19 @@ module ActionAgent
       return @assistant_enabled == true unless @assistant_enabled.nil?
 
       Rails.env.local?
+    end
+
+    # Whether the :local sandbox backend may run on this install.
+    # @return [Boolean]
+    def local_sandboxes_enabled?
+      return @local_sandboxes_enabled == true unless @local_sandboxes_enabled.nil?
+
+      Rails.env.local?
+    end
+
+    # @return [Pathname]
+    def local_sandbox_root
+      Pathname.new(@local_sandbox_root.presence || Rails.root.join("tmp", "action_agent", "sandboxes"))
     end
 
     # Tells the host app that +owner+ performed +kind+. Never raises: a
@@ -633,6 +765,14 @@ module ActionAgent
       @quota_checker = nil
       @provider_credentials_resolver = nil
       @sandbox_backends = {}
+      @local_sandboxes_enabled = nil
+      @local_sandbox_root = nil
+      @local_sandbox_boot_timeout = 600
+      @claude_code_command = "claude"
+      @claude_code_permission_mode = "acceptEdits"
+      @claude_code_max_turns = nil
+      @claude_code_timeout = 1800
+      @claude_code_auth = :api_key
       @execution_enabled = true
       @run_host_agent_classes = false
       @assistant_enabled = nil
@@ -641,6 +781,9 @@ module ActionAgent
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
+      @github_client_id = nil
+      @github_client_secret = nil
+      @github_oauth_scopes = "repo read:user"
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil
@@ -653,6 +796,7 @@ module ActionAgent
       @schema_tools = nil
       @schema_tools_path = "app/agent_tools"
       @mcp_schema_tools = nil
+      @mcp_dashboard_tools = nil
     end
 
     # Host-declared schema tool classes, resolved from names and filtered to

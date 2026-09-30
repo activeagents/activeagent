@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "rails/generators/test_case"
 require "generators/action_agent/install_generator"
 
-# The migrations action_agent:install emits for columns added after the
-# dashboard tables shipped: carried by the create-table migration on a fresh
-# install, and emitted as a guarded upgrade for an install whose tables
-# predate them.
+# The migrations action_agent:install emits. A fresh install gets every
+# migration the engine's models need, with columns added after the dashboard
+# tables shipped carried by the create-table migration. Re-running it on an
+# install from before a table or column shipped adds just what is missing,
+# as a guarded upgrade for a column.
 class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
   tests ActionAgent::InstallGenerator
   destination Rails.root.join("tmp/generators/action_agent_install")
@@ -61,7 +63,48 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_migration "db/migrate/ensure_agent_release_columns.rb"
     assert_migration "db/migrate/add_evaluation_report_identity.rb"
     assert_migration "db/migrate/add_provider_key_api_key.rb"
-    assert_equal EARLIER_MIGRATIONS.size + 3, Dir[File.join(destination_root, "db/migrate/*.rb")].size
+    assert_migration "db/migrate/create_active_agent_github_connections.rb"
+    assert_migration "db/migrate/create_active_agent_code_sessions.rb"
+    assert_equal EARLIER_MIGRATIONS.size + 5, Dir[File.join(destination_root, "db/migrate/*.rb")].size
+  end
+
+  test "a fresh install emits the Claude Code sessions table with the dashboard's" do
+    run_generator [ "--skip-routes" ]
+
+    assert_migration "db/migrate/create_active_agent_dashboard_tables.rb"
+    assert_migration "db/migrate/create_active_agent_github_connections.rb"
+    assert_migration "db/migrate/create_active_agent_code_sessions.rb" do |migration|
+      assert_match(/class CreateActiveAgentCodeSessions < ActiveRecord::Migration\[\d+\.\d+\]/, migration)
+      assert_match(/create_table "\#{prefix}code_sessions"/, migration)
+      assert_match(/t\.bigint :sandbox_session_id, null: false/, migration)
+    end
+  end
+
+  test "an install that predates Claude Code sessions gets their table alone" do
+    migrate = File.join(destination_root, "db/migrate")
+    FileUtils.mkdir_p(migrate)
+    installed = EARLIER_MIGRATIONS + %w[
+      ensure_agent_release_columns add_evaluation_report_identity add_provider_key_api_key
+      create_active_agent_github_connections
+    ]
+    installed.each_with_index do |name, index|
+      File.write(File.join(migrate, format("202501010000%02d_%s.rb", index, name)), "# already installed\n")
+    end
+
+    run_generator [ "--skip-routes" ]
+
+    assert_migration "db/migrate/create_active_agent_code_sessions.rb"
+    emitted = Dir.children(migrate).reject { |file| file.start_with?("202501010000") }
+    assert_equal 1, emitted.size, "only the missing migration is emitted: #{emitted.inspect}"
+    assert_equal 1, Dir.glob(File.join(migrate, "*_create_active_agent_github_connections.rb")).size
+  end
+
+  test "an install that has the Claude Code sessions table is not given a second one" do
+    run_generator [ "--skip-routes" ]
+
+    run_generator [ "--skip-routes" ]
+
+    assert_equal 1, Dir.glob(File.join(destination_root, "db/migrate/*_create_active_agent_code_sessions.rb")).size
   end
 
   test "a traces-only install has no evaluation runs to alter" do
