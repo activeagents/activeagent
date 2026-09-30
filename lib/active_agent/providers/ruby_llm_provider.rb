@@ -2,7 +2,7 @@
 
 require_relative "_base_provider"
 
-require_gem!(:ruby_llm, __FILE__) unless defined?(::RubyLLM)
+require_gem!(:ruby_llm, __FILE__)
 
 require_relative "ruby_llm/_types"
 require_relative "ruby_llm/tool_proxy"
@@ -59,16 +59,22 @@ module ActiveAgent
           tools: tools || {},
           temperature: parameters[:temperature]
         }
-        kwargs[:schema] = parameters[:response_format] if parameters[:response_format]
+        schema = ruby_llm_schema(parameters[:response_format])
+        kwargs[:schema] = schema if schema
 
-        # Pass extra params (max_tokens, etc.) via RubyLLM's params: deep-merge
+        # RubyLLM 2 renamed params: and exposes a provider-neutral token limit.
         max_tokens = parameters[:max_tokens] || options.max_tokens
         if max_tokens
-          kwargs[:params] = { max_tokens: max_tokens }
+          if ruby_llm_v2?
+            kwargs[:max_output_tokens] = max_tokens
+          else
+            kwargs[:params] = { max_tokens: max_tokens }
+          end
         end
 
         if parameters[:stream]
           stream_proc = parameters[:stream]
+          @stream_tool_calls = {}
 
           # For streaming, pass a block that forwards chunks
           @ruby_llm_provider.complete(messages, **kwargs) do |chunk|
@@ -94,7 +100,8 @@ module ActiveAgent
         inputs = input.is_a?(Array) ? input : [ input ]
 
         data = inputs.map.with_index do |text, index|
-          embedding = @ruby_llm_provider.embed(text, model: model_id, dimensions: parameters[:dimensions])
+          embedding_model = ruby_llm_v2? ? @ruby_llm_model : model_id
+          embedding = @ruby_llm_provider.embed(text, model: embedding_model, dimensions: parameters[:dimensions])
 
           {
             object: "embedding",
@@ -137,12 +144,15 @@ module ActiveAgent
         # Handle tool calls in chunk
         if chunk.tool_calls&.any?
           message[:tool_calls] ||= []
-          chunk.tool_calls.each do |_id, tool_call|
-            existing = message[:tool_calls].find { |tc| tc[:id] == tool_call.id }
+          chunk.tool_calls.each do |key, tool_call|
+            # RubyLLM 2 keys OpenAI deltas by index; only the first delta
+            # includes the call ID and name. Keep each index tied to its call.
+            existing = message[:tool_calls].find { |tc| tool_call.id && tc[:id] == tool_call.id }
+            existing ||= @stream_tool_calls[key]
             if existing
               existing[:function][:arguments] += tool_call.arguments.to_s if tool_call.arguments
             else
-              message[:tool_calls] << {
+              existing = {
                 id: tool_call.id,
                 type: "function",
                 function: {
@@ -150,7 +160,9 @@ module ActiveAgent
                   arguments: tool_call.arguments.to_s
                 }
               }
+              message[:tool_calls] << existing
             end
+            @stream_tool_calls[key] = existing
           end
         end
 
@@ -253,6 +265,10 @@ module ActiveAgent
 
       private
 
+      def ruby_llm_v2?
+        Gem.loaded_specs.fetch("ruby_llm").version.segments.first >= 2
+      end
+
       # Resolves and caches the RubyLLM provider for the given model.
       #
       # Reuses the cached provider if the model hasn't changed (e.g., during
@@ -345,9 +361,58 @@ module ActiveAgent
           call = ::RubyLLM::ToolCall.new(
             id: id,
             name: tc.dig(:function, :name) || tc[:name],
-            arguments: tc.dig(:function, :arguments) || tc[:input]&.to_json || "{}"
+            arguments: ruby_llm_tool_arguments(tc.dig(:function, :arguments) || tc[:input])
           )
           hash[id] = call
+        end
+      end
+
+      # ActiveAgent keeps a tool call's arguments as the JSON string the
+      # model sent; RubyLLM takes them as a Hash and renders them itself
+      # (JSON-encoded for OpenAI, as the input object for Anthropic).
+      #
+      # A string that is not valid JSON, such as arguments a model cut off
+      # mid-way in a stored conversation, is passed through unchanged.
+      #
+      # @param arguments [String, Hash, nil]
+      # @return [Hash, String]
+      def ruby_llm_tool_arguments(arguments)
+        case arguments
+        when Hash
+          arguments.deep_stringify_keys
+        when String
+          arguments.blank? ? {} : JSON.parse(arguments)
+        else
+          {}
+        end
+      rescue JSON::ParserError
+        arguments
+      end
+
+      # Converts ActiveAgent's response_format to the schema RubyLLM's
+      # complete takes, { name:, schema:, strict: }, filling the name and
+      # strict flag in the way RubyLLM::Chat#with_schema does.
+      #
+      # @param response_format [Hash, Symbol, String, nil] ActiveAgent common format
+      # @return [Hash, nil] nil when the response is plain text
+      # @raise [ArgumentError] for json_schema without a schema, and for any
+      #   other type, including json_object, which RubyLLM has no mode for
+      def ruby_llm_schema(response_format)
+        return nil if response_format.nil?
+
+        format = response_format.is_a?(Hash) ? response_format : { type: response_format.to_s }
+
+        case format[:type].to_s
+        when "text"
+          nil
+        when "json_schema"
+          json_schema = format[:json_schema] || {}
+          raise ArgumentError, "RubyLLMProvider needs a schema for a json_schema response_format" unless json_schema[:schema]
+
+          { name: json_schema[:name] || "response", schema: json_schema[:schema], strict: json_schema[:strict] != false }
+        else
+          raise ArgumentError, "RubyLLMProvider supports a json_schema or text response_format, not #{format[:type].inspect}; " \
+                               "ruby_llm has no JSON object mode, so give json_schema a schema instead"
         end
       end
 
@@ -397,6 +462,8 @@ module ActiveAgent
         # Add stop_reason if available
         if response.respond_to?(:stop_reason) && response.stop_reason
           hash[:stop_reason] = response.stop_reason
+        elsif response.respond_to?(:finish_reason) && response.finish_reason
+          hash[:stop_reason] = { stop: "end_turn", tool_calls: "tool_use" }.fetch(response.finish_reason, response.finish_reason.to_s)
         elsif response.tool_calls&.any?
           hash[:stop_reason] = "tool_use"
         else
@@ -404,7 +471,10 @@ module ActiveAgent
         end
 
         # Add usage info if available
-        if response.respond_to?(:input_tokens) && response.input_tokens
+        if response.respond_to?(:tokens)
+          tokens = response.tokens
+          hash[:usage] = { input_tokens: tokens.input, output_tokens: tokens.output } if tokens.input
+        elsif response.respond_to?(:input_tokens) && response.input_tokens
           hash[:usage] = {
             input_tokens: response.input_tokens,
             output_tokens: response.output_tokens

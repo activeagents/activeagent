@@ -15,8 +15,17 @@ module ActionAgent
       new(evaluation).call
     end
 
-    def initialize(evaluation)
+    # Returns the provider +owner+'s evaluation judge runs on (see
+    # #judge_provider), or nil when no provider has credentials.
+    def self.judge_provider_for(owner)
+      new(nil, owner: owner).judge_provider
+    end
+
+    # +owner+ is whose provider credentials the judge uses: the evaluated
+    # agent's owner unless given.
+    def initialize(evaluation, owner: nil)
       @evaluation = evaluation
+      @owner = owner
     end
 
     def call
@@ -69,6 +78,17 @@ module ActionAgent
     rescue StandardError => e
       run&.update!(status: :failed, error_message: e.message, completed_at: Time.current)
       raise
+    end
+
+    # Returns the provider the judge runs on: the first of Anthropic, OpenAI
+    # and OpenRouter the owner or the host's config has a key for, else Ollama
+    # when the owner configured a host; nil when none. The judge runs
+    # `judge_model` as that provider's own model id.
+    def judge_provider
+      @judge_provider ||=
+        %i[anthropic openai openrouter].find do |name|
+          owner_provider_options(name).any? || global_provider_token?(name)
+        end || (:ollama if owner_provider_options(:ollama).any?)
     end
 
     private
@@ -275,7 +295,7 @@ module ActionAgent
       if total.zero?
         return {
           "skipped" => true,
-          "reason" => "No telemetry traces for #{@evaluation.agent.telemetry_agent_class} in the last #{window_hours}h"
+          "reason" => "No telemetry traces for #{telemetry_source} in the last #{window_hours}h"
         }
       end
 
@@ -313,10 +333,16 @@ module ActionAgent
     end
 
     def telemetry_traces(window_hours)
-      ActionAgent.trace_model
-        .for_account(ActionAgent.tenant_for(owner))
-        .for_agent(@evaluation.agent.telemetry_agent_class)
+      @evaluation.agent
+        .telemetry_traces(ActionAgent.trace_model.for_account(ActionAgent.tenant_for(owner)))
         .for_date_range(window_hours.hours.ago, Time.current)
+    end
+
+    # What a skip reason says was looked for: the observed agent itself, or
+    # the class any other agent's traces are reported under.
+    def telemetry_source
+      agent = @evaluation.agent
+      agent.observed? ? agent.name : agent.telemetry_agent_class
     end
 
     # Returns 0.0..1.0, or nil when the criterion cannot be scored.
@@ -541,13 +567,6 @@ module ActionAgent
       judge_provider.present?
     end
 
-    def judge_provider
-      @judge_provider ||=
-        %i[anthropic openai openrouter].find do |name|
-          owner_provider_options(name).any? || global_provider_token?(name)
-        end || (:ollama if owner_provider_options(:ollama).any?)
-    end
-
     def global_provider_token?(name)
       config = ActiveAgent.configuration[name]
       config.respond_to?(:[]) && config[:access_token].present?
@@ -565,7 +584,7 @@ module ActionAgent
     end
 
     def owner
-      @owner ||= @evaluation.agent.owner
+      @owner ||= @evaluation&.agent&.owner
     end
 
     def judge_class

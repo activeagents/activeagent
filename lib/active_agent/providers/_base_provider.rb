@@ -10,7 +10,8 @@ require_relative "concerns/tool_choice_clearing"
 GEM_LOADERS = {
   anthropic: [ "anthropic", "~> 1.12", "anthropic" ],
   openai:    [ "openai",    "~> 0.34", "openai" ],
-  ruby_llm:  [ "ruby_llm",  ">= 1.0",  "ruby_llm" ]
+  # Keep a tested floor: 1.2 lacks the provider APIs this adapter uses.
+  ruby_llm:  [ "ruby_llm",  [ ">= 1.16", "< 3" ], "ruby_llm" ]
 }
 
 # Requires a provider's gem dependency.
@@ -18,15 +19,23 @@ GEM_LOADERS = {
 # @param type [Symbol] provider type (:anthropic, :openai)
 # @param file_name [String] for error context
 # @return [void]
-# @raise [LoadError] when required gem is not installed
+# @raise [LoadError] when the gem is not installed, or when the loaded
+#   version is outside the supported range
 def require_gem!(type, file_name)
   gem_name, requirement, package_name = GEM_LOADERS.fetch(type)
+  requirements = Array(requirement)
   provider_name = file_name.split("/").last.delete_suffix(".rb").camelize
 
   begin
-    gem(gem_name, requirement)
+    gem(gem_name, *requirements)
     require(package_name)
   rescue LoadError
+    loaded = Gem.loaded_specs[gem_name]
+    if loaded && !Gem::Requirement.new(requirement).satisfied_by?(loaded.version)
+      raise LoadError, "#{provider_name} supports the '#{gem_name}' gem #{requirements.join(', ')}, but #{loaded.version} is loaded. " \
+                       "Add `gem \"#{gem_name}\", #{requirements.map(&:inspect).join(', ')}` to your Gemfile and run `bundle update #{gem_name}`."
+    end
+
     raise LoadError, "The '#{gem_name}' gem is required for #{provider_name}. Please add it to your Gemfile and run `bundle install`."
   end
 end

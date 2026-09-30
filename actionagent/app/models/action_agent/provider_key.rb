@@ -5,11 +5,13 @@ module ActionAgent
   # Generation runs (AgentExecutionService and the evaluation LLM judge)
   # prefer these over the platform's ENV-configured keys, so users can run
   # agents with their own OpenAI/Anthropic/OpenRouter accounts — or point
-  # ollama at their own host (e.g. a tunnel to a locally running instance).
+  # ollama at their own host: a locally running instance, a tunnel to one, or
+  # a remote/cloud server that additionally needs a Bearer API key.
   #
-  # The credential is encrypted at rest with Active Record Encryption. API
-  # keys are never rendered back to the client — only a masked hint; ollama
-  # hosts are not secret and are shown in full (see #display_hint).
+  # The credential (and the optional api_key) is encrypted at rest with
+  # Active Record Encryption. API keys are never rendered back to the client —
+  # only a masked hint; ollama hosts are not secret and are shown in full
+  # (see #display_hint).
   #
   # A connection credential (Claude Code) is stored the same way but is not a
   # generation provider: no agent runs "on" it. It is handed to runtimes that
@@ -19,7 +21,8 @@ module ActionAgent
   class ProviderKey < ApplicationRecord
     # Providers that authenticate with an API key.
     KEY_PROVIDERS = %w[openai anthropic openrouter].freeze
-    # Providers addressed by host URL instead of a key.
+    # Providers addressed by host URL instead of a key (with an optional key
+    # for remote servers).
     HOST_PROVIDERS = %w[ollama].freeze
     # Tools connected with a credential, configured beside the providers
     # (Settings -> Integrations) but never offered to the agent builder.
@@ -42,7 +45,12 @@ module ActionAgent
     include Ownable
     owned_by :account, :user
 
-    encrypts :credential if ActionAgent.encrypt_credentials
+    if ActionAgent.encrypt_credentials
+      encrypts :credential
+      encrypts :api_key
+    end
+
+    before_validation :normalize_host_credential, if: :host_based?
 
     validates :provider, presence: true, inclusion: { in: PROVIDERS }
     # One credential per provider per owner; which column that means
@@ -58,6 +66,7 @@ module ActionAgent
         "third-party apps to hold Claude.ai credentials. To use your own Claude login on this machine, set " \
         "ActionAgent.claude_code_auth = :local_login with the :local sandbox backend instead"
     }, if: -> { provider == "claude_code" }
+    validates :api_key, length: { maximum: 500 }, allow_nil: true
 
     # Deletes every Claude Code connection that still holds a Claude
     # subscription token (see #needs_replacing?), whoever owns it. The
@@ -78,6 +87,24 @@ module ActionAgent
       end
     end
 
+    # Ollama's OpenAI-compatible API lives under /v1. Accept the bare server
+    # address people naturally paste (http://localhost:11434, a tunnel
+    # hostname) and add the path; trailing slashes are dropped so the client
+    # can join paths cleanly. An explicit non-root path is left alone, for
+    # servers behind a reverse proxy.
+    def self.normalize_host(value)
+      host = value.to_s.strip.chomp("/")
+      return host if host.blank?
+
+      uri = URI.parse(host)
+      return host unless uri.is_a?(URI::HTTP)
+
+      uri.path = "/v1" if uri.path.blank? || uri.path == "/"
+      uri.to_s.chomp("/")
+    rescue URI::InvalidURIError
+      host
+    end
+
     def host_based?
       HOST_PROVIDERS.include?(provider)
     end
@@ -86,13 +113,20 @@ module ActionAgent
       CONNECTION_PROVIDERS.include?(provider)
     end
 
+    # Only host-based providers carry an optional key (a remote Ollama behind
+    # an authenticating proxy, or Ollama Cloud).
+    def api_key?
+      host_based? && api_key.present?
+    end
+
     # Options merged into generate_with for runs owned by this key's owner,
     # overriding the host app's config/active_agent.yml credentials. A
     # connection credential configures no generation.
     def generation_options
       return {} if connection?
+      return { access_token: credential } unless host_based?
 
-      host_based? ? { host: credential } : { access_token: credential }
+      { host: credential, access_token: api_key.presence }.compact
     end
 
     # Environment variables a runtime needs to use this credential, for the
@@ -123,10 +157,29 @@ module ActionAgent
     def display_hint
       return credential if host_based?
 
-      "#{credential.first(4)}…#{credential.last(4)}"
+      mask(credential)
+    end
+
+    # Masked hint for the optional host-provider key, nil when none is set.
+    def api_key_hint
+      api_key? ? mask(api_key) : nil
+    end
+
+    # Reachability + served models for host-based providers.
+    def probe
+      OllamaHostProbe.call(host: credential, api_key: api_key)
     end
 
     private
+
+    def mask(value)
+      "#{value.first(4)}…#{value.last(4)}"
+    end
+
+    def normalize_host_credential
+      self.credential = self.class.normalize_host(credential) if credential.present?
+      self.api_key = api_key.presence&.strip
+    end
 
     def provider_unique_within_owner
       return if provider.blank?

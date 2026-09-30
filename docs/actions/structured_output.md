@@ -23,7 +23,7 @@ Two JSON response formats:
 | **Anthropic**  | 🟦            | 🟩             | json_object emulated; json_schema native via output_config.format on supported Claude models |
 | **OpenRouter** | 🟩            | 🟩             | Native support, depends on underlying model |
 | **Ollama**     | 🟨            | 🟨             | Model-dependent, support varies by model |
-| **RubyLLM**    | 🟨            | 🟨             | Depends on underlying provider/model |
+| **RubyLLM**    | 🟥            | 🟨             | json_schema depends on the underlying provider/model; ruby_llm has no JSON object mode |
 | **Mock**       | 🟩            | 🟩             | Accepted but not validated or enforced |
 
 ## JSON Object Mode

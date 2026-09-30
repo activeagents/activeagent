@@ -7,7 +7,7 @@ module EvalsTestSupport
   Replay = ActiveAgent::Evals::Replay
   ModelSpec = ActiveAgent::Evals::ModelSpec
 
-  def scenario(key = "s_1", prompt = "Who changed the biography?", group: "blame", **expectations)
+  def scenario(key = "s_1", prompt = "Who changed the shipping policy?", group: "history", **expectations)
     Scenario.from_hash({ "key" => key, "prompt" => prompt, "expectations" => expectations.transform_keys(&:to_s) }, group: group)
   end
 

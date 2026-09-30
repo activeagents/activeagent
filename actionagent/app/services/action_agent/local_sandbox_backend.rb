@@ -1456,8 +1456,14 @@ module ActionAgent
       return :unknown unless procfs?
 
       environ = File.binread("/proc/#{pid}/environ")
-      # A zombie's environment reads empty, and its pid is still its own.
-      environ.empty? || environ.split("\0").include?("#{SESSION_ID_ENV}=#{session_id}") ? :ours : :stranger
+      if environ.empty?
+        # Zombies have no environment and still own their pid. A live
+        # process can also have an empty environment, including during exec:
+        # without a recorded start time it cannot be identified safely.
+        state, = proc_stat(pid)
+        return %w[Z X].include?(state) ? :ours : :unknown
+      end
+      environ.split("\0").include?("#{SESSION_ID_ENV}=#{session_id}") ? :ours : :stranger
     rescue Errno::ENOENT, Errno::ESRCH
       :ours
     rescue Errno::EACCES, Errno::EPERM

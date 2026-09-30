@@ -354,11 +354,11 @@ line; `# Heading` lines group related tasks so a group can be run on its own;
 options after `|` set expectations:
 
 ```text
-# Find records
-Which gynecologists in Charlotte have scheduling enabled? | tools: find_records
-Show me all providers with no license on file
-# Blame
-Who changed the biography for Dr. AbdelRazek? | contains: AbdelRazek
+# Open tickets
+Which open tickets mention a refund? | tools: find_tickets
+Show me all tickets with no assignee
+# Change history
+Who changed the shipping policy last week? | contains: policy
 ```
 
 | Option | Meaning |
@@ -369,12 +369,52 @@ Who changed the biography for Dr. AbdelRazek? | contains: AbdelRazek
 | `key: k` | A stable key, so results line up across re-imports |
 | `group: g` | Overrides the heading for this line |
 
-**Compare models** takes the candidates as a comma-separated list. A bare
-name infers its provider from the family (`claude-*` → Anthropic, `gpt-*` →
-OpenAI, `name:tag` → Ollama); prefix it to be explicit
+**Compare models** holds the candidates, one removable chip each, and
+submits them as a comma-separated list, which the API also accepts. Type to
+search the suggestions, and finish a name the list lacks with Enter or a
+comma. A bare name infers its provider from the family (`claude-*` →
+Anthropic, `gpt-*` → OpenAI, `name:tag` → Ollama); prefix it to be explicit
 (`ollama/qwen3:8b`, `openrouter/meta-llama/llama-3.3-70b-instruct`). Each
 candidate needs credentials the same way an agent run does — the owner's
 provider key or the host app's `config/active_agent.yml`.
+
+What the field suggests depends on the scenarios:
+
+- **With scenarios**, each candidate replays them, so the field suggests the
+  models of every provider the owner's runs have credentials for, from the
+  same catalogs as the agent builder. A model whose name alone would run on
+  another provider is offered with its provider in front: `ollama/llama3.2`,
+  or `openrouter/anthropic/claude-sonnet-4.5` for OpenRouter's copy of an
+  Anthropic model.
+- **Without scenarios**, each candidate selects the generations the agent
+  recorded under that model name. A provider usually records its dated id
+  (`gpt-4o-mini-2024-07-18` for a request for `gpt-4o-mini`), so the field
+  suggests the names the agent's generations were recorded under
+  (`GET /api/agents/:id/recorded_models`).
+
+Adding or clearing the scenarios renames the catalog models already chosen
+to match. **Judge model** suggests the models of the provider the judge runs
+on, named under the field: the first of Anthropic, OpenAI and OpenRouter
+with credentials, else Ollama when the owner configured a host.
+`GET /api/evaluations` reports that provider as `judge_provider`, and the
+providers runs can use as `model_providers`. A provider whose credentials
+cannot be read, such as a stored key that no longer decrypts, is left out of
+`model_providers`. When reading one fails before the judge's provider is
+found, `judge_provider` is null with `judge_provider_error: true`, and the
+field says the credentials could not be read.
+
+Replays and their judge use the credentials of the evaluated agent's owner.
+On an agent's page, which requests the list with `agent_id`, both fields
+describe that owner's credentials. The Evaluations page describes the
+signed-in owner's, which differ only for an agent someone else owns, as the
+host's `agent_scope_resolver` can allow. A host adapter
+(`ActionAgent.scenario_evaluation_adapter_resolver`) runs a suite with
+whatever credentials it chooses, which these fields do not describe.
+
+The catalogs come from `GET /api/provider_models`. When the host app loads
+RubyLLM, it appends the chat models that take and return text from
+RubyLLM's model registry for the provider (its bundled catalog, or the
+host's own model table) after the live or curated list.
 
 A run is queued (`EvaluationRunJob`) and its results land as each replay
 finishes. Each replay runs as the evaluation's owner when agents are owned
@@ -482,7 +522,8 @@ as a Bearer token. Connect a client with:
   "headers": { "Authorization": "Bearer aa_..." } }
 ```
 
-`tools/list` offers two kinds of tool:
+`tools/list` offers three kinds of tool: the two below, and the dashboard's
+[evaluation and telemetry tools](#evaluations-and-telemetry-from-your-coding-harness).
 
 | Tool | What a call does |
 |---|---|
@@ -501,6 +542,49 @@ generation, so neither `execution_enabled` nor the execution quota applies to
 them. Set `ActionAgent.mcp_schema_tools = false` to keep schema tools
 reachable only through agents. `agent://<slug>` resources return each
 agent's live scorecard.
+
+### Evaluations and telemetry from your coding harness
+
+The facade also serves the dashboard's own evaluation and telemetry tools, so
+the coding harness you already use (Claude Code, Codex, Cursor, …) can edit an
+agent in your checkout, run its evaluations, read what failed, and try again.
+The harness brings its own model and login; the dashboard only answers the
+calls.
+
+| Tool | What a call does |
+|---|---|
+| `evaluations_list` | Lists the evaluations of the key's agents, newest first, each with its latest run's status and score; `agent` (slug or id) filters to one agent |
+| `evaluations_get` | One evaluation: its criteria, its scenarios and its 10 most recent runs |
+| `evaluations_run` | Starts a run. Takes the same selection as `POST /api/evaluations/:id/run`: `scenario_ids`, `keys`, `group`, `models` and `sandbox_id`. A scenario suite runs in the background and comes back `pending` with its run id; a sampling evaluation finishes before the call returns |
+| `evaluation_runs_get` | One run (the latest by default): status, scores, usage, fix items and per-scenario, per-model results, each naming its telemetry trace when one was recorded. `failed_only` and `limit` narrow the results |
+| `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
+| `traces_search` | Summary rows of traces, newest first, filtered by `agent` (class name or dashboard slug), `status` (`error` or `ok`), `service`, `since_minutes`, `min_tokens` and `min_duration_ms`; at most 100 |
+| `traces_get` | One trace by id, OpenTelemetry trace id or its first 8 characters: spans, tool calls with their arguments and results, tokens, estimated cost and failed spans |
+
+A typical loop: `evaluations_run`, poll `evaluation_runs_get` until the run is
+`complete`, read the fix items and a failing result's trace with
+`traces_get`, edit the agent, run again, and check the change with
+`evaluation_runs_compare`. Passing `sandbox_id` runs the evaluation against a
+checkout sandbox's app tools without editing the agent (see
+[checkout sandboxes](#github-connections-and-checkout-sandboxes)).
+
+The tools read what the JSON API reads for the key's owner: evaluations of
+the agents the owner can reach, and traces of the owner's tenant (every trace,
+in an install that is not multi-tenant). Another owner's evaluation or trace
+answers exactly as a nonexistent one does. `evaluations_run` is checked the
+way the JSON API checks a run: a scenario suite needs `execution_enabled` and
+execution quota, which answer as JSON-RPC errors as they do for `run_<slug>`,
+while an observed agent, an unknown id or a sandbox the run cannot use comes
+back as a tool result with `isError`. Strings longer than 1,000 characters are
+cut and end in `…[truncated: N more characters]`, long lists end in
+`[truncated: N more items]`, and the owner's credentials (API key, provider
+keys, GitHub token, sandbox runtime tokens) are masked from every result.
+
+These names are a noun family followed by a verb. Schema tools are always
+`find_`, `count_` or `get_` plus a model name, and agent tools are
+`run_<slug>`, so no host model (a `Trace` or `Evaluation` model included) and
+no agent slug can produce one of them. Set `ActionAgent.mcp_dashboard_tools =
+false` to leave the facade serving agents and schema tools only.
 
 ## GitHub connections and checkout sandboxes
 
@@ -1143,7 +1227,10 @@ In multi-tenant mode the ingest API authenticates with
 asynchronously through `ActionAgent::ProcessTelemetryTracesJob`
 (idempotent per trace_id, capped at 100 traces per request). Add an
 `increment_telemetry_usage!` method to your account model to hook usage
-tracking or rate limiting.
+tracking or rate limiting; it is called once per authenticated trace ingest
+request. The evaluation report collector authenticates the same keys but does
+not call it: it asks `quota_checker` with `:evaluation_report` and tells
+`usage_recorder` of each stored report.
 
 ## Relationship to the hosted platform
 

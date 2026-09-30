@@ -53,7 +53,7 @@ module ActionAgent
       @agent = agent
       @runtimes = Array(runtimes).index_by { |runtime| runtime[:key] }
       @discovery = ToolDiscovery.new(
-        traces: traces.for_agent(agent.telemetry_agent_class),
+        traces: agent.telemetry_traces(traces),
         agents: Agent.where(id: agent.id),
         hours: hours
       )

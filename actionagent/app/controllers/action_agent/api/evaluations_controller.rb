@@ -10,7 +10,7 @@ module ActionAgent
     # than sampling recorded generations, and can be narrowed to a group, to
     # specific scenarios, or to specific models.
     class EvaluationsController < BaseController
-      include RunSandbox
+      include EvaluationRunStarting
 
       rescue_from ActiveAgent::Evals::ScenarioParser::ParseError do |error|
         render json: { errors: [ error.message ] }, status: :unprocessable_entity
@@ -40,12 +40,28 @@ module ActionAgent
       # 50 client-side hides an agent whose evaluations are not among the account's
       # 50 most recent. The scope is already restricted to the current user's
       # agents, so an id outside it simply returns nothing.
+      #
+      # Three fields feed the dashboard's model pickers. They describe the
+      # credentials of #picker_credentials_owner:
+      #   - judge_provider:        the provider a judge model runs on, null
+      #                            when none has credentials or the lookup
+      #                            raised
+      #   - judge_provider_error:  true when that lookup raised, as it does
+      #                            when a stored key no longer decrypts
+      #   - model_providers:       the providers agent runs have credentials
+      #                            for, leaving out any whose credentials
+      #                            cannot be read
       def index
         scope = evaluations_scope
         scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
         evaluations = scope.includes(:agent, :evaluation_runs, :scenarios).recent.limit(50)
+        owner = picker_credentials_owner
 
-        render json: { evaluations: evaluations.map { |evaluation| serialize(evaluation) } }
+        render json: {
+          evaluations: evaluations.map { |evaluation| serialize(evaluation) },
+          **judge_provider_fields(owner),
+          model_providers: AgentExecutionService.available_providers(owner)
+        }
       end
 
       # Runs listed per evaluation on GET /api/evaluations/:id. The rest of
@@ -93,7 +109,7 @@ module ActionAgent
         end
 
         if evaluation.save
-          start_run(evaluation, selection_params) if run_requested?
+          start_evaluation_run(evaluation, selection_params) if run_requested?
           render json: { evaluation: serialize(evaluation.reload) }, status: :created
         else
           render json: { errors: evaluation.errors.full_messages }, status: :unprocessable_entity
@@ -109,10 +125,10 @@ module ActionAgent
       def run
         evaluation = current_evaluation
         selection = selection_params
-        if (sandbox = requested_run_sandbox(evaluation))
+        if (sandbox = evaluation_run_sandbox(evaluation, requested_sandbox_id))
           selection[:sandbox_id] = sandbox.session_id
         end
-        run = start_run(evaluation, selection)
+        run = start_evaluation_run(evaluation, selection)
         evaluation.reload
 
         render json: {
@@ -209,28 +225,23 @@ module ActionAgent
 
       private
 
-      # A scenario suite replays through the provider once per scenario and
-      # model, so it runs in the background; a generation-sampling evaluation
-      # scores recorded data and finishes inline.
-      def start_run(evaluation, selection)
-        return evaluation.run_later!(**selection) if evaluation.scenario_suite?
+      # Returns whose credentials the index's model picker fields describe.
+      # Agent runs and their judge use the evaluated agent's owner's
+      # credentials, so a list scoped to one agent reads that agent's owner,
+      # and an unscoped list the signed-in owner.
+      def picker_credentials_owner
+        agent = owner_agents.find_by(id: params[:agent_id]) if params[:agent_id].present?
+        agent ? agent.owner : current_owner
+      end
 
-        # EvaluationRunnerService marks the run failed with the error message
-        # and then re-raises. Letting that escape returned an HTML 500 for a
-        # request that had already persisted the evaluation and its failed
-        # run: the client saw a JSON parse error, the form stayed open, and a
-        # resubmit failed on the now-taken name. The failure is on the run
-        # record, which is what the response carries.
-        evaluation.run!
+      # Returns the index's judge_provider and judge_provider_error for
+      # +owner+. A lookup that raises, from a key that no longer decrypts or a
+      # host credentials hook that fails, is logged and reported as an error.
+      def judge_provider_fields(owner)
+        { judge_provider: EvaluationRunnerService.judge_provider_for(owner)&.to_s, judge_provider_error: false }
       rescue StandardError => e
-        Rails.logger.warn(
-          "[ActionAgent] evaluation #{evaluation.id} run failed: #{e.class}: #{e.message}"
-        )
-        # The service records the failure before re-raising; a failure that
-        # predates the run record (creating it, say) is recorded here so the
-        # response always carries one.
-        evaluation.evaluation_runs.recent.first ||
-          evaluation.evaluation_runs.create!(status: :failed, error_message: e.message, completed_at: Time.current)
+        Rails.logger.warn("[Evaluations] judge provider lookup failed: #{e.class}: #{e.message}")
+        { judge_provider: nil, judge_provider_error: true }
       end
 
       def evaluations_scope
@@ -266,10 +277,7 @@ module ActionAgent
       def require_executable_scenario_agent!
         agent = action_name == "create" ? requested_agent : current_evaluation.agent
         return unless agent.observed?
-        if action_name == "run"
-          adapter = ActionAgent.scenario_evaluation_adapter_resolver&.call(current_evaluation)
-          return if adapter.respond_to?(:call)
-        end
+        return if action_name == "run" && !unexecutable_scenario_run?(current_evaluation)
 
         render json: {
           error: "Observed agents are read-only — duplicate this agent to create an executable copy"
@@ -284,40 +292,18 @@ module ActionAgent
         params.require(:scenario).permit(:prompt, :group, :notes, :enabled, :key, expectations: {})
       end
 
-      # The sandbox a run was asked to use, checked (RunSandbox), or nil.
-      # Only a scenario suite executes the agent, and only its own replay
-      # does: a sampling run scores recorded generations, and a host adapter
-      # replays in the host's runtime, where no dashboard dispatcher runs.
-      def requested_run_sandbox(evaluation)
-        source = params[:evaluation].is_a?(ActionController::Parameters) && params[:evaluation].key?(:selection) ? params[:evaluation][:selection] : params
-        sandbox_id = source[:sandbox_id].presence || params[:sandbox_id].presence
-        return nil if sandbox_id.blank?
-
-        unless evaluation.scenario_suite?
-          raise RunSandbox::Refused, "Only a scenario evaluation runs the agent; this one scores recorded generations, " \
-            "so it cannot run against a sandbox"
-        end
-        if ActionAgent.scenario_evaluation_adapter_resolver&.call(evaluation).respond_to?(:call)
-          raise RunSandbox::Refused, "This install replays scenarios through its own adapter, which cannot reach a " \
-            "dashboard sandbox"
-        end
-
-        run_sandbox_for(evaluation.agent, sandbox_id)
+      # The sandbox id a run was asked to use, from the selection or the top
+      # level of the request.
+      def requested_sandbox_id
+        selection_source[:sandbox_id].presence || params[:sandbox_id].presence
       end
 
-      # scenario_ids, keys, group and models narrow a scenario run. `models`
-      # may arrive as an array or as the comma-separated field the form posts.
       def selection_params
-        source = params[:evaluation].is_a?(ActionController::Parameters) && params[:evaluation].key?(:selection) ? params[:evaluation][:selection] : params
-        models = source[:models]
-        models = models.to_s.split(",") unless models.is_a?(Array)
+        evaluation_run_selection(selection_source)
+      end
 
-        {
-          scenario_ids: Array(source[:scenario_ids]).map(&:to_s).reject(&:blank?),
-          keys: Array(source[:keys]).map(&:to_s).reject(&:blank?),
-          group: source[:group].to_s.presence,
-          models: models.map(&:to_s).map(&:strip).reject(&:blank?)
-        }.compact_blank
+      def selection_source
+        params[:evaluation].is_a?(ActionController::Parameters) && params[:evaluation].key?(:selection) ? params[:evaluation][:selection] : params
       end
 
       # Scenarios from text, a YAML/JSON suite, or a list of objects. Production
@@ -368,100 +354,13 @@ module ActionAgent
         models.map(&:to_s).map(&:strip).reject(&:blank?)
       end
 
-      def serialize(evaluation)
-        # size reads the preloaded association on index and COUNTs elsewhere.
-        run_count = evaluation.evaluation_runs.size
-        latest, previous = recent_runs(evaluation, 2)
+      def serialize(evaluation) = EvaluationSerializer.evaluation(evaluation)
 
-        {
-          id: evaluation.id,
-          name: evaluation.name,
-          agent: { id: evaluation.agent.id, name: evaluation.agent.name, slug: evaluation.agent.slug },
-          judge_kind: evaluation.judge_kind,
-          judge_model: evaluation.judge_model,
-          criteria: evaluation.criteria,
-          compare_models: evaluation.compare_models,
-          config: evaluation.config,
-          sample_size: evaluation.sample_size,
-          scenario_suite: evaluation.scenario_suite?,
-          scenario_count: evaluation.scenarios.size,
-          scenario_groups: evaluation.scenario_suite? ? evaluation.scenario_groups : [],
-          created_at: evaluation.created_at.iso8601,
-          run_count: run_count,
-          latest_run: latest ? serialize_run(latest, number: run_count) : nil,
-          # Just enough of the run before it for the list to show movement
-          # ("+3 passed vs #2") without a request per evaluation.
-          previous_run: previous ? serialize_run_summary(previous, number: run_count - 1) : nil
-        }
-      end
+      def serialize_run(run, number: nil) = EvaluationSerializer.run(run, number: number)
 
-      # Newest first. Sorts the preloaded association when index loaded it
-      # rather than issuing one ORDER BY query per evaluation.
-      def recent_runs(evaluation, limit)
-        runs = evaluation.evaluation_runs
-        if runs.loaded?
-          runs.sort_by { |run| [ run.created_at, run.id ] }.reverse.first(limit)
-        else
-          runs.recent.limit(limit).to_a
-        end
-      end
+      def run_number(evaluation, run) = EvaluationSerializer.run_number(evaluation, run)
 
-      # A run's position in its evaluation's history, oldest = 1.
-      def run_number(evaluation, run)
-        evaluation.evaluation_runs.where("created_at < ? OR (created_at = ? AND id <= ?)", run.created_at, run.created_at, run.id).count
-      end
-
-      # `number` is the run's position in its evaluation's history, oldest =
-      # 1, so the dashboard can say "Run #3" and "vs #2".
-      def serialize_run(run, number: nil)
-        serialize_run_summary(run, number: number).merge(
-          scores: run.scores,
-          selection: run.selection,
-          models: run.models,
-          usage: run.usage,
-          error_message: run.error_message
-        )
-      end
-
-      def serialize_run_summary(run, number: nil)
-        {
-          id: run.id,
-          number: number,
-          status: run.status,
-          average_score: safe_average_score(run),
-          samples_evaluated: run.samples_evaluated,
-          samples_passed: run.samples_passed,
-          completed_at: run.completed_at&.iso8601,
-          created_at: run.created_at.iso8601,
-          # The checkout sandbox the run replayed against, if any: session id
-          # and checkout, never its token.
-          sandbox: run.sandbox
-        }
-      end
-
-      # The fix items are derived from every persisted result's diagnosis,
-      # which older runs recorded in earlier shapes; a run they cannot be
-      # built for still serves its results rather than 500-ing the panel.
-      def safe_fix_items(run)
-        run.fix_items
-      rescue StandardError => e
-        Rails.logger.warn(
-          "[ActionAgent] evaluation run #{run.id} fix_items failed: #{e.class}: #{e.message}"
-        )
-        []
-      end
-
-      # index serializes the latest run of every listed evaluation, so an
-      # unaverageable scores payload used to 500 the entire Evaluations page
-      # instead of degrading that one run's headline number.
-      def safe_average_score(run)
-        run.average_score
-      rescue StandardError => e
-        Rails.logger.warn(
-          "[ActionAgent] evaluation run #{run.id} average_score failed: #{e.class}: #{e.message}"
-        )
-        nil
-      end
+      def safe_fix_items(run) = EvaluationSerializer.fix_items(run)
     end
   end
 end

@@ -440,7 +440,8 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
     # A process group this sandbox never started, as if its pid had been
     # reused after the dashboard restarted.
-    stranger = Process.spawn("sleep", "600", pgroup: true)
+    stranger = Process.spawn({ "SANDBOX_TEST_STRANGER" => "1" }, "sleep", "600", pgroup: true)
+    wait_until { File.binread("/proc/#{stranger}/environ").split("\0").include?("SANDBOX_TEST_STRANGER=1") }
     workspace = ActionAgent.local_sandbox_root.join(SecureRandom.uuid).tap(&:mkpath)
     workspace.join("state.json").write(JSON.generate("pid" => stranger, "port" => 1, "code_sessions" => { "1" => stranger }))
 
@@ -452,6 +453,21 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
   ensure
     Process.kill("KILL", stranger) if stranger
     Process.wait(stranger) if stranger
+  end
+
+  test "an empty environment identifies a zombie but never a live process" do
+    pid = Process.pid + 1_000_000
+    session_id = SecureRandom.uuid
+
+    @backend.stub(:procfs?, true) do
+      File.stub(:binread, "") do
+        { "S" => :unknown, "R" => :unknown, nil => :unknown, "Z" => :ours, "X" => :ours }.each do |state, identity|
+          @backend.stub(:proc_stat, [ state ]) do
+            assert_equal identity, @backend.send(:group_identity, pid, session_id, {}), "process state #{state.inspect}"
+          end
+        end
+      end
+    end
   end
 
   test "a server that retitles itself is still known as the sandbox's own" do

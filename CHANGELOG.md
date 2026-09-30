@@ -7,21 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Upgrading: the Claude Code connection now stores Anthropic API keys only.
-Anthropic does not let third-party products collect, store or route requests
-through Claude.ai subscription credentials
+## [1.8.0] - 2026-09-26
+
+Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release.
+Settings -> Integrations connects GitHub and Claude Code. A connected
+repository's checkout boots as a sandbox, on a developer's machine with the new
+`:local` backend, where Claude Code sessions run and an evaluation can run
+against the checkout without the agent being edited. The dashboard's MCP
+server gains evaluation and telemetry tools for a developer's own coding
+harness. Ollama hosts can be tested and can be remote, with an optional Bearer
+API key. Comparison runs lead with a per-model table and filter the fix list
+by model. A publisher can check its collector before a run.
+
+Upgrading: run `bin/rails generate action_agent:install --skip` and
+`bin/rails db:migrate`. The generator adds what an install lacks:
+`provider_keys.api_key` and the `github_connections` and `code_sessions`
+tables. An app on the RubyLLM provider needs ruby_llm 1.16 or later; 2.x
+works too.
+
+The Claude Code connection stores Anthropic API keys only. Anthropic does not
+let third-party products collect, store or route requests through Claude.ai
+subscription credentials
 ([Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance.md)),
-so a `claude setup-token` token (`sk-ant-oat…`) is refused. One stored before
-this change is never handed to a session: its owner sees Claude Code as
-needing an API key (`needs_replacing: true` in `GET /api/provider_keys`)
-until they paste one. Run
-`bin/rails action_agent:claude_code:purge_subscription_tokens` once to delete
-the stored tokens; it prints how many it removed. A developer who wants
-sessions on their own Claude login sets `config.claude_code_auth =
-:local_login` with the `:local` backend and runs `claude /login` on that
-machine instead.
+so a `claude setup-token` token (`sk-ant-oat…`) is refused. An install that
+stored one while running a pre-release build never hands it to a session: its
+owner sees Claude Code as needing an API key (`needs_replacing: true` in
+`GET /api/provider_keys`) until they paste one.
+`bin/rails action_agent:claude_code:purge_subscription_tokens` deletes the
+stored tokens and prints how many it removed. A developer who wants sessions on
+their own Claude login sets `config.claude_code_auth = :local_login` with the
+`:local` backend and runs `claude /login` on that machine instead.
 
 ### Added
+
+- **Evaluation and telemetry tools on the MCP facade** (`actionagent`). The
+  dashboard's MCP server now offers `evaluations_list`, `evaluations_get`,
+  `evaluations_run`, `evaluation_runs_get`, `evaluation_runs_compare`,
+  `traces_search` and `traces_get`, so a developer's own coding harness can
+  run an agent's evaluations, read the fix items and failing traces, and
+  iterate on the agent in its own checkout without the dashboard holding a
+  model login. The tools read under the API key's owner exactly as the JSON
+  API reads under the signed-in owner, run through the same execution,
+  quota and sandbox checks as `POST /api/evaluations/:id/run`, bound their
+  output, and mask the owner's credentials. Their names cannot collide with
+  schema tools or agent tools. `ActionAgent.mcp_dashboard_tools = false`
+  turns them off.
 
 - **Local checkout sandboxes and Claude Code sessions** (`actionagent`, #489).
   A new `:local` sandbox backend (`config.sandbox_service = :local`) makes
@@ -117,6 +147,178 @@ machine instead.
   `rails g action_agent:install` to add the
   `create_active_agent_github_connections` migration.
 
+- **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
+  Provider API Keys gains a **Test connection** for Ollama that reports
+  whether the server is reachable, the round-trip time and the models it
+  serves, before or after saving (`POST <mount>/api/provider_keys/test`,
+  read-only). The host is accepted as a bare server address
+  (`http://localhost:11434`; the OpenAI-compatible `/v1` path is added) and
+  an optional **API key** is stored beside it and sent as a Bearer token,
+  for a server behind an authenticating proxy or Ollama Cloud. The agent
+  builder's live Ollama model list uses the same probe and key. When no host
+  is configured the card shows the host app's `config/active_agent.yml`
+  default. The install generator emits a guarded `add_provider_key_api_key`
+  migration for existing installs; re-run
+  `bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`.
+- **A model comparison table on comparison runs** (`actionagent`,
+  `activeagent`). A run over several models now leads its Models section
+  with one row per model, best first: passed, mean score, average latency,
+  average tokens per scenario, cost (and per scenario), and the model's
+  typical fault — its most frequent one with the diagnosis of a result that
+  carries it. The scenario suite panel, the sampling run detail and the
+  standalone HTML report (`ActiveAgent::Evals::ReportHtml`) all render it.
+- **What to fix, filtered by model** (`actionagent`, `activeagent`). On a
+  comparison run the fix list takes a model chip, narrowing to the items
+  attributed to that model and counting what that model alone produced,
+  since one model may need more instruction than another. The standalone
+  report filters through radio chips and stylesheet rules — it still ships
+  no script.
+
+- **A publisher can check its collector before a run** (`activeagent`).
+  `ActiveAgent::Evals::Publisher#verify!` asks the collector whether it is up
+  and accepts the key before a run is paid for. It posts an empty JSON object,
+  which a compatible collector refuses with a 422 naming `version`, without
+  storing anything; anything else raises `Publisher::Error` with a delivery's
+  status, detail and guidance. `Publisher#endpoint` returns the collector URL.
+
+### Changed
+
+- **Collector rejections say what the status means** (`activeagent`). A
+  `Publisher::Error` for a 401, 403, 404, 415 or 501 rejection names a refused
+  key, an account an operator must act on, an endpoint that is not a
+  collector, a rewritten `Content-Type`, or an install with no evaluation
+  store, in place of the generic guidance.
+
+### Fixed
+
+- **A nested scenario expectation written as one value** (`activeagent`).
+  `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
+  list of one, the shape the persisted scenario and the dashboard's matrix
+  read; an object-list import with a lone value used to break the suite
+  panel. The matrix also tolerates scenarios persisted before this.
+
+## [1.7.2] - 2026-09-29
+
+Releases `activeagent` and `actionagent` 1.7.2 from one tag. A patch on 1.7.1:
+the RubyLLM provider runs on ruby_llm 1.16 and 2.x, where 1.7.1 required 1.x.
+Apps on the RubyLLM provider need ruby_llm 1.16 or later; earlier 1.x
+releases lack the APIs the provider calls. No migrations.
+
+### Changed
+
+- **The RubyLLM provider supports ruby_llm 1.16 and 2.x** (`activeagent`).
+  The adapter handles 2.x's tool interface, token limits, embedding model
+  objects, usage and finish reasons while keeping the 1.16 API working.
+  Requiring `>= 1.16, < 3` prevents Bundler from selecting an older 1.x
+  release without the APIs the adapter calls. Rails main can now resolve
+  RubyLLM 2.x alongside Active Storage's Marcel 2 dependency. CI also runs
+  the full suite with RubyLLM 1.16 to retain coverage of that version.
+  Unsupported-version errors name the loaded version and both bounds (#508).
+
+## [1.7.1] - 2026-09-29
+
+Releases `activeagent` and `actionagent` 1.7.1 from one tag. A patch on 1.7.0:
+the Evaluations page picks the judge and compared models from the provider
+catalogs, `GET /api/provider_models` lists the host's RubyLLM registry, and
+the RubyLLM provider requires ruby_llm 1.x and sends tool calls and structured
+output in the shape ruby_llm reads. No migrations.
+
+### Added
+
+- **Model pickers on the Evaluations page** (`actionagent`). The judge model
+  and the models to compare, on the new-evaluation form and on a scenario
+  suite, are chosen from type-ahead suggestions, and a model the suggestions
+  lack can still be typed. The compare fields hold one removable chip per
+  model and still submit the same comma-separated list.
+  - With scenarios, the suggestions are the catalogs the agent builder uses,
+    for the providers the owner's runs have credentials for. A model whose
+    name alone would run elsewhere is offered with its provider in front, as
+    `ModelSpec.parse` reads it: `ollama/llama3.2`, or
+    `openrouter/anthropic/claude-sonnet-4.5` for OpenRouter's copy of an
+    Anthropic model.
+  - Without scenarios, a compared model selects the generations recorded
+    under its name, usually the provider's dated id, so the suggestions are
+    the names the agent's generations were recorded under, from the new
+    `GET /api/agents/:id/recorded_models`. Adding or clearing the scenarios
+    renames the catalog models already chosen to match.
+  - The judge field suggests the models of the provider the judge runs on
+    and says which provider that is, or that the credentials deciding it
+    could not be read.
+
+  `GET /api/evaluations` reports that provider as `judge_provider` and the
+  providers runs can use as `model_providers`
+  (`AgentExecutionService.available_providers`). Runs and their judge use
+  the evaluated agent's owner's credentials, so both fields describe that
+  owner's when `agent_id` scopes the list, and the signed-in owner's
+  otherwise. `judge_provider` is null when no provider has credentials, and
+  also when reading them raised, which `judge_provider_error: true` marks.
+  `model_providers` leaves out a provider whose credentials cannot be read.
+  Either way the list still loads.
+- **`GET /api/provider_models` lists the host's RubyLLM registry**
+  (`actionagent`). When the host app loads RubyLLM, the chat models its
+  registry lists for the provider that take and return text (RubyLLM's
+  bundled catalog, or the host's own model table) follow the live or curated
+  list, each once, so the builder's preselected default is unchanged. That
+  leaves out the speech, transcription, moderation and completion-only
+  models RubyLLM counts as chat models, which its registry lists with no
+  modalities or as taking audio, and with them the few chat models it lists
+  with no modalities, which can still be typed. A registry that raises is
+  logged and leaves the list as it was.
+
+### Changed
+
+- **The RubyLLM provider requires ruby_llm 1.x** (`activeagent`). ruby_llm
+  2.0 renamed the APIs `RubyLLMProvider` calls, and the open `>= 1.0`
+  requirement let `bundle update` install it. The provider now requires
+  `~> 1.0` until it supports 2.0 (#502). Loading it with an unsupported
+  version names the supported range and the loaded version, instead of
+  asking for a gem that is already in the Gemfile. Pin
+  `gem "ruby_llm", "~> 1.0"` if your bundle resolved 2.0.
+
+### Fixed
+
+- **Tool calls sent back through the RubyLLM provider** (`activeagent`).
+  After a tool ran, the follow-up request repeated the model's tool call
+  with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI
+  received them JSON-encoded twice, and Anthropic received a string for
+  `tool_use.input`, which its API requires to be an object. The same
+  happened when a stored conversation containing a tool call was replayed.
+  The provider now hands ruby_llm the parsed arguments (#501).
+- **Structured output through the RubyLLM provider** (`activeagent`). A
+  `json_schema` response_format reached ruby_llm unchanged, but ruby_llm
+  reads `{ name:, schema:, strict: }`, so OpenAI received a schema with a
+  null name and body, and the Anthropic request raised inside ruby_llm
+  before it was sent. The provider now converts it, naming the schema
+  `response` and making it strict unless the format says otherwise, as
+  ruby_llm's own `with_schema` does. A `text` format asks for plain text;
+  `json_object`, which ruby_llm has no mode for, and a `json_schema`
+  without a schema now raise `ArgumentError` instead of sending a request
+  the API rejects (#501).
+
+## [1.7.0] - 2026-09-24
+
+Releases `activeagent` and `actionagent` 1.7.0 from one tag. A minor release:
+a mounted engine collects the evaluation reports applications publish with
+`ActiveAgent::Evals::Publisher`, whose failures now say what the collector
+refused and whether to retry; observed agents read their own traces in
+evaluation criteria, the Tools and Traces tabs and deploy markers; host apps
+extend the engine's models and controllers through concerns and mirror their
+agent classes into the dashboard; and the Evaluations page is rebuilt around
+runs. Run the install generator after upgrading (see Upgrading below).
+
+Upgrading: the install generator emits two new migrations, both guarded
+column by column: `ensure_agent_release_columns`, which adds the agent release
+columns an install generated fresh on 1.6.2-1.6.4 never got (and those on
+tables with a custom `table_name_prefix`), and `add_evaluation_report_identity`
+for the evaluation report collector. Re-run
+`bin/rails generate action_agent:install --skip` (`--skip` keeps your
+initializer) and `bin/rails db:migrate`. A traces-only install needs neither;
+if you re-run the generator there, pass `--traces_only` again, or it emits the
+whole dashboard schema. Nothing else changes until an application publishes a
+report to the mount.
+
+### Added
+
 - **Host concerns for the engine's models and controllers** (`actionagent`).
   `ActionAgent.model_concerns` is included into
   `ActionAgent::ApplicationRecord` as it loads, and so into every engine
@@ -177,6 +379,35 @@ machine instead.
   `allowed_tools` as an `mcp_toolset` entry in `tools` (every other tool of
   the server disabled), beside any tools the request already declares
   (#328, by @dark-panda).
+- **A mounted engine collects published evaluation reports** (`actionagent`).
+  An application that runs its agents itself and evaluates them in-process
+  publishes the finished report with `ActiveAgent::Evals::Publisher`; until
+  now a self-hosted install had nowhere to receive it. On a full install (not
+  one generated with `--traces_only`, which answers 501),
+  `POST <mount>/api/evaluation_reports` takes the version-1 envelope and
+  returns the receipt the publisher checks, and
+  `ActionAgent::EvaluationReportImport` stores it as the engine's own rows:
+  the observed agent for the report's `source` and `agent_name`, an evaluation
+  named for its suite and scope (`orders (eu, support)`), its scenarios, and a
+  complete run with a result per scenario and model. The Evaluations page
+  shows it the way it shows a run the dashboard executed, with the summary
+  recomputed from the stored results. The endpoint authenticates exactly as
+  trace ingest does (`ingest_api_key`, or the tenant's key in multi-tenant
+  mode), takes only `application/json`, and places a report's agent wherever
+  `trace_owner_resolver` puts that tenant's traced agents. A `run_id` is
+  stored once per tenant, or once per install, and compared exactly: 201 for a
+  new report, 200 for an identical retry, 409 for different content. Invalid
+  reports, and an evaluation name the report does not own, are 422; a cap an
+  operator has to lift (observed agents per owner, 100 evaluations per agent,
+  2,000 scenarios per evaluation) is 403; a new report over the new
+  `:evaluation_report` quota kind or past 30 new reports a minute from a key
+  is 429. An identical retry is never refused by the quota or the rate limit.
+  Bodies over 2 MiB are 413, and Rails never parses the body into params, so
+  nothing past the limit is read. `usage_recorder` is told
+  `:evaluation_report` for each stored report. Evaluation runs gain
+  `external_tenant`, `external_run_id` and `external_report_digest`, unique on
+  the first two (binary on MySQL); see Upgrading above.
+  `docs/evals/publication.md` documents the endpoint.
 
 ### Changed
 
@@ -186,6 +417,25 @@ machine instead.
   like every other engine model (`actionagent`), so it carries the model
   concerns above, `AdapterAware` and the ownership API (`owner_association`,
   `for_owner`) from the same place. Its table name is unchanged.
+- `Api::TracesController`'s bearer authentication and its 429 quota body
+  live in `ActionAgent::Api::IngestAuthentication` (`actionagent`), which the
+  evaluation report collector shares. A host subclass that overrides
+  `authenticate_api_key!` is unaffected. The tenant's
+  `increment_telemetry_usage!` is still called for each trace ingest request,
+  and not for a report post.
+- `add_agent_releases` reads `ActionAgent.table_name_prefix` for the tables
+  it alters (`actionagent`), so a newly generated copy works on an install
+  with a custom prefix. The trace table keeps its fixed name.
+- A collector's rejection of `ActiveAgent::Evals::Publisher` says what it
+  refused and whether to retry. The message carries the `error` string of a
+  JSON object response body beside the HTTP status — control characters and
+  runs of whitespace collapsed to one space, the API key replaced with
+  `[FILTERED]`, cut to 200 characters; nothing else from the body — and what
+  to do next: never retry the report under the same `run_id` on a 409,
+  publish a smaller selection on a 413, correct the report on a 422, retry
+  later on a 408, 429 or 5xx, and resolve the cause first on anything else,
+  such as a 401 or 403. `Publisher::Error` carries `status`, `detail` and
+  `retryable?`.
 
 ### Deprecated
 
@@ -195,6 +445,22 @@ machine instead.
 
 ### Fixed
 
+- Telemetry criteria (`trace_error_rate`, `trace_latency`) score an observed
+  agent from its own traces (`actionagent`). They selected traces by
+  `Agent#telemetry_agent_class`, which appends `Agent` to a class name
+  lacking it, so an agent observed from an application reporting `SupportBot`
+  found no traces and scored nothing, and observed agents of one class ending
+  in `Agent` read each other's actions. `Agent#telemetry_traces` selects the
+  traces `AgentRegistrar` attributed to the agent, plus unattributed ones with
+  its service, class and action. Deleting an observed agent leaves its traces
+  unattributed, so the agent registered again for them still reads them. The
+  agent's Traces tab, its Tools tab usage
+  columns and the Interactions list filtered to it use the same selection. The
+  Traces tab asks for it with `GET /api/traces?agent_id=`, which answers 404
+  for an agent the caller cannot see; `agent=` still filters by class. On the
+  Metrics page filtered to a class, an observed agent's deploy markers now
+  show under the class its traces report (`Agent#reported_agent_class`).
+  Authored and mirrored agents read the traces they did before.
 - `Agent.prompt(...).generate_later` and `Agent.embed(...).embed_later` run
   their job instead of raising `ArgumentError: unknown keywords` in the
   worker (#346).
@@ -210,6 +476,30 @@ machine instead.
   installed (`openai` for OpenAI, Ollama and OpenRouter; `anthropic` for
   Anthropic) when the provider is chosen, with a validation error naming
   the gem, instead of failing on its first run (`actionagent`, #416).
+- A fresh `action_agent:install` creates the agent release columns with the
+  dashboard tables (`actionagent`): `release_digest` on agents,
+  `release_digest` and `revision` on agent versions, and `agent_version_id`
+  on agent runs and evaluation runs. The generator emits `add_agent_releases`
+  before the create-table migration, so on a fresh install it found none of
+  those tables and added nothing, and creating an agent run or an evaluation
+run raised `NoMethodError` on `agent_version_id`. An install generated
+that way on 1.6.2-1.6.4 gets the columns from the new
+`ensure_agent_release_columns` migration (see Upgrading above).
+- Every failure of `ActiveAgent::Evals::Publisher` to deliver a report
+  raises `Publisher::Error`. A malformed response (`Net::HTTPBadResponse`,
+  `Net::HTTPHeaderSyntaxError`, or a `Zlib::Error` from corrupt compression)
+  escaped as its own class and is now a retryable `Publisher::Error`. A
+  report that cannot be encoded as JSON (invalid UTF-8, `NaN`, nesting too
+  deep) is now a non-retryable one raised before anything is sent: it escaped
+  as `JSON::GeneratorError`, or was blamed on the collector as invalid JSON.
+  Only a network failure keeps its underlying error as `cause`, so a response
+  body or report content never reaches a log through the exception chain.
+  Invalid arguments raise `ArgumentError`, now also for a `report` that does
+  not convert to a hash (a string raised `NoMethodError` and `nil` published
+  an empty report) and a `nil` timeout (`TypeError`).
+- The publisher strips whitespace around its API key, so the key it sends is
+  the one it filters from a collector's explanation, and refuses a key with
+  characters other than visible ASCII.
 
 ### Security
 

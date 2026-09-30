@@ -11,7 +11,9 @@ module ActionAgent
     #   schema tools (ActiveAgent::SchemaTools, the classes the dashboard
     #   discovers) is callable directly — find_<records>, count_<records>,
     #   get_<record> — as this key's caller, so a client reads the host's
-    #   records under the same scope an agent run would (#439).
+    #   records under the same scope an agent run would (#439). The
+    #   dashboard's own evaluation and telemetry tools (MCPDashboardTools)
+    #   are offered beside them.
     # - resources/list & resources/read: each agent is an agent://<slug>
     #   resource whose content is its live scorecard (config + stats + memory
     #   summary from the solid_agent datasets).
@@ -29,6 +31,8 @@ module ActionAgent
       allow_unauthenticated_access
       skip_forgery_protection
       before_action :authenticate_api_key!, except: [ :unsupported ]
+
+      include MCPDashboardTools
 
       PROTOCOL_VERSION = "2025-03-26"
       JSONRPC_METHOD_NOT_FOUND = -32601
@@ -105,6 +109,21 @@ module ActionAgent
         @owner = api_key.owner
       end
 
+      # The key's owner stands in for the signed-in owner, so the dashboard's
+      # own scopes (owned, owner_agents, owned_traces, RunSandbox) read what
+      # the JSON API would read for that owner.
+      def current_owner
+        @owner
+      end
+
+      # The key's user when it records one. Otherwise the owner, unless the
+      # owner is an account: a tenant is never a user.
+      def current_user
+        return @api_key.user if @api_key.respond_to?(:user) && @api_key.user
+
+        ActionAgent.multi_tenant? ? nil : @owner
+      end
+
       # The agents this key can reach. A key belongs to whoever owns it, and
       # a single-user install has no owner, so the key reaches every agent
       # the dashboard holds.
@@ -149,10 +168,21 @@ module ActionAgent
           protocolVersion: PROTOCOL_VERSION,
           capabilities: { tools: {}, resources: {} },
           serverInfo: { name: "activeagents", version: "1.0" },
-          instructions: "Each run_<slug> tool runs one of this account's agents; every other tool reads the host " \
-                        "application's records directly, as the caller this key authenticates. Each agent://<slug> " \
-                        "resource returns the agent's live scorecard."
+          instructions: initialize_instructions
         }
+      end
+
+      def initialize_instructions
+        text = "Each run_<slug> tool runs one of this account's agents; each find_, count_ and get_ tool reads the " \
+               "host application's records directly, as the caller this key authenticates. Each agent://<slug> " \
+               "resource returns the agent's live scorecard."
+        return text unless ActionAgent.mcp_dashboard_tools?
+
+        "#{text} The evaluations_, evaluation_runs_ and traces_ tools work on this account's evaluations and " \
+          "telemetry: edit the agent in your own checkout, start a run with evaluations_run (pass sandbox_id to run " \
+          "against a checkout sandbox), poll evaluation_runs_get for its status, results and fix items, compare runs " \
+          "with evaluation_runs_compare, and read a failing result's trace with traces_get (traces_search finds " \
+          "recent failures)."
       end
 
       MESSAGE_INPUT_SCHEMA = {
@@ -182,7 +212,7 @@ module ActionAgent
           agent_tools
         end
 
-        { tools: tools + schema_tools_list }
+        { tools: dashboard_tools_list + tools + schema_tools_list }
       end
 
       # The host's schema tools, offered as the same tool definitions an
@@ -206,6 +236,9 @@ module ActionAgent
 
       def tools_call
         name = params.dig(:params, :name).to_s
+        # The three families' names are disjoint (see MCPDashboardTools), so
+        # this order never decides between two tools.
+        return dashboard_tool_call(name) if dashboard_tool?(name)
         return schema_tool_call(name) if ActionAgent.mcp_schema_tools? && ActionAgent.schema_tool_class_for(name)
 
         slug, action = name.delete_prefix("run_").split("__", 2)
