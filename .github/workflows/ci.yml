@@ -52,6 +52,8 @@ jobs:
         include:
         - ruby: "3.4"
           gemfile: "gemfiles/railsmain.gemfile"
+        - ruby: "3.4"
+          gemfile: "gemfiles/ruby_llm_1.gemfile"
         - ruby: "3.3"
           gemfile: "gemfiles/rails8.gemfile"
         - ruby: "3.2"
