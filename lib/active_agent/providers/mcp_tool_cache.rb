@@ -93,10 +93,13 @@ module ActiveAgent
         # latency path.
         #
         # @param key [String] identifies the declaration, e.g. a digest
+        # @param enabled [Boolean, nil] per-generation override; nil uses the
+        #   process-level setting
         # @yieldreturn [Array<Hash>] the tools to cache when there is no entry
         # @return [Array<Hash>] a copy the caller may mutate freely
-        def fetch(key)
-          return yield.deep_dup unless enabled?
+        def fetch(key, enabled: nil)
+          use_cache = enabled.nil? ? enabled? : enabled
+          return yield.deep_dup unless use_cache
 
           cached = read(key)
           return cached if cached

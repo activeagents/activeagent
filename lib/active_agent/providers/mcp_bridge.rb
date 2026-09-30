@@ -59,7 +59,7 @@ module ActiveAgent
       # @param servers [Array<Hash>, Hash, nil] common-format `mcps:`
       #   declarations. A single Hash is accepted as a one-server list, because
       #   `Array(some_hash)` would split it into pairs.
-      def initialize(servers)
+      def initialize(servers, cache: nil)
         @declarations = normalize_all(servers)
         @tools        = nil
         @ownership    = {}
@@ -67,6 +67,7 @@ module ActiveAgent
         @servers      = []
         # Only the connections that succeeded, so a failure is not reused.
         @connections  = {}
+        @cache        = cache
       end
 
       # @return [Boolean] whether no servers were declared
@@ -227,7 +228,7 @@ module ActiveAgent
       # @param declaration [Hash]
       # @return [Array<Hash>]
       def tools_for(declaration)
-        MCPToolCache.fetch(fingerprint_for(declaration)) do
+        MCPToolCache.fetch(fingerprint_for(declaration), enabled: @cache) do
           server_tools(ensure_connected(declaration))
         end
       end
@@ -245,9 +246,11 @@ module ActiveAgent
 
       # Identifies a declaration for caching purposes.
       #
-      # Covers only what changes the answer — where the server is, how to reach
-      # it, and which of its tools are allowed through. The display name is
-      # excluded, so renaming a server does not throw away its cached tools.
+      # Covers what can change the advertised tools: endpoint, credentials,
+      # command environment and tool filter. Credentials are hashed along with
+      # the rest of the declaration; the raw secret is never used as a cache
+      # key. The display name is excluded, so renaming a server does not throw
+      # away its cached tools.
       #
       # @param declaration [Hash]
       # @return [String]
@@ -257,6 +260,8 @@ module ActiveAgent
           command:       declaration[:command],
           args:          declaration[:args],
           env:           declaration[:env]&.sort&.to_h,
+          authorization: declaration[:authorization],
+          authorization_token: declaration[:authorization_token],
           allowed_tools: declaration[:allowed_tools]&.map { |tool| tool_name(tool) }&.sort
         }
 

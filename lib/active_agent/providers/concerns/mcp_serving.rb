@@ -61,7 +61,7 @@ module ActiveAgent
         # one replaces the field, or its connections outlive the generation that
         # opened them.
         mcp_release_bridge!
-        self.mcp_bridge = bridged.any? ? MCPBridge.new(bridged) : nil
+        self.mcp_bridge = bridged.any? ? MCPBridge.new(bridged, cache: context[:mcp_cache]) : nil
 
         return parameters if mcp_bridge.nil?
 
@@ -145,7 +145,7 @@ module ActiveAgent
       # @param parameters [Hash]
       # @return [Hash]
       def mcp_except_options(parameters)
-        parameters.except(:mcps, :mcp_strategy)
+        parameters.except(:mcps, :mcp_strategy, :mcp_cache)
       end
 
       # @param declarations [Array<Hash>, Hash, nil]

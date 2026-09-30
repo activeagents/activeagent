@@ -170,6 +170,16 @@ Two different costs, and only one of them can be cached.
 ActiveAgent::Providers::MCPToolCache.configure(ttl: 300, max_entries: 100, enabled: true)
 ```
 
+Cache policy can be overridden for one generation with `mcp_cache:`. It defaults to the process-level setting; `mcp_cache: false` always fetches that generation's tool list fresh without changing other agents or later generations:
+
+```ruby
+prompt "Inspect this site", mcp_cache: false, mcps: [ firecrawl_server ]
+```
+
+Entries are isolated by endpoint, bearer credential, command/arguments/environment, and `allowed_tools:`. The display name and prompt text are not part of the key: they do not change what that authenticated server offers. Only tool names, descriptions, and schemas are cached — never messages, tool results, or agent-declared tools. The key is a digest, so the credential itself is not retained as the key.
+
+The `mcp_cache:` prompt option overrides the process setting for one generation. `false` fetches a fresh tool list for that generation without changing the setting for other agents or prompts; omit it to use the configured default.
+
 A cached list means no connection is opened at all — a connection happens when the model actually calls a tool. So a generation that never reaches for an MCP tool connects to nothing, and one that does connects once. A `command:` server is spawned on that first call rather than at the start of every generation.
 
 The cache is process-local and holds only plain data, so it is safe across a fork: a child gets a snapshot with no sockets or child processes in it. To pick up a server's new tools without waiting for the TTL, call `ActiveAgent::Providers::MCPToolCache.clear!` on deploy, or `refresh!` on a bridge.

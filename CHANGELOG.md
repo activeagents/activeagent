@@ -49,7 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   start of every generation. A bridge that has learned its view is stale can
   `refresh!`, and `clear!` empties the cache wholesale. Entries hold plain data —
   no sockets, no child processes — so the cache is safe to hold across a fork. It
-  is process-global, so a test suite should reset it between examples.
+  is process-global, but entries are separated by endpoint, credentials,
+  environment and `allowed_tools:`; `mcp_cache: false` bypasses it for one
+  generation without changing another agent's setting. It caches schemas only,
+  never messages, tool results, or agent-declared tools. A test suite should
+  reset it between examples.
 
 - **A DeepSeek provider** (`activeagent`). `generate_with :deepseek` talks to
   DeepSeek's OpenAI-compatible endpoint with `deepseek-flash` as the default

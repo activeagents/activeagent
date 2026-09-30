@@ -133,6 +133,14 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
     assert_equal subject.context, subject.send(:prompt_context)
   end
 
+  test "strips mcp_cache from the provider request context" do
+    with_bridge do
+      context = provider(DeepSeekProvider, mcps: URL_SERVER, mcp_cache: false).send(:prompt_context)
+
+      assert_not context.key?(:mcp_cache), "cache policy is an ActiveAgent setting, not an API parameter"
+    end
+  end
+
   test "a single declaration is accepted without an array" do
     with_bridge do
       context = provider(DeepSeekProvider, mcps: URL_SERVER.first).send(:prompt_context)

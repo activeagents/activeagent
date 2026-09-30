@@ -457,6 +457,64 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_equal 1, connects, "the display name does not change what a server offers"
   end
 
+  test "does not share tool lists across credentials for the same endpoint" do
+    connects = 0
+    clients = {
+      "first-secret" => FakeClient.new(tools: [ tool("first_account_tool") ]),
+      "second-secret" => FakeClient.new(tools: [ tool("second_account_tool") ])
+    }
+
+    build = lambda do |token|
+      declaration = { name: "firecrawl", url: "https://alpha.test/mcp", authorization: token }
+      bridge = ActiveAgent::Providers::MCPBridge.new([ declaration ])
+      bridge.define_singleton_method(:connect) do |current|
+        connects += 1
+        client = clients.fetch(current[:authorization])
+        ActiveAgent::Providers::MCPBridge::Server.new(name: current[:name], declaration: current, client:)
+      end
+      bridge
+    end
+
+    assert_equal %w[first_account_tool], build.call("first-secret").tools.pluck(:name)
+    assert_equal %w[second_account_tool], build.call("second-secret").tools.pluck(:name)
+    assert_equal 2, connects
+    refute_includes ActiveAgent::Providers::MCPBridge.new(nil).send(:fingerprint_for,
+                                                                    { url: "https://alpha.test/mcp", authorization: "first-secret" }),
+                    "first-secret", "the cache key must not retain the raw credential"
+  end
+
+  test "mcp_cache false bypasses the shared cache for this generation only" do
+    cached_calls = 0
+    cached_client = FakeClient.new(tools: [ tool("cached_tool") ])
+    declaration = { name: "alpha", url: "https://alpha.test/mcp" }
+
+    warm = ActiveAgent::Providers::MCPBridge.new([ declaration ])
+    warm.define_singleton_method(:connect) do |current|
+      cached_calls += 1
+      ActiveAgent::Providers::MCPBridge::Server.new(name: current[:name], declaration: current, client: cached_client)
+    end
+    assert_equal %w[cached_tool], warm.tools.pluck(:name)
+
+    fresh_calls = 0
+    fresh_client = FakeClient.new(tools: [ tool("fresh_tool") ])
+    fresh = ActiveAgent::Providers::MCPBridge.new([ declaration ], cache: false)
+    fresh.define_singleton_method(:connect) do |current|
+      fresh_calls += 1
+      ActiveAgent::Providers::MCPBridge::Server.new(name: current[:name], declaration: current, client: fresh_client)
+    end
+    assert_equal %w[fresh_tool], fresh.tools.pluck(:name)
+
+    still_cached = ActiveAgent::Providers::MCPBridge.new([ declaration ])
+    still_cached.define_singleton_method(:connect) do |current|
+      cached_calls += 1
+      ActiveAgent::Providers::MCPBridge::Server.new(name: current[:name], declaration: current, client: cached_client)
+    end
+    assert_equal %w[cached_tool], still_cached.tools.pluck(:name)
+
+    assert_equal 1, cached_calls, "the disabled generation must not overwrite the shared entry"
+    assert_equal 1, fresh_calls
+  end
+
   test "refresh! drops the cached list so the next use asks again" do
     connects = 0
     client   = FakeClient.new(tools: [ tool("one") ])
