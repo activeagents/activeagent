@@ -72,6 +72,12 @@ module ActiveAgent
           end
         end
 
+        if options.protocol
+          raise ArgumentError, "The protocol option needs ruby_llm 2.0 or newer, and #{::RubyLLM::VERSION} is loaded" unless ruby_llm_v2?
+
+          kwargs[:protocol] = options.protocol.to_sym
+        end
+
         if parameters[:stream]
           stream_proc = parameters[:stream]
           @stream_tool_calls = {}
