@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   protocol to choose, it raises `ArgumentError` rather than being ignored
   (#502).
 
+### Changed
+
+- **CI covers ruby_llm 1.16 and 2.x with explicit bundles** (`activeagent`).
+  `gemfiles/ruby_llm_2.gemfile` runs the full suite on ruby_llm 2.x beside
+  `gemfiles/ruby_llm_1.gemfile`, so the 2.x adapter keeps its coverage even
+  when the default bundle resolves to 1.x (#502).
+
 ### Fixed
 
 - **Usage and stop reasons in RubyLLM streams** (`activeagent`). Streaming
