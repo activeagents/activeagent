@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import GithubIntegrationCard from './GithubIntegrationCard';
 import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
+import { clearProviderModels } from '../../utils/providerModels';
 
 const PROVIDER_META = {
   openai: { label: 'OpenAI', icon: '🤖', placeholder: 'sk-…' },
@@ -128,6 +129,9 @@ export default function SettingsView({ user, account }) {
       setProviderInput('');
       setProviderApiKeyInput('');
       setTestResults((prev) => ({ ...prev, [provider]: null }));
+      // A credential decides which models a provider lists (a live lookup
+      // with the new key, or an Ollama host's own models).
+      clearProviderModels();
       await loadKeys();
     } catch (e) {
       setKeysError(`Could not save the ${PROVIDER_META[provider]?.label || provider} credential${e.message !== 'save failed' ? `: ${e.message}` : '.'}`);
@@ -170,6 +174,7 @@ export default function SettingsView({ user, account }) {
       const res = await fetch(`/api/provider_keys/${provider}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
       setTestResults((prev) => ({ ...prev, [provider]: null }));
+      clearProviderModels();
       await loadKeys();
     } catch (e) {
       setKeysError('Could not remove the provider credential.');

@@ -196,9 +196,9 @@ class EvalsRunnerTest < ActiveSupport::TestCase
 
   def scenarios
     [
-      scenario("find_1", "Which gynecologists in Charlotte have scheduling enabled?", group: "find"),
-      scenario("find_2", "Show me all providers with no license on file", group: "find", tools: [ "find_records" ]),
-      scenario("blame_1", "Who changed the biography?", group: "blame")
+      scenario("tickets_1", "Which open tickets mention a refund?", group: "tickets"),
+      scenario("tickets_2", "Show me all tickets with no assignee", group: "tickets", tools: [ "find_tickets" ]),
+      scenario("history_1", "Who changed the shipping policy?", group: "history")
     ]
   end
 
@@ -206,19 +206,19 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini qwen3:8b], default_provider: "openai")
   end
 
-  # A stand-in agent: answers with the model name, calls find_records only for
-  # the "license" question on gpt, and refuses the blame question on qwen.
+  # A stand-in agent: answers with the model name, calls find_tickets only for
+  # the "assignee" question on gpt, and refuses the history question on qwen.
   def replay_agent(scenario, spec)
-    return Replay.new(answer: "I don't have access to change history.", duration_ms: 100) if scenario.group == "blame" && spec.provider == "ollama"
+    return Replay.new(answer: "I don't have access to change history.", duration_ms: 100) if scenario.group == "history" && spec.provider == "ollama"
 
-    calls = scenario.prompt.include?("license") && spec.provider == "openai" ? [ { "name" => "find_records", "arguments" => { "model" => "Provider" } } ] : []
-    Replay.new(answer: "#{spec.model} says: 12 providers match.", tool_calls: calls, duration_ms: 250, input_tokens: 10, output_tokens: 5, cost: 0.001)
+    calls = scenario.prompt.include?("assignee") && spec.provider == "openai" ? [ { "name" => "find_tickets", "arguments" => { "status" => "open" } } ] : []
+    Replay.new(answer: "#{spec.model} says: 12 refund requests match.", tool_calls: calls, duration_ms: 250, input_tokens: 10, output_tokens: 5, cost: 0.001)
   end
 
   def runner(**options)
     ActiveAgent::Evals::Runner.new(
       scenarios: scenarios, models: models, criteria: CRITERIA,
-      available_tools: { "find_records" => "Look up records", "fetch_url" => "Fetch a page" },
+      available_tools: { "find_tickets" => "Search tickets", "fetch_url" => "Fetch a page" },
       replay: method(:replay_agent), **options
     )
   end
@@ -228,7 +228,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     report = runner(on_result: ->(result) { landed << [ result.scenario.key, result.label ] }).call
 
     assert_equal 6, report.results.size
-    assert_equal [ %w[find_1 gpt-5-mini], %w[find_1 qwen3:8b] ], landed.first(2)
+    assert_equal [ %w[tickets_1 gpt-5-mini], %w[tickets_1 qwen3:8b] ], landed.first(2)
     assert_equal %w[gpt-5-mini qwen3:8b], report.models.map(&:label)
   end
 
@@ -236,10 +236,10 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     report = runner.call
     by_key = report.results.group_by { |result| [ result.scenario.key, result.label ] }
 
-    assert by_key[%w[find_1 gpt-5-mini]].first.passed?
-    assert_equal "expected_tool_not_called", by_key[%w[find_2 qwen3:8b]].first.fault
-    assert by_key[%w[find_2 gpt-5-mini]].first.passed?
-    assert_equal "missing_capability", by_key[%w[blame_1 qwen3:8b]].first.fault
+    assert by_key[%w[tickets_1 gpt-5-mini]].first.passed?
+    assert_equal "expected_tool_not_called", by_key[%w[tickets_2 qwen3:8b]].first.fault
+    assert by_key[%w[tickets_2 gpt-5-mini]].first.passed?
+    assert_equal "missing_capability", by_key[%w[history_1 qwen3:8b]].first.fault
 
     summary = report.summary_by_model
     assert_equal 100.0, summary["gpt-5-mini"]["pass_rate"]
@@ -280,11 +280,11 @@ class EvalsRunnerTest < ActiveSupport::TestCase
   def test_a_hash_replay_is_accepted
     report = ActiveAgent::Evals::Runner.new(
       scenarios: scenarios.first(1), models: models.first(1),
-      replay: ->(_scenario, _spec) { { answer: "12 providers match.", tool_calls: [ { name: "find_records" } ] } }
+      replay: ->(_scenario, _spec) { { answer: "12 refund requests match.", tool_calls: [ { name: "find_tickets" } ] } }
     ).call
 
     assert report.results.first.passed?
-    assert_equal [ "find_records" ], report.results.first.replay.tool_names
+    assert_equal [ "find_tickets" ], report.results.first.replay.tool_names
   end
 
   def test_the_judge_scores_task_completion_refines_recommendations_and_writes_the_verdict
@@ -293,7 +293,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
         '{"winner": "qwen3:8b", "rationale": "Cheaper and just as complete."}'
       elsif instructions.include?("recommend the fix")
         '{"recommendation": "Add an audit tool.", "suggested_tool": {"name": "record_history", "description": "Who changed what"}}'
-      elsif prompt.include?("Who changed the biography?")
+      elsif prompt.include?("Who changed the shipping policy?")
         '{"score": 0.2}'
       else
         '{"score": 0.9}'
@@ -301,14 +301,14 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     end
 
     report = runner(judge: judge, instructions: "Answer from data.").call
-    blame_gpt = report.results.find { |result| result.scenario.key == "blame_1" && result.label == "gpt-5-mini" }
-    blame_qwen = report.results.find { |result| result.scenario.key == "blame_1" && result.label == "qwen3:8b" }
+    history_gpt = report.results.find { |result| result.scenario.key == "history_1" && result.label == "gpt-5-mini" }
+    history_qwen = report.results.find { |result| result.scenario.key == "history_1" && result.label == "qwen3:8b" }
 
-    assert_equal 0.2, blame_gpt.scores["task_completion"]
-    assert_equal "low_quality", blame_gpt.fault
-    assert_equal "Add an audit tool.", blame_gpt.recommendation
-    assert_equal({ "name" => "record_history", "description" => "Who changed what" }, blame_gpt.suggested_tool)
-    assert_equal "missing_capability", blame_qwen.fault
+    assert_equal 0.2, history_gpt.scores["task_completion"]
+    assert_equal "low_quality", history_gpt.fault
+    assert_equal "Add an audit tool.", history_gpt.recommendation
+    assert_equal({ "name" => "record_history", "description" => "Who changed what" }, history_gpt.suggested_tool)
+    assert_equal "missing_capability", history_qwen.fault
     assert_equal "qwen3:8b", report.winner
     assert_equal "claude-opus-5", report.verdict["judge"]
     assert_includes report.recommendations.flat_map { |entry| entry["suggested_tools"] }, { "name" => "record_history", "description" => "Who changed what" }
@@ -330,8 +330,8 @@ class EvalsRunnerTest < ActiveSupport::TestCase
 
     assert_includes markdown, "| `gpt-5-mini` | 100.0% | 3/3 |"
     assert_includes markdown, "**Best model: gpt-5-mini**"
-    assert_includes markdown, "| `blame_1` Who changed the biography? | ✅ 1.0 | ❌ 1.0 missing capability |"
-    assert_includes markdown, "- **missing capability** ×1 (blame_1):"
+    assert_includes markdown, "| `history_1` Who changed the shipping policy? | ✅ 1.0 | ❌ 1.0 missing capability |"
+    assert_includes markdown, "- **missing capability** ×1 (history_1):"
     assert_equal "gpt-5-mini", parsed["verdict"]["winner"]
     assert_equal 6, parsed["results"].size
   end
@@ -346,7 +346,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_includes html, "gpt-5-mini"
     assert_includes html, "Recommendations"
     assert_includes html, "<details>"
-    assert_includes html, "Who changed the biography?"
+    assert_includes html, "Who changed the shipping policy?"
   end
 
   def test_html_report_escapes_answer_markup
@@ -372,7 +372,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
       replay: lambda { |_scenario, spec|
         raise ArgumentError, "Invalid Ollama Chat request parameters" if spec.provider == "ollama"
 
-        Replay.new(answer: "12 providers match.")
+        Replay.new(answer: "12 refund requests match.")
       }
     ).call
 
@@ -391,7 +391,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     # does. Unknown is not free, so the priced model wins the tie-break
     # whichever order the models were requested in.
     replay = lambda do |_scenario, spec|
-      Replay.new(answer: "12 providers match.", cost: spec.provider == "openai" ? 0.001 : nil)
+      Replay.new(answer: "12 refund requests match.", cost: spec.provider == "openai" ? 0.001 : nil)
     end
 
     [ %w[qwen3:8b gpt-5-mini], %w[gpt-5-mini qwen3:8b] ].each do |names|

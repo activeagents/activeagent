@@ -19,6 +19,8 @@ module ActionAgent
       DEFAULT_LIST_SORT = "recent"
       # Conversations returned to the runner's picker when no limit is asked for.
       CONVERSATIONS_LIMIT = 50
+      # Model names returned by #recorded_models.
+      RECORDED_MODELS_LIMIT = 50
       # Keywords Agent#execute takes in its own right, which per-run overrides
       # must never supply (see #execution_params). `actor` is here for the
       # same reason as the rest and one more: a keyword splat wins over the
@@ -28,7 +30,7 @@ module ActionAgent
 
       before_action :set_agent, only: [
         :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics,
-        :tool_roster, :conversations, :create_conversation
+        :tool_roster, :conversations, :create_conversation, :recorded_models
       ]
       before_action :require_execution_enabled!, only: [ :execute, :test ]
       before_action :require_owner!, only: [ :execute, :test ]
@@ -288,6 +290,23 @@ module ActionAgent
           hours: params.fetch(:hours, ToolDiscovery::DEFAULT_WINDOW_HOURS).to_i,
           runtimes: runtimes
         ).as_json
+      end
+
+      # GET /api/agents/:id/recorded_models
+      #
+      # The model names this agent's generations were recorded under, most
+      # recently used first. An evaluation without scenarios compares the
+      # generations recorded under each name it is given, so these are the
+      # names its models field suggests.
+      def recorded_models
+        generations = AgentGeneration.arel_table
+        models = @agent.generations.where.not(model: [ nil, "" ])
+          .group(generations[:model])
+          .order(Arel::Nodes::Descending.new(generations[:created_at].maximum))
+          .limit(RECORDED_MODELS_LIMIT)
+          .pluck(generations[:model])
+
+        render json: { models: models }
       end
 
       # GET /api/agents/:id/analytics
