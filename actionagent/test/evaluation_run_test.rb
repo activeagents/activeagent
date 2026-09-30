@@ -43,6 +43,16 @@ class ActionAgentEvaluationRunTest < ActiveSupport::TestCase
     assert_in_delta 0.8, run.average_score, 0.0001
   end
 
+  test "a model summary that recorded its priced count is served as recorded" do
+    summaries = { "fast" => { "scenarios" => 3, "cost" => 0.003, "priced" => 2 } }
+
+    assert_equal summaries, run_with("_models" => summaries).model_summaries
+  end
+
+  test "a generation-sampling run has no model summaries" do
+    assert_equal({}, run_with("_cohorts" => { "gpt-4o-mini" => { "samples" => 2 } }).model_summaries)
+  end
+
   test "underscore metadata alone averages to nil rather than raising" do
     run = run_with("_missing_models" => [ "gpt-4o", "no-such-model" ])
 
@@ -158,6 +168,8 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     assert_response :success
     usage = JSON.parse(response.body)["evaluations"].first.dig("latest_run", "usage")
     assert_equal 2, usage["replays"]
+    assert_equal 2, usage["priced"]
+    assert_equal 0, usage["unpriced"]
     assert_in_delta 0.003, usage["cost"], 0.00001
     # The operating figure: what one replayed interaction cost the agent.
     assert_in_delta 0.0015, usage["per_interaction"], 0.00001
@@ -167,6 +179,78 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     assert_in_delta 90_000, usage["runtime_ms"], 2_000
     # The judge's spend rides alongside, never folded into the replays' cost.
     assert_equal judge, usage["judge"]
+  end
+
+  # A scenario run whose replays carry `costs`, one per replay; nil is a
+  # replay with no cost estimate.
+  def scenario_run_costing(*costs)
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model")
+    evaluation = agent.evaluations.create!(
+      name: "Suite", judge_kind: "rules",
+      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ],
+      config: { "scenario_suite" => true }
+    )
+    scenario = evaluation.scenarios.create!(key: "s1", prompt: "Hello", position: 0)
+    run = evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
+    costs.each_with_index do |cost, index|
+      run.scenario_results.create!(
+        scenario: scenario, model: "model-#{index}", status: :passed, score: 1.0,
+        duration_ms: 500, input_tokens: 100, output_tokens: 40, cost: cost
+      )
+    end
+    run
+  end
+
+  test "a scenario run with unpriced replays prices per interaction over the priced ones and counts both" do
+    scenario_run_costing(0.002, 0.001, nil)
+
+    get "/activeagents/api/evaluations"
+
+    assert_response :success
+    usage = JSON.parse(response.body)["evaluations"].first.dig("latest_run", "usage")
+    assert_equal 3, usage["replays"]
+    assert_equal 2, usage["priced"]
+    assert_equal 1, usage["unpriced"]
+    assert_in_delta 0.003, usage["cost"], 1e-9, "the cost sums the priced replays"
+    assert_in_delta 0.0015, usage["per_interaction"], 1e-9, "the rate is over the 2 priced replays, not all 3"
+    assert_equal 300, usage["input_tokens"], "tokens count every replay, priced or not"
+  end
+
+  test "a scenario run with no priced replay reports no cost and says none was priced" do
+    usage = scenario_run_costing(nil, nil).usage
+
+    assert_equal 2, usage[:replays]
+    assert_equal 0, usage[:priced]
+    assert_equal 2, usage[:unpriced]
+    assert_not usage.key?(:cost), "a run with nothing priced has no cost"
+    assert_not usage.key?(:per_interaction), "a run with nothing priced has no rate"
+    assert_equal 1_000, usage[:model_time_ms]
+  end
+
+  test "a scenario run's model summaries recorded without a priced count serve one counted from the results" do
+    run = scenario_run_costing
+    scenario = run.evaluation.scenarios.first
+    run.update!(
+      selection: { "models" => [ { "label" => "fast", "provider" => "openai", "model" => "gpt-fast" } ] },
+      scores: {
+        "_models" => {
+          "fast" => { "scenarios" => 3, "passed" => 3, "cost" => 0.003 },
+          "ollama/llama" => { "scenarios" => 1, "passed" => 1, "cost" => nil }
+        }
+      }
+    )
+    [ 0.002, 0.001, nil ].each do |cost|
+      run.scenario_results.create!(scenario: scenario, provider: "openai", model: "gpt-fast", status: :passed, score: 1.0, cost: cost)
+    end
+    run.scenario_results.create!(scenario: scenario, provider: "ollama", model: "llama", status: :passed, score: 1.0, cost: nil)
+
+    get "/activeagents/api/evaluations"
+
+    assert_response :success
+    models = JSON.parse(response.body)["evaluations"].first.dig("latest_run", "scores", "_models")
+    assert_equal 2, models.dig("fast", "priced"), "the label the selection gave openai/gpt-fast"
+    assert_equal 0, models.dig("ollama/llama", "priced"), "the label naming the result's provider and model"
+    assert_in_delta 0.003, models.dig("fast", "cost"), 1e-9
   end
 
   test "a run that recorded nothing reports no usage" do
@@ -195,12 +279,47 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     usage = run.usage
     assert_equal 20, usage[:samples]
     assert_nil usage[:replays]
+    # These cohorts predate the "priced" count: a cohort with a cost counts
+    # every sample as priced.
+    assert_equal 20, usage[:priced]
+    assert_equal 0, usage[:unpriced]
     assert_in_delta 0.0058, usage[:cost], 1e-9
     assert_in_delta 0.0058 / 20, usage[:per_interaction], 1e-9
     assert_equal 2_000, usage[:input_tokens]
     assert_equal 800, usage[:output_tokens]
     assert_in_delta 30_000, usage[:runtime_ms], 2_000
     assert_equal judge, usage[:judge]
+  end
+
+  test "a generation-sampling run prices per interaction over the samples its cohorts priced" do
+    run = ActionAgent::EvaluationRun.new(
+      scores: {
+        "_cohorts" => {
+          "gpt-4o-mini" => { "samples" => 12, "passed" => 11, "input_tokens" => 1_200, "output_tokens" => 480, "cost" => 0.0006, "priced" => 10 },
+          "unknown" => { "samples" => 8, "passed" => 7, "input_tokens" => 0, "output_tokens" => 0, "cost" => nil, "priced" => 0 }
+        }
+      }
+    )
+
+    usage = run.usage
+    assert_equal 20, usage[:samples]
+    assert_equal 10, usage[:priced]
+    assert_equal 10, usage[:unpriced]
+    assert_in_delta 0.0006, usage[:cost], 1e-9
+    assert_in_delta 0.0006 / 10, usage[:per_interaction], 1e-9
+  end
+
+  test "a generation-sampling run with nothing priced reports no cost" do
+    run = ActionAgent::EvaluationRun.new(
+      scores: { "_cohorts" => { "unknown" => { "samples" => 4, "passed" => 4, "cost" => nil, "priced" => 0 } } }
+    )
+
+    usage = run.usage
+    assert_equal 4, usage[:samples]
+    assert_equal 0, usage[:priced]
+    assert_equal 4, usage[:unpriced]
+    assert_nil usage[:cost]
+    assert_nil usage[:per_interaction]
   end
 
   test "a run that only asked a judge reports the judge's spend and nothing on the agent's side" do

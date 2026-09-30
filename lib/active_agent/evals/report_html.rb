@@ -245,8 +245,9 @@ module ActiveAgent
 
       # The comparison read across: one row per model, best first (pass rate,
       # then mean score) — passed, mean score, average latency, average
-      # tokens per scenario, cost, and the model's typical fault. The blocks
-      # under it carry the same figures per model with bars and every fault.
+      # tokens per scenario, cost (and per priced scenario), and the model's
+      # typical fault. The blocks under it carry the same figures per model
+      # with bars and every fault.
       def html_comparison_table
         rows = summary_by_model.sort_by do |label, stats|
           total = stats["scenarios"].to_i
@@ -270,9 +271,10 @@ module ActiveAgent
         avg_tokens = per.call(stats["input_tokens"].to_i + stats["output_tokens"].to_i)
         tokens_cell = avg_tokens ? h(fmt_k(avg_tokens.round)) : "—"
         tokens_title = avg_tokens ? %( title="#{per.call(stats['input_tokens']).to_f.round} in · #{per.call(stats['output_tokens']).to_f.round} out per scenario") : ""
-        per_cost = per.call(stats["cost"])
+        per_cost = cost_per_priced(stats)
         cost_cell = stats["cost"].nil? ? "—" : h(fmt_cost(stats["cost"]))
         cost_cell += "<span class=\"per\">#{h(fmt_cost(per_cost))}/scenario</span>" if per_cost
+        cost_cell += "<span class=\"per\">#{h(pricing_note(stats))}</span>" if pricing_note(stats)
 
         <<~ROW
           <tr>
@@ -320,7 +322,7 @@ module ActiveAgent
         <<~BLOCK
           <div class="model">
           <div class="line"><span class="name">#{h(short)}</span><span class="provider">#{h(provider)}</span>#{pick}<span class="pass"><span class="bar bar-#{tone}"><span style="width:#{(ratio * 100).round}%"></span></span><span class="ratio tone-#{tone}">#{stats['passed']}/#{total}</span></span></div>
-          <div class="stats-line"><span>score <b>#{h(fmt_mean_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span>cost <b>#{h(fmt_cost(stats['cost']))}</b></span></div>
+          <div class="stats-line"><span>score <b>#{h(fmt_mean_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span>cost <b>#{h(fmt_cost(stats['cost']))}</b>#{" · #{h(pricing_note(stats))}" if pricing_note(stats)}</span></div>
           <div class="faults">#{faults_html}</div>
           </div>
         BLOCK
