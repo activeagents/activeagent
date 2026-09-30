@@ -1064,6 +1064,44 @@ jobs, and **Cancel** signals a session from the web process. Run the
 dashboard and its job workers on one machine, as one user, so they share the
 workspaces.
 
+### Codex sessions
+
+The **Code sessions** panel also offers **Codex** when the sandbox backend
+advertises that runner. The `:local` backend supports both runners. Install
+the official Codex CLI on the dashboard/worker machine (`npm install -g
+@openai/codex`), connect an OpenAI API key under **Settings → Integrations →
+Codex**, and select Codex in a ready checkout's **Agent** menu. The key is
+stored as a write-only, owner-scoped connection, separate from the OpenAI
+agent-builder key. API usage is billed to the key's project.
+
+Codex runs with `codex exec --json --ephemeral --sandbox workspace-write
+--config 'approval_policy="never"' --color never -`. The prompt is sent on
+stdin. The selected connection supplies `CODEX_API_KEY`, and `CODEX_HOME`
+points to the sandbox's own configuration directory. Inherited `CODEX_*`
+and `OPENAI_*` settings are removed. The CLI's workspace-write sandbox stays
+enabled; a host that cannot support it must be fixed rather than bypassing
+the CLI sandbox. The dashboard's local backend still requires trusted code
+and the same host isolation described above.
+
+The model defaults to Codex's choice; **Other…** accepts an explicit model
+id. Native JSONL events are stored and rendered with command output, the
+final response, token usage and the checkout diff. A successful terminal
+event and a zero process exit are both required. Cancellation and the
+one-session-per-checkout limit are shared with Claude Code.
+
+`codex_command` defaults to `"codex"`; `codex_timeout` defaults to 1800
+seconds. API clients send `runner: "codex"` to the existing code-session
+endpoint. Omitting `runner` keeps the Claude Code behavior. Existing
+installations must rerun `rails generate action_agent:install` and
+`rails db:migrate` to add runner identity to existing sessions; old sessions
+remain `claude_code`.
+
+Custom backends opt in with `code_runners`, returning supported names such
+as `%w[claude_code codex]`. Backends without that method retain their existing
+Claude Code support; they are never assumed to support Codex. Codex support
+was checked against CLI 0.159.2. Cloud/Incus hosts must implement the checkout
+and code-session backend contract before either runner can execute there.
+
 ### Claude Code sessions
 
 When a sandbox is **ready**, its card in Settings → Integrations shows a

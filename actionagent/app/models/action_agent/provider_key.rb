@@ -26,7 +26,7 @@ module ActionAgent
     HOST_PROVIDERS = %w[ollama].freeze
     # Tools connected with a credential, configured beside the providers
     # (Settings -> Integrations) but never offered to the agent builder.
-    CONNECTION_PROVIDERS = %w[claude_code].freeze
+    CONNECTION_PROVIDERS = %w[claude_code codex].freeze
     PROVIDERS = (KEY_PROVIDERS + HOST_PROVIDERS + CONNECTION_PROVIDERS).freeze
 
     # Only an Anthropic API key (sk-ant-api03-…, from the Claude Console or
@@ -38,6 +38,7 @@ module ActionAgent
     # ActionAgent.claude_code_auth = :local_login instead, where the
     # dashboard never touches the credential.
     CLAUDE_CODE_CREDENTIAL = /\Ask-ant-api\d{2}-[A-Za-z0-9_-]+\z/
+    CODEX_CREDENTIAL = /\Ask-(?!ant-|or-)[A-Za-z0-9_-]+\z/
     # A Claude subscription token, as earlier versions stored. Recognized so
     # a stored one is never handed out (see #needs_replacing?).
     SUBSCRIPTION_TOKEN_PREFIX = "sk-ant-oat"
@@ -66,6 +67,8 @@ module ActionAgent
         "third-party apps to hold Claude.ai credentials. To use your own Claude login on this machine, set " \
         "ActionAgent.claude_code_auth = :local_login with the :local sandbox backend instead"
     }, if: -> { provider == "claude_code" }
+    validates :credential, format: { with: CODEX_CREDENTIAL, message: "must be an OpenAI API key (sk-…)" },
+      if: -> { provider == "codex" }
     validates :api_key, length: { maximum: 500 }, allow_nil: true
 
     # Deletes every Claude Code connection that still holds a Claude
@@ -139,6 +142,9 @@ module ActionAgent
     #
     # @return [Hash{String => String}]
     def runtime_environment
+      if provider == "codex"
+        return CODEX_CREDENTIAL.match?(credential.to_s) ? { "CODEX_API_KEY" => credential } : {}
+      end
       return {} unless provider == "claude_code"
       return {} if needs_replacing? || !CLAUDE_CODE_CREDENTIAL.match?(credential.to_s)
 

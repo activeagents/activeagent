@@ -191,13 +191,26 @@ module ActionAgent
       ADAPTER_METHODS.fetch(verb).any? { |m| @backend.respond_to?(m) }
     end
 
+    # Existing backends predate runner selection and support Claude only.
+    # A backend must explicitly advertise Codex before accepting its keys.
+    def supports_code_runner?(runner)
+      return false unless supports?(:code_session)
+
+      runners = @backend.respond_to?(:code_runners) ? @backend.code_runners : [ "claude_code" ]
+      Array(runners).include?(runner)
+    end
+
     # Runs a Claude Code session in +sandbox_session+'s checkout, yielding
     # each stream-json event (a Hash) as it arrives. Returns the backend's
     # outcome: { exit_status:, diff: }.
     def run_code_session(sandbox_session, code_session, &on_event)
       # Checked when a session is requested too; this covers one queued
       # before the configuration changed.
-      refusal = ClaudeCodeAuth.backend_refusal(self)
+      runner = code_session.try(:runner) || "claude_code"
+      unless supports_code_runner?(runner)
+        raise UnsupportedBackendError, "The #{backend_name} sandbox backend cannot run #{runner} sessions"
+      end
+      refusal = ClaudeCodeAuth.backend_refusal(self) unless runner == "codex"
       raise UnsupportedBackendError, refusal if refusal
 
       @backend.public_send(adapter_method(:code_session), sandbox_session, code_session, &on_event)
