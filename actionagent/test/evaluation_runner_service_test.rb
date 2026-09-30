@@ -110,6 +110,31 @@ class ActionAgentEvaluationRunnerServiceTest < ActiveSupport::TestCase
     assert_in_delta 0.875, run.average_score, 0.001
   end
 
+  # A generation that recorded no tokens has nothing to price
+  # (ModelPricing.estimate returns nil), so its cohort's cost covers only
+  # the other one.
+  test "a cohort counts the samples it could price, and the run's rate is over those" do
+    agent = sampled_agent
+    record_generation(agent, input_tokens: 40, output_tokens: 60)
+    record_generation(agent, input_tokens: 0, output_tokens: 0)
+
+    run = agent.evaluations.create!(
+      name: "Rules", judge_kind: "rules",
+      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ]
+    ).run!
+
+    cohort = run.scores.dig("_cohorts", "gpt-4o-mini")
+    priced_cost = ActionAgent::ModelPricing.estimate(model: "gpt-4o-mini", input_tokens: 40, output_tokens: 60)
+    assert_equal 2, cohort["samples"]
+    assert_equal 1, cohort["priced"]
+    assert_in_delta priced_cost, cohort["cost"], 1e-9
+
+    usage = run.usage
+    assert_equal 1, usage[:priced]
+    assert_equal 1, usage[:unpriced]
+    assert_in_delta priced_cost, usage[:per_interaction], 1e-6, "the rate is over the 1 priced sample, not both"
+  end
+
   # A stand-in for the judge agent class: answers every prompt with the JSON
   # the call expects and reports the tokens it "spent", so the meter has
   # something to price.

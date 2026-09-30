@@ -48,12 +48,19 @@ module ActionAgent
     # error.
     def run(run, number: nil)
       run_summary(run, number: number).merge(
-        scores: run.scores,
+        scores: scores(run),
         selection: run.selection,
         models: run.models,
         usage: run.usage,
         error_message: run.error_message
       )
+    end
+
+    # Returns the run's scores with each scenario model summary carrying its
+    # "priced" count (EvaluationRun#model_summaries).
+    def scores(run)
+      summaries = run.model_summaries
+      summaries.empty? ? run.scores : run.scores.merge("_models" => summaries)
     end
 
     # Returns the run's status and headline numbers. `sandbox` is the
