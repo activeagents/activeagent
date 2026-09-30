@@ -265,13 +265,13 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
   # A catalog hint names the server without its listing, so the allow-list
   # has to hold on that path too.
   test "a hinted tool the agent's entry switches off is not dispatched" do
-    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ { "key" => "records", "tools" => [ "find_records" ] } ]))
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ { "key" => "tickets", "tools" => [ "find_tickets" ] } ]))
 
-    assert dispatcher.dispatchable?("find_records")
-    assert dispatcher.dispatchable?("mcp__records__find_records")
-    assert_not dispatcher.dispatchable?("count_records")
-    assert_not dispatcher.dispatchable?("mcp__records__count_records")
-    assert_nil dispatcher.call("count_records", {})
+    assert dispatcher.dispatchable?("find_tickets")
+    assert dispatcher.dispatchable?("mcp__tickets__find_tickets")
+    assert_not dispatcher.dispatchable?("count_tickets")
+    assert_not dispatcher.dispatchable?("mcp__tickets__count_tickets")
+    assert_nil dispatcher.call("count_tickets", {})
   end
 
   test "a server that stops answering stops being where its tools are dispatched" do
