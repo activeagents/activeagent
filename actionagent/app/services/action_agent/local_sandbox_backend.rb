@@ -85,8 +85,29 @@ module ActionAgent
     # How often a running Claude Code session looks for a cancel in
     # state.json.
     CANCEL_CHECK_INTERVAL = 0.5
-    # How long terminate waits on the checkout's `bin/rails db:drop`.
+    # How long terminate waits on the checkout's database cleanup.
     DATABASE_DROP_TIMEOUT = 60
+    DATABASE_DROP_TARGETS_ENV = "ACTION_AGENT_SANDBOX_DATABASE_DROP_TARGETS"
+    # Runs in the checkout's Rails bundle. Filter its resolved configurations
+    # before either checking protection or dropping anything. A url: added
+    # after boot overrides DATABASE_URL in Rails, so require the recorded URL
+    # itself as well as its adapter/database to match. No matching config
+    # means no drop; legacy state without this allow-list is never inferred.
+    DATABASE_DROP_SCRIPT = <<~'RUBY'.freeze
+      require "json"
+      targets = JSON.parse(ENV.fetch("ACTION_AGENT_SANDBOX_DATABASE_DROP_TARGETS"))
+      selected = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).select do |config|
+        url = targets[config.name]
+        next false unless url.is_a?(String)
+
+        expected = ActiveRecord::DatabaseConfigurations::UrlConfig.new(Rails.env, config.name, url, {})
+        config.is_a?(ActiveRecord::DatabaseConfigurations::UrlConfig) && config.url == url &&
+          config.adapter == expected.adapter && config.database == expected.database
+      end
+      ActiveRecord::Base.configurations = selected
+      ActiveRecord::Tasks::DatabaseTasks.check_protected_environments!(Rails.env)
+      selected.each { |config| ActiveRecord::Tasks::DatabaseTasks.drop(config) }
+    RUBY
     MODEL_NAME = %r{\A[A-Za-z0-9][A-Za-z0-9._:/@\[\]-]{0,127}\z}
     # `claude auth status`: how long its answer is trusted, how long it may
     # take, and what its authMethod and apiProvider may look like to be
@@ -580,20 +601,23 @@ module ActionAgent
       update_state(workspace) do |state|
         state["database_env"] = plan.env
         state["drop_databases"] = plan.drop
+        state["database_drop_targets"] = plan.drop_targets
+        state["database_rails_env"] = plan.rails_env
       end
       plan.env
     end
 
     # Drops the server databases a sandbox was given (PostgreSQL, MySQL),
-    # with the checkout's own `bin/rails db:drop`: the adapter, its gem and
+    # with the checkout's own Rails database tasks: the adapter, its gem and
     # its credentials are the checkout's. Best effort and bounded: a drop
     # that fails or hangs is logged and the sandbox goes anyway. Only ever
-    # with the URLs recorded here, merged last, so whatever the checkout's
-    # files now say, nothing but the sandbox's own databases is named.
+    # for the named URLs recorded here. Overridden databases and newly added
+    # configurations are never selected, even after the checkout is edited.
     def drop_databases(workspace)
       state = read_state(workspace)
       database_env = state["database_env"]
-      return unless state["drop_databases"] && database_env.is_a?(Hash) && database_env.any?
+      targets = state["database_drop_targets"]
+      return unless targets.is_a?(Hash) && targets.any? && database_env.is_a?(Hash)
 
       app = workspace.join("app")
       return unless app.join("bin", "rails").file?
@@ -604,9 +628,11 @@ module ActionAgent
         {}
       end
       env = self.class.sanitized_environment.merge(file_env).merge(database_env.transform_values(&:to_s)).merge(
-        SESSION_ID_ENV => workspace.basename.to_s
+        SESSION_ID_ENV => workspace.basename.to_s,
+        "RAILS_ENV" => state.fetch("database_rails_env"),
+        DATABASE_DROP_TARGETS_ENV => JSON.generate(targets)
       )
-      output, status = capture(env, [ "bin/rails", "db:drop" ], chdir: app, limit: 64 * 1024, timeout: database_drop_timeout,
+      output, status = capture(env, [ "bin/rails", "runner", DATABASE_DROP_SCRIPT ], chdir: app, limit: 64 * 1024, timeout: database_drop_timeout,
         err: [ :child, :out ])
       return if status&.success?
 
@@ -1430,8 +1456,14 @@ module ActionAgent
       return :unknown unless procfs?
 
       environ = File.binread("/proc/#{pid}/environ")
-      # A zombie's environment reads empty, and its pid is still its own.
-      environ.empty? || environ.split("\0").include?("#{SESSION_ID_ENV}=#{session_id}") ? :ours : :stranger
+      if environ.empty?
+        # Zombies have no environment and still own their pid. A live
+        # process can also have an empty environment, including during exec:
+        # without a recorded start time it cannot be identified safely.
+        state, = proc_stat(pid)
+        return %w[Z X].include?(state) ? :ours : :unknown
+      end
+      environ.split("\0").include?("#{SESSION_ID_ENV}=#{session_id}") ? :ours : :stranger
     rescue Errno::ENOENT, Errno::ESRCH
       :ours
     rescue Errno::EACCES, Errno::EPERM

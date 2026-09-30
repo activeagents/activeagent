@@ -440,7 +440,8 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
     # A process group this sandbox never started, as if its pid had been
     # reused after the dashboard restarted.
-    stranger = Process.spawn("sleep", "600", pgroup: true)
+    stranger = Process.spawn({ "SANDBOX_TEST_STRANGER" => "1" }, "sleep", "600", pgroup: true)
+    wait_until { File.binread("/proc/#{stranger}/environ").split("\0").include?("SANDBOX_TEST_STRANGER=1") }
     workspace = ActionAgent.local_sandbox_root.join(SecureRandom.uuid).tap(&:mkpath)
     workspace.join("state.json").write(JSON.generate("pid" => stranger, "port" => 1, "code_sessions" => { "1" => stranger }))
 
@@ -452,6 +453,21 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
   ensure
     Process.kill("KILL", stranger) if stranger
     Process.wait(stranger) if stranger
+  end
+
+  test "an empty environment identifies a zombie but never a live process" do
+    pid = Process.pid + 1_000_000
+    session_id = SecureRandom.uuid
+
+    @backend.stub(:procfs?, true) do
+      File.stub(:binread, "") do
+        { "S" => :unknown, "R" => :unknown, nil => :unknown, "Z" => :ours, "X" => :ours }.each do |state, identity|
+          @backend.stub(:proc_stat, [ state ]) do
+            assert_equal identity, @backend.send(:group_identity, pid, session_id, {}), "process state #{state.inspect}"
+          end
+        end
+      end
+    end
   end
 
   test "a server that retitles itself is still known as the sandbox's own" do
@@ -1239,15 +1255,21 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert_equal "postgresql:///shop_development_cache_sandbox_#{short}", server_env["CACHE_DATABASE_URL"]
     assert_not server_env.key?("ANALYTICS_DATABASE_URL"), "a database the app does not manage is left alone"
     assert_not drop_log.exist?
+    state = JSON.parse(workspace.join("state.json").read)
+    assert_equal({
+      "primary" => server_env["DATABASE_URL"], "cache" => server_env["CACHE_DATABASE_URL"]
+    }, state["database_drop_targets"])
+    assert_equal "development", state["database_rails_env"]
 
     assert @backend.terminate("local-#{sandbox.session_id}")
 
     drop = drop_log.read
-    assert_includes drop, "argv=db:drop"
+    assert_includes drop, "argv=runner"
+    assert_includes drop, "ACTION_AGENT_SANDBOX_DATABASE_DROP_TARGETS=#{state['database_drop_targets'].to_json}"
     assert_includes drop, "DATABASE_URL=postgresql:///shop_development_sandbox_#{short}"
     assert_includes drop, "CACHE_DATABASE_URL=postgresql:///shop_development_cache_sandbox_#{short}"
     assert_includes drop, "SKIP_TEST_DATABASE=1"
-    assert_includes drop, "FIXTURE_FLAVOR=local", "db:drop runs with the sandbox.yml env too"
+    assert_includes drop, "FIXTURE_FLAVOR=local", "database cleanup runs with the sandbox.yml env too"
     assert_not workspace.exist?
   end
 
@@ -1258,7 +1280,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
 
     assert_raises(Backend::Error) { @backend.create_sandbox(sandbox_double(origin)) }
 
-    assert_includes drop_log.read, "argv=db:drop"
+    assert_includes drop_log.read, "argv=runner"
   end
 
   test "sandbox.yml's env overrides the default database" do

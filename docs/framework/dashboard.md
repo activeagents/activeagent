@@ -635,7 +635,11 @@ sandbox's runtime without the key being saved on the agent. In a scenario
 suite, pick it in **Run against sandbox** next to the models field (the
 select lists your ready checkout sandboxes). Every replay of that run is
 offered the runtime's tools beside the agent's own, and calls them there, as
-if the agent listed `sandbox:<session_id>`. The next run, and the agent's
+if the agent listed `sandbox:<session_id>`. When both serve the same tool
+name, the selected sandbox's schema and implementation take precedence;
+the model sees that tool only once. If the selected sandbox cannot list its
+tools, the run fails instead of falling back to the original server.
+The next run, and the agent's
 saved `mcp_servers`, are unchanged.
 
 The run records the sandbox it used, and the Runs list, the suite's summary
@@ -905,7 +909,7 @@ checkout's `config/database.yml`, for the environment the checkout boots in
 | Adapter | Each database becomes | When the sandbox is terminated |
 |---|---|---|
 | `sqlite3` | `sqlite3:<workspace>/db/development.sqlite3` (`development_<name>.sqlite3` for the others) | removed with the workspace |
-| `postgresql`, `postgis` | `postgresql:///<database>_sandbox_<first 8 of the session id>` | dropped with the checkout's own `bin/rails db:drop` |
+| `postgresql`, `postgis` | `postgresql:///<database>_sandbox_<first 8 of the session id>` | dropped by the checkout's Rails database tasks, restricted to recorded sandbox databases |
 | `mysql2`, `trilogy` | `mysql2:///<database>_sandbox_<first 8 of the session id>` | the same |
 | anything else | left as configured, and logged | — |
 
@@ -913,17 +917,25 @@ checkout's `config/database.yml`, for the environment the checkout boots in
   host, port, user and password stay what `database.yml` or the environment
   (`PGHOST`, `PGPORT`, `PGUSER`) say. `PGPASSWORD` is a secret the
   sanitizing drops: use `~/.pgpass`, or set it in `env`.
-- A replica (`replica: true`) reads its primary's database. An entry with
+- A replica (`replica: true`) reads the sandbox database of the writer with
+  the same adapter and literal database name, regardless of YAML order.
+  If the writer is ambiguous or its identity depends on ERB, boot refuses
+  rather than guessing; set the replica's `<NAME>_DATABASE_URL` in `env`.
+  An entry with
   `database_tasks: false` is a database the app does not manage, and is left
   alone. So is one given as a `url:`, which Rails lets no variable override.
 - `SKIP_TEST_DATABASE=1` is set too: without it, `db:prepare` in development
   also prepares the test database, which is still yours.
 - Claude Code sessions get the same variables, so a `bin/rails db:migrate`
   a session runs lands in the sandbox's database.
-- The drop runs after the server has stopped, with the sandbox's
-  environment and the URLs the backend recorded when it booted, and is given
-  60 seconds. It is best effort: a failed drop is logged and the sandbox goes
-  anyway. A boot that fails drops what its setup may have created.
+- The drop runs after the server has stopped, in the recorded Rails
+  environment, and is given 60 seconds. A `bin/rails runner` script selects
+  only the named database URLs recorded at boot before invoking Rails'
+  protection checks and drop tasks. Overrides, new configurations and
+  configurations whose resolved URL changed are excluded. Old sandbox
+  state without this explicit list is not dropped automatically. Cleanup is
+  best effort: a failed drop is logged and the sandbox goes anyway.
+  A boot that fails uses the same restricted cleanup.
 - `database.yml` is never evaluated in the dashboard. Its ERB tags are
   blanked out and the rest is read as plain YAML. When that does not parse,
   the first `adapter:` line is taken as the primary database's. The file is

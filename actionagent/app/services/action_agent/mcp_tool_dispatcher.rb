@@ -23,8 +23,21 @@ module ActionAgent
   # the agent does not enable stays out of reach.
   class MCPToolDispatcher
     HTTP_TRANSPORTS = %w[http streamable_http sse].freeze
+    class SandboxUnavailable < MCPClient::Error; end
 
     attr_reader :extra_server_keys
+
+    # A runtime explicitly selected for this run must not silently disappear
+    # between enqueue, discovery and a tool call.
+    def ensure_extra_servers_live!
+      extra_server_keys.each do |key|
+        sandbox = SandboxSession.for_owner(agent.try(:owner)).find_by(session_id: key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX))
+        next if sandbox && (sandbox.ready? || sandbox.running?) && sandbox.runtime_server_entry
+
+        raise SandboxUnavailable, "Sandbox #{key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)} is no longer running; " \
+          "start it again, or run without it"
+      end
+    end
 
     def initialize(agent, extra_server_keys: [])
       @agent = agent
@@ -58,6 +71,7 @@ module ActionAgent
     #
     # @return [Hash, nil] nil when no configured server claims the tool
     def call(tool_name, arguments = {})
+      ensure_extra_servers_live!
       endpoint = endpoint_for(tool_name)
       return nil unless endpoint
 
@@ -85,9 +99,13 @@ module ActionAgent
     # Tools tab saves when tools are switched off) contributes only the tools
     # it names: a tool switched off is not offered.
     #
+    # A sandbox explicitly selected for a run takes precedence for duplicate
+    # names and must answer discovery; its failure aborts the run.
+    #
     # Each tool offered is also remembered against the server that listed it,
     # which is how a call finds its way back (see endpoint_for).
     def tool_definitions
+      ensure_extra_servers_live!
       @discovery_errors = {}
       @listed_by = {}
 
@@ -98,12 +116,15 @@ module ActionAgent
         begin
           client_for(entry).list_tools.select do |tool|
             name = (tool[:name] || tool["name"]).to_s
-            next false unless allowed?(key, name)
+            next false if name.blank? || listed_by.key?(name) || !allowed?(key, name)
 
-            @listed_by[name] ||= key if name.present?
+            @listed_by[name] = key
             true
           end
         rescue MCPClient::Error => e
+          if extra_server_keys.include?(key)
+            raise SandboxUnavailable, "Cannot load tools from selected sandbox #{key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)}: #{e.message}"
+          end
           Rails.logger.warn("[MCPToolDispatcher] #{key} tools/list failed: #{e.message}")
           @discovery_errors[key] =
             "Cannot load tools from MCP server '#{key}' (#{entry[:url]}): #{e.message}. " \
@@ -138,11 +159,11 @@ module ActionAgent
 
     attr_reader :agent, :resolver, :listed_by
 
-    # The servers this dispatcher calls: the agent's own, then any runtime
-    # this run was given on top of them.
+    # The selected checkout replaces matching tools from the agent's normal
+    # servers. Discovery and dispatch must agree on that precedence.
     def server_keys
       declared = resolver.declared_server_keys
-      declared + extra_server_keys.reject { |key| declared.include?(normalize(key)) }
+      (extra_server_keys + declared).uniq { |key| normalize(key) }
     end
 
     # Whether the agent enabled +key+, or this run was given it.
@@ -165,10 +186,10 @@ module ActionAgent
     # from a server entry that lists no tools — a checkout runtime enabled as
     # "sandbox:<id>", or {key, name} as the Tools tab saves it — gives it
     # nothing to go on, and the tool the model was just offered would fall
-    # through to the toolbox. So when the resolver names no server this agent
-    # can call, the server that listed the tool in tool_definitions answers:
-    # it is one of the agent's own, and it is where the schema the model
-    # called came from.
+    # through to the toolbox. Prefer the server that listed the tool in
+    # tool_definitions: it is one the agent can reach, and it is where the
+    # schema the model called came from. Resolver hints are the fallback
+    # when no discovered schema names a server.
     #
     # Either way the server's allow-list has the last word. A tool the agent's
     # entry leaves out goes to the toolbox, where the call fails, rather than
@@ -177,7 +198,7 @@ module ActionAgent
     def endpoint_for(tool_name)
       name = tool_name.to_s.strip
 
-      [ resolver.server_key_for(name), listed_by[name] ].each do |key|
+      [ listed_by[name], resolver.server_key_for(name) ].each do |key|
         entry = reachable_entry(key)
         return entry if entry && allowed?(key, name)
       end

@@ -197,6 +197,85 @@ class RunAgainstSandboxTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  test "a queued agent run fails before contacting the provider if its sandbox expired" do
+    post "/activeagents/api/agents/#{@agent.id}/execute",
+      params: { prompt: "Where is order A-17?", sandbox_id: @sandbox.session_id }, as: :json
+    assert_response :accepted
+    run = ActionAgent::AgentRun.find(JSON.parse(response.body).dig("run", "id"))
+    @sandbox.update!(status: :expired)
+
+    error = assert_raises(ActionAgent::MCPToolDispatcher::SandboxUnavailable) { perform_enqueued_jobs }
+
+    assert_match(/no longer running/, error.message)
+    assert run.reload.failed?
+    assert_match(/no longer running/, run.error_message)
+    assert_not_requested :post, CHAT_URL
+  end
+
+  test "a selected checkout replaces the original server's matching tool and schema" do
+    original_catalog = ActionAgent.mcp_catalog
+    original_url = "http://127.0.0.1:4101/mcp"
+    ActionAgent.mcp_catalog = [
+      { key: "original", name: "Original runtime", transport: "http", url: original_url, tool_hints: [ "lookup_order" ] }
+    ]
+    @agent.update!(mcp_servers: [ "original" ])
+    stub_runtime
+    stub_model
+    stub_request(:post, original_url).to_return do |request|
+      payload = JSON.parse(request.body)
+      result = case payload["method"]
+      when "initialize" then { protocolVersion: "2025-03-26", capabilities: { tools: {} } }
+      when "tools/list"
+        { tools: [ { name: "lookup_order", description: "Original tool", inputSchema: { type: "object", properties: {} } } ] }
+      when "tools/call"
+        { content: [ { type: "text", text: "original environment result" } ] }
+      end
+      if payload.key?("id")
+        { status: 200, headers: { "Content-Type" => "application/json" },
+          body: { jsonrpc: "2.0", id: payload["id"], result: result }.to_json }
+      else
+        { status: 202, body: "" }
+      end
+    end
+
+    post "/activeagents/api/agents/#{@agent.id}/test",
+      params: { prompt: "Where is order A-17?", sandbox_id: @sandbox.session_id }, as: :json
+
+    assert_response :success, response.body
+    assert_requested(:post, RUNTIME_URL) { |request| JSON.parse(request.body)["method"] == "tools/call" }
+    assert_not_requested(:post, original_url) { |request| JSON.parse(request.body)["method"] == "tools/call" }
+    assert_requested(:post, CHAT_URL, times: 2) do |request|
+      tools = JSON.parse(request.body)["tools"]
+      tools.size == 1 && tools.first.dig("function", "description") == "Find an order by id."
+    end
+    assert_equal [ "original" ], @agent.reload.mcp_servers
+  ensure
+    ActionAgent.mcp_catalog = original_catalog
+  end
+
+  test "an unavailable selected sandbox fails discovery without running the model" do
+    stub_request(:post, RUNTIME_URL).to_return(status: 503, body: "Unavailable")
+
+    post "/activeagents/api/agents/#{@agent.id}/test",
+      params: { prompt: "Where is order A-17?", sandbox_id: @sandbox.session_id }, as: :json
+
+    assert_response :success, response.body
+    run = @agent.agent_runs.order(:id).last
+    assert run.failed?
+    assert_match(/Cannot load tools from selected sandbox/, run.error_message)
+    assert_not_requested :post, CHAT_URL
+  end
+
+  test "a sandbox expiring after discovery does not fall back to another tool implementation" do
+    stub_runtime
+    dispatcher = ActionAgent::MCPToolDispatcher.new(@agent, extra_server_keys: [ @sandbox.runtime_server_key ])
+    assert_equal [ "lookup_order" ], dispatcher.tool_definitions.map { |tool| tool[:name] }
+    @sandbox.update!(status: :expired)
+
+    assert_match(/no longer running/, dispatcher.call("lookup_order", id: "A-17")[:error])
+    assert_not_requested(:post, RUNTIME_URL) { |request| JSON.parse(request.body)["method"] == "tools/call" }
+  end
+
   private
 
   def live_sandbox

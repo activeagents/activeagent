@@ -104,8 +104,10 @@ their own Claude login sets `config.claude_code_auth = :local_login` with the
     and `<NAME>_DATABASE_URL` (`QUEUE_DATABASE_URL`, `CACHE_DATABASE_URL`):
     SQLite files in the workspace, or `<database>_sandbox_<id>` on
     PostgreSQL and MySQL, which terminate drops with the checkout's
-    `bin/rails db:drop`. Setting a variable in `sandbox.yml`'s `env`
-    overrides it.
+    Rails database tasks restricted to the names and URLs recorded at boot.
+    Setting a variable in `sandbox.yml`'s `env` overrides it and excludes
+    that database from cleanup. Replica mappings follow their own writer;
+    ambiguous mappings require an explicit URL instead of guessing.
   - The Claude Code panel has a **Model** select: Claude Code's own
     default, the `sonnet`, `opus` and `haiku` aliases, or any model id under
     *Other…*. It remembers the last choice per browser, and each session
@@ -117,7 +119,10 @@ their own Claude login sets `config.claude_code_auth = :local_login` with the
     The sandbox must be the caller's, a ready `app_runtime` sandbox, and the
     agent owner's; anything else is a `422`. The run records which sandbox
     it used (`run.sandbox`), and a scenario suite's **Run against sandbox**
-    select, its Runs list and the run report show it.
+    select, its Runs list and the run report show it. The selected sandbox
+    takes precedence for matching tool names, with one schema per name.
+    Queued agent runs fail if their selected sandbox stops, and failed
+    sandbox discovery never silently falls back to the original tools.
 - **Claude Code connection** (`actionagent`, #478). Settings -> Integrations
   stores an Anthropic API key (`sk-ant-api…`, from the Claude Console) as the
   `claude_code` provider key. It is encrypted, write-only, and not an agent
