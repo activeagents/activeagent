@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-09-29
+
+Releases `activeagent` and `actionagent` 1.7.2 from one tag. A patch on 1.7.1:
+the RubyLLM provider runs on ruby_llm 1.16 and 2.x, where 1.7.1 required 1.x.
+Apps on the RubyLLM provider need ruby_llm 1.16 or later; earlier 1.x
+releases lack the APIs the provider calls. No migrations.
+
 ### Changed
 
 - **The RubyLLM provider supports ruby_llm 1.16 and 2.x** (`activeagent`).
