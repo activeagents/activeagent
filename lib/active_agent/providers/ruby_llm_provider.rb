@@ -145,24 +145,31 @@ module ActiveAgent
         if chunk.tool_calls&.any?
           message[:tool_calls] ||= []
           chunk.tool_calls.each do |key, tool_call|
-            # RubyLLM 2 keys OpenAI deltas by index; only the first delta
-            # includes the call ID and name. Keep each index tied to its call.
-            existing = message[:tool_calls].find { |tc| tool_call.id && tc[:id] == tool_call.id }
-            existing ||= @stream_tool_calls[key]
+            # Only the first delta of a call has its ID and name; the rest
+            # are fragments of its arguments. A fragment belongs to the call
+            # that shares its stream key (the index RubyLLM 2 numbers calls
+            # by), or, without one as RubyLLM 1.16 leaves it for OpenAI, to
+            # the latest call.
+            existing = if tool_call.id
+              message[:tool_calls].find { |tc| tc[:id] == tool_call.id }
+            else
+              @stream_tool_calls[key] || message[:tool_calls].last
+            end
+            fragment = streamed_tool_arguments(tool_call.arguments)
             if existing
-              existing[:function][:arguments] += tool_call.arguments.to_s if tool_call.arguments
+              existing[:function][:arguments] += fragment
             else
               existing = {
                 id: tool_call.id,
                 type: "function",
                 function: {
                   name: tool_call.name,
-                  arguments: tool_call.arguments.to_s
+                  arguments: fragment
                 }
               }
               message[:tool_calls] << existing
             end
-            @stream_tool_calls[key] = existing
+            @stream_tool_calls[key] = existing unless key.nil?
           end
         end
 
@@ -476,6 +483,21 @@ module ActiveAgent
         hash[:model] = model_id if model_id
 
         hash
+      end
+
+      # A streamed tool call's arguments as the text they add to the JSON
+      # string the call builds up. Most APIs stream that string; Anthropic
+      # opens a call with an empty Hash for its input, and Gemini sends the
+      # arguments whole as a Hash.
+      #
+      # @param arguments [String, Hash, nil]
+      # @return [String]
+      def streamed_tool_arguments(arguments)
+        case arguments
+        when String then arguments
+        when Hash then arguments.empty? ? "" : arguments.to_json
+        else ""
+        end
       end
 
       # ruby_llm's normalized finish reason as the stop reason ActiveAgent
