@@ -66,6 +66,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `json_object`, which ruby_llm has no mode for, and a `json_schema`
   without a schema now raise `ArgumentError` instead of sending a request
   the API rejects (#501).
+- **A flat `json_schema` response_format under every provider**
+  (`activeagent`). The OpenAI providers and OpenRouter accept `name`,
+  `schema` and `strict` beside `type` as well as under `json_schema`, but
+  the RubyLLM provider raised "needs a schema for a json_schema
+  response_format" for the flat shape, the Anthropic provider sent
+  `output_config.format` with no schema, and an agent's `prompt` looked for
+  an `{action}.json` view instead, raising `ActionView::MissingTemplate`
+  for any provider. All three now read the flat shape, so a
+  `response_format` keeps working when `generate_with` changes provider
+  (#505).
 - **A nested scenario expectation written as one value** (`activeagent`).
   `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
   list of one, the shape the persisted scenario and the dashboard's matrix
