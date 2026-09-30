@@ -49,6 +49,12 @@ module ActionAgent
       new(agent_record, run).call
     end
 
+    # Returns the providers in Agent::PROVIDERS a run on +owner+'s behalf has
+    # credentials for, in that order (see #available_providers).
+    def self.available_providers(owner)
+      new(nil, nil, owner: owner).available_providers
+    end
+
     # Tool-call keywords that name the caller. The model's arguments and the
     # run's actor share one keyword namespace by the time they reach a tool,
     # so anything a model emits under these names is dropped before the call:
@@ -56,11 +62,21 @@ module ActionAgent
     # documents a model reads are attacker-reachable.
     ACTOR_KEYWORDS = %i[actor current_user].freeze
 
-    def initialize(agent_record, run)
+    # +owner+ is whose provider credentials the run uses: the agent record's
+    # owner unless given.
+    def initialize(agent_record, run, owner: nil)
       @agent_record = agent_record
       @run = run
+      @owner = owner
       @tool_invocations = []
       @event_sequence = 0
+    end
+
+    # Returns the providers in Agent::PROVIDERS the owner's credentials, or
+    # the host's config, let a run use: #provider_available? for each.
+    # @return [Array<String>]
+    def available_providers
+      Agent::PROVIDERS.select { |name| provider_available?(name) }
     end
 
     # The caller this run executes on behalf of, or nil when it runs
@@ -97,6 +113,7 @@ module ActionAgent
 
     def call
       @agent_record.ensure_executable!
+      mcp_dispatcher.ensure_extra_servers_live!
       root_span = @root_span = build_root_span
       record_prompt_span(root_span)
       llm_span = root_span.add_span(
@@ -399,9 +416,10 @@ module ActionAgent
     # its reply, so agents can delegate to each other as a tool call. The
     # sub-run is a real AgentRun with its own trace.
     # One dispatcher per run, so every tool call shares the MCP sessions the
-    # first call opens.
+    # first call opens. A run given a checkout sandbox (an evaluation or a
+    # runner run against it) reaches that runtime too.
     def mcp_dispatcher
-      @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record)
+      @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record, extra_server_keys: [ @run.try(:sandbox_server_key) ].compact)
     end
 
     # Splits the offered schemas the way `tool_schemas` assembles them, so the
@@ -943,7 +961,7 @@ module ActionAgent
     # The agent's owner under the configured mode; nil when the install
     # has no owner model at all.
     def owner
-      @owner ||= @agent_record.owner
+      @owner ||= @agent_record&.owner
     end
 
     def record_trace(root_span)

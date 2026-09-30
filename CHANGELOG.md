@@ -7,7 +7,145 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-09-29
+
+Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release.
+Settings -> Integrations connects GitHub and Claude Code. A connected
+repository's checkout boots as a sandbox, on a developer's machine with the new
+`:local` backend, where Claude Code sessions run and an evaluation can run
+against the checkout without the agent being edited. The dashboard's MCP
+server gains evaluation and telemetry tools for a developer's own coding
+harness. Ollama hosts can be tested and can be remote, with an optional Bearer
+API key. Comparison runs lead with a per-model table and filter the fix list
+by model. A publisher can check its collector before a run.
+
+Upgrading: run `bin/rails generate action_agent:install --skip` and
+`bin/rails db:migrate`. The generator adds what an install lacks:
+`provider_keys.api_key` and the `github_connections` and `code_sessions`
+tables. An app on the RubyLLM provider needs ruby_llm 1.16 or later; 2.x
+works too.
+
+The Claude Code connection stores Anthropic API keys only. Anthropic does not
+let third-party products collect, store or route requests through Claude.ai
+subscription credentials
+([Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance.md)),
+so a `claude setup-token` token (`sk-ant-oat…`) is refused. An install that
+stored one while running a pre-release build never hands it to a session: its
+owner sees Claude Code as needing an API key (`needs_replacing: true` in
+`GET /api/provider_keys`) until they paste one.
+`bin/rails action_agent:claude_code:purge_subscription_tokens` deletes the
+stored tokens and prints how many it removed. A developer who wants sessions on
+their own Claude login sets `config.claude_code_auth = :local_login` with the
+`:local` backend and runs `claude /login` on that machine instead.
+
 ### Added
+
+- **Evaluation and telemetry tools on the MCP facade** (`actionagent`). The
+  dashboard's MCP server now offers `evaluations_list`, `evaluations_get`,
+  `evaluations_run`, `evaluation_runs_get`, `evaluation_runs_compare`,
+  `traces_search` and `traces_get`, so a developer's own coding harness can
+  run an agent's evaluations, read the fix items and failing traces, and
+  iterate on the agent in its own checkout without the dashboard holding a
+  model login. The tools read under the API key's owner exactly as the JSON
+  API reads under the signed-in owner, run through the same execution,
+  quota and sandbox checks as `POST /api/evaluations/:id/run`, bound their
+  output, and mask the owner's credentials. Their names cannot collide with
+  schema tools or agent tools. `ActionAgent.mcp_dashboard_tools = false`
+  turns them off.
+
+- **Local checkout sandboxes and Claude Code sessions** (`actionagent`, #489).
+  A new `:local` sandbox backend (`config.sandbox_service = :local`) makes
+  **Start sandbox** work on a developer's machine without containers. It
+  clones the repository under `tmp/action_agent/sandboxes`, runs the setup
+  the checkout's optional `.activeagents/sandbox.yml` names (`env`, `setup`,
+  `manifest`, `start`), and boots the app on `127.0.0.1`. It then registers
+  the app's MCP facade as the `sandbox:<session_id>` server. Every process
+  starts from a sanitized copy of the dashboard's environment: without its
+  database and Redis URLs, Rails keys and environment, Bundler and Ruby
+  settings, git repository and config variables, `SSH_AUTH_SOCK`,
+  model-provider and Claude Code settings, variables named like a secret, or
+  URLs carrying credentials. The GitHub token reaches
+  only the fetch, and the Claude Code API key reaches only Claude Code.
+  `:local` runs the owner's code with the dashboard's privileges, so it is off
+  outside development and test unless
+  `ActionAgent.local_sandboxes_enabled = true`.
+  - `bin/rails action_agent:sandbox:manifest` writes the booted app's
+    `{mcp_path, mcp_token}` for the backend.
+  - `bin/rails action_agent:sandbox:reap` expires overdue sandboxes and stops
+    them.
+  - A ready sandbox runs headless Claude Code sessions (`--permission-mode
+    acceptEdits` by default). You start them from Settings -> Integrations, or
+    through `/api/sandboxes/:session_id/code_sessions`. Their events stream
+    into the dashboard, and the checkout's diff follows.
+  - New options: `local_sandboxes_enabled`, `local_sandbox_root`,
+    `local_sandbox_boot_timeout`, `claude_code_command`,
+    `claude_code_permission_mode`, `claude_code_max_turns`,
+    `claude_code_timeout` and `claude_code_auth`.
+  - `claude_code_auth = :local_login` runs sessions on the machine's own
+    Claude Code login (`claude /login`), with no stored key: the backend
+    passes no credential and no `CLAUDE_CONFIG_DIR`, so `claude` uses the
+    dashboard user's own `~/.claude` or keychain, which the dashboard never
+    reads. `LocalSandboxBackend.claude_login_status` asks
+    `claude auth status --json` (cached for a minute) and keeps only
+    `loggedIn` and the login method. `GET /api/sandboxes` reports
+    `claude_code_auth` and, in this mode, `claude_code_login`
+    (`{ logged_in, auth_method }`), and the assistant's
+    `connections.claude_code` the same as `auth` and `login`. Other backends
+    refuse sessions in this mode (`code_sessions_supported: false`, and a
+    `422` naming the reason).
+  - `app_runtime` sandboxes now provision in the background and last 2 hours.
+  - Run `rails g action_agent:install` to add the
+    `create_active_agent_code_sessions` migration.
+  - This repository's own `.activeagents/sandbox.yml` boots `test/dummy`.
+  - Every `:local` sandbox boots on databases of its own, so a checkout of
+    the dashboard's own app no longer migrates the developer's development
+    database. The backend reads the adapter from the checkout's
+    `config/database.yml` without running its ERB, and sets `DATABASE_URL`
+    and `<NAME>_DATABASE_URL` (`QUEUE_DATABASE_URL`, `CACHE_DATABASE_URL`):
+    SQLite files in the workspace, or `<database>_sandbox_<id>` on
+    PostgreSQL and MySQL, which terminate drops with the checkout's
+    Rails database tasks restricted to the names and URLs recorded at boot.
+    Setting a variable in `sandbox.yml`'s `env` overrides it and excludes
+    that database from cleanup. Replica mappings follow their own writer;
+    ambiguous mappings require an explicit URL instead of guessing.
+  - The Claude Code panel has a **Model** select: Claude Code's own
+    default, the `sonnet`, `opus` and `haiku` aliases, or any model id under
+    *Other…*. It remembers the last choice per browser, and each session
+    shows the model it ran on.
+  - A run can use a checkout sandbox without the agent being edited:
+    `sandbox_id` on `POST /api/evaluations/:id/run` (and on the runner's
+    `/api/agents/:id/execute` and `/test`) gives that run's tool dispatcher
+    the sandbox's `sandbox:<session_id>` runtime, as if the agent listed it.
+    The sandbox must be the caller's, a ready `app_runtime` sandbox, and the
+    agent owner's; anything else is a `422`. The run records which sandbox
+    it used (`run.sandbox`), and a scenario suite's **Run against sandbox**
+    select, its Runs list and the run report show it. The selected sandbox
+    takes precedence for matching tool names, with one schema per name.
+    Queued agent runs fail if their selected sandbox stops, and failed
+    sandbox discovery never silently falls back to the original tools.
+- **Claude Code connection** (`actionagent`, #478). Settings -> Integrations
+  stores an Anthropic API key (`sk-ant-api…`, from the Claude Console) as the
+  `claude_code` provider key. It is encrypted, write-only, and not an agent
+  provider. `SandboxSession#runtime_environment` hands it to an
+  `app_runtime` backend as `ANTHROPIC_API_KEY`, so the checkout can run
+  Claude Code sessions. Claude subscription tokens (`claude setup-token`)
+  are refused, as Anthropic's terms require (see the upgrading note above).
+  `/api/provider_keys` rows now carry `kind` (`key`, `host` or
+  `connection`) and `needs_replacing`.
+- **GitHub connections and checkout sandboxes** (`actionagent`, #477).
+  Settings -> Integrations connects GitHub over OAuth
+  (`ActionAgent.github_client_id` / `github_client_secret`, or
+  `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`), stores the token encrypted,
+  and lets the owner choose which repositories the workspace may use. Only
+  repositories GitHub lists for the token can be selected. A new
+  `app_runtime` sandbox type checks out one of them: the backend receives
+  `sandbox_session.checkout_spec` (repository, ref, clone URL, token),
+  boots the app, and returns `mcp_url` / `mcp_token` from `create_sandbox`.
+  The session is then an MCP server keyed `sandbox:<session_id>`. An agent
+  that lists that key in `mcp_servers` runs, and is evaluated, with the
+  checkout's own tools. Lookups are scoped to the agent's owner. Run
+  `rails g action_agent:install` to add the
+  `create_active_agent_github_connections` migration.
 
 - **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
   Provider API Keys gains a **Test connection** for Ollama that reports
@@ -36,6 +174,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report filters through radio chips and stylesheet rules — it still ships
   no script.
 
+- **A publisher can check its collector before a run** (`activeagent`).
+  `ActiveAgent::Evals::Publisher#verify!` asks the collector whether it is up
+  and accepts the key before a run is paid for. It posts an empty JSON object,
+  which a compatible collector refuses with a 422 naming `version`, without
+  storing anything; anything else raises `Publisher::Error` with a delivery's
+  status, detail and guidance. `Publisher#endpoint` returns the collector URL.
+
+### Changed
+
+- **Collector rejections say what the status means** (`activeagent`). A
+  `Publisher::Error` for a 401, 403, 404, 415 or 501 rejection names a refused
+  key, an account an operator must act on, an endpoint that is not a
+  collector, a rewritten `Content-Type`, or an install with no evaluation
+  store, in place of the generic guidance.
+
+### Fixed
+
+- **A nested scenario expectation written as one value** (`activeagent`).
+  `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
+  list of one, the shape the persisted scenario and the dashboard's matrix
+  read; an object-list import with a lone value used to break the suite
+  panel. The matrix also tolerates scenarios persisted before this.
+
+## [1.7.2] - 2026-09-29
+
+Releases `activeagent` and `actionagent` 1.7.2 from one tag. A patch on 1.7.1:
+the RubyLLM provider runs on ruby_llm 1.16 and 2.x, where 1.7.1 required 1.x.
+Apps on the RubyLLM provider need ruby_llm 1.16 or later; earlier 1.x
+releases lack the APIs the provider calls. No migrations.
+
 ### Changed
 
 - **The RubyLLM provider supports ruby_llm 1.16 and 2.x** (`activeagent`).
@@ -45,7 +213,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   release without the APIs the adapter calls. Rails main can now resolve
   RubyLLM 2.x alongside Active Storage's Marcel 2 dependency. CI also runs
   the full suite with RubyLLM 1.16 to retain coverage of that version.
-  Unsupported-version errors name the loaded version and both bounds.
+  Unsupported-version errors name the loaded version and both bounds (#508).
+
+## [1.7.1] - 2026-09-29
+
+Releases `activeagent` and `actionagent` 1.7.1 from one tag. A patch on 1.7.0:
+the Evaluations page picks the judge and compared models from the provider
+catalogs, `GET /api/provider_models` lists the host's RubyLLM registry, and
+the RubyLLM provider requires ruby_llm 1.x and sends tool calls and structured
+output in the shape ruby_llm reads. No migrations.
+
+### Added
+
+- **Model pickers on the Evaluations page** (`actionagent`). The judge model
+  and the models to compare, on the new-evaluation form and on a scenario
+  suite, are chosen from type-ahead suggestions, and a model the suggestions
+  lack can still be typed. The compare fields hold one removable chip per
+  model and still submit the same comma-separated list.
+  - With scenarios, the suggestions are the catalogs the agent builder uses,
+    for the providers the owner's runs have credentials for. A model whose
+    name alone would run elsewhere is offered with its provider in front, as
+    `ModelSpec.parse` reads it: `ollama/llama3.2`, or
+    `openrouter/anthropic/claude-sonnet-4.5` for OpenRouter's copy of an
+    Anthropic model.
+  - Without scenarios, a compared model selects the generations recorded
+    under its name, usually the provider's dated id, so the suggestions are
+    the names the agent's generations were recorded under, from the new
+    `GET /api/agents/:id/recorded_models`. Adding or clearing the scenarios
+    renames the catalog models already chosen to match.
+  - The judge field suggests the models of the provider the judge runs on
+    and says which provider that is, or that the credentials deciding it
+    could not be read.
+
+  `GET /api/evaluations` reports that provider as `judge_provider` and the
+  providers runs can use as `model_providers`
+  (`AgentExecutionService.available_providers`). Runs and their judge use
+  the evaluated agent's owner's credentials, so both fields describe that
+  owner's when `agent_id` scopes the list, and the signed-in owner's
+  otherwise. `judge_provider` is null when no provider has credentials, and
+  also when reading them raised, which `judge_provider_error: true` marks.
+  `model_providers` leaves out a provider whose credentials cannot be read.
+  Either way the list still loads.
+- **`GET /api/provider_models` lists the host's RubyLLM registry**
+  (`actionagent`). When the host app loads RubyLLM, the chat models its
+  registry lists for the provider that take and return text (RubyLLM's
+  bundled catalog, or the host's own model table) follow the live or curated
+  list, each once, so the builder's preselected default is unchanged. That
+  leaves out the speech, transcription, moderation and completion-only
+  models RubyLLM counts as chat models, which its registry lists with no
+  modalities or as taking audio, and with them the few chat models it lists
+  with no modalities, which can still be typed. A registry that raises is
+  logged and leaves the list as it was.
+
+### Changed
+
+- **The RubyLLM provider requires ruby_llm 1.x** (`activeagent`). ruby_llm
+  2.0 renamed the APIs `RubyLLMProvider` calls, and the open `>= 1.0`
+  requirement let `bundle update` install it. The provider now requires
+  `~> 1.0` until it supports 2.0 (#502). Loading it with an unsupported
+  version names the supported range and the loaded version, instead of
+  asking for a gem that is already in the Gemfile. Pin
+  `gem "ruby_llm", "~> 1.0"` if your bundle resolved 2.0.
 
 ### Fixed
 
@@ -66,11 +294,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `json_object`, which ruby_llm has no mode for, and a `json_schema`
   without a schema now raise `ArgumentError` instead of sending a request
   the API rejects (#501).
-- **A nested scenario expectation written as one value** (`activeagent`).
-  `ScenarioParser` now stores `{ expectations: { contains: "30" } }` as a
-  list of one, the shape the persisted scenario and the dashboard's matrix
-  read; an object-list import with a lone value used to break the suite
-  panel. The matrix also tolerates scenarios persisted before this.
 
 ## [1.7.0] - 2026-09-24
 

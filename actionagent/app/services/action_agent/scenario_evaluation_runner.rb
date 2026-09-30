@@ -17,9 +17,23 @@ module ActionAgent
   #   "_models"          — per model: pass rate, mean score, latency, tokens, cost, fault counts
   #   "_recommendations" — faults grouped across scenarios with the fix each calls for
   #   "_verdict"         — the best model and why (judge-written when a judge is available)
-  #   "_selection"       — the scenarios and models this run covered
+  #   "_selection"       — the scenarios and models this run covered, and
+  #                        the checkout sandbox it replayed against, if any
+  #
+  # A selection's `sandbox_id` names a checkout sandbox whose app runtime
+  # every replay reaches beside the agent's own MCP servers, as if the agent
+  # listed it (see Api::RunSandbox, which checked the caller owns it). The
+  # agent is not changed. The runtime is resolved again here, among the
+  # agent's owner's sessions, since the run may start well after it was
+  # asked for; one that is no longer live fails the run rather than
+  # replaying without the tools it was meant to test.
   class ScenarioEvaluationRunner < EvaluationRunnerService
     Evals = ActiveAgent::Evals
+
+    # The providers a candidate model name resolves against. `mock` is the
+    # framework's test double, accepted so the test suite can compare cohorts
+    # offline.
+    CANDIDATE_PROVIDERS = (Agent::PROVIDERS + %w[mock]).freeze
 
     # `run` is an EvaluationRun created ahead of time (by run_later!, so the
     # UI can show it pending while the job waits); absent, one is created here.
@@ -38,6 +52,7 @@ module ActionAgent
       specs = model_specs
       run = @run || @evaluation.evaluation_runs.create!(status: :pending)
       run.update!(status: :running, selection: selection_summary(scenarios, specs))
+      ensure_sandbox_live!
 
       if scenarios.empty?
         run.update!(status: :failed, error_message: "No scenarios selected — add scenarios to the evaluation or widen the selection",
@@ -126,15 +141,14 @@ module ActionAgent
     end
 
     # The models to compare: an explicit selection, else the evaluation's
-    # compare_models, else the agent as configured. `mock` is the framework's
-    # test double, accepted so the test suite can compare cohorts offline.
+    # compare_models, else the agent as configured.
     def model_specs
       names = Array(@selection[:models]).presence || @evaluation.compare_models
-      specs = Evals::ModelSpec.parse_all(names, default_provider: @evaluation.agent.provider, providers: Agent::PROVIDERS + %w[mock])
+      specs = Evals::ModelSpec.parse_all(names, default_provider: @evaluation.agent.provider, providers: CANDIDATE_PROVIDERS)
       # parse_all resolves a bare name against `providers:` but passes through a
       # `provider/model` whose provider is not in that list, so the run would
       # otherwise reach the replay with a provider nothing can serve.
-      unsupported = specs.map(&:provider).uniq - (Agent::PROVIDERS + %w[mock])
+      unsupported = specs.map(&:provider).uniq - CANDIDATE_PROVIDERS
       raise ArgumentError, "unsupported model provider: #{unsupported.to_sentence}" if unsupported.any?
 
       return specs if specs.any?
@@ -147,8 +161,43 @@ module ActionAgent
         "scenario_ids" => scenarios.map(&:id),
         "scenario_keys" => scenarios.map(&:key),
         "group" => @selection[:group].presence,
-        "models" => specs.map(&:to_h)
+        "models" => specs.map(&:to_h),
+        "sandbox" => sandbox_summary
       }.compact
+    end
+
+    # --- sandbox ----------------------------------------------------------
+
+    # "sandbox:<session_id>" for a run against a checkout sandbox, or nil.
+    def sandbox_server_key
+      id = @selection[:sandbox_id]
+      "#{SandboxSession::RUNTIME_SERVER_PREFIX}#{id}" if id.is_a?(String) && id.present?
+    end
+
+    def sandbox_session
+      return @sandbox_session if defined?(@sandbox_session)
+
+      @sandbox_session = sandbox_server_key && SandboxSession.for_owner(owner).find_by(session_id: @selection[:sandbox_id])
+    end
+
+    # What the run records about its sandbox: which checkout, never its
+    # token.
+    def sandbox_summary
+      return nil unless sandbox_server_key
+
+      {
+        "session_id" => @selection[:sandbox_id],
+        "server_key" => sandbox_server_key,
+        "repository" => sandbox_session&.repository,
+        "repository_ref" => sandbox_session&.repository_ref
+      }.compact
+    end
+
+    def ensure_sandbox_live!
+      return unless sandbox_server_key
+      return if SandboxSession.runtime_server_entry(sandbox_server_key, owner: owner)
+
+      raise ArgumentError, "Sandbox #{@selection[:sandbox_id]} is no longer running; start it again, or run without it"
     end
 
     # --- replay -----------------------------------------------------------
@@ -163,7 +212,8 @@ module ActionAgent
         scenario.prompt,
         model_override: spec.model,
         provider_override: spec.provider,
-        actor: replay_actor
+        actor: replay_actor,
+        runtime_sandbox: sandbox_server_key
       )
 
       Evals::Replay.new(
@@ -299,7 +349,7 @@ module ActionAgent
     end
 
     def mcp_dispatcher
-      @mcp_dispatcher ||= MCPToolDispatcher.new(@evaluation.agent)
+      @mcp_dispatcher ||= MCPToolDispatcher.new(@evaluation.agent, extra_server_keys: [ sandbox_server_key ].compact)
     end
 
     # A run whose every declared MCP server failed discovery scored an agent

@@ -61,6 +61,44 @@ compatible collector treats the report as immutable within its authenticated
 account: identical delivery is idempotent; different content with the same run
 ID is a conflict. Never change the report's IDs between retries.
 
+## Checking the collector before a run
+
+`Publisher#verify!` asks the collector whether it is up and accepts the key,
+without storing anything. Call it before an expensive evaluation, so a stopped
+collector or a refused key fails before the first model call rather than after
+the last one:
+
+```ruby
+publisher = ActiveAgent::Evals::Publisher.new(
+  endpoint: ENV.fetch("ACTIVEAGENTS_EVALUATIONS_ENDPOINT"),
+  api_key: ENV.fetch("ACTIVEAGENTS_API_KEY")
+)
+publisher.verify! # true, or raises Publisher::Error
+
+report = run_the_evaluation
+publisher.call(report: report, run_id: report.metadata.fetch("run_id"),
+  source: "support-app", agent_name: "SupportBot", suite: "orders")
+```
+
+The check posts an empty JSON object. A compatible collector authenticates the
+key, parses the body, and refuses it with a 422 whose `error` names `version`,
+as not a version-1 report; that refusal, and only that one, is the ready answer,
+and `verify!` returns `true`. Anything else raises `Publisher::Error` with the
+status, detail and guidance a delivery would carry (see the table below): 401
+for a refused key, 404 when nothing at the endpoint takes reports, or a
+retryable delivery failure when the collector cannot be reached. A 422 that says
+anything else, or a collector that stores the empty object, means the endpoint
+is not a compatible collector, and `verify!` raises rather than returning
+`true`. The probe is part of the collector contract; see
+[Self-hosted collector](#self-hosted-collector).
+
+On a single-tenant install whose mount requires no ingest key, there is no key
+to prove: a 422 there confirms the collector is reachable and its evaluation
+store is migrated, and nothing more.
+
+`Publisher#endpoint` returns the collector URL as a string, for a message that
+names where a report goes.
+
 ## Errors and retries
 
 Every failure to deliver a report raises `Publisher::Error`. Arguments the
@@ -106,8 +144,12 @@ A rejection's guidance follows its status:
 | 422 | `false` | The collector refused something in the report or envelope, named in `detail`: a missing or invalid field, or a `suite` naming an evaluation this report does not belong to. Correct it and deliver again. |
 | 429 | `true` | The account is over its quota or rate limit. Retry later with the saved report and the same `run_id`. |
 | 408, 5xx | `true` | Retry later with the saved report and the same `run_id`. |
-| 401, 403 | `false` | The collector refused the account: the API key is invalid, or the account may not deliver this report, for example because it has reached its limit of observed agents. Resolve it before retrying. |
-| Other | `false` | Resolve the cause, such as the endpoint, before retrying. |
+| 401 | `false` | The collector refused the API key. Check the key against the collector's account. |
+| 403 | `false` | The account may not store this report until an operator acts, for example on a cap on observed agents, evaluations or scenarios. Resolve that before retrying. |
+| 404 | `false` | Nothing at the endpoint takes evaluation reports. Check that it is a collector's `/v1/evaluations` or `<mount>/api/evaluation_reports` URL. |
+| 415 | `false` | The collector did not receive `application/json`. Check anything between the publisher and the collector that rewrites the `Content-Type`. |
+| 501 | `false` | The collector has no evaluation store: an install generated with `--traces-only`, or one not yet migrated. |
+| Other | `false` | Resolve the cause before retrying. |
 
 Failures without a collector rejection have a `nil` `status` and `detail`:
 
@@ -170,6 +212,11 @@ application's agent.
 | 401 | No key, or the wrong one, when the mount requires one. |
 | 501 | The install has no evaluation tables (it was generated with `--traces-only`), or has not run the migrations this collector needs. |
 | 503 | Another report for the same agent was being stored for too long (MySQL); retry shortly. |
+
+`Publisher#verify!` relies on the 422 row: it posts `{}`, and a compatible collector
+answers 422 with an error naming `version` — after authenticating the key, and without
+storing, counting or rate-limiting anything. A collector that stores the empty object, or
+refuses it without naming `version`, does not support the publisher's readiness check.
 
 A valid report has:
 

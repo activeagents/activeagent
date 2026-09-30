@@ -31,12 +31,19 @@ module ActionAgent
         end
       rescue => e
         Rails.logger.error("Sandbox run failed: #{e.message}")
-        sandbox.update!(status: :ready, error_message: e.message)
+        back_to_ready(sandbox, error_message: e.message)
         broadcast_run_error(sandbox, run_id, provider, e.message)
       end
     end
 
     private
+
+    # Only from running: a sandbox stopped while the run was in flight stays
+    # expired rather than coming back.
+    def back_to_ready(sandbox, **attributes)
+      SandboxSession.where(id: sandbox.id, status: SandboxSession.statuses[:running])
+        .update_all(attributes.merge(status: SandboxSession.statuses[:ready], updated_at: Time.current))
+    end
 
     def execute_with_active_agent(sandbox, run_id, task, provider, started_at)
       # Use generate_now here since we're already in a background job
@@ -67,7 +74,7 @@ module ActionAgent
         provider: provider
       )
 
-      sandbox.update!(status: :ready)
+      back_to_ready(sandbox)
       broadcast_run_complete(sandbox, run_id, run)
 
     rescue => e
@@ -100,7 +107,7 @@ module ActionAgent
         provider: provider
       )
 
-      sandbox.update!(status: :ready)
+      back_to_ready(sandbox)
       broadcast_run_complete(sandbox, run_id, run)
     end
 

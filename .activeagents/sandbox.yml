@@ -1,0 +1,22 @@
+# How a checkout sandbox boots this repository: its own dummy app, test/dummy,
+# which mounts the dashboard engine at /activeagents. The :local backend reads
+# this file (see "Local checkout sandboxes" in docs/framework/dashboard.md).
+#
+# test/dummy boots on the repository's rails8 gemfile, the bundle CI tests
+# with, which takes activeagent and actionagent from this checkout.
+# BUNDLE_GEMFILE is a relative path, so every command runs from test/dummy.
+#
+# The sandbox is used for its MCP facade (/activeagents/mcp), which works on
+# this bundle. The rails8 bundle has no asset pipeline (propshaft), so the
+# sandbox's own dashboard page at /activeagents loads blank: its JavaScript and
+# CSS answer 404. test/dummy's own Gemfile carries propshaft; without the
+# BUNDLE_GEMFILE line below, Bundler would use that one instead.
+env:
+  BUNDLE_GEMFILE: ../../gemfiles/rails8.gemfile
+  # Never test: the suite rebuilds that database.
+  RAILS_ENV: development
+setup:
+  - cd test/dummy && bundle install
+  - cd test/dummy && bin/rails db:prepare
+manifest: cd test/dummy && bin/rails action_agent:sandbox:manifest
+start: cd test/dummy && exec bin/rails server -b 127.0.0.1 -p "$PORT"
