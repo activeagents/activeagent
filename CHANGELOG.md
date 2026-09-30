@@ -9,66 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **MCP servers run client-side wherever a provider cannot serve them**
-  (`activeagent`). `mcps:` was passthrough: the declaration was translated into
-  the provider's `mcp_servers` and the provider ran the tool loop, which only
-  worked where the provider implemented MCP. Everywhere else the failure was
-  silent — DeepSeek ignores `mcp_servers`, returns 200, and answers without the
-  server's data, so it read as a poor answer rather than as a configuration
-  error. A provider now declares the transports it serves itself
-  (`mcp_native_transports`; Anthropic and the OpenAI Responses API serve `:url`)
-  and everything else is run for it: each server is connected to, its tools are
-  listed and merged with the agent's own, and a tool call is routed to the server
-  that owns it. The provider's tool loop is unchanged, so Ollama, RubyLLM,
-  OpenRouter and the OpenAI-compatible providers support MCP without any change
-  of their own. A `command:` (stdio) server always runs client-side, since a
-  provider can be handed a URL but not a process to spawn. `mcp_strategy:` makes
-  the choice explicit where it matters — `:auto` (the default) defers to the
-  provider, `:client` always runs the servers, and `:server` requires the provider
-  to and raises naming what it can serve. Two tools sharing a name are refused
-  rather than resolved, since the model cannot say which it meant. Connections
-  are released when the generation ends, including when it raises, because a
-  `command:` server is a process and one left running outlives the agent that
-  spawned it; `read_timeout:` (30 seconds by default) bounds how long a stdio
-  server may take to answer, since an unbounded read would otherwise let a
-  silent server hold the generation open. A server named after its host rather
-  than its whole URL, so a key embedded in an MCP endpoint cannot reach an error
-  message. Needs `gem "mcp"`, loaded only when a bridge is built, so the
-  dependency stays optional for everyone else.
+- **Support MCP across providers** (`activeagent`). Anthropic and OpenAI
+  Responses handle remote servers natively; ActiveAgent bridges other providers
+  and all local `command:` servers. `mcp_strategy:` selects automatic, client,
+  or required-native execution. Tool lists are cached for five minutes; a cold
+  cache connects during discovery, while a warm cache connects only when a tool
+  is called. `mcp_cache: false` bypasses the cache for one generation. Entries
+  are scoped by endpoint, credentials, environment, and `allowed_tools:`. The
+  client-side bridge requires the optional `mcp` gem.
 
-- **MCP server tool lists are cached in memory, and connections are lazy**
-  (`activeagent`). Asking a server what it offers cost a handshake plus a
-  `tools/list` round trip — roughly 1.1s against a hosted server — and every
-  generation paid it to relearn the same tool names. The answer now comes from a
-  process-local cache keyed by how the server is reached and which tools are
-  allowed through, five minutes by default, tunable via
-  `ActiveAgent::Providers::MCPToolCache.configure`. A cached list needs no
-  connection, so a generation connects only if the model actually calls a tool:
-  that turns a fixed per-generation cost into nothing for a generation that never
-  reaches for one, and spawns a `command:` server on first use rather than at the
-  start of every generation. A bridge that has learned its view is stale can
-  `refresh!`, and `clear!` empties the cache wholesale. Entries hold plain data —
-  no sockets, no child processes — so the cache is safe to hold across a fork. It
-  is process-global, but entries are separated by endpoint, credentials,
-  environment and `allowed_tools:`; `mcp_cache: false` bypasses it for one
-  generation without changing another agent's setting. It caches schemas only,
-  never messages, tool results, or agent-declared tools. A test suite should
-  reset it between examples.
-
-- **A DeepSeek provider** (`activeagent`). `generate_with :deepseek` talks to
-  DeepSeek's OpenAI-compatible endpoint with `deepseek-flash` as the default
-  model, so JSON output and tool calling come from the API rather than being
-  emulated, and `api_key` falls back to `DEEPSEEK_API_KEY`. Instructions reach
-  DeepSeek as `system` messages rather than OpenAI's `developer` role, which
-  DeepSeek answers with a 422 — it accepts only system, user, assistant, tool and
-  latest_reminder, so an agent using `instructions: true` fails outright until
-  that role is folded in. Everything else is left to DeepSeek, including thinking
-  mode — the provider's API is the authority on how it wants to be called. Worth
-  knowing if you use the sampling parameters: DeepSeek bills thinking whether or
-  not the answer needed it, and ignores `temperature`, `presence_penalty` and
-  `frequency_penalty` while thinking. A one-line JSON extraction measured 83
-  output tokens at DeepSeek's default against 7 with `thinking: { type:
-  "disabled" }`, which any prompt can pass.
+- **Add a DeepSeek provider** (`activeagent`). `generate_with :deepseek` uses
+  DeepSeek's OpenAI-compatible API, `deepseek-flash` by default, and
+  `DEEPSEEK_API_KEY` as the credential fallback. JSON output and tool calling
+  are native. Instructions are sent as `system` messages, and provider defaults
+  such as thinking mode are left unchanged. Thinking is billed and disables
+  sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
 
 - **Ollama hosts are testable and can be remote** (`actionagent`). Settings ->
   Provider API Keys gains a **Test connection** for Ollama that reports
@@ -110,46 +65,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A caller's `output_config` was dropped whenever `response_format` was set**
-  (`activeagent`). Anthropic's `output_config` carries `effort` as well as the
-  `format` that `response_format` derives, and the derived hash replaced the
-  whole parameter — so setting both silently lost the `effort`. The two are now
-  merged, with the caller's own keys winning.
-- **An unrecognized `response_format` type was forwarded as `output_config`**
-  (`activeagent`). A `response_format` whose `type` was not one of
-  `json_schema`, `json_object` or `text` fell through to a pass-through branch
-  that assigned the hash to `output_config` unmodified, so `{ type: "grammar"
-  }` went out where Anthropic expects `{ format: { type: "json_schema", schema:
-  ... } }` and rejects anything else. Only a schema produces an `output_config`
-  now; a hash already shaped as `output_config` is still passed through, and
-  everything else falls back to the prompt handling.
-- **The missing-gem error named a gem that was already in the bundle**
-  (`activeagent`). A provider whose client gem is absent raised "The 'openai'
-  gem is required ... add it to your Gemfile", which reads as nonsense to
-  someone whose bundle already has `ruby-openai`: both gems define `OpenAI`,
-  only one can be installed at a time, so adding the second fails at `bundle
-  install` instead of fixing anything. The error now names the gem that owns the
-  constant, says the two cannot coexist, and gives the Gemfile line to replace.
-- **`json_object` responses lost their `{` whenever thinking was on**
-  (`activeagent`). The Anthropic `json_object` emulation prefills an assistant
-  turn and re-attaches the `{` to the response, but looked for it in the *first*
-  content block. With thinking enabled the response opens with a `thinking`
-  block, which carries `thinking` rather than `text`, so the lookup came back nil
-  and the `{` was silently never prepended — leaving a bare continuation that
-  cannot be parsed, and sending the retry loop after an answer it can never
-  accept. The brace now goes on the last text block. Reported against
-  DeepSeek's Anthropic-compatible endpoint, which runs thinking by default.
-- **Response-only fields were replayed back to the Anthropic API**
-  (`activeagent`). Multi-turn requests and the `json_object` emulation retry
-  re-submit prior assistant responses verbatim, and `cleanup_serialized_request`
-  decided what to strip from a denylist. The Messages API returns more than that
-  list covers — `container`, then `diagnostics`, and on the beta API
-  `context_management` and `input_transformations` — so each new field was sent
-  straight back and rejected with
-  `messages.N.<field>: Extra inputs are not permitted`. Messages are now cut down
-  to the keys a request message may carry (`role` and `content`, plus the
-  beta-only `clear_at` and `output_config`), so a field added by a future gem
-  release cannot leak. The request-level `container` parameter is unchanged.
+- **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
+  `output_config` and ignore unsupported response formats.
+- **Fix Anthropic JSON emulation with thinking enabled** (`activeagent`).
+  Reattach the opening brace to the final text block.
+- **Prevent Anthropic response fields from leaking into replayed requests**
+  (`activeagent`). Keep only request-supported message fields.
+- **Name conflicting gems in provider load errors** (`activeagent`). Explain
+  when another gem already defines `OpenAI` and show the Gemfile replacement.
 - **Tool calls sent back through the RubyLLM provider** (`activeagent`).
   After a tool ran, the follow-up request repeated the model's tool call
   with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI

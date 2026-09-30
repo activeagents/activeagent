@@ -12,7 +12,7 @@ Connect agents to external services via [Model Context Protocol](https://modelco
 
 ## Provider Support
 
-Every provider can use MCP servers. Where a provider's own API speaks MCP it runs the server itself, and the tool schemas never enter the prompt; everywhere else ActiveAgent runs the server and hands the model the tools it offers. See [Who runs the server](#who-runs-the-server).
+All providers accept `mcps:`. 🟩 means the provider runs a remote `url:` server; 🟦 means ActiveAgent runs it and exposes its tools as functions. A local `command:` server is always 🟦. Mock accepts declarations but does not call tools.
 
 | Provider                      | `url:` servers | `command:` servers | Notes |
 |:------------------------------|:--------------:|:------------------:|:------|
@@ -28,13 +28,9 @@ Every provider can use MCP servers. Where a provider's own API speaks MCP it run
 | **Requesty**                  | 🟦             | 🟦                 | |
 | **RubyLLM**                   | 🟦             | 🟦                 | |
 
-🟩 the provider runs the server · 🟦 ActiveAgent runs the server
-
-A `command:` server is always run by ActiveAgent, even on a provider that accepts an MCP URL: a provider can be handed a URL, but not a process on your machine to spawn and talk to.
-
 ## MCP Format
 
-A server is reached either over HTTP (`url:`) or by running a local process that speaks MCP over stdio (`command:`). Declare one or the other.
+A server uses either an HTTP `url:` or a local stdio `command:`.
 
 ```ruby
 # Remote server, over HTTP
@@ -54,11 +50,11 @@ A server is reached either over HTTP (`url:`) or by running a local process that
 }
 ```
 
-`name:` is optional, and the host is used when it is missing. Give one anyway if you declare two servers on the same host, so a name collision can be told apart from a tool collision.
+`name:` defaults to the URL host or command executable. Set it explicitly when multiple servers share a host.
 
-`read_timeout:` bounds how long a `command:` server may take to answer, and defaults to 30 seconds. A stdio read has no bound of its own, so a server that accepts a request and never replies would otherwise hold the generation open indefinitely. For a `url:` server, `max_reconnection_wait:` passes through to the HTTP transport.
+For `command:` servers, `read_timeout:` sets the response deadline in seconds (30 by default). For HTTP servers, `max_reconnection_wait:` configures the transport's reconnection limit.
 
-Connections are opened when the generation starts and released when it ends, including when it raises — a `command:` server is a process, and one left running would outlive the agent that spawned it.
+On a cache miss, ActiveAgent connects during prompt setup to list tools. On a cache hit, it connects only if the model calls a tool. Connections close when the generation ends, including on error.
 
 ### Single Server
 
@@ -96,11 +92,7 @@ See [Anthropic's MCP docs](https://docs.anthropic.com/en/docs/build-with-claude/
 
 ## Who runs the server
 
-Declaring `mcps:` is by default a passthrough: the declaration becomes the provider's own `mcp_servers` parameter and the provider connects, lists the tools, and calls them. That works only where the provider implements MCP.
-
-Where it does not, the failure is quiet. DeepSeek, for example, **ignores `mcp_servers` rather than rejecting it**, so a request carrying one returns `200` and the model answers without the server's data — a failure that looks like a poor answer rather than a configuration error.
-
-ActiveAgent closes that gap without the provider's help. It connects to each declared server itself, lists the tools it offers, merges them with any you declared, and answers tool calls on the server that owns them. The provider's tool loop is untouched: it is handed tools it can call and receives results, which is all it ever needed. The declaration is unchanged either way:
+With `mcp_strategy: :auto`, ActiveAgent connects to each declared server, lists the tools it offers, and routes calls back to the appropriate server, avoiding silent failures from providers like DeepSeek that ignore `mcp_servers`.
 
 ```ruby
 class ResearchAgent < ApplicationAgent
@@ -115,17 +107,11 @@ class ResearchAgent < ApplicationAgent
 end
 ```
 
-What happens behind that:
-
-1. Each declared server is connected to, and the tools it offers are listed.
-2. Those tools are merged with any the agent declares, and sent to the provider as ordinary tools.
-3. When the model calls one, the call is routed to the server that owns it and the result is returned as a tool result.
-
-`allowed_tools:` on a declaration restricts which of a server's tools are exposed, which is worth doing on a server that offers many — every tool it lists costs tokens on every request, whether or not the model calls it.
+Use `allowed_tools:` to expose only the tools the agent needs; every exposed schema is sent with each model request.
 
 ### Choosing the strategy
 
-The default, `mcp_strategy: :auto`, hands each server to the provider if the provider can serve it and runs it client-side otherwise. Set it explicitly when you want to be sure:
+Use `mcp_strategy:` to choose where servers run:
 
 | Strategy        | Behavior |
 |:----------------|:---------|
@@ -164,28 +150,30 @@ Because discovering tools means connecting to the servers, `preview` does not re
 
 Two different costs, and only one of them can be cached.
 
-**Asking a server what it offers** is a round trip: roughly 680ms for the handshake and 450ms for `tools/list`, measured against a hosted server. ActiveAgent caches the answer in memory, keyed by how the server is reached and which tools are allowed through, for five minutes by default:
+Fetching a server's tool list takes a handshake and a `tools/list` round trip — about 1.1s in a hosted-server measurement. ActiveAgent caches schemas in process memory for five minutes by default:
 
 ```ruby
-ActiveAgent::Providers::MCPToolCache.configure(ttl: 300, max_entries: 100, enabled: true)
+ActiveAgent::Providers::MCPToolCache.configure(ttl: 300, max_entries: 100)
 ```
 
-Cache policy can be overridden for one generation with `mcp_cache:`. It defaults to the process-level setting; `mcp_cache: false` always fetches that generation's tool list fresh without changing other agents or later generations:
+Override the process-level cache setting for one generation with `mcp_cache: false`:
 
 ```ruby
-prompt "Inspect this site", mcp_cache: false, mcps: [ firecrawl_server ]
+prompt(
+  "Inspect this site",
+  mcp_cache: false,
+  mcps: [ { name: "firecrawl", url: ENV.fetch("FIRECRAWL_MCP_URL") } ]
+)
 ```
 
-Entries are isolated by endpoint, bearer credential, command/arguments/environment, and `allowed_tools:`. The display name and prompt text are not part of the key: they do not change what that authenticated server offers. Only tool names, descriptions, and schemas are cached — never messages, tool results, or agent-declared tools. The key is a digest, so the credential itself is not retained as the key.
+Entries are isolated by endpoint, bearer credential, command/arguments/environment, and `allowed_tools:`. Only server tool schemas are cached — never prompts, results, or agent-declared tools. Credentials are hashed, not stored as cache keys.
 
-The `mcp_cache:` prompt option overrides the process setting for one generation. `false` fetches a fresh tool list for that generation without changing the setting for other agents or prompts; omit it to use the configured default.
+A cache miss connects once to list tools. A cache hit avoids connecting unless the model calls a tool; `command:` servers start on first use in that generation.
 
-A cached list means no connection is opened at all — a connection happens when the model actually calls a tool. So a generation that never reaches for an MCP tool connects to nothing, and one that does connects once. A `command:` server is spawned on that first call rather than at the start of every generation.
-
-The cache is process-local and holds only plain data, so it is safe across a fork: a child gets a snapshot with no sockets or child processes in it. To pick up a server's new tools without waiting for the TTL, call `ActiveAgent::Providers::MCPToolCache.clear!` on deploy, or `refresh!` on a bridge.
+The process-local cache holds no sockets or child processes. Clear it after a server update with `MCPToolCache.clear!`, or refresh one bridge with `refresh!`.
 
 ::: warning Replaying MCP traffic in tests
-The cache is process-global, so it outlives a single example, and it changes how many requests a generation makes. Recorded HTTP fixtures usually cannot tell one MCP request from another — every call POSTs to the same URL — so they replay in order, and a skipped `tools/list` leaves them handing back the wrong body. Disable the cache where you replay MCP traffic, and reset it elsewhere:
+The cache changes request counts. Since MCP calls POST to one URL, URI-matched cassettes replay in order and become misaligned when a cached `tools/list` is skipped. Disable caching in cassette-backed tests and reset it between examples:
 
 ```ruby
 ActiveAgent::Providers::MCPToolCache.configure(enabled: false) # cassette-backed suites

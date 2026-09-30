@@ -4,7 +4,7 @@ description: Use DeepSeek models through their OpenAI-compatible API, with nativ
 ---
 # {{ $frontmatter.title }}
 
-The DeepSeek provider talks to DeepSeek's OpenAI-compatible API. Because the API follows OpenAI's shape, this provider extends the OpenAI Chat provider and inherits its request and response handling — but JSON output and tool calling are served natively by DeepSeek rather than emulated, and the request is adapted where DeepSeek diverges (see [Differences from the OpenAI Provider](#differences-from-the-openai-provider)).
+Use DeepSeek through its OpenAI-compatible API. JSON output and tool calling are native; ActiveAgent adapts message roles and other differences from OpenAI's API.
 
 ## Configuration
 
@@ -30,7 +30,7 @@ deepseek:
   model: "deepseek-flash"
 ```
 
-`service` selects the provider class, so it must be `"DeepSeek"` — the block name is free.
+The `service` value must be `"DeepSeek"`; the configuration key can be named differently.
 
 ### Environment Variables
 
@@ -38,21 +38,21 @@ deepseek:
 DEEPSEEK_API_KEY=sk-...
 ```
 
-DeepSeek has no organization or project scoping, so `organization_id` and `project_id` are not read from `OPENAI_*` variables. Nothing foreign is attached to a request.
+DeepSeek has no organization or project scoping; `OPENAI_*` organization and project variables are ignored.
 
 ## Models
 
-`deepseek-flash` is the default when a prompt does not name a model. DeepSeek's API requires a model and has no default of its own, so naming one in configuration is a convenience rather than an override.
+The model defaults to `deepseek-flash`; DeepSeek's API requires a model.
 
 For the current model list, context windows, and pricing, see [DeepSeek's documentation](https://api-docs.deepseek.com/quick_start/pricing).
 
-DeepSeek's pricing is time-of-day dependent, and thinking mode is billed whether or not the answer needed it — see below before assuming a per-request cost.
+DeepSeek's pricing varies by time of day. Thinking tokens are billed even when the answer does not use them.
 
 ## Thinking Mode
 
-DeepSeek runs thinking unless told otherwise, and bills the reasoning whether or not the answer needed it. For extraction and classification work, that reasoning is often charged for and discarded: measured against `deepseek-flash`, a one-line JSON extraction cost **83 output tokens at DeepSeek's default against 7 with thinking disabled**.
+DeepSeek enables thinking by default. In one `deepseek-flash` JSON extraction, the default used **83 output tokens**, compared with **7** when thinking was disabled.
 
-The provider does not override this, so requests get whichever behaviour DeepSeek currently considers best. Opt out per prompt:
+ActiveAgent leaves this default unchanged. Opt out per prompt:
 
 ```ruby
 class ColorsAgent < ApplicationAgent
@@ -67,15 +67,11 @@ class ColorsAgent < ApplicationAgent
 end
 ```
 
-Thinking is also why sampling parameters can appear to do nothing. DeepSeek **ignores `temperature`, `presence_penalty`, and `frequency_penalty` while thinking is on**, so a prompt that needs those to bite has to disable thinking first.
-
-::: tip
-If you are tuning a prompt's sampling behaviour, disable thinking. Otherwise the parameters are accepted, ignored, and leave you tuning something that does not apply.
-:::
+DeepSeek ignores `temperature`, `presence_penalty`, and `frequency_penalty` while thinking is enabled. Disable thinking when you need those parameters to apply.
 
 ## Structured Output
 
-Both structured modes are native to DeepSeek — neither needs an assistant prefill, and the response parses the same way as any OpenAI-compatible provider:
+DeepSeek supports `json_object` and `json_schema` natively:
 
 ```ruby
 class ColorsAgent < ApplicationAgent
@@ -97,7 +93,7 @@ See **[Structured Output](/actions/structured_output)** for the common format, s
 
 ## Tool Calling
 
-Tool definitions are passed through to DeepSeek, which returns real tool calls. Nothing about the common format changes:
+Tool calling uses the common `tools:` format:
 
 ```ruby
 class WeatherAgent < ApplicationAgent
@@ -109,48 +105,16 @@ class WeatherAgent < ApplicationAgent
 end
 ```
 
-## MCP Runs Client-Side
+## MCP
 
-DeepSeek has no server-side MCP: it **ignores `mcp_servers` rather than rejecting it**, so a request carrying one returns `200` with no tool call and the model answers without the data the server would have supplied. There is no error to notice — the prompt simply lacks its content.
-
-ActiveAgent works around this by running the servers itself, so `mcps:` behaves the same as it does elsewhere. DeepSeek is not special here — it is the clearest case of a provider that cannot serve a server itself, which is why this is the example. Anthropic and the OpenAI Responses API are handed the server instead, and everything else is run client-side like this.
-
-```ruby
-class ResearchAgent < ApplicationAgent
-  generate_with :deepseek, model: "deepseek-flash"
-
-  def research(topic)
-    prompt(
-      "Find and summarize recent news about #{topic}.",
-      mcps: [ { name: "firecrawl", url: "https://mcp.firecrawl.dev/YOUR_KEY/v2/mcp" } ]
-    )
-  end
-end
-```
-
-Add `gem "mcp"` to your Gemfile; it is loaded only when a bridge is needed. See **[MCP](/actions/mcps)** for the details, including how name collisions are handled.
-
-If a server is only ever used to fetch a page, fetching it in Ruby and passing the content in is cheaper — one completion instead of two:
-
-```ruby
-def select_currency_code
-  content = API::Firecrawl::Scrape.new.markdown(params[:url])
-
-  prompt(
-    "URL: `#{params[:url]}`\n\nContent:\n\n#{content}",
-    response_format: :json_object
-  )
-end
-```
+DeepSeek silently ignores `mcp_servers`; ActiveAgent bridges `mcps:` as function tools. Add `gem "mcp"` to use the bridge. See [MCP support](/actions/mcps) for configuration and filtering.
 
 ## Differences from the OpenAI Provider
 
 | | Behaviour |
 |---|---|
-| **Message roles** | DeepSeek accepts only `system`, `user`, `assistant`, `tool`, and `latest_reminder`. It **rejects the rest with a 422** rather than ignoring them. `instructions: true` is expressed by the OpenAI transforms as a `developer` message, and DeepSeek does not accept that role, so this provider folds instructions into `system` messages first. |
-| **Organization / project** | Not sent; DeepSeek has no such scoping. |
+| **Message roles** | DeepSeek accepts `system`, `user`, `assistant`, `tool`, and `latest_reminder`. ActiveAgent maps instructions to `system` because DeepSeek rejects `developer` with a 422. |
 | **`temperature` and friends** | Accepted, but ignored while thinking is on. |
-| **MCP** | Runs client-side. See [above](#mcp-runs-client-side). |
 
 ## See Also
 
