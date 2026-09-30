@@ -178,14 +178,6 @@ their own Claude login sets `config.claude_code_auth = :local_login` with the
 
 ### Changed
 
-- **The RubyLLM provider supports ruby_llm 1.16 and 2.x** (`activeagent`).
-  The adapter handles 2.x's tool interface, token limits, embedding model
-  objects, usage and finish reasons while keeping the 1.16 API working.
-  Requiring `>= 1.16, < 3` prevents Bundler from selecting an older 1.x
-  release without the APIs the adapter calls. Rails main can now resolve
-  RubyLLM 2.x alongside Active Storage's Marcel 2 dependency. CI also runs
-  the full suite with RubyLLM 1.16 to retain coverage of that version.
-  Unsupported-version errors name the loaded version and both bounds (#508).
 - **Collector rejections say what the status means** (`activeagent`). A
   `Publisher::Error` for a 401, 403, 404, 415 or 501 rejection names a refused
   key, an account an operator must act on, an endpoint that is not a
@@ -199,6 +191,24 @@ their own Claude login sets `config.claude_code_auth = :local_login` with the
   list of one, the shape the persisted scenario and the dashboard's matrix
   read; an object-list import with a lone value used to break the suite
   panel. The matrix also tolerates scenarios persisted before this.
+
+## [1.7.2] - 2026-09-29
+
+Releases `activeagent` and `actionagent` 1.7.2 from one tag. A patch on 1.7.1:
+the RubyLLM provider runs on ruby_llm 1.16 and 2.x, where 1.7.1 required 1.x.
+Apps on the RubyLLM provider need ruby_llm 1.16 or later; earlier 1.x
+releases lack the APIs the provider calls. No migrations.
+
+### Changed
+
+- **The RubyLLM provider supports ruby_llm 1.16 and 2.x** (`activeagent`).
+  The adapter handles 2.x's tool interface, token limits, embedding model
+  objects, usage and finish reasons while keeping the 1.16 API working.
+  Requiring `>= 1.16, < 3` prevents Bundler from selecting an older 1.x
+  release without the APIs the adapter calls. Rails main can now resolve
+  RubyLLM 2.x alongside Active Storage's Marcel 2 dependency. CI also runs
+  the full suite with RubyLLM 1.16 to retain coverage of that version.
+  Unsupported-version errors name the loaded version and both bounds (#508).
 
 ## [1.7.1] - 2026-09-29
 
