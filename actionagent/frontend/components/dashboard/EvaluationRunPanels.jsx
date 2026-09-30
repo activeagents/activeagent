@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MonoLink, MONO } from './primitives';
 import { fmtCost, fmtK, fmtMs, fmtScore, splitModelLabel } from '../../utils/format';
-import { RUNS_PAGE, fixItemCountsByModel, fixItemsForModel, modelComparisonRows, plural, runTotalOf, runsMeta, withModelBreakdown } from '../../utils/evaluationRuns.mjs';
+import {
+  RUNS_PAGE, costPer, fixItemCountsByModel, fixItemsForModel, modelComparisonRows, plural, pricedCount, pricingNote, runTotalOf, runsMeta,
+  withModelBreakdown,
+} from '../../utils/evaluationRuns.mjs';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
 
@@ -307,6 +310,7 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
             const stats = summaries[label];
             const { passed, total } = modelPassStats(run, label, results, scenarioCount);
             const faults = Object.entries(stats?.faults || {});
+            const priced = pricedCount(stats, stats?.scenarios);
             const note = stats && faults.length === 0
               ? { text: '[+] no faults', color: 'var(--color-success-text)' }
               : !stats && inProgress(run) ? { text: 'scoring…' } : null;
@@ -324,7 +328,8 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
                 inputTokens={stats?.input_tokens}
                 outputTokens={stats?.output_tokens}
                 cost={stats?.cost}
-                perInteraction={stats?.cost != null && stats.scenarios ? stats.cost / stats.scenarios : null}
+                perInteraction={costPer(stats?.cost, priced)}
+                pricing={pricingNote(priced, stats?.scenarios, 'scenario')}
                 unit="scenario"
                 badges={faults.map(([fault, count]) => ({ tone: 'error', text: `${faultName(fault)} ×${count}` }))}
                 note={note}

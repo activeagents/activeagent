@@ -394,4 +394,10 @@ the judge's: `replays` (or `samples`, for a sampling run), `cost`,
 `per_interaction`, tokens and timing on the agent's side — what the
 interactions cost to serve — and `judge` (`calls`, tokens, `cost`, `model`,
 `by_kind`) for the judge model's own calls, present only when a judge was
-asked. The index adds `run_count` and a `previous_run` summary per evaluation.
+asked. `priced` and `unpriced` count the interactions that did and did not
+carry a cost estimate: `cost` sums the priced ones, `per_interaction` is over
+them, and both are absent when nothing was priced. A scenario run's
+per-model summaries under `scores._models` carry `priced` for each model
+too. The dashboard shows a partial cost as an estimate with the priced
+count. The index adds `run_count`
+and a `previous_run` summary per evaluation.

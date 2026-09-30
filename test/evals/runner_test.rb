@@ -404,6 +404,61 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     end
   end
 
+  # Two refund scenarios both models answer the same way.
+  def refund_scenarios
+    [ scenario("tickets_1", "Which open tickets mention a refund?", group: "tickets"),
+      scenario("tickets_3", "Which open tickets mention a refund?", group: "tickets") ]
+  end
+
+  def test_the_verdict_compares_cost_per_priced_scenario_so_an_unpriced_replay_does_not_look_free
+    # Both models pass everything. gpt-5-mini is priced on both scenarios at
+    # $0.001 each; qwen3:8b is priced on one at $0.0015 and not on the
+    # other, so its summed cost is lower while each priced replay costs more.
+    replay = lambda do |scenario, spec|
+      cost = if spec.provider == "openai" then 0.001
+      elsif scenario.key == "tickets_1" then 0.0015
+      end
+      Replay.new(answer: "12 refund requests match.", cost: cost)
+    end
+    specs = ActiveAgent::Evals::ModelSpec.parse_all(%w[qwen3:8b gpt-5-mini], default_provider: "openai")
+    report = ActiveAgent::Evals::Runner.new(scenarios: refund_scenarios, models: specs, criteria: CRITERIA, replay: replay).call
+    summary = report.summary_by_model
+
+    assert_equal 4, report.results.count(&:passed?)
+    assert_equal [ 2, 0.002 ], summary["gpt-5-mini"].values_at("priced", "cost")
+    assert_equal [ 1, 0.0015 ], summary["qwen3:8b"].values_at("priced", "cost")
+    assert_equal "gpt-5-mini", report.winner
+    assert_equal "Passed 2 of 2 scenarios with a mean score of 1.0 at an estimated $0.0020.", report.verdict["rationale"]
+  end
+
+  def test_a_partially_priced_model_says_so_in_the_verdict_the_judge_prompt_and_the_markdown
+    replay = lambda do |scenario, spec|
+      return Replay.new(answer: "") unless spec.provider == "openai"
+
+      Replay.new(answer: "12 refund requests match.", cost: scenario.key == "tickets_1" ? 0.001 : nil)
+    end
+    verdict_prompts = []
+    judge = fake_judge do |_instructions, prompt|
+      verdict_prompts << prompt if prompt.include?("Results per model")
+      '{"score": 0.9}'
+    end
+    specs = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini qwen3:8b], default_provider: "openai")
+    report = ActiveAgent::Evals::Runner.new(scenarios: refund_scenarios, models: specs, criteria: CRITERIA, replay: replay).call
+
+    assert_equal "gpt-5-mini", report.winner
+    assert_equal "Passed 2 of 2 scenarios with a mean score of 1.0 at an estimated $0.0010 (1 of 2 scenarios priced).",
+                 report.verdict["rationale"]
+    assert_includes report.to_markdown, "| $0.0010 (1 of 2 scenarios priced) |"
+    assert_includes report.to_markdown, "| — (0 of 2 scenarios priced) |"
+
+    judged = ActiveAgent::Evals::Report.new(results: report.results, models: specs, judge: judge)
+    judged.verdict
+    assert_equal 1, verdict_prompts.size
+    assert_includes verdict_prompts.first, "gpt-5-mini: pass rate 100.0%"
+    assert_includes verdict_prompts.first, "cost $0.001 (1 of 2 scenarios priced)"
+    assert_no_match(/0 of 2 scenarios priced/, verdict_prompts.first, "a model with no cost is not called partially priced")
+  end
+
   def test_a_prompt_containing_a_pipe_does_not_break_the_markdown_matrix
     piped = [ scenario("s_1", "Compare A | B for price", group: "compare") ]
     report = ActiveAgent::Evals::Runner.new(scenarios: piped, models: models.first(1), replay: ->(*) { Replay.new(answer: "ok") }).call

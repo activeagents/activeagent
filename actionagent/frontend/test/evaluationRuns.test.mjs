@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   criterionExpectation, criterionGroup, criterionLabel, judgeCallsText, judgeLabel, keepSandboxChoice, modelScorecard,
-  runCohorts, runDelta, runLabel, runNumber, runRequestBody, runSandboxLabel, runSandboxOptions, runSpend, runsMeta,
-  samplingFixItems, sandboxLabel, spendSummary,
+  costPer, pricedCount, pricingNote, runCohorts, runDelta, runLabel, runNumber, runRequestBody, runSandboxLabel, runSandboxOptions,
+  runSpend, runsMeta, samplingFixItems, sandboxLabel, spendSummary, spendTotalLabel,
 } from '../utils/evaluationRuns.mjs';
 
 const sampling = {
@@ -63,6 +63,32 @@ test('cohorts read the same shape from a sampling run and a scenario run', () =>
   assert.deepEqual(bare.map((c) => [c.label, c.samples, c.passed]), [[null, 20, 14]]);
 });
 
+test('a cohort counts the interactions it priced, and a summary recorded before it did counts them all', () => {
+  const replayed = runCohorts({ scores: { _models: {
+    partial: { scenarios: 5, passed: 5, cost: 0.03, priced: 3 },
+    none: { scenarios: 5, passed: 5, cost: null, priced: 0 },
+    older: { scenarios: 5, passed: 5, cost: 0.05 },
+  } } });
+  assert.deepEqual(replayed.map((c) => [c.label, c.priced]), [['partial', 3], ['none', 0], ['older', 5]]);
+
+  const sampled = runCohorts({ scores: { _cohorts: { 'gpt-4o-mini': { samples: 12, cost: 0.0006, priced: 10 }, unknown: { samples: 8, cost: null } } } });
+  assert.deepEqual(sampled.map((c) => [c.label, c.priced]), [['gpt-4o-mini', 10], ['unknown', 0]]);
+
+  assert.equal(pricedCount(null, 5), null);
+  assert.equal(costPer(0.03, 3), 0.01);
+  assert.equal(costPer(0.03, 0), null);
+  assert.equal(costPer(null, 3), null);
+});
+
+test('a cost reads as estimated when only some interactions were priced', () => {
+  assert.equal(pricingNote(3, 5, 'replay'), 'estimated, 3 of 5 replays priced');
+  assert.equal(pricingNote(0, 5, 'replay'), '0 of 5 replays priced');
+  assert.equal(pricingNote(0, 1, 'scenario'), '0 of 1 scenario priced');
+  assert.equal(pricingNote(5, 5, 'replay'), null);
+  assert.equal(pricingNote(null, 5, 'replay'), null);
+  assert.equal(pricingNote(0, 0, 'replay'), null);
+});
+
 test('a scorecard counts the criteria a model cleared, missed and skipped', () => {
   const run = { scores: {
     latency: { a: { score: 1.0 }, b: { score: 0.62 } },
@@ -116,6 +142,39 @@ test('spend keeps the agent side apart from the judge side', () => {
   assert.equal(runSpend({}), null);
 });
 
+test('a partially priced run spreads its cost over the priced interactions only', () => {
+  const partial = runSpend({ usage: { replays: 5, priced: 3, unpriced: 2, cost: 0.03, per_interaction: 0.01 } });
+  assert.equal(partial.agent.count, 5);
+  assert.equal(partial.agent.priced, 3);
+  assert.equal(partial.agent.perInteraction, 0.01);
+
+  // Without the API's rate, the same division is made here.
+  const derived = runSpend({ usage: { samples: 4, priced: 2, cost: 0.004 } });
+  assert.equal(derived.agent.perInteraction, 0.002);
+
+  const none = runSpend({ usage: { replays: 2, priced: 0, unpriced: 2, input_tokens: 200 } });
+  assert.equal(none.agent.cost, null);
+  assert.equal(none.agent.priced, 0);
+  assert.equal(none.agent.perInteraction, null);
+  assert.equal(none.total, null);
+
+  // A usage recorded before the counts: a cost covers every interaction.
+  assert.equal(runSpend({ usage: { replays: 8, cost: 0.44 } }).agent.priced, 8);
+});
+
+test('the total says which sides it sums, and when the agent side is partial or missing', () => {
+  const judge = { calls: 3, cost: 0.004, by_kind: {} };
+  const label = (usage) => spendTotalLabel(runSpend({ usage }));
+  assert.equal(label({ replays: 5, priced: 5, cost: 0.05, judge }), 'agent + judge');
+  assert.equal(label({ replays: 5, priced: 5, cost: 0.05 }), 'agent only');
+  assert.equal(label({ judge }), 'judge only');
+  assert.equal(label({ replays: 5, priced: 3, cost: 0.03, judge }), 'agent + judge · estimated');
+  assert.equal(label({ samples: 20, priced: 10, cost: 0.0006 }), 'agent only · estimated');
+  assert.equal(label({ replays: 2, priced: 0, judge }), 'judge only · agent unpriced');
+  assert.equal(label({ replays: 2, priced: 0 }), 'agent unpriced');
+  assert.equal(label({ replays: 8, cost: 0.44 }), 'agent only', 'a usage recorded before the counts is fully priced');
+});
+
 test('the page rate is the agent cost over every interaction on the page', () => {
   const summary = spendSummary([
     { usage: { replays: 8, cost: 0.44, judge: { calls: 24, cost: 0.12, by_kind: {} } } },
@@ -128,7 +187,20 @@ test('the page rate is the agent cost over every interaction on the page', () =>
   assert.ok(Math.abs(summary.agentCost - 0.4458) < 1e-9);
   assert.ok(Math.abs(summary.perInteraction - 0.4458 / 28) < 1e-9);
   assert.equal(summary.judgeCost, 0.12);
-  assert.deepEqual(spendSummary([]), { agentCost: null, interactions: 0, perInteraction: null, judgeCost: null, priced: 0 });
+  assert.deepEqual(spendSummary([]), { agentCost: null, interactions: 0, pricedInteractions: 0, perInteraction: null, judgeCost: null, priced: 0 });
+});
+
+test('the page rate is over the priced interactions when some went unpriced', () => {
+  const summary = spendSummary([
+    { usage: { replays: 5, priced: 3, unpriced: 2, cost: 0.03 } },
+    { usage: { samples: 4, priced: 0, unpriced: 4 } },
+    { usage: { samples: 2, priced: 2, unpriced: 0, cost: 0.01 } },
+  ]);
+  assert.equal(summary.interactions, 11);
+  assert.equal(summary.pricedInteractions, 5);
+  assert.ok(Math.abs(summary.agentCost - 0.04) < 1e-9);
+  assert.ok(Math.abs(summary.perInteraction - 0.04 / 5) < 1e-9);
+  assert.equal(pricingNote(summary.pricedInteractions, summary.interactions, 'interaction'), 'estimated, 5 of 11 interactions priced');
 });
 
 test('a sampling run asks to fix what its own data says', () => {

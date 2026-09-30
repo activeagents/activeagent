@@ -49,7 +49,9 @@ module ActiveAgent
       end
 
       # Per model, keyed by label: scenario count, passes, errors, pass rate,
-      # mean score, mean latency, tokens, cost and fault counts.
+      # mean score, mean latency, tokens, cost and fault counts. "cost" sums
+      # the replays that carried a cost — "priced" of the "scenarios" — and
+      # is nil when none did.
       def summary_by_model
         @summary_by_model ||= @models.to_h do |spec|
           cohort = @results.select { |result| result.label == spec.label }
@@ -71,6 +73,7 @@ module ActiveAgent
             "input_tokens" => cohort.sum { |result| result.replay.input_tokens.to_i },
             "output_tokens" => cohort.sum { |result| result.replay.output_tokens.to_i },
             "cost" => costs.any? ? costs.sum.to_f.round(6) : nil,
+            "priced" => costs.size,
             "faults" => cohort.filter_map(&:fault).tally
           } ]
         end
@@ -126,8 +129,8 @@ module ActiveAgent
 
       # The best model when comparing: the verdict the run recorded when one
       # was handed in, else highest pass rate, then mean score, then lowest
-      # cost (a model with no cost estimate ranks after one with), with the
-      # judge's rationale when one is available.
+      # cost per priced scenario (a model with no cost estimate ranks after
+      # one with), with the judge's rationale when one is available.
       # `{ "winner", "rationale", "judge" }`, or nil for a single model.
       def verdict
         return @recorded_verdict if @recorded_verdict
@@ -135,12 +138,13 @@ module ActiveAgent
 
         @verdict ||= begin
           ranked = summary_by_model.sort_by do |_label, stats|
-            [ -stats["pass_rate"].to_f, -stats["avg_score"].to_f, stats["cost"] || Float::INFINITY ]
+            [ -stats["pass_rate"].to_f, -stats["avg_score"].to_f, cost_per_priced(stats) || Float::INFINITY ]
           end
           winner, stats = ranked.first
+          cost = " at an estimated $#{format('%.4f', stats['cost'])}" if stats["cost"]
+          cost = "#{cost} (#{pricing_note(stats)})" if cost && pricing_note(stats)
           rationale = "Passed #{stats['passed']} of #{stats['scenarios']} scenarios" \
-            "#{" with a mean score of #{stats['avg_score']}" if stats['avg_score']}" \
-            "#{" at an estimated $#{format('%.4f', stats['cost'])}" if stats['cost']}."
+            "#{" with a mean score of #{stats['avg_score']}" if stats['avg_score']}#{cost}."
           judged = @judge&.verdict(summary_by_model, instructions: @instructions)
 
           {
@@ -188,6 +192,22 @@ module ActiveAgent
       end
 
       private
+
+      # "3 of 5 scenarios priced" for a model summary whose cost covers only
+      # some of its replays; nil when every replay was priced.
+      def pricing_note(stats)
+        priced = stats["priced"]
+        total = stats["scenarios"].to_i
+        return nil if priced.nil? || priced >= total
+
+        "#{priced} of #{total} scenario#{'s' unless total == 1} priced"
+      end
+
+      # A model's cost per priced replay, nil when none was priced.
+      def cost_per_priced(stats)
+        priced = stats["priced"].to_i
+        stats["cost"].to_f / priced if stats["cost"] && priced.positive?
+      end
 
       def criterion_keys
         @results.flat_map { |result| result.scores.keys }.uniq
@@ -386,6 +406,7 @@ module ActiveAgent
           faults = stats["faults"].map { |fault, count| "#{fault.tr('_', ' ')} ×#{count}" }.join(", ")
           latency = stats["avg_duration_ms"] ? "#{stats['avg_duration_ms']} ms" : "—"
           cost = stats["cost"] ? format("$%.4f", stats["cost"]) : "—"
+          cost = "#{cost} (#{pricing_note(stats)})" if pricing_note(stats)
           "| `#{label}` | #{stats['pass_rate']}% | #{stats['passed']}/#{stats['scenarios']} | #{stats['avg_score'] || '—'} | " \
             "#{latency} | #{stats['input_tokens']}/#{stats['output_tokens']} | #{cost} | #{faults.presence || '—'} |"
         end
