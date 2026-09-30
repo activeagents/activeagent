@@ -10,10 +10,10 @@ The RubyLLM provider gives your agents access to 15+ LLM providers through [Ruby
 
 ### Installation
 
-The provider supports ruby_llm 1.x. ruby_llm 2.0 renamed the APIs it calls, so pin the major version:
+The provider supports ruby_llm 1.16 and 2.x. The minimum version prevents Bundler from selecting old releases such as 1.2, which lack the provider APIs the adapter needs:
 
 ```bash
-bundle add ruby_llm --version "~> 1.0"
+bundle add ruby_llm --version ">= 1.16, < 3"
 ```
 
 ### Basic Setup

@@ -43,12 +43,14 @@ class RubyLLMProviderLoadingTest < ActiveSupport::TestCase
     assert_equal ActiveAgent::Providers::RubyLLMProvider, klass
   end
 
-  test "supports ruby_llm 1.x and refuses 2.0" do
+  test "supports ruby_llm 1.16 and 2.x but refuses older and future major versions" do
     requirement = Gem::Requirement.new(GEM_LOADERS.fetch(:ruby_llm)[1])
 
-    assert requirement.satisfied_by?(Gem::Version.new("1.0.0"))
+    assert_not requirement.satisfied_by?(Gem::Version.new("1.2.0"))
+    assert_not requirement.satisfied_by?(Gem::Version.new("1.15.0"))
     assert requirement.satisfied_by?(Gem::Version.new("1.16.0"))
-    assert_not requirement.satisfied_by?(Gem::Version.new("2.0.0"))
+    assert requirement.satisfied_by?(Gem::Version.new("2.0.0"))
+    assert_not requirement.satisfied_by?(Gem::Version.new("3.0.0"))
   end
 
   # A Rails app's Bundler.require loads ruby_llm at boot, before any agent
