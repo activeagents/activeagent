@@ -418,6 +418,45 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
     end
   end
 
+  test "preserves early cache writes when later Chat Completions usage only reports output" do
+    skip_unless_ruby_llm_2!("Chat Completions cache write counts")
+    stream = STREAMS.first
+    pin_protocol(stream)
+    body = stream.events(
+      { model: stream.model, choices: [ { index: 0, delta: { content: "Hello." } } ],
+        usage: { prompt_tokens: 12, prompt_tokens_details: { cache_write_tokens: 5 } } },
+      { model: stream.model, choices: [ { index: 0, delta: {}, finish_reason: "stop" } ],
+        usage: { completion_tokens: 4 } }
+    ) + "data: [DONE]\n\n"
+    stub_streams(stream.endpoint, body)
+
+    usage = streaming_provider(stream).prompt.usage
+
+    assert_equal 7, usage.input_tokens
+    assert_equal 4, usage.output_tokens
+    assert_equal 5, usage.cache_creation_tokens
+  end
+
+  test "updates positive cumulative cache writes and starts a fresh count on each tool turn" do
+    counts = ->(**attributes) {
+      ::RubyLLM::Chunk.new(role: :assistant, content: nil, **ruby_llm_token_attributes(**attributes))
+    }
+    scripted = ScriptedProvider.new(
+      [ tool_chunk(0, id: "call_1", name: "get_weather", arguments: '{"city":"Boston"}'),
+        counts.call(input: 10, cache_write: 5), counts.call(cache_write: 9), counts.call(output: 3, cache_write: 0) ],
+      [ ::RubyLLM::Chunk.new(role: :assistant, content: "Done."), counts.call(input: 7, output: 2, cache_write: 0) ]
+    )
+
+    with_ruby_llm_provider(scripted) do
+      response = streaming_provider(ANTHROPIC_STREAM).prompt
+
+      assert_equal 17, response.usage.input_tokens
+      assert_equal 5, response.usage.output_tokens
+      assert_equal 9, response.usage.cache_creation_tokens
+      assert_equal [ 9, 0 ], response.usages.map(&:cache_creation_tokens)
+    end
+  end
+
   test "preserves a streamed token limit stop after a trailing chunk without metadata" do
     skip_unless_ruby_llm_2!("Chunk#finish_reason")
     scripted = ScriptedProvider.new([
