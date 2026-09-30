@@ -115,6 +115,32 @@ end
 
 Valid values are RubyLLM's provider keys — `:openai`, `:anthropic`, `:gemini`, `:vertexai`, `:bedrock`, `:openrouter`, `:ollama`, and so on. Omitting `platform:` keeps RubyLLM's automatic model-based routing. The option applies to embeddings as well as prompts.
 
+### Choosing the OpenAI Protocol
+
+RubyLLM talks to OpenAI over more than one wire protocol. ruby_llm 1.16 used Chat Completions (`POST /v1/chat/completions`). **ruby_llm 2.x defaults to the [Responses API](https://platform.openai.com/docs/api-reference/responses)** (`POST /v1/responses`), so updating the gem moves your OpenAI requests to a different endpoint. ActiveAgent leaves that default alone.
+
+A server that speaks only Chat Completions may not implement `/v1/responses`. That includes OpenAI-compatible servers you reach through `openai_api_base`. Set `protocol:` to keep an agent on Chat Completions; it maps to RubyLLM's own `protocol:` option:
+
+```ruby
+class ProxiedAgent < ApplicationAgent
+  generate_with :ruby_llm, model: "gpt-4o-mini", protocol: :chat_completions
+end
+```
+
+Or in `config/active_agent.yml`:
+
+```yaml
+production:
+  ruby_llm:
+    service: "RubyLLM"
+    model: "gpt-4o-mini"
+    protocol: "chat_completions"
+```
+
+To change it for every agent, set it on RubyLLM instead: `config.openai_protocol = :chat_completions` in `RubyLLM.configure`. A `protocol:` on an agent wins over that setting.
+
+Valid values are the protocol names of the RubyLLM provider that serves the model. For OpenAI those are `:responses` and `:chat_completions`; a name the provider doesn't have raises RubyLLM's error, which lists the ones it does. The option applies to prompts, not embeddings. It needs ruby_llm 2.x, because 1.16 has no other protocol to choose: with 1.16 installed the provider raises `ArgumentError` instead of ignoring it.
+
 ## Provider-Specific Parameters
 
 ### Required Parameters
@@ -124,11 +150,12 @@ Valid values are RubyLLM's provider keys — `:openai`, `:anthropic`, `:gemini`,
 ### Routing Parameters
 
 - **`platform`** - Pins which RubyLLM provider serves the model (maps to RubyLLM's `provider:`), e.g. `:vertexai` for Gemini models on Vertex AI. See [Pinning the Platform](#pinning-the-platform)
+- **`protocol`** - Pins which wire protocol carries the request (maps to RubyLLM's `protocol:`), e.g. `:chat_completions` for OpenAI. Needs ruby_llm 2.x. See [Choosing the OpenAI Protocol](#choosing-the-openai-protocol)
 
 ### Sampling Parameters
 
 - **`temperature`** - Controls randomness (0.0 to 1.0)
-- **`max_tokens`** - Maximum number of tokens to generate (passed via RubyLLM's `params:` merge)
+- **`max_tokens`** - Maximum number of tokens to generate (sent as RubyLLM's `max_output_tokens:` on ruby_llm 2.x, and merged into the request through `params:` on 1.16)
 
 ### Client Configuration
 

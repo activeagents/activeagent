@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `reasoning_tokens` when RubyLLM counted them, and a response that calls
   tools reports `tool_use` as its `finish_reason` however the API ends it;
   OpenAI's Responses API ends one with `stop` (#502).
+- **A `protocol:` option for the RubyLLM provider** (`activeagent`). Pins
+  which wire protocol carries a request, as RubyLLM's own `protocol:` does:
+  `:chat_completions` or `:responses` for OpenAI. Set it in `generate_with`
+  or `config/active_agent.yml`, beside `platform:`. ruby_llm 2.x sends OpenAI
+  chat to the Responses API (`/v1/responses`) where 1.16 used Chat
+  Completions, and an OpenAI-compatible server behind `openai_api_base` may
+  not implement it; `protocol: :chat_completions` keeps an agent on the old
+  endpoint, and `config.openai_protocol` in `RubyLLM.configure` keeps every
+  agent there. The option needs ruby_llm 2.x; with 1.16, which has no other
+  protocol to choose, it raises `ArgumentError` rather than being ignored
+  (#502).
 
 ### Fixed
 
