@@ -448,6 +448,21 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_not_includes html, "<script"
   end
 
+  # gpt-5-mini's replays carry a cost on 1 of 5 scenarios, llama's on none.
+  def test_a_partially_priced_model_is_priced_per_priced_scenario_and_says_how_many_were
+    summary = report.summary_by_model
+    assert_equal [ 1, 0.0012 ], summary[gpt.label].values_at("priced", "cost")
+    assert_equal [ 0, nil ], summary[llama.label].values_at("priced", "cost")
+
+    html = report.to_html
+    table = html[%r{<div class="compare">(.*?)</table></div>}m, 1]
+    gpt_row = table[%r{<tr>\s*<td class="model-cell"><span class="name">gpt-5-mini</span>.*?</tr>}m]
+    assert_includes gpt_row, %($0.0012<span class="per">$0.0012/scenario</span><span class="per">1 of 5 scenarios priced</span>)
+    llama_row = table[%r{<tr>\s*<td class="model-cell"><span class="name">llama-3.1-8b</span>.*?</tr>}m]
+    assert_includes llama_row, %(<td class="num">—<span class="per">0 of 5 scenarios priced</span></td>)
+    assert_includes html, "cost <b>$0.0012</b> · 1 of 5 scenarios priced</span>"
+  end
+
   def test_html_of_a_single_model_run_has_no_comparison_table_or_filter
     html = report(models: models.first(1), results: results.select { |r| r.label == models.first.label }).to_html
 

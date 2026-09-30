@@ -5,7 +5,7 @@ import { fmtMs, fmtScore, splitModelLabel, timeAgo } from '../../../utils/format
 import {
   modelComparisonRows,
   CRITERION_GROUPS, PASS_THRESHOLD, cellStats, criterionEntries, criterionExpectation, criterionGroup, criterionLabel,
-  findCriterion, modelScorecard, plural, runCohorts, runLabel, runModels, runNumber, runSpend,
+  costPer, findCriterion, modelScorecard, plural, pricingNote, runCohorts, runLabel, runModels, runNumber, runSpend,
   samplingFixItems, truncate,
 } from '../../../utils/evaluationRuns.mjs';
 import ModelScorecard from './ModelScorecard';
@@ -247,7 +247,8 @@ export default function EvaluationRunDetail({
                 inputTokens={cohort?.input_tokens}
                 outputTokens={cohort?.output_tokens}
                 cost={cohort?.cost}
-                perInteraction={cohort?.cost != null && samples ? cohort.cost / samples : null}
+                perInteraction={costPer(cohort?.cost, cohort?.priced)}
+                pricing={pricingNote(cohort?.priced, cohort?.samples, 'interaction')}
                 unit="interaction"
                 badges={badges}
               />
