@@ -67,11 +67,13 @@ The report renders three ways: `to_markdown` for terminals and PR comments,
 (inline styles, no external assets) on the dashboard's design system that you
 can archive next to a CI run or hand to a teammate, the way a test suite
 publishes its report. It carries the same reading the dashboard's suite card
-does: stat tiles, a panel per model with the judge's pick and the verdict,
-the what-to-fix cards, the scenario × model matrix, and a disclosure per
-scenario holding every answer. `theme:` is its only argument — `"light"` or
-`"dark"` pins the palette, nil follows the viewer's system preference. It is
-the same page the dashboard serves at
+does, in the same order: stat tiles, a panel per model with the judge's pick
+and the verdict, the scenario × model matrix, a disclosure per scenario
+holding every answer, and then the what-to-fix cards. The Markdown follows
+the same order: the model table, the matrix, every answer, then the
+recommendations. `theme:` is its only argument — `"light"` or `"dark"` pins
+the palette, nil follows the viewer's system preference. It is the same page
+the dashboard serves at
 `/api/evaluations/:id/runs/:run_id/report`.
 
 `SupportAgent.evaluate` is whatever runs your agent and returns an

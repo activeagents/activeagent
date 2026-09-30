@@ -268,6 +268,30 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, %(<div class="action"><span class="hint">MCP Services -&gt;</span></div>)
   end
 
+  def test_html_reads_models_then_the_scenario_results_then_what_to_fix
+    html = report(tool_resolver: resolver, links: LINKS).to_html
+    heads = [ "Models", "Scenarios", "Details", "What to fix" ].map { |name| html.index(%(<span class="micro">#{name}</span>)) }
+
+    assert_not_includes heads, nil, "every section renders"
+    assert_equal heads.sort, heads, "What to fix follows the scenario matrix and the per-scenario details"
+  end
+
+  def test_markdown_reads_models_then_the_scenario_results_then_the_recommendations
+    markdown = report.to_markdown
+    heads = [ "| Model |", "| Scenario |", "## Answers", "## Recommendations" ].map { |head| markdown.index(head) }
+
+    assert_not_includes heads, nil, "every section renders"
+    assert_equal heads.sort, heads, "the recommendations follow the scenario matrix and the answers"
+  end
+
+  def test_markdown_sets_the_recommendations_off_by_one_blank_line_and_ends_with_a_newline
+    markdown = report.to_markdown
+
+    assert_includes markdown, "\n\n## Recommendations\n", "a blank line precedes the recommendations"
+    assert_not_includes markdown, "\n\n\n## Recommendations", "only one blank line precedes the recommendations"
+    assert markdown.end_with?("\n"), "the report ends with a newline"
+  end
+
   def test_html_matrix_colors_calls_against_expectations_and_links_to_the_details
     html = report.to_html
 
