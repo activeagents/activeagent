@@ -29,6 +29,10 @@ class RubyLLMWireFormatTest < ActiveSupport::TestCase
 
   setup do
     @original_keys = RubyLLM.config.openai_api_key, RubyLLM.config.anthropic_api_key
+    if RubyLLM.config.respond_to?(:openai_protocol)
+      @original_openai_protocol = RubyLLM.config.openai_protocol
+      RubyLLM.config.openai_protocol = :chat_completions
+    end
     RubyLLM.configure do |config|
       config.openai_api_key = "test-openai-key"
       config.anthropic_api_key = "test-anthropic-key"
@@ -37,6 +41,7 @@ class RubyLLMWireFormatTest < ActiveSupport::TestCase
 
   teardown do
     RubyLLM.config.openai_api_key, RubyLLM.config.anthropic_api_key = @original_keys
+    RubyLLM.config.openai_protocol = @original_openai_protocol if RubyLLM.config.respond_to?(:openai_protocol)
   end
 
   # --- Tool calls ---
@@ -190,6 +195,110 @@ class RubyLLMWireFormatTest < ActiveSupport::TestCase
     assert_not_requested stub
   end
 
+  test "sends max_tokens using the installed RubyLLM API for OpenAI and Anthropic" do
+    [ [ OPENAI_ENDPOINT, "gpt-4o-mini", openai_response(content: "hello") ],
+      [ ANTHROPIC_ENDPOINT, "claude-haiku-4-5", anthropic_response(content: [ { type: "text", text: "hello" } ]) ] ].each do |endpoint, model, response|
+      bodies = stub_responses(endpoint, response)
+
+      provider = greeting_provider(model: model, response_format: nil)
+      provider.send(:options).max_tokens = 321
+      provider.prompt
+
+      field = endpoint == OPENAI_ENDPOINT && RubyLLM::VERSION.to_i >= 2 ? "max_completion_tokens" : "max_tokens"
+      assert_equal 321, bodies.last[field], "token limit for #{model}"
+    end
+  end
+
+  test "embeds through the real RubyLLM provider with the resolved model" do
+    bodies = stub_responses("https://api.openai.com/v1/embeddings",
+      { object: "list", model: "text-embedding-3-small",
+        data: [ { object: "embedding", index: 0, embedding: [ 0.1, 0.2, 0.3 ] } ],
+        usage: { prompt_tokens: 2, total_tokens: 2 } })
+
+    response = ActiveAgent::Providers::RubyLLMProvider.new(
+      service: "RubyLLM", model: "text-embedding-3-small", input: "hello", dimensions: 3
+    ).embed
+
+    assert_equal [ 0.1, 0.2, 0.3 ], response.data.first[:embedding]
+    assert_equal "text-embedding-3-small", bodies.last["model"]
+    assert_equal 3, bodies.last["dimensions"]
+  end
+
+  test "preserves token usage from the real RubyLLM response" do
+    stub_responses(OPENAI_ENDPOINT, openai_response(content: "hello"))
+
+    response = greeting_provider(model: "gpt-4o-mini", response_format: nil).prompt
+
+    assert_equal 12, response.usage.input_tokens
+    assert_equal 4, response.usage.output_tokens
+  end
+
+  test "RubyLLM 2 Responses protocol replays tools and preserves schema and token limits" do
+    skip "Responses protocol was added in RubyLLM 2" unless RubyLLM.config.respond_to?(:openai_protocol)
+    RubyLLM.config.openai_protocol = :responses
+    bodies = stub_responses("https://api.openai.com/v1/responses",
+      { id: "resp_tool", status: "completed", model: "gpt-4o-mini", output: [
+        { type: "function_call", id: "fc_1", call_id: "call_1", name: "get_weather", arguments: '{"city":"Boston"}' }
+      ], usage: { input_tokens: 12, output_tokens: 4 } },
+      { id: "resp_final", status: "completed", model: "gpt-4o-mini", output: [
+        { type: "message", role: "assistant", content: [ { type: "output_text", text: '{"text":"sunny"}' } ] }
+      ], usage: { input_tokens: 16, output_tokens: 6 } })
+
+    provider = weather_provider(model: "gpt-4o-mini", max_tokens: 321,
+      response_format: { type: "json_schema", json_schema: { name: "greeting", schema: GREETING_SCHEMA } })
+    response = provider.prompt
+
+    assert_equal '{"text":"sunny"}', response.messages.last.content
+    assert_equal 321, bodies.first["max_output_tokens"]
+    assert_equal GREETING_SCHEMA.deep_stringify_keys, bodies.first.dig("text", "format", "schema")
+    assert_equal "greeting", bodies.first.dig("text", "format", "name")
+    replay = bodies.last["input"].find { |item| item["type"] == "function_call" }
+    assert_equal "call_1", replay["call_id"]
+    assert_equal({ "city" => "Boston" }, JSON.parse(replay["arguments"]))
+    assert_equal "end_turn", response.raw_response[:stop_reason]
+  end
+
+  test "RubyLLM 2 reports token exhaustion instead of a normal stop" do
+    skip "finish_reason was added in RubyLLM 2" unless RubyLLM::VERSION.to_i >= 2
+    reply = openai_response(content: "partial")
+    reply[:choices].first[:finish_reason] = "length"
+    stub_responses(OPENAI_ENDPOINT, reply)
+
+    response = greeting_provider(model: "gpt-4o-mini", response_format: nil).prompt
+
+    assert_equal "max_tokens", response.raw_response[:stop_reason]
+  end
+
+  test "RubyLLM 2 joins streamed tool deltas by index when later chunks omit the id" do
+    skip "RubyLLM 2 keys streaming deltas by index" unless RubyLLM::VERSION.to_i >= 2
+    stream = lambda do |deltas|
+      deltas.map { |delta|
+        "data: #{ { model: 'gpt-4o-mini', choices: [ { index: 0, delta: delta } ] }.to_json}\n\n"
+      }.join + "data: [DONE]\n\n"
+    end
+    bodies = []
+    replies = [
+      stream.call([
+        { tool_calls: [ { index: 0, id: "call_1", type: "function", function: { name: "get_weather", arguments: '{"city":' } } ] },
+        { tool_calls: [ { index: 0, function: { arguments: '"Boston"}' } } ] }
+      ]),
+      stream.call([ { content: "Sunny." } ])
+    ]
+    stub_request(:post, OPENAI_ENDPOINT).to_return do |request|
+      bodies << JSON.parse(request.body)
+      { status: 200, headers: { "Content-Type" => "text/event-stream" }, body: replies.shift }
+    end
+    calls = []
+    response = weather_provider(model: "gpt-4o-mini", stream: true, stream_broadcaster: ->(*) { },
+      tools_function: ->(name, **arguments) { calls << [ name, arguments ]; { temp: 72 } }).prompt
+
+    assert_equal [ [ "get_weather", { city: "Boston" } ] ], calls
+    assert_equal "Sunny.", response.messages.last.content
+    replay = bodies.last["messages"].find { |message| message["tool_calls"] }
+    assert_equal "call_1", replay.dig("tool_calls", 0, "id")
+    assert_equal '{"city":"Boston"}', replay.dig("tool_calls", 0, "function", "arguments")
+  end
+
   private
 
   def greeting_provider(model:, response_format:)
@@ -201,13 +310,14 @@ class RubyLLMWireFormatTest < ActiveSupport::TestCase
     )
   end
 
-  def weather_provider(model:)
+  def weather_provider(model:, **options)
     ActiveAgent::Providers::RubyLLMProvider.new(
       service: "RubyLLM",
       model: model,
       messages: [ { role: "user", content: "Weather in Boston?" } ],
       tools: [ WEATHER_TOOL ],
-      tools_function: ->(_name, **_arguments) { { temp: 72 } }
+      tools_function: ->(_name, **_arguments) { { temp: 72 } },
+      **options
     )
   end
 

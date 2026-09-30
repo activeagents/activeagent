@@ -1,0 +1,4 @@
+eval_gemfile "rails8.gemfile"
+
+# Keep the 1.x adapter covered while the other jobs resolve RubyLLM 2.x.
+gem "ruby_llm", "~> 1.16"

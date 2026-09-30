@@ -27,6 +27,11 @@ module ActiveAgent
           {}
         end
 
+        # RubyLLM 2 names for the same tool interface.
+        alias_method :parameters_schema, :params_schema
+        alias_method :declared_parameters, :parameters
+        alias_method :provider_options, :provider_params
+
         private
 
         def deep_stringify(obj)

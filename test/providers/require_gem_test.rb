@@ -28,6 +28,18 @@ class RequireGemTest < ActiveSupport::TestCase
     end
   end
 
+  test "checks every bound and gives an installable Gemfile declaration for a version range" do
+    loaded = Gem.loaded_specs.fetch("minitest").version
+
+    with_gem_loader(:unsupported, [ "minitest", [ ">= 99", "< 100" ], "minitest" ]) do
+      error = assert_raises(LoadError) { require_gem!(:unsupported, "lib/example_provider.rb") }
+
+      assert_equal "ExampleProvider supports the 'minitest' gem >= 99, < 100, but #{loaded} is loaded. " \
+                   "Add `gem \"minitest\", \">= 99\", \"< 100\"` to your Gemfile and run `bundle update minitest`.",
+                   error.message
+    end
+  end
+
   private
 
   def with_gem_loader(key, loader)
