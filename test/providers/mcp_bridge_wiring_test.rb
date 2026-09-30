@@ -204,6 +204,25 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
     end
   end
 
+  # Discovery connects to the servers while the request is still being built, so
+  # a failure in between would otherwise strand every connection it opened.
+  test "releases the bridge when the request cannot be built" do
+    with_bridge do |bridge|
+      closes = track_close(bridge)
+
+      failing = Object.new
+      failing.define_singleton_method(:cast) { |*| raise "cannot build the request" }
+
+      subject = provider(DeepSeekProvider, mcps: URL_SERVER)
+      subject.define_singleton_method(:prompt_request_type) { failing }
+
+      error = assert_raises(RuntimeError) { subject.prompt }
+
+      assert_equal "cannot build the request", error.message
+      assert_equal 1, closes.size, "the connection was opened before the request, so it must still be released"
+    end
+  end
+
   private
 
   # Builds a provider whose `mcps:` partitioning is then exercised directly. No
