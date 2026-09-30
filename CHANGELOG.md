@@ -38,8 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Usage and stop reasons in RubyLLM streams** (`activeagent`). Streaming
   preserves the final stop reason and token counts, including counts sent
   across separate chunks. Cumulative counts are merged within a turn and
-  summed across tool turns. Cache-only and reasoning-only usage is also
-  preserved when input and output counts are absent (#502).
+  summed across tool turns. A later chunk that omits cache writes no longer
+  erases an earlier count with RubyLLM's synthetic zero. Cache-only and
+  reasoning-only usage is also preserved when input and output counts are
+  absent (#502).
 - **Streamed tool calls through the RubyLLM provider** (`activeagent`).
   An API streams a tool call's arguments as fragments of one JSON string,
   and only the first fragment says which call it belongs to. The provider

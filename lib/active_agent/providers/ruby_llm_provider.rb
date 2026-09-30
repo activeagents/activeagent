@@ -185,7 +185,11 @@ module ActiveAgent
         # and output at the end). They are cumulative for this turn, so merge
         # reported fields rather than adding each chunk's counts.
         if (usage = ruby_llm_usage(chunk))
-          (@stream_response[:usage] ||= {}).merge!(usage)
+          (@stream_response[:usage] ||= {}).merge!(usage) do |field, previous, current|
+            # Chat Completions synthesizes zero when cache writes are omitted.
+            # That cannot erase writes already counted in this turn.
+            field == :cache_creation_tokens && current == 0 ? previous : current
+          end
         end
         if chunk.respond_to?(:finish_reason) && chunk.finish_reason
           @stream_response[:stop_reason] = ruby_llm_stop_reason(chunk, tool_calls: message[:tool_calls])
