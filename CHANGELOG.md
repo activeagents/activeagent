@@ -36,6 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   message. Needs `gem "mcp"`, loaded only when a bridge is built, so the
   dependency stays optional for everyone else.
 
+- **MCP server tool lists are cached in memory, and connections are lazy**
+  (`activeagent`). Asking a server what it offers cost a handshake plus a
+  `tools/list` round trip — roughly 1.1s against a hosted server — and every
+  generation paid it to relearn the same tool names. The answer now comes from a
+  process-local cache keyed by how the server is reached and which tools are
+  allowed through, five minutes by default, tunable via
+  `ActiveAgent::Providers::MCPToolCache.configure`. A cached list needs no
+  connection, so a generation connects only if the model actually calls a tool:
+  that turns a fixed per-generation cost into nothing for a generation that never
+  reaches for one, and spawns a `command:` server on first use rather than at the
+  start of every generation. A bridge that has learned its view is stale can
+  `refresh!`, and `clear!` empties the cache wholesale. Entries hold plain data —
+  no sockets, no child processes — so the cache is safe to hold across a fork. It
+  is process-global, so a test suite should reset it between examples.
+
 - **A DeepSeek provider** (`activeagent`). `generate_with :deepseek` talks to
   DeepSeek's OpenAI-compatible endpoint with `deepseek-flash` as the default
   model, so JSON output and tool calling come from the API rather than being

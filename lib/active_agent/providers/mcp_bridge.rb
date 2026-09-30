@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
+require "digest"
+require "json"
 require "uri"
 require "active_support/core_ext/hash/keys"
 require "active_support/core_ext/object/deep_dup"
+require_relative "mcp_tool_cache"
 
 module ActiveAgent
   module Providers
@@ -60,7 +63,10 @@ module ActiveAgent
         @declarations = normalize_all(servers)
         @tools        = nil
         @ownership    = {}
+        # Every connection attempted, so a failed handshake is still reaped.
         @servers      = []
+        # Only the connections that succeeded, so a failure is not reused.
+        @connections  = {}
       end
 
       # @return [Boolean] whether no servers were declared
@@ -82,10 +88,11 @@ module ActiveAgent
       #
       # @return [void]
       def close
-        servers    = @servers || []
-        @servers   = []
-        @tools     = nil
-        @ownership = {}
+        servers      = @servers || []
+        @servers     = []
+        @connections = {}
+        @tools       = nil
+        @ownership   = {}
 
         servers.each do |server|
           transport = server.client.transport if server.client.respond_to?(:transport)
@@ -104,10 +111,23 @@ module ActiveAgent
 
       # Every tool the declared servers offer, in the common format.
       #
+      # Served from {MCPToolCache} when it has an entry, in which case no
+      # connection is opened at all.
+      #
       # @return [Array<Hash>]
       def tools
         discover if @tools.nil?
         @tools
+      end
+
+      # Drops the cached tool lists and closes anything open, so the next use
+      # asks the servers again. For a caller that has learned — from a tool the
+      # server no longer provides, say — that its view is stale.
+      #
+      # @return [void]
+      def refresh!
+        @declarations.each { |declaration| MCPToolCache.invalidate(fingerprint_for(declaration)) }
+        close
       end
 
       # @param name [String, Symbol] tool name
@@ -151,9 +171,11 @@ module ActiveAgent
 
         tools # populates ownership
 
-        server = @ownership.fetch(name.to_s) do
+        declaration = @ownership.fetch(name.to_s) do
           fail ArgumentError, "No declared MCP server provides a tool named #{name.to_s.inspect}."
         end
+
+        server = ensure_connected(declaration)
 
         flatten_result(server.client.call_tool(name: name.to_s, arguments: kwargs))
       end
@@ -172,31 +194,73 @@ module ActiveAgent
 
       private
 
-      # Connects to each server once and records which of them owns each tool.
+      # Works out which tools each declared server offers.
+      #
+      # Connections are deliberately left alone: a cache hit means this needs
+      # none, and one that is opened here only to be closed again would defeat
+      # the point.
       #
       # @return [void]
       def discover
         @tools     = []
         @ownership = {}
-        @servers   = []
 
         @declarations.each do |declaration|
-          server = connect(declaration)
-
-          server_tools(server).each do |tool|
+          tools_for(declaration).each do |tool|
             existing = @ownership[tool[:name]]
 
             if existing
               fail DuplicateToolError,
                    "Two declared MCP servers offer a tool named #{tool[:name].inspect}: " \
-                   "#{existing.name.inspect} and #{server.name.inspect}. The model cannot choose between " \
-                   "them, so rename one or restrict it with `allowed_tools:`."
+                   "#{existing[:name].to_s.inspect} and #{declaration[:name].to_s.inspect}. The model cannot choose " \
+                   "between them, so rename one or restrict it with `allowed_tools:`."
             end
 
-            @ownership[tool[:name]] = server
+            @ownership[tool[:name]] = declaration
             @tools << tool
           end
         end
+      end
+
+      # The tools one declaration offers, from the cache where it can be.
+      #
+      # @param declaration [Hash]
+      # @return [Array<Hash>]
+      def tools_for(declaration)
+        MCPToolCache.fetch(fingerprint_for(declaration)) do
+          server_tools(ensure_connected(declaration))
+        end
+      end
+
+      # The live connection to a declaration's server, opening it on first use.
+      #
+      # This is what the cache buys: a generation whose tools all come from the
+      # cache and never calls one opens no connection and spawns no process.
+      #
+      # @param declaration [Hash]
+      # @return [Server]
+      def ensure_connected(declaration)
+        @connections[declaration] ||= connect(declaration)
+      end
+
+      # Identifies a declaration for caching purposes.
+      #
+      # Covers only what changes the answer — where the server is, how to reach
+      # it, and which of its tools are allowed through. The display name is
+      # excluded, so renaming a server does not throw away its cached tools.
+      #
+      # @param declaration [Hash]
+      # @return [String]
+      def fingerprint_for(declaration)
+        canonical = {
+          url:           declaration[:url],
+          command:       declaration[:command],
+          args:          declaration[:args],
+          env:           declaration[:env]&.sort&.to_h,
+          allowed_tools: declaration[:allowed_tools]&.map { |tool| tool_name(tool) }&.sort
+        }
+
+        Digest::SHA256.hexdigest(JSON.generate(canonical))
       end
 
       # Connects a client to one declared server.
@@ -205,7 +269,7 @@ module ActiveAgent
       # stdio process and only then handshakes: a handshake that fails — a
       # mistyped command, a server that never answers — has already spawned a
       # process, and recording it afterwards would leave that process with
-      # nothing to reap it.
+      # nothing to reap it. It is only remembered for reuse once it succeeds.
       #
       # @param declaration [Hash]
       # @return [Server]

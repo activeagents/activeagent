@@ -36,6 +36,10 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
     end
   end
 
+  # The cache is process-global; see MCPBridgeTest.
+  setup    { ActiveAgent::Providers::MCPToolCache.reset! }
+  teardown { ActiveAgent::Providers::MCPToolCache.reset! }
+
   test "only Anthropic and OpenAI Responses can serve MCP themselves" do
     assert_equal [ :url ], provider(AnthropicProvider).mcp_native_transports
     assert_equal [ :url ], provider(ResponsesProvider).mcp_native_transports

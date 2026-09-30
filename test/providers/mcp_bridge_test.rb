@@ -53,6 +53,12 @@ class MCPBridgeTest < ActiveSupport::TestCase
     end
   end
 
+  # The cache is process-global, so an entry left by one test is visible to the
+  # next — and two servers that differ only in `name:` share a fingerprint, since
+  # the name does not change what a server offers.
+  setup    { ActiveAgent::Providers::MCPToolCache.reset! }
+  teardown { ActiveAgent::Providers::MCPToolCache.reset! }
+
   test "collects tools from every declared server" do
     bridge = build_bridge(
       { name: "alpha", url: "https://alpha.test/mcp" },
@@ -402,6 +408,92 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_nil bridge.close, "a teardown failure must not replace the error the generation was carrying"
   end
 
+  # A connection is what the cache buys back: a generation whose tools all come
+  # from the cache and never calls one should open nothing at all.
+  test "opens no connection until a tool is actually called" do
+    connects = 0
+    client   = FakeClient.new(tools: [ tool("one") ])
+
+    bridge = new_bridge
+    bridge.define_singleton_method(:connect) do |declaration|
+      connects += 1
+      ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+    end
+
+    # Cold: discovery has to connect, because there is nothing cached yet.
+    assert_equal %w[one], bridge.tools.pluck(:name)
+    assert_equal 1, connects
+
+    warm = new_bridge
+    warm.define_singleton_method(:connect) do |declaration|
+      connects += 1
+      ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+    end
+
+    assert_equal %w[one], warm.tools.pluck(:name)
+    assert_equal 1, connects, "a cached tool list must not need a connection"
+
+    # The call opens one, because a connection is what runs a tool.
+    assert_equal "one answered", warm.call("one")
+    assert_equal 2, connects
+  end
+
+  test "shares a cached list between declarations that differ only in name" do
+    connects = 0
+    client   = FakeClient.new(tools: [ tool("one") ])
+
+    build = lambda do |name|
+      bridge = ActiveAgent::Providers::MCPBridge.new([ { name:, url: "https://alpha.test/mcp" } ])
+      bridge.define_singleton_method(:connect) do |declaration|
+        connects += 1
+        ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+      end
+      bridge
+    end
+
+    assert_equal %w[one], build.call("alpha").tools.pluck(:name)
+    assert_equal %w[one], build.call("renamed").tools.pluck(:name)
+
+    assert_equal 1, connects, "the display name does not change what a server offers"
+  end
+
+  test "refresh! drops the cached list so the next use asks again" do
+    connects = 0
+    client   = FakeClient.new(tools: [ tool("one") ])
+
+    bridge = new_bridge
+    bridge.define_singleton_method(:connect) do |declaration|
+      connects += 1
+      ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+    end
+
+    bridge.tools
+    assert_equal 1, connects
+
+    bridge.refresh!
+    bridge.tools
+
+    assert_equal 2, connects, "refresh! must invalidate, not just reconnect"
+  end
+
+  test "connects for every generation when the cache is disabled" do
+    ActiveAgent::Providers::MCPToolCache.configure(enabled: false)
+
+    connects = 0
+    client   = FakeClient.new(tools: [ tool("one") ])
+
+    2.times do
+      bridge = new_bridge
+      bridge.define_singleton_method(:connect) do |declaration|
+        connects += 1
+        ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+      end
+      bridge.tools
+    end
+
+    assert_equal 2, connects
+  end
+
   test "rediscovers after being closed rather than handing back stale clients" do
     bridge = build_bridge(
       { name: "alpha", url: "https://alpha.test/mcp" },
@@ -428,6 +520,12 @@ class MCPBridgeTest < ActiveSupport::TestCase
 
   def tool(name, description: "#{name} tool", input_schema: { type: "object", properties: {} })
     MCP::Client::Tool.new(name:, description:, input_schema:)
+  end
+
+  # Builds a bridge over the single standard server, for a test that replaces
+  # `connect` itself.
+  def new_bridge
+    ActiveAgent::Providers::MCPBridge.new([ { name: "alpha", url: "https://alpha.test/mcp" } ])
   end
 
   # Builds a bridge whose `connect` returns a stand-in client, so no transport is
