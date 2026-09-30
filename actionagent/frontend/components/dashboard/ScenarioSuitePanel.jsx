@@ -18,12 +18,12 @@ import {
   runScenarioCount, runScenarioKeys, runTotalOf, runTotals,
 } from './EvaluationRunPanels';
 
-// The expanded body of a scenario-suite evaluation, leading with three
-// questions — is it getting better (Runs), which model (Models), what do I
-// fix (What to fix) — then the scenario × model matrix that carries the
-// evidence, a per-scenario drill-down, and the suite's controls: edit the
-// pasted scenarios, run a group / everything / one scenario under chosen
-// models, enable or disable a scenario, delete the suite.
+// The expanded body of a scenario-suite evaluation, in reading order: is it
+// getting better (Runs), which model (Models), the scenario × model matrix
+// with a per-scenario drill-down (Scenarios), then what to fix (What to fix).
+// It also carries the suite's controls: edit the pasted scenarios, run a
+// group / everything / one scenario under chosen models, enable or disable a
+// scenario, delete the suite.
 
 // Rebuilds the pasted form of a suite so it can be edited in place.
 function scenariosToText(scenarios) {
@@ -511,25 +511,6 @@ export default function ScenarioSuitePanel({
       {/* Models */}
       <ModelsPanel run={run} columns={run ? columns : []} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} />
 
-      {/* What to fix */}
-      {run && run.status !== 'failed' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <MicroLabel>What to fix</MicroLabel>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
-              {`${plural(fixItems.length, 'item')} · ${plural(Math.max(totals.total - totals.passed, 0), 'fault')} across ${plural(faultScenarios, 'scenario')}`}
-            </span>
-          </div>
-          {fixItems.length > 0 ? (
-            <FixList items={fixItems} columns={columns} agentName={agentName} onNavigate={navigateTo} onOpenScenario={openScenario} run={run} results={results} />
-          ) : (
-            <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px' }}>
-              {running ? '[ ] scoring…' : '[+] nothing to fix'}
-            </Empty>
-          )}
-        </div>
-      )}
-
       {/* Scenarios */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -584,6 +565,25 @@ export default function ScenarioSuitePanel({
           />
         )}
       </div>
+
+      {/* What to fix */}
+      {run && run.status !== 'failed' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <MicroLabel>What to fix</MicroLabel>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
+              {`${plural(fixItems.length, 'item')} · ${plural(Math.max(totals.total - totals.passed, 0), 'fault')} across ${plural(faultScenarios, 'scenario')}`}
+            </span>
+          </div>
+          {fixItems.length > 0 ? (
+            <FixList items={fixItems} columns={columns} agentName={agentName} onNavigate={navigateTo} onOpenScenario={openScenario} run={run} results={results} />
+          ) : (
+            <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px' }}>
+              {running ? '[ ] scoring…' : '[+] nothing to fix'}
+            </Empty>
+          )}
+        </div>
+      )}
 
       {/* Footer */}
       <CriteriaFooter
