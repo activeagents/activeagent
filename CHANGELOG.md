@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Cache and reasoning tokens from the RubyLLM provider** (`activeagent`).
+  `response.usage` now carries `cached_tokens`, `cache_creation_tokens` and
+  `reasoning_tokens` when RubyLLM counted them, and a response that calls
+  tools reports `tool_use` as its `finish_reason` however the API ends it;
+  OpenAI's Responses API ends one with `stop` (#502).
+
 ## [1.8.0] - 2026-09-29
 
 Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release.
