@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.0] - 2026-09-26
+## [1.8.0] - 2026-09-29
 
 Releases `activeagent` and `actionagent` 1.8.0 from one tag. A minor release.
 Settings -> Integrations connects GitHub and Claude Code. A connected
