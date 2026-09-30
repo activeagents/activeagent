@@ -71,6 +71,53 @@ class RubyLLMResponseTest < ActiveSupport::TestCase
     assert_equal 7, usage.total_tokens
   end
 
+  %i[cache_read cache_write thinking].each do |count|
+    test "preserves usage when only #{count} tokens were reported" do
+      message = ::RubyLLM::Message.new(role: :assistant, content: "Partial counts.",
+        **ruby_llm_token_attributes(**{ count => 3 }))
+
+      usage = prompt_answered_by(message).usage
+
+      assert_not_nil usage
+      field = { cache_read: :cached_tokens, cache_write: :cache_creation_tokens, thinking: :reasoning_tokens }.fetch(count)
+      assert_equal 3, usage.public_send(field)
+      assert_equal 0, usage.input_tokens
+      assert_equal 0, usage.output_tokens
+    end
+  end
+
+  # ruby_llm's OpenAI parser reports a cache write of zero for a response that
+  # carries no usage, so a zero there is not something the server counted.
+  test "reports no usage when the only count is a zero cache or thinking count" do
+    %i[cache_read cache_write thinking].each do |count|
+      message = ::RubyLLM::Message.new(role: :assistant, content: "Zero.", **ruby_llm_token_attributes(**{ count => 0 }))
+
+      assert_nil prompt_answered_by(message).usage, "for #{count}"
+    end
+  end
+
+  test "reports no usage when OpenAI leaves usage out of its response" do
+    stub_response(OPENAI_ENDPOINT, openai_response(usage: nil))
+
+    response = wire_prompt("gpt-4o-mini")
+
+    assert_equal "Hi.", response.messages.last.content
+    assert_nil response.usage
+  end
+
+  test "preserves explicitly reported zero token counts" do
+    message = ::RubyLLM::Message.new(role: :assistant, content: "Empty usage.",
+      **ruby_llm_token_attributes(input: 0, output: 0, cache_read: 0, cache_write: 0, thinking: 0))
+
+    usage = prompt_answered_by(message).usage
+
+    assert_not_nil usage
+    assert_equal 0, usage.total_tokens
+    assert_equal 0, usage.cached_tokens
+    assert_equal 0, usage.cache_creation_tokens
+    assert_equal 0, usage.reasoning_tokens
+  end
+
   # The usage of every turn is added up, so one turn missing a count must not
   # leave a nil behind for the next addition.
   test "adds up the usage of a tool loop whose first turn counted only input tokens" do
