@@ -42,7 +42,7 @@ module ActiveAgent
       # provider.complete().
       #
       # @param parameters [Hash] serialized request parameters
-      # @return [Hash, nil] normalized API response hash, or nil for streaming
+      # @return [Hash] normalized API response, or metadata for a streamed turn
       def api_prompt_execute(parameters)
         @resolved_model_id = parameters[:model] || options.model
         resolve_ruby_llm_provider!(@resolved_model_id)
@@ -72,16 +72,24 @@ module ActiveAgent
           end
         end
 
+        # Blank means unset, as from an ERB value whose variable is unset.
+        if (protocol = options.protocol.presence)
+          raise ArgumentError, "The protocol option needs ruby_llm 2.0 or newer, and #{::RubyLLM::VERSION} is loaded" unless ruby_llm_v2?
+
+          kwargs[:protocol] = protocol.to_sym
+        end
+
         if parameters[:stream]
           stream_proc = parameters[:stream]
           @stream_tool_calls = {}
+          @stream_response = { model: @resolved_model_id, stop_reason: "end_turn" }
 
           # For streaming, pass a block that forwards chunks
           @ruby_llm_provider.complete(messages, **kwargs) do |chunk|
             stream_proc.call(chunk)
           end
 
-          nil
+          @stream_response
         else
           response = @ruby_llm_provider.complete(messages, **kwargs)
           normalize_ruby_llm_response(response, @resolved_model_id)
@@ -145,37 +153,63 @@ module ActiveAgent
         if chunk.tool_calls&.any?
           message[:tool_calls] ||= []
           chunk.tool_calls.each do |key, tool_call|
-            # RubyLLM 2 keys OpenAI deltas by index; only the first delta
-            # includes the call ID and name. Keep each index tied to its call.
-            existing = message[:tool_calls].find { |tc| tool_call.id && tc[:id] == tool_call.id }
-            existing ||= @stream_tool_calls[key]
+            # Only the first delta of a call has its ID and name; the rest
+            # are fragments of its arguments. A fragment belongs to the call
+            # that shares its stream key (the index RubyLLM 2 numbers calls
+            # by), or, without one as RubyLLM 1.16 leaves it for OpenAI, to
+            # the latest call. RubyLLM 1.16 cannot preserve interleaved
+            # OpenAI calls: its parser drops their indices and fragments.
+            existing = if tool_call.id
+              message[:tool_calls].find { |tc| tc[:id] == tool_call.id }
+            else
+              @stream_tool_calls[key] || message[:tool_calls].last
+            end
+            fragment = streamed_tool_arguments(tool_call.arguments)
             if existing
-              existing[:function][:arguments] += tool_call.arguments.to_s if tool_call.arguments
+              existing[:function][:arguments] += fragment
             else
               existing = {
                 id: tool_call.id,
                 type: "function",
                 function: {
                   name: tool_call.name,
-                  arguments: tool_call.arguments.to_s
+                  arguments: fragment
                 }
               }
               message[:tool_calls] << existing
             end
-            @stream_tool_calls[key] = existing
+            @stream_tool_calls[key] = existing unless key.nil?
           end
         end
 
-        # Stream completion is handled by the base provider after
-        # api_prompt_execute returns nil. No action needed here.
+        # Counts arrive in separate chunks (Anthropic sends input at the start
+        # and output at the end). They are cumulative for this turn, so merge
+        # reported fields rather than adding each chunk's counts.
+        if (usage = ruby_llm_usage(chunk))
+          (@stream_response[:usage] ||= {}).merge!(usage) do |field, previous, current|
+            # Chat Completions synthesizes zero when cache writes are omitted.
+            # That cannot erase writes already counted in this turn.
+            field == :cache_creation_tokens && current == 0 ? previous : current
+          end
+        end
+        if chunk.respond_to?(:finish_reason) && chunk.finish_reason
+          @stream_response[:stop_reason] = ruby_llm_stop_reason(chunk, tool_calls: message[:tool_calls])
+        elsif message[:tool_calls]&.any? && @stream_response[:stop_reason] == "end_turn"
+          @stream_response[:stop_reason] = "tool_use"
+        end
+
+        # The base provider finishes the turn after api_prompt_execute returns
+        # its metadata, once every chunk has been consumed.
       end
 
       # Extracts messages from the completed API response.
       #
-      # @param api_response [Hash, nil] normalized response hash
+      # @param api_response [Hash, nil] normalized response or stream metadata
       # @return [Array<Hash>, nil]
       def process_prompt_finished_extract_messages(api_response)
         return nil unless api_response
+        return nil if request.stream
+
         [ api_response ]
       end
 
@@ -259,7 +293,8 @@ module ActiveAgent
         end
       end
 
-      # api_prompt_execute always returns a normalized Hash or nil (streaming),
+      # api_prompt_execute always returns a normalized Hash (stream metadata
+      # carries the final usage and stop reason without another message),
       # so no additional normalization is needed for instrumentation.
       # Inherits default api_response_normalize from BaseProvider.
 
@@ -463,27 +498,80 @@ module ActiveAgent
         if response.respond_to?(:stop_reason) && response.stop_reason
           hash[:stop_reason] = response.stop_reason
         elsif response.respond_to?(:finish_reason) && response.finish_reason
-          hash[:stop_reason] = { stop: "end_turn", tool_calls: "tool_use" }.fetch(response.finish_reason, response.finish_reason.to_s)
+          hash[:stop_reason] = ruby_llm_stop_reason(response)
         elsif response.tool_calls&.any?
           hash[:stop_reason] = "tool_use"
         else
           hash[:stop_reason] = "end_turn"
         end
 
-        # Add usage info if available
-        if response.respond_to?(:tokens)
-          tokens = response.tokens
-          hash[:usage] = { input_tokens: tokens.input, output_tokens: tokens.output } if tokens.input
-        elsif response.respond_to?(:input_tokens) && response.input_tokens
-          hash[:usage] = {
-            input_tokens: response.input_tokens,
-            output_tokens: response.output_tokens
-          }
-        end
+        usage = ruby_llm_usage(response)
+        hash[:usage] = usage if usage
 
         hash[:model] = model_id if model_id
 
         hash
+      end
+
+      # A streamed tool call's arguments as the text they add to the JSON
+      # string the call builds up. Most APIs stream that string; Anthropic
+      # opens a call with an empty Hash for its input, and Gemini sends the
+      # arguments whole as a Hash.
+      #
+      # @param arguments [String, Hash, nil]
+      # @return [String]
+      def streamed_tool_arguments(arguments)
+        case arguments
+        when String then arguments
+        when Hash then arguments.empty? ? "" : arguments.to_json
+        else ""
+        end
+      end
+
+      # ruby_llm's normalized finish reason as the stop reason ActiveAgent
+      # reports. A response that asks for tools is tool_use however the API
+      # ends it: OpenAI's Responses API ends one with :stop. A reason
+      # ActiveAgent has no name for, such as Anthropic's :pause_turn, is kept
+      # as the provider spelled it.
+      #
+      # @param response [RubyLLM::Message] carrying a finish_reason
+      # @return [String]
+      def ruby_llm_stop_reason(response, tool_calls: response.tool_calls)
+        return "tool_use" if response.finish_reason == :stop && tool_calls&.any?
+
+        { stop: "end_turn", tool_calls: "tool_use" }.fetch(response.finish_reason, response.finish_reason.to_s)
+      end
+
+      # The tokens ruby_llm counted for the response, or nil when it counted
+      # none: the message has no Tokens then in ruby_llm 1.x. RubyLLM counts
+      # cached tokens apart from the input, so input_tokens leaves them out.
+      # A count the provider left out is left out here too, and Usage reads it
+      # as zero.
+      #
+      # @param response [RubyLLM::Message]
+      # @return [Hash, nil] Common::Usage attributes
+      def ruby_llm_usage(response)
+        if response.respond_to?(:tokens)
+          tokens = response.tokens
+          return unless tokens
+
+          usage = {
+            input_tokens: tokens.input,
+            output_tokens: tokens.output,
+            cached_tokens: tokens.cache_read,
+            cache_creation_tokens: tokens.cache_write,
+            reasoning_tokens: tokens.thinking
+          }.compact
+          # ruby_llm's OpenAI parser reports cache_write: 0 for a response or
+          # chunk that carries no usage at all, so a zero cache or thinking
+          # count is not a count. Input and output are, even at zero.
+          usage if usage[:input_tokens] || usage[:output_tokens] || usage.values.any?(&:positive?)
+        elsif response.respond_to?(:input_tokens) && response.input_tokens
+          {
+            input_tokens: response.input_tokens,
+            output_tokens: response.output_tokens
+          }.compact
+        end
       end
     end
   end
