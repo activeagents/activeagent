@@ -463,27 +463,61 @@ module ActiveAgent
         if response.respond_to?(:stop_reason) && response.stop_reason
           hash[:stop_reason] = response.stop_reason
         elsif response.respond_to?(:finish_reason) && response.finish_reason
-          hash[:stop_reason] = { stop: "end_turn", tool_calls: "tool_use" }.fetch(response.finish_reason, response.finish_reason.to_s)
+          hash[:stop_reason] = ruby_llm_stop_reason(response)
         elsif response.tool_calls&.any?
           hash[:stop_reason] = "tool_use"
         else
           hash[:stop_reason] = "end_turn"
         end
 
-        # Add usage info if available
-        if response.respond_to?(:tokens)
-          tokens = response.tokens
-          hash[:usage] = { input_tokens: tokens.input, output_tokens: tokens.output } if tokens.input
-        elsif response.respond_to?(:input_tokens) && response.input_tokens
-          hash[:usage] = {
-            input_tokens: response.input_tokens,
-            output_tokens: response.output_tokens
-          }
-        end
+        usage = ruby_llm_usage(response)
+        hash[:usage] = usage if usage
 
         hash[:model] = model_id if model_id
 
         hash
+      end
+
+      # ruby_llm's normalized finish reason as the stop reason ActiveAgent
+      # reports. A response that asks for tools is tool_use however the API
+      # ends it: OpenAI's Responses API ends one with :stop. A reason
+      # ActiveAgent has no name for, such as Anthropic's :pause_turn, is kept
+      # as the provider spelled it.
+      #
+      # @param response [RubyLLM::Message] carrying a finish_reason
+      # @return [String]
+      def ruby_llm_stop_reason(response)
+        return "tool_use" if response.finish_reason == :stop && response.tool_calls&.any?
+
+        { stop: "end_turn", tool_calls: "tool_use" }.fetch(response.finish_reason, response.finish_reason.to_s)
+      end
+
+      # The tokens ruby_llm counted for the response, or nil when it counted
+      # none: the message has no Tokens then in ruby_llm 1.x. RubyLLM counts
+      # cached tokens apart from the input, so input_tokens leaves them out.
+      # A count the provider left out is left out here too, and Usage reads it
+      # as zero.
+      #
+      # @param response [RubyLLM::Message]
+      # @return [Hash, nil] Common::Usage attributes
+      def ruby_llm_usage(response)
+        if response.respond_to?(:tokens)
+          tokens = response.tokens
+          return unless tokens&.input || tokens&.output
+
+          {
+            input_tokens: tokens.input,
+            output_tokens: tokens.output,
+            cached_tokens: tokens.cache_read,
+            cache_creation_tokens: tokens.cache_write,
+            reasoning_tokens: tokens.thinking
+          }.compact
+        elsif response.respond_to?(:input_tokens) && response.input_tokens
+          {
+            input_tokens: response.input_tokens,
+            output_tokens: response.output_tokens
+          }.compact
+        end
       end
     end
   end
