@@ -103,6 +103,14 @@ Pass schemas directly via `response_format`:
 
 <<< @/../test/docs/actions/structured_output_examples_test.rb#inline_json_schema_agent {json:line-numbers}
 
+The `name`, `schema` and `strict` fields go under `json_schema`, as above, or beside `type`. Both shapes work with every provider that supports `json_schema`, so a `response_format` keeps working when you change providers:
+
+```ruby
+response_format: { type: "json_schema", name: "user", schema: { type: "object", properties: { name: { type: "string" } } }, strict: true }
+```
+
+The nested `json_schema:` form is the one used throughout these docs, and the one `{action}.json` views produce.
+
 ## Schema Generation
 
 Generate schemas from Ruby models for consistency and reusability.

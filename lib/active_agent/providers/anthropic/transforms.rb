@@ -222,9 +222,12 @@ module ActiveAgent
           #
           # Supported (ActiveAgent common format):
           #   { type: "json_schema", json_schema: { name: "...", schema: {...}, strict: true } }
+          #   { type: "json_schema", name: "...", schema: {...}, strict: true }
           # → { format: { type: "json_schema", schema: {...} } }
           #
           # Notes:
+          # - The schema is read from the top level or from +json_schema+, as the
+          #   OpenAI transforms do; a top-level schema wins.
           # - Anthropic requires `additionalProperties: false` on all object schemas.
           #   This is auto-injected into any object schemas that don't have it set.
           # - Anthropic does not use OpenAI's `name` or `strict` fields in output_config.format.
@@ -239,7 +242,7 @@ module ActiveAgent
               format_hash = format.deep_symbolize_keys
 
               if format_hash[:type].to_s == "json_schema"
-                schema = format_hash[:json_schema]&.dig(:schema)
+                schema = format_hash[:schema] || format_hash[:json_schema]&.dig(:schema)
                 if schema
                   schema = inject_additional_properties(schema.deep_dup)
                 end
