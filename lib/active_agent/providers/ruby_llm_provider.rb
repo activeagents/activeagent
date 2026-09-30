@@ -62,14 +62,19 @@ module ActiveAgent
         schema = ruby_llm_schema(parameters[:response_format])
         kwargs[:schema] = schema if schema
 
-        # Pass extra params (max_tokens, etc.) via RubyLLM's params: deep-merge
+        # RubyLLM 2 renamed params: and exposes a provider-neutral token limit.
         max_tokens = parameters[:max_tokens] || options.max_tokens
         if max_tokens
-          kwargs[:params] = { max_tokens: max_tokens }
+          if ruby_llm_v2?
+            kwargs[:max_output_tokens] = max_tokens
+          else
+            kwargs[:params] = { max_tokens: max_tokens }
+          end
         end
 
         if parameters[:stream]
           stream_proc = parameters[:stream]
+          @stream_tool_calls = {}
 
           # For streaming, pass a block that forwards chunks
           @ruby_llm_provider.complete(messages, **kwargs) do |chunk|
@@ -95,7 +100,8 @@ module ActiveAgent
         inputs = input.is_a?(Array) ? input : [ input ]
 
         data = inputs.map.with_index do |text, index|
-          embedding = @ruby_llm_provider.embed(text, model: model_id, dimensions: parameters[:dimensions])
+          embedding_model = ruby_llm_v2? ? @ruby_llm_model : model_id
+          embedding = @ruby_llm_provider.embed(text, model: embedding_model, dimensions: parameters[:dimensions])
 
           {
             object: "embedding",
@@ -138,12 +144,15 @@ module ActiveAgent
         # Handle tool calls in chunk
         if chunk.tool_calls&.any?
           message[:tool_calls] ||= []
-          chunk.tool_calls.each do |_id, tool_call|
-            existing = message[:tool_calls].find { |tc| tc[:id] == tool_call.id }
+          chunk.tool_calls.each do |key, tool_call|
+            # RubyLLM 2 keys OpenAI deltas by index; only the first delta
+            # includes the call ID and name. Keep each index tied to its call.
+            existing = message[:tool_calls].find { |tc| tool_call.id && tc[:id] == tool_call.id }
+            existing ||= @stream_tool_calls[key]
             if existing
               existing[:function][:arguments] += tool_call.arguments.to_s if tool_call.arguments
             else
-              message[:tool_calls] << {
+              existing = {
                 id: tool_call.id,
                 type: "function",
                 function: {
@@ -151,7 +160,9 @@ module ActiveAgent
                   arguments: tool_call.arguments.to_s
                 }
               }
+              message[:tool_calls] << existing
             end
+            @stream_tool_calls[key] = existing
           end
         end
 
@@ -253,6 +264,10 @@ module ActiveAgent
       # Inherits default api_response_normalize from BaseProvider.
 
       private
+
+      def ruby_llm_v2?
+        Gem.loaded_specs.fetch("ruby_llm").version.segments.first >= 2
+      end
 
       # Resolves and caches the RubyLLM provider for the given model.
       #
@@ -447,6 +462,8 @@ module ActiveAgent
         # Add stop_reason if available
         if response.respond_to?(:stop_reason) && response.stop_reason
           hash[:stop_reason] = response.stop_reason
+        elsif response.respond_to?(:finish_reason) && response.finish_reason
+          hash[:stop_reason] = { stop: "end_turn", tool_calls: "tool_use" }.fetch(response.finish_reason, response.finish_reason.to_s)
         elsif response.tool_calls&.any?
           hash[:stop_reason] = "tool_use"
         else
@@ -454,7 +471,10 @@ module ActiveAgent
         end
 
         # Add usage info if available
-        if response.respond_to?(:input_tokens) && response.input_tokens
+        if response.respond_to?(:tokens)
+          tokens = response.tokens
+          hash[:usage] = { input_tokens: tokens.input, output_tokens: tokens.output } if tokens.input
+        elsif response.respond_to?(:input_tokens) && response.input_tokens
           hash[:usage] = {
             input_tokens: response.input_tokens,
             output_tokens: response.output_tokens

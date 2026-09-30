@@ -22,7 +22,8 @@ by model. A publisher can check its collector before a run.
 Upgrading: run `bin/rails generate action_agent:install --skip` and
 `bin/rails db:migrate`. The generator adds what an install lacks:
 `provider_keys.api_key` and the `github_connections` and `code_sessions`
-tables.
+tables. An app on the RubyLLM provider needs ruby_llm 1.16 or later; 2.x
+works too.
 
 The Claude Code connection stores Anthropic API keys only. Anthropic does not
 let third-party products collect, store or route requests through Claude.ai
@@ -177,6 +178,14 @@ their own Claude login sets `config.claude_code_auth = :local_login` with the
 
 ### Changed
 
+- **The RubyLLM provider supports ruby_llm 1.16 and 2.x** (`activeagent`).
+  The adapter handles 2.x's tool interface, token limits, embedding model
+  objects, usage and finish reasons while keeping the 1.16 API working.
+  Requiring `>= 1.16, < 3` prevents Bundler from selecting an older 1.x
+  release without the APIs the adapter calls. Rails main can now resolve
+  RubyLLM 2.x alongside Active Storage's Marcel 2 dependency. CI also runs
+  the full suite with RubyLLM 1.16 to retain coverage of that version.
+  Unsupported-version errors name the loaded version and both bounds (#508).
 - **Collector rejections say what the status means** (`activeagent`). A
   `Publisher::Error` for a 401, 403, 404, 415 or 501 rejection names a refused
   key, an account an operator must act on, an endpoint that is not a
