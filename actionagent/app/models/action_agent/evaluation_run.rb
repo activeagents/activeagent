@@ -107,6 +107,26 @@ module ActionAgent
       value.is_a?(Hash) ? value : {}
     end
 
+    # Per-model summaries of a scenario run, keyed by label, as the runner
+    # recorded them under "_models"; empty for a generation-sampling run.
+    # Each carries "priced", the replays that had a cost estimate. A summary
+    # recorded without it has it counted from the persisted results, unless
+    # none of them maps to its label.
+    def model_summaries
+      summaries = scores&.dig("_models")
+      return {} unless summaries.is_a?(Hash)
+
+      uncounted = summaries.select { |_label, stats| stats.is_a?(Hash) && !stats.key?("priced") }.keys
+      return summaries if uncounted.empty?
+
+      priced = priced_replays_by_label(summaries.keys)
+      summaries.to_h do |label, stats|
+        next [ label, stats ] unless uncounted.include?(label) && priced.key?(label)
+
+        [ label, stats.merge("priced" => priced[label]) ]
+      end
+    end
+
     # What the run spent, for display after it: the agent's side and the
     # judge's, kept apart because they answer different questions.
     #
@@ -114,9 +134,13 @@ module ActionAgent
     # to serve. For a scenario run that is the replays' estimated cost,
     # tokens and summed model time (`replays` of them); for a
     # generation-sampling run it is the sampled generations' (`samples`),
-    # which were served before the run and cost it nothing. `per_interaction`
-    # is that cost spread over the interactions, the number a per-conversation
-    # budget is set against.
+    # which were served before the run and cost it nothing.
+    #
+    # An interaction is priced when it carried a cost estimate. `priced` and
+    # `unpriced` count them, and `cost` sums the priced ones only: it is
+    # partial whenever `unpriced` is non-zero, and nil when nothing was
+    # priced. `per_interaction` is the cost per priced interaction, the
+    # number a per-conversation budget is set against.
     #
     # `judge` is the evaluation's own overhead: the judge model's calls
     # (scoring, recommending, the verdict, authoring KPIs), which run
@@ -125,7 +149,7 @@ module ActionAgent
     # Returns nil for a run that recorded nothing on either side.
     def usage
       totals = scenario_results.pick(
-        Arel.sql("COUNT(*)"), Arel.sql("SUM(cost)"), Arel.sql("SUM(input_tokens)"),
+        Arel.sql("COUNT(*)"), Arel.sql("COUNT(cost)"), Arel.sql("SUM(cost)"), Arel.sql("SUM(input_tokens)"),
         Arel.sql("SUM(output_tokens)"), Arel.sql("SUM(duration_ms)")
       )
       replays = totals&.first.to_i
@@ -133,25 +157,31 @@ module ActionAgent
       runtime_ms = completed_at.present? ? ((completed_at - created_at) * 1000).round : nil
 
       if replays.positive?
-        cost = totals[1]&.to_f
+        priced = totals[1].to_i
+        cost = totals[2]&.to_f
         {
           replays: replays,
+          priced: priced,
+          unpriced: replays - priced,
           cost: cost,
-          per_interaction: cost && (cost / replays).round(6),
-          input_tokens: totals[2].to_i,
-          output_tokens: totals[3].to_i,
-          model_time_ms: totals[4].to_i,
+          per_interaction: cost && priced.positive? ? (cost / priced).round(6) : nil,
+          input_tokens: totals[3].to_i,
+          output_tokens: totals[4].to_i,
+          model_time_ms: totals[5].to_i,
           runtime_ms: runtime_ms,
           judge: judge
         }.compact
       elsif cohorts.any?
         samples = cohorts.values.sum { |cohort| cohort["samples"].to_i }
+        priced = cohorts.values.sum { |cohort| priced_samples(cohort) }
         costs = cohorts.values.filter_map { |cohort| cohort["cost"] }
         cost = costs.any? ? costs.sum.to_f.round(6) : nil
         {
           samples: samples,
+          priced: priced,
+          unpriced: samples - priced,
           cost: cost,
-          per_interaction: cost && samples.positive? ? (cost / samples).round(6) : nil,
+          per_interaction: cost && priced.positive? ? (cost / priced).round(6) : nil,
           input_tokens: cohorts.values.sum { |cohort| cohort["input_tokens"].to_i },
           output_tokens: cohorts.values.sum { |cohort| cohort["output_tokens"].to_i },
           runtime_ms: runtime_ms,
@@ -239,6 +269,30 @@ module ActionAgent
 
     ModelSpec = ActiveAgent::Evals::ModelSpec
     private_constant :ModelSpec
+
+    # How many of a sampling cohort's samples carried a cost:
+    # EvaluationRunnerService records it as "priced". A cohort recorded
+    # before it did counts all its samples when it has a cost and none
+    # when it has not.
+    def priced_samples(cohort)
+      return cohort["priced"].to_i if cohort.key?("priced")
+
+      cohort["cost"].nil? ? 0 : cohort["samples"].to_i
+    end
+
+    # How many replays carried a cost, per label in +labels+. A result
+    # belongs to the label the run's selection gave its provider and model,
+    # else to the one of +labels+ naming its model, bare or as
+    # "provider/model", which is how the dashboard assigns results to model
+    # columns.
+    def priced_replays_by_label(labels)
+      selected = selected_specs
+      scenario_results.group(:provider, :model).count(:cost).each_with_object({}) do |((provider, model), priced), counts|
+        label = selected[[ provider.to_s, model ]]&.label
+        label ||= [ model, [ provider.presence, model ].compact.join("/") ].find { |name| labels.include?(name) }
+        counts[label] = counts.fetch(label, 0) + priced if label
+      end
+    end
 
     # How the report's header names the sandbox: its checkout and session.
     def sandbox_label

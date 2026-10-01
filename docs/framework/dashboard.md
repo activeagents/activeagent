@@ -420,9 +420,10 @@ A run is queued (`EvaluationRunJob`) and its results land as each replay
 finishes. Each replay runs as the evaluation's owner when agents are owned
 per user, so a tool scoped to its caller sees that user's rows; a
 multi-tenant install replays unattributed unless a host adapter
-(`ActionAgent.scenario_evaluation_adapter_resolver`) runs the suite itself. The suite card opens onto the three questions asked of a run, in
-that order — is it getting better, which model, what do I fix — and then
-the evidence behind them.
+(`ActionAgent.scenario_evaluation_adapter_resolver`) runs the suite itself.
+The suite card reads top to bottom: is it getting better (Runs), which
+model (Models), the evidence per scenario (Scenarios), and then what to fix
+(What to fix).
 
 **Runs** lists the suite's history, newest first, numbered `#n` from the
 oldest so a number keeps naming the same run once the list is capped. A row
@@ -431,7 +432,7 @@ the previous complete run — `+3 passed vs #7`, green when it moved up, red
 when it moved down. A run over a different number of scenarios or models
 reads `partial run` instead: those two totals are not comparable and a
 delta would lie about it. Selecting an older run re-derives everything below —
-models, what to fix, the matrix, the drill-downs — so the whole card
+models, the matrix, the drill-downs, what to fix — so the whole card
 describes the run you are reading, while the collapsed header keeps
 reporting the latest.
 
@@ -443,6 +444,17 @@ comparison by one scenario is not a failing grade — and the **verdict**
 line under the panel is the rationale for the pick. The panel says who made
 it: the judge model, or `rules` when the run was scored without one and the
 ranking is pass rate alone.
+
+**Scenarios** is the matrix: one row per scenario, one column per model,
+filtered by group chips or `[ ] failed only`. Each row shows the tools the
+scenario expects as chips, and each cell the `[+]`/`[!]` glyph, the score,
+the fault, and the tools that model actually called — coloured against the
+expectation, so a call that satisfies it reads green, one that errored red
+with `✗`, and anything else stays muted (`no tools called` when there were
+none). Group rows carry `k/n passed` per model. Opening a row drills into
+it: each model's answer, its tool calls, its timing, tokens and cost, and
+the diagnosis behind its fault, with `re-run scenario ->` to replay that
+one on its own and a `[x] enabled` toggle to keep it out of later runs.
 
 **What to fix** turns the faults into work. One card per fault, plus one
 per instruction change the judge proposed, each naming the scope it speaks
@@ -456,17 +468,6 @@ available, which is usually the whole diagnosis. The action follows from
 that: **Enable *server* for *Agent*** deep-links to MCP Services, failing
 or suggested tools to Tools, an instruction change to the agent's
 instructions — in-app, with the run still open behind it.
-
-**Scenarios** is the matrix: one row per scenario, one column per model,
-filtered by group chips or `[ ] failed only`. Each row shows the tools the
-scenario expects as chips, and each cell the `[+]`/`[!]` glyph, the score,
-the fault, and the tools that model actually called — coloured against the
-expectation, so a call that satisfies it reads green, one that errored red
-with `✗`, and anything else stays muted (`no tools called` when there were
-none). Group rows carry `k/n passed` per model. Opening a row drills into
-it: each model's answer, its tool calls, its timing, tokens and cost, and
-the diagnosis behind its fault, with `re-run scenario ->` to replay that
-one on its own and a `[x] enabled` toggle to keep it out of later runs.
 
 The footer states the run's terms — the judge, the criteria it scored on,
 what it cost — and links to `run report ->`: the same self-contained page

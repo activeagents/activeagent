@@ -40,6 +40,20 @@ test('rows read best first with passed, mean score, latency, average tokens and 
   assert.equal(rows[3].winner, false);
 });
 
+test('a partially priced cohort is costed per priced interaction', () => {
+  const partial = { status: 'complete', scores: { _models: {
+    a: { scenarios: 4, passed: 4, avg_score: 1, cost: 0.003, priced: 3, faults: {} },
+    b: { scenarios: 4, passed: 4, avg_score: 1, cost: null, priced: 0, faults: {} },
+  } } };
+  const [a, b] = modelComparisonRows(partial);
+
+  assert.equal(a.priced, 3);
+  assert.ok(Math.abs(a.costPerInteraction - 0.001) < 1e-12, 'the rate is over the 3 priced scenarios, not all 4');
+  assert.equal(b.priced, 0);
+  assert.equal(b.cost, null);
+  assert.equal(b.costPerInteraction, null);
+});
+
 test('the typical fault is the most frequent one, with the first matching diagnosis', () => {
   const rows = modelComparisonRows(run, { results, scenarioCount: 6 });
   const llama = rows.find((r) => r.label === 'llama3.2:3b');
