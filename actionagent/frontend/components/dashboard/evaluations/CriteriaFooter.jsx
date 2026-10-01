@@ -1,14 +1,16 @@
 import React from 'react';
 import { MonoLink, MONO } from '../primitives';
 import { dashboardPath, navigateTo } from '../../../utils/dashboardPath';
-import { criterionExpectation, criterionGroup, criterionLabel, findCriterion, judgeLabel } from '../../../utils/evaluationRuns.mjs';
+import { COST_LEGEND, fmtThreshold } from '../../../utils/evalFormat.mjs';
+import { PASS_THRESHOLD, criterionExpectation, criterionGroup, criterionLabel, findCriterion, judgeLabel } from '../../../utils/evaluationRuns.mjs';
 import { spendText } from './SpendStrip';
 
 // The evaluation's standing configuration, as mono lines under its runs: who
-// judges, which criteria, what the shown run cost (agent apart from judge),
-// the API call that runs it again, a link to the run's report page, and the
-// delete control. Telemetry and judge criteria carry a source tag because
-// they are scored from different data than the sampled generations.
+// judges, which criteria and the pass mark, what the shown run cost (agent
+// apart from judge, with the legend when a figure is an estimate), the API
+// call that runs it again, a link to the run's report page, and the delete
+// control. Telemetry and judge criteria carry a source tag because they
+// are scored from different data than the sampled generations.
 //
 // `keys` names the criteria to list — a scenario run scores keys the
 // evaluation never declared (expected_tools, task_completion) — defaulting
@@ -41,13 +43,17 @@ export default function CriteriaFooter({ evaluation, run = null, keys = null, sp
               sourceTag('judge', undefined, 'Scored by the judge model; needs provider credentials')}
           </React.Fragment>
         ))}
+        <span style={{ ...muted, marginLeft: 8 }} title="A sample or scenario passes at or above this score" data-testid="criteria-threshold">{fmtThreshold(PASS_THRESHOLD)}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', rowGap: 4 }}>
         <span style={{ ...muted, whiteSpace: 'nowrap' }} title="Run this evaluation again from the API">POST /api/evaluations/{evaluation.id}/run</span>
         {usage && (
-          <span style={{ ...muted, minWidth: 0, textWrap: 'pretty' }} title="Estimated spend of this run: the agent's replays or sampled interactions, and the judge's own calls">
+          <span style={{ ...muted, minWidth: 0, textWrap: 'pretty' }} title="What this run spent: the agent's replays or sampled interactions, and the judge's own calls">
             {usage}
           </span>
+        )}
+        {usage && spend?.totalEstimated && (
+          <span style={{ ...muted, whiteSpace: 'nowrap' }} data-testid="criteria-cost-legend">{COST_LEGEND}</span>
         )}
         {reportPath && (
           <MonoLink href={dashboardPath(reportPath)} onClick={() => navigateTo(reportPath)} title="The run rendered as a report page">run report</MonoLink>

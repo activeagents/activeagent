@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MONO, TONE } from '../primitives';
 import { navigateTo } from '../../../utils/dashboardPath';
-import { fmtMs, fmtScore, splitModelLabel, timeAgo } from '../../../utils/format';
+import { fmtMs, splitModelLabel, timeAgo } from '../../../utils/format';
+import { fmtPasses, fmtScore, fmtThreshold } from '../../../utils/evalFormat.mjs';
 import {
   modelComparisonRows,
   CRITERION_GROUPS, PASS_THRESHOLD, cellStats, criterionEntries, criterionExpectation, criterionGroup, criterionLabel,
-  costPer, findCriterion, modelScorecard, plural, pricingNote, runCohorts, runLabel, runModels, runNumber, runSpend,
+  costPer, findCriterion, judgeLabel, modelScorecard, plural, runCohorts, runLabel, runModels, runNumber, runSpend,
   samplingFixItems, truncate,
 } from '../../../utils/evaluationRuns.mjs';
 import ModelScorecard from './ModelScorecard';
@@ -35,7 +36,7 @@ function ScoreCell({ stats }) {
   const score = Number(stats.score);
   const color = TONE[score >= 0.85 ? 'success' : score >= PASS_THRESHOLD ? 'warning' : 'error'].strong;
   const parts = [];
-  if (stats.total != null) parts.push(`${stats.passed}/${stats.total} passed`);
+  if (stats.total != null) parts.push(`${fmtPasses(stats.passed, stats.total)} passed`);
   if (stats.total > 1 && stats.min != null) parts.push(`min ${fmtScore(stats.min)} · max ${fmtScore(stats.max)}`);
   if (stats.source === 'telemetry') {
     parts.push(`${stats.traces} traces · ${stats.window_hours}h`);
@@ -168,7 +169,7 @@ export default function EvaluationRunDetail({
   const items = samplingFixItems(evaluation, { ...run, number });
   const spend = runSpend(run);
   const when = timeAgo(run.completed_at || run.created_at);
-  const passedLabel = run.status === 'complete' && run.samples_evaluated ? ` · ${run.samples_passed || 0}/${run.samples_evaluated} passed` : '';
+  const passedLabel = run.status === 'complete' && run.samples_evaluated ? ` · ${fmtPasses(run.samples_passed || 0, run.samples_evaluated)} passed` : '';
 
   const th = { fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--color-text-muted)', padding: '8px 12px', textAlign: 'left', verticalAlign: 'top', whiteSpace: 'nowrap' };
   const td = { padding: '10px 12px', verticalAlign: 'top' };
@@ -204,7 +205,7 @@ export default function EvaluationRunDetail({
       </div>
 
       {/* What the run cost, the agent's side apart from the judge's. */}
-      <SpendStrip spend={spend} />
+      <SpendStrip spend={spend} judgedBy={judgeLabel(evaluation, run)} />
 
       {/* One scorecard per model cohort; a failed run has nothing to score. */}
       {run.status === 'failed' ? (
@@ -221,7 +222,7 @@ export default function EvaluationRunDetail({
         <>
         {/* Comparison runs read across first: one row per model, best first. */}
         {models.length > 1 && (
-          <ModelComparisonTable rows={modelComparisonRows(run, { columns: models })} unit="interaction" judgedBy={verdict?.judge || null} />
+          <ModelComparisonTable rows={modelComparisonRows(run, { columns: models })} unit="interaction" judgedBy={verdict?.judge || null} judgeEstimated={spend?.judge?.estimated ?? true} />
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
           {columns.map((model) => {
@@ -248,7 +249,7 @@ export default function EvaluationRunDetail({
                 outputTokens={cohort?.output_tokens}
                 cost={cohort?.cost}
                 perInteraction={costPer(cohort?.cost, cohort?.priced)}
-                pricing={pricingNote(cohort?.priced, cohort?.samples, 'interaction')}
+                estimated={cohort?.estimated ?? false}
                 unit="interaction"
                 badges={badges}
               />
@@ -324,7 +325,7 @@ export default function EvaluationRunDetail({
                       const color = scored.length && cleared === scored.length ? 'var(--color-success-text)' : cleared === 0 && scored.length ? 'var(--color-error-text)' : 'var(--color-text-cell)';
                       return (
                         <td key={model || 'score'} style={groupTd}>
-                          <span style={mono(11, color, { fontWeight: 600 })}>{`${cleared}/${scored.length} passed`}</span>
+                          <span style={mono(11, color, { fontWeight: 600 })}>{scored.length ? `${fmtPasses(cleared, scored.length)} passed` : '—'}</span>
                         </td>
                       );
                     })}
@@ -371,7 +372,7 @@ export default function EvaluationRunDetail({
           </div>
         ) : (
           <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px', color: 'var(--color-success-text)' }}>
-            {`[+] Every criterion cleared the ${PASS_THRESHOLD.toFixed(2)} pass mark and nothing was skipped.`}
+            {`[+] Every criterion cleared the pass mark (${fmtThreshold(PASS_THRESHOLD)}) and nothing was skipped.`}
           </Empty>
         )}
       </div>
