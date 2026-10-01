@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MonoLink, MONO } from './primitives';
 import { fmtCost, fmtK, fmtMs, fmtScore, splitModelLabel } from '../../utils/format';
-import { RUNS_PAGE, fixItemCountsByModel, fixItemsForModel, modelComparisonRows, plural, runTotalOf, runsMeta, withModelBreakdown } from '../../utils/evaluationRuns.mjs';
+import {
+  RUNS_PAGE, costPer, fixItemCountsByModel, fixItemsForModel, modelComparisonRows, plural, pricedCount, pricingNote, runTotalOf, runsMeta,
+  withModelBreakdown,
+} from '../../utils/evaluationRuns.mjs';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
 
-// The panels a scenario suite's expanded body is built from — Models, What
-// to fix, the scenario matrix and a scenario's drill-down — plus the
+// The panels a scenario suite's expanded body is built from — Models, the
+// scenario matrix and a scenario's drill-down, What to fix — plus the
 // derivations they share. The runs list is evaluations/RunsList, shared with
 // the sampling evaluations. Everything here is presentational: state,
 // fetching and mutations live in ScenarioSuitePanel.
@@ -307,6 +310,7 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
             const stats = summaries[label];
             const { passed, total } = modelPassStats(run, label, results, scenarioCount);
             const faults = Object.entries(stats?.faults || {});
+            const priced = pricedCount(stats, stats?.scenarios);
             const note = stats && faults.length === 0
               ? { text: '[+] no faults', color: 'var(--color-success-text)' }
               : !stats && inProgress(run) ? { text: 'scoring…' } : null;
@@ -324,7 +328,8 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
                 inputTokens={stats?.input_tokens}
                 outputTokens={stats?.output_tokens}
                 cost={stats?.cost}
-                perInteraction={stats?.cost != null && stats.scenarios ? stats.cost / stats.scenarios : null}
+                perInteraction={costPer(stats?.cost, priced)}
+                pricing={pricingNote(priced, stats?.scenarios, 'scenario')}
                 unit="scenario"
                 badges={faults.map(([fault, count]) => ({ tone: 'error', text: `${faultName(fault)} ×${count}` }))}
                 note={note}
@@ -345,143 +350,6 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
           </div>
         </Card>
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// WHAT TO FIX
-
-export function FixList({ items, columns = [], agentName, onNavigate, onOpenScenario, run = null, results = [] }) {
-  // Which model cohort the list is read for. A fault one model keeps
-  // making is that model's to fix — more instruction, a different tool —
-  // so the list narrows to what the runner attributed to it, counted for
-  // that model alone.
-  const [model, setModel] = useState('all');
-  const filterable = columns.length > 1;
-  const selected = filterable ? model : 'all';
-  const attributed = filterable ? withModelBreakdown(items, results, (result) => labelForResult(run, result)) : items;
-  const visible = fixItemsForModel(attributed, selected);
-  const counts = filterable ? fixItemCountsByModel(attributed, columns) : {};
-
-  const scopeFor = (item) => {
-    const scenarios = plural((item.scenario_keys || []).length, 'scenario');
-    if (item.kind === 'instruction') return `${(item.scenario_keys || []).join(', ')} · judge suggestion`;
-    const models = uniq(item.models || []);
-    if (columns.length <= 1 || models.length === 0) return scenarios;
-    const all = models.length >= columns.length;
-    const label = all ? (columns.length === 2 ? 'both models' : 'all models') : models.map((m) => splitModelLabel(m).short).join(', ');
-    return `${scenarios} · ${label}`;
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="fix-list">
-      {filterable && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }} data-testid="fix-list-model-filter">
-          <span style={mono(11)}>for</span>
-          <Chip square mono selected={selected === 'all'} onClick={() => setModel('all')} testId="fix-filter-all">{`all models ${items.length}`}</Chip>
-          {columns.map((label) => (
-            <Chip
-              key={label}
-              square
-              mono
-              selected={selected === label}
-              onClick={() => setModel(label)}
-              title={`Only what ${label} needs fixed`}
-              testId="fix-filter-model"
-            >
-              {`${splitModelLabel(label).short} ${counts[label] ?? 0}`}
-            </Chip>
-          ))}
-        </div>
-      )}
-      {visible.length === 0 && (
-        <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px' }}>
-          {`[+] nothing to fix for ${splitModelLabel(selected).short}`}
-        </Empty>
-      )}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-      {visible.map((item, index) => {
-        const info = item.kind === 'instruction';
-        const tone = info ? 'info' : 'error';
-        const tools = [];
-        const seen = new Set();
-        (item.tools || []).forEach((tool) => {
-          const name = typeof tool === 'string' ? tool : tool?.name;
-          if (!name || seen.has(name)) return;
-          seen.add(name);
-          tools.push({ name, note: (typeof tool === 'object' && (tool.note || tool.server?.name)) || null });
-        });
-        const server = item.server;
-        const enabled = server?.status === 'enabled';
-        const agent = agentName || 'the agent';
-        return (
-          <div
-            key={`${item.fault}-${index}`}
-            data-testid="scenario-recommendation"
-            style={{ border: '1px solid var(--color-border)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <Glyph kind={info ? 'info' : 'fault'} />
-              <Badge tone={tone}>{`${faultName(item.fault)}${item.count > 1 ? ` ×${item.count}` : ''}`}</Badge>
-              {onOpenScenario && (item.scenario_keys || []).length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenScenario(item.scenario_keys)}
-                  title={`Show ${(item.scenario_keys || []).join(', ')} — the question, the answer and the tools it called`}
-                  style={{ ...mono(11), background: 'none', border: 0, padding: 0, cursor: 'pointer', color: 'var(--color-text-link, var(--color-text-primary))', textDecoration: 'underline', textUnderlineOffset: 2 }}
-                >
-                  {scopeFor(item)}
-                </button>
-              ) : (
-                <span style={mono(11)}>{scopeFor(item)}</span>
-              )}
-            </div>
-            {item.recommendation && (
-              <p style={{ margin: 0, fontSize: 13, lineHeight: '19px', color: 'var(--color-text-cell)', textWrap: 'pretty' }}>{item.recommendation}</p>
-            )}
-            {item.quote && (
-              <div style={{ background: 'var(--color-muted)', borderRadius: 8, padding: '8px 10px', fontSize: 12, lineHeight: '18px', color: 'var(--color-text-cell)', fontStyle: 'italic' }}>
-                “{item.quote}”
-              </div>
-            )}
-            {tools.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <MicroLabel size={10} color="var(--color-text-muted)">{item.tools_label || 'tools'}</MicroLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {tools.map((tool) => (
-                    <span key={tool.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--color-border)', fontFamily: MONO, fontSize: 11, maxWidth: '100%' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{tool.name}</span>
-                      {tool.note && <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={tool.note}>{tool.note}</span>}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {server && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--color-text-cell)' }}>
-                <span>served by</span>
-                <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{server.name || server.key}</span>
-                <Badge tone={enabled ? 'success' : 'warning'} size={10} style={{ padding: '1px 6px' }}>
-                  {enabled ? `enabled for ${agent}` : `${server.status || 'unknown'} · not enabled for ${agent}`}
-                </Badge>
-              </div>
-            )}
-            {item.note && (
-              <div style={{ fontSize: 12, lineHeight: '18px', color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>{item.note}</div>
-            )}
-            {item.action && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto', paddingTop: 2, flexWrap: 'wrap' }}>
-                {item.action.path && (
-                  <Button size="sm" onClick={() => onNavigate?.(item.action.path)}>{item.action.label}</Button>
-                )}
-                {item.action.hint && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
     </div>
   );
 }
@@ -759,6 +627,143 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WHAT TO FIX
+
+export function FixList({ items, columns = [], agentName, onNavigate, onOpenScenario, run = null, results = [] }) {
+  // Which model cohort the list is read for. A fault one model keeps
+  // making is that model's to fix — more instruction, a different tool —
+  // so the list narrows to what the runner attributed to it, counted for
+  // that model alone.
+  const [model, setModel] = useState('all');
+  const filterable = columns.length > 1;
+  const selected = filterable ? model : 'all';
+  const attributed = filterable ? withModelBreakdown(items, results, (result) => labelForResult(run, result)) : items;
+  const visible = fixItemsForModel(attributed, selected);
+  const counts = filterable ? fixItemCountsByModel(attributed, columns) : {};
+
+  const scopeFor = (item) => {
+    const scenarios = plural((item.scenario_keys || []).length, 'scenario');
+    if (item.kind === 'instruction') return `${(item.scenario_keys || []).join(', ')} · judge suggestion`;
+    const models = uniq(item.models || []);
+    if (columns.length <= 1 || models.length === 0) return scenarios;
+    const all = models.length >= columns.length;
+    const label = all ? (columns.length === 2 ? 'both models' : 'all models') : models.map((m) => splitModelLabel(m).short).join(', ');
+    return `${scenarios} · ${label}`;
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="fix-list">
+      {filterable && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }} data-testid="fix-list-model-filter">
+          <span style={mono(11)}>for</span>
+          <Chip square mono selected={selected === 'all'} onClick={() => setModel('all')} testId="fix-filter-all">{`all models ${items.length}`}</Chip>
+          {columns.map((label) => (
+            <Chip
+              key={label}
+              square
+              mono
+              selected={selected === label}
+              onClick={() => setModel(label)}
+              title={`Only what ${label} needs fixed`}
+              testId="fix-filter-model"
+            >
+              {`${splitModelLabel(label).short} ${counts[label] ?? 0}`}
+            </Chip>
+          ))}
+        </div>
+      )}
+      {visible.length === 0 && (
+        <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px' }}>
+          {`[+] nothing to fix for ${splitModelLabel(selected).short}`}
+        </Empty>
+      )}
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+      {visible.map((item, index) => {
+        const info = item.kind === 'instruction';
+        const tone = info ? 'info' : 'error';
+        const tools = [];
+        const seen = new Set();
+        (item.tools || []).forEach((tool) => {
+          const name = typeof tool === 'string' ? tool : tool?.name;
+          if (!name || seen.has(name)) return;
+          seen.add(name);
+          tools.push({ name, note: (typeof tool === 'object' && (tool.note || tool.server?.name)) || null });
+        });
+        const server = item.server;
+        const enabled = server?.status === 'enabled';
+        const agent = agentName || 'the agent';
+        return (
+          <div
+            key={`${item.fault}-${index}`}
+            data-testid="scenario-recommendation"
+            style={{ border: '1px solid var(--color-border)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Glyph kind={info ? 'info' : 'fault'} />
+              <Badge tone={tone}>{`${faultName(item.fault)}${item.count > 1 ? ` ×${item.count}` : ''}`}</Badge>
+              {onOpenScenario && (item.scenario_keys || []).length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenScenario(item.scenario_keys)}
+                  title={`Show ${(item.scenario_keys || []).join(', ')} — the question, the answer and the tools it called`}
+                  style={{ ...mono(11), background: 'none', border: 0, padding: 0, cursor: 'pointer', color: 'var(--color-text-link, var(--color-text-primary))', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                >
+                  {scopeFor(item)}
+                </button>
+              ) : (
+                <span style={mono(11)}>{scopeFor(item)}</span>
+              )}
+            </div>
+            {item.recommendation && (
+              <p style={{ margin: 0, fontSize: 13, lineHeight: '19px', color: 'var(--color-text-cell)', textWrap: 'pretty' }}>{item.recommendation}</p>
+            )}
+            {item.quote && (
+              <div style={{ background: 'var(--color-muted)', borderRadius: 8, padding: '8px 10px', fontSize: 12, lineHeight: '18px', color: 'var(--color-text-cell)', fontStyle: 'italic' }}>
+                “{item.quote}”
+              </div>
+            )}
+            {tools.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <MicroLabel size={10} color="var(--color-text-muted)">{item.tools_label || 'tools'}</MicroLabel>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {tools.map((tool) => (
+                    <span key={tool.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--color-border)', fontFamily: MONO, fontSize: 11, maxWidth: '100%' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{tool.name}</span>
+                      {tool.note && <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={tool.note}>{tool.note}</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {server && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--color-text-cell)' }}>
+                <span>served by</span>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{server.name || server.key}</span>
+                <Badge tone={enabled ? 'success' : 'warning'} size={10} style={{ padding: '1px 6px' }}>
+                  {enabled ? `enabled for ${agent}` : `${server.status || 'unknown'} · not enabled for ${agent}`}
+                </Badge>
+              </div>
+            )}
+            {item.note && (
+              <div style={{ fontSize: 12, lineHeight: '18px', color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>{item.note}</div>
+            )}
+            {item.action && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto', paddingTop: 2, flexWrap: 'wrap' }}>
+                {item.action.path && (
+                  <Button size="sm" onClick={() => onNavigate?.(item.action.path)}>{item.action.label}</Button>
+                )}
+                {item.action.hint && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
     </div>
   );
 }

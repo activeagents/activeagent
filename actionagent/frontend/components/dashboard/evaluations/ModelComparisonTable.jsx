@@ -1,13 +1,15 @@
 import React from 'react';
 import { Card, MicroLabel, MONO } from '../primitives';
 import { fmtCost, fmtK, fmtMs, fmtScore, splitModelLabel } from '../../../utils/format';
-import { typicalFaultText } from '../../../utils/evaluationRuns.mjs';
+import { pricingNote, typicalFaultText } from '../../../utils/evaluationRuns.mjs';
 
 // The comparison at a glance: one row per model cohort of a run, best first —
 // passed, mean score, average latency, average tokens per interaction, cost
 // and the model's typical fault. The scorecards under it carry the same
 // figures per model with bars and fault badges; this is the table you read
-// across. `rows` come from modelComparisonRows.
+// across. `rows` come from modelComparisonRows. A cost that covers only
+// some of the model's interactions is marked `*`, and its title says how
+// many were priced.
 const th = { fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--color-text-muted)', padding: '8px 12px', textAlign: 'left', verticalAlign: 'bottom', whiteSpace: 'nowrap' };
 const td = { padding: '9px 12px', verticalAlign: 'top', fontSize: 13, color: 'var(--color-text-cell)', borderTop: '1px solid var(--color-border-light)' };
 const num = { ...td, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap', textAlign: 'right' };
@@ -45,6 +47,7 @@ export default function ModelComparisonTable({ rows = [], unit = 'scenario', jud
           <tbody>
             {rows.map((row) => {
               const { short, provider } = splitModelLabel(row.label, row.provider || '');
+              const pricing = pricingNote(row.priced, row.total, unit);
               return (
                 <tr key={row.label} data-testid="model-comparison-row" data-model={row.label}>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
@@ -65,8 +68,9 @@ export default function ModelComparisonTable({ rows = [], unit = 'scenario', jud
                     </td>
                   )}
                   {showCost && (
-                    <td style={num}>
+                    <td style={num} title={pricing || undefined}>
                       {fmtCost(row.cost)}
+                      {pricing && row.cost != null && <span style={{ color: 'var(--color-text-muted)' }}>*</span>}
                       {row.costPerInteraction != null && (
                         <span style={{ display: 'block', fontWeight: 400, color: 'var(--color-text-muted)' }}>{`${fmtCost(row.costPerInteraction)}/${unit}`}</span>
                       )}

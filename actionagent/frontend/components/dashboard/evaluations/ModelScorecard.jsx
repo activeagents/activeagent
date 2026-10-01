@@ -10,8 +10,10 @@ import { fmtRate } from './SpendStrip';
 //
 // `passed`/`total` drive the headline and the bar; without them (an older
 // run) `avgScore` stands in. `criteria` is `{ cleared, scored }` or null.
-// `cost` is the cohort's agent-side spend and `perInteraction` its rate; the
-// judge's spend is never on a model's card — it belongs to the run.
+// `cost` is the cohort's agent-side spend and `perInteraction` its rate;
+// `pricing` notes a cost that covers only some interactions ("estimated,
+// 3 of 5 scenarios priced"). The judge's spend is never on a model's card —
+// it belongs to the run.
 // `badges` are `{ tone, text, testId }`; `note` is a mono line under them.
 
 const mean = (value) => (value >= 0.85 ? 'success' : value >= 0.7 ? 'warning' : 'error');
@@ -26,7 +28,7 @@ function Stat({ label, children, title, nowrap = true }) {
 
 export default function ModelScorecard({
   label, short, provider, winner = false, passed, total, avgScore, criteria, latencyMs, inputTokens, outputTokens,
-  cost, perInteraction, unit = 'interaction', badges = [], note, testId = 'model-scorecard',
+  cost, perInteraction, pricing = null, unit = 'interaction', badges = [], note, testId = 'model-scorecard',
 }) {
   const bySamples = passed != null && total > 0;
   const ratio = bySamples ? passed / total : null;
@@ -67,13 +69,14 @@ export default function ModelScorecard({
           </span>
         )}
         {cost != null && (
-          <Stat label="cost" title={`What the agent spent under this model${perInteraction != null ? ` — ${fmtRate(perInteraction)} per ${unit}` : ''}`}>
+          <Stat label="cost" title={`What the agent spent under this model${perInteraction != null ? ` — ${fmtRate(perInteraction)} per ${unit}` : ''}${pricing ? ` · ${pricing}` : ''}`}>
             {fmtCost(cost)}
             {perInteraction != null && (
               <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>{` · ${fmtRate(perInteraction)} / ${unit}`}</span>
             )}
           </Stat>
         )}
+        {pricing && <span style={{ whiteSpace: 'nowrap', color: 'var(--color-text-muted)' }}>{pricing}</span>}
       </div>
       {(badges.length > 0 || note) && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>

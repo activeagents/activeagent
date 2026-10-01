@@ -152,13 +152,45 @@ export const passRate = (run) =>
 
 export const isInProgress = (run) => !!run && ['pending', 'running'].includes(run.status);
 
+// --- pricing ----------------------------------------------------------------
+//
+// An interaction is priced when it carried a cost estimate. A cost figure is
+// the sum over the priced interactions only, so where some went unpriced
+// the figure is partial and its per-interaction rate is taken over the
+// priced ones.
+
+// How many of a cohort's `count` interactions were priced: `priced` as the
+// API serves it, else all of them when the cohort has a cost. The API
+// counts a scenario run's summaries from its results, so a summary lacks
+// `priced` only when it predates the runner counting it and nothing can
+// recount it: a sampling run's cohort, whose samples the run does not keep,
+// or a scenario summary no result maps to. null for no summary at all.
+export const pricedCount = (stats, count) => {
+  if (!stats || typeof stats !== 'object') return null;
+  if (stats.priced != null) return stats.priced;
+  return stats.cost != null ? count ?? null : 0;
+};
+
+// A cost's rate per priced interaction, or null when none was priced.
+export const costPer = (cost, priced) => (cost != null && priced ? cost / priced : null);
+
+// The note a cost figure reads with when not every interaction was priced:
+// "estimated, 3 of 5 replays priced", or "0 of 5 replays priced" when none
+// was. null when every interaction was priced or the counts are unknown.
+export const pricingNote = (priced, count, unit) => {
+  if (priced == null || !count || priced >= count) return null;
+  const of = `${priced} of ${plural(count, unit)} priced`;
+  return priced > 0 ? `estimated, ${of}` : of;
+};
+
 // Per-model summaries of a run, one shape for both kinds of evaluation:
 // `{ label, model, provider, samples, passed, avg_score, avg_duration_ms,
-// input_tokens, output_tokens, cost, faults, errored, kind }`, where `kind`
-// is 'replay' for a scenario run's cohorts and 'sample' for a sampling
-// run's. Runs recorded before the runner stored summaries fall back to what
-// the criteria stats can tell; a run with no models at all is one cohort
-// of everything it scored.
+// input_tokens, output_tokens, cost, priced, faults, errored, kind }`, where
+// `priced` counts the samples that carried a cost and `kind` is 'replay' for
+// a scenario run's cohorts and 'sample' for a sampling run's. Runs recorded
+// before the runner stored summaries fall back to what the criteria stats
+// can tell; a run with no models at all is one cohort of everything it
+// scored.
 export const runCohorts = (run) => {
   if (!run) return [];
   const scores = run.scores || {};
@@ -169,7 +201,7 @@ export const runCohorts = (run) => {
       samples: stats.scenarios ?? null, passed: stats.passed ?? null, errored: stats.errored ?? 0,
       avg_score: stats.avg_score ?? null, avg_duration_ms: stats.avg_duration_ms ?? null,
       input_tokens: stats.input_tokens ?? null, output_tokens: stats.output_tokens ?? null,
-      cost: stats.cost ?? null, faults: stats.faults || {}, kind: 'replay',
+      cost: stats.cost ?? null, priced: pricedCount(stats, stats.scenarios), faults: stats.faults || {}, kind: 'replay',
     }));
   }
   const sampled = scores._cohorts;
@@ -179,7 +211,7 @@ export const runCohorts = (run) => {
       samples: stats.samples ?? null, passed: stats.passed ?? null, errored: 0,
       avg_score: null, avg_duration_ms: stats.avg_duration_ms ?? null,
       input_tokens: stats.input_tokens ?? null, output_tokens: stats.output_tokens ?? null,
-      cost: stats.cost ?? null, faults: {}, kind: 'sample',
+      cost: stats.cost ?? null, priced: pricedCount(stats, stats.samples), faults: {}, kind: 'sample',
     }));
   }
   const models = runModels(run);
@@ -192,14 +224,14 @@ export const runCohorts = (run) => {
       return {
         label: model, model, provider: null, samples: totals.length ? Math.max(...totals) : null, passed: null,
         errored: 0, avg_score: null, avg_duration_ms: null, input_tokens: null, output_tokens: null, cost: null,
-        faults: {}, kind: run.selection || scores._selection ? 'replay' : 'sample',
+        priced: null, faults: {}, kind: run.selection || scores._selection ? 'replay' : 'sample',
       };
     });
   }
   return [{
     label: null, model: null, provider: null, samples: run.samples_evaluated ?? null, passed: run.samples_passed ?? null,
-    errored: 0, avg_score: null, avg_duration_ms: null, input_tokens: null, output_tokens: null, cost: null, faults: {},
-    kind: 'sample',
+    errored: 0, avg_score: null, avg_duration_ms: null, input_tokens: null, output_tokens: null, cost: null, priced: null,
+    faults: {}, kind: 'sample',
   }];
 };
 
@@ -265,7 +297,8 @@ export const runDelta = (run, older, { olderNumber = older?.number, comparable =
 // `agent` is the operating figure — what the interactions cost to serve:
 // a scenario run's replays (simulated user–agent interactions), or the
 // sampled generations a sampling run scored (real ones, served before the
-// run). `perInteraction` is that cost per interaction, the number a
+// run). `priced` of its `count` interactions carried a cost, and `cost` sums
+// those. `perInteraction` is the cost per priced interaction, the number a
 // per-conversation budget is set against.
 //
 // `judge` is the evaluation's own overhead: the judge model's calls, which
@@ -277,11 +310,13 @@ export const runSpend = (run) => {
   if (!usage || typeof usage !== 'object') return null;
   const count = usage.replays ?? usage.samples ?? null;
   const agentCost = usage.cost ?? null;
+  const priced = pricedCount(usage, count || 0);
   const agent = count != null || agentCost != null ? {
     cost: agentCost,
     count: count || 0,
+    priced,
     unit: usage.replays != null ? 'replay' : 'sample',
-    perInteraction: usage.per_interaction ?? (agentCost != null && count ? agentCost / count : null),
+    perInteraction: usage.per_interaction ?? costPer(agentCost, priced),
     inputTokens: usage.input_tokens ?? null,
     outputTokens: usage.output_tokens ?? null,
     modelTimeMs: usage.model_time_ms ?? null,
@@ -300,6 +335,19 @@ export const runSpend = (run) => {
   return { agent, judge, total, runtimeMs: usage.runtime_ms ?? null };
 };
 
+// What a run's `total` sums, as its sub-line: "agent + judge", "agent only"
+// or "judge only". When some of the agent's interactions went unpriced it
+// adds "estimated", or, when none was priced, says the agent is left out:
+// "judge only · agent unpriced", or "agent unpriced" with no judge.
+export const spendTotalLabel = (spend) => {
+  const agent = spend?.agent || null;
+  const judge = spend?.judge || null;
+  const unpriced = !!agent && agent.priced != null && agent.priced < agent.count;
+  if (unpriced && agent.cost == null) return judge ? 'judge only · agent unpriced' : 'agent unpriced';
+  const sides = agent && judge ? 'agent + judge' : agent ? 'agent only' : 'judge only';
+  return unpriced ? `${sides} · estimated` : sides;
+};
+
 // The judge's calls by purpose, in the order the runner makes them:
 // "score 20 · recommend 3 · verdict 1".
 export const judgeCallsText = (judge) => {
@@ -310,28 +358,31 @@ export const judgeCallsText = (judge) => {
 };
 
 // Spend across several runs (the latest complete run of each evaluation, on
-// the page): the agent's cost and interactions summed, the per-interaction
-// rate over them, and the judge's cost beside it. `priced` counts the runs
-// that carried a figure at all.
+// the page): the agent's cost and interactions summed, the rate per priced
+// interaction (`pricedInteractions` of the `interactions`), and the judge's
+// cost beside it. `priced` counts the runs that carried a figure at all.
 export const spendSummary = (runs = []) => {
   let agentCost = null;
   let interactions = 0;
+  let pricedInteractions = 0;
   let judgeCost = null;
   let priced = 0;
   runs.forEach((run) => {
     const spend = runSpend(run);
     if (!spend) return;
     priced += 1;
-    if (spend.agent?.cost != null) {
-      agentCost = (agentCost || 0) + spend.agent.cost;
-      interactions += spend.agent.count || 0;
+    if (spend.agent) {
+      interactions += spend.agent.count;
+      pricedInteractions += spend.agent.priced;
     }
+    if (spend.agent?.cost != null) agentCost = (agentCost || 0) + spend.agent.cost;
     if (spend.judge?.cost != null) judgeCost = (judgeCost || 0) + spend.judge.cost;
   });
   return {
     agentCost,
     interactions,
-    perInteraction: agentCost != null && interactions ? agentCost / interactions : null,
+    pricedInteractions,
+    perInteraction: costPer(agentCost, pricedInteractions),
     judgeCost,
     priced,
   };
@@ -444,8 +495,9 @@ export const samplingFixItems = (evaluation, run) => {
 const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
 
 // One row per model cohort for the comparison table: passed/total, mean
-// score, average latency, average tokens per interaction, cost, and the
-// model's typical fault — its most frequent one, with the diagnosis of the
+// score, average latency, average tokens per interaction, cost (over the
+// `priced` interactions, and per priced interaction), and the model's
+// typical fault — its most frequent one, with the diagnosis of the
 // first result that carries it so the row says what went wrong, not only
 // how often. Rows are ordered best first (pass rate, then mean score), the
 // order a verdict is argued in. Cohort figures come from the run's recorded
@@ -505,7 +557,8 @@ export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labe
         ? null
         : perInteraction((cohort.input_tokens || 0) + (cohort.output_tokens || 0)),
       cost: cohort.cost ?? null,
-      costPerInteraction: perInteraction(cohort.cost),
+      priced: cohort.priced ?? null,
+      costPerInteraction: costPer(cohort.cost, cohort.priced),
       faults: faults.map(([fault, count]) => ({ fault, name: faultWords(fault), count })),
       typicalFault: topFault
         ? {
