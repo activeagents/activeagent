@@ -223,7 +223,8 @@ module ActionAgent
         input_tokens: agent_run.input_tokens,
         output_tokens: agent_run.output_tokens,
         error: agent_run.failed? ? agent_run.error_message.presence || "run failed" : nil,
-        cost: ModelPricing.estimate(model: spec.model, input_tokens: agent_run.input_tokens, output_tokens: agent_run.output_tokens),
+        cost: ModelPricing.estimate(model: spec.model, provider: spec.provider, input_tokens: agent_run.input_tokens,
+                                    output_tokens: agent_run.output_tokens),
         metadata: { "agent_run_id" => agent_run.id }
       )
     end

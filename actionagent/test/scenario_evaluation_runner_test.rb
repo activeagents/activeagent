@@ -261,9 +261,11 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert_equal "claude-opus-5", run.scores["_judge_label"]
     assert_equal "mock/alpha", run.scores.dig("_verdict", "winner")
 
-    # EvaluationRun#usage keeps the two sides apart.
+    # EvaluationRun#usage keeps the two sides apart, and says the judge's
+    # figures are the engine's own meter, the verdict being the call no
+    # result owns.
     assert_equal 4, run.usage[:replays]
-    assert_equal usage, run.usage[:judge]
+    assert_equal usage.merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "verdict" => 1 } }), run.usage[:judge]
   end
 
   test "a rules-only run records no judge spend" do

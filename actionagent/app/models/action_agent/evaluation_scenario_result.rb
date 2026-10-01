@@ -44,8 +44,11 @@ module ActionAgent
       value.is_a?(Hash) ? value : {}
     end
 
+    # The diagnosis as the dashboard shows it: without the storage keys —
+    # the replay metadata, the scenario snapshot and the judge usage the
+    # publishing application reported (served as `judge_usage` instead).
     def evaluation_diagnosis
-      (diagnosis || {}).except("_replay_metadata", "_scenario_snapshot")
+      (diagnosis || {}).except("_replay_metadata", "_scenario_snapshot", "_judge_usage")
     end
 
     # A catalog can be refreshed without changing what an earlier run asked
@@ -55,7 +58,12 @@ module ActionAgent
       snapshot.is_a?(Hash) ? snapshot : scenario.as_json_summary.stringify_keys
     end
 
-    def as_json_summary
+    # The result for the JSON API. Its cost is the effective one — reported,
+    # else estimated — with `reported_cost`, `cost_source`, `cost_rate` and
+    # the judge's `judge_usage` on it (EvaluationRunCost). A caller listing
+    # a run's results hands in the run's breakdown so nothing is priced per row.
+    def as_json_summary(costs: nil)
+      costs ||= evaluation_run.cost_breakdown.result(self)
       {
         id: id,
         scenario_id: evaluation_scenario_id,
@@ -73,7 +81,11 @@ module ActionAgent
         duration_ms: duration_ms,
         input_tokens: input_tokens,
         output_tokens: output_tokens,
-        cost: cost&.to_f,
+        cost: costs["cost"],
+        reported_cost: costs["reported_cost"],
+        cost_source: costs["cost_source"],
+        cost_rate: costs["cost_rate"],
+        judge_usage: costs["judge_usage"],
         fault: fault,
         recommendation: recommendation,
         diagnosis: evaluation_diagnosis,
