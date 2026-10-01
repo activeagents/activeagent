@@ -151,16 +151,50 @@ module ActiveAgent
         "#{format("%.#{n >= 10_000 ? 1 : 2}f", n / 1_000).sub(/\.?0+\z/, '')}s"
       end
 
-      def fmt_cost(value)
-        value.nil? ? "—" : format("$%.4f", value)
+      # Money reads "~$0.0243" when any part of it was estimated from tokens
+      # × a model rate rather than reported (Format.money); the footer's
+      # legend explains the mark once.
+      def fmt_cost(value, estimated: false)
+        Format.money(value, estimated: estimated)
       end
 
+      # A 0..1 score as a whole percent, "—" when there is none.
       def fmt_score(value)
-        value.nil? ? "—" : format("%.2f", value)
+        Format.score(value)
       end
 
-      def fmt_mean_score(value)
-        value.nil? ? "—" : format("%.3f", value)
+      # "14/16 · 88%" — a fraction always carries its percentage.
+      def fmt_passes(passed, total)
+        Format.passes(passed, total)
+      end
+
+      # Whether the page shows a "~" anywhere, so the footer carries the legend.
+      def estimated_anywhere?
+        run_costs["estimated"] || summary_by_model.values.any? { |stats| estimated_cost?(stats) }
+      end
+
+      # The tooltip of an estimated figure, worked out from the results it
+      # sums: their tokens at the rate the first estimated one recorded.
+      # Nothing for a reported figure.
+      def cost_title_attr(results, estimated:)
+        return "" unless estimated
+
+        priced = results.select(&:estimated_cost?)
+        rate = priced.filter_map(&:cost_rate).first
+        title = Format.cost_title(
+          input_tokens: priced.sum { |result| result.replay.input_tokens.to_i },
+          output_tokens: priced.sum { |result| result.replay.output_tokens.to_i },
+          rate: rate
+        )
+        %( title="#{h(title)}")
+      end
+
+      def results_for(label)
+        @results.select { |result| result.label == label }
+      end
+
+      def judge_estimated?
+        judge_usage&.dig("estimated") == true
       end
 
       # --- page ------------------------------------------------------------
@@ -177,17 +211,21 @@ module ActiveAgent
           "}",
           DesignTokens.css(scope: ":root.theme-dark", tokens: DesignTokens::DARK, color_scheme: "dark"),
           STYLES,
-          ".mx { grid-template-columns: minmax(240px, 1.6fr) 150px repeat(#{@models.size}, minmax(170px, 1fr)); }",
+          ".mx { grid-template-columns: minmax(240px, 1.6fr) 150px repeat(#{@models.size}, minmax(170px, 1fr)) 120px; }",
           # One rule per model: with that chip checked, hide every fix card
           # attributed to other models (cards attributed to none stay).
           *@models.each_index.map { |i| ".fix-section:has(input[value=\"m#{i}\"]:checked) .fix[data-models]:not([data-models~=\"m#{i}\"]) { display: none; }" },
-          ".matrix .inner { min-width: #{390 + 185 * @models.size}px; }"
+          ".matrix .inner { min-width: #{520 + 185 * @models.size}px; }"
         ].join("\n")
       end
 
+      # One chip per scalar metadata value — an array or a hash (the judge's
+      # trace ids, say) is a record, not a label — then the release when the
+      # report names one, and the judge with its calls and spend.
       def html_header(title)
-        chips = @metadata.to_h.map { |key, value| html_chip(key, value) }
-        chips << html_chip("judge", judge_name)
+        chips = metadata_chips.map { |key, value| html_chip(key, value) }
+        chips << html_chip("release", release_label) if release_label
+        chips << html_chip("judge", judge_chip_text)
 
         <<~HEADER
           <header>
@@ -201,22 +239,61 @@ module ActiveAgent
         %(<span class="chip"><b>#{h(key)}</b>#{h(value)}</span>)
       end
 
+      # The metadata worth a chip: scalar values, minus the judge's trace
+      # ids, which the dashboard follows but nobody reads.
+      def metadata_chips
+        @metadata.to_h.reject { |key, value| key.to_s == "judge_trace_ids" || value.is_a?(Hash) || value.is_a?(Array) || value.nil? }
+      end
+
+      # "1a2b3c4d5e6f · abc1234", or the label the caller gave the release.
+      def release_label
+        return nil unless release
+
+        release["label"].presence || [ release["digest"], release["revision"] ].compact_blank.join(" · ").presence
+      end
+
+      # "gpt-5 · 12 calls · ~$0.0315" when the judge spent anything.
+      def judge_chip_text
+        usage = judge_usage
+        return judge_name unless usage
+
+        parts = [ judge_name, plural(usage["calls"].to_i, "call") ]
+        parts << fmt_cost(usage["cost"], estimated: judge_estimated?) if usage["cost"]
+        parts.join(" · ")
+      end
+
       def html_stat_tiles
         total = @results.size
         passed = @results.count(&:passed?)
         ratio = total.positive? ? passed.to_f / total : 0.0
         tiles = [
           html_tile("Scenario runs", total, "#{plural(scenario_cohorts.size, 'scenario')} × #{plural(@models.size, 'model')}"),
-          html_tile("Pass rate", "#{(ratio * 100).round}%", "#{passed} / #{total} passed", tone: tone_for(ratio)),
+          html_tile("Pass rate", Format.percent(total.positive? ? ratio : nil), "#{passed}/#{total} passed", tone: tone_for(ratio)),
           html_tile("Open faults", total - passed, plural(fix_items.size, "fix item")),
+          html_cost_tile,
           html_tile("Models", @models.size, models_subline)
         ]
         %(<section class="stats">#{tiles.join}</section>)
       end
 
-      def html_tile(label, value, sub, tone: nil)
-        %(<div class="tile"><div class="micro">#{h(label)}</div>) +
+      def html_tile(label, value, sub, tone: nil, title: nil)
+        %(<div class="tile"#{%( title="#{h(title)}") if title}><div class="micro">#{h(label)}</div>) +
           %(<div class="value#{" tone-#{tone}" if tone}">#{h(value)}</div><div class="sub">#{h(sub)}</div></div>)
+      end
+
+      # The run's spend: agent plus judge, with the two apart underneath.
+      # A run with nothing priced says so rather than showing a blank.
+      def html_cost_tile
+        costs = run_costs
+        sub =
+          if costs["total"].nil?
+            "nothing priced"
+          elsif judge_usage
+            "agent #{fmt_cost(costs['cost'], estimated: costs['estimated'])} · judge #{fmt_cost(costs['judge_cost'], estimated: judge_estimated?)}"
+          else
+            "agent only · #{plural(costs['priced'], 'scenario run')} priced"
+          end
+        html_tile("Cost", fmt_cost(costs["total"], estimated: costs["estimated"]), sub)
       end
 
       def models_subline
@@ -245,18 +322,20 @@ module ActiveAgent
 
       # The comparison read across: one row per model, best first (pass rate,
       # then mean score) — passed, mean score, average latency, average
-      # tokens per scenario, cost (and per priced scenario), and the model's
-      # typical fault. The blocks under it carry the same figures per model
-      # with bars and every fault.
+      # tokens per scenario, cost (and per scenario), the judge's spend on
+      # the cohort when a judge was asked, and the model's typical fault.
+      # The blocks under it carry the same figures per model with bars and
+      # every fault.
       def html_comparison_table
         rows = summary_by_model.sort_by do |label, stats|
           total = stats["scenarios"].to_i
           [ total.positive? ? -stats["passed"].to_f / total : 0.0, -(stats["avg_score"] || -1).to_f, @models.index(model_by_label(label)).to_i ]
         end
+        judge_head = judge_usage ? %(<th class="num" title="What the judge spent scoring this model's answers">Judge</th>) : ""
 
         <<~TABLE
           <div class="compare"><table>
-          <thead><tr><th>Model</th><th class="num">Passed</th><th class="num">Mean score</th><th class="num">Avg latency</th><th class="num" title="Average input + output tokens per scenario">Avg tokens</th><th class="num" title="Cohort spend, and per scenario">Cost</th><th class="fault">Typical fault</th></tr></thead>
+          <thead><tr><th>Model</th><th class="num">Passed</th><th class="num">Mean score</th><th class="num">Avg latency</th><th class="num" title="Average input + output tokens per scenario">Avg tokens</th><th class="num" title="Cohort spend, and per scenario">Cost</th>#{judge_head}<th class="fault">Typical fault</th></tr></thead>
           <tbody>#{rows.map { |label, stats| html_comparison_row(label, stats) }.join}</tbody>
           </table></div>
         TABLE
@@ -272,21 +351,31 @@ module ActiveAgent
         tokens_cell = avg_tokens ? h(fmt_k(avg_tokens.round)) : "—"
         tokens_title = avg_tokens ? %( title="#{per.call(stats['input_tokens']).to_f.round} in · #{per.call(stats['output_tokens']).to_f.round} out per scenario") : ""
         per_cost = cost_per_priced(stats)
-        cost_cell = stats["cost"].nil? ? "—" : h(fmt_cost(stats["cost"]))
-        cost_cell += "<span class=\"per\">#{h(fmt_cost(per_cost))}/scenario</span>" if per_cost
-        cost_cell += "<span class=\"per\">#{h(pricing_note(stats))}</span>" if pricing_note(stats)
+        estimated = estimated_cost?(stats)
+        cost_cell = h(fmt_cost(stats["cost"], estimated: estimated))
+        cost_cell += "<span class=\"per\">#{h(fmt_cost(per_cost, estimated: estimated))}/scenario</span>" if per_cost
+        judge_cell = judge_usage ? %(<td class="num">#{html_judge_cost(stats)}</td>) : ""
 
         <<~ROW
           <tr>
           <td class="model-cell"><span class="name">#{h(short)}</span>#{pick}<span class="provider">#{h(provider)}</span></td>
-          <td class="num ratio tone-#{tone_for(ratio)}">#{total.positive? ? "#{stats['passed']}/#{total}" : '—'}</td>
-          <td class="num">#{h(fmt_mean_score(stats['avg_score']))}</td>
+          <td class="num ratio tone-#{tone_for(ratio)}">#{h(fmt_passes(stats['passed'], total))}</td>
+          <td class="num">#{h(fmt_score(stats['avg_score']))}</td>
           <td class="num">#{h(fmt_ms(stats['avg_duration_ms']))}</td>
           <td class="num"#{tokens_title}>#{tokens_cell}</td>
-          <td class="num">#{cost_cell}</td>
-          <td class="fault">#{typical_fault_text(label, stats)}</td>
+          <td class="num"#{cost_title_attr(results_for(label), estimated: estimated)}>#{cost_cell}</td>
+          #{judge_cell}<td class="fault">#{typical_fault_text(label, stats)}</td>
           </tr>
         ROW
+      end
+
+      # "~$0.0030<span class="per">3 calls</span>" — the judge's spend on a
+      # model's answers; "—" when it was not asked about them.
+      def html_judge_cost(stats)
+        calls = stats["judge_calls"].to_i
+        return "—" if stats["judge_cost"].nil? && calls.zero?
+
+        h(fmt_cost(stats["judge_cost"], estimated: judge_estimated?)) + %(<span class="per">#{h(plural(calls, 'call'))}</span>)
       end
 
       # "missing content ×2 · refund_window: The answer is missing expected
@@ -319,10 +408,16 @@ module ActiveAgent
         faults = stats["faults"].map { |fault, count| %(<span class="badge error">#{h(fault_name(fault))} ×#{count}</span>) }
         faults_html = faults.any? ? faults.join : %(<span class="clean">[+] no faults</span>)
 
+        estimated = estimated_cost?(stats)
+        judge_line = ""
+        if stats["judge_cost"] || stats["judge_calls"].to_i.positive?
+          judge_line = %(<span>judge <b>#{h(fmt_cost(stats['judge_cost'], estimated: judge_estimated?))}</b> · #{h(plural(stats['judge_calls'].to_i, 'call'))}</span>)
+        end
+
         <<~BLOCK
           <div class="model">
-          <div class="line"><span class="name">#{h(short)}</span><span class="provider">#{h(provider)}</span>#{pick}<span class="pass"><span class="bar bar-#{tone}"><span style="width:#{(ratio * 100).round}%"></span></span><span class="ratio tone-#{tone}">#{stats['passed']}/#{total}</span></span></div>
-          <div class="stats-line"><span>score <b>#{h(fmt_mean_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span>cost <b>#{h(fmt_cost(stats['cost']))}</b>#{" · #{h(pricing_note(stats))}" if pricing_note(stats)}</span></div>
+          <div class="line"><span class="name">#{h(short)}</span><span class="provider">#{h(provider)}</span>#{pick}<span class="pass"><span class="bar bar-#{tone}"><span style="width:#{(ratio * 100).round}%"></span></span><span class="ratio tone-#{tone}">#{h(fmt_passes(stats['passed'], total))}</span></span></div>
+          <div class="stats-line"><span>score <b>#{h(fmt_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span#{cost_title_attr(results_for(label), estimated: estimated)}>cost <b>#{h(fmt_cost(stats['cost'], estimated: estimated))}</b></span>#{judge_line}</div>
           <div class="faults">#{faults_html}</div>
           </div>
         BLOCK
@@ -335,7 +430,7 @@ module ActiveAgent
           short, provider = split_label(spec)
           %(<span class="col"><span class="name">#{h(short)}</span><span class="provider">#{h(provider)}</span></span>)
         end
-        rows = [ %(<div class="mx head"><span class="micro sm">Scenario</span><span class="micro sm">Expects</span>#{columns.join}</div>) ]
+        rows = [ %(<div class="mx head"><span class="micro sm">Scenario</span><span class="micro sm">Expects</span>#{columns.join}<span class="micro sm cost-head" title="What the scenario cost across every model, and what judging it cost">Cost</span></div>) ]
         scenario_groups.each do |cohorts|
           rows << html_group_row(cohorts) if group_name(cohorts.first.first.scenario)
           cohorts.each { |cohort| rows << html_scenario_row(cohort) }
@@ -363,10 +458,29 @@ module ActiveAgent
             elsif passed.zero? then " text-error"
             else ""
             end
-          %(<span class="group-pass#{tone}">#{passed}/#{results.size} passed</span>)
+          %(<span class="group-pass#{tone}">#{results.empty? ? '—' : "#{h(fmt_passes(passed, results.size))} passed"}</span>)
         end
         %(<div class="mx group"><span class="group-name">#{h(name)}</span>) +
-          %(<span class="count">#{h(plural(cohorts.size, 'scenario'))}</span>#{passes.join}</div>)
+          %(<span class="count">#{h(plural(cohorts.size, 'scenario'))}</span>#{passes.join}#{html_group_cost(cohorts)}</div>)
+      end
+
+      # The group's subtotal — its scenarios' costs summed, judge apart — in
+      # the trailing column, so the grid stays aligned under a group row.
+      def html_group_cost(cohorts)
+        costs = cohorts.map { |cohort| scenario_costs[cohort.first.scenario.key] }.compact
+        agent = costs.filter_map { |entry| entry["cost"] }
+        judge = costs.filter_map { |entry| entry["judge_cost"] }
+        estimated = costs.any? { |entry| entry["estimated"] }
+        return %(<span class="cost"><span class="muted">—</span></span>) if agent.empty? && judge.empty?
+
+        html_cost_block(agent.any? ? agent.sum : nil, judge.any? ? judge.sum : nil, estimated: estimated)
+      end
+
+      # "<b>~$0.0243</b><span class="judge">judge ~$0.0015</span>" — a
+      # scenario's (or group's) spend across every model.
+      def html_cost_block(cost, judge_cost, estimated:)
+        judge = judge_cost ? %(<span class="judge">judge #{h(fmt_cost(judge_cost, estimated: estimated))}</span>) : ""
+        %(<span class="cost"><b>#{h(fmt_cost(cost, estimated: estimated))}</b>#{judge}</span>)
       end
 
       def html_scenario_row(cohort)
@@ -376,8 +490,14 @@ module ActiveAgent
           result = cohort.find { |candidate| candidate.label == spec.label }
           result ? html_result_cell(result) : %(<div class="cell"><div class="top"><span class="muted">—</span></div></div>)
         end
+        costs = scenario_costs[scenario.key] || {}
+        total_cell = if costs["cost"].nil? && costs["judge_cost"].nil?
+          %(<span class="cost"><span class="muted">—</span></span>)
+        else
+          html_cost_block(costs["cost"], costs["judge_cost"], estimated: costs["estimated"])
+        end
         %(<div class="mx"><div><div class="key"><a href="##{h(anchor(scenario))}">#{h(scenario.key)}</a></div>) +
-          %(<div class="prompt">#{h(scenario.prompt)}</div></div><div class="expects">#{expects}</div>#{cells.join}</div>)
+          %(<div class="prompt">#{h(scenario.prompt)}</div></div><div class="expects">#{expects}</div>#{cells.join}#{total_cell}</div>)
       end
 
       def html_result_cell(result)
@@ -386,7 +506,25 @@ module ActiveAgent
         fault = result.fault ? %(<span class="f">#{h(fault_name(result.fault))}</span>) : ""
         %(<div class="cell"><div class="top"><span class="g tone-#{tone}">#{glyph}</span>) +
           %(<span class="s tone-#{tone}">#{h(fmt_score(result.score))}</span>#{fault}</div>) +
-          %(<div class="calls">#{html_calls(result, empty: 'no tools called')}</div></div>)
+          %(<div class="calls">#{html_calls(result, empty: 'no tools called')}</div>#{html_cell_cost(result)}</div>)
+      end
+
+      # "~$0.0243 · judge ~$0.0015" under a cell: what this answer cost and
+      # what judging it cost. A result with no cost at all shows no line.
+      def html_cell_cost(result)
+        text = result_cost_text(result)
+        return "" if text.nil?
+
+        %(<div class="cost-line"#{cost_title_attr([ result ], estimated: result.estimated_cost?)}>#{h(text)}</div>)
+      end
+
+      def result_cost_text(result)
+        judge_cost = result.judge_usage&.dig("cost")
+        return nil if result.replay.cost.nil? && judge_cost.nil?
+
+        parts = [ fmt_cost(result.replay.cost, estimated: result.estimated_cost?) ]
+        parts << "judge #{fmt_cost(judge_cost, estimated: estimated_usage?(result.judge_usage))}" if judge_cost
+        parts.join(" · ")
       end
 
       def html_calls(result, empty:)
@@ -467,7 +605,7 @@ module ActiveAgent
         [
           replay.duration_ms && fmt_ms(replay.duration_ms),
           replay.total_tokens.positive? ? "#{fmt_k(replay.total_tokens)} tokens" : nil,
-          replay.cost && fmt_cost(replay.cost)
+          result_cost_text(result)
         ].compact.join(" · ")
       end
 
@@ -588,12 +726,33 @@ module ActiveAgent
 
       # --- footer ----------------------------------------------------------
 
+      # The run's terms: the judge, the criteria and the pass mark, what it
+      # cost on each side, the metadata, and — once, when any figure on the
+      # page carries a "~" — what the mark means.
       def html_footer
         criteria = criterion_keys.map { |key| key.to_s.tr("_", " ") }.join(" · ")
         spans = [ %(<span class="nowrap">judge #{h(judge_name)}</span>) ]
         spans << %(<span class="criteria">criteria #{h(criteria)}</span>) if criteria.present?
-        spans.concat(@metadata.to_h.map { |key, value| %(<span class="nowrap">#{h(key)} #{h(value)}</span>) })
+        spans << %(<span class="nowrap">#{h(Format.threshold(@threshold))}</span>)
+        spans << %(<span class="nowrap">#{h(footer_cost_text)}</span>) if footer_cost_text
+        spans << %(<span class="nowrap">release #{h(release_label)}</span>) if release_label
+        spans.concat(metadata_chips.map { |key, value| %(<span class="nowrap">#{h(key)} #{h(value)}</span>) })
+        spans << %(<span class="legend">#{h(Format::LEGEND)}</span>) if estimated_anywhere?
         %(<footer>#{spans.join}</footer>)
+      end
+
+      # "cost ~$0.0412 · agent ~$0.0397 · judge ~$0.0015", or nil when
+      # nothing was priced.
+      def footer_cost_text
+        costs = run_costs
+        return nil if costs["total"].nil?
+
+        parts = [ "cost #{fmt_cost(costs['total'], estimated: costs['estimated'])}" ]
+        if judge_usage
+          parts << "agent #{fmt_cost(costs['cost'], estimated: costs['estimated'])}"
+          parts << "judge #{fmt_cost(costs['judge_cost'], estimated: judge_estimated?)}"
+        end
+        parts.join(" · ")
       end
 
       # Colors only through the token variables; radii 4 badges · 6 chips ·
@@ -703,6 +862,10 @@ module ActiveAgent
         .group-name { font-size: 12px; font-weight: 600; }
         .count { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
         .group-pass { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--color-text-cell); }
+        .mx .cost { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-secondary); text-align: right; }
+        .mx .cost b { font-weight: 600; color: var(--color-text-primary); }
+        .mx .cost .judge { color: var(--color-text-muted); white-space: nowrap; }
+        .mx .cost-head { text-align: right; }
         .key { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px; }
         .key a { color: inherit; }
         .prompt { font-size: 13px; line-height: 18px; color: var(--color-text-primary); }
@@ -716,6 +879,7 @@ module ActiveAgent
         .calls { display: flex; flex-wrap: wrap; gap: 2px 8px; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
         .call-hit { color: var(--color-success-text); font-weight: 600; }
         .call-err { color: var(--color-error); font-weight: 600; }
+        .cost-line { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; }
         .details { display: flex; flex-direction: column; gap: 8px; }
         details { border: 1px solid var(--color-border-light); border-radius: 10px; overflow: hidden; }
         summary { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; list-style: none; flex-wrap: wrap; }
@@ -741,6 +905,7 @@ module ActiveAgent
         footer { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--color-border-light); font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
         footer .criteria { min-width: 0; }
         footer .nowrap { white-space: nowrap; }
+        footer .legend { margin-left: auto; white-space: nowrap; color: var(--color-text-muted); }
       CSS
     end
   end

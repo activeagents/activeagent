@@ -209,7 +209,8 @@ module ActionAgent
       input_tokens = samples.sum { |generation| generation.input_tokens.to_i }
       output_tokens = samples.sum { |generation| generation.output_tokens.to_i }
       costs = samples.filter_map do |generation|
-        ModelPricing.estimate(model: generation.model, input_tokens: generation.input_tokens, output_tokens: generation.output_tokens)
+        ModelPricing.estimate(model: generation.model, provider: generation.provider.presence, input_tokens: generation.input_tokens,
+                              output_tokens: generation.output_tokens)
       end
 
       {
@@ -257,10 +258,10 @@ module ActionAgent
 
     def record_judge_call(kind, response)
       usage = response.respond_to?(:usage) ? response.usage : nil
-      input_tokens = usage.respond_to?(:input_tokens) ? usage.input_tokens.to_i : 0
+      input_tokens = judge_input_tokens(usage)
       output_tokens = usage.respond_to?(:output_tokens) ? usage.output_tokens.to_i : 0
       model = (response.respond_to?(:model) && response.model.presence) || @evaluation.judge_model.presence
-      cost = ModelPricing.estimate(model: model, input_tokens: input_tokens, output_tokens: output_tokens)
+      cost = ModelPricing.estimate(model: model, provider: judge_provider, input_tokens: input_tokens, output_tokens: output_tokens)
 
       @judge_usage ||= { "calls" => 0, "input_tokens" => 0, "output_tokens" => 0, "cost" => nil, "model" => nil, "by_kind" => {} }
       @judge_usage["calls"] += 1
@@ -269,6 +270,22 @@ module ActionAgent
       @judge_usage["cost"] = (@judge_usage["cost"] || 0.0) + cost if cost
       @judge_usage["model"] ||= model
       @judge_usage["by_kind"][kind.to_s] = @judge_usage["by_kind"].fetch(kind.to_s, 0) + 1
+    end
+
+    # Every token the judge was billed for reading. Anthropic reports the
+    # tokens read from or written to the prompt cache apart from
+    # `input_tokens`, so they are added; OpenAI's prompt count already holds
+    # its cached tokens. Priced at the input rate, which overstates a cache
+    # read: the figure is an upper bound.
+    def judge_input_tokens(usage)
+      return 0 unless usage.respond_to?(:input_tokens)
+
+      total = usage.input_tokens.to_i
+      return total unless judge_provider == :anthropic
+
+      total += usage.cached_tokens.to_i if usage.respond_to?(:cached_tokens)
+      total += usage.cache_creation_tokens.to_i if usage.respond_to?(:cache_creation_tokens)
+      total
     end
 
     def sample_generations(model: nil)

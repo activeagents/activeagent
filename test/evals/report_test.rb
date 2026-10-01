@@ -222,19 +222,21 @@ class EvalsReportTest < ActiveSupport::TestCase
     html = report.to_html
 
     assert_includes html, "Scenario runs"
-    assert_includes html, "4 / 10 passed"
+    assert_includes html, "4/10 passed", "the big percent carries its fraction on the same tile"
     assert_includes html, %(<div class="value tone-error">40%</div>)
     assert_includes html, "5 fix items"
     assert_includes html, "judged by rules", "a pass-rate ranking is not a judge — the dashboard reads it the same way"
     assert_includes html, "judge's pick"
     assert_not_includes html, "Winner"
     assert_includes html, %(<span class="name">llama-3.1-8b</span><span class="provider">openrouter/meta-llama</span>)
-    assert_includes html, %(<span class="ratio tone-error">1/5</span>)
-    assert_includes html, %(<span class="ratio tone-error">3/5</span>)
+    assert_includes html, %(<span class="ratio tone-error">1/5 · 20%</span>), "a fraction always carries its percent"
+    assert_includes html, %(<span class="ratio tone-error">3/5 · 60%</span>)
     assert_includes html, "expected tool not called ×3"
     assert_includes html, "<b>2.5s</b>"
     assert_includes html, "<b>900ms</b>"
-    assert_includes html, "<b>$0.0012</b>"
+    # gpt-5-mini's cost covers 1 of its 5 replays, so the sum is a lower
+    # bound and reads as an estimate.
+    assert_includes html, "<b>~$0.0012</b>"
     assert_includes html, %(<span class="tok"><span class="in">in</span> 80 · <span class="out">out</span> 9</span>),
                     "token counts stay plain in the secondary line, as they are on the dashboard"
     assert_includes html, %(<span class="micro sm">Verdict</span>)
@@ -296,20 +298,20 @@ class EvalsReportTest < ActiveSupport::TestCase
     html = report.to_html
 
     assert_includes html, %(<span class="group-name">desk</span><span class="count">3 scenarios</span>)
-    assert_includes html, %(<span class="group-pass">1/3 passed</span><span class="group-pass">2/3 passed</span>)
-    assert_includes html, %(<span class="group-pass text-error">0/1 passed</span><span class="group-pass text-success">1/1 passed</span>)
+    assert_includes html, %(<span class="group-pass">1/3 · 33% passed</span><span class="group-pass">2/3 · 67% passed</span>)
+    assert_includes html, %(<span class="group-pass text-error">0/1 · 0% passed</span><span class="group-pass text-success">1/1 · 100% passed</span>)
     assert_includes html, %(<span class="expect">index_status</span>)
-    assert_includes html, %(<span class="g tone-success">[+]</span><span class="s tone-success">1.00</span>)
-    assert_includes html, %(<span class="g tone-error">[!]</span><span class="s tone-error">0.50</span><span class="f">tool error</span>)
+    assert_includes html, %(<span class="g tone-success">[+]</span><span class="s tone-success">100%</span>)
+    assert_includes html, %(<span class="g tone-error">[!]</span><span class="s tone-error">50%</span><span class="f">tool error</span>)
     assert_includes html, %(<span class="call-hit">inbox_status</span><span>check_async</span>)
     assert_includes html, %(<span class="call-err">index_status ✗ ×2</span>)
     assert_includes html, "no tools called"
     assert_includes html, %(<a href="#scenario-s_history">s_history</a>)
     assert_includes html, %(<div id="scenario-s_history">)
     assert_includes html, "<details>"
-    assert_includes html, %(<span class="badge success">passed · 1.00</span>)
-    assert_includes html, %(<span class="badge error">failed · 0.50</span>)
-    assert_includes html, "2.5s · 89 tokens · $0.0012"
+    assert_includes html, %(<span class="badge success">passed · 100%</span>)
+    assert_includes html, %(<span class="badge error">failed · 50%</span>)
+    assert_includes html, "2.5s · 89 tokens · $0.0012", "a reported cost carries no estimate mark"
     assert_includes html, "<b>[!] tool error</b> — Tool index_status returned an error while answering."
     assert_includes html, "expects <b>lookup_order</b>"
     assert_includes html, "<footer>"
@@ -381,7 +383,8 @@ class EvalsReportTest < ActiveSupport::TestCase
     html = Report.new(results: [], models: models).to_html
 
     assert_includes html, "<title>Evaluation — 0 scenarios × 2 models</title>"
-    assert_includes html, "0 / 0 passed"
+    assert_includes html, %(<div class="value tone-error">—</div><div class="sub">0/0 passed</div>), "nothing scored reads as a dash"
+    assert_includes html, "nothing priced"
     assert_not_includes html, "What to fix", "a report over no results has nothing to fix and nothing to say about it"
   end
 
@@ -448,19 +451,176 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_not_includes html, "<script"
   end
 
-  # gpt-5-mini's replays carry a cost on 1 of 5 scenarios, llama's on none.
-  def test_a_partially_priced_model_is_priced_per_priced_scenario_and_says_how_many_were
+  # gpt-5-mini's replays carry a cost on 1 of 5 scenarios, llama's on none:
+  # a partial sum is an estimate (a lower bound) and reads with the "~" the
+  # legend explains, never with a "k of n priced" aside.
+  def test_a_partially_priced_model_reads_as_an_estimate_with_the_legend
     summary = report.summary_by_model
-    assert_equal [ 1, 0.0012 ], summary[gpt.label].values_at("priced", "cost")
-    assert_equal [ 0, nil ], summary[llama.label].values_at("priced", "cost")
+    assert_equal [ 1, 1, 0, 0.0012 ], summary[gpt.label].values_at("priced", "reported", "estimated", "cost")
+    assert_equal [ 0, 0, 0, nil ], summary[llama.label].values_at("priced", "reported", "estimated", "cost")
 
     html = report.to_html
     table = html[%r{<div class="compare">(.*?)</table></div>}m, 1]
     gpt_row = table[%r{<tr>\s*<td class="model-cell"><span class="name">gpt-5-mini</span>.*?</tr>}m]
-    assert_includes gpt_row, %($0.0012<span class="per">$0.0012/scenario</span><span class="per">1 of 5 scenarios priced</span>)
+    assert_includes gpt_row, %(~$0.0012<span class="per">~$0.0012/scenario</span>)
     llama_row = table[%r{<tr>\s*<td class="model-cell"><span class="name">llama-3.1-8b</span>.*?</tr>}m]
-    assert_includes llama_row, %(<td class="num">—<span class="per">0 of 5 scenarios priced</span></td>)
-    assert_includes html, "cost <b>$0.0012</b> · 1 of 5 scenarios priced</span>"
+    assert_includes llama_row, %(<td class="num">—</td>)
+    assert_not_includes html, "scenarios priced"
+    assert_includes html, "cost <b>~$0.0012</b></span>"
+    assert_includes html, %(<span class="legend">~ estimated from tokens × model rates</span>)
+    assert_equal 1, html.scan("~ estimated from tokens × model rates").size, "the legend appears once"
+  end
+
+  # --- costs from the replay metadata -----------------------------------------
+
+  RATE = { "input" => 5.0, "output" => 30.0, "source" => "catalog" }.freeze
+
+  # Two scenarios under two models, every replay priced: gpt's reported by
+  # the caller, llama's estimated from tokens at RATE, with the judge's spend
+  # on each result in the metadata and the verdict's handed in at run level.
+  def costed_report(**options)
+    inbox = scenario("s_inbox", "Is the support inbox receiving email?", group: "desk", tools: [ "inbox_status" ])
+    order = scenario("s_order", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ])
+    judge = ->(cost) { { "calls" => 1, "input_tokens" => 400, "output_tokens" => 20, "cost" => cost, "model" => "judge-1", "by_kind" => { "score" => 1 }, "source" => "traces" } }
+    results = [
+      result(inbox, gpt, replay(answer: "All healthy.", tool_calls: [ { "name" => "inbox_status" } ], input_tokens: 80, output_tokens: 9, cost: 0.0012,
+                                metadata: { "cost_source" => "reported", "judge_usage" => judge.call(0.001) })),
+      result(inbox, llama, replay(answer: "Healthy.", tool_calls: [ { "name" => "inbox_status" } ], input_tokens: 2_328, output_tokens: 423, cost: 0.02433,
+                                  metadata: { "cost_source" => "estimated", "cost_rate" => RATE, "judge_usage" => judge.call(0.0015) })),
+      result(order, gpt, replay(answer: "Order ABC-123 shipped.", tool_calls: [ { "name" => "lookup_order" } ], input_tokens: 100, output_tokens: 20, cost: 0.002,
+                                metadata: { "cost_source" => "reported" })),
+      result(order, llama, replay(answer: "", error: "boom", input_tokens: 0, output_tokens: 0, cost: 0.0,
+                                  metadata: { "cost_source" => "no_usage" }), score: nil)
+    ]
+    run_usage = { "calls" => 1, "input_tokens" => 900, "output_tokens" => 60, "cost" => 0.004, "model" => "judge-1", "by_kind" => { "verdict" => 1 }, "source" => "meter" }
+    Report.new(results: results, models: models, metadata: { "run" => 9, "judge_trace_ids" => %w[t1 t2], "sandbox" => { "id" => 1 } },
+               judge_usage: run_usage, release: { "digest" => "abc123def456", "revision" => "deploy-7" }, **options)
+  end
+
+  def test_model_summaries_count_reported_and_estimated_replays_and_the_judges_spend_apart
+    summary = costed_report.summary_by_model
+
+    assert_equal [ 2, 2, 0, 0.0032, 0.001, 1 ], summary[gpt.label].values_at("priced", "reported", "estimated", "cost", "judge_cost", "judge_calls")
+    # An errored replay with no tokens is priced at $0.00: neither reported nor estimated.
+    assert_equal [ 2, 0, 1, 0.02433, 0.0015, 1 ], summary[llama.label].values_at("priced", "reported", "estimated", "cost", "judge_cost", "judge_calls")
+  end
+
+  def test_scenario_costs_sum_each_scenario_across_models_with_the_judge_apart
+    costs = costed_report.scenario_costs
+
+    assert_equal %w[s_inbox s_order], costs.keys
+    inbox = costs["s_inbox"]
+    assert_in_delta 0.02553, inbox["cost"], 1e-9
+    assert_in_delta 0.0025, inbox["judge_cost"], 1e-9
+    assert_in_delta 0.02803, inbox["total"], 1e-9
+    assert inbox["estimated"], "one model's cost was estimated"
+    assert_equal({ "cost" => 0.02433, "judge_cost" => 0.0015, "cost_source" => "estimated" }, inbox["models"][llama.label])
+    order = costs["s_order"]
+    assert_equal [ 0.002, nil, 0.002, false ], order.values_at("cost", "judge_cost", "total", "estimated")
+    assert_equal "no_usage", order["models"][llama.label]["cost_source"]
+  end
+
+  def test_judge_usage_sums_every_results_calls_with_the_run_level_part_kept_apart
+    usage = costed_report.judge_usage
+
+    assert_equal 3, usage["calls"]
+    assert_equal 1_700, usage["input_tokens"]
+    assert_equal 100, usage["output_tokens"]
+    assert_in_delta 0.0065, usage["cost"], 1e-9
+    assert_equal "judge-1", usage["model"]
+    assert_equal({ "score" => 2, "verdict" => 1 }, usage["by_kind"])
+    assert usage["estimated"], "a cost priced from traces or a meter is an estimate"
+    assert_equal({ "calls" => 1, "cost" => 0.004, "by_kind" => { "verdict" => 1 } }, usage["run"])
+    assert_nil report.judge_usage, "no judge usage anywhere reads as none"
+  end
+
+  def test_run_costs_total_the_agent_and_the_judge_and_say_when_any_part_is_estimated
+    costs = costed_report.run_costs
+
+    assert_in_delta 0.02753, costs["cost"], 1e-9
+    assert_in_delta 0.0065, costs["judge_cost"], 1e-9
+    assert_in_delta 0.03403, costs["total"], 1e-9
+    assert costs["estimated"]
+    assert_equal [ 4, 0 ], costs.values_at("priced", "unpriced")
+    assert_equal({ "cost" => nil, "judge_cost" => nil, "total" => nil, "estimated" => false, "priced" => 0, "unpriced" => 0 },
+                 Report.new(results: [], models: models).run_costs)
+  end
+
+  def test_to_h_carries_the_release_and_the_judge_usage_only_when_there_are_any
+    plain = report.to_h
+    assert_equal %w[models criteria recommendations verdict metadata results], plain.keys
+    assert plain["results"].none? { |result| result.key?("judge_usage") }
+    assert_equal plain.to_json, report.to_json.then { |json| JSON.parse(json).to_json }, "nothing new leaks into the JSON"
+
+    costed = costed_report.to_h
+    assert_equal({ "digest" => "abc123def456", "revision" => "deploy-7" }, costed["release"])
+    assert_equal 3, costed.dig("judge_usage", "calls")
+    assert_equal({ "calls" => 1, "cost" => 0.004, "by_kind" => { "verdict" => 1 } }, costed.dig("judge_usage", "run"))
+    assert_equal 1, costed["results"].first.dig("judge_usage", "calls"), "each result publishes its own judge usage"
+    assert_equal 2, costed["models"][gpt.label]["reported"]
+  end
+
+  def test_html_renders_the_costs_with_the_estimate_mark_the_judge_and_the_legend_once
+    html = costed_report.to_html
+
+    # The cost tile totals agent and judge, apart underneath.
+    assert_includes html, %(<div class="micro">Cost</div><div class="value">~$0.0340</div><div class="sub">agent ~$0.0275 · judge ~$0.0065</div>)
+    # The comparison table gains a Judge column; the estimated cost carries its working.
+    assert_includes html, %(<th class="num" title="What the judge spent scoring this model's answers">Judge</th>)
+    assert_includes html, %(<td class="num" title="estimated: 2,328 in × $5.00/M + 423 out × $30.00/M · catalog rate">~$0.0243<span class="per">~$0.0122/scenario</span></td>)
+    assert_includes html, %(<td class="num">$0.0032<span class="per">$0.0016/scenario</span></td>)
+    assert_includes html, %(<td class="num">~$0.0010<span class="per">1 call</span></td>)
+    # Each model block carries a judge line.
+    assert_includes html, %(<span>judge <b>~$0.0015</b> · 1 call</span>)
+    # The matrix: a cost line per cell, a trailing column per scenario and a group subtotal.
+    assert_includes html, %(<div class="cost-line" title="estimated: 2,328 in × $5.00/M + 423 out × $30.00/M · catalog rate">~$0.0243 · judge ~$0.0015</div>)
+    assert_includes html, %(<div class="cost-line">$0.0012 · judge ~$0.0010</div>)
+    assert_includes html, %(<div class="cost-line">$0.00</div>), "an errored replay with no tokens cost nothing, and says so"
+    assert_includes html, %(<span class="micro sm cost-head" title="What the scenario cost across every model, and what judging it cost">Cost</span>)
+    assert_includes html, %(<span class="cost"><b>~$0.0255</b><span class="judge">judge ~$0.0025</span></span>)
+    assert_includes html, %(<span class="cost"><b>$0.0020</b></span>)
+    assert_includes html, "120px; }", "the grid reserves the trailing cost column"
+    # The details meta names the judge's spend on the answer.
+    assert_includes html, "$0.0012 · judge ~$0.0010</span>"
+    # Header: scalar metadata only, the release, and the judge with its calls and spend.
+    assert_includes html, %(<span class="chip"><b>release</b>abc123def456 · deploy-7</span>)
+    assert_includes html, %(<span class="chip"><b>judge</b>rules · 3 calls · ~$0.0065</span>)
+    assert_not_includes html, "judge_trace_ids"
+    assert_not_includes html, %(<b>sandbox</b>)
+    # Footer: the pass mark, the cost on both sides, and the legend once.
+    assert_includes html, %(<span class="nowrap">pass ≥ 70%</span>)
+    assert_includes html, %(<span class="nowrap">cost ~$0.0340 · agent ~$0.0275 · judge ~$0.0065</span>)
+    assert_equal 1, html.scan("~ estimated from tokens × model rates").size
+  end
+
+  def test_markdown_renders_the_judge_column_the_matrix_cost_column_the_cost_per_answer_and_the_total
+    markdown = costed_report.to_markdown
+
+    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Tokens in/out | Cost | Judge | Faults |"
+    assert_includes markdown, "| `gpt-5-mini` | 2/2 (100%) | 100% | — | 180/29 | $0.0032 | ~$0.0010 (1 call) | — |"
+    assert_includes markdown, "| ~$0.0243 | ~$0.0015 (1 call) |"
+    assert_includes markdown, "**Total: ~$0.0340** (agent ~$0.0275 · judge ~$0.0065)\n_~ estimated from tokens × model rates_\n"
+    assert_includes markdown, "| Scenario | `gpt-5-mini` | `openrouter/meta-llama/llama-3.1-8b` | Cost |"
+    assert_includes markdown, "| ✅ 100% | ✅ 100% | ~$0.0255 (judge ~$0.0025) |"
+    assert_includes markdown, "| ✅ 100% | ⚠️ run error | $0.0020 |"
+    assert_includes markdown, "### `s_inbox` · `openrouter/meta-llama/llama-3.1-8b` · passed · score 100% · ~$0.0243 · judge ~$0.0015"
+    assert_includes markdown, "### `s_order` · `openrouter/meta-llama/llama-3.1-8b` · errored · $0.00"
+  end
+
+  def test_a_report_without_a_judge_has_no_judge_column_and_no_legend_when_every_cost_is_reported
+    priced = results.map do |entry|
+      Result.new(scenario: entry.scenario, spec: entry.spec, replay: Replay.new(**entry.replay.to_h.merge(cost: 0.001)),
+                 scores: entry.scores, score: entry.score, status: entry.status, diagnosis: entry.diagnosis)
+    end
+    html = Report.new(results: priced, models: models).to_html
+    markdown = Report.new(results: priced, models: models).to_markdown
+
+    assert_not_includes html, ">Judge</th>"
+    assert_not_includes html, "~$", "every cost was reported, so nothing is marked as an estimate"
+    assert_not_includes html, "estimated from tokens"
+    assert_includes html, %(<div class="micro">Cost</div><div class="value">$0.0100</div><div class="sub">agent only · 10 scenario runs priced</div>)
+    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Tokens in/out | Cost | Faults |"
+    assert_includes markdown, "**Total: $0.0100** (agent $0.0100)\n\n**Best model"
   end
 
   def test_html_of_a_single_model_run_has_no_comparison_table_or_filter

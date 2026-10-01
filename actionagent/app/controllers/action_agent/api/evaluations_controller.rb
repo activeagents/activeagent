@@ -41,6 +41,11 @@ module ActionAgent
       # 50 most recent. The scope is already restricted to the current user's
       # agents, so an id outside it simply returns nothing.
       #
+      # Archived evaluations are left out the same way, before the limit,
+      # unless `archived=1` asks for them; `archived_count` says how many
+      # the page left out. Each evaluation carries its standing against the
+      # agent's current version and its headline run (EvaluationSerializer).
+      #
       # Three fields feed the dashboard's model pickers. They describe the
       # credentials of #picker_credentials_owner:
       #   - judge_provider:        the provider a judge model runs on, null
@@ -54,14 +59,34 @@ module ActionAgent
       def index
         scope = evaluations_scope
         scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
-        evaluations = scope.includes(:agent, :evaluation_runs, :scenarios).recent.limit(50)
+        archived_count = scope.archived.count
+        scope = scope.unarchived unless include_archived?
+        evaluations = scope.includes(:agent, :scenarios, evaluation_runs: :agent_version).recent.limit(50).to_a
+        preload_standing_and_costs(evaluations)
         owner = picker_credentials_owner
 
         render json: {
           evaluations: evaluations.map { |evaluation| serialize(evaluation) },
+          archived_count: archived_count,
           **judge_provider_fields(owner),
           model_providers: AgentExecutionService.available_providers(owner)
         }
+      end
+
+      # PATCH /api/evaluations/:id
+      # `evaluation: { archived: true | false }` archives the evaluation —
+      # it keeps its runs but leaves the index, the pooled pass rate and the
+      # agent's scorecard — or brings it back. A new run brings it back too.
+      def update
+        evaluation = evaluations_scope.find(params[:id])
+        archived = params.require(:evaluation)[:archived]
+        if archived.nil?
+          return render json: { errors: [ "evaluation.archived must be true or false" ] }, status: :unprocessable_entity
+        end
+
+        ActiveModel::Type::Boolean.new.cast(archived) ? evaluation.archive! : evaluation.unarchive!
+
+        render json: { evaluation: serialize(evaluation.reload) }
       end
 
       # Runs listed per evaluation on GET /api/evaluations/:id. The rest of
@@ -72,7 +97,8 @@ module ActionAgent
       def show
         evaluation = evaluations_scope.find(params[:id])
         run_count = evaluation.evaluation_runs.count
-        runs = evaluation.evaluation_runs.recent.limit(RUN_HISTORY_LIMIT).to_a
+        runs = evaluation.evaluation_runs.includes(:agent_version).recent.limit(RUN_HISTORY_LIMIT).to_a
+        EvaluationRunCost.preload(runs).each { |id, breakdown| runs.find { |run| run.id == id }&.cost_breakdown = breakdown }
 
         render json: {
           evaluation: serialize(evaluation).merge(
@@ -143,16 +169,21 @@ module ActionAgent
       # fix items — the faults grouped with the tools, MCP server and
       # dashboard action that address each. Fix item paths are relative to
       # the mount: the React app resolves them itself (dashboardPath).
+      # `costs` is what each scenario cost across the models, judge apart,
+      # and the run's total (EvaluationRunCost#costs); every result carries
+      # its effective cost and how it was priced.
       def show_run
         evaluation = evaluations_scope.find(params[:id])
         run = evaluation.evaluation_runs.find(params[:run_id])
         results = run.scenario_results.includes(:scenario).joins(:scenario)
           .order(EvaluationScenario.arel_table[:position], EvaluationScenario.arel_table[:id], :model)
+        breakdown = run.cost_breakdown
 
         render json: {
           evaluation: serialize(evaluation),
           run: serialize_run(run, number: run_number(evaluation, run))
-            .merge(results: results.map(&:as_json_summary), fix_items: safe_fix_items(run))
+            .merge(results: results.map { |result| result.as_json_summary(costs: breakdown.result(result)) },
+                   fix_items: safe_fix_items(run), costs: breakdown.costs)
         }
       end
 
@@ -224,6 +255,21 @@ module ActionAgent
       end
 
       private
+
+      def include_archived?
+        ActiveModel::Type::Boolean.new.cast(params[:archived]) == true
+      end
+
+      # One query per table for the page's standings and for the costs of
+      # the runs it serializes in full (each evaluation's latest and headline
+      # run), rather than one per evaluation.
+      def preload_standing_and_costs(evaluations)
+        EvaluationStanding.preload(evaluations)
+        runs = evaluations.flat_map do |evaluation|
+          [ EvaluationSerializer.recent_runs(evaluation, 1).first, evaluation.standing_info.headline_run ]
+        end.compact.uniq(&:id)
+        EvaluationRunCost.preload(runs).each { |id, breakdown| runs.find { |run| run.id == id }&.cost_breakdown = breakdown }
+      end
 
       # Returns whose credentials the index's model picker fields describe.
       # Agent runs and their judge use the evaluated agent's owner's

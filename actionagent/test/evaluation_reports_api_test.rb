@@ -875,3 +875,160 @@ class EvaluationReportOwnerLockTest < ActiveSupport::TestCase
     assert_empty connection.statements
   end
 end
+
+# The release a report names and what its judge spent, as the import stores them.
+class EvaluationReportsReleaseApiTest < ActionDispatch::IntegrationTest
+  ENDPOINT = "/activeagents/api/evaluation_reports"
+
+  def setup
+    ActionAgent::EvaluationRun.delete_all
+    ActionAgent::Evaluation.delete_all
+    ActionAgent::Agent.delete_all
+    ActionAgent::ModelPricing.reset!
+  end
+
+  def publish(payload)
+    post ENDPOINT, params: payload.to_json, headers: { "Content-Type" => "application/json" }
+  end
+
+  def json_response = JSON.parse(response.body)
+
+  # A report of one scenario under one model, with whatever the test adds.
+  def envelope(run_id: "run-#{SecureRandom.hex(4)}", report: {}, result: {})
+    base_result = {
+      "scenario_key" => "status_1", "group" => "status", "prompt" => "Where is order 1234?", "label" => "gpt-5-mini",
+      "provider" => "openai", "model" => "gpt-5-mini", "status" => "passed", "score" => 1.0, "scores" => { "response_present" => 1.0 },
+      "answer" => "Order 1234 shipped on Monday.", "tool_calls" => [], "duration_ms" => 900, "input_tokens" => 100, "output_tokens" => 20,
+      "metadata" => { "trace_id" => "trace-#{run_id}", "judge_trace_ids" => [ "judge-#{run_id}" ] }
+    }.merge(result)
+    {
+      "version" => 1, "run_id" => run_id, "source" => "support-app", "agent_name" => "SupportBot", "suite" => "orders",
+      "report" => {
+        "models" => { "gpt-5-mini" => { "scenarios" => 1, "passed" => 1 } },
+        "criteria" => {}, "recommendations" => [], "judge" => "gpt-5-mini",
+        "results" => [ base_result ]
+      }.merge(report)
+    }
+  end
+
+  test "a report's release pins the run to that version of the agent, recorded when the dashboard has not seen it" do
+    publish(envelope(report: { "release" => { "digest" => "abc123def456", "revision" => "deploy-7", "label" => "v12" } }))
+
+    assert_response :created
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    version = run.agent_version
+    assert version.release?, "the run names the release it scored"
+    assert_equal [ "abc123def456", "deploy-7" ], [ version.release_digest, version.revision ]
+    assert_match(/reported by an evaluation/, version.change_summary)
+    assert_equal "abc123def456", run.evaluation.agent.reload.release_digest, "an agent with no recorded deploy takes the reported release"
+
+    publish(envelope(report: { "release" => { "digest" => "abc123def456" } }))
+    assert_equal version.id, ActionAgent::EvaluationRun.find(json_response["id"]).agent_version_id, "the same digest is the same version"
+
+    get "/activeagents/api/evaluations"
+    listed = JSON.parse(response.body)["evaluations"].first
+    assert_equal "current", listed["standing"]
+    assert_equal [ "abc123def456", true, "current" ],
+                 [ listed.dig("latest_run", "agent_version", "release_digest"), listed.dig("latest_run", "agent_version", "release"), listed.dig("latest_run", "version_state") ]
+  end
+
+  test "a report's release never moves an agent's recorded deploy backwards, and an older release reads as earlier" do
+    publish(envelope(report: { "release" => { "digest" => "aaaaaaaaaaaa" } }))
+    agent = ActionAgent::EvaluationRun.find(json_response["id"]).evaluation.agent
+    agent.record_release!(digest: "bbbbbbbbbbbb", revision: "deploy-2")
+
+    publish(envelope(report: { "release" => { "digest" => "cccccccccccc", "revision" => "deploy-0" } }))
+
+    assert_response :created
+    assert_equal "bbbbbbbbbbbb", agent.reload.release_digest, "the deploy's digest stands"
+    assert_equal 3, agent.agent_versions.releases.count
+    get "/activeagents/api/evaluations"
+    listed = JSON.parse(response.body)["evaluations"].first
+    assert_equal "stale", listed["standing"]
+    assert_equal "earlier", listed.dig("latest_run", "version_state")
+  end
+
+  test "a report naming no release leaves the run unrecorded rather than claiming the dashboard's latest version" do
+    publish(envelope)
+
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    assert_nil run.agent_version_id
+    get "/activeagents/api/evaluations"
+    listed = JSON.parse(response.body)["evaluations"].first
+    assert_equal "unrecorded", listed["standing"]
+    assert_equal "unrecorded", listed.dig("latest_run", "version_state")
+    assert_nil listed.dig("latest_run", "agent_version")
+  end
+
+  test "a report's judge usage is stored per result and for the run, out of the visible diagnosis, and served as the judge's spend" do
+    judge = { "calls" => 2, "input_tokens" => 800, "output_tokens" => 40, "cost" => 0.003, "model" => "claude-opus-5", "by_kind" => { "score" => 2 }, "source" => "reported" }
+    run_part = { "calls" => 1, "input_tokens" => 900, "output_tokens" => 60, "cost" => 0.004, "model" => "claude-opus-5", "by_kind" => { "verdict" => 1 }, "source" => "reported" }
+    publish(envelope(result: { "judge_usage" => judge.merge("ignored" => "x") },
+                     report: { "judge_usage" => { "calls" => 3, "cost" => 0.007, "run" => run_part } }))
+
+    assert_response :created
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    stored = run.scenario_results.first
+    assert_equal judge, stored.diagnosis["_judge_usage"], "bounded to the keys the dashboard reads"
+    assert_not stored.evaluation_diagnosis.key?("_judge_usage")
+    assert_equal run_part, run.scores["_judge_usage_run"]
+
+    usage = run.usage
+    assert_equal [ 3, 1_700, 100, "reported", false ], usage[:judge].values_at("calls", "input_tokens", "output_tokens", "source", "estimated")
+    assert_in_delta 0.007, usage[:judge]["cost"], 1e-9
+    assert_equal({ "calls" => 1, "cost" => 0.004, "by_kind" => { "verdict" => 1 } }, usage[:judge]["run"])
+    assert_equal [ 2, 0.003 ], run.scores.dig("_models", "gpt-5-mini").values_at("judge_calls", "judge_cost"), "the stored summary carries the reported judge spend"
+    get "/activeagents/api/evaluations/#{run.evaluation_id}/runs/#{run.id}"
+    result = JSON.parse(response.body).dig("run", "results").first
+    assert_equal judge, result["judge_usage"].slice(*judge.keys), "the result serves the usage it was published with"
+    assert_not result["diagnosis"].key?("_judge_usage")
+  end
+
+  test "a report whose judge usage or release is malformed is refused with the field named" do
+    publish(envelope(result: { "judge_usage" => { "calls" => -1 } }))
+    assert_response :unprocessable_entity
+    assert_match "result.judge_usage.calls", json_response["error"]
+
+    publish(envelope(report: { "release" => { "digest" => "not a digest!" } }))
+    assert_response :unprocessable_entity
+    assert_match "report.release.digest", json_response["error"]
+
+    publish(envelope(report: { "judge_usage" => { "run" => [] } }))
+    assert_response :unprocessable_entity
+    assert_match "report.judge_usage.run", json_response["error"]
+  end
+
+  test "a published run prices the results that reported no cost from their tokens, and a stored summary stays the application's own" do
+    publish(envelope(result: { "cost" => nil, "input_tokens" => 2_000, "output_tokens" => 100 }))
+
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    assert_nil run.scores.dig("_models", "gpt-5-mini", "cost"), "nothing is estimated into the stored summary"
+    assert_equal 0, run.scores.dig("_models", "gpt-5-mini", "priced")
+
+    get "/activeagents/api/evaluations/#{run.evaluation_id}/runs/#{run.id}"
+    served = JSON.parse(response.body)["run"]
+    result = served["results"].first
+    assert_equal "estimated", result["cost_source"]
+    assert_operator result["cost"], :>, 0
+    assert_equal 2_000, result.dig("cost_rate", "input_tokens")
+    assert_in_delta result["cost"], served.dig("scores", "_models", "gpt-5-mini", "cost"), 1e-9, "the API serves the effective cost"
+    assert_equal [ 1, 0, 1 ], served.dig("scores", "_models", "gpt-5-mini").values_at("priced", "reported", "estimated")
+    assert_equal "estimated", served.dig("usage", "cost_basis")
+
+    get "/activeagents/api/evaluations/#{run.evaluation_id}/runs/#{run.id}/report"
+    assert_response :success
+    assert_includes response.body, "~$"
+    assert_includes response.body, "~ estimated from tokens × model rates"
+  end
+
+  test "publishing a report brings an archived evaluation back" do
+    publish(envelope)
+    evaluation = ActionAgent::EvaluationRun.find(json_response["id"]).evaluation
+    evaluation.archive!
+
+    publish(envelope)
+
+    assert_response :created
+    assert_not evaluation.reload.archived?
+  end
+end
