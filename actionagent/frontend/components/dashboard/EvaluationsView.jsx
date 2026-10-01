@@ -10,7 +10,7 @@ import RunsList, { RunBadge, runsSummary } from './evaluations/RunsList';
 import { fmtRate } from './evaluations/SpendStrip';
 import { Button, Card, Glyph, StatCard, MONO, TONE, toneFor } from './primitives';
 import { fmtCost, fmtPct, timeAgo } from '../../utils/format';
-import { criterionGroup, modelCount, plural, runLabel, runSpend, samplingFixItems, spendSummary } from '../../utils/evaluationRuns.mjs';
+import { criterionGroup, modelCount, plural, pricingNote, runLabel, runSpend, samplingFixItems, spendSummary } from '../../utils/evaluationRuns.mjs';
 
 // Evaluations, each with every run it has had. An evaluation is a named set
 // of criteria against one agent — scored over its recorded generations, or,
@@ -402,12 +402,13 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // The operating figure clients budget against: the agent's spend over the
   // interactions the latest runs covered, with the judge's own spend named
   // apart so it never inflates it.
+  const spendPricing = pricingNote(spend.pricedInteractions, spend.interactions, 'interaction');
   const spendSub = spend.agentCost != null
     ? [
-      `agent ${fmtCost(spend.agentCost)} over ${plural(spend.interactions, 'interaction')}`,
+      `agent ${fmtCost(spend.agentCost)} ${spendPricing ? `· ${spendPricing}` : `over ${plural(spend.interactions, 'interaction')}`}`,
       spend.judgeCost != null ? `judge ${fmtCost(spend.judgeCost)} offline` : 'no judge spend',
     ].join(' · ')
-    : 'no priced runs yet';
+    : spendPricing || 'no priced runs yet';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

@@ -12,8 +12,8 @@ module ActiveAgent
     #
     # Same content as Report#to_markdown, laid out the way the dashboard's
     # suite card is: header and stat tiles, the MODELS panel with the judge's
-    # pick and verdict, WHAT TO FIX cards from Report#fix_items, the
-    # SCENARIOS matrix, and a per-scenario disclosure with every answer.
+    # pick and verdict, the SCENARIOS matrix, a per-scenario disclosure with
+    # every answer, and WHAT TO FIX cards from Report#fix_items.
     module ReportHtml
       THEMES = %w[light dark].freeze
       ANSWER_LIMIT = 3_000
@@ -44,9 +44,9 @@ module ActiveAgent
           #{html_stat_tiles}
           <section class="card">
           #{html_models_panel}
-          #{html_fixes}
           #{html_matrix}
           #{html_details}
+          #{html_fixes}
           #{html_footer}
           </section>
           </main>
@@ -245,8 +245,9 @@ module ActiveAgent
 
       # The comparison read across: one row per model, best first (pass rate,
       # then mean score) — passed, mean score, average latency, average
-      # tokens per scenario, cost, and the model's typical fault. The blocks
-      # under it carry the same figures per model with bars and every fault.
+      # tokens per scenario, cost (and per priced scenario), and the model's
+      # typical fault. The blocks under it carry the same figures per model
+      # with bars and every fault.
       def html_comparison_table
         rows = summary_by_model.sort_by do |label, stats|
           total = stats["scenarios"].to_i
@@ -270,9 +271,10 @@ module ActiveAgent
         avg_tokens = per.call(stats["input_tokens"].to_i + stats["output_tokens"].to_i)
         tokens_cell = avg_tokens ? h(fmt_k(avg_tokens.round)) : "—"
         tokens_title = avg_tokens ? %( title="#{per.call(stats['input_tokens']).to_f.round} in · #{per.call(stats['output_tokens']).to_f.round} out per scenario") : ""
-        per_cost = per.call(stats["cost"])
+        per_cost = cost_per_priced(stats)
         cost_cell = stats["cost"].nil? ? "—" : h(fmt_cost(stats["cost"]))
         cost_cell += "<span class=\"per\">#{h(fmt_cost(per_cost))}/scenario</span>" if per_cost
+        cost_cell += "<span class=\"per\">#{h(pricing_note(stats))}</span>" if pricing_note(stats)
 
         <<~ROW
           <tr>
@@ -320,125 +322,10 @@ module ActiveAgent
         <<~BLOCK
           <div class="model">
           <div class="line"><span class="name">#{h(short)}</span><span class="provider">#{h(provider)}</span>#{pick}<span class="pass"><span class="bar bar-#{tone}"><span style="width:#{(ratio * 100).round}%"></span></span><span class="ratio tone-#{tone}">#{stats['passed']}/#{total}</span></span></div>
-          <div class="stats-line"><span>score <b>#{h(fmt_mean_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span>cost <b>#{h(fmt_cost(stats['cost']))}</b></span></div>
+          <div class="stats-line"><span>score <b>#{h(fmt_mean_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span>cost <b>#{h(fmt_cost(stats['cost']))}</b>#{" · #{h(pricing_note(stats))}" if pricing_note(stats)}</span></div>
           <div class="faults">#{faults_html}</div>
           </div>
         BLOCK
-      end
-
-      # --- WHAT TO FIX -----------------------------------------------------
-
-      # The section stands even for a run with nothing to fix — the dashboard
-      # keeps it too, so a clean run reads as clean rather than as a page
-      # missing a section. A report over no results at all has nothing to say.
-      def html_fixes
-        return "" if @results.empty?
-
-        items = fix_items
-        faulted = @results.reject(&:passed?)
-        meta = "#{plural(items.size, 'item')} · #{plural(faulted.size, 'fault')} across " \
-               "#{plural(faulted.map { |result| result.scenario.key }.uniq.size, 'scenario')}"
-        body =
-          if items.any?
-            %(<div class="fixes">#{items.map { |item| html_fix_card(item) }.join}</div>)
-          else
-            %(<div class="nothing">[+] nothing to fix</div>)
-          end
-
-        <<~FIXES
-          <section class="section fix-section" aria-label="Recommendations">
-          <div class="section-head"><span class="micro">What to fix</span><span class="meta">#{h(meta)}</span></div>
-          #{html_fix_filter(items) if comparing? && items.any?}
-          #{body}
-          </section>
-        FIXES
-      end
-
-      # A model filter for the fix cards — a fault one model keeps making is
-      # that model's to fix, so the list narrows to what was attributed to
-      # it. Radio chips and stylesheet rules alone (the page carries no
-      # script): each card names its models in data-models, and a checked
-      # model hides every card that does not name it. Cards attributed to no
-      # model (an older run) stay under every filter.
-      def html_fix_filter(items)
-        chips = [ %(<label class="chip pick-model"><input type="radio" name="fix-model" value="all" checked><span>all models #{items.size}</span></label>) ]
-        @models.each_with_index do |spec, index|
-          count = items.count { |item| Array(item["models"]).empty? || item["models"].include?(spec.label) }
-          chips << %(<label class="chip pick-model"><input type="radio" name="fix-model" value="m#{index}"><span>#{h(short_name(spec))} #{count}</span></label>)
-        end
-        %(<div class="fix-filter"><span class="micro sm">for</span>#{chips.join}</div>)
-      end
-
-      def fix_model_tokens(item)
-        labels = Array(item["models"])
-        return "" if labels.empty?
-
-        labels.filter_map { |label| (index = @models.index(model_by_label(label))) && "m#{index}" }.join(" ")
-      end
-
-      def html_fix_card(item)
-        tone = item["kind"] == "instruction" ? "info" : "error"
-        glyph = tone == "info" ? "[i]" : "[!]"
-        title = fault_name(item["fault"]) + (item["count"].to_i > 1 ? " ×#{item['count']}" : "")
-
-        parts = [ %(<div class="head"><span class="glyph tone-#{tone}">#{glyph}</span>) +
-                  %(<span class="badge #{tone}">#{h(title)}</span><span class="scope">#{h(fix_scope(item))}</span></div>) ]
-        parts << %(<p>#{h(item['recommendation'])}</p>) if item["recommendation"].present?
-        parts << %(<div class="quote">“#{h(item['quote'])}”</div>) if item["quote"].present?
-        parts << html_fix_tools(item) if item["tools"].any?
-        parts << html_fix_server(item["server"]) if item["server"]
-        parts << %(<div class="note">#{h(item['note'])}</div>) if item["note"].present?
-        parts << html_fix_action(item["action"]) if item["action"]
-        models = fix_model_tokens(item)
-        %(<div class="fix"#{%( data-models="#{models}") if models.present?}>#{parts.join}</div>)
-      end
-
-      def html_fix_tools(item)
-        chips = item["tools"].map do |tool|
-          note = tool["note"].presence
-          %(<span class="tool"><b>#{h(tool['name'])}</b>#{%(<span class="note">#{h(note)}</span>) if note}</span>)
-        end
-        %(<div class="tools"><span class="micro sm">#{h(item['tools_label'])}</span><div class="list">#{chips.join}</div></div>)
-      end
-
-      # "available · not enabled for Assistant", "unknown · not enabled for
-      # Assistant" — every status but "enabled" leads with the status word, the
-      # way the dashboard's fix list reads it.
-      def html_fix_server(server)
-        badge =
-          if server["status"] == "enabled"
-            %(<span class="badge success xs">enabled for #{h(@agent_name)}</span>)
-          else
-            %(<span class="badge warning xs">#{h(server['status'].presence || 'unknown')} · not enabled for #{h(@agent_name)}</span>)
-          end
-        %(<div class="served"><span>served by</span><b>#{h(server['name'].presence || server['key'])}</b>#{badge}</div>)
-      end
-
-      # With a route the action is a button; without one, the page can only
-      # say where in the dashboard the fix lives. The link targets the top
-      # window: served in the dashboard's report iframe it would otherwise
-      # open the whole dashboard inside the frame.
-      def html_fix_action(action)
-        button = action["path"].present? ? %(<a class="btn" target="_top" href="#{h(action['path'])}">#{h(action['label'])}</a>) : ""
-        %(<div class="action">#{button}<span class="hint">#{h(action['hint'])}</span></div>)
-      end
-
-      # "3 scenarios · both models" — the models are worth naming only on a
-      # comparison run; on a single-model run the count says it all.
-      def fix_scope(item)
-        return "#{item['scenario_keys'].join(', ')} · judge suggestion" if item["kind"] == "instruction"
-
-        scenarios = plural(item["scenario_keys"].size, "scenario")
-        labels = Array(item["models"])
-        return scenarios unless comparing? && labels.any?
-
-        models =
-          if labels.size >= @models.size
-            @models.size == 2 ? "both models" : "all models"
-          else
-            labels.map { |label| short_name(model_by_label(label)) }.join(", ")
-          end
-        "#{scenarios} · #{models}"
       end
 
       # --- SCENARIOS matrix ------------------------------------------------
@@ -582,6 +469,121 @@ module ActiveAgent
           replay.total_tokens.positive? ? "#{fmt_k(replay.total_tokens)} tokens" : nil,
           replay.cost && fmt_cost(replay.cost)
         ].compact.join(" · ")
+      end
+
+      # --- WHAT TO FIX -----------------------------------------------------
+
+      # The section stands even for a run with nothing to fix — the dashboard
+      # keeps it too, so a clean run reads as clean rather than as a page
+      # missing a section. A report over no results at all has nothing to say.
+      def html_fixes
+        return "" if @results.empty?
+
+        items = fix_items
+        faulted = @results.reject(&:passed?)
+        meta = "#{plural(items.size, 'item')} · #{plural(faulted.size, 'fault')} across " \
+               "#{plural(faulted.map { |result| result.scenario.key }.uniq.size, 'scenario')}"
+        body =
+          if items.any?
+            %(<div class="fixes">#{items.map { |item| html_fix_card(item) }.join}</div>)
+          else
+            %(<div class="nothing">[+] nothing to fix</div>)
+          end
+
+        <<~FIXES
+          <section class="section fix-section" aria-label="Recommendations">
+          <div class="section-head"><span class="micro">What to fix</span><span class="meta">#{h(meta)}</span></div>
+          #{html_fix_filter(items) if comparing? && items.any?}
+          #{body}
+          </section>
+        FIXES
+      end
+
+      # A model filter for the fix cards — a fault one model keeps making is
+      # that model's to fix, so the list narrows to what was attributed to
+      # it. Radio chips and stylesheet rules alone (the page carries no
+      # script): each card names its models in data-models, and a checked
+      # model hides every card that does not name it. Cards attributed to no
+      # model (an older run) stay under every filter.
+      def html_fix_filter(items)
+        chips = [ %(<label class="chip pick-model"><input type="radio" name="fix-model" value="all" checked><span>all models #{items.size}</span></label>) ]
+        @models.each_with_index do |spec, index|
+          count = items.count { |item| Array(item["models"]).empty? || item["models"].include?(spec.label) }
+          chips << %(<label class="chip pick-model"><input type="radio" name="fix-model" value="m#{index}"><span>#{h(short_name(spec))} #{count}</span></label>)
+        end
+        %(<div class="fix-filter"><span class="micro sm">for</span>#{chips.join}</div>)
+      end
+
+      def fix_model_tokens(item)
+        labels = Array(item["models"])
+        return "" if labels.empty?
+
+        labels.filter_map { |label| (index = @models.index(model_by_label(label))) && "m#{index}" }.join(" ")
+      end
+
+      def html_fix_card(item)
+        tone = item["kind"] == "instruction" ? "info" : "error"
+        glyph = tone == "info" ? "[i]" : "[!]"
+        title = fault_name(item["fault"]) + (item["count"].to_i > 1 ? " ×#{item['count']}" : "")
+
+        parts = [ %(<div class="head"><span class="glyph tone-#{tone}">#{glyph}</span>) +
+                  %(<span class="badge #{tone}">#{h(title)}</span><span class="scope">#{h(fix_scope(item))}</span></div>) ]
+        parts << %(<p>#{h(item['recommendation'])}</p>) if item["recommendation"].present?
+        parts << %(<div class="quote">“#{h(item['quote'])}”</div>) if item["quote"].present?
+        parts << html_fix_tools(item) if item["tools"].any?
+        parts << html_fix_server(item["server"]) if item["server"]
+        parts << %(<div class="note">#{h(item['note'])}</div>) if item["note"].present?
+        parts << html_fix_action(item["action"]) if item["action"]
+        models = fix_model_tokens(item)
+        %(<div class="fix"#{%( data-models="#{models}") if models.present?}>#{parts.join}</div>)
+      end
+
+      def html_fix_tools(item)
+        chips = item["tools"].map do |tool|
+          note = tool["note"].presence
+          %(<span class="tool"><b>#{h(tool['name'])}</b>#{%(<span class="note">#{h(note)}</span>) if note}</span>)
+        end
+        %(<div class="tools"><span class="micro sm">#{h(item['tools_label'])}</span><div class="list">#{chips.join}</div></div>)
+      end
+
+      # "available · not enabled for Assistant", "unknown · not enabled for
+      # Assistant" — every status but "enabled" leads with the status word, the
+      # way the dashboard's fix list reads it.
+      def html_fix_server(server)
+        badge =
+          if server["status"] == "enabled"
+            %(<span class="badge success xs">enabled for #{h(@agent_name)}</span>)
+          else
+            %(<span class="badge warning xs">#{h(server['status'].presence || 'unknown')} · not enabled for #{h(@agent_name)}</span>)
+          end
+        %(<div class="served"><span>served by</span><b>#{h(server['name'].presence || server['key'])}</b>#{badge}</div>)
+      end
+
+      # With a route the action is a button; without one, the page can only
+      # say where in the dashboard the fix lives. The link targets the top
+      # window: served in the dashboard's report iframe it would otherwise
+      # open the whole dashboard inside the frame.
+      def html_fix_action(action)
+        button = action["path"].present? ? %(<a class="btn" target="_top" href="#{h(action['path'])}">#{h(action['label'])}</a>) : ""
+        %(<div class="action">#{button}<span class="hint">#{h(action['hint'])}</span></div>)
+      end
+
+      # "3 scenarios · both models" — the models are worth naming only on a
+      # comparison run; on a single-model run the count says it all.
+      def fix_scope(item)
+        return "#{item['scenario_keys'].join(', ')} · judge suggestion" if item["kind"] == "instruction"
+
+        scenarios = plural(item["scenario_keys"].size, "scenario")
+        labels = Array(item["models"])
+        return scenarios unless comparing? && labels.any?
+
+        models =
+          if labels.size >= @models.size
+            @models.size == 2 ? "both models" : "all models"
+          else
+            labels.map { |label| short_name(model_by_label(label)) }.join(", ")
+          end
+        "#{scenarios} · #{models}"
       end
 
       # --- footer ----------------------------------------------------------

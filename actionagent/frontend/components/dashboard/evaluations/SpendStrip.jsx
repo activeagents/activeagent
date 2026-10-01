@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, MicroLabel, MONO } from '../primitives';
 import { fmtCost, fmtK } from '../../../utils/format';
-import { judgeCallsText, plural } from '../../../utils/evaluationRuns.mjs';
+import { judgeCallsText, plural, pricingNote, spendTotalLabel } from '../../../utils/evaluationRuns.mjs';
 
 // What a run cost, on the two sides that answer different questions.
 //
@@ -18,6 +18,14 @@ const JUDGE_TITLE = "What the judge model spent scoring, recommending and ruling
 
 export const agentUnit = (spend) => (spend?.agent?.unit === 'replay' ? 'replay' : 'sampled interaction');
 
+// How much of the agent's cost is priced — "estimated, 3 of 5 replays
+// priced" — or null when every interaction was.
+export const agentPricing = (spend) => (spend?.agent ? pricingNote(spend.agent.priced, spend.agent.count, agentUnit(spend)) : null);
+
+// The agent's interactions as a cost figure's subject: "8 replays", or the
+// pricing note when not all of them were priced.
+const agentCount = (spend) => agentPricing(spend) || plural(spend.agent.count, agentUnit(spend));
+
 // A per-interaction rate: four decimals like every other cost, six when the
 // rate is under a hundredth of a cent — a cheap model's honest figure is
 // "$0.000042", not "$0.0000".
@@ -29,7 +37,7 @@ export const spendText = (spend) => {
   if (!spend) return null;
   const parts = [];
   if (spend.agent) {
-    const agent = [`agent ${fmtCost(spend.agent.cost)}`, plural(spend.agent.count, agentUnit(spend))];
+    const agent = [`agent ${fmtCost(spend.agent.cost)}`, agentCount(spend)];
     if (spend.agent.perInteraction != null) agent.push(`${fmtRate(spend.agent.perInteraction)} each`);
     parts.push(agent.join(' · '));
   }
@@ -54,6 +62,7 @@ function Cell({ label, value, sub, title, valueColor, testId, first = false }) {
 export default function SpendStrip({ spend, testId = 'run-spend' }) {
   if (!spend) return null;
   const { agent, judge, total } = spend;
+  const pricing = agentPricing(spend);
   const tokens = agent && (agent.inputTokens != null || agent.outputTokens != null)
     ? ` · in ${fmtK(agent.inputTokens)} · out ${fmtK(agent.outputTokens)}`
     : '';
@@ -65,8 +74,9 @@ export default function SpendStrip({ spend, testId = 'run-spend' }) {
         label="Agent cost"
         title={AGENT_TITLE}
         value={agent ? fmtCost(agent.cost) : '—'}
+        valueColor={agent?.cost != null ? undefined : 'var(--color-text-muted)'}
         sub={agent
-          ? `${plural(agent.count, agentUnit(spend))}${agent.perInteraction != null ? ` · ${fmtRate(agent.perInteraction)} per interaction` : ''}${tokens}`
+          ? `${agentCount(spend)}${agent.perInteraction != null ? ` · ${fmtRate(agent.perInteraction)} per interaction` : ''}${tokens}`
           : 'nothing replayed or sampled'}
         testId="run-spend-agent"
       />
@@ -82,9 +92,11 @@ export default function SpendStrip({ spend, testId = 'run-spend' }) {
       />
       <Cell
         label="Total"
-        title="Agent and judge together — what this run cost end to end"
-        value={total != null ? fmtCost(total) : '—'}
-        sub={agent && judge ? 'agent + judge' : agent ? 'agent only' : 'judge only'}
+        title={`Agent and judge together — what this run cost end to end${pricing ? ` · agent cost ${pricing}` : ''}`}
+        value={total != null
+          ? <>{fmtCost(total)}{pricing && <span style={{ color: 'var(--color-text-muted)' }}>*</span>}</>
+          : '—'}
+        sub={spendTotalLabel(spend)}
         testId="run-spend-total"
       />
     </Card>

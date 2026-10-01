@@ -190,7 +190,9 @@ module ActionAgent
     # The cost here is the agent's: what the sampled interactions cost to
     # operate. It is not what this run spent — scoring recorded generations
     # costs nothing until a judge is asked, and the judge's own spend is
-    # recorded apart, under "_judge_usage" (see #judge_usage).
+    # recorded apart, under "_judge_usage" (see #judge_usage). It sums the
+    # generations that could be priced, and "priced" counts them, so a
+    # cohort with some unpriced generations reads as partial.
 
     def cohort_summaries(samples, per_sample_scores)
       samples
@@ -217,7 +219,8 @@ module ActionAgent
         "avg_duration_ms" => durations_ms.any? ? (durations_ms.sum / durations_ms.size).round : nil,
         "input_tokens" => input_tokens,
         "output_tokens" => output_tokens,
-        "cost" => costs.any? ? costs.sum.round(6) : nil
+        "cost" => costs.any? ? costs.sum.round(6) : nil,
+        "priced" => costs.size
       }
     end
 
