@@ -193,7 +193,36 @@ class ActionAgentEvaluationRunnerServiceTest < ActiveSupport::TestCase
     # Each cohort's cost is rounded to six places and so is their sum.
     assert_in_delta run.scores.dig("_cohorts", "gpt-4o", "cost") + run.scores.dig("_cohorts", "gpt-4o-mini", "cost"), usage[:cost], 1e-6
     assert_in_delta usage[:cost] / 2, usage[:per_interaction], 1e-6
-    assert_equal judge, usage[:judge]
+    assert_equal judge.merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "verdict" => 1 } }), usage[:judge]
+    assert_in_delta usage[:cost] + judge["cost"], usage[:total], 1e-6
+  end
+
+  # Anthropic reports the tokens read from and written to the prompt cache
+  # apart from input_tokens; the meter counts them, at the input rate.
+  CachedJudgeReply = Struct.new(:content, :input_tokens, :cached_tokens, :cache_creation_tokens, :output_tokens, :model) do
+    def message = Struct.new(:content).new(content)
+    def usage = Struct.new(:input_tokens, :cached_tokens, :cache_creation_tokens, :output_tokens).new(input_tokens, cached_tokens, cache_creation_tokens, output_tokens)
+    def generate_now = self
+  end
+
+  test "the judge meter counts cached prompt tokens on Anthropic, where input_tokens leaves them out" do
+    agent = sampled_agent
+    record_generation(agent)
+    evaluation = agent.evaluations.create!(
+      name: "Cached judge", judge_kind: "llm", judge_model: "claude-opus-5",
+      criteria: [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Is the answer useful?" } } ]
+    )
+    judge = Class.new do
+      define_singleton_method(:prompt) { |message:, instructions:| CachedJudgeReply.new({ score: 0.9 }.to_json, 100, 1_000, 200, 12, "claude-opus-5") }
+    end
+
+    service = ActionAgent::EvaluationRunnerService.new(evaluation)
+    run = service.stub(:judge_provider, :anthropic) { service.stub(:judge_class, judge) { service.call } }
+    assert_equal 1_300, run.scores.dig("_judge_usage", "input_tokens")
+
+    service = ActionAgent::EvaluationRunnerService.new(evaluation)
+    run = service.stub(:judge_provider, :openai) { service.stub(:judge_class, judge) { service.call } }
+    assert_equal 100, run.scores.dig("_judge_usage", "input_tokens"), "OpenAI's prompt count already holds its cached tokens"
   end
 
   # --- telemetry criteria ------------------------------------------------------

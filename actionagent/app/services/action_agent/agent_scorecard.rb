@@ -32,7 +32,7 @@ module ActionAgent
       avg_durations = windowed.where.not(duration_ms: nil).group(:agent_id).average(:duration_ms)
       token_sums = windowed.group(:agent_id).sum("COALESCE(total_tokens, 0)")
       last_runs = AgentRun.where(agent_id: ids).group(:agent_id).maximum(:created_at)
-      eval_runs = latest_evaluation_runs(ids)
+      evals = evaluation_tiles(ids)
 
       trace_stats = telemetry_stats(ids, window_start)
       trace_last = unclaimed_traces(ids, nil).group(:agent_id).maximum(:timestamp)
@@ -44,7 +44,7 @@ module ActionAgent
         traced = stats[:count].to_i
         total = runs + traced
         succeeded = completed_counts[id].to_i + stats[:ok].to_i
-        eval_run = eval_runs[id]
+        eval_tile = evals[id] || {}
 
         {
           window_days: (WINDOW / 1.day).to_i,
@@ -55,9 +55,13 @@ module ActionAgent
           avg_duration_ms: blended_duration(avg_durations[id], runs, stats[:avg_duration], traced),
           tokens: token_sums[id].to_i + stats[:tokens].to_i,
           cost: costs[id],
-          eval_score: eval_run&.average_score,
-          eval_samples_passed: eval_run&.samples_passed,
-          eval_samples_evaluated: eval_run&.samples_evaluated,
+          # The evaluation tile: the pass rate pooled over the headline runs
+          # of the agent's evaluations that stand against its current version.
+          eval_score: eval_tile[:score],
+          eval_samples_passed: eval_tile[:passed],
+          eval_samples_evaluated: eval_tile[:evaluated],
+          eval_runs: eval_tile[:runs],
+          eval_not_counted: eval_tile[:not_counted],
           last_run_at: [ last_runs[id], trace_last[id] ].compact.max&.iso8601
         }
       end
@@ -170,22 +174,47 @@ module ActionAgent
     end
     private_class_method :blended_duration
 
-    # Latest complete evaluation run per agent. DISTINCT ON would do this in
-    # one pass on PostgreSQL, but it has no portable equivalent, so the
-    # highest id per agent (runs are only ever appended) is selected first
-    # and those rows fetched by id.
-    def self.latest_evaluation_runs(agent_ids)
-      evaluations = Evaluation.table_name
-      runs = EvaluationRun.table_name
+    # The evaluation tile per agent: passes pooled over the headline runs
+    # (newest complete run) of its evaluations that are current against the
+    # agent's version or unrecorded, as the Evaluations page pools them —
+    # never a stale suite last run against older code, nor an archived one
+    # — so the tile is the pass rate of the agent as it is now, not a mean
+    # of criterion scores over whatever ran last.
+    #
+    #   { agent_id => { score:, passed:, evaluated:, runs:, not_counted: } }
+    #
+    # `score` is the pooled pass rate 0..1 (nil with nothing to count),
+    # `runs` the headline runs pooled and `not_counted` the evaluations
+    # left out as stale or archived. The newest complete run per evaluation
+    # is selected by id first (runs are only ever appended) and those rows
+    # fetched by id, which runs the same on every database.
+    def self.evaluation_tiles(agent_ids)
+      evaluations = Evaluation.where(agent_id: agent_ids).includes(:agent).to_a
+      return {} if evaluations.empty?
 
-      newest = EvaluationRun.complete.joins(:evaluation)
-        .where(evaluations => { agent_id: agent_ids })
-        .group("#{evaluations}.agent_id")
-        .pluck(Arel.sql("#{evaluations}.agent_id"), Arel.sql("MAX(#{runs}.id)"))
+      newest = EvaluationRun.complete.where(evaluation_id: evaluations.map(&:id)).group(:evaluation_id).maximum(:id)
+      runs = EvaluationRun.where(id: newest.values).includes(:agent_version).index_by(&:evaluation_id)
+      EvaluationStanding.preload(evaluations)
 
-      by_run_id = newest.to_h { |agent_id, run_id| [ run_id, agent_id ] }
-      EvaluationRun.where(id: by_run_id.keys).index_by { |run| by_run_id[run.id] }
+      evaluations.group_by(&:agent_id).to_h do |agent_id, mine|
+        tile = { score: nil, passed: 0, evaluated: 0, runs: 0, not_counted: 0 }
+        mine.each do |evaluation|
+          run = runs[evaluation.id]
+          next unless run
+
+          unless evaluation.standing_info.with_headline(run).counted?
+            tile[:not_counted] += 1
+            next
+          end
+
+          tile[:runs] += 1
+          tile[:passed] += run.samples_passed.to_i
+          tile[:evaluated] += run.samples_evaluated.to_i
+        end
+        tile[:score] = (tile[:passed].to_f / tile[:evaluated]).round(3) if tile[:evaluated].positive?
+        [ agent_id, tile ]
+      end
     end
-    private_class_method :latest_evaluation_runs
+    private_class_method :evaluation_tiles
   end
 end

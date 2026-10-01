@@ -29,8 +29,17 @@ module ActiveAgent
       #   and the dashboard never name two different best models.
       # @param judge_label [String, nil] how to name the judge when no Judge
       #   instance is at hand — a rebuilt run knows only its label.
+      # @param judge_usage [Hash, nil] what the judge spent on calls no result
+      #   owns — the verdict, authoring criteria — as `{ "calls",
+      #   "input_tokens", "output_tokens", "cost", "model", "by_kind",
+      #   "source" }`. Each result's own judge calls travel in its replay
+      #   metadata (Result#judge_usage); #judge_usage sums the two.
+      # @param release [Hash, nil] the release of the agent under evaluation,
+      #   `{ "digest", "revision", "label" }`, so the report names the code
+      #   it scored: in `to_h["release"]` and as a header chip.
       def initialize(results:, models:, judge: nil, instructions: nil, threshold: PASS_THRESHOLD, metadata: {},
-                     tool_resolver: nil, agent_name: nil, links: {}, verdict: nil, judge_label: nil)
+                     tool_resolver: nil, agent_name: nil, links: {}, verdict: nil, judge_label: nil,
+                     judge_usage: nil, release: nil)
         @results = results
         @models = models
         @judge = judge
@@ -42,7 +51,13 @@ module ActiveAgent
         @agent_name = agent_name.presence || "the agent"
         @links = (links || {}).to_h.stringify_keys
         @recorded_verdict = verdict.is_a?(Hash) ? verdict.to_h.stringify_keys.presence : nil
+        @run_judge_usage = judge_usage.is_a?(Hash) ? judge_usage.to_h.stringify_keys.presence : nil
+        @release = release.is_a?(Hash) ? release.to_h.stringify_keys.compact.presence : nil
       end
+
+      # The release of the agent this report scored, `{ "digest",
+      # "revision", "label" }`, when the caller named it.
+      attr_reader :release
 
       def comparing?
         @models.size > 1
@@ -50,8 +65,12 @@ module ActiveAgent
 
       # Per model, keyed by label: scenario count, passes, errors, pass rate,
       # mean score, mean latency, tokens, cost and fault counts. "cost" sums
-      # the replays that carried a cost — "priced" of the "scenarios" — and
-      # is nil when none did.
+      # the replays that carried a cost — "priced" of the "scenarios", of
+      # which "reported" came from the caller and "estimated" from tokens ×
+      # a model rate (Result#cost_source) — and is nil when none did.
+      # "judge_cost" and "judge_calls" sum what the judge spent on the
+      # cohort's results (Result#judge_usage); the judge's cost never joins
+      # the agent's.
       def summary_by_model
         @summary_by_model ||= @models.to_h do |spec|
           cohort = @results.select { |result| result.label == spec.label }
@@ -59,6 +78,7 @@ module ActiveAgent
           task_scores = cohort.filter_map { |result| result.scores["task_completion"] }
           durations = cohort.filter_map { |result| result.replay.duration_ms }
           costs = cohort.filter_map { |result| result.replay.cost }
+          judge_costs = cohort.filter_map { |result| result.judge_usage&.dig("cost") }
 
           [ spec.label, {
             "provider" => spec.provider,
@@ -74,8 +94,91 @@ module ActiveAgent
             "output_tokens" => cohort.sum { |result| result.replay.output_tokens.to_i },
             "cost" => costs.any? ? costs.sum.to_f.round(6) : nil,
             "priced" => costs.size,
+            "reported" => cohort.count { |result| result.cost_source == "reported" },
+            "estimated" => cohort.count(&:estimated_cost?),
+            "judge_cost" => judge_costs.any? ? judge_costs.sum.to_f.round(6) : nil,
+            "judge_calls" => cohort.sum { |result| result.judge_usage&.dig("calls").to_i },
             "faults" => cohort.filter_map(&:fault).tally
           } ]
+        end
+      end
+
+      # Per scenario key, in run order: what every model's answer cost
+      # together — the agent's cost summed over the models, the judge's, and
+      # the two as "total" — plus the same per model under "models", keyed
+      # by label, with each result's "cost_source". "estimated" is true when
+      # any part was estimated or any model went unpriced (the sum is then a
+      # lower bound), which is what a "~" on the figure means. Derived from
+      # the results for a matrix column and a cell line; not part of #to_h.
+      def scenario_costs
+        @scenario_costs ||= @results.group_by { |result| result.scenario.key }.to_h do |key, cohort|
+          costs = cohort.filter_map { |result| result.replay.cost }
+          judge_costs = cohort.filter_map { |result| result.judge_usage&.dig("cost") }
+          cost = costs.any? ? costs.sum.to_f.round(6) : nil
+          judge_cost = judge_costs.any? ? judge_costs.sum.to_f.round(6) : nil
+          [ key, {
+            "cost" => cost,
+            "judge_cost" => judge_cost,
+            "total" => cost.nil? && judge_cost.nil? ? nil : (cost.to_f + judge_cost.to_f).round(6),
+            "estimated" => cohort.any? { |result| result.estimated_cost? || (result.replay.cost.nil? && costs.any?) } ||
+                           cohort.any? { |result| estimated_usage?(result.judge_usage) },
+            "models" => cohort.to_h do |result|
+              [ result.label, { "cost" => result.replay.cost&.to_f, "judge_cost" => result.judge_usage&.dig("cost")&.to_f,
+                                "cost_source" => result.cost_source } ]
+            end
+          } ]
+        end
+      end
+
+      # What the judge spent on the whole run: every result's own calls
+      # (Result#judge_usage) plus the run-level calls handed to `judge_usage:`
+      # — `{ "calls", "input_tokens", "output_tokens", "cost", "model",
+      # "by_kind", "estimated", "run" => { "calls", "cost", "by_kind" } }`,
+      # where "run" is that run-level part alone and "estimated" says a cost
+      # in the sum was worked out from tokens rather than reported. nil when
+      # no judge was asked anything.
+      def judge_usage
+        return @judge_usage if defined?(@judge_usage)
+
+        parts = @results.filter_map(&:judge_usage)
+        parts << @run_judge_usage if @run_judge_usage
+        return @judge_usage = nil if parts.empty?
+
+        costs = parts.filter_map { |usage| usage["cost"] }
+        @judge_usage = {
+          "calls" => parts.sum { |usage| usage["calls"].to_i },
+          "input_tokens" => parts.sum { |usage| usage["input_tokens"].to_i },
+          "output_tokens" => parts.sum { |usage| usage["output_tokens"].to_i },
+          "cost" => costs.any? ? costs.sum.to_f.round(6) : nil,
+          "model" => parts.filter_map { |usage| usage["model"].presence }.first,
+          "by_kind" => usage_by_kind(parts),
+          "estimated" => parts.any? { |usage| estimated_usage?(usage) },
+          "run" => @run_judge_usage && {
+            "calls" => @run_judge_usage["calls"].to_i,
+            "cost" => @run_judge_usage["cost"]&.to_f,
+            "by_kind" => usage_by_kind([ @run_judge_usage ])
+          }
+        }.compact
+      end
+
+      # The run's spend: the agent's cost over every result (nil when none
+      # was priced), the judge's (nil without a judge), their "total", and
+      # whether any of it is an estimate — the "~" of the cost tile and the
+      # footer. "priced" and "unpriced" count the results either way.
+      def run_costs
+        @run_costs ||= begin
+          costs = @results.filter_map { |result| result.replay.cost }
+          agent = costs.any? ? costs.sum.to_f.round(6) : nil
+          judge = judge_usage&.dig("cost")
+          {
+            "cost" => agent,
+            "judge_cost" => judge,
+            "total" => agent.nil? && judge.nil? ? nil : (agent.to_f + judge.to_f).round(6),
+            "estimated" => @results.any?(&:estimated_cost?) || (costs.any? && costs.size < @results.size) ||
+                           judge_usage&.dig("estimated") == true,
+            "priced" => costs.size,
+            "unpriced" => @results.size - costs.size
+          }
         end
       end
 
@@ -130,8 +233,10 @@ module ActiveAgent
       # The best model when comparing: the verdict the run recorded when one
       # was handed in, else highest pass rate, then mean score, then lowest
       # cost per priced scenario (a model with no cost estimate ranks after
-      # one with), with the judge's rationale when one is available.
-      # `{ "winner", "rationale", "judge" }`, or nil for a single model.
+      # one with), with the judge's rationale when one is available. The
+      # judge's own spend is no part of the ranking: it measures the
+      # evaluation, not the model. `{ "winner", "rationale", "judge" }`, or
+      # nil for a single model.
       def verdict
         return @recorded_verdict if @recorded_verdict
         return nil unless comparing?
@@ -141,10 +246,13 @@ module ActiveAgent
             [ -stats["pass_rate"].to_f, -stats["avg_score"].to_f, cost_per_priced(stats) || Float::INFINITY ]
           end
           winner, stats = ranked.first
-          cost = " at an estimated $#{format('%.4f', stats['cost'])}" if stats["cost"]
-          cost = "#{cost} (#{pricing_note(stats)})" if cost && pricing_note(stats)
+          if stats["cost"]
+            cost = " at #{Format.money(stats['cost'], estimated: estimated_cost?(stats))}"
+            cost += " (estimated)" if estimated_cost?(stats)
+          end
           rationale = "Passed #{stats['passed']} of #{stats['scenarios']} scenarios" \
-            "#{" with a mean score of #{stats['avg_score']}" if stats['avg_score']}#{cost}."
+            " (#{Format.percent(stats['scenarios'].to_i.positive? ? stats['passed'].to_f / stats['scenarios'] : nil)})" \
+            "#{" with a mean score of #{Format.score(stats['avg_score'])}" if stats['avg_score']}#{cost}."
           judged = @judge&.verdict(summary_by_model, instructions: @instructions)
 
           {
@@ -159,6 +267,8 @@ module ActiveAgent
         verdict&.dig("winner")
       end
 
+      # Adds "judge_usage" and "release" only when there is one to add, so
+      # a report built the way it always was serializes exactly as before.
       def to_h
         {
           "models" => summary_by_model,
@@ -166,6 +276,8 @@ module ActiveAgent
           "recommendations" => recommendations,
           "verdict" => verdict,
           "judge" => @judge_label || @judge&.label,
+          "judge_usage" => judge_usage,
+          "release" => release,
           "metadata" => @metadata.presence,
           "results" => @results.map(&:to_h)
         }.compact
@@ -183,6 +295,7 @@ module ActiveAgent
         lines << ""
         lines.concat(summary_table)
         lines << ""
+        lines.concat(total_lines)
         lines << "**Best model: #{winner}**" if winner
         lines << ""
         lines.concat(matrix_table)
@@ -193,14 +306,27 @@ module ActiveAgent
 
       private
 
-      # "3 of 5 scenarios priced" for a model summary whose cost covers only
-      # some of its replays; nil when every replay was priced.
-      def pricing_note(stats)
-        priced = stats["priced"]
-        total = stats["scenarios"].to_i
-        return nil if priced.nil? || priced >= total
+      # Whether a model summary's cost is an estimate — any replay priced
+      # from tokens, or some replay unpriced, which leaves the sum a lower
+      # bound — and so reads with a "~".
+      def estimated_cost?(stats)
+        stats["estimated"].to_i.positive? || (stats["cost"] && stats["priced"].to_i < stats["scenarios"].to_i)
+      end
 
-        "#{priced} of #{total} scenario#{'s' unless total == 1} priced"
+      # A judge usage whose cost was worked out rather than reported: metered
+      # or priced from traces by the caller. One with no source is the
+      # caller's own figure.
+      def estimated_usage?(usage)
+        return false unless usage.is_a?(Hash)
+
+        source = (usage["source"] || usage[:source]).to_s
+        source.present? && source != "reported"
+      end
+
+      def usage_by_kind(parts)
+        parts.each_with_object({}) do |usage, tally|
+          (usage["by_kind"] || {}).each { |kind, count| tally[kind.to_s] = tally.fetch(kind.to_s, 0) + count.to_i }
+        end
       end
 
       # A model's cost per priced replay, nil when none was priced.
@@ -399,34 +525,77 @@ module ActiveAgent
 
       # --- Markdown ----------------------------------------------------------
 
+      # The per-model table. A Judge column joins it when a judge spent
+      # anything, so the agent's cost and the evaluation's stay two numbers.
       def summary_table
-        header = [ "| Model | Pass rate | Passed | Mean score | Mean latency | Tokens in/out | Cost | Faults |",
-                   "|---|---|---|---|---|---|---|---|" ]
+        judged = judge_usage.present?
+        columns = [ "Model", "Passed", "Mean score", "Mean latency", "Tokens in/out", "Cost", ("Judge" if judged), "Faults" ].compact
+        header = [ "| #{columns.join(' | ')} |", "|#{columns.map { '---' }.join('|')}|" ]
         rows = summary_by_model.map do |label, stats|
           faults = stats["faults"].map { |fault, count| "#{fault.tr('_', ' ')} ×#{count}" }.join(", ")
           latency = stats["avg_duration_ms"] ? "#{stats['avg_duration_ms']} ms" : "—"
-          cost = stats["cost"] ? format("$%.4f", stats["cost"]) : "—"
-          cost = "#{cost} (#{pricing_note(stats)})" if pricing_note(stats)
-          "| `#{label}` | #{stats['pass_rate']}% | #{stats['passed']}/#{stats['scenarios']} | #{stats['avg_score'] || '—'} | " \
-            "#{latency} | #{stats['input_tokens']}/#{stats['output_tokens']} | #{cost} | #{faults.presence || '—'} |"
+          cells = [
+            "`#{label}`",
+            Format.passes(stats["passed"], stats["scenarios"], style: :markdown),
+            Format.score(stats["avg_score"]),
+            latency,
+            "#{stats['input_tokens']}/#{stats['output_tokens']}",
+            Format.money(stats["cost"], estimated: estimated_cost?(stats)),
+            (judge_cell(stats) if judged),
+            faults.presence || "—"
+          ].compact
+          "| #{cells.join(' | ')} |"
         end
         header + rows
       end
 
+      # "~$0.0030 (3 calls)" for a model's judge spend, "—" when the judge
+      # was not asked about its results.
+      def judge_cell(stats)
+        return "—" if stats["judge_cost"].nil? && stats["judge_calls"].to_i.zero?
+
+        money = Format.money(stats["judge_cost"], estimated: judge_usage&.dig("estimated") == true)
+        "#{money} (#{stats['judge_calls'].to_i} call#{'s' unless stats['judge_calls'].to_i == 1})"
+      end
+
+      # "**Total: ~$0.0412** (agent ~$0.0397 · judge ~$0.0015)" under the
+      # table, with the legend for "~" when any figure carries it. Nothing
+      # for a run with no cost on either side.
+      def total_lines
+        costs = run_costs
+        return [] if costs["total"].nil?
+
+        parts = [ "agent #{Format.money(costs['cost'], estimated: costs['estimated'])}" ]
+        parts << "judge #{Format.money(costs['judge_cost'], estimated: judge_usage&.dig('estimated') == true)}" if judge_usage
+        lines = [ "**Total: #{Format.money(costs['total'], estimated: costs['estimated'])}** (#{parts.join(' · ')})" ]
+        lines << "_#{Format::LEGEND}_" if costs["estimated"]
+        lines << ""
+      end
+
+      # The scenario matrix, with a trailing Cost column: what the scenario
+      # cost across every model, and in brackets what the judge spent on it.
       def matrix_table
         labels = @models.map(&:label)
-        header = [ "| Scenario | #{labels.map { |label| "`#{label}`" }.join(' | ')} |", "|---|#{labels.map { '---' }.join('|')}|" ]
+        header = [ "| Scenario | #{labels.map { |label| "`#{label}`" }.join(' | ')} | Cost |", "|---|#{labels.map { '---' }.join('|')}|---|" ]
         rows = @results.group_by { |result| result.scenario.key }.map do |key, cohort|
           cells = labels.map do |label|
             result = cohort.find { |candidate| candidate.label == label }
             next "—" unless result
 
             mark = result.passed? ? "✅" : (result.errored? ? "⚠️" : "❌")
-            [ mark, result.score&.round(2), result.fault&.tr("_", " ") ].compact.join(" ")
+            [ mark, (Format.score(result.score) if result.score), result.fault&.tr("_", " ") ].compact.join(" ")
           end
-          "| `#{key}` #{cell(cohort.first.scenario.prompt.truncate(70))} | #{cells.join(' | ')} |"
+          "| `#{key}` #{cell(cohort.first.scenario.prompt.truncate(70))} | #{cells.join(' | ')} | #{scenario_cost_cell(key)} |"
         end
         header + rows
+      end
+
+      # "~$0.0243 (judge ~$0.0015)" for a scenario's total across models.
+      def scenario_cost_cell(key)
+        costs = scenario_costs[key] || {}
+        text = Format.money(costs["cost"], estimated: costs["estimated"])
+        text += " (judge #{Format.money(costs['judge_cost'], estimated: costs['estimated'])})" if costs["judge_cost"]
+        text
       end
 
       # A prompt may contain " | " (ScenarioParser keeps it), which would
@@ -438,7 +607,8 @@ module ActiveAgent
       def detail_lines
         lines = [ "", "## Answers", "" ]
         @results.each do |result|
-          lines << "### `#{result.scenario.key}` · `#{result.label}` · #{result.status}#{" · score #{result.score.round(2)}" if result.score}"
+          lines << "### `#{result.scenario.key}` · `#{result.label}` · #{result.status}" \
+                   "#{" · score #{Format.score(result.score)}" if result.score}#{" · #{answer_cost(result)}" if result.replay.cost}"
           lines << ""
           lines << "> #{result.scenario.prompt}"
           lines << ""
@@ -452,6 +622,15 @@ module ActiveAgent
           lines << ""
         end
         lines
+      end
+
+      # "~$0.0243 · judge ~$0.0015": what one answer cost, and what judging
+      # it cost.
+      def answer_cost(result)
+        text = Format.money(result.replay.cost, estimated: result.estimated_cost?)
+        judge_cost = result.judge_usage&.dig("cost")
+        text += " · judge #{Format.money(judge_cost, estimated: estimated_usage?(result.judge_usage))}" if judge_cost
+        text
       end
 
       # Renders after `detail_lines`, whose trailing blank line separates the two sections.

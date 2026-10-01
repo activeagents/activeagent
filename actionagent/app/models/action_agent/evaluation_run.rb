@@ -9,14 +9,28 @@ module ActionAgent
   class EvaluationRun < ApplicationRecord
     belongs_to :evaluation
     # The version of the evaluated agent this run scored, so a pass rate is
-    # a statement about a release rather than about "the agent".
+    # a statement about a release rather than about "the agent". A run the
+    # engine executes scored the agent as it is now; an imported run scored
+    # the publishing application's code, which only its report can name
+    # (EvaluationReportImport sets the version from `report.release`), so
+    # a release-less import stays unrecorded rather than claiming the
+    # dashboard's latest version.
     belongs_to :agent_version, optional: true
-    before_create { self.agent_version_id ||= evaluation&.agent&.latest_version&.id }
+    before_create { self.agent_version_id ||= evaluation&.agent&.latest_version&.id unless imported? }
+    # A run started on an archived evaluation brings it back: archiving says
+    # "no longer maintained", which a new run contradicts.
+    after_create { evaluation.unarchive! if evaluation&.archived? }
     has_many :scenario_results, class_name: "EvaluationScenarioResult", dependent: :destroy
 
     enum :status, { pending: 0, running: 1, complete: 2, failed: 3 }
 
     scope :recent, -> { order(created_at: :desc) }
+
+    # Whether this run was published by an application that ran it itself
+    # (EvaluationReportImport) rather than executed here.
+    def imported?
+      external_run_id.present?
+    end
 
     # Which scenarios and models a scenario run covered; empty for a
     # generation-sampling run.
@@ -92,12 +106,35 @@ module ActionAgent
       (values.sum.to_f / values.size).round(3)
     end
 
-    # The judge's own spend on this run — calls, tokens, estimated cost and
-    # how many calls served each purpose — as the runner recorded it; nil
-    # for a run that never asked a judge.
-    def judge_usage
+    # The judge's own spend on this run as the engine's meter recorded it —
+    # calls, tokens, estimated cost and how many calls served each purpose
+    # — or nil for a run the engine did not judge (a rules-only run, or an
+    # imported one, whose judge the application ran).
+    def judge_usage_meter
       value = scores&.dig("_judge_usage")
       value.is_a?(Hash) ? value : nil
+    end
+
+    # The judge's spend on this run from whatever recorded it: the meter,
+    # the publishing application's figures, or the judge traces priced
+    # (EvaluationRunCost). nil for a run no judge was asked about.
+    def judge_usage
+      cost_breakdown.judge_usage
+    end
+
+    # Every cost figure of this run — per result, per scenario, per model
+    # and in total — worked out once (EvaluationRunCost). A controller that
+    # lists runs preloads it (EvaluationRunCost.preload) and hands it in.
+    def cost_breakdown
+      @cost_breakdown ||= EvaluationRunCost.for(self)
+    end
+
+    attr_writer :cost_breakdown
+
+    # Forgets the breakdown, so a run whose results just changed is priced again.
+    def reload(*)
+      @cost_breakdown = nil
+      super
     end
 
     # Per-model summaries of a generation-sampling run's cohorts, keyed by
@@ -108,22 +145,21 @@ module ActionAgent
     end
 
     # Per-model summaries of a scenario run, keyed by label, as the runner
-    # recorded them under "_models"; empty for a generation-sampling run.
-    # Each carries "priced", the replays that had a cost estimate. A summary
-    # recorded without it has it counted from the persisted results, unless
-    # none of them maps to its label.
+    # recorded them under "_models", each with its cost as it stands now:
+    # the effective "cost" over its results (reported, else estimated), the
+    # "priced", "reported" and "estimated" counts behind it, and the
+    # judge's "judge_cost" and "judge_calls" on them (EvaluationRunCost). A
+    # recorded summary no result maps to is served as recorded. Empty for a
+    # generation-sampling run.
     def model_summaries
       summaries = scores&.dig("_models")
       return {} unless summaries.is_a?(Hash)
 
-      uncounted = summaries.select { |_label, stats| stats.is_a?(Hash) && !stats.key?("priced") }.keys
-      return summaries if uncounted.empty?
-
-      priced = priced_replays_by_label(summaries.keys)
+      costed = cost_breakdown.by_label(summaries.keys)
       summaries.to_h do |label, stats|
-        next [ label, stats ] unless uncounted.include?(label) && priced.key?(label)
+        next [ label, stats ] unless stats.is_a?(Hash) && costed.key?(label)
 
-        [ label, stats.merge("priced" => priced[label]) ]
+        [ label, stats.merge(costed[label]) ]
       end
     end
 
@@ -131,65 +167,28 @@ module ActionAgent
     # judge's, kept apart because they answer different questions.
     #
     # The agent's side is the operating figure — what the interactions cost
-    # to serve. For a scenario run that is the replays' estimated cost,
-    # tokens and summed model time (`replays` of them); for a
-    # generation-sampling run it is the sampled generations' (`samples`),
-    # which were served before the run and cost it nothing.
+    # to serve. For a scenario run that is its replays' cost, tokens and
+    # summed model time (`replays` of them); for a generation-sampling run
+    # it is the sampled generations' (`samples`), which were served before
+    # the run and cost it nothing.
     #
-    # An interaction is priced when it carried a cost estimate. `priced` and
-    # `unpriced` count them, and `cost` sums the priced ones only: it is
-    # partial whenever `unpriced` is non-zero, and nil when nothing was
-    # priced. `per_interaction` is the cost per priced interaction, the
-    # number a per-conversation budget is set against.
+    # Every interaction with tokens is priced (EvaluationRunCost): `cost`
+    # sums the reported costs and, where none was reported, the estimates
+    # from tokens × model rates. `priced` and `unpriced` count the
+    # interactions either way, `reported` and `estimated` say how the priced
+    # ones were priced, and `cost_basis` sums that up as "reported",
+    # "estimated" or "mixed". `per_interaction` is the cost per priced
+    # interaction, the number a per-conversation budget is set against.
     #
     # `judge` is the evaluation's own overhead: the judge model's calls
     # (scoring, recommending, the verdict, authoring KPIs), which run
-    # agent-to-agent and offline. It is present only when a judge was asked.
+    # agent-to-agent and offline — from the engine's meter, the publishing
+    # application's figures or the judge traces, with `source` naming which
+    # and `run` the calls no result owns. `total` is the two sides together.
     #
     # Returns nil for a run that recorded nothing on either side.
     def usage
-      totals = scenario_results.pick(
-        Arel.sql("COUNT(*)"), Arel.sql("COUNT(cost)"), Arel.sql("SUM(cost)"), Arel.sql("SUM(input_tokens)"),
-        Arel.sql("SUM(output_tokens)"), Arel.sql("SUM(duration_ms)")
-      )
-      replays = totals&.first.to_i
-      judge = judge_usage
-      runtime_ms = completed_at.present? ? ((completed_at - created_at) * 1000).round : nil
-
-      if replays.positive?
-        priced = totals[1].to_i
-        cost = totals[2]&.to_f
-        {
-          replays: replays,
-          priced: priced,
-          unpriced: replays - priced,
-          cost: cost,
-          per_interaction: cost && priced.positive? ? (cost / priced).round(6) : nil,
-          input_tokens: totals[3].to_i,
-          output_tokens: totals[4].to_i,
-          model_time_ms: totals[5].to_i,
-          runtime_ms: runtime_ms,
-          judge: judge
-        }.compact
-      elsif cohorts.any?
-        samples = cohorts.values.sum { |cohort| cohort["samples"].to_i }
-        priced = cohorts.values.sum { |cohort| priced_samples(cohort) }
-        costs = cohorts.values.filter_map { |cohort| cohort["cost"] }
-        cost = costs.any? ? costs.sum.to_f.round(6) : nil
-        {
-          samples: samples,
-          priced: priced,
-          unpriced: samples - priced,
-          cost: cost,
-          per_interaction: cost && priced.positive? ? (cost / priced).round(6) : nil,
-          input_tokens: cohorts.values.sum { |cohort| cohort["input_tokens"].to_i },
-          output_tokens: cohorts.values.sum { |cohort| cohort["output_tokens"].to_i },
-          runtime_ms: runtime_ms,
-          judge: judge
-        }.compact
-      elsif judge
-        { runtime_ms: runtime_ms, judge: judge }.compact
-      end
+      cost_breakdown.usage
     end
 
     # Route templates for the report's fix item actions, relative to the
@@ -224,10 +223,21 @@ module ActionAgent
     # the suite panel does. Raises ActiveRecord::RecordNotFound via the
     # caller for a run of a generation-sampling evaluation, which has no
     # scenario results to report on.
-    def to_report(links: report_links)
+    #
+    # With `estimate` (the default) each replay carries its effective cost
+    # and how it was priced (EvaluationRunCost), and the report is told the
+    # judge's run-level spend, so the page shows every cost the dashboard
+    # does. `estimate: false` rebuilds the report from what was recorded
+    # alone — the import summarizes a published run that way, so the
+    # summaries it stores stay the application's own figures.
+    #
+    # The engine runs against every activeagent since 1.4, so the report
+    # kwargs that arrived later are passed only when Report.new takes them.
+    def to_report(links: report_links, estimate: true)
       rows = scenario_results.includes(:scenario).sort_by do |row|
         [ row.evaluated_scenario["position"].to_i, row.evaluation_scenario_id, row.model ]
       end
+      breakdown = cost_breakdown if estimate
       selected = selected_specs
       specs = {}
       results = rows.map do |row|
@@ -240,14 +250,15 @@ module ActionAgent
           replay: ActiveAgent::Evals::Replay.new(
             answer: row.output, tool_calls: Array(row.tool_calls), duration_ms: row.duration_ms,
             input_tokens: row.input_tokens, output_tokens: row.output_tokens,
-            cost: row.cost&.to_f, error: row.error_message, metadata: row.replay_metadata
+            cost: breakdown ? breakdown.result(row)["cost"] : row.cost&.to_f, error: row.error_message,
+            metadata: replay_metadata_for(row, breakdown)
           ),
           scores: row.scores.to_h, score: row.score, status: row.status,
           diagnosis: row.evaluation_diagnosis.presence
         )
       end
 
-      ActiveAgent::Evals::Report.new(
+      kwargs = {
         results: results,
         models: (selected.values & specs.values) + (specs.values - selected.values),
         metadata: {
@@ -262,7 +273,40 @@ module ActionAgent
         tool_resolver: EvaluationToolResolver.new(evaluation.agent),
         agent_name: evaluation.agent&.name,
         links: links
-      )
+      }
+      kwargs[:judge_usage] = breakdown.judge_usage_run if breakdown && self.class.report_accepts?(:judge_usage)
+      kwargs[:release] = release_summary if release_summary && self.class.report_accepts?(:release)
+      self.class.report_class.new(**kwargs)
+    end
+
+    # The framework's Report, as installed.
+    def self.report_class
+      ActiveAgent::Evals::Report
+    end
+
+    # Whether the installed framework's Report.new declares +keyword+.
+    def self.report_accepts?(keyword)
+      report_class.instance_method(:initialize).parameters.any? { |type, name| name == keyword && %i[key keyreq].include?(type) }
+    end
+
+    # The release this run scored, as the report names it — `{ "digest",
+    # "revision", "label" }` — or nil for a run pinned to a dashboard edit
+    # or to no version.
+    def release_summary
+      version = agent_version
+      return nil unless version&.release?
+
+      { "digest" => version.release_digest, "revision" => version.revision, "label" => "v#{version.version_number}" }.compact
+    end
+
+    # The agent version this run scored, for the run's JSON: `{ id, number,
+    # release_digest, revision, release }`, or nil when none was recorded.
+    def agent_version_summary
+      version = agent_version
+      return nil unless version
+
+      { id: version.id, number: version.version_number, release_digest: version.release_digest,
+        revision: version.revision, release: version.release? }
     end
 
     private
@@ -270,28 +314,20 @@ module ActionAgent
     ModelSpec = ActiveAgent::Evals::ModelSpec
     private_constant :ModelSpec
 
-    # How many of a sampling cohort's samples carried a cost:
-    # EvaluationRunnerService records it as "priced". A cohort recorded
-    # before it did counts all its samples when it has a cost and none
-    # when it has not.
-    def priced_samples(cohort)
-      return cohort["priced"].to_i if cohort.key?("priced")
+    # The replay metadata the rebuilt report reads a result's costs from:
+    # what the result recorded, the judge usage the application reported
+    # for it, and — when estimating — how its cost was priced.
+    def replay_metadata_for(row, breakdown)
+      metadata = row.replay_metadata.dup
+      reported_judge = row.diagnosis.is_a?(Hash) ? row.diagnosis["_judge_usage"] : nil
+      metadata["judge_usage"] = reported_judge if reported_judge.is_a?(Hash)
+      return metadata unless breakdown
 
-      cohort["cost"].nil? ? 0 : cohort["samples"].to_i
-    end
-
-    # How many replays carried a cost, per label in +labels+. A result
-    # belongs to the label the run's selection gave its provider and model,
-    # else to the one of +labels+ naming its model, bare or as
-    # "provider/model", which is how the dashboard assigns results to model
-    # columns.
-    def priced_replays_by_label(labels)
-      selected = selected_specs
-      scenario_results.group(:provider, :model).count(:cost).each_with_object({}) do |((provider, model), priced), counts|
-        label = selected[[ provider.to_s, model ]]&.label
-        label ||= [ model, [ provider.presence, model ].compact.join("/") ].find { |name| labels.include?(name) }
-        counts[label] = counts.fetch(label, 0) + priced if label
-      end
+      entry = breakdown.result(row)
+      metadata["cost_source"] = entry["cost_source"]
+      metadata["cost_rate"] = entry["cost_rate"] if entry["cost_rate"]
+      metadata["judge_usage"] = entry["judge_usage"] if entry["judge_usage"]
+      metadata
     end
 
     # How the report's header names the sandbox: its checkout and session.
