@@ -222,6 +222,61 @@ Nothing here needs the dashboard: a CI job that hands `Report.new` a resolver
 over its own MCP configuration gets the same cards in its HTML report, and
 the same JSON to open issues from.
 
+## Costs
+
+Every surface writes a pass count, a score and a cost the same way
+(`ActiveAgent::Evals::Format`, which the dashboard copies in
+`evalFormat.mjs`):
+
+| Figure | Reads as |
+|---|---|
+| A pass/fail fraction | `14/16 · 88%` (`14/16 (88%)` in Markdown); nothing scored is `—` |
+| A 0..1 score — mean score, criterion score, task completion, judge confidence | `93%` |
+| The pass threshold | `pass ≥ 70%` |
+| Money | `$0.0243` when reported; `~$0.0243` when any part was estimated from tokens × model rates; four decimals, six below $0.001, `$0.00` for an explicit zero |
+
+Percentages round half up to whole numbers. Stored values stay 0..1 and USD.
+A report that shows a `~` figure carries the legend once, in its footer:
+*~ estimated from tokens × model rates*. An estimated figure's tooltip shows
+the working (`estimated: 2,328 in × $5.00/M + 423 out × $30.00/M · catalog
+rate`, plus `(fallback rate)` for a rate guessed from the model's name).
+
+A `Replay`'s `cost` is what its answer cost; three optional keys in its
+`metadata` say more, and the report reads them back
+(`Result#cost_source`, `#cost_rate`, `#judge_usage`):
+
+```ruby
+ActiveAgent::Evals::Replay.new(
+  answer: answer, input_tokens: 2_328, output_tokens: 423, cost: 0.02433,
+  metadata: {
+    "cost_source" => "estimated",      # reported | estimated | no_usage | unpriced
+    "cost_rate" => { "input" => 5.0, "output" => 30.0, "source" => "catalog" },  # $ per million tokens
+    "judge_usage" => { "calls" => 1, "input_tokens" => 400, "output_tokens" => 20, "cost" => 0.0015,
+                       "model" => "claude-opus-5", "by_kind" => { "score" => 1 }, "source" => "traces" }
+  }
+)
+```
+
+A cost with no `cost_source` is the caller's own figure (`reported`); no
+cost at all is `unpriced`. `judge_usage` is what the judge spent on that
+one result; calls no result owns — the verdict, authoring criteria — go to
+the report as `Report.new(judge_usage: { "calls" => 1, ... })`.
+
+From those, `Report#summary_by_model` adds, per model, the `reported` and
+`estimated` counts behind `cost` and `priced`, and `judge_cost` and
+`judge_calls`; `Report#scenario_costs` gives each scenario's cost across
+the models, the judge's, their `total`, whether any part is `estimated`,
+and the same per model label; and `Report#judge_usage` sums every result's
+judge calls with the run-level part (`"run"`). The judge's cost is the
+evaluation's own overhead and never joins the agent's: it is not part of
+the verdict's ranking, nor of the prompt the judge is asked to rule with.
+`Report#to_h` carries `judge_usage` only when there is one.
+
+`Report.new(release:)` (or `Runner.new(release:)`) names the release of the
+agent the run scored, `{ "digest", "revision", "label" }`, from
+`ActiveAgent::Release`; it lands in `to_h["release"]` and as a header chip,
+and a dashboard the report is published to pins the run to that version.
+
 ## In a dashboard
 
 `Runner.new` takes `on_result:` (each `Result` as it lands) and
@@ -393,11 +448,13 @@ history, oldest first) and `usage`, which keeps the agent's spend apart from
 the judge's: `replays` (or `samples`, for a sampling run), `cost`,
 `per_interaction`, tokens and timing on the agent's side — what the
 interactions cost to serve — and `judge` (`calls`, tokens, `cost`, `model`,
-`by_kind`) for the judge model's own calls, present only when a judge was
-asked. `priced` and `unpriced` count the interactions that did and did not
-carry a cost estimate: `cost` sums the priced ones, `per_interaction` is over
-them, and both are absent when nothing was priced. A scenario run's
-per-model summaries under `scores._models` carry `priced` for each model
-too. The dashboard shows a partial cost as an estimate with the priced
-count. The index adds `run_count`
-and a `previous_run` summary per evaluation.
+`by_kind`, `source`, `estimated`, and `run` for the calls no result owns)
+for the judge model's own calls, present only when a judge was asked.
+Every interaction with tokens is priced (`ActionAgent::EvaluationRunCost`):
+`priced` and `unpriced` count the interactions, `reported` and `estimated`
+say how the priced ones were priced, `cost_basis` sums that up as
+`reported`, `estimated` or `mixed`, and `total` is the agent's cost and the
+judge's together. A scenario run's per-model summaries under
+`scores._models` carry the same per model: `cost` (the effective one),
+`priced`, `reported`, `estimated`, `judge_cost` and `judge_calls`. The index
+adds `run_count` and a `previous_run` summary per evaluation.

@@ -285,11 +285,11 @@ module ActiveAgent
 
         weakest = (failed_grade ? grades : @scores.compact).min_by { |_, value| value }
         summary = if failed_grade
-          "#{graded_label(grades)} scored #{grade.round(2)} against a pass threshold of #{@threshold}"
+          "#{graded_label(grades)} scored #{Format.score(grade)} against a pass threshold of #{Format.percent(@threshold)}"
         else
-          "Scored #{@score.round(2)} against a pass threshold of #{@threshold}"
+          "Scored #{Format.score(@score)} against a pass threshold of #{Format.percent(@threshold)}"
         end
-        summary += ", weakest on #{weakest.first} (#{weakest.last.round(2)})" if weakest
+        summary += ", weakest on #{weakest.first} (#{Format.score(weakest.last)})" if weakest
         recommendation =
           if weakest
             "Read the answer against the #{weakest.first.to_s.humanize.downcase} criterion and adjust the " \

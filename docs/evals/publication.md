@@ -49,6 +49,23 @@ Authorization is a Bearer API key. Result correlation belongs in each result's
 traces can be retained in report metadata. Applications assign these IDs and
 propagate the same IDs into telemetry.
 
+Three optional parts of the report say more about the run:
+
+- `report.release` — `{ "digest", "revision", "label" }`, the release of the
+  agent the run scored (`Report.new(release:)`). The collector pins the run
+  to that version of the agent, recording the version when it has not seen
+  the digest, so the run's pass rate reads as current or stale against the
+  agent's latest release. A report naming no release stays unrecorded.
+- `result.judge_usage` — what the judge spent on that result, as
+  `Result#to_h` writes it from the replay's metadata (`calls`,
+  `input_tokens`, `output_tokens`, `cost`, `model`, `by_kind`, `source`).
+- `report.judge_usage.run` — the judge's calls no result owns (the verdict).
+
+Where a result reports no `cost`, the collector estimates one from its
+tokens, else from the trace its `trace_id` names, and shows it as an
+estimate; where no `judge_usage` is reported, the judge traces named by
+`judge_trace_ids` are priced instead.
+
 Delivery is synchronous. A valid receipt has HTTP 201 (new) or 200 (identical
 retry), the same `run_id`, `status: "complete"`, `id`, and `evaluation_id`.
 Anything else raises `Publisher::Error` (see [Errors and retries](#errors-and-retries)).
@@ -228,7 +245,9 @@ A valid report has:
   most 255 characters.
 - One result per scenario and model label, each label naming one provider/model and no two
   labels the same one.
-- Token counts and durations that fit a 32-bit integer, and a cost below 1,000,000.
+- Token counts and durations that fit a 32-bit integer, and a cost below 1,000,000 — in each
+  result and in each `judge_usage`, whose `by_kind` counts are non-negative integers.
+- A `release.digest` of 1-64 letters, digits or `. _ -`, and a `revision` and `label` of at most 200.
 - Tool calls that are objects with a `name`, and a verdict and diagnosis in the shapes
   `ActiveAgent::Evals` writes, with each result's `fault` and `recommendation` equal to its
   diagnosis's (both absent is fine), as `Result#to_h` writes them.
@@ -247,7 +266,7 @@ no judge is recorded as scored on rules.
 | Agent | The observed agent for the envelope's `source` and `agent_name`. It is read-only, like the agents trace ingest observes. |
 | Evaluation | That agent's evaluation named for the `suite`, qualified by the report metadata's `scope`, `environment` and `role`, in that order: `orders (eu, support)`. |
 | Scenarios | One per reported scenario key, updated to the prompt and group the report ran. Scenarios the report did not run are left alone. |
-| Run | One complete run per tenant and `run_id`, with one scenario result per scenario and model. Each result keeps its `metadata` (`result_id`, `trace_id`, `judge_trace_ids`). |
+| Run | One complete run per tenant and `run_id`, with one scenario result per scenario and model, pinned to the agent version of `report.release` when the report names one. Each result keeps its `metadata` (`result_id`, `trace_id`, `judge_trace_ids`) and its `judge_usage`; `report.judge_usage.run` is kept on the run. |
 
 On a single-tenant install the agent has no owner, as a traced agent has none, and a
 `run_id` is unique across the install. On a multi-tenant install the tenant is the account
