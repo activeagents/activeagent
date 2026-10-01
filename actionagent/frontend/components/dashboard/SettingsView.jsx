@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import GithubIntegrationCard from './GithubIntegrationCard';
 import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
+import CodexIntegrationCard from './CodexIntegrationCard';
 import { clearProviderModels } from '../../utils/providerModels';
 
 const PROVIDER_META = {
@@ -610,12 +611,15 @@ export default function SettingsView({ user, account }) {
             <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Connect GitHub to choose which repositories this workspace may use. A sandbox started
               from one boots that app's own runtime, so agents and evaluations can run with its tools,
-              and Claude Code can work on the checkout.
+              and Claude Code or Codex can work on the checkout.
             </p>
             <GithubIntegrationCard callbackStatus={githubCallback} refreshKey={integrationsVersion} />
           </div>
           <div className="border rounded-lg p-6" style={cardStyle}>
             <ClaudeCodeIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
+          </div>
+          <div className="border rounded-lg p-6" style={cardStyle}>
+            <CodexIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
           </div>
         </div>
       )}

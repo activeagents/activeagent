@@ -22,7 +22,12 @@ module ActionAgent
   #
   # The run's per-model summary, criterion scores and recommendations are
   # computed from the stored results, not taken from the report. The judge's
-  # verdict and label are taken from it.
+  # verdict and label are taken from it, and so is what the judge spent —
+  # per result (`result.judge_usage`, kept beside the result's diagnosis) and
+  # for the run (`report.judge_usage.run`) — and the release the report says
+  # it evaluated (`report.release`), which pins the run to that version of
+  # the agent (Agent#find_or_record_release!). A report naming no release
+  # leaves the run unrecorded rather than claiming the dashboard's latest.
   #
   # An identical retry returns the stored run, before anything is asked of the
   # `admit` callable. Different content under a run_id already stored raises
@@ -70,6 +75,11 @@ module ActionAgent
     IDENTIFIER_PATTERN = /\A[^[:cntrl:]]{1,200}\z/
     AGENT_NAME_PATTERN = /\A[^[:cntrl:]]{2,100}\z/
     TRACE_PATTERN = /\A[a-zA-Z0-9_-]{1,128}\z/
+    DIGEST_PATTERN = /\A[a-zA-Z0-9._-]{1,64}\z/
+    # The judge usage keys a report may send, per result and for the run.
+    JUDGE_USAGE_KEYS = %w[calls input_tokens output_tokens cost model by_kind source].freeze
+    JUDGE_USAGE_SOURCES = %w[reported traces meter].freeze
+    MAX_JUDGE_KINDS = 10
     SCOPE_PATTERN = %r{\A[\w .:/@-]{1,100}\z}
     STATUSES = %w[passed failed errored].freeze
     # Report metadata that tells one evaluation of a suite from another, in the
@@ -253,6 +263,7 @@ module ActionAgent
         external_tenant: tenant_key,
         external_run_id: @payload["run_id"],
         external_report_digest: digest,
+        agent_version: reported_release_version(agent),
         status: :complete,
         selection: selection,
         scores: recorded_scores,
@@ -265,6 +276,15 @@ module ActionAgent
       evaluation.touch
       agent.update_columns(last_observed_at: run.completed_at, updated_at: Time.current)
       run
+    end
+
+    # The agent version for the release the report names, or nil for a
+    # report that names none.
+    def reported_release_version(agent)
+      release = report["release"]
+      return nil unless release.is_a?(Hash) && release["digest"].present?
+
+      agent.find_or_record_release!(digest: release["digest"], revision: release["revision"].presence, label: release["label"].presence)
     end
 
     # --- ownership -------------------------------------------------------------
@@ -492,9 +512,26 @@ module ActionAgent
             "key" => result["scenario_key"], "group" => result["group"], "prompt" => result["prompt"],
             "position" => scenario.position, "expectations" => {}
           }
-        ),
+        ).merge(bounded_judge_usage(result["judge_usage"]).then { |usage| usage ? { "_judge_usage" => usage } : {} }),
         error_message: truncated(result["error"], TEXT_BYTES)
       )
+    end
+
+    # A judge usage as the engine stores it: the keys the dashboard reads,
+    # each cut to its type, or nil for none.
+    def bounded_judge_usage(usage)
+      return nil unless usage.is_a?(Hash)
+
+      by_kind = usage["by_kind"].is_a?(Hash) ? usage["by_kind"].first(MAX_JUDGE_KINDS).to_h { |kind, count| [ kind.to_s.first(40), count.to_i ] } : {}
+      {
+        "calls" => usage["calls"].to_i,
+        "input_tokens" => usage["input_tokens"].to_i,
+        "output_tokens" => usage["output_tokens"].to_i,
+        "cost" => usage["cost"].is_a?(Numeric) ? usage["cost"].to_f : nil,
+        "model" => usage["model"].is_a?(String) ? usage["model"].first(200).presence : nil,
+        "by_kind" => by_kind,
+        "source" => JUDGE_USAGE_SOURCES.include?(usage["source"]) ? usage["source"] : "reported"
+      }
     end
 
     # The first +bytes+ bytes of +text+, dropping a character the cut splits,
@@ -521,14 +558,18 @@ module ActionAgent
       {
         "_verdict" => report["verdict"],
         "_selection" => selection,
-        "_metadata" => metadata
+        "_metadata" => metadata,
+        "_judge_usage_run" => bounded_judge_usage(report.dig("judge_usage", "run"))
       }.compact.merge("_judge_label" => judge_label)
     end
 
     # The run's scores in the shape the Evaluations view renders
-    # (ScenarioEvaluationRunner#scores_for), summarized from the stored results.
+    # (ScenarioEvaluationRunner#scores_for), summarized from the stored
+    # results as the application reported them — no cost is estimated here,
+    # so the summaries stored stay the application's own figures; the API
+    # adds the estimates when it serves the run (EvaluationRun#model_summaries).
     def summarized_scores(run)
-      rebuilt = run.to_report
+      rebuilt = run.to_report(estimate: false)
       rebuilt.criterion_scores.merge(
         "_models" => rebuilt.summary_by_model,
         "_recommendations" => rebuilt.recommendations
@@ -559,6 +600,9 @@ module ActionAgent
 
       judge_trace_ids!(metadata["judge_trace_ids"])
       string!(report["judge"], "report.judge", 200)
+      validate_release!
+      validate_judge_usage!(report.dig("judge_usage", "run"), "report.judge_usage.run") if report["judge_usage"].is_a?(Hash)
+      optional_object!(report["judge_usage"], "report.judge_usage")
       object!(report["models"], "report.models")
       raise Invalid, "report.models must contain 1-#{MAX_MODELS} models" unless report["models"].size.between?(1, MAX_MODELS)
       unless results.is_a?(Array) && results.size.between?(1, MAX_RESULTS)
@@ -605,6 +649,7 @@ module ActionAgent
         end
         trace_id!(result_metadata["trace_id"]) if result_metadata["trace_id"]
         judge_trace_ids!(result_metadata["judge_trace_ids"])
+        validate_judge_usage!(result["judge_usage"], "result.judge_usage")
       end
       distinct_specs = label_specs.values.uniq
       raise Invalid, "two model labels name the same provider/model" if distinct_specs.size < label_specs.size
@@ -653,6 +698,40 @@ module ActionAgent
       string!(judge["instruction_change"], "result.diagnosis.judge.instruction_change", MAX_TEXT)
       optional_object!(judge["suggested_tool"], "result.diagnosis.judge.suggested_tool")
       string!(judge.dig("suggested_tool", "name"), "result.diagnosis.judge.suggested_tool.name", 200)
+    end
+
+    # The release the report says it evaluated: a digest the dashboard can
+    # match to a version cut on deploy, and the deploy and label as text.
+    def validate_release!
+      release = report["release"]
+      return if release.nil?
+
+      object!(release, "report.release")
+      unless release["digest"].nil? || (release["digest"].is_a?(String) && DIGEST_PATTERN.match?(release["digest"]))
+        raise Invalid, "report.release.digest must be 1-64 letters, digits or . _ -"
+      end
+
+      string!(release["revision"], "report.release.revision", 200)
+      string!(release["label"], "report.release.label", 200)
+    end
+
+    # What the judge spent, as ActiveAgent::Evals::Report writes it per
+    # result and for the run.
+    def validate_judge_usage!(usage, name)
+      return if usage.nil?
+
+      object!(usage, name)
+      %w[calls input_tokens output_tokens].each do |key|
+        next if usage[key].nil?
+        raise Invalid, "#{name}.#{key} must be a non-negative integer" unless usage[key].is_a?(Integer) && usage[key] >= 0 && usage[key] <= NUMERIC_LIMITS["input_tokens"]
+      end
+      numeric!(usage["cost"], "#{name}.cost", max: NUMERIC_LIMITS["cost"])
+      string!(usage["model"], "#{name}.model", 200)
+      string!(usage["source"], "#{name}.source", 20)
+      optional_object!(usage["by_kind"], "#{name}.by_kind")
+      (usage["by_kind"] || {}).each_value do |count|
+        raise Invalid, "#{name}.by_kind counts must be non-negative integers" unless count.is_a?(Integer) && count >= 0
+      end
     end
 
     def validate_verdict!

@@ -104,7 +104,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
       assert_equal grade, result.scores["task_completion"]
       assert_equal "failed", result.status
       assert_equal "low_quality", result.fault
-      assert_includes result.summary, "Task completion scored #{grade}"
+      assert_includes result.summary, "Task completion scored #{ActiveAgent::Evals::Format.score(grade)} against a pass threshold of 70%"
       assert_equal "Use the actual order status.", result.recommendation
       assert_equal 0.0, report.summary_by_model["test-model"]["pass_rate"]
       assert_equal grade, report.summary_by_model["test-model"]["avg_task_completion"]
@@ -161,7 +161,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_operator result.score, :>=, ActiveAgent::Evals::PASS_THRESHOLD
     assert_equal "failed", result.status
     assert_equal "low_quality", result.fault
-    assert_includes result.diagnosis["summary"], "Judged quality scored 0.0"
+    assert_includes result.diagnosis["summary"], "Judged quality scored 0% against a pass threshold of 70%"
   end
 
   def test_a_soft_grade_among_strong_ones_still_passes
@@ -328,9 +328,9 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     markdown = report.to_markdown
     parsed = JSON.parse(report.to_json)
 
-    assert_includes markdown, "| `gpt-5-mini` | 100.0% | 3/3 |"
+    assert_includes markdown, "| `gpt-5-mini` | 3/3 (100%) | 100% |"
     assert_includes markdown, "**Best model: gpt-5-mini**"
-    assert_includes markdown, "| `history_1` Who changed the shipping policy? | ✅ 1.0 | ❌ 1.0 missing capability |"
+    assert_includes markdown, "| `history_1` Who changed the shipping policy? | ✅ 100% | ❌ 100% missing capability | ~$0.0010 |"
     assert_includes markdown, "- **missing capability** ×1 (history_1):"
     assert_equal "gpt-5-mini", parsed["verdict"]["winner"]
     assert_equal 6, parsed["results"].size
@@ -428,10 +428,10 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal [ 2, 0.002 ], summary["gpt-5-mini"].values_at("priced", "cost")
     assert_equal [ 1, 0.0015 ], summary["qwen3:8b"].values_at("priced", "cost")
     assert_equal "gpt-5-mini", report.winner
-    assert_equal "Passed 2 of 2 scenarios with a mean score of 1.0 at an estimated $0.0020.", report.verdict["rationale"]
+    assert_equal "Passed 2 of 2 scenarios (100%) with a mean score of 100% at $0.0020.", report.verdict["rationale"]
   end
 
-  def test_a_partially_priced_model_says_so_in_the_verdict_the_judge_prompt_and_the_markdown
+  def test_a_partially_priced_model_reads_as_an_estimate_in_the_verdict_and_the_markdown_but_not_the_judge_prompt
     replay = lambda do |scenario, spec|
       return Replay.new(answer: "") unless spec.provider == "openai"
 
@@ -446,17 +446,21 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     report = ActiveAgent::Evals::Runner.new(scenarios: refund_scenarios, models: specs, criteria: CRITERIA, replay: replay).call
 
     assert_equal "gpt-5-mini", report.winner
-    assert_equal "Passed 2 of 2 scenarios with a mean score of 1.0 at an estimated $0.0010 (1 of 2 scenarios priced).",
+    # A cost over some of the replays is a lower bound: it reads as an
+    # estimate, with the legend, rather than as a count of priced replays.
+    assert_equal "Passed 2 of 2 scenarios (100%) with a mean score of 100% at ~$0.0010 (estimated).",
                  report.verdict["rationale"]
-    assert_includes report.to_markdown, "| $0.0010 (1 of 2 scenarios priced) |"
-    assert_includes report.to_markdown, "| — (0 of 2 scenarios priced) |"
+    assert_includes report.to_markdown, "| ~$0.0010 | — |"
+    assert_includes report.to_markdown, "| — | run error ×2 |"
+    assert_includes report.to_markdown, "_~ estimated from tokens × model rates_"
+    assert_not_includes report.to_markdown, "scenarios priced"
 
     judged = ActiveAgent::Evals::Report.new(results: report.results, models: specs, judge: judge)
     judged.verdict
     assert_equal 1, verdict_prompts.size
     assert_includes verdict_prompts.first, "gpt-5-mini: pass rate 100.0%"
-    assert_includes verdict_prompts.first, "cost $0.001 (1 of 2 scenarios priced)"
-    assert_no_match(/0 of 2 scenarios priced/, verdict_prompts.first, "a model with no cost is not called partially priced")
+    assert_includes verdict_prompts.first, "gpt-5-mini: pass rate 100.0%, mean score 1.0, avg latency n/ams, cost $0.001\n"
+    assert_no_match(/priced|judge/, verdict_prompts.first, "the judge is told the agent's cost alone")
   end
 
   def test_a_prompt_containing_a_pipe_does_not_break_the_markdown_matrix

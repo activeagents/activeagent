@@ -8,9 +8,13 @@ import EvaluationRunDetail from './evaluations/EvaluationRunDetail';
 import CriteriaFooter from './evaluations/CriteriaFooter';
 import RunsList, { RunBadge, runsSummary } from './evaluations/RunsList';
 import { fmtRate } from './evaluations/SpendStrip';
-import { Button, Card, Glyph, StatCard, MONO, TONE, toneFor } from './primitives';
-import { fmtCost, fmtPct, timeAgo } from '../../utils/format';
-import { criterionGroup, modelCount, plural, pricingNote, runLabel, runSpend, samplingFixItems, spendSummary } from '../../utils/evaluationRuns.mjs';
+import { Badge, Button, Card, Glyph, StatCard, MONO, TONE, toneFor } from './primitives';
+import { timeAgo } from '../../utils/format';
+import { COST_LEGEND, fmtPasses, fmtPercent, fmtSpend } from '../../utils/evalFormat.mjs';
+import {
+  criterionGroup, evaluationStanding, headlineRun, headlineSummary, modelCount, notCountedText, plural, runLabel, runSpend,
+  samplingFixItems,
+} from '../../utils/evaluationRuns.mjs';
 
 // Evaluations, each with every run it has had. An evaluation is a named set
 // of criteria against one agent — scored over its recorded generations, or,
@@ -49,15 +53,25 @@ const linkedIdFromLocation = () =>
 
 const monoStyle = (size = 11, color = 'var(--color-text-muted)') => ({ fontFamily: MONO, fontSize: size, color });
 
-// How many things a run asks to fix: a suite's recommendations from its
-// report, a sampling run's from its own scores; a failed run is one item.
+// How many things an evaluation asks to fix: its headline run's
+// recommendations (a suite's from its report, a sampling run's from its own
+// scores), plus one when its latest run failed.
 const fixCountFor = (evaluation) => {
-  const run = evaluation.latest_run;
-  if (!run) return 0;
+  const run = headlineRun(evaluation);
+  const failed = evaluation.latest_run?.status === 'failed' ? 1 : 0;
+  if (!run) return failed;
   if (evaluation.scenario_suite) {
-    return (run.scores?._recommendations || []).length + (run.status === 'failed' ? 1 : 0);
+    return (run.scores?._recommendations || []).length + failed;
   }
-  return samplingFixItems(evaluation, run).length;
+  return samplingFixItems(evaluation, run).length + failed;
+};
+
+// How an evaluation's standing reads on its card: nothing for one that
+// counts, a badge for one the tiles leave out and why.
+const STANDING_BADGE = {
+  stale: { tone: 'warning', text: 'stale', title: 'Its headline run scored an earlier version of the agent, so the tiles leave it out' },
+  unrecorded: { tone: 'muted', text: 'version not recorded', title: 'Nothing says which version of the agent its headline run scored; it still counts' },
+  archived: { tone: 'muted', text: 'archived', title: 'Archived: kept with its runs, left out of the tiles' },
 };
 
 // embedded hides the page title when this renders inside the agent detail
@@ -133,6 +147,11 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   const [showForm, setShowForm] = useState(false);
   const [runningId, setRunningId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [archivingId, setArchivingId] = useState(null);
+  // Archived evaluations leave the list unless asked for; the API says how
+  // many it left out.
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
 
   // URL → state: browser back/forward, and in-app navigation.
   useEffect(() => {
@@ -158,9 +177,14 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       // Scoped server-side: the endpoint caps at the 50 most recent, so
       // narrowing here rather than after the fetch is what makes an agent's
       // older evaluations reachable at all.
-      const response = await fetch(`/api/evaluations${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`);
+      const query = new URLSearchParams();
+      if (agentId) query.set('agent_id', agentId);
+      if (showArchived) query.set('archived', '1');
+      const search = query.toString();
+      const response = await fetch(`/api/evaluations${search ? `?${search}` : ''}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
+      setArchivedCount(Number(data.archived_count) || 0);
       setJudgeProvider(data.judge_provider ?? null);
       setJudgeProviderError(data.judge_provider_error === true);
       setModelProviders(Array.isArray(data.model_providers) ? data.model_providers : null);
@@ -186,7 +210,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     } finally {
       setIsLoading(false);
     }
-  }, [agentId, linkedEvaluationId]);
+  }, [agentId, linkedEvaluationId, showArchived]);
 
   // The run history (up to RUNS_PAGE) is one request per sampling
   // evaluation, made when its card opens rather than for every row in the
@@ -269,6 +293,28 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       if (data.run && openRun?.evaluationId === evaluation.id) openRunDetail(evaluation, data.run);
     } finally {
       setRunningId(null);
+    }
+  };
+
+  // Archives an evaluation, or brings it back: it keeps its runs but leaves
+  // the list and the pooled figures until shown again.
+  const handleArchive = async (evaluation, archived) => {
+    setArchivingId(evaluation.id);
+    setLoadError(null);
+    try {
+      const response = await fetch(`/api/evaluations/${evaluation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ evaluation: { archived } }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setLoadError((data.errors || [data.error]).filter(Boolean).join(', ') || `${archived ? 'Archive' : 'Unarchive'} failed (HTTP ${response.status})`);
+        return;
+      }
+      await fetchEvaluations();
+    } finally {
+      setArchivingId(null);
     }
   };
 
@@ -384,31 +430,40 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     }
   }
 
-  // Page tiles, from the latest run of each evaluation.
-  const latestRuns = shownEvaluations.map((e) => e.latest_run).filter(Boolean);
-  const completeRuns = latestRuns.filter((r) => r.status === 'complete');
-  const samplesScored = completeRuns.reduce((sum, r) => sum + (r.samples_evaluated || 0), 0);
-  const samplesPassed = completeRuns.reduce((sum, r) => sum + (r.samples_passed || 0), 0);
-  const passRatio = samplesScored ? samplesPassed / samplesScored : null;
+  // Page tiles, pooled over the headline run of each evaluation that
+  // describes the agent as it is now — a stale or archived evaluation is
+  // left out and the tiles say so — or, when the page is focused on one
+  // evaluation, that evaluation's headline run alone.
+  const summary = headlineSummary(shownEvaluations, { focusId: linkedEvaluationId });
+  const { samplesScored, samplesPassed, passRatio, spend } = summary;
+  const notCounted = notCountedText(summary);
   const agentNames = [...new Set(shownEvaluations.map((e) => e.agent?.name).filter(Boolean))];
-  const modelsCompared = shownEvaluations.reduce((max, e) => Math.max(max, modelCount(e, e.latest_run)), 0);
+  const modelsCompared = shownEvaluations.reduce((max, e) => Math.max(max, modelCount(e, headlineRun(e) || e.latest_run)), 0);
   const fixCounts = shownEvaluations.map(fixCountFor);
   const toFix = fixCounts.reduce((sum, count) => sum + count, 0);
   const toFixEvaluations = fixCounts.filter(Boolean).length;
-  const spend = spendSummary(completeRuns);
   const evaluationsSub = shownEvaluations.length
-    ? `${plural(agentNames.length, 'agent')} · ${modelsCompared > 1 ? `${modelsCompared} models compared` : 'no model comparisons'}`
+    ? [
+      `${plural(agentNames.length, 'agent')} · ${modelsCompared > 1 ? `${modelsCompared} models compared` : 'no model comparisons'}`,
+      notCounted,
+    ].filter(Boolean).join(' · ')
     : 'none defined yet';
+  const scoredSub = summary.focused
+    ? 'headline run of this evaluation'
+    : `headline run of ${plural(summary.counted, 'current evaluation')}${notCounted ? ` · ${notCounted}` : ''}`;
+  // The pass rate's fraction sits on the tile, and under it one line per
+  // model so a comparison's cohorts can be told apart.
+  const perModelLines = summary.perModel.length > 1 ? summary.perModel.map((entry) => `${entry.label} ${fmtPasses(entry.passed, entry.total)}`) : [];
   // The operating figure clients budget against: the agent's spend over the
-  // interactions the latest runs covered, with the judge's own spend named
-  // apart so it never inflates it.
-  const spendPricing = pricingNote(spend.pricedInteractions, spend.interactions, 'interaction');
+  // interactions the headline runs covered, with the judge's own spend
+  // named apart so it never inflates it; "~" marks an estimated part.
   const spendSub = spend.agentCost != null
     ? [
-      `agent ${fmtCost(spend.agentCost)} ${spendPricing ? `· ${spendPricing}` : `over ${plural(spend.interactions, 'interaction')}`}`,
-      spend.judgeCost != null ? `judge ${fmtCost(spend.judgeCost)} offline` : 'no judge spend',
+      `agent ${fmtSpend(spend.agentCost, { estimated: spend.estimated })} over ${plural(spend.interactions, 'interaction')}`,
+      spend.judgeCost != null ? `judge ${fmtSpend(spend.judgeCost, { estimated: spend.judgeEstimated })} offline` : 'no judge spend',
     ].join(' · ')
-    : spendPricing || 'no priced runs yet';
+    : 'no priced runs yet';
+  const spendEstimated = (spend.agentCost != null && spend.estimated) || (spend.judgeCost != null && spend.judgeEstimated);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -423,6 +478,11 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           </div>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          {(archivedCount > 0 || showArchived) && (
+            <Button size="sm" onClick={() => setShowArchived((value) => !value)} testId="show-archived-toggle" title="Archived evaluations keep their runs but leave the list and the tiles">
+              {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
+            </Button>
+          )}
           <Button variant="primary" onClick={() => setShowForm(!showForm)} testId="new-evaluation-button">
             {showForm ? 'Cancel' : 'New Evaluation'}
           </Button>
@@ -457,12 +517,21 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 16 }}>
         <StatCard label="Evaluations" value={shownEvaluations.length} sub={evaluationsSub} testId="stat-evaluations" />
-        <StatCard label="Samples scored" value={samplesScored} sub="latest run of each evaluation" testId="stat-samples-scored" />
+        <StatCard label="Samples scored" value={samplesScored} sub={scoredSub} testId="stat-samples-scored" />
         <StatCard
           label="Pass rate"
-          value={passRatio == null ? '—' : fmtPct(passRatio)}
+          value={fmtPercent(passRatio)}
           valueColor={passRatio == null ? 'var(--color-text-muted)' : TONE[toneFor(passRatio)].strong}
-          sub={passRatio == null ? 'no completed runs yet' : `${samplesPassed} / ${samplesScored} samples passed`}
+          sub={passRatio == null
+            ? (notCounted || 'no completed runs yet')
+            : (
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span data-testid="stat-pass-rate-fraction">{`${samplesPassed}/${samplesScored} passed`}</span>
+                {perModelLines.map((line) => (
+                  <span key={line} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }} data-testid="stat-pass-rate-model">{line}</span>
+                ))}
+              </span>
+            )}
           testId="stat-pass-rate"
         />
         <StatCard
@@ -474,9 +543,9 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
         />
         <StatCard
           label="Cost / interaction"
-          value={fmtRate(spend.perInteraction)}
+          value={fmtRate(spend.perInteraction, spend.estimated)}
           valueColor={spend.perInteraction == null ? 'var(--color-text-muted)' : undefined}
-          sub={spendSub}
+          sub={spendEstimated ? `${spendSub} · ${COST_LEGEND}` : spendSub}
           testId="stat-agent-cost"
         />
       </div>
@@ -485,6 +554,13 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {shownEvaluations.map((evaluation, index) => {
           const run = evaluation.latest_run;
+          // The badge describes the headline run; a newer run still pending
+          // or failed shows beside it, never in its place.
+          const headline = headlineRun(evaluation);
+          const newer = run && headline && run.id !== headline.id ? run : null;
+          const standing = evaluationStanding(evaluation);
+          const standingBadge = STANDING_BADGE[standing];
+          const archived = standing === 'archived';
           const open = isOpen(evaluation.id);
           const suite = !!evaluation.scenario_suite;
           const fixCount = fixCounts[index];
@@ -501,7 +577,8 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
               data-telemetry={scoresFromTelemetry ? 'true' : 'false'}
               data-kind={suite ? 'suite' : 'sampling'}
               data-open={open ? 'true' : 'false'}
-              style={{ overflow: 'hidden' }}
+              data-standing={standing}
+              style={{ overflow: 'hidden', opacity: archived ? 0.75 : 1 }}
             >
               <div
                 role="button"
@@ -525,7 +602,19 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                 <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   <span style={monoStyle(11)}>{timeAgo(run?.completed_at || run?.created_at || evaluation.created_at)}</span>
                   {fixCount > 0 && <span style={monoStyle(11, 'var(--color-error)')}>{`${fixCount} to fix`}</span>}
-                  <RunBadge run={run} testId={suite ? 'suite-pass-badge' : 'evaluation-pass-badge'} />
+                  {standingBadge && <Badge tone={standingBadge.tone} size={10} style={{ padding: '1px 6px' }} title={standingBadge.title} testId="evaluation-standing">{standingBadge.text}</Badge>}
+                  {newer && <RunBadge run={newer} testId="evaluation-newer-run-badge" />}
+                  <RunBadge run={headline || run} testId={suite ? 'suite-pass-badge' : 'evaluation-pass-badge'} />
+                  <button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); handleArchive(evaluation, !archived); }}
+                    disabled={archivingId === evaluation.id}
+                    title={archived ? 'Bring this evaluation back into the list and the tiles' : 'Archive: keep its runs, leave it out of the list and the tiles'}
+                    data-testid="evaluation-archive-toggle"
+                    style={{ background: 'transparent', border: 'none', padding: 0, cursor: archivingId === evaluation.id ? 'not-allowed' : 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)', opacity: archivingId === evaluation.id ? 0.5 : 1 }}
+                  >
+                    {archivingId === evaluation.id ? '…' : archived ? 'unarchive' : 'archive'}
+                  </button>
                 </span>
               </div>
 

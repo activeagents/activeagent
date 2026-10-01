@@ -177,8 +177,11 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     assert_equal 60, usage["output_tokens"]
     assert_equal 2000, usage["model_time_ms"]
     assert_in_delta 90_000, usage["runtime_ms"], 2_000
-    # The judge's spend rides alongside, never folded into the replays' cost.
-    assert_equal judge, usage["judge"]
+    # The judge's spend rides alongside, never folded into the replays' cost,
+    # and says it is the engine's meter; `total` is the two together.
+    assert_equal judge.merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "verdict" => 1 } }), usage["judge"]
+    assert_in_delta 0.003 + judge["cost"], usage["total"], 1e-9
+    assert_equal "estimated", usage["cost_basis"], "the engine priced its own replays from tokens"
   end
 
   # A scenario run whose replays carry `costs`, one per replay; nil is a
@@ -201,7 +204,10 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     run
   end
 
-  test "a scenario run with unpriced replays prices per interaction over the priced ones and counts both" do
+  # A replay that recorded no cost is priced from its tokens at its model's
+  # rate (model-2 is unknown, so the default $1/$4 per million applies),
+  # so the run's cost covers every replay.
+  test "a scenario run with a replay that recorded no cost prices it from its tokens and counts how" do
     scenario_run_costing(0.002, 0.001, nil)
 
     get "/activeagents/api/evaluations"
@@ -209,25 +215,32 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     assert_response :success
     usage = JSON.parse(response.body)["evaluations"].first.dig("latest_run", "usage")
     assert_equal 3, usage["replays"]
-    assert_equal 2, usage["priced"]
-    assert_equal 1, usage["unpriced"]
-    assert_in_delta 0.003, usage["cost"], 1e-9, "the cost sums the priced replays"
-    assert_in_delta 0.0015, usage["per_interaction"], 1e-9, "the rate is over the 2 priced replays, not all 3"
-    assert_equal 300, usage["input_tokens"], "tokens count every replay, priced or not"
+    assert_equal 3, usage["priced"]
+    assert_equal 0, usage["unpriced"]
+    assert_equal 3, usage["estimated"], "the engine's stored costs are estimates too"
+    assert_equal 0, usage["reported"]
+    assert_in_delta 0.003 + 0.00026, usage["cost"], 1e-9, "the cost covers the replay that recorded none"
+    assert_in_delta (0.003 + 0.00026) / 3, usage["per_interaction"], 1e-6
+    assert_equal "estimated", usage["cost_basis"]
+    assert_equal 300, usage["input_tokens"]
   end
 
-  test "a scenario run with no priced replay reports no cost and says none was priced" do
+  test "a scenario run whose replays recorded no cost is priced from their tokens rather than left blank" do
     usage = scenario_run_costing(nil, nil).usage
 
     assert_equal 2, usage[:replays]
-    assert_equal 0, usage[:priced]
-    assert_equal 2, usage[:unpriced]
-    assert_not usage.key?(:cost), "a run with nothing priced has no cost"
-    assert_not usage.key?(:per_interaction), "a run with nothing priced has no rate"
+    assert_equal 2, usage[:priced]
+    assert_equal 0, usage[:unpriced]
+    assert_in_delta 0.00052, usage[:cost], 1e-9, "100 in × $1/M + 40 out × $4/M, twice"
+    assert_in_delta 0.00026, usage[:per_interaction], 1e-9
     assert_equal 1_000, usage[:model_time_ms]
   end
 
-  test "a scenario run's model summaries recorded without a priced count serve one counted from the results" do
+  # The summaries are served with their costs as they stand now: a replay
+  # that recorded no cost and no tokens is priced from its text (the prompt,
+  # here) as a lower bound, so every result is priced and every summary says
+  # how.
+  test "a scenario run's model summaries are served with the effective cost and the counts behind it, per label" do
     run = scenario_run_costing
     scenario = run.evaluation.scenarios.first
     run.update!(
@@ -248,9 +261,11 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     models = JSON.parse(response.body)["evaluations"].first.dig("latest_run", "scores", "_models")
-    assert_equal 2, models.dig("fast", "priced"), "the label the selection gave openai/gpt-fast"
-    assert_equal 0, models.dig("ollama/llama", "priced"), "the label naming the result's provider and model"
-    assert_in_delta 0.003, models.dig("fast", "cost"), 1e-9
+    fast = models["fast"]
+    assert_equal [ 3, 0, 3, 3, nil, 0 ], fast.values_at("priced", "reported", "estimated", "passed", "judge_cost", "judge_calls"), "the label the selection gave openai/gpt-fast"
+    assert_operator fast["cost"], :>, 0.003, "the replay that recorded no cost adds its text estimate"
+    assert_equal [ 1, 1 ], models.dig("ollama/llama").values_at("priced", "estimated"), "the label naming the result's provider and model"
+    assert_not_nil models.dig("ollama/llama", "cost"), "a one-token prompt rounds to $0.000000, but is priced"
   end
 
   test "a run that recorded nothing reports no usage" do
@@ -288,7 +303,9 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
     assert_equal 2_000, usage[:input_tokens]
     assert_equal 800, usage[:output_tokens]
     assert_in_delta 30_000, usage[:runtime_ms], 2_000
-    assert_equal judge, usage[:judge]
+    assert_equal judge.merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "verdict" => 1 } }), usage[:judge]
+    assert_equal "estimated", usage[:cost_basis]
+    assert_in_delta 0.0058 + judge["cost"], usage[:total], 1e-9
   end
 
   test "a generation-sampling run prices per interaction over the samples its cohorts priced" do
@@ -327,7 +344,8 @@ class ActionAgentEvaluationsIndexTest < ActionDispatch::IntegrationTest
               "by_kind" => { "define" => 1 } }
     run = ActionAgent::EvaluationRun.new(scores: { "_judge_usage" => judge })
 
-    assert_equal({ judge: judge }, run.usage)
+    metered = judge.merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "define" => 1 } })
+    assert_equal({ judge: metered, total: 0.0045 }, run.usage)
   end
 end
 

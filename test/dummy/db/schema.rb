@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 13) do
+ActiveRecord::Schema[8.0].define(version: 14) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -205,6 +205,8 @@ ActiveRecord::Schema[8.0].define(version: 13) do
     t.json "events", default: []
     t.datetime "finished_at"
     t.integer "input_tokens"
+    t.string "runner", default: "claude_code", null: false
+    t.string "runner_session_id"
     t.string "model"
     t.integer "num_turns"
     t.integer "output_tokens"

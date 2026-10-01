@@ -51,10 +51,13 @@ module ActiveAgent
       # @param require_judge_scores [Boolean] fail an otherwise passing result
       #   when a requested task/LLM grade is unavailable, rather than falling
       #   back to rule scores. Does not require a judge for rules-only runs.
+      # @param release [Hash, nil] the release of the agent under evaluation,
+      #   `{ "digest", "revision", "label" }`, carried onto the Report so a
+      #   published run names the code it scored (see Report.new)
       def initialize(scenarios:, models:, replay:, criteria: [], judge: nil, judge_task: true, available_tools: {},
                      instructions: nil, agent_name: "The agent", threshold: PASS_THRESHOLD,
                      refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil,
-                     around_evaluation: nil, require_judge_scores: false, metadata: {})
+                     around_evaluation: nil, require_judge_scores: false, metadata: {}, release: nil)
         @scenarios = scenarios
         @models = models
         @replay = replay
@@ -71,6 +74,7 @@ module ActiveAgent
         @around_evaluation = around_evaluation
         @require_judge_scores = require_judge_scores
         @metadata = metadata
+        @release = release
         @judge_calls = 0
         @scorer = Scorer.new(criteria: criteria, judge: judge)
       end
@@ -83,7 +87,7 @@ module ActiveAgent
         end
 
         Report.new(results: results, models: @models, judge: @judge, instructions: @instructions,
-                   threshold: @threshold, metadata: @metadata)
+                   threshold: @threshold, metadata: @metadata, release: @release)
       end
 
       # Scores and diagnoses one replay. Public so a caller that has already run

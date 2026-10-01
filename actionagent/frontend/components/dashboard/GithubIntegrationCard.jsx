@@ -76,7 +76,7 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(data, `Could not list your sandboxes (HTTP ${res.status}).`));
       setSandboxes(data.sandboxes || []);
-      setSandboxSupport({ codeSessions: Boolean(data.code_sessions_supported), claudeCode: claudeCodeAuth(data) });
+      setSandboxSupport({ codeSessions: Boolean(data.code_sessions_supported), claudeCode: claudeCodeAuth(data), codex: { supported: data.codex_sessions_supported === true, connected: data.codex_connected === true } });
     } catch (e) {
       setError(e.message);
     }
@@ -327,6 +327,7 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
           <CodeSessionPanel
             sandbox={sandbox}
             claudeCode={sandboxSupport.claudeCode}
+            codex={sandboxSupport.codex}
             onRecheckConnection={loadSandboxes}
           />
         )}

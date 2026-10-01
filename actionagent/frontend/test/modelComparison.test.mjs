@@ -40,7 +40,7 @@ test('rows read best first with passed, mean score, latency, average tokens and 
   assert.equal(rows[3].winner, false);
 });
 
-test('a partially priced cohort is costed per priced interaction', () => {
+test('a partially priced cohort is costed per priced interaction and reads as an estimate', () => {
   const partial = { status: 'complete', scores: { _models: {
     a: { scenarios: 4, passed: 4, avg_score: 1, cost: 0.003, priced: 3, faults: {} },
     b: { scenarios: 4, passed: 4, avg_score: 1, cost: null, priced: 0, faults: {} },
@@ -49,9 +49,28 @@ test('a partially priced cohort is costed per priced interaction', () => {
 
   assert.equal(a.priced, 3);
   assert.ok(Math.abs(a.costPerInteraction - 0.001) < 1e-12, 'the rate is over the 3 priced scenarios, not all 4');
+  assert.equal(a.estimated, true);
   assert.equal(b.priced, 0);
   assert.equal(b.cost, null);
   assert.equal(b.costPerInteraction, null);
+  assert.equal(b.estimated, false);
+});
+
+test('a row carries how its cost was priced and what the judge spent on the cohort', () => {
+  const priced = { status: 'complete', scores: { _models: {
+    reported: { scenarios: 4, passed: 4, avg_score: 1, cost: 0.004, priced: 4, reported: 4, estimated: 0, judge_cost: 0.002, judge_calls: 4, faults: {} },
+    estimated: { scenarios: 4, passed: 3, avg_score: 0.9, cost: 0.006, priced: 4, reported: 0, estimated: 4, judge_cost: null, judge_calls: 0, faults: {} },
+  } } };
+  const [reported, estimated] = modelComparisonRows(priced);
+
+  assert.equal(reported.label, 'reported');
+  assert.equal(reported.estimated, false);
+  assert.equal(reported.reported, 4);
+  assert.equal(reported.judgeCost, 0.002);
+  assert.equal(reported.judgeCalls, 4);
+  assert.equal(estimated.estimated, true);
+  assert.equal(estimated.judgeCost, null);
+  assert.equal(estimated.judgeCalls, 0);
 });
 
 test('the typical fault is the most frequent one, with the first matching diagnosis', () => {

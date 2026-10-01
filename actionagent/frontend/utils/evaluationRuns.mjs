@@ -30,6 +30,13 @@ export const truncate = (text, max) => {
 
 const humanize = (key) => String(key || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
+// A whole percent, half up on the decimal value (14.5 → 15, even as
+// 14.499999999999998), and a pass fraction with it: the same rules as
+// evalFormat's fmtPercent and fmtPasses, repeated here so this module keeps
+// importing nothing.
+const wholePercent = (fraction) => `${Math.round(Number(Math.abs(Number(fraction) * 100).toFixed(9)))}%`;
+const passesText = (passed, total) => (total > 0 ? `${passed}/${total} · ${wholePercent(passed / total)}` : '—');
+
 // "5s", "1.5s", "620ms" — the terse form a criterion's expectation reads in.
 const fmtMsShort = (ms) => {
   const value = Number(ms) || 0;
@@ -154,10 +161,11 @@ export const isInProgress = (run) => !!run && ['pending', 'running'].includes(ru
 
 // --- pricing ----------------------------------------------------------------
 //
-// An interaction is priced when it carried a cost estimate. A cost figure is
-// the sum over the priced interactions only, so where some went unpriced
-// the figure is partial and its per-interaction rate is taken over the
-// priced ones.
+// Every interaction with tokens is priced by the API: a cost the
+// application reported, else an estimate from tokens × the model's rate.
+// A figure with an estimated part reads with a "~" (evalFormat's fmtSpend);
+// the counts here say which parts were which, and a cost that still covers
+// only some interactions is a lower bound and reads as an estimate too.
 
 // How many of a cohort's `count` interactions were priced: `priced` as the
 // API serves it, else all of them when the cohort has a cost. The API
@@ -174,13 +182,15 @@ export const pricedCount = (stats, count) => {
 // A cost's rate per priced interaction, or null when none was priced.
 export const costPer = (cost, priced) => (cost != null && priced ? cost / priced : null);
 
-// The note a cost figure reads with when not every interaction was priced:
-// "estimated, 3 of 5 replays priced", or "0 of 5 replays priced" when none
-// was. null when every interaction was priced or the counts are unknown.
-export const pricingNote = (priced, count, unit) => {
-  if (priced == null || !count || priced >= count) return null;
-  const of = `${priced} of ${plural(count, unit)} priced`;
-  return priced > 0 ? `estimated, ${of}` : of;
+// Whether a cost over `count` interactions is an estimate: any of them
+// priced from tokens (`estimated` counts them), a basis that says so, or
+// some left unpriced, which leaves the sum a lower bound.
+export const isEstimated = (stats, count) => {
+  if (!stats || typeof stats !== 'object') return false;
+  if (Number(stats.estimated) > 0) return true;
+  if (stats.cost_basis === 'estimated' || stats.cost_basis === 'mixed') return true;
+  const priced = pricedCount(stats, count);
+  return priced != null && count != null && stats.cost != null && priced < count;
 };
 
 // Per-model summaries of a run, one shape for both kinds of evaluation:
@@ -201,7 +211,9 @@ export const runCohorts = (run) => {
       samples: stats.scenarios ?? null, passed: stats.passed ?? null, errored: stats.errored ?? 0,
       avg_score: stats.avg_score ?? null, avg_duration_ms: stats.avg_duration_ms ?? null,
       input_tokens: stats.input_tokens ?? null, output_tokens: stats.output_tokens ?? null,
-      cost: stats.cost ?? null, priced: pricedCount(stats, stats.scenarios), faults: stats.faults || {}, kind: 'replay',
+      cost: stats.cost ?? null, priced: pricedCount(stats, stats.scenarios), reported: stats.reported ?? null,
+      estimated: isEstimated(stats, stats.scenarios), judge_cost: stats.judge_cost ?? null, judge_calls: stats.judge_calls ?? 0,
+      faults: stats.faults || {}, kind: 'replay',
     }));
   }
   const sampled = scores._cohorts;
@@ -211,7 +223,9 @@ export const runCohorts = (run) => {
       samples: stats.samples ?? null, passed: stats.passed ?? null, errored: 0,
       avg_score: null, avg_duration_ms: stats.avg_duration_ms ?? null,
       input_tokens: stats.input_tokens ?? null, output_tokens: stats.output_tokens ?? null,
-      cost: stats.cost ?? null, priced: pricedCount(stats, stats.samples), faults: {}, kind: 'sample',
+      // A sampling cohort's cost is the runner's own estimate from tokens.
+      cost: stats.cost ?? null, priced: pricedCount(stats, stats.samples), reported: 0,
+      estimated: stats.cost != null, judge_cost: null, judge_calls: 0, faults: {}, kind: 'sample',
     }));
   }
   const models = runModels(run);
@@ -224,14 +238,15 @@ export const runCohorts = (run) => {
       return {
         label: model, model, provider: null, samples: totals.length ? Math.max(...totals) : null, passed: null,
         errored: 0, avg_score: null, avg_duration_ms: null, input_tokens: null, output_tokens: null, cost: null,
-        priced: null, faults: {}, kind: run.selection || scores._selection ? 'replay' : 'sample',
+        priced: null, reported: null, estimated: false, judge_cost: null, judge_calls: 0, faults: {},
+        kind: run.selection || scores._selection ? 'replay' : 'sample',
       };
     });
   }
   return [{
     label: null, model: null, provider: null, samples: run.samples_evaluated ?? null, passed: run.samples_passed ?? null,
     errored: 0, avg_score: null, avg_duration_ms: null, input_tokens: null, output_tokens: null, cost: null, priced: null,
-    faults: {}, kind: 'sample',
+    reported: null, estimated: false, judge_cost: null, judge_calls: 0, faults: {}, kind: 'sample',
   }];
 };
 
@@ -289,6 +304,37 @@ export const runDelta = (run, older, { olderNumber = older?.number, comparable =
   return { text: `${diff > 0 ? '+' : ''}${diff} passed vs ${label}`, tone: diff > 0 ? 'success' : 'error' };
 };
 
+// Whether `run` scored the same version of the agent as `older`, read from
+// the versions the API pins each run to: `same`, `new` (a different
+// version, so movement also measures the change), or `unrecorded` when
+// either run names no version (a published run whose report named no
+// release). null without a run to compare against.
+export const versionDelta = (run, older) => {
+  if (!run || !older) return null;
+  const mine = run.agent_version?.id ?? null;
+  const theirs = older.agent_version?.id ?? null;
+  if (mine == null || theirs == null) return { kind: 'unrecorded', text: 'release not recorded' };
+  if (mine === theirs) return { kind: 'same', text: 'same version' };
+  return { kind: 'new', text: `new version${run.agent_version?.number != null ? ` v${run.agent_version.number}` : ''}` };
+};
+
+// The version a run scored, as a chip: `{ text, tone, title }` from the
+// run's `agent_version` and `version_state` — a release by its digest, a
+// dashboard edit by its number — green when it is the agent's current
+// version, muted when earlier, amber when the run recorded none. null for
+// a run the API did not describe this way (an older server).
+export const versionChip = (run) => {
+  if (!run || !('version_state' in run) && !run.agent_version) return null;
+  const version = run.agent_version;
+  if (!version) return { text: 'release not recorded', tone: 'warning', title: 'This run named no release, so nothing says which version of the agent it scored' };
+  const digest = version.release_digest ? ` · ${String(version.release_digest).slice(0, 7)}` : '';
+  const text = `v${version.number}${digest}`;
+  const state = run.version_state || 'current';
+  if (state === 'earlier') return { text, tone: 'muted', title: `An earlier version of the agent${version.revision ? ` · ${version.revision}` : ''}` };
+  if (state === 'unrecorded') return { text, tone: 'warning', title: 'The version this run scored was not recorded' };
+  return { text, tone: 'success', title: `The agent's current version${version.revision ? ` · ${version.revision}` : ''}` };
+};
+
 // --- spend ------------------------------------------------------------------
 
 // What a run cost, from the API's `usage`, on the two sides that answer
@@ -302,8 +348,13 @@ export const runDelta = (run, older, { olderNumber = older?.number, comparable =
 // per-conversation budget is set against.
 //
 // `judge` is the evaluation's own overhead: the judge model's calls, which
-// run agent-to-agent, offline. Absent when no judge was asked.
+// run agent-to-agent, offline — from the engine's meter, the application's
+// figures or the judge traces (`source`), `estimated` when its cost was
+// worked out from tokens, with `run` the calls no result owns. Absent when
+// no judge was asked.
 //
+// `estimated` on the agent side says the agent's cost has an estimated
+// part (`fmtSpend` then marks it "~"); `totalEstimated` says the total has.
 // null when the run recorded nothing on either side.
 export const runSpend = (run) => {
   const usage = run?.usage;
@@ -315,6 +366,10 @@ export const runSpend = (run) => {
     cost: agentCost,
     count: count || 0,
     priced,
+    reported: usage.reported ?? null,
+    estimatedCount: usage.estimated ?? null,
+    basis: usage.cost_basis ?? null,
+    estimated: isEstimated(usage, count || 0),
     unit: usage.replays != null ? 'replay' : 'sample',
     perInteraction: usage.per_interaction ?? costPer(agentCost, priced),
     inputTokens: usage.input_tokens ?? null,
@@ -329,23 +384,37 @@ export const runSpend = (run) => {
     model: recorded.model || null,
     inputTokens: recorded.input_tokens ?? null,
     outputTokens: recorded.output_tokens ?? null,
+    source: recorded.source || null,
+    // A usage recorded before `estimated` was the engine's own meter: an estimate.
+    estimated: recorded.estimated ?? (recorded.source == null || recorded.source !== 'reported'),
+    run: recorded.run && typeof recorded.run === 'object' ? recorded.run : null,
   } : null;
   if (!agent && !judge) return null;
-  const total = agent?.cost != null || judge?.cost != null ? (agent?.cost || 0) + (judge?.cost || 0) : null;
-  return { agent, judge, total, runtimeMs: usage.runtime_ms ?? null };
+  const total = usage.total ?? (agent?.cost != null || judge?.cost != null ? (agent?.cost || 0) + (judge?.cost || 0) : null);
+  const totalEstimated = Boolean((agent?.cost != null && agent.estimated) || (judge?.cost != null && judge.estimated));
+  return { agent, judge, total, totalEstimated, runtimeMs: usage.runtime_ms ?? null };
 };
 
 // What a run's `total` sums, as its sub-line: "agent + judge", "agent only"
-// or "judge only". When some of the agent's interactions went unpriced it
-// adds "estimated", or, when none was priced, says the agent is left out:
-// "judge only · agent unpriced", or "agent unpriced" with no judge.
+// or "judge only"; when the agent's interactions could not be priced at
+// all it says so: "judge only · agent unpriced", or "agent unpriced" with
+// no judge. An estimated part is the figure's own "~" to say.
 export const spendTotalLabel = (spend) => {
   const agent = spend?.agent || null;
   const judge = spend?.judge || null;
-  const unpriced = !!agent && agent.priced != null && agent.priced < agent.count;
-  if (unpriced && agent.cost == null) return judge ? 'judge only · agent unpriced' : 'agent unpriced';
-  const sides = agent && judge ? 'agent + judge' : agent ? 'agent only' : 'judge only';
-  return unpriced ? `${sides} · estimated` : sides;
+  if (agent && agent.count > 0 && agent.cost == null) return judge ? 'judge only · agent unpriced' : 'agent unpriced';
+  return agent && judge ? 'agent + judge' : agent ? 'agent only' : 'judge only';
+};
+
+// How the judge's figures were found, for a sub-line: "from traces",
+// "metered" or "reported"; null when the API did not say.
+export const judgeSourceText = (judge) => {
+  switch (judge?.source) {
+    case 'traces': return 'from traces';
+    case 'meter': return 'metered';
+    case 'reported': return 'reported';
+    default: return null;
+  }
 };
 
 // The judge's calls by purpose, in the order the runner makes them:
@@ -357,16 +426,19 @@ export const judgeCallsText = (judge) => {
   return kinds.map(([kind, count]) => `${kind} ${count}`).join(' · ');
 };
 
-// Spend across several runs (the latest complete run of each evaluation, on
-// the page): the agent's cost and interactions summed, the rate per priced
+// Spend across several runs (the headline run of each evaluation, on the
+// page): the agent's cost and interactions summed, the rate per priced
 // interaction (`pricedInteractions` of the `interactions`), and the judge's
-// cost beside it. `priced` counts the runs that carried a figure at all.
+// cost beside it. `priced` counts the runs that carried a figure at all;
+// `estimated` and `judgeEstimated` say a part of each sum was estimated.
 export const spendSummary = (runs = []) => {
   let agentCost = null;
   let interactions = 0;
   let pricedInteractions = 0;
   let judgeCost = null;
   let priced = 0;
+  let estimated = false;
+  let judgeEstimated = false;
   runs.forEach((run) => {
     const spend = runSpend(run);
     if (!spend) return;
@@ -375,8 +447,14 @@ export const spendSummary = (runs = []) => {
       interactions += spend.agent.count;
       pricedInteractions += spend.agent.priced;
     }
-    if (spend.agent?.cost != null) agentCost = (agentCost || 0) + spend.agent.cost;
-    if (spend.judge?.cost != null) judgeCost = (judgeCost || 0) + spend.judge.cost;
+    if (spend.agent?.cost != null) {
+      agentCost = (agentCost || 0) + spend.agent.cost;
+      if (spend.agent.estimated) estimated = true;
+    }
+    if (spend.judge?.cost != null) {
+      judgeCost = (judgeCost || 0) + spend.judge.cost;
+      if (spend.judge.estimated) judgeEstimated = true;
+    }
   });
   return {
     agentCost,
@@ -385,7 +463,111 @@ export const spendSummary = (runs = []) => {
     perInteraction: costPer(agentCost, pricedInteractions),
     judgeCost,
     priced,
+    estimated,
+    judgeEstimated,
   };
+};
+
+// --- headline runs and standing ----------------------------------------------
+//
+// An evaluation's pass rate describes its headline run: the newest run that
+// completed. A newer run still pending, or one that failed, shows beside it
+// and never in its place. The API names it (`headline_run_id`, and the run
+// itself as `headline_run` when a newer run is the latest); an older server
+// names neither, and the latest run stands in when it completed.
+
+export const headlineRun = (evaluation) => {
+  if (!evaluation) return null;
+  if (evaluation.headline_run && typeof evaluation.headline_run === 'object') return evaluation.headline_run;
+  const latest = evaluation.latest_run || null;
+  if (evaluation.headline_run_id != null) return latest && latest.id === evaluation.headline_run_id ? latest : null;
+  return latest && latest.status === 'complete' ? latest : null;
+};
+
+// Where an evaluation stands against the agent as it is now, as the API
+// says (`standing`): `current`, `stale`, `unrecorded`, `archived` or `none`.
+// An older server says nothing, so an evaluation with a completed run is
+// taken as current.
+export const evaluationStanding = (evaluation) => {
+  if (!evaluation) return 'none';
+  if (evaluation.standing) return evaluation.standing;
+  if (evaluation.archived_at) return 'archived';
+  return headlineRun(evaluation) ? 'current' : 'none';
+};
+
+// The standings whose headline runs the page pools: those that describe
+// the agent as it is now, and those nothing contradicts.
+export const COUNTED_STANDINGS = ['current', 'unrecorded'];
+
+// The figures the Evaluations page's tiles describe, pooled over the
+// headline runs of the evaluations that count — never a stale suite last
+// run against earlier code, nor an archived one — and saying how many
+// were left out and why. With `focusId` the page describes that one
+// evaluation's headline run alone, whatever its standing.
+//
+//   { evaluations, counted, notCounted: { total, stale, archived, none },
+//     runs, samplesScored, samplesPassed, passRatio, perModel, spend, focused }
+//
+// `perModel` pools each model label's passes across the counted runs,
+// read from the evaluations' `per_model` (the API's) or the runs' own
+// summaries.
+export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
+  const matched = focusId != null ? evaluations.filter((evaluation) => String(evaluation.id) === String(focusId)) : [];
+  const focused = matched.length > 0;
+  const pool = focused ? matched : evaluations;
+  const notCounted = { total: 0, stale: 0, archived: 0, none: 0 };
+  const runs = [];
+  const perModel = {};
+  let samplesScored = 0;
+  let samplesPassed = 0;
+
+  pool.forEach((evaluation) => {
+    const run = headlineRun(evaluation);
+    const standing = evaluationStanding(evaluation);
+    const counted = focused ? !!run : !!run && COUNTED_STANDINGS.includes(standing);
+    if (!counted) {
+      notCounted.total += 1;
+      if (standing === 'archived') notCounted.archived += 1;
+      else if (standing === 'stale') notCounted.stale += 1;
+      else notCounted.none += 1;
+      return;
+    }
+    runs.push(run);
+    samplesScored += run.samples_evaluated || 0;
+    samplesPassed += run.samples_passed || 0;
+    const models = evaluation.per_model && typeof evaluation.per_model === 'object' && Object.keys(evaluation.per_model).length
+      ? Object.entries(evaluation.per_model).map(([label, stats]) => ({ label, passed: stats?.passed || 0, total: stats?.total || 0 }))
+      : runCohorts(run).filter((cohort) => cohort.label && cohort.samples > 0).map((cohort) => ({ label: cohort.label, passed: cohort.passed || 0, total: cohort.samples || 0 }));
+    models.forEach(({ label, passed, total }) => {
+      const entry = (perModel[label] ||= { label, passed: 0, total: 0 });
+      entry.passed += passed;
+      entry.total += total;
+    });
+  });
+
+  return {
+    evaluations: pool.length,
+    counted: runs.length,
+    notCounted,
+    runs,
+    samplesScored,
+    samplesPassed,
+    passRatio: samplesScored ? samplesPassed / samplesScored : null,
+    perModel: Object.values(perModel),
+    spend: spendSummary(runs),
+    focused,
+  };
+};
+
+// "2 not counted · 1 stale · 1 archived", or null when every evaluation counted.
+export const notCountedText = (summary) => {
+  const left = summary?.notCounted;
+  if (!left || !left.total) return null;
+  const reasons = [];
+  if (left.stale) reasons.push(`${left.stale} stale`);
+  if (left.archived) reasons.push(`${left.archived} archived`);
+  if (left.none) reasons.push(`${left.none} ${left.none === 1 ? 'has' : 'have'} no complete run`);
+  return [`${left.total} not counted`, ...reasons].join(' · ');
 };
 
 // --- what to fix (sampling runs) -------------------------------------------
@@ -481,9 +663,9 @@ export const samplingFixItems = (evaluation, run) => {
       kind: 'below',
       label: `below pass mark ×${below.length}`,
       scope: `${criteriaScope(below)}${models.length ? ` · ${plural(models.length, 'model')}` : ''}`,
-      text: `Scored under the ${PASS_THRESHOLD.toFixed(2)} pass mark. Each line is what the criterion expects against how the samples did; tighten the agent's instructions or revisit the budget before running again.`,
+      text: `Scored under the pass mark (pass ≥ ${wholePercent(PASS_THRESHOLD)}). Each line is what the criterion expects against how the samples did; tighten the agent's instructions or revisit the budget before running again.`,
       details: below.map((entry) =>
-        `${entry.key}${entry.model ? ` · ${entry.model}` : ''} ${entry.stats.score.toFixed(2)} · expects ${criterionExpectation(entry.criterion)} · ${entry.stats.passed}/${entry.stats.total} passed`),
+        `${entry.key}${entry.model ? ` · ${entry.model}` : ''} ${wholePercent(entry.stats.score)} · expects ${criterionExpectation(entry.criterion)} · ${passesText(entry.stats.passed, entry.stats.total)} passed`),
     });
   }
   return items;
@@ -496,7 +678,8 @@ const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
 
 // One row per model cohort for the comparison table: passed/total, mean
 // score, average latency, average tokens per interaction, cost (over the
-// `priced` interactions, and per priced interaction), and the model's
+// `priced` interactions, and per priced interaction, `estimated` when any
+// part was), the judge's spend on the cohort, and the model's
 // typical fault — its most frequent one, with the diagnosis of the
 // first result that carries it so the row says what went wrong, not only
 // how often. Rows are ordered best first (pass rate, then mean score), the
@@ -558,6 +741,10 @@ export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labe
         : perInteraction((cohort.input_tokens || 0) + (cohort.output_tokens || 0)),
       cost: cohort.cost ?? null,
       priced: cohort.priced ?? null,
+      reported: cohort.reported ?? null,
+      estimated: cohort.estimated ?? false,
+      judgeCost: cohort.judge_cost ?? null,
+      judgeCalls: cohort.judge_calls ?? 0,
       costPerInteraction: costPer(cohort.cost, cohort.priced),
       faults: faults.map(([fault, count]) => ({ fault, name: faultWords(fault), count })),
       typicalFault: topFault

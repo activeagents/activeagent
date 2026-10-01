@@ -158,10 +158,10 @@ module ActiveAgent
       def verdict(summaries, instructions: nil)
         lines = summaries.map do |label, stats|
           faults = (stats["faults"] || {}).map { |fault, count| "#{fault}×#{count}" }.join(", ")
-          priced = stats["priced"]
-          partial = " (#{priced} of #{stats['scenarios']} scenarios priced)" if stats["cost"] && priced && priced < stats["scenarios"].to_i
+          # The agent's cost only: what the judge itself spent scoring a
+          # cohort says nothing about the model under comparison.
           "#{label}: pass rate #{stats['pass_rate']}%, mean score #{stats['avg_score'] || 'n/a'}, " \
-            "avg latency #{stats['avg_duration_ms'] || 'n/a'}ms, cost $#{stats['cost'] || 'n/a'}#{partial}" \
+            "avg latency #{stats['avg_duration_ms'] || 'n/a'}ms, cost $#{stats['cost'] || 'n/a'}" \
             "#{", faults: #{faults}" if faults.present?}"
         end
 

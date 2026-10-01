@@ -12,19 +12,29 @@ module ActionAgent
 
     # Returns the evaluation with its latest run in full and just enough of
     # the run before it to show movement ("+3 passed vs #2") without a
-    # request per evaluation.
+    # request per evaluation. The headline run — the newest complete one —
+    # rides along in full as `headline_run` when a newer run is pending or
+    # failed, so a page can describe the finished run while showing the
+    # newer one beside it.
     def evaluation(evaluation)
       summary = summary(evaluation)
       latest, previous = recent_runs(evaluation, 2)
+      headline = evaluation.standing_info.headline_run
+      headline = nil if headline.nil? || headline.id == latest&.id
 
       summary.merge(
         latest_run: latest ? run(latest, number: summary[:run_count]) : nil,
-        previous_run: previous ? run_summary(previous, number: summary[:run_count] - 1) : nil
+        previous_run: previous ? run_summary(previous, number: summary[:run_count] - 1) : nil,
+        headline_run: headline ? run(headline, number: run_number(evaluation, headline)) : nil
       )
     end
 
-    # Returns the evaluation's configuration and run count, without its runs.
+    # Returns the evaluation's configuration and run count, without its runs,
+    # and where it stands: `headline_run_id` (its newest complete run),
+    # `standing` against the agent's current version (EvaluationStanding),
+    # `archived_at`, and the headline run's passes `per_model`.
     def summary(evaluation)
+      standing = evaluation.standing_info
       {
         id: evaluation.id,
         name: evaluation.name,
@@ -40,7 +50,11 @@ module ActionAgent
         scenario_groups: evaluation.scenario_suite? ? evaluation.scenario_groups : [],
         created_at: evaluation.created_at.iso8601,
         # size reads a preloaded association and COUNTs otherwise.
-        run_count: evaluation.evaluation_runs.size
+        run_count: evaluation.evaluation_runs.size,
+        headline_run_id: standing.headline_run&.id,
+        standing: standing.standing,
+        archived_at: evaluation.archived_at&.iso8601,
+        per_model: standing.per_model
       }
     end
 
@@ -65,7 +79,9 @@ module ActionAgent
 
     # Returns the run's status and headline numbers. `sandbox` is the
     # checkout sandbox the run replayed against, if any: its session id and
-    # checkout, never its token.
+    # checkout, never its token. `agent_version` is the version of the
+    # agent the run scored, and `version_state` whether that is the agent's
+    # current version ("current", "earlier" or "unrecorded").
     def run_summary(run, number: nil)
       {
         id: run.id,
@@ -76,7 +92,9 @@ module ActionAgent
         samples_passed: run.samples_passed,
         completed_at: run.completed_at&.iso8601,
         created_at: run.created_at.iso8601,
-        sandbox: run.sandbox
+        sandbox: run.sandbox,
+        agent_version: run.agent_version_summary,
+        version_state: run.evaluation.standing_info.version_state(run)
       }
     end
 
@@ -88,13 +106,19 @@ module ActionAgent
       if runs.loaded?
         runs.sort_by { |run| [ run.created_at, run.id ] }.reverse.first(limit)
       else
-        runs.recent.limit(limit).to_a
+        runs.order(created_at: :desc, id: :desc).limit(limit).to_a
       end
     end
 
-    # Returns the run's position in its evaluation's history, oldest = 1.
+    # Returns the run's position in its evaluation's history, oldest = 1 —
+    # counted in the preloaded association when one was loaded.
     def run_number(evaluation, run)
-      evaluation.evaluation_runs.where("created_at < ? OR (created_at = ? AND id <= ?)", run.created_at, run.created_at, run.id).count
+      runs = evaluation.evaluation_runs
+      if runs.loaded?
+        runs.count { |other| other.created_at < run.created_at || (other.created_at == run.created_at && other.id <= run.id) }
+      else
+        runs.where("created_at < ? OR (created_at = ? AND id <= ?)", run.created_at, run.created_at, run.id).count
+      end
     end
 
     # Returns the run's fix items, or [] when they cannot be built. They are

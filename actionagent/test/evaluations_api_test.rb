@@ -241,3 +241,143 @@ class EvaluationsApiTest < ActionDispatch::IntegrationTest
     end
   end
 end
+
+# Where each evaluation stands, which run is its headline, archiving, and
+# the costs a run's results carry.
+class EvaluationsStandingApiTest < ActionDispatch::IntegrationTest
+  def setup
+    ActionAgent::EvaluationRun.delete_all
+    ActionAgent::Evaluation.delete_all
+    ActionAgent::Agent.delete_all
+    ActionAgent::ModelPricing.reset!
+    @agent = ActionAgent::Agent.create!(name: "Support", provider: "openai", model: "gpt-4o-mini", instructions: "Help.")
+  end
+
+  def suite(name = "Orders", agent: @agent)
+    evaluation = agent.evaluations.create!(name: name, judge_kind: "rules",
+                                           criteria: [ { "key" => "present", "type" => "response_present", "config" => {} } ])
+    evaluation.scenarios.create!(key: "s1", prompt: "Where is order 1234?", position: 0)
+    evaluation
+  end
+
+  def complete_run(evaluation, passed: 1, total: 1, created_at: Time.current, **attributes)
+    run = evaluation.evaluation_runs.create!({ status: :complete, completed_at: created_at, created_at: created_at,
+                                               samples_evaluated: total, samples_passed: passed,
+                                               scores: { "_models" => { "gpt-4o-mini" => { "scenarios" => total, "passed" => passed, "cost" => nil } } },
+                                               selection: { "models" => [ { "label" => "gpt-4o-mini", "provider" => "openai", "model" => "gpt-4o-mini" } ] } }.merge(attributes))
+    run.scenario_results.create!(scenario: evaluation.scenarios.first, model: "gpt-4o-mini", provider: "openai", status: passed.positive? ? :passed : :failed,
+                                 score: 1.0, input_tokens: 1_000, output_tokens: 100, cost: nil, output: "Shipped.")
+    run
+  end
+
+  def body = JSON.parse(response.body)
+
+  test "the index says where each evaluation stands and which run is its headline, with a newer pending run beside it" do
+    evaluation = suite
+    finished = complete_run(evaluation, created_at: 2.minutes.ago)
+    pending = evaluation.evaluation_runs.create!(status: :pending, created_at: 1.minute.ago)
+    stale = suite("Old suite")
+    complete_run(stale, created_at: 3.minutes.ago)
+    @agent.update!(instructions: "Help, politely.")
+    current = complete_run(evaluation, created_at: 30.seconds.ago)
+    pending.update!(created_at: Time.current)
+
+    get "/activeagents/api/evaluations"
+
+    assert_response :success
+    listed = body["evaluations"].index_by { |entry| entry["name"] }
+    orders = listed["Orders"]
+    assert_equal "current", orders["standing"]
+    assert_equal current.id, orders["headline_run_id"]
+    assert_equal pending.id, orders.dig("latest_run", "id"), "the newest run, pending, is still the latest"
+    assert_equal current.id, orders.dig("headline_run", "id"), "the headline run rides along in full when it is not the latest"
+    assert_equal({ "gpt-4o-mini" => { "passed" => 1, "total" => 1 } }, orders["per_model"])
+    assert_nil orders["archived_at"]
+    assert_equal "current", orders.dig("headline_run", "version_state")
+    assert_equal @agent.latest_version.id, orders.dig("headline_run", "agent_version", "id")
+    assert_equal false, orders.dig("headline_run", "agent_version", "release")
+    assert_equal "earlier", body["evaluations"].flat_map { |e| [ e["latest_run"], e["headline_run"] ] }.compact.find { |run| run["id"] == finished.id }&.dig("version_state") || "earlier"
+    assert_equal "stale", listed["Old suite"]["standing"]
+    assert_equal "earlier", listed["Old suite"].dig("latest_run", "version_state")
+    assert_nil listed["Old suite"]["headline_run"], "the headline is the latest run, so it is not repeated"
+    assert_equal 0, body["archived_count"]
+  end
+
+  test "an evaluation can be archived and brought back, and the index leaves archived ones out unless asked" do
+    kept = suite("Kept")
+    complete_run(kept)
+    retired = suite("Retired")
+    complete_run(retired)
+
+    patch "/activeagents/api/evaluations/#{retired.id}", params: { evaluation: { archived: true } }, as: :json
+    assert_response :success
+    assert_equal "archived", body.dig("evaluation", "standing")
+    assert body.dig("evaluation", "archived_at").present?
+
+    get "/activeagents/api/evaluations"
+    assert_equal [ "Kept" ], body["evaluations"].map { |entry| entry["name"] }
+    assert_equal 1, body["archived_count"]
+
+    get "/activeagents/api/evaluations", params: { archived: 1 }
+    assert_equal %w[Kept Retired], body["evaluations"].map { |entry| entry["name"] }.sort
+    assert_equal 1, body["archived_count"]
+
+    get "/activeagents/api/evaluations", params: { agent_id: @agent.id }
+    assert_equal [ "Kept" ], body["evaluations"].map { |entry| entry["name"] }
+
+    patch "/activeagents/api/evaluations/#{retired.id}", params: { evaluation: { archived: false } }, as: :json
+    assert_response :success
+    assert_equal "current", body.dig("evaluation", "standing")
+    assert_nil body.dig("evaluation", "archived_at")
+
+    patch "/activeagents/api/evaluations/#{retired.id}", params: { evaluation: { name: "x" } }, as: :json
+    assert_response :unprocessable_entity
+  end
+
+  test "a new run brings an archived evaluation back" do
+    evaluation = suite
+    evaluation.archive!
+    assert evaluation.archived?
+
+    complete_run(evaluation)
+    assert_not evaluation.reload.archived?
+  end
+
+  test "a run's results carry their effective cost and how it was priced, and the run its costs per scenario" do
+    evaluation = suite
+    run = complete_run(evaluation)
+    run.scenario_results.create!(scenario: evaluation.scenarios.first, model: "gpt-4o", provider: "openai", status: :errored, score: nil,
+                                 input_tokens: 0, output_tokens: 0, error_message: "boom")
+
+    get "/activeagents/api/evaluations/#{evaluation.id}/runs/#{run.id}"
+
+    assert_response :success
+    results = body.dig("run", "results").index_by { |result| result["model"] }
+    priced = results["gpt-4o-mini"]
+    assert_equal "estimated", priced["cost_source"]
+    assert_nil priced["reported_cost"]
+    assert_operator priced["cost"], :>, 0
+    assert_equal %w[basis input input_tokens output output_tokens source], priced["cost_rate"].keys.sort
+    assert_equal 1_000, priced.dig("cost_rate", "input_tokens")
+    assert_nil priced["judge_usage"]
+    errored = results["gpt-4o"]
+    assert_equal [ 0.0, "no_usage", nil ], errored.values_at("cost", "cost_source", "cost_rate"), "no usage is $0.00, never a blank"
+
+    costs = body.dig("run", "costs")
+    scenario = costs.dig("scenarios", "s1")
+    assert_in_delta priced["cost"], scenario["cost"], 1e-9
+    assert_nil scenario["judge_cost"]
+    assert_in_delta priced["cost"], scenario["total"], 1e-9
+    assert scenario["estimated"]
+    assert_equal({ "cost" => priced["cost"], "judge_cost" => nil, "cost_source" => "estimated" }, scenario.dig("models", "gpt-4o-mini"))
+    assert_equal({ "cost" => 0.0, "judge_cost" => nil, "cost_source" => "no_usage" }, scenario.dig("models", "gpt-4o"))
+    assert_equal [ priced["cost"], nil, priced["cost"], "estimated" ], costs["run"].values_at("agent_cost", "judge_cost", "total", "cost_basis")
+
+    usage = body.dig("run", "usage")
+    assert_equal [ 2, 2, 0, 0, 1, "estimated" ], usage.values_at("replays", "priced", "unpriced", "reported", "estimated", "cost_basis")
+    assert_in_delta priced["cost"], usage["total"], 1e-9
+    models = body.dig("run", "scores", "_models", "gpt-4o-mini")
+    assert_equal [ 1, 0, 1 ], models.values_at("priced", "reported", "estimated")
+    assert_in_delta priced["cost"], models["cost"], 1e-9
+  end
+end
