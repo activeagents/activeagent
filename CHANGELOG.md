@@ -11,6 +11,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every evaluation cost is priced, and says how** (`actionagent`,
+  `activeagent`). A scenario result with no cost is priced down a chain —
+  the cost the publishing application reported, the estimate the engine
+  stored, the result's tokens × its model's rate, the tokens of the trace
+  it links to, or its text at four characters a token as a lower bound —
+  and a result that recorded no tokens costs `$0.00` (`cost_source:
+  no_usage`); only a result with no tokens, no trace and no text stays
+  unpriced. Results carry `cost` (the effective figure), `reported_cost`,
+  `cost_source`, `cost_rate` and `judge_usage`; a run's `usage` adds
+  `reported`, `estimated`, `cost_basis` and `total`; `scores._models` adds
+  per model `reported`, `estimated`, `judge_cost` and `judge_calls`; and
+  `GET /api/evaluations/:id/runs/:run_id` adds `costs` per scenario (judge
+  apart) and for the run (`ActionAgent::EvaluationRunCost`, cached per
+  finished run). The judge's spend is found the same way — the engine's
+  meter, the application's figures (`result.judge_usage`,
+  `report.judge_usage.run`, accepted by the report import) or the judge
+  traces priced on input and output tokens, never thinking tokens — within
+  the run's tenant. `ModelPricing` looks rates up under the provider the
+  model ran on, strips gateway and vendor prefixes and date suffixes, tries
+  dots and dashes both ways, prices `claude-sonnet-5` and the `gpt-5`
+  family by exact rows ahead of the family patterns, and reports where a
+  rate came from (`estimate_detailed`, `rate_detail`, `fingerprint`). The
+  engine's judge meter counts Anthropic's cached prompt tokens.
+- **One display format for passes, scores and costs** (`activeagent`
+  `ActiveAgent::Evals::Format`). A fraction always carries its percent
+  (`14/16 · 88%`; `14/16 (88%)` in Markdown; `—` for nothing scored), every
+  0..1 score reads as a whole percent (`93%`, `pass ≥ 70%`), and money
+  reads `$0.0243` when reported and `~$0.0243` when any part was estimated,
+  with one legend per surface. The HTML report gains a Cost tile, a Judge
+  column and per-model judge line, a trailing matrix Cost column with
+  group subtotals, a cost line per cell and in each result's details, a
+  judge chip with its calls and cost, a release chip, the pass mark and
+  the cost in its footer; the Markdown report gains a Judge column, a
+  matrix Cost column, the cost per answer and a total line. Diagnosis
+  text reads `Task completion scored 60% against a pass threshold of 70%`.
+- **Costs from replay metadata** (`activeagent`). A `Replay`'s metadata may
+  carry `cost_source`, `cost_rate` and `judge_usage`; `Report#summary_by_model`
+  adds `reported`, `estimated`, `judge_cost` and `judge_calls`,
+  `Report#scenario_costs` gives each scenario's cost across models, and
+  `Report#judge_usage` sums every result's judge calls with the run-level
+  part passed as `Report.new(judge_usage:)`. `Report.new(release:)` (and
+  `Runner.new(release:)`) names the release the run scored, in
+  `to_h["release"]` and a header chip. `to_h` is unchanged when neither is
+  given.
+- **An evaluation's standing against the agent as it is now**
+  (`actionagent`). Each evaluation reports its `headline_run_id` (its
+  newest complete run; a newer pending or failed run shows beside it), its
+  `standing` — `current`, `stale`, `unrecorded`, `archived` or `none`
+  (`ActionAgent::EvaluationStanding`) — its `archived_at` and `per_model`
+  passes, and every run its `agent_version` and `version_state`. Only
+  model-facing edits (instructions, action prompts, tools, MCP servers,
+  model config, response format) make a run stale. A published report's
+  `report.release` pins the run to that release, recorded as a version when
+  the dashboard has not seen the digest (`Agent#find_or_record_release!`,
+  which never moves a deploy's `release_digest` backwards); a report with
+  no release leaves the run unrecorded. `PATCH /api/evaluations/:id` with
+  `evaluation: { archived: true | false }` archives an evaluation or brings
+  it back; `GET /api/evaluations` leaves archived evaluations out before
+  its 50-row limit unless `?archived=1`, and returns `archived_count`. A
+  new run or a published report brings an archived evaluation back.
+
 - Codex code sessions in checkout sandboxes. Connect an OpenAI API key under
   Settings → Integrations and select Codex in the code-session panel. The local
   backend runs `codex exec` with JSONL events, workspace-write sandboxing, stdin
@@ -20,6 +81,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The agent card's Eval tile is the pooled pass rate** (`actionagent`
+  `AgentScorecard`) over the headline runs of the agent's current and
+  unrecorded evaluations — never a stale suite's or an archived one's —
+  rather than the mean criterion score of whichever run was last.
+  `eval_runs` and `eval_not_counted` say what was pooled and what was left
+  out.
+- **The partial-cost notes are retired** (`actionagent`, `activeagent`).
+  The `*` marker and the "k of n priced" notes of 1.8.0's partial-cost fix
+  give way to the `~` mark and its legend: a cost that covers only some of
+  a model's replays is a lower bound and reads as an estimate. The verdict
+  rationale reads `Passed 2 of 2 scenarios (100%) with a mean score of 100%
+  at ~$0.0010 (estimated)`, and the judge ruling on a comparison is told
+  each model's agent cost alone — never the judge's own spend, which never
+  enters the ranking either. The HTML report's header shows a chip per
+  scalar metadata value only: an array or object (the judge's trace ids)
+  is no longer rendered as one.
 - **What to fix comes after the scenario results** (`actionagent`,
   `activeagent`). A run report now reads models, then the scenario results,
   then What to fix. The scenario suite panel moves What to fix below the

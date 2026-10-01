@@ -313,6 +313,39 @@ module ActionAgent
       version
     end
 
+    # The version carrying a release an application reports having
+    # evaluated (EvaluationReportImport reads it from `report.release`),
+    # found among every version of this agent — a report may describe a
+    # deploy older than the latest — or recorded now when none does. A
+    # version recorded this way carries no manifest: the report names the
+    # digest, not what went into it.
+    #
+    # The agent's own `release_digest` is what its deploys last recorded
+    # (#record_release!); a report never moves it, except to set it for an
+    # agent that never recorded a deploy at all.
+    #
+    # @param digest [String] the ActiveAgent::Release digest the report names
+    # @param revision [String, nil] the deploy the report names
+    # @param label [String, nil] how the report labels the release
+    # @return [AgentVersion]
+    def find_or_record_release!(digest:, revision: nil, label: nil)
+      existing = agent_versions.find_by(release_digest: digest)
+      return existing if existing
+
+      version = agent_versions.create!(
+        version_number: (latest_version&.version_number || 0) + 1,
+        change_summary: [ "Release #{digest}", revision.presence, label.presence ].compact.join(" · ") + ": reported by an evaluation",
+        configuration_snapshot: configuration_snapshot.merge("release" => {}),
+        release_digest: digest,
+        revision: revision,
+        created_by: "evaluation-report"
+      )
+      update_columns(release_digest: digest) if release_digest.blank?
+      version
+    rescue ActiveRecord::RecordNotUnique
+      agent_versions.find_by!(release_digest: digest)
+    end
+
     # Maps each historical instructions digest to the first version that
     # introduced it ("v3"), so run cohorts can label instruction changes with
     # real agent versions instead of raw hashes.
