@@ -18,10 +18,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Explicit code-runner capability checks for host backends. Existing adapters
   continue to support Claude Code without implicitly receiving Codex credentials.
 
+### Changed
+
+- **What to fix comes after the scenario results** (`actionagent`,
+  `activeagent`). A run report now reads models, then the scenario results,
+  then What to fix. The scenario suite panel moves What to fix below the
+  scenario matrix. The standalone HTML report
+  (`ActiveAgent::Evals::ReportHtml`) moves its fix cards below the matrix and
+  the per-scenario details. `Report#to_markdown` moves its Recommendations
+  below its Answers. The sampling run detail already read in this order.
+  Each section's content is unchanged.
+
 ### Fixed
 
 - Inherited Codex settings and credentials are removed from sandbox process
   environments. Each Codex run receives only its owner's selected connection.
+
+- **An evaluation's cost when some interactions carried no cost estimate**
+  (`actionagent`, `activeagent`). A run's cost sums only the interactions that
+  were priced, but its per-interaction rate divided that partial sum by every
+  interaction, and nothing said part of the run was unpriced. The rate is now
+  over the priced interactions, and a run's `usage` counts them: `priced` and
+  `unpriced` beside `replays` (or `samples`). A run where nothing was priced
+  reports no `cost` or `per_interaction`, as before, with `priced: 0`. The
+  per-model summaries count them too: `Report#summary_by_model` adds `priced`
+  per model and a sampling run's `_cohorts` add `priced` per cohort. A
+  scenario run recorded before that has its `_models` counted from its
+  results when the API serves it (`EvaluationRun#model_summaries`); a
+  sampling cohort recorded before that reads as fully priced when it has a
+  cost. The dashboard shows a partial cost as an estimate — "estimated, 3 of
+  5 replays priced" — on the run's spend strip and footer, the model
+  scorecards and the Evaluations page's cost-per-interaction tile, and marks
+  it `*` in the runs list, the model comparison table and the spend strip's
+  total, whose titles give the count. The HTML
+  and Markdown reports and the pass-rate verdict name the priced count beside
+  a partial cost, the judge ruling on a comparison is told it, and a
+  pass-rate verdict breaks a tie on cost per priced scenario rather than on
+  the partial sum, so an unpriced replay no longer makes a model look
+  cheaper.
 
 Upgrade both gems together, then run `bin/rails generate action_agent:install
 --skip` and `bin/rails db:migrate`. The migration adds runner identity to code

@@ -7,7 +7,7 @@ import {
   judgeCallsText, judgeLabel, passRate, plural, runCohorts, runDelta, runLabel, runNumber, runSandboxLabel, runSpend,
   runsMeta,
 } from '../../../utils/evaluationRuns.mjs';
-import { agentUnit, fmtRate } from './SpendStrip';
+import { agentPricing, agentUnit, fmtRate } from './SpendStrip';
 
 // Every run of an evaluation, newest first, one row each: which run and
 // when, what it covered, how each model cohort did, what it cost — the
@@ -63,6 +63,7 @@ export default function RunsList({
     const olderNumber = older ? (Number.isFinite(older.number) ? older.number : number - 1) : null;
     const delta = deltaFor ? deltaFor(run, older, olderNumber) : runDelta(run, older, { olderNumber });
     const spend = runSpend(run);
+    const pricing = agentPricing(spend);
     return {
       run,
       number,
@@ -77,6 +78,7 @@ export default function RunsList({
       bars: barsFor ? barsFor(run) : defaultBars(run),
       delta,
       spend,
+      pricing,
       selected: run.id === selectedId,
     };
   });
@@ -140,11 +142,14 @@ export default function RunsList({
                     key: 'agent',
                     width: COST_COLUMN,
                     title: row.spend?.agent
-                      ? `Agent: ${plural(row.spend.agent.count, agentUnit(row.spend))}${row.spend.agent.perInteraction != null ? ` · ${fmtRate(row.spend.agent.perInteraction)} per interaction` : ''}`
+                      ? `Agent: ${plural(row.spend.agent.count, agentUnit(row.spend))}${row.pricing ? ` · ${row.pricing}` : ''}${row.spend.agent.perInteraction != null ? ` · ${fmtRate(row.spend.agent.perInteraction)} per interaction` : ''}`
                       : undefined,
-                    empty: 'Agent cost: nothing replayed or sampled in this run',
+                    empty: row.pricing ? `Agent cost: ${row.pricing}` : 'Agent cost: nothing replayed or sampled in this run',
                     content: row.spend?.agent?.cost != null && (
-                      <span style={{ fontFamily: MONO, fontSize: 11 }}><span style={{ color: 'var(--color-text-muted)' }}>agent </span>{fmtCost(row.spend.agent.cost)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11 }}>
+                        <span style={{ color: 'var(--color-text-muted)' }}>agent </span>{fmtCost(row.spend.agent.cost)}
+                        {row.pricing && <span style={{ color: 'var(--color-text-muted)' }}>*</span>}
+                      </span>
                     ),
                   },
                   {

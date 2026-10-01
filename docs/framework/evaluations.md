@@ -67,11 +67,13 @@ The report renders three ways: `to_markdown` for terminals and PR comments,
 (inline styles, no external assets) on the dashboard's design system that you
 can archive next to a CI run or hand to a teammate, the way a test suite
 publishes its report. It carries the same reading the dashboard's suite card
-does: stat tiles, a panel per model with the judge's pick and the verdict,
-the what-to-fix cards, the scenario × model matrix, and a disclosure per
-scenario holding every answer. `theme:` is its only argument — `"light"` or
-`"dark"` pins the palette, nil follows the viewer's system preference. It is
-the same page the dashboard serves at
+does, in the same order: stat tiles, a panel per model with the judge's pick
+and the verdict, the scenario × model matrix, a disclosure per scenario
+holding every answer, and then the what-to-fix cards. The Markdown follows
+the same order: the model table, the matrix, every answer, then the
+recommendations. `theme:` is its only argument — `"light"` or `"dark"` pins
+the palette, nil follows the viewer's system preference. It is the same page
+the dashboard serves at
 `/api/evaluations/:id/runs/:run_id/report`.
 
 `SupportAgent.evaluate` is whatever runs your agent and returns an
@@ -392,4 +394,10 @@ the judge's: `replays` (or `samples`, for a sampling run), `cost`,
 `per_interaction`, tokens and timing on the agent's side — what the
 interactions cost to serve — and `judge` (`calls`, tokens, `cost`, `model`,
 `by_kind`) for the judge model's own calls, present only when a judge was
-asked. The index adds `run_count` and a `previous_run` summary per evaluation.
+asked. `priced` and `unpriced` count the interactions that did and did not
+carry a cost estimate: `cost` sums the priced ones, `per_interaction` is over
+them, and both are absent when nothing was priced. A scenario run's
+per-model summaries under `scores._models` carry `priced` for each model
+too. The dashboard shows a partial cost as an estimate with the priced
+count. The index adds `run_count`
+and a `previous_run` summary per evaluation.

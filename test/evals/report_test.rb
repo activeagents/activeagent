@@ -268,6 +268,30 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, %(<div class="action"><span class="hint">MCP Services -&gt;</span></div>)
   end
 
+  def test_html_reads_models_then_the_scenario_results_then_what_to_fix
+    html = report(tool_resolver: resolver, links: LINKS).to_html
+    heads = [ "Models", "Scenarios", "Details", "What to fix" ].map { |name| html.index(%(<span class="micro">#{name}</span>)) }
+
+    assert_not_includes heads, nil, "every section renders"
+    assert_equal heads.sort, heads, "What to fix follows the scenario matrix and the per-scenario details"
+  end
+
+  def test_markdown_reads_models_then_the_scenario_results_then_the_recommendations
+    markdown = report.to_markdown
+    heads = [ "| Model |", "| Scenario |", "## Answers", "## Recommendations" ].map { |head| markdown.index(head) }
+
+    assert_not_includes heads, nil, "every section renders"
+    assert_equal heads.sort, heads, "the recommendations follow the scenario matrix and the answers"
+  end
+
+  def test_markdown_sets_the_recommendations_off_by_one_blank_line_and_ends_with_a_newline
+    markdown = report.to_markdown
+
+    assert_includes markdown, "\n\n## Recommendations\n", "a blank line precedes the recommendations"
+    assert_not_includes markdown, "\n\n\n## Recommendations", "only one blank line precedes the recommendations"
+    assert markdown.end_with?("\n"), "the report ends with a newline"
+  end
+
   def test_html_matrix_colors_calls_against_expectations_and_links_to_the_details
     html = report.to_html
 
@@ -422,6 +446,21 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_match(/<div class="fix" data-models="m[01]( m[01])?">/, html)
     assert_includes html, %(.fix-section:has(input[value="m0"]:checked) .fix[data-models]:not([data-models~="m0"]) { display: none; })
     assert_not_includes html, "<script"
+  end
+
+  # gpt-5-mini's replays carry a cost on 1 of 5 scenarios, llama's on none.
+  def test_a_partially_priced_model_is_priced_per_priced_scenario_and_says_how_many_were
+    summary = report.summary_by_model
+    assert_equal [ 1, 0.0012 ], summary[gpt.label].values_at("priced", "cost")
+    assert_equal [ 0, nil ], summary[llama.label].values_at("priced", "cost")
+
+    html = report.to_html
+    table = html[%r{<div class="compare">(.*?)</table></div>}m, 1]
+    gpt_row = table[%r{<tr>\s*<td class="model-cell"><span class="name">gpt-5-mini</span>.*?</tr>}m]
+    assert_includes gpt_row, %($0.0012<span class="per">$0.0012/scenario</span><span class="per">1 of 5 scenarios priced</span>)
+    llama_row = table[%r{<tr>\s*<td class="model-cell"><span class="name">llama-3.1-8b</span>.*?</tr>}m]
+    assert_includes llama_row, %(<td class="num">—<span class="per">0 of 5 scenarios priced</span></td>)
+    assert_includes html, "cost <b>$0.0012</b> · 1 of 5 scenarios priced</span>"
   end
 
   def test_html_of_a_single_model_run_has_no_comparison_table_or_filter
