@@ -34,6 +34,20 @@ module ActionAgent
     validate :validate_criteria
 
     scope :recent, -> { order(updated_at: :desc) }
+    # Archived evaluations keep their runs but leave the index and its
+    # tiles unless asked for (see #archive!). The mark lives in the config
+    # JSON, so the filter reads it with each database's own JSON path.
+    scope :archived, -> { where("#{archived_at_sql} IS NOT NULL") }
+    scope :unarchived, -> { where("#{archived_at_sql} IS NULL") }
+
+    # SQL reading config["archived_at"] on the connected database.
+    def self.archived_at_sql
+      case connection.adapter_name.to_s.downcase
+      when /postgres/ then "#{quoted_table_name}.config ->> 'archived_at'"
+      when /mysql|trilogy/ then "JSON_UNQUOTE(JSON_EXTRACT(#{quoted_table_name}.config, '$.archived_at'))"
+      else "json_extract(#{quoted_table_name}.config, '$.archived_at')"
+      end
+    end
 
     # MySQL cannot give a JSON column a default, so a row inserted there
     # without `criteria` or `config` reads back nil. Both readers answer with
@@ -49,6 +63,56 @@ module ActionAgent
     def latest_run
       evaluation_runs.order(created_at: :desc).first
     end
+
+    # The newest run that finished: the one the evaluation's pass rate
+    # describes. A newer run still pending, or one that failed, shows
+    # beside it and never in its place. Read from the loaded association
+    # when the index preloaded it.
+    def headline_run
+      if evaluation_runs.loaded?
+        evaluation_runs.select(&:complete?).max_by { |run| [ run.created_at, run.id ] }
+      else
+        evaluation_runs.complete.order(created_at: :desc, id: :desc).first
+      end
+    end
+
+    # --- archiving ---------------------------------------------------------
+    #
+    # An evaluation nobody maintains — its suite superseded, its agent
+    # retired — keeps its history but stops counting: the index leaves it
+    # out, and so do the pooled pass rate and the agent's scorecard. The
+    # mark is config["archived_at"]; a new run or a published report clears
+    # it, since either says the evaluation is alive after all.
+
+    def archived_at
+      value = config["archived_at"]
+      value.present? ? Time.zone.parse(value.to_s) : nil
+    rescue ArgumentError
+      nil
+    end
+
+    def archived?
+      config["archived_at"].present?
+    end
+
+    def archive!
+      update!(config: config.merge("archived_at" => Time.current.iso8601))
+    end
+
+    def unarchive!
+      return unless archived?
+
+      update!(config: config.except("archived_at"))
+    end
+
+    # Where this evaluation stands against the agent as it is now: whether
+    # its headline run scored the current version (EvaluationStanding).
+    # Memoized per instance; the index preloads what it needs.
+    def standing_info
+      @standing_info ||= EvaluationStanding.new(self)
+    end
+
+    attr_writer :standing_info
 
     def judge_defined?
       judge_kind == "judge_defined"

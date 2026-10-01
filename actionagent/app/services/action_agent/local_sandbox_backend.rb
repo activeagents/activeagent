@@ -141,7 +141,7 @@ module ActionAgent
       # ANTHROPIC_BASE_URL; a session inheriting those joins the developer's
       # session, and a base URL redirects the owner's credential. A session
       # gets exactly the Claude Code variables the backend sets.
-      \A(?:ANTHROPIC|CLAUDE|OPENAI|OPEN_AI|OPENROUTER|OPEN_ROUTER|OLLAMA)(?:_|\z) | \ACLAUDECODE\z
+      \A(?:ANTHROPIC|CLAUDE|CODEX|OPENAI|OPEN_AI|OPENROUTER|OPEN_ROUTER|OLLAMA)(?:_|\z) | \ACLAUDECODE\z
     /x
     SECRET_VARIABLE = /
       SECRET | TOKEN | PASSWORD | PASSWD | PASSPHRASE | API_KEY | APIKEY | PRIVATE_KEY | CREDENTIAL | ACCESS_KEY |
@@ -436,7 +436,11 @@ module ActionAgent
       0
     end
 
-    # Runs Claude Code headless in the sandbox's checkout, yielding each
+    def code_runners
+      %w[claude_code codex]
+    end
+
+    # Runs a coding agent headless in the sandbox's checkout, yielding each
     # stream-json event (a Hash, already scrubbed of the sandbox's secrets)
     # as it arrives.
     #
@@ -448,9 +452,12 @@ module ActionAgent
       app = workspace.join("app")
       raise Error, "Sandbox #{session_id} has no local checkout: start the sandbox again" unless app.directory?
 
-      credentials = session_credentials(sandbox)
+      runner = code_session.try(:runner) || "claude_code"
+      raise Error, "Unsupported code runner: #{runner}" unless code_runners.include?(runner)
+
+      credentials = session_credentials(sandbox, runner: runner)
       secrets = sandbox_secrets(sandbox, credentials)
-      argv = claude_argv(code_session)
+      argv = runner == "codex" ? codex_argv(code_session) : claude_argv(code_session)
       database_env = read_state(workspace)["database_env"]
       env = self.class.sanitized_environment
         .merge(database_env.is_a?(Hash) ? database_env.transform_values(&:to_s) : {})
@@ -466,12 +473,15 @@ module ActionAgent
       # own, in the workspace. With the machine's own login it must use the
       # user's: that is where `claude /login` left the credentials (HOME,
       # which the sanitized environment keeps, or the keychain).
-      unless ClaudeCodeAuth.local_login?
+      if runner == "codex"
+        env["CODEX_HOME"] = workspace.join("codex").to_s
+        FileUtils.mkdir_p(workspace.join("codex"), mode: 0o700)
+      elsif !ClaudeCodeAuth.local_login?
         env["CLAUDE_CONFIG_DIR"] = workspace.join("claude").to_s
         FileUtils.mkdir_p(workspace.join("claude"), mode: 0o700)
       end
 
-      run_claude(workspace, code_session, argv, env, secrets, &on_event)
+      run_claude(workspace, code_session, argv, env, secrets, runner: runner, &on_event)
     end
 
     # Stops a running Claude Code session: SIGTERM to its process group. The
@@ -969,6 +979,19 @@ module ActionAgent
 
     # --- Claude Code --------------------------------------------------------
 
+    def codex_argv(code_session)
+      argv = [
+        ActionAgent.codex_command.to_s, "exec", "--json", "--ephemeral",
+        "--sandbox", "workspace-write", "--config", 'approval_policy="never"', "--color", "never"
+      ]
+      if (model = code_session.model.presence)
+        raise Error, "#{model.inspect} is not a model name" unless MODEL_NAME.match?(model.to_s)
+
+        argv += [ "--model", model.to_s ]
+      end
+      argv + [ "-" ]
+    end
+
     def claude_argv(code_session)
       command = ActionAgent.claude_code_command.to_s
       argv = [
@@ -1009,18 +1032,20 @@ module ActionAgent
       LOGGED_OUT
     end
 
-    def run_claude(workspace, code_session, argv, env, secrets, &on_event)
+    def run_claude(workspace, code_session, argv, env, secrets, runner: "claude_code", &on_event)
+      label = runner == "codex" ? "Codex" : "Claude Code"
+      timeout = runner == "codex" ? ActionAgent.codex_timeout : ActionAgent.claude_code_timeout
       key = code_session.id.to_s
-      log = log_path(workspace, "claude-#{key}")
-      deadline = deadline_after(ActionAgent.claude_code_timeout)
+      log = log_path(workspace, "#{runner == 'codex' ? 'codex' : 'claude'}-#{key}")
+      deadline = deadline_after(timeout)
       # Checked again once Claude Code is recorded; this saves starting it.
       state = read_state(workspace)
-      refuse_stopped_session!(state, key)
+      refuse_stopped_session!(state, key, label: label)
       # A cancelled session frees its slot as soon as it is marked cancelled,
       # while its Claude Code may still be exiting (and diffing). Two in one
       # checkout would edit the same files.
       if other_session_running?(state, key, workspace.basename.to_s)
-        raise Error, "The previous Claude Code session in this sandbox is still stopping; try again in a moment"
+        raise Error, "The previous code session in this sandbox is still stopping; try again in a moment"
       end
       stdin_read, stdin_write = IO.pipe
       stdout_read, stdout_write = IO.pipe
@@ -1029,7 +1054,7 @@ module ActionAgent
       begin
         pid = spawn_group(env, *argv, chdir: workspace.join("app"), in: stdin_read, out: stdout_write, err: stderr_write)
       rescue SystemCallError => e
-        raise Error, "Could not start Claude Code (#{argv.first}): #{e.message}"
+        raise Error, "Could not start #{label} (#{argv.first}): #{e.message}"
       ensure
         [ stdin_read, stdout_write, stderr_write ].each(&:close)
       end
@@ -1040,7 +1065,7 @@ module ActionAgent
       case record_code_session(workspace, key, pid)
       when :terminating
         # Stopped by the ensure below, before it had the prompt.
-        raise Error, "The sandbox is being stopped, so Claude Code did not run"
+        raise Error, "The sandbox is being stopped, so #{label} did not run"
       when :cancelled
         # Runs its course like any cancelled session: it ends on SIGTERM.
         signal_group(pid, "TERM")
@@ -1067,7 +1092,7 @@ module ActionAgent
       unless finished
         # Cancelled, and SIGTERM did not end it within the grace: SIGKILL,
         # and the session finishes like any cancelled one.
-        raise Error, "Claude Code did not finish within #{ActionAgent.claude_code_timeout}s and was stopped" unless cancel_seen
+        raise Error, "#{label} did not finish within #{timeout}s and was stopped" unless cancel_seen
 
         stop_groups([ pid ], grace: 0)
       end
@@ -1091,11 +1116,11 @@ module ActionAgent
 
     # Why a session must not start: a terminate under way, or a cancel that
     # came before there was a process to stop.
-    def refuse_stopped_session!(state, key)
-      raise Error, "The sandbox is being stopped, so Claude Code did not run" if state["terminating"]
+    def refuse_stopped_session!(state, key, label: "Claude Code")
+      raise Error, "The sandbox is being stopped, so #{label} did not run" if state["terminating"]
 
       cancels = state["cancelled_code_sessions"]
-      raise Error, "Claude Code session #{key} was cancelled before it started" if cancels.is_a?(Hash) && cancels.key?(key)
+      raise Error, "#{label} session #{key} was cancelled before it started" if cancels.is_a?(Hash) && cancels.key?(key)
     end
 
     # Records Claude Code's pid (and start time) under the state.json lock,
@@ -1263,12 +1288,13 @@ module ActionAgent
     # The Claude Code variables a session runs with. An API key comes from
     # the owner's connection. The machine's own login needs none: `claude`
     # finds it itself, and the dashboard neither reads nor passes it on.
-    def session_credentials(sandbox)
-      return {} if ClaudeCodeAuth.local_login?
+    def session_credentials(sandbox, runner: "claude_code")
+      return {} if runner == "claude_code" && ClaudeCodeAuth.local_login?
 
-      credentials = sandbox.runtime_environment.to_h
+      credentials = (runner == "codex" ? sandbox.runtime_environment(runner: runner) : sandbox.runtime_environment).to_h
       if credentials.empty?
-        raise Error, "Claude Code is not connected: connect an Anthropic API key in Settings → Integrations"
+        label = runner == "codex" ? "Codex is not connected: connect an OpenAI API key" : "Claude Code is not connected: connect an Anthropic API key"
+        raise Error, "#{label} in Settings → Integrations"
       end
 
       credentials

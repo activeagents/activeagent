@@ -476,6 +476,45 @@ so it does not flash white inside a dark console. *Open standalone* opens
 the unframed page, which is the copy to archive next to a CI run.
 `Delete suite`, on the right, takes the suite and its runs with it.
 
+**Costs** are never blank where tokens exist. Each result is priced down a
+chain (`ActionAgent::EvaluationRunCost`): the cost the publishing
+application reported, else the estimate the engine stored when it ran the
+replay, else the result's tokens × the model's rate, else the tokens of the
+trace the result links to, else its text at four characters a token as a
+lower bound; a result that recorded zero tokens (an errored replay) costs
+`$0.00`. A reported figure reads `$0.0243`, an estimated one `~$0.0243`,
+and any sum with an estimated part carries the `~`; a surface that shows
+one carries the legend once, *~ estimated from tokens × model rates*, and
+the figure's tooltip shows the working. Rates come from RubyLLM's model
+registry under the provider the model ran on (`ActionAgent::ModelPricing`:
+`gpt-5.5` through OpenRouter is OpenRouter's entry), else from the static
+tables; a figure at a pattern or default rate says `(fallback rate)`. The
+judge's spend is kept apart — from the engine's meter, from what the
+application reported, or from the judge traces priced on their input and
+output tokens (never their thinking tokens, which the output count already
+holds) — and shown per model (a **Judge** column), per scenario (`judge
+~$0.0015` under the matrix's trailing **Cost** column, which sums each
+scenario across the models, with group subtotals) and in total. A
+finished run's figures are cached under the run, its update time and the
+pricing tables in force.
+
+**Standing.** The Evaluations page's pass rate describes the agent as it
+is now: the tiles pool only the headline run — the newest complete run —
+of each evaluation whose standing is `current` (that run scored the
+agent's current version) or `unrecorded` (nothing says which version it
+scored, and the agent has no release to compare with), and say how many
+evaluations were left out as `stale` (last run against an earlier version)
+or `archived`. Only edits the model can see count as a new version: the
+instructions, action prompts, tools, MCP servers, model config and
+response format; an appearance edit does not. A run the engine executes
+is pinned to the agent's version as it runs; a published run is pinned to
+the release its report names (`report.release`), and stays unrecorded
+without one. A newer run still pending or failed shows beside the
+headline run, never in its place. Archive an evaluation nobody maintains
+from its card: it keeps its history but leaves the index and the pooled
+figures until *Show archived*; a new run or a published report brings it
+back. The agent cards' **Eval** tile is the same pooled pass rate.
+
 A scenario passes when the run completed, met its expectations, and scored
 at least 0.7 across the evaluation's criteria. Anything else carries exactly
 one fault, assigned from the evidence in this order:
@@ -507,10 +546,22 @@ The API: `POST /api/evaluations` with `scenarios_text`;
 `POST /api/evaluations/:id/run` with `group`, `keys[]`, `scenario_ids[]`
 and `models[]`; `GET /api/evaluations/:id/runs/:run_id` for the results,
 which carry the same `fix_items` the What-to-fix cards are built from,
-server resolution included; `GET`/`PUT /api/evaluations/:id/scenarios` to
-read or replace the suite; and
+server resolution included, each result's `cost` (effective),
+`reported_cost`, `cost_source`, `cost_rate` and `judge_usage`, and the
+run's `costs` (`scenarios` keyed by scenario, each with `cost`,
+`judge_cost`, `total`, `estimated` and `models`; and `run` with
+`agent_cost`, `judge_cost`, `total`, `cost_basis`);
+`GET`/`PUT /api/evaluations/:id/scenarios` to read or replace the suite;
+`PATCH /api/evaluations/:id` with `evaluation: { archived: true | false }`
+to archive or bring back; and
 `GET /api/evaluations/:id/runs/:run_id/report` for the HTML report, with
-`?theme=dark` or `?theme=light` to pin its palette.
+`?theme=dark` or `?theme=light` to pin its palette. `GET /api/evaluations`
+leaves archived evaluations out unless `?archived=1`, returns
+`archived_count`, and gives each evaluation its `standing`,
+`headline_run_id`, `archived_at` and `per_model` passes, plus the
+`headline_run` in full when a newer run is pending or failed; every run
+carries its `agent_version` (`id`, `number`, `release_digest`, `revision`,
+`release`) and `version_state` (`current`, `earlier` or `unrecorded`).
 
 ## The MCP facade
 
@@ -1064,6 +1115,44 @@ them again. Provisioning, Claude Code sessions and cleanup run as Active Job
 jobs, and **Cancel** signals a session from the web process. Run the
 dashboard and its job workers on one machine, as one user, so they share the
 workspaces.
+
+### Codex sessions
+
+The **Code sessions** panel also offers **Codex** when the sandbox backend
+advertises that runner. The `:local` backend supports both runners. Install
+the official Codex CLI on the dashboard/worker machine (`npm install -g
+@openai/codex`), connect an OpenAI API key under **Settings → Integrations →
+Codex**, and select Codex in a ready checkout's **Agent** menu. The key is
+stored as a write-only, owner-scoped connection, separate from the OpenAI
+agent-builder key. API usage is billed to the key's project.
+
+Codex runs with `codex exec --json --ephemeral --sandbox workspace-write
+--config 'approval_policy="never"' --color never -`. The prompt is sent on
+stdin. The selected connection supplies `CODEX_API_KEY`, and `CODEX_HOME`
+points to the sandbox's own configuration directory. Inherited `CODEX_*`
+and `OPENAI_*` settings are removed. The CLI's workspace-write sandbox stays
+enabled; a host that cannot support it must be fixed rather than bypassing
+the CLI sandbox. The dashboard's local backend still requires trusted code
+and the same host isolation described above.
+
+The model defaults to Codex's choice; **Other…** accepts an explicit model
+id. Native JSONL events are stored and rendered with command output, the
+final response, token usage and the checkout diff. A successful terminal
+event and a zero process exit are both required. Cancellation and the
+one-session-per-checkout limit are shared with Claude Code.
+
+`codex_command` defaults to `"codex"`; `codex_timeout` defaults to 1800
+seconds. API clients send `runner: "codex"` to the existing code-session
+endpoint. Omitting `runner` keeps the Claude Code behavior. Existing
+installations must rerun `rails generate action_agent:install` and
+`rails db:migrate` to add runner identity to existing sessions; old sessions
+remain `claude_code`.
+
+Custom backends opt in with `code_runners`, returning supported names such
+as `%w[claude_code codex]`. Backends without that method retain their existing
+Claude Code support; they are never assumed to support Codex. Codex support
+was checked against CLI 0.159.2. Cloud/Incus hosts must implement the checkout
+and code-session backend contract before either runner can execute there.
 
 ### Claude Code sessions
 

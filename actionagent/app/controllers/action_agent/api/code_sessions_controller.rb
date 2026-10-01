@@ -29,7 +29,11 @@ module ActionAgent
 
       # POST /api/sandboxes/:sandbox_id/code_sessions
       def create
-        if (refusal = refusal_for(@sandbox))
+        runner = params[:runner].nil? ? "claude_code" : params[:runner]
+        unless CodeSession::RUNNERS.include?(runner)
+          return render json: { error: "runner must be claude_code or codex" }, status: :unprocessable_entity
+        end
+        if (refusal = refusal_for(@sandbox, runner: runner))
           return render json: { error: refusal }, status: :unprocessable_entity
         end
 
@@ -41,6 +45,7 @@ module ActionAgent
           sandbox_session: @sandbox,
           prompt: string_param(:prompt),
           model: string_param(:model).presence,
+          runner: runner,
           # Owned like the sandbox it runs in.
           user_id: @sandbox.try(:user_id),
           account_id: @sandbox.try(:account_id)
@@ -111,16 +116,21 @@ module ActionAgent
       end
 
       # Why +sandbox+ cannot take a Claude Code session now, or nil.
-      def refusal_for(sandbox)
-        return "Claude Code sessions run only in a checkout (app_runtime) sandbox" unless sandbox.app_runtime?
+      def refusal_for(sandbox, runner: "claude_code")
+        label = runner == "codex" ? "Codex" : "Claude Code"
+        return "#{label} sessions run only in a checkout (app_runtime) sandbox" unless sandbox.app_runtime?
         return "The sandbox has expired; start a new one" if sandbox.ready? && !sandbox.active?
         return "The sandbox is #{sandbox.status}; wait until it is ready" unless sandbox.ready?
 
         orchestrator = SandboxOrchestrator.new
-        unless orchestrator.supports?(:code_session)
-          return "The #{orchestrator.backend_name} sandbox backend cannot run Claude Code sessions"
+        unless orchestrator.supports_code_runner?(runner)
+          return "The #{orchestrator.backend_name} sandbox backend cannot run #{label} sessions"
         end
 
+        if runner == "codex"
+          return "Codex is not connected: connect an OpenAI API key in Settings -> Integrations first" if sandbox.runtime_environment(runner: runner).blank?
+          return
+        end
         ClaudeCodeAuth.backend_refusal(orchestrator) || ClaudeCodeAuth.credential_refusal(sandbox)
       end
 
@@ -131,11 +141,13 @@ module ActionAgent
       end
 
       def busy_body(current)
-        { error: "A Claude Code session is already #{current.status} in this sandbox", code_session: current.summary }
+        label = current.runner == "codex" ? "Codex" : "Claude Code"
+        { error: "A #{label} session is already #{current.status} in this sandbox", code_session: current.summary }
       end
 
       def invalid_request(code_session)
-        return "model is not a Claude Code model name" if code_session.model && !code_session.model.match?(MODEL_NAME)
+        label = code_session.runner == "codex" ? "Codex" : "Claude Code"
+        return "model is not a #{label} model name" if code_session.model && !code_session.model.match?(MODEL_NAME)
 
         code_session.errors.full_messages.to_sentence unless code_session.valid?
       end

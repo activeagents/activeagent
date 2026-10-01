@@ -158,10 +158,11 @@ module ActionAgent
     # connected. Secret — for the backend, never a response.
     #
     # @return [Hash{String => String}]
-    def runtime_environment
+    def runtime_environment(runner: "claude_code")
       return {} unless app_runtime?
+      return {} unless ProviderKey::CONNECTION_PROVIDERS.include?(runner)
 
-      owners_record(ProviderKey.where(provider: "claude_code"))&.runtime_environment || {}
+      owners_record(ProviderKey.where(provider: runner))&.runtime_environment || {}
     end
 
     # Check if session is still valid

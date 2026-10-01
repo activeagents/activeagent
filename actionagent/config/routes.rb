@@ -142,7 +142,7 @@ ActionAgent::Engine.routes.draw do
 
     # Agent output evaluations. A scenario suite also manages its scenarios
     # here, and exposes each run's per-scenario, per-model results.
-    resources :evaluations, only: [ :index, :show, :create, :destroy ] do
+    resources :evaluations, only: [ :index, :show, :create, :update, :destroy ] do
       member do
         post :run
         get "runs/:run_id", action: :show_run, as: :run_result

@@ -202,13 +202,15 @@ module ActionAgent
           scope = scope.where(agent: resolve_tool_agent!(agent))
         end
         limit = integer_argument(:limit, default: LIST_LIMIT, min: 1, max: MAX_LIST_LIMIT)
-        evaluations = scope.includes(:agent, :evaluation_runs, :scenarios).recent.limit(limit)
+        evaluations = scope.includes(:agent, :scenarios, evaluation_runs: :agent_version).recent.limit(limit).to_a
+        EvaluationStanding.preload(evaluations)
 
         {
           evaluations: evaluations.map do |evaluation|
             summary = EvaluationSerializer.summary(evaluation)
             latest = EvaluationSerializer.recent_runs(evaluation, 1).first
-            summary.slice(:id, :name, :agent, :judge_kind, :scenario_suite, :scenario_count, :scenario_groups, :created_at, :run_count)
+            summary.slice(:id, :name, :agent, :judge_kind, :scenario_suite, :scenario_count, :scenario_groups, :created_at, :run_count,
+                          :headline_run_id, :standing, :archived_at)
               .merge(latest_run: latest && EvaluationSerializer.run_summary(latest, number: summary[:run_count]))
           end
         }

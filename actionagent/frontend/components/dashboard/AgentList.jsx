@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import AgentStatCard, { rateTone } from './AgentStatCard';
+import { fmtPasses, fmtPercent } from '../../utils/evalFormat.mjs';
 
 // Mirrors Api::AgentsController::LIST_SORTS. Ordering is applied server-side
 // over the scorecards, so these values are sent, not sorted on.
@@ -206,14 +207,14 @@ export default function AgentList({
                     tone: rateTone(stats.success_rate != null ? stats.success_rate / 100 : null),
                   },
                   { label: 'Avg time', value: formatDuration(stats.avg_duration_ms) },
+                  // The pass rate pooled over the headline runs of the agent's
+                  // current evaluations; the fraction rides in the title.
                   {
-                    label: stats.eval_samples_evaluated
-                      ? `Eval ${stats.eval_samples_passed}/${stats.eval_samples_evaluated}`
-                      : 'Eval',
+                    label: 'Eval',
                     title: stats.eval_samples_evaluated
-                      ? `Latest evaluation: ${stats.eval_samples_passed} of ${stats.eval_samples_evaluated} samples passed`
-                      : undefined,
-                    value: stats.eval_score != null ? `${Math.round(stats.eval_score * 100)}%` : '—',
+                      ? `${fmtPasses(stats.eval_samples_passed, stats.eval_samples_evaluated)} passed over ${stats.eval_runs ?? 'the'} current evaluation${stats.eval_runs === 1 ? '' : 's'}${stats.eval_not_counted ? ` · ${stats.eval_not_counted} stale or archived not counted` : ''}`
+                      : stats.eval_not_counted ? `${stats.eval_not_counted} evaluation${stats.eval_not_counted === 1 ? '' : 's'} stale or archived, none counted` : 'No evaluation counted yet',
+                    value: fmtPercent(stats.eval_score),
                     tone: rateTone(stats.eval_score),
                   },
                   { label: 'Tokens', value: formatTokens(stats.tokens) },
