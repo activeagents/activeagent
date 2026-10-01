@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MonoLink, MONO } from './primitives';
-import { fmtCost, fmtK, fmtMs, fmtScore, splitModelLabel } from '../../utils/format';
+import { fmtK, fmtMs, splitModelLabel } from '../../utils/format';
+import { COST_LEGEND, costTitle, fmtPasses, fmtScore, fmtSpend } from '../../utils/evalFormat.mjs';
 import {
-  RUNS_PAGE, costPer, fixItemCountsByModel, fixItemsForModel, modelComparisonRows, plural, pricedCount, pricingNote, runTotalOf, runsMeta,
-  withModelBreakdown,
+  RUNS_PAGE, costPer, fixItemCountsByModel, fixItemsForModel, isEstimated, modelComparisonRows, plural, pricedCount, runSpend,
+  runTotalOf, runsMeta, withModelBreakdown,
 } from '../../utils/evaluationRuns.mjs';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
@@ -262,6 +263,88 @@ function fallbackFixItem(entry, results) {
 }
 
 // ---------------------------------------------------------------------------
+// Costs
+//
+// Every result carries its effective cost and how it was priced
+// (`cost_source`: reported, estimated, no_usage or unpriced), its rate when
+// estimated (`cost_rate`), and what the judge spent on it (`judge_usage`).
+// A figure with an estimated part reads "~".
+
+export const resultEstimated = (result) => result?.cost_source === 'estimated';
+export const resultJudgeEstimated = (result) => {
+  const usage = result?.judge_usage;
+  if (!usage) return false;
+  return usage.estimated ?? (usage.source != null && usage.source !== 'reported');
+};
+
+// "~$0.0243 · judge ~$0.0015" — what one answer cost and what judging it
+// cost; null for a result with no cost on either side.
+export const resultCostText = (result) => {
+  if (!result) return null;
+  const judgeCost = result.judge_usage?.cost ?? null;
+  if (result.cost == null && judgeCost == null) return null;
+  const parts = [fmtSpend(result.cost, { estimated: resultEstimated(result) })];
+  if (judgeCost != null) parts.push(`judge ${fmtSpend(judgeCost, { estimated: resultJudgeEstimated(result) })}`);
+  return parts.join(' · ');
+};
+
+// The tooltip of a result's cost: the working behind an estimate, with the
+// tokens and the rate the API applied.
+export const resultCostTitle = (result) => {
+  if (!resultEstimated(result)) return undefined;
+  const rate = result.cost_rate || null;
+  return costTitle({
+    inputTokens: rate?.input_tokens ?? result.input_tokens,
+    outputTokens: rate?.output_tokens ?? result.output_tokens,
+    rate,
+  });
+};
+
+// What a scenario cost across every model: the API's `costs.scenarios[key]`
+// when the run carries it, else summed from the scenario's results —
+// `{ cost, judgeCost, total, estimated }`, or null with nothing priced.
+export const scenarioCost = (run, key, results = {}) => {
+  const recorded = run?.costs?.scenarios?.[key];
+  if (recorded && typeof recorded === 'object') {
+    if (recorded.cost == null && recorded.judge_cost == null) return null;
+    return { cost: recorded.cost ?? null, judgeCost: recorded.judge_cost ?? null, total: recorded.total ?? null, estimated: !!recorded.estimated };
+  }
+  const settled = Object.values(results || {}).filter(isSettled);
+  const costs = settled.map((result) => result.cost).filter((cost) => cost != null);
+  const judgeCosts = settled.map((result) => result.judge_usage?.cost).filter((cost) => cost != null);
+  if (!costs.length && !judgeCosts.length) return null;
+  const cost = costs.length ? costs.reduce((sum, value) => sum + Number(value), 0) : null;
+  const judgeCost = judgeCosts.length ? judgeCosts.reduce((sum, value) => sum + Number(value), 0) : null;
+  return {
+    cost,
+    judgeCost,
+    total: (cost || 0) + (judgeCost || 0),
+    estimated: settled.some((result) => resultEstimated(result) || resultJudgeEstimated(result)) || (costs.length > 0 && costs.length < settled.length),
+  };
+};
+
+// Several scenarios' costs together (a group's subtotal), the same shape.
+export const sumScenarioCosts = (entries = []) => {
+  const present = entries.filter(Boolean);
+  if (!present.length) return null;
+  const costs = present.filter((entry) => entry.cost != null);
+  const judges = present.filter((entry) => entry.judgeCost != null);
+  const cost = costs.length ? costs.reduce((sum, entry) => sum + entry.cost, 0) : null;
+  const judgeCost = judges.length ? judges.reduce((sum, entry) => sum + entry.judgeCost, 0) : null;
+  return { cost, judgeCost, total: (cost || 0) + (judgeCost || 0), estimated: present.some((entry) => entry.estimated) };
+};
+
+function CostBlock({ entry, testId }) {
+  if (!entry) return <span style={{ ...mono(12), textAlign: 'right' }} data-testid={testId}>—</span>;
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, textAlign: 'right', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }} data-testid={testId}>
+      <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{fmtSpend(entry.cost, { estimated: entry.estimated })}</span>
+      {entry.judgeCost != null && <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{`judge ${fmtSpend(entry.judgeCost, { estimated: entry.estimated })}`}</span>}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Small shared pieces
 
 const mono = (size, color = 'var(--color-text-muted)', extra = {}) => ({ fontFamily: MONO, fontSize: size, color, ...extra });
@@ -286,6 +369,7 @@ function CallLine({ calls, empty, style }) {
 // spend only; the judge's is the run's (see RunsList and CriteriaFooter).
 export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, judgedBy, verdict }) {
   const summaries = run?.scores?._models || {};
+  const judgeEstimated = runSpend(run)?.judge?.estimated ?? true;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="suite-models-panel">
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
@@ -301,6 +385,7 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
           rows={modelComparisonRows(run, { results, scenarioCount, columns, labelFor: (result) => labelForResult(run, result) })}
           unit="scenario"
           judgedBy={judgedBy}
+          judgeEstimated={judgeEstimated}
         />
       )}
       {columns.length > 0 && (
@@ -329,7 +414,10 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
                 outputTokens={stats?.output_tokens}
                 cost={stats?.cost}
                 perInteraction={costPer(stats?.cost, priced)}
-                pricing={pricingNote(priced, stats?.scenarios, 'scenario')}
+                estimated={isEstimated(stats, stats?.scenarios)}
+                judgeCost={stats?.judge_cost}
+                judgeCalls={stats?.judge_calls || 0}
+                judgeEstimated={judgeEstimated}
                 unit="scenario"
                 badges={faults.map(([fault, count]) => ({ tone: 'error', text: `${faultName(fault)} ×${count}` }))}
                 note={note}
@@ -357,7 +445,7 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
 // ---------------------------------------------------------------------------
 // SCENARIOS matrix
 
-const gridFor = (columns) => `minmax(240px, 1.6fr) 150px ${columns.map(() => 'minmax(170px, 1fr)').join(' ')}`;
+const gridFor = (columns) => `minmax(240px, 1.6fr) 150px ${columns.map(() => 'minmax(170px, 1fr)').join(' ')} 120px`;
 
 // No result yet reads "…" while the run is still replaying it; a scenario
 // outside the run's selection (or one whose replay never landed) reads "—".
@@ -377,6 +465,9 @@ function ResultCell({ result, expects, pending }) {
         {result.fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)' }}>{faultName(result.fault)}</span>}
       </div>
       <CallLine calls={calls} empty="no tools called" />
+      {resultCostText(result) && (
+        <span style={{ ...mono(11, 'var(--color-text-secondary)'), whiteSpace: 'nowrap' }} title={resultCostTitle(result)} data-testid="scenario-cell-cost">{resultCostText(result)}</span>
+      )}
     </div>
   );
 }
@@ -387,6 +478,8 @@ function ResultCell({ result, expects, pending }) {
 export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, running, openKey, onToggleRow, emptyLabel, renderDetail }) {
   const grid = gridFor(columns);
   const hasGroups = rows.some((s) => s.group);
+  const costOf = (scenario) => scenarioCost(run, scenario.key, resultsByKey[scenario.key]);
+  const estimatedAnywhere = rows.some((scenario) => costOf(scenario)?.estimated);
 
   // Group rows in order of first appearance.
   const groups = [];
@@ -402,7 +495,7 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
 
   return (
     <div style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, overflowX: 'auto' }}>
-      <div style={{ minWidth: Math.max(760, 400 + 180 * columns.length) }}>
+      <div style={{ minWidth: Math.max(880, 520 + 180 * columns.length) }}>
         <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '8px 12px', background: 'var(--color-muted)', alignItems: 'end' }}>
           <MicroLabel size={10} color="var(--color-text-muted)">Scenario</MicroLabel>
           <MicroLabel size={10} color="var(--color-text-muted)">Expects</MicroLabel>
@@ -415,6 +508,9 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
               </span>
             );
           })}
+          <span style={{ textAlign: 'right' }} title="What the scenario cost across every model, and what judging it cost">
+            <MicroLabel size={10} color="var(--color-text-muted)">Cost</MicroLabel>
+          </span>
         </div>
 
         {groups.map((group) => {
@@ -424,8 +520,9 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
             const passed = settled.filter((s) => isPassed(resultsByKey[s.key][label])).length;
             const total = inRun.length;
             const color = total && passed === total ? 'var(--color-success-text)' : passed === 0 ? 'var(--color-error-text)' : 'var(--color-text-cell)';
-            return { label, text: total ? `${passed}/${total} passed` : '—', color };
+            return { label, text: total ? `${fmtPasses(passed, total)} passed` : '—', color };
           });
+          const subtotal = sumScenarioCosts(group.rows.map(costOf));
           return (
             <div key={group.name || '__ungrouped'}>
               {(group.name || hasGroups) && (
@@ -435,6 +532,7 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
                   {passes.map((p) => (
                     <span key={p.label} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: p.color }}>{p.text}</span>
                   ))}
+                  <CostBlock entry={subtotal} testId="scenario-group-cost" />
                 </div>
               )}
               {group.rows.map((scenario) => {
@@ -476,6 +574,7 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
                           pending={running && inSelection}
                         />
                       ))}
+                      <CostBlock entry={costOf(scenario)} testId="scenario-row-cost" />
                     </div>
                     {open && renderDetail(scenario)}
                   </div>
@@ -486,6 +585,9 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
         })}
         {rows.length === 0 && (
           <Empty style={{ borderTop: '1px solid var(--color-border-light)' }}>{emptyLabel || '[+] nothing failed in this group'}</Empty>
+        )}
+        {estimatedAnywhere && (
+          <div style={{ ...mono(11), padding: '6px 12px', borderTop: '1px solid var(--color-border-light)', textAlign: 'right' }} data-testid="scenario-matrix-legend">{COST_LEGEND}</div>
         )}
       </div>
     </div>
@@ -501,7 +603,8 @@ function resultMeta(result) {
   if (result.input_tokens != null || result.output_tokens != null) {
     parts.push(`${fmtK((result.input_tokens || 0) + (result.output_tokens || 0))} tokens`);
   }
-  if (result.cost != null) parts.push(fmtCost(result.cost));
+  const cost = resultCostText(result);
+  if (cost) parts.push(cost);
   return parts.join(' · ');
 }
 
@@ -575,7 +678,7 @@ function ResultCard({ label, run, result, expects, running }) {
     </>,
     <>
       <Badge tone={statusTone}>{result.score == null ? result.status : `${result.status} · ${fmtScore(result.score)}`}</Badge>
-      {meta && <span style={{ marginLeft: 'auto', ...mono(11) }}>{meta}</span>}
+      {meta && <span style={{ marginLeft: 'auto', ...mono(11) }} title={resultCostTitle(result)}>{meta}</span>}
     </>
   );
 }

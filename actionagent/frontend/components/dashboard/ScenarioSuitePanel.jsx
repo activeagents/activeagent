@@ -11,7 +11,9 @@ import { MODEL_PROVIDERS } from '../../utils/providerModels';
 import { useProviderModels } from '../../hooks/useProviderModels';
 import MultiModelPicker from './MultiModelPicker';
 import RunsList from './evaluations/RunsList';
+import SpendStrip from './evaluations/SpendStrip';
 import CriteriaFooter from './evaluations/CriteriaFooter';
+import { fmtPasses } from '../../utils/evalFormat.mjs';
 import {
   FixList, ModelsPanel, ScenarioDetail, ScenarioMatrix,
   fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, modelPassStats, plural,
@@ -19,8 +21,9 @@ import {
 } from './EvaluationRunPanels';
 
 // The expanded body of a scenario-suite evaluation, in reading order: is it
-// getting better (Runs), which model (Models), the scenario × model matrix
-// with a per-scenario drill-down (Scenarios), then what to fix (What to fix).
+// getting better (Runs), what the shown run cost (the agent's side apart
+// from the judge's), which model (Models), the scenario × model matrix with
+// a per-scenario drill-down (Scenarios), then what to fix (What to fix).
 // It also carries the suite's controls: edit the pasted scenarios, run a
 // group / everything / one scenario under chosen models, enable or disable a
 // scenario, delete the suite.
@@ -403,7 +406,7 @@ export default function ScenarioSuitePanel({
       runIndex > 0 ? `Viewing run #${runNumber} (latest is #${latestNumber})` : `Run #${runNumber ?? '?'} · ${timeAgo(run.completed_at || run.created_at)}`,
       agentName,
       `${plural(scenarioCount, 'scenario')}${groupCount ? ` in ${plural(groupCount, 'group')}` : ''} × ${plural(columns.length, 'model')}`,
-      run.status === 'failed' ? 'failed' : `${totals.passed}/${totals.total} passed`,
+      run.status === 'failed' ? 'failed' : `${fmtPasses(totals.passed, totals.total)} passed`,
       runSandboxLabel(run) && `against ${runSandboxLabel(run)}`,
     ].filter(Boolean).join(' · ')
     : `${agentName} · ${plural(scenarioTotal, 'scenario')}${groups.length ? ` in ${plural(groups.length, 'group')}` : ''} · ${loadError ? 'not loaded' : loaded ? 'no runs yet' : 'loading…'}`;
@@ -507,6 +510,10 @@ export default function ScenarioSuitePanel({
         barsFor={barsFor}
         deltaFor={deltaFor}
       />
+
+      {/* What the shown run cost: the agent's replays apart from the judge's
+          own calls, each marked "~" when estimated from tokens. */}
+      {run && run.status !== 'failed' && <SpendStrip spend={runSpend(run)} judgedBy={judgedBy} testId="suite-run-spend" />}
 
       {/* Models */}
       <ModelsPanel run={run} columns={run ? columns : []} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} />

@@ -2,18 +2,21 @@ import React from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Badge, Empty, Glyph, Panel, PassBar, MONO, toneFor } from '../primitives';
 import { META_COLUMN, MetaStrip } from '../TelemetryObject';
-import { fmtCost, fmtScore, splitModelLabel, timeAgo } from '../../../utils/format';
+import { splitModelLabel, timeAgo } from '../../../utils/format';
+import { fmtPasses, fmtScore, fmtSpend } from '../../../utils/evalFormat.mjs';
 import {
-  judgeCallsText, judgeLabel, passRate, plural, runCohorts, runDelta, runLabel, runNumber, runSandboxLabel, runSpend,
-  runsMeta,
+  judgeCallsText, judgeLabel, judgeSourceText, passRate, plural, runCohorts, runDelta, runLabel, runNumber, runSandboxLabel,
+  runSpend, runsMeta, versionChip, versionDelta,
 } from '../../../utils/evaluationRuns.mjs';
-import { agentPricing, agentUnit, fmtRate } from './SpendStrip';
+import { agentUnit, fmtRate } from './SpendStrip';
 
 // Every run of an evaluation, newest first, one row each: which run and
-// when, what it covered, how each model cohort did, what it cost — the
-// agent's side and the judge's — and how it moved against the run before.
-// The same list serves a scenario suite (where a row selects the run the
-// panels below show) and a sampling evaluation (where a row opens the run).
+// when, which version of the agent it scored, what it covered, how each
+// model cohort did, what it cost — the agent's side and the judge's, each
+// marked "~" when estimated — and how it moved against the run before,
+// saying whether that run scored the same version of the agent. The same
+// list serves a scenario suite (where a row selects the run the panels
+// below show) and a sampling evaluation (where a row opens the run).
 //
 // The right-hand figures sit in a MetaStrip so a column holds its place on
 // every row — a failed run has no cost and no movement, and its badge must
@@ -21,14 +24,14 @@ import { agentPricing, agentUnit, fmtRate } from './SpendStrip';
 // interaction lists keep (META_COLUMN), so the lists read alike.
 
 // A run's standing, as one badge: what it passed when it completed, else
-// where it is.
+// where it is. A fraction carries its percent.
 export function RunBadge({ run, testId }) {
   if (!run) return <Badge tone="muted" testId={testId}>no runs</Badge>;
   if (run.status === 'failed') return <Badge tone="error" testId={testId}>failed</Badge>;
   if (run.status === 'pending') return <Badge tone="warning" testId={testId}>queued</Badge>;
   if (run.status === 'running') return <Badge tone="warning" testId={testId}>running</Badge>;
   if (run.samples_evaluated) {
-    return <Badge tone={toneFor(passRate(run))} testId={testId}>{`${run.samples_passed || 0}/${run.samples_evaluated} passed`}</Badge>;
+    return <Badge tone={toneFor(passRate(run))} testId={testId}>{`${fmtPasses(run.samples_passed || 0, run.samples_evaluated)} passed`}</Badge>;
   }
   if (run.average_score != null) {
     const score = Number(run.average_score);
@@ -37,11 +40,20 @@ export function RunBadge({ run, testId }) {
   return <Badge tone="muted" testId={testId}>no samples</Badge>;
 }
 
-const DELTA_TONE = { success: 'var(--color-success)', error: 'var(--color-error)', muted: 'var(--color-text-muted)' };
+// Which version of the agent a run scored, as a small chip; nothing for a
+// run the API did not describe.
+export function VersionChip({ run, testId = 'run-version' }) {
+  const chip = versionChip(run);
+  if (!chip) return null;
+  return <Badge tone={chip.tone} size={10} style={{ padding: '1px 6px' }} title={chip.title} testId={testId}>{chip.text}</Badge>;
+}
 
-// A cost cell carries its label ("agent $0.0200"), so it is wider than the
-// bare cost column a trace row keeps.
-const COST_COLUMN = META_COLUMN.cost + 16;
+const DELTA_TONE = { success: 'var(--color-success)', error: 'var(--color-error)', muted: 'var(--color-text-muted)' };
+const VERSION_TONE = { same: 'var(--color-text-muted)', new: 'var(--color-info)', unrecorded: 'var(--color-warning-text)' };
+
+// A cost cell carries its label and its estimate mark ("agent ~$0.0200"),
+// so it is wider than the bare cost column a trace row keeps.
+const COST_COLUMN = META_COLUMN.cost + 32;
 
 // The bars a row shows by default: one per cohort the run recorded. A run
 // that recorded nothing (it failed before it sampled) shows no bar rather
@@ -62,8 +74,8 @@ export default function RunsList({
     const older = runs[index + 1] || (index === 0 && runs.length === 1 ? previousRun : null);
     const olderNumber = older ? (Number.isFinite(older.number) ? older.number : number - 1) : null;
     const delta = deltaFor ? deltaFor(run, older, olderNumber) : runDelta(run, older, { olderNumber });
+    const version = delta && older ? versionDelta(run, older) : null;
     const spend = runSpend(run);
-    const pricing = agentPricing(spend);
     return {
       run,
       number,
@@ -77,8 +89,8 @@ export default function RunsList({
       ].filter(Boolean).join(' · '),
       bars: barsFor ? barsFor(run) : defaultBars(run),
       delta,
+      version,
       spend,
-      pricing,
       selected: run.id === selectedId,
     };
   });
@@ -86,7 +98,7 @@ export default function RunsList({
   return (
     <Panel title={title} meta={runsMeta(runs, runCount)} testId={testId} bodyStyle={{ overflowX: 'auto' }}>
       {rows.length === 0 && <Empty>[ ] no runs yet</Empty>}
-      <div style={{ minWidth: 880 }}>
+      <div style={{ minWidth: 920 }}>
         {rows.map((row) => (
           <div
             key={row.run.id}
@@ -114,6 +126,7 @@ export default function RunsList({
                 {(row.run.status === 'running' || row.run.status === 'pending') && (
                   <Badge tone="warning" size={10} style={{ padding: '1px 6px' }}>{row.run.status === 'pending' ? 'queued' : 'running'}</Badge>
                 )}
+                <VersionChip run={row.run} />
               </div>
               <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)', marginTop: 3, textWrap: 'pretty' }}>{row.meta}</div>
               {row.run.status === 'failed' && row.run.error_message && (
@@ -142,35 +155,41 @@ export default function RunsList({
                     key: 'agent',
                     width: COST_COLUMN,
                     title: row.spend?.agent
-                      ? `Agent: ${plural(row.spend.agent.count, agentUnit(row.spend))}${row.pricing ? ` · ${row.pricing}` : ''}${row.spend.agent.perInteraction != null ? ` · ${fmtRate(row.spend.agent.perInteraction)} per interaction` : ''}`
+                      ? `Agent: ${plural(row.spend.agent.count, agentUnit(row.spend))}${row.spend.agent.perInteraction != null ? ` · ${fmtRate(row.spend.agent.perInteraction, row.spend.agent.estimated)} per interaction` : ''}${row.spend.agent.estimated ? ' · ~ estimated from tokens × model rates' : ''}`
                       : undefined,
-                    empty: row.pricing ? `Agent cost: ${row.pricing}` : 'Agent cost: nothing replayed or sampled in this run',
+                    empty: 'Agent cost: nothing replayed or sampled in this run',
                     content: row.spend?.agent?.cost != null && (
                       <span style={{ fontFamily: MONO, fontSize: 11 }}>
-                        <span style={{ color: 'var(--color-text-muted)' }}>agent </span>{fmtCost(row.spend.agent.cost)}
-                        {row.pricing && <span style={{ color: 'var(--color-text-muted)' }}>*</span>}
+                        <span style={{ color: 'var(--color-text-muted)' }}>agent </span>{fmtSpend(row.spend.agent.cost, { estimated: row.spend.agent.estimated })}
                       </span>
                     ),
                   },
                   {
                     key: 'judge',
                     width: COST_COLUMN,
-                    title: row.spend?.judge ? `Judge: ${plural(row.spend.judge.calls, 'call')} · ${judgeCallsText(row.spend.judge)} · offline` : undefined,
+                    title: row.spend?.judge
+                      ? `Judge: ${plural(row.spend.judge.calls, 'call')}${judgeCallsText(row.spend.judge) ? ` · ${judgeCallsText(row.spend.judge)}` : ''}${judgeSourceText(row.spend.judge) ? ` · ${judgeSourceText(row.spend.judge)}` : ''} · offline`
+                      : undefined,
                     empty: 'Judge cost: no judge was asked in this run',
                     content: row.spend?.judge?.cost != null && (
-                      <span style={{ fontFamily: MONO, fontSize: 11 }}><span style={{ color: 'var(--color-text-muted)' }}>judge </span>{fmtCost(row.spend.judge.cost)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11 }}><span style={{ color: 'var(--color-text-muted)' }}>judge </span>{fmtSpend(row.spend.judge.cost, { estimated: row.spend.judge.estimated })}</span>
                     ),
                   },
                   {
                     key: 'delta',
-                    width: 128,
-                    title: row.delta ? 'Samples passed, against the run before' : undefined,
+                    width: 136,
+                    title: row.delta ? `Samples passed, against the run before${row.version ? ` · ${row.version.text}` : ''}` : undefined,
                     empty: 'Movement is read once the run completes',
                     content: row.delta && (
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: DELTA_TONE[row.delta.tone] || DELTA_TONE.muted }}>{row.delta.text}</span>
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: DELTA_TONE[row.delta.tone] || DELTA_TONE.muted }}>{row.delta.text}</span>
+                        {row.version && (
+                          <span data-testid="run-version-delta" style={{ fontFamily: MONO, fontSize: 10, color: VERSION_TONE[row.version.kind] || VERSION_TONE.same }}>{row.version.text}</span>
+                        )}
+                      </span>
                     ),
                   },
-                  { key: 'badge', width: 108, content: <RunBadge run={row.run} testId={row.latest ? 'suite-pass-badge' : undefined} /> },
+                  { key: 'badge', width: 132, content: <RunBadge run={row.run} testId={row.latest ? 'suite-pass-badge' : undefined} /> },
                   { key: 'open', width: 20, content: <Glyph kind="link" color="var(--color-info)" weight={400} /> },
                 ]}
               />
@@ -182,13 +201,13 @@ export default function RunsList({
   );
 }
 
-// The line above a suite's runs: `3 runs · latest #3 12 min ago · 14/20 passed`.
+// The line above a suite's runs: `3 runs · latest #3 12 min ago · 14/20 · 70% passed`.
 export const runsSummary = (runs = [], runCount = null) => {
   const latest = runs[0];
   const total = Number.isFinite(runCount) ? Math.max(runCount, runs.length) : runs.length;
   return [
     plural(total, 'run'),
     latest ? `latest #${runNumber(latest, 0, runs, runCount)} ${timeAgo(latest.completed_at || latest.created_at)}` : null,
-    latest?.status === 'complete' && latest.samples_evaluated ? `${latest.samples_passed || 0}/${latest.samples_evaluated} passed` : null,
+    latest?.status === 'complete' && latest.samples_evaluated ? `${fmtPasses(latest.samples_passed || 0, latest.samples_evaluated)} passed` : null,
   ].filter(Boolean).join(' · ');
 };

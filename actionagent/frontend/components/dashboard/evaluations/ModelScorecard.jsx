@@ -1,6 +1,8 @@
 import React from 'react';
 import { Badge, Card, MONO, TONE, toneFor } from '../primitives';
-import { fmtCost, fmtMs, fmtScore, fmtTokens } from '../../../utils/format';
+import { fmtMs, fmtTokens } from '../../../utils/format';
+import { costTitle, fmtPasses, fmtScore, fmtSpend } from '../../../utils/evalFormat.mjs';
+import { plural } from '../../../utils/evaluationRuns.mjs';
 import { fmtRate } from './SpendStrip';
 
 // One model cohort of a run: how many of its interactions passed, as the
@@ -10,11 +12,12 @@ import { fmtRate } from './SpendStrip';
 //
 // `passed`/`total` drive the headline and the bar; without them (an older
 // run) `avgScore` stands in. `criteria` is `{ cleared, scored }` or null.
-// `cost` is the cohort's agent-side spend and `perInteraction` its rate;
-// `pricing` notes a cost that covers only some interactions ("estimated,
-// 3 of 5 scenarios priced"). The judge's spend is never on a model's card —
-// it belongs to the run.
-// `badges` are `{ tone, text, testId }`; `note` is a mono line under them.
+// `cost` is the cohort's agent-side spend and `perInteraction` its rate,
+// `estimated` when any of it was priced from tokens (the figure then reads
+// "~"). `judgeCost` and `judgeCalls` are what the judge spent on this
+// model's answers, kept on its own line: it is the evaluation's cost, not
+// the model's. `badges` are `{ tone, text, testId }`; `note` is a mono line
+// under them.
 
 const mean = (value) => (value >= 0.85 ? 'success' : value >= 0.7 ? 'warning' : 'error');
 
@@ -28,12 +31,14 @@ function Stat({ label, children, title, nowrap = true }) {
 
 export default function ModelScorecard({
   label, short, provider, winner = false, passed, total, avgScore, criteria, latencyMs, inputTokens, outputTokens,
-  cost, perInteraction, pricing = null, unit = 'interaction', badges = [], note, testId = 'model-scorecard',
+  cost, perInteraction, estimated = false, judgeCost = null, judgeCalls = 0, judgeEstimated = false,
+  unit = 'interaction', badges = [], note, testId = 'model-scorecard',
 }) {
   const bySamples = passed != null && total > 0;
   const ratio = bySamples ? passed / total : null;
   const tone = bySamples ? toneFor(ratio) : avgScore != null ? mean(avgScore) : 'muted';
   const color = TONE[tone].strong;
+  const judged = judgeCost != null || judgeCalls > 0;
 
   return (
     <Card padding="14px 16px" testId={testId} style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
@@ -44,9 +49,9 @@ export default function ModelScorecard({
         {provider && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>{provider}</span>}
         {winner && <Badge tone="info" size={10} style={{ padding: '1px 6px' }} testId="judges-pick">judge's pick</Badge>}
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 700, lineHeight: 1, color }}>
-          {bySamples ? `${passed}/${total}` : avgScore != null ? fmtScore(avgScore) : '—'}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 700, lineHeight: 1, color }} data-testid="model-scorecard-headline">
+          {bySamples ? fmtPasses(passed, total) : avgScore != null ? fmtScore(avgScore) : '—'}
         </span>
         <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
           {bySamples ? `${unit === 'scenario' ? 'scenarios' : 'samples'} passed` : avgScore != null ? 'mean score' : 'nothing scored'}
@@ -56,8 +61,8 @@ export default function ModelScorecard({
         <span style={{ display: 'block', height: '100%', borderRadius: 999, background: color, width: `${Math.round((ratio ?? avgScore ?? 0) * 100)}%` }} />
       </span>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }}>
-        <Stat label="score">{avgScore != null ? Number(avgScore).toFixed(3) : '—'}</Stat>
-        {criteria && <Stat label="criteria">{criteria.cleared}/{criteria.scored}</Stat>}
+        <Stat label="score">{fmtScore(avgScore)}</Stat>
+        {criteria && <Stat label="criteria">{fmtPasses(criteria.cleared, criteria.scored)}</Stat>}
         {latencyMs != null && <Stat label="latency">{fmtMs(latencyMs)}</Stat>}
         {(inputTokens != null || outputTokens != null) && (
           <span style={{ whiteSpace: 'nowrap' }}>
@@ -69,14 +74,22 @@ export default function ModelScorecard({
           </span>
         )}
         {cost != null && (
-          <Stat label="cost" title={`What the agent spent under this model${perInteraction != null ? ` — ${fmtRate(perInteraction)} per ${unit}` : ''}${pricing ? ` · ${pricing}` : ''}`}>
-            {fmtCost(cost)}
+          <Stat
+            label="cost"
+            title={`What the agent spent under this model${perInteraction != null ? ` — ${fmtRate(perInteraction, estimated)} per ${unit}` : ''}${estimated ? ` · ${costTitle()}` : ''}`}
+          >
+            {fmtSpend(cost, { estimated })}
             {perInteraction != null && (
-              <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>{` · ${fmtRate(perInteraction)} / ${unit}`}</span>
+              <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>{` · ${fmtRate(perInteraction, estimated)} / ${unit}`}</span>
             )}
           </Stat>
         )}
-        {pricing && <span style={{ whiteSpace: 'nowrap', color: 'var(--color-text-muted)' }}>{pricing}</span>}
+        {judged && (
+          <Stat label="judge" title="What the judge spent on this model's answers — the evaluation's own cost, not the model's">
+            {fmtSpend(judgeCost, { estimated: judgeEstimated })}
+            <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>{` · ${plural(judgeCalls, 'call')}`}</span>
+          </Stat>
+        )}
       </div>
       {(badges.length > 0 || note) && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>

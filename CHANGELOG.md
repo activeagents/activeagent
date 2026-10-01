@@ -81,6 +81,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The dashboard reads passes, scores and costs one way** (`actionagent`
+  frontend). Every fraction carries its percent (`14/16 · 88%`), every 0..1
+  score reads as a whole percent, and every cost reads `$0.0243` when
+  reported or `~$0.0243` when any part was estimated, with the legend once
+  per surface and the tokens × rate working in the figure's tooltip. The
+  Evaluations page's tiles pool only the headline run of each current or
+  unrecorded evaluation, show a pass line per model, and say how many
+  evaluations were left out as stale or archived; a card carries its
+  standing, an archive/unarchive control and, for a newer run still
+  pending or failed, that run's badge beside the headline's; *Show
+  archived (n)* lists the archived ones. The suite panel gains the spend
+  strip between Runs and Models, the matrix a cost line per cell
+  (`~$0.0243 · judge ~$0.0015`) and a trailing Cost column with group
+  subtotals, the model comparison a Judge column, the runs list a version
+  chip and a same-version / new-version / release-not-recorded line under
+  each delta, and the spend strip reads the judge's cost from the traces
+  and says "rules only" only when there is no judge. The agent cards'
+  Eval tile is the pooled pass rate with its fraction in the title.
 - **The agent card's Eval tile is the pooled pass rate** (`actionagent`
   `AgentScorecard`) over the headline runs of the agent's current and
   unrecorded evaluations — never a stale suite's or an archived one's —
