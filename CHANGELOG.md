@@ -7,6 +7,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-01
+
+Releases `activeagent` and `actionagent` 1.9.0 from one tag. New: a DeepSeek
+provider; `mcps:` runs client-side on every provider through `MCPBridge`, with
+`mcp_strategy:` and a cached tool list (needs the optional `mcp` gem); the
+RubyLLM provider reports cache and reasoning tokens, streams tool-call
+fragments correctly, carries usage and stop reason for streamed turns and takes
+a `protocol:` option on ruby_llm 2.x; the flat `json_schema` response_format is
+accepted by every provider. Carries the 1.8.2 owner fix. No migrations.
+
+### Added
+
+- **Support MCP across providers** (`activeagent`). Anthropic and OpenAI
+  Responses handle remote servers natively; ActiveAgent bridges other providers
+  and all local `command:` servers. `mcp_strategy:` selects automatic, client,
+  or required-native execution. Tool lists are cached for five minutes; a cold
+  cache connects during discovery, while a warm cache connects only when a tool
+  is called. `mcp_cache: false` bypasses the cache for one generation. Entries
+  are scoped by endpoint, credentials, environment, and `allowed_tools:`. The
+  client-side bridge requires the optional `mcp` gem.
+- **Add a DeepSeek provider** (`activeagent`). `generate_with :deepseek` uses
+  DeepSeek's OpenAI-compatible API, `deepseek-flash` by default, and
+  `DEEPSEEK_API_KEY` as the credential fallback. JSON output and tool calling
+  are native. Instructions are sent as `system` messages, and provider defaults
+  such as thinking mode are left unchanged. Thinking is billed and disables
+  sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
+
+- **Cache and reasoning tokens from the RubyLLM provider** (`activeagent`).
+  `response.usage` now carries `cached_tokens`, `cache_creation_tokens` and
+  `reasoning_tokens` when RubyLLM counted them, and a response that calls
+  tools reports `tool_use` as its `finish_reason` however the API ends it;
+  OpenAI's Responses API ends one with `stop` (#502).
+- **A `protocol:` option for the RubyLLM provider** (`activeagent`). Pins
+  which wire protocol carries a request, as RubyLLM's own `protocol:` does:
+  `:chat_completions` or `:responses` for OpenAI. Set it in `generate_with`
+  or `config/active_agent.yml`, beside `platform:`. ruby_llm 2.x sends OpenAI
+  chat to the Responses API (`/v1/responses`) where 1.16 used Chat
+  Completions, and an OpenAI-compatible server behind `openai_api_base` may
+  not implement it; `protocol: :chat_completions` keeps an agent on the old
+  endpoint, and `config.openai_protocol` in `RubyLLM.configure` keeps every
+  agent there. The option needs ruby_llm 2.x; with 1.16, which has no other
+  protocol to choose, it raises `ArgumentError` rather than being ignored
+  (#502).
+
+### Changed
+
+- **CI covers ruby_llm 1.16 and 2.x with explicit bundles** (`activeagent`).
+  `gemfiles/ruby_llm_2.gemfile` runs the full suite on ruby_llm 2.x beside
+  `gemfiles/ruby_llm_1.gemfile`, so the 2.x adapter keeps its coverage even
+  when the default bundle resolves to 1.x (#502).
+
+### Fixed
+
+- **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
+  `output_config` and ignore unsupported response formats.
+- **Fix Anthropic JSON emulation with thinking enabled** (`activeagent`).
+  Reattach the opening brace to the final text block.
+- **Prevent Anthropic response fields from leaking into replayed requests**
+  (`activeagent`). Keep only request-supported message fields.
+- **Name conflicting gems in provider load errors** (`activeagent`). Explain
+  when another gem already defines `OpenAI` and show the Gemfile replacement.
+
+- **A flat `json_schema` response_format under every provider**
+  (`activeagent`). The OpenAI providers and OpenRouter accept `name`,
+  `schema` and `strict` beside `type` as well as under `json_schema`, but
+  the RubyLLM provider raised "needs a schema for a json_schema
+  response_format" for the flat shape, the Anthropic provider sent
+  `output_config.format` with no schema, and an agent's `prompt` looked for
+  an `{action}.json` view instead, raising `ActionView::MissingTemplate`
+  for any provider. All three now read the flat shape, so a
+  `response_format` keeps working when `generate_with` changes provider
+  (#505).
+
+- **Usage and stop reasons in RubyLLM streams** (`activeagent`). Streaming
+  preserves the final stop reason and token counts, including counts sent
+  across separate chunks. Cumulative counts are merged within a turn and
+  summed across tool turns. A later chunk that omits cache writes no longer
+  erases an earlier count with RubyLLM's synthetic zero. Cache-only and
+  reasoning-only usage is also preserved when input and output counts are
+  absent (#502).
+- **Streamed tool calls through the RubyLLM provider** (`activeagent`).
+  An API streams a tool call's arguments as fragments of one JSON string,
+  and only the first fragment says which call it belongs to. The provider
+  took every later fragment for a call of its own with no name, so a
+  streamed tool call ran twice, once with no arguments and once under no
+  name, and two streamed calls ran on arguments joined into invalid JSON.
+  Fragments now go to the call they belong to, for OpenAI (Chat Completions
+  and Responses) and Anthropic, on ruby_llm 1.16 and 2.x. Arguments an API
+  sends whole, as Gemini does, are serialized as JSON instead of Ruby's
+  `Hash#to_s`; and Anthropic's empty opening input no longer leaves `{}` in
+  front of the arguments. Interleaved parallel OpenAI calls require
+  ruby_llm 2.x, since 1.16 discards their stream indices (#502).
+
+## [1.8.2] - 2026-10-01
+
+Releases `activeagent` and `actionagent` 1.8.2 from one tag. A patch on 1.8.1:
+the dashboard engine's owner scopes match an owner by class, so an
+account-owned record is no longer read through a user that shares the
+account's id. No migrations. The `activeagent` gem changes only its version.
+
+### Fixed
+
+- **An owner of another class reads no other tenant's rows** (`actionagent`).
+  `Ownable.for_owner` scoped by the owner's id alone, so an account-owned
+  model handed a user — the stored provider-key fallback of an agent run,
+  `ProviderKey.for_owner(agent.owner)`, when agents are owned per user — read
+  whichever account shared that user's id, and the run generated with that
+  account's key. The scope now matches the owner by class: a user handed to an
+  account-owned model maps to its tenant through `ActionAgent.tenant_for`, and
+  any other mismatch scopes to nothing. `TelemetryTrace.for_account` matches
+  the same way, and `owner=` raises `ArgumentError` for an owner that resolves
+  to nothing rather than writing its id into another class's column.
+  **Upgrading:** a multi-tenant install that configures both `account_class`
+  and `user_class` must own every model by one class or map between them.
+  Re-declare `owned_by :account, :user` on `Agent`, `SandboxSession`,
+  `SessionRecording` and `CodeSession` from `to_prepare` and set
+  `tenant_resolver`, as the install generator's template now shows; rows those
+  models stored under `user_id` with the account's id need `account_id`
+  backfilled, or the dashboard lists nothing for them.
+
 ## [1.8.1] - 2026-10-01
 
 ### Added
@@ -189,21 +309,6 @@ their own Claude login sets `config.claude_code_auth = :local_login` with the
 
 ### Added
 
-- **Support MCP across providers** (`activeagent`). Anthropic and OpenAI
-  Responses handle remote servers natively; ActiveAgent bridges other providers
-  and all local `command:` servers. `mcp_strategy:` selects automatic, client,
-  or required-native execution. Tool lists are cached for five minutes; a cold
-  cache connects during discovery, while a warm cache connects only when a tool
-  is called. `mcp_cache: false` bypasses the cache for one generation. Entries
-  are scoped by endpoint, credentials, environment, and `allowed_tools:`. The
-  client-side bridge requires the optional `mcp` gem.
-
-- **Add a DeepSeek provider** (`activeagent`). `generate_with :deepseek` uses
-  DeepSeek's OpenAI-compatible API, `deepseek-flash` by default, and
-  `DEEPSEEK_API_KEY` as the credential fallback. JSON output and tool calling
-  are native. Instructions are sent as `system` messages, and provider defaults
-  such as thinking mode are left unchanged. Thinking is billed and disables
-  sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
 - **Evaluation and telemetry tools on the MCP facade** (`actionagent`). The
   dashboard's MCP server now offers `evaluations_list`, `evaluations_get`,
   `evaluations_run`, `evaluation_runs_get`, `evaluation_runs_compare`,
@@ -441,14 +546,6 @@ output in the shape ruby_llm reads. No migrations.
 
 ### Fixed
 
-- **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
-  `output_config` and ignore unsupported response formats.
-- **Fix Anthropic JSON emulation with thinking enabled** (`activeagent`).
-  Reattach the opening brace to the final text block.
-- **Prevent Anthropic response fields from leaking into replayed requests**
-  (`activeagent`). Keep only request-supported message fields.
-- **Name conflicting gems in provider load errors** (`activeagent`). Explain
-  when another gem already defines `OpenAI` and show the Gemfile replacement.
 - **Tool calls sent back through the RubyLLM provider** (`activeagent`).
   After a tool ran, the follow-up request repeated the model's tool call
   with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI

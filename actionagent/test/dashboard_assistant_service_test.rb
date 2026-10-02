@@ -320,25 +320,29 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     assert_includes ActionAgent::DashboardAssistantService::INSTRUCTIONS, "Settings → Integrations"
   end
 
+  # The owner is a User here, not the Struct the other tests use: with an
+  # owner class configured, Ownable scopes by that class, so a stand-in of
+  # another class reads nothing.
   test "connections count only the owner's own GitHub and Claude Code setup" do
     original_user_class = ActionAgent.user_class
     ActionAgent.user_class = "User"
     ActionAgent::GithubConnection.delete_all
     ActionAgent::ProviderKey.delete_all
-    stranger = @owner.id + 1
+    owner = User.create!(name: "Owner", email: "owner-#{SecureRandom.hex(3)}@example.com", age: 30)
+    stranger = owner.id + 1
     ActionAgent::GithubConnection.create!(user_id: stranger, access_token: "gho_fixture", github_user_id: 42, login: "octocat")
     ActionAgent::ProviderKey.create!(user_id: stranger, provider: "claude_code", credential: "sk-ant-api03-fixture")
 
-    connections = assistant.configuration[:connections]
+    connections = assistant(owner: owner).configuration[:connections]
     assert_not connections.dig(:github, :connected)
     assert_not connections.dig(:claude_code, :connected)
 
-    ActionAgent::GithubConnection.create!(user_id: @owner.id, access_token: "gho_fixture", github_user_id: 43, login: "hubot")
-    assert assistant.configuration.dig(:connections, :github, :connected)
-    assert_not assistant.configuration.dig(:connections, :claude_code, :connected)
+    ActionAgent::GithubConnection.create!(user_id: owner.id, access_token: "gho_fixture", github_user_id: 43, login: "hubot")
+    assert assistant(owner: owner).configuration.dig(:connections, :github, :connected)
+    assert_not assistant(owner: owner).configuration.dig(:connections, :claude_code, :connected)
 
-    ActionAgent::ProviderKey.create!(user_id: @owner.id, provider: "claude_code", credential: "sk-ant-api03-owner_fixture")
-    assert assistant.configuration.dig(:connections, :claude_code, :connected)
+    ActionAgent::ProviderKey.create!(user_id: owner.id, provider: "claude_code", credential: "sk-ant-api03-owner_fixture")
+    assert assistant(owner: owner).configuration.dig(:connections, :claude_code, :connected)
   ensure
     ActionAgent.user_class = original_user_class
   end
