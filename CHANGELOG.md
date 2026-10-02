@@ -24,6 +24,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   such as thinking mode are left unchanged. Thinking is billed and disables
   sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
 
+- **Cache and reasoning tokens from the RubyLLM provider** (`activeagent`).
+  `response.usage` now carries `cached_tokens`, `cache_creation_tokens` and
+  `reasoning_tokens` when RubyLLM counted them, and a response that calls
+  tools reports `tool_use` as its `finish_reason` however the API ends it;
+  OpenAI's Responses API ends one with `stop` (#502).
+- **A `protocol:` option for the RubyLLM provider** (`activeagent`). Pins
+  which wire protocol carries a request, as RubyLLM's own `protocol:` does:
+  `:chat_completions` or `:responses` for OpenAI. Set it in `generate_with`
+  or `config/active_agent.yml`, beside `platform:`. ruby_llm 2.x sends OpenAI
+  chat to the Responses API (`/v1/responses`) where 1.16 used Chat
+  Completions, and an OpenAI-compatible server behind `openai_api_base` may
+  not implement it; `protocol: :chat_completions` keeps an agent on the old
+  endpoint, and `config.openai_protocol` in `RubyLLM.configure` keeps every
+  agent there. The option needs ruby_llm 2.x; with 1.16, which has no other
+  protocol to choose, it raises `ArgumentError` rather than being ignored
+  (#502).
+
+### Changed
+
+- **CI covers ruby_llm 1.16 and 2.x with explicit bundles** (`activeagent`).
+  `gemfiles/ruby_llm_2.gemfile` runs the full suite on ruby_llm 2.x beside
+  `gemfiles/ruby_llm_1.gemfile`, so the 2.x adapter keeps its coverage even
+  when the default bundle resolves to 1.x (#502).
+
 ### Fixed
 
 - **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
@@ -45,6 +69,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for any provider. All three now read the flat shape, so a
   `response_format` keeps working when `generate_with` changes provider
   (#505).
+
+- **Usage and stop reasons in RubyLLM streams** (`activeagent`). Streaming
+  preserves the final stop reason and token counts, including counts sent
+  across separate chunks. Cumulative counts are merged within a turn and
+  summed across tool turns. A later chunk that omits cache writes no longer
+  erases an earlier count with RubyLLM's synthetic zero. Cache-only and
+  reasoning-only usage is also preserved when input and output counts are
+  absent (#502).
+- **Streamed tool calls through the RubyLLM provider** (`activeagent`).
+  An API streams a tool call's arguments as fragments of one JSON string,
+  and only the first fragment says which call it belongs to. The provider
+  took every later fragment for a call of its own with no name, so a
+  streamed tool call ran twice, once with no arguments and once under no
+  name, and two streamed calls ran on arguments joined into invalid JSON.
+  Fragments now go to the call they belong to, for OpenAI (Chat Completions
+  and Responses) and Anthropic, on ruby_llm 1.16 and 2.x. Arguments an API
+  sends whole, as Gemini does, are serialized as JSON instead of Ruby's
+  `Hash#to_s`; and Anthropic's empty opening input no longer leaves `{}` in
+  front of the arguments. Interleaved parallel OpenAI calls require
+  ruby_llm 2.x, since 1.16 discards their stream indices (#502).
 
 ## [1.8.1] - 2026-10-01
 
