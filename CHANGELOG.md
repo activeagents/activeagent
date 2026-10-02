@@ -90,6 +90,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   front of the arguments. Interleaved parallel OpenAI calls require
   ruby_llm 2.x, since 1.16 discards their stream indices (#502).
 
+## [1.8.2] - 2026-10-01
+
+Releases `activeagent` and `actionagent` 1.8.2 from one tag. A patch on 1.8.1:
+the dashboard engine's owner scopes match an owner by class, so an
+account-owned record is no longer read through a user that shares the
+account's id. No migrations. The `activeagent` gem changes only its version.
+
+### Fixed
+
+- **An owner of another class reads no other tenant's rows** (`actionagent`).
+  `Ownable.for_owner` scoped by the owner's id alone, so an account-owned
+  model handed a user — the stored provider-key fallback of an agent run,
+  `ProviderKey.for_owner(agent.owner)`, when agents are owned per user — read
+  whichever account shared that user's id, and the run generated with that
+  account's key. The scope now matches the owner by class: a user handed to an
+  account-owned model maps to its tenant through `ActionAgent.tenant_for`, and
+  any other mismatch scopes to nothing. `TelemetryTrace.for_account` matches
+  the same way, and `owner=` raises `ArgumentError` for an owner that resolves
+  to nothing rather than writing its id into another class's column.
+  **Upgrading:** a multi-tenant install that configures both `account_class`
+  and `user_class` must own every model by one class or map between them.
+  Re-declare `owned_by :account, :user` on `Agent`, `SandboxSession`,
+  `SessionRecording` and `CodeSession` from `to_prepare` and set
+  `tenant_resolver`, as the install generator's template now shows; rows those
+  models stored under `user_id` with the account's id need `account_id`
+  backfilled, or the dashboard lists nothing for them.
+
 ## [1.8.1] - 2026-10-01
 
 ### Added
