@@ -50,7 +50,7 @@ module ActiveAgent
           kwargs = JSON.parse(api_function_call[:arguments], symbolize_names: true) if api_function_call[:arguments]
 
           instrument("tool_call.active_agent", tool_name: name) do
-            tools_function.call(name, **kwargs)
+            call_tool_function(name, **kwargs)
           end
         end
       end
