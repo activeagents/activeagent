@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-10-01
+
+Releases `activeagent` and `actionagent` 1.8.2 from one tag. A patch on 1.8.1:
+the dashboard engine's owner scopes match an owner by class, so an
+account-owned record is no longer read through a user that shares the
+account's id. No migrations. The `activeagent` gem changes only its version.
+
 ### Fixed
 
 - **An owner of another class reads no other tenant's rows** (`actionagent`).
