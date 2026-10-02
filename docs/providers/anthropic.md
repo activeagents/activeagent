@@ -104,7 +104,7 @@ Anthropic provides access to the Claude model family. For the complete list of a
 
 ### Advanced Features
 
-- **`thinking`** - Enable Claude's thinking mode for complex reasoning
+- **`thinking`** - Enable Claude's thinking mode for complex reasoning (a `json_object` request with thinking is sent without its lead-in; see [Emulated JSON Object Support](#emulated-json-object-support))
 - **`context_management`** - Configure context window management
 - **`service_tier`** - Select service tier ("auto", "standard_only")
 - **`mcps`** - Array of MCP server definitions (max 20)
@@ -191,20 +191,55 @@ ActiveAgent serializes the request as:
 
 ## Emulated JSON Object Support
 
-While Anthropic does not natively support structured response formats like OpenAI's `json_object` mode, ActiveAgent provides emulated support through a prompt engineering technique.
+Anthropic has no schema-less JSON mode like OpenAI's `json_object`, so ActiveAgent emulates `response_format: { type: "json_object" }`. Whether the request carries a prefilled answer depends on the model and on thinking.
 
-When you specify `response_format: { type: "json_object" }`, the framework:
+### Models That Accept a Prefill
+
+Claude Haiku 4.5, Sonnet 4.5, Opus 4.5, Opus 4.1, Opus 4, Sonnet 4 and the Claude 3 family accept a prefilled assistant response. For these models, with thinking off (`thinking` unset or `{ type: "disabled" }`), the framework:
 
 1. **Adds a lead-in assistant message** containing `"Here is the JSON requested:\n{"` to prime Claude to output JSON
 2. **Receives Claude's response** which continues from the opening brace
 3. **Reconstructs the complete JSON** by prepending the `{` character
 4. **Removes the lead-in message** from the message stack for clean conversation history
 
+The models are recognised in their Anthropic (`claude-sonnet-4-5`, `claude-sonnet-4-5-20250929`, `claude-3-5-sonnet-latest`), Amazon Bedrock (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`) and Vertex AI (`claude-sonnet-4-5@20250929`) ids.
+
 ### Usage Example
 
 <<< @/../test/docs/providers/anthropic_examples_test.rb#response_format_json_object_agent{ruby:line-numbers} [agent]
 
 <<< @/../test/docs/providers/anthropic_examples_test.rb#response_format_json_object_example{ruby:line-numbers} [usage]
+
+### Every Other Request
+
+Later models, from Claude Opus 4.6 and Sonnet 4.6 on (Opus 5, Sonnet 5 and Fable 5 among them), refuse a prefilled response with or without thinking, and no model accepts one [while thinking is on](https://platform.claude.com/docs/en/build-with-claude/thinking#limits-and-feature-compatibility). So a request for one of those models, for a model id the framework does not recognise, or with `thinking` set to anything but `{ type: "disabled" }` (a manual `{ type: "enabled", budget_tokens: ... }` budget or `{ type: "adaptive" }`) is sent without the lead-in. The framework:
+
+1. **Sends the conversation as written**, so the request ends on your message
+2. **Reads the JSON from Claude's answer**: `parsed_json` takes the text from the first `{` or `[` to the last `}` or `]`, so an object inside a Markdown code fence parses too
+
+Streamed requests behave the same way. Nothing but your prompt asks for JSON here, so ask for it explicitly:
+
+```ruby
+class ColorsAgent < ApplicationAgent
+  generate_with :anthropic, model: "claude-sonnet-5"
+
+  def primary_colors
+    prompt(
+      "Return a JSON object with the three primary colors in an array named 'colors'.",
+      response_format: :json_object
+    )
+  end
+end
+```
+
+### Retries
+
+When `parsed_json` cannot parse the answer, the request is sent again:
+
+- **With the lead-in**, the unparseable answer stays in the conversation and a new lead-in follows it
+- **Without it**, the unparseable answer is dropped and the same request is repeated, because a request that ended on that answer would be a prefill
+
+When the retries run out, the last answer is returned and `parsed_json` returns `nil`.
 
 ### Best Practices
 

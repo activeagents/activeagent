@@ -28,12 +28,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
   `output_config` and ignore unsupported response formats.
-- **Fix Anthropic JSON emulation with thinking enabled** (`activeagent`).
-  Reattach the opening brace to the final text block.
+- **Fix Anthropic JSON emulation on current models and with thinking**
+  (`activeagent`). `json_object` requests reach current Claude models
+  without a prefill, which they refuse with or without thinking, and so do
+  requests with thinking on. The JSON is read from the answer, inside a code
+  fence or not, and a retry drops an unparseable answer rather than ending on
+  it. Claude 4.5 and earlier models keep the lead-in while thinking is off.
 - **Prevent Anthropic response fields from leaking into replayed requests**
   (`activeagent`). Keep only request-supported message fields.
 - **Name conflicting gems in provider load errors** (`activeagent`). Explain
   when another gem already defines `OpenAI` and show the Gemfile replacement.
+- **Start `command:` MCP servers that declare `env:`** (`activeagent`). The
+  declaration's symbolized environment keys reached the process spawn, which
+  requires Strings, so every stdio server that needed credentials in its
+  environment failed with a TypeError.
+- **Return an MCP server's JSON-RPC error to the model** (`activeagent`). The
+  client raises on an error envelope; the bridge hands the message back as the
+  tool's result instead of failing the generation.
+- **Serve String-keyed `mcps:` declarations natively where the provider can**
+  (`activeagent`). Keys are symbolized before partitioning, so a declaration
+  loaded from YAML is no longer bridged on Anthropic or OpenAI Responses.
+- **Keep credentials out of the `mcps:` declaration error** (`activeagent`).
+  The message names the declaration's keys, not its values.
+- **Refuse an unknown `mcp_strategy:`** (`activeagent`) instead of treating it
+  as `:auto`.
+- **Create the MCP tool cache's lock with the class** (`activeagent`), so the
+  first concurrent callers share it.
 
 ## [1.8.1] - 2026-10-01
 

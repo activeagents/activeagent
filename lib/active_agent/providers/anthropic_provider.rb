@@ -20,6 +20,24 @@ module ActiveAgent
       # Lead-in message for JSON response format emulation
       JSON_RESPONSE_FORMAT_LEAD_IN = "Here is the JSON requested:\n{"
 
+      # Models that accept a prefilled response: Claude Haiku 4.5, Sonnet 4.5,
+      # Opus 4.5, Opus 4.1, Opus 4, Sonnet 4 and the Claude 3 family. Every model
+      # from Claude Opus 4.6 and Sonnet 4.6 on refuses one, with or without
+      # thinking, so a new model needs no entry here.
+      #
+      # An id matches in its Anthropic form (`claude-sonnet-4-5`, with a dated
+      # snapshot or `-latest`), its Amazon Bedrock form (`anthropic.` or a region
+      # prefix such as `us.anthropic.`, and a `-v1:0` suffix) and its Vertex AI
+      # form (`claude-sonnet-4-5@20250929`). A family name must be followed by
+      # the end of the id or one of those suffixes, so `claude-opus-4` matches
+      # `claude-opus-4-20250514` but not `claude-opus-4-6`.
+      PREFILL_MODELS = /
+        \A(?:(?:[a-z-]+\.)?anthropic\.)?claude-
+        (?:3-(?:haiku|sonnet|opus)|3-5-(?:haiku|sonnet)|3-7-sonnet|
+           (?:opus|sonnet)-4(?:-0)?|opus-4-1|(?:haiku|sonnet|opus)-4-5)
+        (?=\z|@|-(?:\d{8}|latest|v\d))
+      /x
+
       attr_internal :json_format_retry_count
 
       def initialize(kwargs = {})
@@ -85,14 +103,51 @@ module ActiveAgent
         [ true, tool_name ]
       end
 
+      # Emulates the json_object response format. When {#json_object_prefill?}
+      # holds, the request ends on an assistant turn holding
+      # {JSON_RESPONSE_FORMAT_LEAD_IN}, so the model continues an object that is
+      # already open.
+      #
+      # Every other request is sent without the lead-in, and only its prompt
+      # asks for JSON. {Common::Messages::Assistant#parsed_json} then finds the
+      # object in the answer, inside a Markdown code fence or not.
+      #
       # @api private
       def prepare_prompt_request_response_format
         return unless request.response_format&.dig(:type) == "json_object"
+        return unless json_object_prefill?
 
         self.message_stack.push({
           role:    "assistant",
           content: JSON_RESPONSE_FORMAT_LEAD_IN
         })
+      end
+
+      # Whether the json_object emulation prefills the answer with the lead-in:
+      # only for a model in {PREFILL_MODELS}, and only with thinking off, since
+      # a prefill is refused while thinking is on. A missing or unrecognised
+      # model id gets no prefill, because every model accepts a request without
+      # one.
+      #
+      # @return [Boolean]
+      def json_object_prefill?
+        PREFILL_MODELS.match?(request.model.to_s) && !thinking_enabled?
+      end
+
+      # Whether the request turns thinking on, in any mode: a manual budget
+      # (`enabled`), `adaptive`, or any other type but `disabled`.
+      #
+      # The type is read from the request as serialized. An anthropic gem older
+      # than a thinking type coerces it into another variant, whose `type`
+      # reader can then disagree with what is sent: anthropic 1.12 holds
+      # `adaptive` in a `ThinkingConfigDisabled`.
+      #
+      # @return [Boolean]
+      def thinking_enabled?
+        return false unless request.thinking
+
+        type = Anthropic::Transforms.gem_to_hash(request.thinking)[:type]
+        type.present? && type.to_s != "disabled"
       end
 
       # Selects between Anthropic's stable and beta message APIs.
@@ -247,7 +302,10 @@ module ActiveAgent
       # Processes completed API response and handles JSON format retries.
       #
       # When response_format is json_object and the response fails JSON validation,
-      # recursively retries the request to obtain well-formed JSON.
+      # recursively retries the request to obtain well-formed JSON. With the
+      # lead-in (see {#json_object_prefill?}), the unparseable answer stays in the
+      # conversation and the retry ends on a new lead-in after it. Without it,
+      # the answer is dropped and the same request is sent again.
       #
       # @see BaseProvider#process_prompt_finished
       # @param api_response [Anthropic::Models::Message]
@@ -262,6 +320,10 @@ module ActiveAgent
         if request.response_format&.dig(:type) == "json_object" && common_response.message.parsed_json.nil? && json_format_retry_count > 0
           self.json_format_retry_count -= 1
 
+          # No lead-in follows the answer here, so keeping it would end the
+          # retry on an assistant turn: a prefill.
+          message_stack.pop unless json_object_prefill?
+
           resolve_prompt
         else
           common_response
@@ -275,11 +337,10 @@ module ActiveAgent
       # then send the response back for completion. This method detects and reverses
       # that workaround by stripping the lead-in message and prepending "{" to the response.
       #
-      # The brace goes on the last text block, not the first: when thinking is
-      # enabled the response opens with a `thinking` block, and prepending there
-      # corrupts the reasoning instead of completing the JSON. It also has to be a
-      # text block — `thinking` and `redacted_thinking` carry `thinking`, not
-      # `text`, so a positional assumption is wrong on both counts.
+      # The response to a request sent without the lead-in (see
+      # {#json_object_prefill?}) is returned as is. The brace goes on the last
+      # block that carries `text`. Blocks without it, such as `thinking`, are
+      # skipped.
       #
       # @see BaseProvider#process_prompt_finished_extract_messages
       # @param api_response [Hash] API response with content blocks
