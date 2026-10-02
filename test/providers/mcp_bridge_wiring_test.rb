@@ -116,6 +116,24 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
     assert_includes error.message, "none"
   end
 
+  test "serves a String-keyed declaration natively where the provider can" do
+    declared = [ { "name" => "firecrawl", "url" => "https://mcp.example.com/mcp" } ]
+
+    context = provider(AnthropicProvider, mcps: declared).send(:prompt_context)
+
+    assert_equal URL_SERVER, context[:mcps]
+    assert_nil context[:tools], "a natively served server must not add tool schemas"
+  end
+
+  test "refuses an mcp_strategy it does not know" do
+    error = assert_raises(ArgumentError) do
+      provider(AnthropicProvider, mcps: URL_SERVER, mcp_strategy: :native).send(:prompt_context)
+    end
+
+    assert_includes error.message, ":auto, :client, :server"
+    assert_includes error.message, ":native"
+  end
+
   test "keeps the agent's own tools alongside the bridge's" do
     declared = { name: "local_tool", description: "Local", parameters: {} }
 
