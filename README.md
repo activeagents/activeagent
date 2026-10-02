@@ -184,6 +184,11 @@ engine multi-tenant, adding what a hosted product has to have — accounts,
 plans, billing, quotas and managed sandboxes; every workspace starts with
 a free low-volume trial.
 
+To run that platform in your own environment instead, use its container:
+`ghcr.io/activeagents/activeagents` is tagged with the gem version it runs,
+and each [release](https://github.com/activeagents/activeagents/releases)
+attaches a `compose.yml` for it.
+
 ## Features
 
 - **Agent-Oriented Programming**: Build AI applications using familiar Rails patterns
