@@ -9,32 +9,44 @@ This is the same engine that powers the [dev console](/framework/dashboard)
 and the hosted platform at activeagents.ai. This guide covers deploying it
 as a shared, production surface for a team or a fleet of apps. If you just
 want traces while you build on your laptop, the dev console quick start is
-all you need.
+all you need. If you want the dashboard in your environment without a Rails
+app to mount it in, run the standalone container instead (see
+[Three ways to run it](#three-ways-to-run-it)).
 
-## Two ways to run it
+## Three ways to run it
 
-| | Self-hosted engine | Hosted platform (activeagents.ai) |
-|---|---|---|
-| Where data lives | Your database | Your workspace on the platform |
-| Setup | Add `actionagent` and mount its engine in a Rails app | Point telemetry at an API key |
-| Traces + span waterfall | ✓ | ✓ |
-| Metrics (24h aggregates, per-agent stats) | ✓ | ✓ |
-| Ingest API for remote apps | ✓ (`<mount>/api/traces`) | ✓ (`https://api.activeagents.ai/v1/traces`) |
-| Evaluation reports published by remote apps | ✓ (`<mount>/api/evaluation_reports`, not on a `--traces_only` install) | When the platform offers it (`https://api.activeagents.ai/v1/evaluations`) |
-| Agent builder, runs, versions | ✓ | ✓ |
-| Interactions (tool-call conversations), evaluations, scorecards, cost estimates | ✓ | ✓ |
-| Agents as an MCP server | ✓ (`<mount>/mcp`) | ✓ |
-| Accounts, plans, billing, managed sandbox infrastructure | Yours to operate | ✓ |
+| | Self-hosted engine | Standalone container | Hosted platform (activeagents.ai) |
+|---|---|---|---|
+| Where data lives | Your app's database | The container's Postgres, in your environment | Your workspace on the platform |
+| Setup | Add `actionagent` and mount its engine in a Rails app | Run a tagged release with Docker Compose | Point telemetry at an API key |
+| Traces + span waterfall | ✓ | ✓ | ✓ |
+| Metrics (24h aggregates, per-agent stats) | ✓ | ✓ | ✓ |
+| Ingest API for remote apps | ✓ (`<mount>/api/traces`) | ✓ (`<host>/v1/traces`) | ✓ (`https://api.activeagents.ai/v1/traces`) |
+| Evaluation reports published by remote apps | ✓ (`<mount>/api/evaluation_reports`, not on a `--traces_only` install) | ✓ (`<host>/v1/evaluations`) | When the platform offers it (`https://api.activeagents.ai/v1/evaluations`) |
+| Agent builder, runs, versions | ✓ | ✓ | ✓ |
+| Interactions (tool-call conversations), evaluations, scorecards, cost estimates | ✓ | ✓ | ✓ |
+| Agents as an MCP server | ✓ (`<mount>/mcp`) | ✓ (`<host>/mcp`) | ✓ |
+| Accounts and workspaces | Yours to build | ✓ | ✓ |
+| Plans, billing, managed sandbox infrastructure | Yours to operate | Not configured | ✓ |
 
 The platform is this engine in multi-tenant mode plus the things a hosted
 product has to have — accounts, plans, billing and cloud sandboxes. The
 feature surface is the same one, not a smaller version of it.
 
+The standalone container is that platform, released as an image for each
+release of these gems: `ghcr.io/activeagents/activeagents:1.8.1` runs
+`activeagent` and `actionagent` 1.8.1, and `1.8.1.1` is a platform-only
+release on them. Each [platform release](https://github.com/activeagents/activeagents/releases)
+attaches a `compose.yml` that runs it with its own Postgres; the
+[platform README](https://github.com/activeagents/activeagents#run-a-tagged-release)
+covers setup. Choose it over mounting the engine when you want the whole
+dashboard in your environment without a Rails app of your own to host it.
+
 The wire format is identical too, so the choice is per-environment, not
 per-app: the same `config/active_agent.yml` switches between them (see
 [Getting traces in](#getting-traces-in)). An evaluation report is published
-the same way to a mount, or to the platform once it collects them (see
-[Getting evaluation reports in](#getting-evaluation-reports-in)).
+the same way to a mount, to a container, or to the platform once it collects
+them (see [Getting evaluation reports in](#getting-evaluation-reports-in)).
 
 ## Install
 

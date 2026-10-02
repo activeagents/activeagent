@@ -115,6 +115,25 @@ ships **first**. Until it does, prefer feature detection over a floor bump:
 `test/integration/solid_agent/compatibility_test.rb` asserts the detection
 still matches the installed gem.
 
+## The platform image
+
+The platform at [activeagents/activeagents](https://github.com/activeagents/activeagents)
+mounts `actionagent` and is released as a container image for each release
+here, tagged with the gem version it runs. After publishing, this
+repository's release workflow dispatches `agent-gems-released` to the
+platform with both gem versions. The platform then opens a pull request
+that moves its exact pins and lists the generator templates that changed
+between the two tags; its schema is unprefixed, so each new migration
+template is mirrored there by hand before it merges. Tagging the platform
+publishes `ghcr.io/activeagents/activeagents:<version>` and its GitHub
+release.
+
+The dispatch needs `PLATFORM_RELEASE_TOKEN`, a fine-grained token with
+Contents and Pull requests read/write on the platform repository. Without
+it the dispatch is skipped with a notice, and the platform's "Agent gems"
+workflow can be run by hand with the version. The platform's
+`docs/releasing.md` covers the rest.
+
 ## See also
 
 - [Documentation](/contributing/documentation) — how docs examples stay tested
