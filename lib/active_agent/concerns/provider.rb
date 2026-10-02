@@ -11,6 +11,7 @@ module ActiveAgent
     PROVIDER_SERVICE_NAMES_REMAPS = {
       "Openrouter"  => "OpenRouter",
       "Openai"      => "OpenAI",
+      "Deepseek"    => "DeepSeek",
       "AzureOpenai" => "AzureOpenAI",
       "Azureopenai" => "AzureOpenAI",
       "Rubyllm"     => "RubyLLM",
