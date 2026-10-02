@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-01
+
+Releases `activeagent` and `actionagent` 1.9.0 from one tag. New: a DeepSeek
+provider; `mcps:` runs client-side on every provider through `MCPBridge`, with
+`mcp_strategy:` and a cached tool list (needs the optional `mcp` gem); the
+RubyLLM provider reports cache and reasoning tokens, streams tool-call
+fragments correctly, carries usage and stop reason for streamed turns and takes
+a `protocol:` option on ruby_llm 2.x; the flat `json_schema` response_format is
+accepted by every provider. Carries the 1.8.2 owner fix. No migrations.
+
 ### Added
 
 - **Support MCP across providers** (`activeagent`). Anthropic and OpenAI
