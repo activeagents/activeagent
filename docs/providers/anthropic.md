@@ -175,8 +175,19 @@ ActiveAgent serializes the request as:
 ### Notes
 
 - `name` and `strict` from the common format are not forwarded; Anthropic's `output_config.format` does not use them.
+- **`additionalProperties: false` is added when missing.** Anthropic requires it on object schemas; an explicit value is preserved.
+- **`output_config` keys are preserved.** A schema derived from `response_format` is merged with your settings, which take precedence:
+
+  ```ruby
+  prompt(
+    "Return the three primary colors.",
+    response_format: :json_schema,
+    output_config: { effort: "high" }
+  )
+  ```
+
 - JSON Schema support availability depends on model version. Check [Anthropic's documentation](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) for supported models.
-- `json_object` emulation via prompt engineering is separate and unchanged.
+- `json_object` remains prompt-emulated; Anthropic's native output format requires a JSON Schema.
 
 ## Emulated JSON Object Support
 

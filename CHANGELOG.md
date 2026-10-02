@@ -189,6 +189,21 @@ their own Claude login sets `config.claude_code_auth = :local_login` with the
 
 ### Added
 
+- **Support MCP across providers** (`activeagent`). Anthropic and OpenAI
+  Responses handle remote servers natively; ActiveAgent bridges other providers
+  and all local `command:` servers. `mcp_strategy:` selects automatic, client,
+  or required-native execution. Tool lists are cached for five minutes; a cold
+  cache connects during discovery, while a warm cache connects only when a tool
+  is called. `mcp_cache: false` bypasses the cache for one generation. Entries
+  are scoped by endpoint, credentials, environment, and `allowed_tools:`. The
+  client-side bridge requires the optional `mcp` gem.
+
+- **Add a DeepSeek provider** (`activeagent`). `generate_with :deepseek` uses
+  DeepSeek's OpenAI-compatible API, `deepseek-flash` by default, and
+  `DEEPSEEK_API_KEY` as the credential fallback. JSON output and tool calling
+  are native. Instructions are sent as `system` messages, and provider defaults
+  such as thinking mode are left unchanged. Thinking is billed and disables
+  sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
 - **Evaluation and telemetry tools on the MCP facade** (`actionagent`). The
   dashboard's MCP server now offers `evaluations_list`, `evaluations_get`,
   `evaluations_run`, `evaluation_runs_get`, `evaluation_runs_compare`,
@@ -426,6 +441,14 @@ output in the shape ruby_llm reads. No migrations.
 
 ### Fixed
 
+- **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
+  `output_config` and ignore unsupported response formats.
+- **Fix Anthropic JSON emulation with thinking enabled** (`activeagent`).
+  Reattach the opening brace to the final text block.
+- **Prevent Anthropic response fields from leaking into replayed requests**
+  (`activeagent`). Keep only request-supported message fields.
+- **Name conflicting gems in provider load errors** (`activeagent`). Explain
+  when another gem already defines `OpenAI` and show the Gemfile replacement.
 - **Tool calls sent back through the RubyLLM provider** (`activeagent`).
   After a tool ran, the follow-up request repeated the model's tool call
   with its arguments as a JSON string where ruby_llm expects a Hash: OpenAI

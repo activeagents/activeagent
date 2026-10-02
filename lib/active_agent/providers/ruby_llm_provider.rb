@@ -248,7 +248,7 @@ module ActiveAgent
       def process_function_calls(tool_calls)
         tool_calls.each do |tool_call|
           content = instrument("tool_call.active_agent", tool_name: tool_call[:name]) do
-            tools_function.call(tool_call[:name], **tool_call[:input])
+            call_tool_function(tool_call[:name], **tool_call[:input])
           end
 
           message_stack.push({

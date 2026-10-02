@@ -57,6 +57,9 @@ bundle add openai
 # Requesty (uses OpenAI-compatible API)
 bundle add openai
 
+# DeepSeek (uses OpenAI-compatible API)
+bundle add openai
+
 # RubyLLM (unified API for 15+ providers)
 bundle add ruby_llm
 ```
@@ -140,6 +143,11 @@ development:
     service: "Ollama"
     model: "llama3.2"
 
+  deepseek:
+    service: "DeepSeek"
+    api_key: <%= Rails.application.credentials.dig(:deepseek, :api_key) %>
+    model: "deepseek-flash"
+
   ruby_llm:
     service: "RubyLLM"
 ```
@@ -179,7 +187,7 @@ a free low-volume trial.
 ## Features
 
 - **Agent-Oriented Programming**: Build AI applications using familiar Rails patterns
-- **Multiple Provider Support**: Works with OpenAI, Anthropic, Ollama, RubyLLM, and more
+- **Multiple Provider Support**: Works with OpenAI, Anthropic, Ollama, DeepSeek, RubyLLM, and more
 - **Action-Based Design**: Define agent capabilities through actions
 - **View Templates**: Use ERB templates for prompts (text, JSON, HTML)
 - **Streaming Support**: Real-time response streaming with ActionCable
