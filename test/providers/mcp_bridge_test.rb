@@ -178,6 +178,17 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_equal structured, bridge.call("weather")
   end
 
+  # The real client raises on an error envelope rather than returning it.
+  test "returns a server's JSON-RPC error to the model instead of failing the generation" do
+    client = FakeClient.new(tools: [ tool("search") ])
+    client.define_singleton_method(:call_tool) do |name:, arguments:|
+      raise MCP::Client::ServerError.new("Invalid params: q must be a string", code: -32602)
+    end
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal "Invalid params: q must be a string", bridge.call("search", q: 1)
+  end
+
   test "unwraps the JSON-RPC envelope the client returns" do
     client = FakeClient.new(tools: [ tool("one") ])
 
@@ -300,12 +311,26 @@ class MCPBridgeTest < ActiveSupport::TestCase
                        bridge.send(:transport_for, { command: "mcp-server", args: [ "--verbose" ] })
   end
 
-  test "requires a url or a command to connect to" do
+  # Spawning a process requires String environment keys and values; a declaration's keys are symbolized on
+  # the way in, and a value may be a number.
+  test "hands a stdio server its environment with String keys and values" do
+    bridge    = ActiveAgent::Providers::MCPBridge.new(nil)
+    transport = bridge.send(:transport_for, { command: "mcp-server", env: { TOKEN: "secret", PORT: 8080 } })
+
+    assert_equal({ "TOKEN" => "secret", "PORT" => "8080" }, transport.instance_variable_get(:@env))
+  end
+
+  test "requires a url or a command to connect to, without repeating the declaration's values" do
     bridge = ActiveAgent::Providers::MCPBridge.new([ { name: "alpha" } ])
 
-    error = assert_raises(ArgumentError) { bridge.send(:transport_for, { name: "alpha" }) }
+    error = assert_raises(ArgumentError) do
+      bridge.send(:transport_for, { name: "alpha", authorization: "sk-SECRET-123", env: { "TOKEN" => "hunter2" } })
+    end
 
     assert_includes error.message, "`url:` or a `command:`"
+    assert_includes error.message, ":authorization"
+    assert_not_includes error.message, "sk-SECRET-123"
+    assert_not_includes error.message, "hunter2"
   end
 
   # A stdio read blocks forever without a timeout, so a server that accepts a
