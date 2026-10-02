@@ -32,8 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Reattach the opening brace to the final text block.
 - **Prevent Anthropic response fields from leaking into replayed requests**
   (`activeagent`). Keep only request-supported message fields.
-- **Name conflicting gems in provider load errors** (`activeagent`). Explain
-  when another gem already defines `OpenAI` and show the Gemfile replacement.
+- **Name conflicting gems in provider load errors** (`activeagent`). Name
+  `ruby-openai` and show the Gemfile replacement only when that gem is
+  activated or defined `OpenAI`; when something else defines it, say where.
 - **Start `command:` MCP servers that declare `env:`** (`activeagent`). The
   declaration's symbolized environment keys reached the process spawn, which
   requires Strings, so every stdio server that needed credentials in its
