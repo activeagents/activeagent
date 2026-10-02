@@ -34,6 +34,14 @@ module ActiveAgent
         ::Anthropic::Client.new(**options.serialize)
       end
 
+      # Anthropic takes remote MCP servers through `mcp_servers`, so those are
+      # served by the provider as they always were — its own tool loop, with no
+      # tool schemas in the prompt. It cannot be handed a local process, so a
+      # `command:` declaration runs client-side instead.
+      #
+      # @return [Array<Symbol>]
+      def mcp_native_transports = [ :url ]
+
       protected
 
       # Removes forced tool choice after first use to prevent endless looping.
@@ -223,7 +231,7 @@ module ActiveAgent
       # @return [Anthropic::Models::ToolResultBlockParam]
       def process_tool_call_function(api_function_call)
         instrument("tool_call.active_agent", tool_name: api_function_call[:name]) do
-          results = tools_function.call(
+          results = call_tool_function(
             api_function_call[:name], **api_function_call[:input]
           )
 
@@ -267,6 +275,12 @@ module ActiveAgent
       # then send the response back for completion. This method detects and reverses
       # that workaround by stripping the lead-in message and prepending "{" to the response.
       #
+      # The brace goes on the last text block, not the first: when thinking is
+      # enabled the response opens with a `thinking` block, and prepending there
+      # corrupts the reasoning instead of completing the JSON. It also has to be a
+      # text block — `thinking` and `redacted_thinking` carry `thinking`, not
+      # `text`, so a positional assumption is wrong on both counts.
+      #
       # @see BaseProvider#process_prompt_finished_extract_messages
       # @param api_response [Hash] API response with content blocks
       # @return [Array<Hash>, nil]
@@ -283,9 +297,9 @@ module ActiveAgent
           # Remove the lead-in message from the request
           request.messages.pop
 
-          # Prepend "{" to the response's first content text
-          if api_response[:content]&.first&.dig(:text)
-            api_response[:content][0][:text] = "{#{api_response[:content][0][:text]}"
+          # Prepend "{" to the response's JSON text block
+          if (text_block = Array(api_response[:content]).reverse.find { |block| block.is_a?(Hash) && block[:text].is_a?(String) })
+            text_block[:text] = "{#{text_block[:text]}"
           end
         end
 

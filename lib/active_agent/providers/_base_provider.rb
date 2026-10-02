@@ -3,6 +3,7 @@ require "active_support/delegation"
 require_relative "common/response"
 require_relative "concerns/exception_handler"
 require_relative "concerns/instrumentation"
+require_relative "concerns/mcp_serving"
 require_relative "concerns/previewable"
 require_relative "concerns/tool_choice_clearing"
 
@@ -14,13 +15,28 @@ GEM_LOADERS = {
   ruby_llm:  [ "ruby_llm",  [ ">= 1.16", "< 3" ], "ruby_llm" ]
 }
 
+# Gems that define the same top-level constant as the client a provider asks
+# for. A bundle can then look like it already satisfies the provider while the
+# gem it actually needs is missing.
+#
+# `openai` and `ruby-openai` both define `OpenAI`, and only the former carries
+# the typed request models every OpenAI-family provider is written against — so
+# "add the openai gem" reads as nonsense to someone whose bundle already has an
+# `OpenAI` constant.
+#
+# @private
+GEM_CONFLICTS = {
+  openai: { gem: "ruby-openai", constant: "OpenAI" }
+}.freeze
+
 # Requires a provider's gem dependency.
 #
 # @param type [Symbol] provider type (:anthropic, :openai)
 # @param file_name [String] for error context
 # @return [void]
-# @raise [LoadError] when the gem is not installed, or when the loaded
-#   version is outside the supported range
+# @raise [LoadError] when the gem is not installed, when the loaded version is
+#   outside the supported range, or when a different gem already defines the
+#   client constant
 def require_gem!(type, file_name)
   gem_name, requirement, package_name = GEM_LOADERS.fetch(type)
   requirements = Array(requirement)
@@ -36,8 +52,32 @@ def require_gem!(type, file_name)
                        "Add `gem \"#{gem_name}\", #{requirements.map(&:inspect).join(', ')}` to your Gemfile and run `bundle update #{gem_name}`."
     end
 
+    if (conflict = gem_conflict_for(type))
+      raise LoadError, "#{provider_name} needs the '#{gem_name}' gem, but this bundle has '#{conflict[:gem]}'. " \
+                       "Both define #{conflict[:constant]}, so the two cannot be installed together — " \
+                       "replace `gem \"#{conflict[:gem]}\"` with `gem \"#{gem_name}\"` in your Gemfile and run `bundle install`."
+    end
+
     raise LoadError, "The '#{gem_name}' gem is required for #{provider_name}. Please add it to your Gemfile and run `bundle install`."
   end
+end
+
+# Finds a gem in the bundle that already defines the constant the provider's
+# client needs, if there is one.
+#
+# @param type [Symbol] provider type
+# @return [Hash, nil] the conflicting gem's name and the constant it defines
+# @api private
+def gem_conflict_for(type)
+  conflict = GEM_CONFLICTS[type]
+  return unless conflict
+
+  # An activated gem is the usual case. The constant check catches the rest:
+  # the gem may sit in the bundle unrequired, and if its constant is already
+  # defined then the collision is real either way.
+  return conflict if Gem.loaded_specs.key?(conflict[:gem])
+
+  conflict if Object.const_defined?(conflict[:constant])
 end
 
 module ActiveAgent
@@ -55,21 +95,22 @@ module ActiveAgent
 
       include ExceptionHandler
       include Instrumentation
+      include MCPServing
       include Previewable
       include ToolChoiceClearing
 
       class ProvidersError < StandardError; end
 
-      attr_internal :options, :context, :trace_id,   # Setup
-                    :request, :message_stack,        # Runtime
-                    :stream_broadcaster, :streaming, # Callback (Streams)
-                    :stream_completion_pending,      # Callback (Streams)
-                    :stream_completion_result,       # Callback (Streams)
-                    :tools_function,                 # Callback (Tools)
-                    :usage_stack,                    # Usage Tracking
-                    :stream_usage_index,             # Usage Tracking (Streams)
-                    :max_tool_turns, :tool_turns,    # Tool-loop safety
-                    :instrumentation_enabled        # Per-generation privacy
+      attr_internal :options, :context, :trace_id,      # Setup
+                    :request, :message_stack,          # Runtime
+                    :stream_broadcaster, :streaming,   # Callback (Streams)
+                    :stream_completion_pending,        # Callback (Streams)
+                    :stream_completion_result,         # Callback (Streams)
+                    :tools_function,                   # Callback (Tools)
+                    :usage_stack,                      # Usage Tracking
+                    :stream_usage_index,               # Usage Tracking (Streams)
+                    :max_tool_turns, :tool_turns,      # Tool-loop safety
+                    :instrumentation_enabled          # Per-generation privacy
 
       # Upper bound on tool-calling round-trips within one generation. A
       # model that keeps emitting tool calls otherwise recurses until the
@@ -141,15 +182,20 @@ module ActiveAgent
       #
       # @return [String] markdown-formatted preview
       def preview
-        self.request = prompt_request_type.cast(context.except(:trace_id))
+        self.request = prompt_request_type.cast(preview_context.except(:trace_id))
         preview_prompt
       end
 
       # Executes prompt request with error handling and instrumentation.
       #
+      # The generation is wrapped so that a client-side MCP bridge is released
+      # however it ends. A bridged server holds a live connection — for a
+      # `command:` server, a process — and the tool loop that uses it finishes
+      # here, inside `resolve_prompt`, streaming included.
+      #
       # @return [ActiveAgent::Providers::Common::PromptResponse]
       def prompt
-        self.request = prompt_request_type.cast(context.except(:trace_id))
+        self.request = prompt_request_type.cast(prompt_context.except(:trace_id))
 
         instrument("prompt.active_agent") do |payload|
           response = resolve_prompt
@@ -157,6 +203,8 @@ module ActiveAgent
 
           response
         end
+      ensure
+        mcp_release_bridge!
       end
 
       # Executes embedding request with error handling and instrumentation.
@@ -174,6 +222,34 @@ module ActiveAgent
       end
 
       protected
+
+      # Request parameters for a real prompt, with `mcps:` resolved.
+      #
+      # Declarations the provider can serve itself are left in `mcps:` for it to
+      # translate; the rest are served client-side by {MCPServing}, which exposes
+      # their tools as ordinary tools the provider can already call.
+      #
+      # @return [Hash]
+      def prompt_context = mcp_resolved_context
+
+      # Request parameters for a preview, which resolves no client-side server:
+      # discovering a server's tools means connecting to it, and a preview must
+      # not perform I/O.
+      #
+      # @return [Hash]
+      def preview_context = mcp_preview_context
+
+      # Invokes a tool, on an MCP server when one provides it and on the agent's
+      # own tool function otherwise.
+      #
+      # @param name [String] tool name
+      # @param kwargs [Hash] tool arguments
+      # @return [Object] the tool's result
+      def call_tool_function(name, **kwargs)
+        return mcp_call_tool(name, **kwargs) if mcp_owns_tool?(name)
+
+        tools_function.call(name, **kwargs)
+      end
 
       # @param name [String, nil]
       # @raise [RuntimeError] when service name doesn't match provider

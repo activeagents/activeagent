@@ -51,6 +51,77 @@ module Providers
         assert_equal original, params
       end
 
+      # normalize_params response_format -> output_config tests
+      test "normalize_params derives output_config from a json_schema response_format" do
+        params = {
+          messages:        [ { role: "user", content: "hello" } ],
+          response_format: { type: "json_schema", json_schema: { schema: { type: "object" } } }
+        }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal "json_schema", result[:output_config][:format][:type]
+        assert_not result.key?(:response_format)
+      end
+
+      # `output_config` carries `effort` as well as `format`, so a caller who
+      # sets both must keep both.
+      test "normalize_params keeps a caller's output_config alongside a json_schema response_format" do
+        params = {
+          messages:        [ { role: "user", content: "hello" } ],
+          response_format: { type: "json_schema", json_schema: { schema: { type: "object" } } },
+          output_config:   { effort: "high" }
+        }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal "high", result[:output_config][:effort]
+        assert_equal "json_schema", result[:output_config][:format][:type]
+      end
+
+      test "normalize_params lets the caller's own output_config win" do
+        schema = { type: "object", properties: { a: { type: "string" } } }
+
+        params = {
+          messages:        [ { role: "user", content: "hello" } ],
+          response_format: { type: "json_schema", json_schema: { schema: { type: "object" } } },
+          output_config:   { format: { type: "json_schema", schema: schema } }
+        }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal schema[:properties], result[:output_config][:format][:schema][:properties]
+      end
+
+      test "normalize_params leaves a caller's output_config alone without a response_format" do
+        params = { messages: [ { role: "user", content: "hello" } ], output_config: { effort: "low" } }
+
+        result = transforms.normalize_params(params)
+
+        assert_equal({ effort: "low" }, result[:output_config])
+      end
+
+      # Anthropic's `format.type` is only ever `json_schema` and `schema` is
+      # required, so a schema-less request has no output_config to build —
+      # sending one would be rejected.
+      test "normalize_params adds no output_config for a format Anthropic cannot express" do
+        params = { messages: [ { role: "user", content: "hello" } ], response_format: { type: "json_object" } }
+
+        result = transforms.normalize_params(params)
+
+        assert_not result.key?(:output_config)
+      end
+
+      # The prompt layer resolves a named schema to its Hash first, so a bare
+      # String here is a caller that skipped that step — it must not raise.
+      test "normalize_params adds no output_config when json_schema carries no schema" do
+        params = { messages: [ { role: "user", content: "hello" } ], response_format: { type: "json_schema", json_schema: "named_elsewhere" } }
+
+        result = transforms.normalize_params(params)
+
+        assert_not result.key?(:output_config)
+      end
+
       # normalize_messages tests
       test "normalize_messages converts string to user message" do
         result = transforms.normalize_messages([ "hello" ])
@@ -438,14 +509,100 @@ module Providers
           ]
         }
 
-        result =  transforms.cleanup_serialized_request(hash, {})
+        result = transforms.cleanup_serialized_request(hash, {})
 
-        assert_nil result[:messages][0][:id]
-        assert_nil result[:messages][0][:model]
-        assert_nil result[:messages][0][:stop_reason]
-        assert_nil result[:messages][0][:type]
-        assert_nil result[:messages][0][:usage]
+        # Assert on key absence rather than on nil: a present-but-nil key is
+        # exactly what the API rejects with "Extra inputs are not permitted".
+        assert_equal %i[content role], result[:messages][0].keys.sort
         assert_equal "hello", result[:messages][0][:content]
+      end
+
+      # `diagnostics` joined the response model in anthropic 1.74.0, after
+      # `container` had already caused an outage. The allowlist is what keeps
+      # whichever field the gem adds next from doing the same.
+      test "cleanup_serialized_request strips a response field added after the denylist was written" do
+        hash = {
+          messages: [
+            { role: "assistant", content: "hello", diagnostics: nil, container: nil }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_equal %i[content role], result[:messages][0].keys.sort
+      end
+
+      test "cleanup_serialized_request strips a response field the gem has not shipped yet" do
+        hash = {
+          messages: [
+            { role: "assistant", content: "hello", some_future_response_field: { nested: true } }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_equal %i[content role], result[:messages][0].keys.sort
+      end
+
+      test "cleanup_serialized_request keeps the beta-only request keys" do
+        hash = {
+          messages: [
+            { role: "system", content: "hello", clear_at: "next_user_message", output_config: { effort: "low" } }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        # Asserting the whole message, not just its keys: the point is that the
+        # beta-only fields survive with their values intact.
+        assert_equal(
+          { role: "system", content: "hello", clear_at: "next_user_message", output_config: { effort: "low" } },
+          result[:messages][0]
+        )
+      end
+
+      # `container` is emitted on every Messages API response (null unless the code
+      # execution tool ran) and is replayed by multi-turn requests and the
+      # json_object emulation retry, which Anthropic rejects with
+      # "messages.N.container: Extra inputs are not permitted".
+      test "cleanup_serialized_request strips the response-only container from messages" do
+        hash = {
+          messages: [
+            { role: "assistant", content: "hello", container: nil, id: "msg_123" }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        # A present-but-nil key is what the API rejects, so assert on key absence
+        # rather than on the value being nil.
+        assert_not result[:messages][0].key?(:container)
+        assert_equal "hello", result[:messages][0][:content]
+      end
+
+      test "cleanup_serialized_request strips a populated container from messages" do
+        hash = {
+          messages: [
+            { role: "assistant", content: "hello", container: { id: "cont_123" } }
+          ]
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_not result[:messages][0].key?(:container)
+        assert_equal "hello", result[:messages][0][:content]
+      end
+
+      test "cleanup_serialized_request keeps the request-level container parameter" do
+        hash = {
+          model:     "claude-3",
+          messages:  [ { role: "user", content: "hello" } ],
+          container: { id: "cont_123" }
+        }
+
+        result = transforms.cleanup_serialized_request(hash, {})
+
+        assert_equal({ id: "cont_123" }, result[:container])
       end
 
       test "cleanup_serialized_request compresses content" do

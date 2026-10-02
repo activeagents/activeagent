@@ -40,6 +40,9 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "anthropic", "~> 1.12"
   spec.add_development_dependency "aws-sdk-bedrockruntime"
+  # The MCP client used by MCPBridge, only for tests: the bridge is opt-in and
+  # loads the gem lazily, so it stays optional for users.
+  spec.add_development_dependency "mcp", ">= 1.6"
   spec.add_development_dependency "openai", "~> 0.34"
   spec.add_development_dependency "ruby_llm", ">= 1.16", "< 3"
 

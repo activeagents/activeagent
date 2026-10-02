@@ -138,6 +138,7 @@ export default defineConfig({
           { text: 'Ollama', link: '/providers/ollama' },
           { text: 'OpenAI', link: '/providers/open_ai' },
           { text: 'OpenRouter', link: '/providers/open_router' },
+          { text: 'DeepSeek', link: '/providers/deepseek' },
           { text: 'Mock', link: '/providers/mock' },
         ]
       },
