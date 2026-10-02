@@ -244,7 +244,8 @@ module ActiveAgent
       #
       # @param name [String] tool name
       # @param kwargs [Hash] tool arguments
-      # @return [Object] the tool's result
+      # @return [Object] the tool's result, or an {MCPBridge::ErrorResult} for
+      #   a call that failed on an MCP server
       def call_tool_function(name, **kwargs)
         return mcp_call_tool(name, **kwargs) if mcp_owns_tool?(name)
 

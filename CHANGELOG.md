@@ -38,9 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declaration's symbolized environment keys reached the process spawn, which
   requires Strings, so every stdio server that needed credentials in its
   environment failed with a TypeError.
-- **Return an MCP server's JSON-RPC error to the model** (`activeagent`). The
-  client raises on an error envelope; the bridge hands the message back as the
-  tool's result instead of failing the generation.
+- **Return an MCP server's JSON-RPC error to the model, marked as a failure**
+  (`activeagent`). The client raises on an error envelope; the bridge hands
+  the message back as the tool's result instead of failing the generation.
+  That error, like a result the tool marks `isError`, reaches the model as
+  `{"error": message}`, with `is_error: true` on Anthropic, so it no longer
+  reads as a successful result.
 - **Serve String-keyed `mcps:` declarations natively where the provider can**
   (`activeagent`). Keys are symbolized before partitioning, so a declaration
   loaded from YAML is no longer bridged on Anthropic or OpenAI Responses.
