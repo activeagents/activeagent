@@ -170,7 +170,7 @@ Entries are isolated by endpoint, bearer credential, command/arguments/environme
 
 A cache miss connects once to list tools. A cache hit avoids connecting unless the model calls a tool; `command:` servers start on first use in that generation.
 
-The process-local cache holds no sockets or child processes. Clear it after a server update with `MCPToolCache.clear!`, or refresh one bridge with `refresh!`.
+The process-local cache holds no sockets or child processes. Clear it after a server update with `MCPToolCache.clear!`.
 
 ::: warning Replaying MCP traffic in tests
 The cache changes request counts. Since MCP calls POST to one URL, URI-matched cassettes replay in order and become misaligned when a cached `tools/list` is skipped. Disable caching in cassette-backed tests and reset it between examples:
