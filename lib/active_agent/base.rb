@@ -389,11 +389,25 @@ module ActiveAgent
       end
 
       if response_format[:type].to_sym == :json_schema
+        response_format = nest_flat_json_schema(response_format)
         response_format[:json_schema] = prompt_view_schema(response_format[:json_schema])
         response_format[:json_schema].deep_transform_keys! { _1.to_s.camelize(:lower) }
       end
 
       response_format
+    end
+
+    # Moves a json_schema given flat, with its name, schema and strict flag
+    # beside +type+, under +json_schema+, so it is not mistaken for a
+    # json_schema that names a view. Without a top-level schema, or with a
+    # +json_schema+ already, the format is returned as it came.
+    #
+    # @api private
+    def nest_flat_json_schema(response_format)
+      return response_format if response_format.key?(:json_schema) || response_format[:schema].nil?
+
+      flat_keys = %i[name schema strict]
+      response_format.except(*flat_keys).merge(json_schema: response_format.slice(*flat_keys))
     end
 
     # @api private

@@ -35,6 +35,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Name conflicting gems in provider load errors** (`activeagent`). Explain
   when another gem already defines `OpenAI` and show the Gemfile replacement.
 
+- **A flat `json_schema` response_format under every provider**
+  (`activeagent`). The OpenAI providers and OpenRouter accept `name`,
+  `schema` and `strict` beside `type` as well as under `json_schema`, but
+  the RubyLLM provider raised "needs a schema for a json_schema
+  response_format" for the flat shape, the Anthropic provider sent
+  `output_config.format` with no schema, and an agent's `prompt` looked for
+  an `{action}.json` view instead, raising `ActionView::MissingTemplate`
+  for any provider. All three now read the flat shape, so a
+  `response_format` keeps working when `generate_with` changes provider
+  (#505).
+
 ## [1.8.1] - 2026-10-01
 
 ### Added
