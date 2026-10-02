@@ -50,12 +50,14 @@ The method automatically:
 
 ### Emulated Support (Anthropic)
 
-Anthropic doesn't natively support JSON mode. ActiveAgent emulates it by:
+Anthropic doesn't natively support JSON mode. On models that accept a prefilled response (Claude Haiku 4.5, Sonnet 4.5, Opus 4.5 and earlier), with thinking off, ActiveAgent emulates it by:
 
 1. Prepending `"Here is the JSON requested:\n{"` to prime Claude
 2. Receiving Claude's continuation
 3. Reconstructing complete JSON
 4. Removing the lead-in from message history
+
+Later models refuse that lead-in with or without thinking, and every model refuses it while thinking is on, so those requests are sent without it and the JSON is read from Claude's answer. See [Emulated JSON Object Support](/providers/anthropic#emulated-json-object-support).
 
 <<< @/../test/docs/actions/structured_output_examples_test.rb#anthropic_json_agent {ruby:line-numbers}
 
