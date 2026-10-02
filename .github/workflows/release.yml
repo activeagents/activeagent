@@ -100,3 +100,36 @@ jobs:
 
           publish "pkg/activeagent-*.gem"
           publish "pkg/actionagent-*.gem"
+
+  # The platform (activeagents/activeagents) is released as a container
+  # image for each release here. This tells it both gems are on RubyGems;
+  # its "Agent gems" workflow opens the pull request that moves its pins.
+  #
+  # Needs PLATFORM_RELEASE_TOKEN, a fine-grained token with Contents and Pull
+  # requests read/write on activeagents/activeagents. Without it this job
+  # skips with a notice, and that workflow can be run by hand instead.
+  platform:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tell the platform which gems shipped
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_RELEASE_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::PLATFORM_RELEASE_TOKEN is not set, so the platform was not told about $GITHUB_REF_NAME. Run its Agent gems workflow by hand."
+            exit 0
+          fi
+
+          version() { sed -nE 's/.*VERSION = "([^"]+)".*/\1/p' "$1"; }
+          activeagent=$(version lib/active_agent/version.rb)
+          actionagent=$(version actionagent/lib/action_agent/version.rb)
+
+          jq -n --arg tag "$GITHUB_REF_NAME" --arg activeagent "$activeagent" --arg actionagent "$actionagent" \
+            '{event_type: "agent-gems-released", client_payload: {tag: $tag, activeagent: $activeagent, actionagent: $actionagent}}' |
+            gh api --method POST repos/activeagents/activeagents/dispatches --input -
+          echo "Dispatched activeagent $activeagent and actionagent $actionagent to activeagents/activeagents."
