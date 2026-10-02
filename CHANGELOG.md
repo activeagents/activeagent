@@ -50,6 +50,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as `:auto`.
 - **Create the MCP tool cache's lock with the class** (`activeagent`), so the
   first concurrent callers share it.
+- **Apply `read_timeout:` to `url:` MCP servers** (`activeagent`). The option
+  was accepted on a remote server but neither validated nor applied, so its
+  requests waited as long as Net::HTTP allowed. It is validated for both
+  transports and sets the read timeout of the server's HTTP connection, 30
+  seconds by default, so a streamed response stays open while it keeps sending
+  events.
+- **Bound a `command:` MCP server's whole answer by `read_timeout:`**
+  (`activeagent`). The wait restarted with every frame read, so a server that
+  kept sending notifications or pings without answering held the generation
+  open indefinitely. A server that misses the deadline is stopped, and
+  `MCPBridge::TimeoutError` names the server and the request. The handshake
+  keeps the `mcp` gem's 5-second bound on its `server/discover` probe instead
+  of waiting the full read timeout.
 
 ## [1.8.1] - 2026-10-01
 
