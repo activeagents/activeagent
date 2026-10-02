@@ -708,6 +708,54 @@ module Providers
         assert_equal "You are helpful", compressed[:system]
       end
 
+      # normalize_response_format tests
+      test "normalize_response_format turns a nested json_schema into an output_config format" do
+        schema = { type: "object", properties: { text: { type: "string" } } }
+
+        result = transforms.normalize_response_format(
+          { type: "json_schema", json_schema: { name: "greeting", strict: true, schema: schema } }
+        )
+
+        assert_equal(
+          { format: { type: "json_schema", schema: schema.merge(additionalProperties: false) } },
+          result
+        )
+      end
+
+      test "normalize_response_format turns a flat json_schema into the same output_config format" do
+        schema = { type: "object", properties: { text: { type: "string" } } }
+
+        nested = transforms.normalize_response_format(
+          { type: "json_schema", json_schema: { name: "greeting", strict: true, schema: schema } }
+        )
+        flat = transforms.normalize_response_format(
+          { type: "json_schema", name: "greeting", strict: true, schema: schema }
+        )
+
+        assert_equal nested, flat
+        assert_equal schema.merge(additionalProperties: false), flat.dig(:format, :schema)
+      end
+
+      test "normalize_response_format reads a flat json_schema given with string keys" do
+        result = transforms.normalize_response_format(
+          { "type" => "json_schema", "name" => "greeting", "schema" => { "type" => "object" } }
+        )
+
+        assert_equal({ format: { type: "json_schema", schema: { type: "object", additionalProperties: false } } }, result)
+      end
+
+      test "normalize_params replaces a flat response_format with output_config" do
+        schema = { type: "object", properties: { text: { type: "string" } } }
+
+        result = transforms.normalize_params(
+          messages: [ { role: "user", content: "hello" } ],
+          response_format: { type: "json_schema", name: "greeting", schema: schema }
+        )
+
+        assert_not result.key?(:response_format)
+        assert_equal schema.merge(additionalProperties: false), result.dig(:output_config, :format, :schema)
+      end
+
       # normalize_mcp_servers tests
       test "normalize_mcp_servers converts common format to Anthropic format" do
         mcp_servers = [

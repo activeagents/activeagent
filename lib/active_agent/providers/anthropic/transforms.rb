@@ -237,9 +237,12 @@ module ActiveAgent
           #
           # Supported (ActiveAgent common format):
           #   { type: "json_schema", json_schema: { name: "...", schema: {...}, strict: true } }
+          #   { type: "json_schema", name: "...", schema: {...}, strict: true }
           # → { format: { type: "json_schema", schema: {...} } }
           #
           # Notes:
+          # - The schema is read from the top level or from +json_schema+, as the
+          #   OpenAI transforms do; a top-level schema wins.
           # - Anthropic's `format.type` is only ever `json_schema`, and `schema`
           #   is required, so anything else has no output_config to build.
           # - Anthropic requires `additionalProperties: false` on all object schemas.
@@ -259,9 +262,11 @@ module ActiveAgent
               if format_hash[:type].to_s == "json_schema"
                 # A named schema (a String) is resolved to its Hash by the prompt
                 # layer before it reaches here, so anything that is not a Hash
-                # carries no inline schema to send.
+                # carries no inline schema to send. The schema sits at the top
+                # level in the flat shape, or under +json_schema+.
                 json_schema = format_hash[:json_schema]
-                schema = json_schema[:schema] if json_schema.is_a?(Hash)
+                schema = format_hash[:schema]
+                schema = json_schema[:schema] if schema.nil? && json_schema.is_a?(Hash)
                 return nil unless schema
 
                 { format: { type: "json_schema", schema: inject_additional_properties(schema.deep_dup) } }
