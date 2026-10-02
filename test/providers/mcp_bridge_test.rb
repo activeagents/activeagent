@@ -333,16 +333,33 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_not_includes error.message, "hunter2"
   end
 
-  # A stdio read blocks forever without a timeout, so a server that accepts a
-  # request and never answers would hold the generation open until the worker is
-  # restarted. The gem exposes no reader for this, and an unbounded read is the
-  # failure being guarded against, so reaching in is the only way to assert it.
-  test "bounds the stdio read so a silent server cannot block the generation" do
+  # The stdio transport's own read timeout restarts with every frame it reads,
+  # so the bridge bounds a server's answer itself and leaves the transport
+  # without one, which keeps the gem's short bound on the `server/discover`
+  # probe. The gem exposes no reader for this, so reaching in is the only way to
+  # assert it. MCPBridgeReadTimeoutTest covers the bound against a real server.
+  test "leaves the stdio transport's own read timeout unset" do
     bridge    = ActiveAgent::Providers::MCPBridge.new(nil)
-    transport = bridge.send(:transport_for, { command: "mcp-server" })
+    transport = bridge.send(:transport_for, { command: "mcp-server", read_timeout: 2 })
 
-    assert_equal ActiveAgent::Providers::MCPBridge::DEFAULT_READ_TIMEOUT,
-                 transport.instance_variable_get(:@read_timeout)
+    assert_nil transport.instance_variable_get(:@read_timeout)
+  end
+
+  # The gem builds its Faraday connection on first use and exposes no reader
+  # for it, so reaching in is the only way to see what a request is sent with.
+  # Building the connection opens none.
+  test "bounds a url server's reads by its declared read timeout" do
+    bridge    = ActiveAgent::Providers::MCPBridge.new(nil)
+    transport = bridge.send(:transport_for, { url: "https://alpha.test/mcp", read_timeout: 7 })
+
+    assert_equal 7, transport.send(:client).options.read_timeout
+  end
+
+  test "bounds a url server's reads by the default read timeout when none is declared" do
+    bridge    = ActiveAgent::Providers::MCPBridge.new(nil)
+    transport = bridge.send(:transport_for, { url: "https://alpha.test/mcp" })
+
+    assert_equal ActiveAgent::Providers::MCPBridge::DEFAULT_READ_TIMEOUT, transport.send(:client).options.read_timeout
   end
 
   test "honours a declared read timeout" do
@@ -357,6 +374,18 @@ class MCPBridgeTest < ActiveSupport::TestCase
     error = assert_raises(ArgumentError) { bridge.send(:read_timeout_for, { read_timeout: 0 }) }
 
     assert_includes error.message, "positive number"
+  end
+
+  test "refuses a read timeout that is not a positive, finite number, whichever the transport" do
+    bridge = ActiveAgent::Providers::MCPBridge.new(nil)
+
+    [ { url: "https://alpha.test/mcp" }, { command: "mcp-server" } ].product([ "abc", 0, -1, Float::INFINITY ]).each do |server, timeout|
+      error = assert_raises(ArgumentError, "a #{server.keys.first}: server with read_timeout: #{timeout.inspect}") do
+        bridge.send(:transport_for, server.merge(read_timeout: timeout))
+      end
+
+      assert_includes error.message, "positive number"
+    end
   end
 
   test "gives each schema-less tool its own schema object" do
