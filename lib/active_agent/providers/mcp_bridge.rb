@@ -56,6 +56,28 @@ module ActiveAgent
       # A declared server, paired with the client connected to it.
       Server = Struct.new(:name, :declaration, :client, keyword_init: true)
 
+      # The result of a tool call that failed on the server: a result the tool
+      # marked `isError`, or a JSON-RPC error the server answered with.
+      #
+      # A provider sends a tool's result to the model as JSON, and this one
+      # serializes as `{"error": message}`, which reads as a failure on an API
+      # that has no error flag. A provider whose API has one also sets it, as
+      # Anthropic does with `is_error`.
+      #
+      # @!attribute [r] message
+      #   @return [String] the error, as the model reads it
+      ErrorResult = Data.define(:message) do
+        # @return [Hash{String => String}]
+        def as_json(*) = { "error" => message }
+
+        # The `json` gem on its own encodes an object as its `to_s`, so this
+        # routes through {#as_json} whether or not ActiveSupport's encoder is
+        # loaded.
+        #
+        # @return [String]
+        def to_json(*args) = as_json.to_json(*args)
+      end
+
       # @param servers [Array<Hash>, Hash, nil] common-format `mcps:`
       #   declarations. A single Hash is accepted as a one-server list, because
       #   `Array(some_hash)` would split it into pairs.
@@ -165,7 +187,8 @@ module ActiveAgent
       #
       # @param name [String, Symbol] tool name
       # @param kwargs [Hash] tool arguments
-      # @return [String, Hash] the tool's result
+      # @return [String, Hash, ErrorResult] the tool's result, or an
+      #   {ErrorResult} when the call failed
       # @raise [ArgumentError] when no server provides the tool
       def call(name, **kwargs)
         self.class.load_mcp!
@@ -178,7 +201,13 @@ module ActiveAgent
 
         server = ensure_connected(declaration)
 
-        flatten_result(server.client.call_tool(name: name.to_s, arguments: kwargs))
+        begin
+          flatten_result(server.client.call_tool(name: name.to_s, arguments: kwargs))
+        rescue MCP::Client::ServerError => e
+          # The client raises on a JSON-RPC error envelope. The message goes back to the model as the tool's
+          # answer, since it can often recover from a bad argument, where a raise would end the generation.
+          error_message(e.message)
+        end
       end
 
       # Loads the `mcp` gem, explaining the dependency if it is absent.
@@ -302,14 +331,25 @@ module ActiveAgent
           MCP::Client::Stdio.new(
             command:      declaration[:command],
             args:         Array(declaration[:args]),
-            env:          declaration[:env],
+            env:          spawn_env_for(declaration),
             read_timeout: read_timeout_for(declaration)
           )
         else
+          # The keys only: a declaration's values carry credentials, and this message reaches logs.
           fail ArgumentError,
-               "An entry in `mcps:` needs either a `url:` or a `command:` to connect to, " \
-               "got #{declaration.inspect}."
+               "An entry in `mcps:` needs either a `url:` or a `command:` to connect to; " \
+               "#{declaration[:name].inspect} declares only #{declaration.keys.inspect}."
         end
+      end
+
+      # The environment a stdio server's process is spawned with. Spawning requires String keys and values,
+      # while a declaration's keys are symbolized on the way in and its values may be numbers or symbols.
+      # A nil value is kept, which unsets the variable.
+      #
+      # @param declaration [Hash]
+      # @return [Hash{String => String, nil}, nil]
+      def spawn_env_for(declaration)
+        declaration[:env]&.to_h { |key, value| [ key.to_s, value&.to_s ] }
       end
 
       # The bounded wait for a server to answer.
@@ -363,6 +403,8 @@ module ActiveAgent
       # Reduces an MCP tool result to something a provider can hand back to the
       # model. Structured content is preferred when the server sends it, since
       # it is the machine-readable form; otherwise the text blocks are joined.
+      # A result the tool marked `isError` becomes an {ErrorResult} carrying
+      # its text, which is where MCP describes a tool's failure.
       #
       # `MCP::Client#call_tool` returns the whole JSON-RPC envelope, so the tool
       # result sits one level down. That is unwrapped first — keyed off the
@@ -370,7 +412,7 @@ module ActiveAgent
       # is free to use as a field name.
       #
       # @param result [Object]
-      # @return [String, Hash]
+      # @return [String, Hash, ErrorResult]
       def flatten_result(result)
         result = result.to_h if result.respond_to?(:to_h) && !result.is_a?(Hash)
         return result unless result.is_a?(Hash)
@@ -382,31 +424,40 @@ module ActiveAgent
           result = result[:result] || result["result"] || {}
         end
 
+        return error_message(text_content(result)) if result[:isError] || result["isError"]
+
         structured = result[:structuredContent] || result["structuredContent"]
         return structured if structured
 
-        blocks = result[:content] || result["content"]
-        return "" if blocks.nil?
+        text_content(result)
+      end
 
-        Array(blocks).filter_map do |block|
+      # Joins the text blocks of a tool result. Blocks without text, such as
+      # images, are left out.
+      #
+      # @param result [Hash]
+      # @return [String]
+      def text_content(result)
+        Array(result[:content] || result["content"]).filter_map do |block|
           block = block.to_h if block.respond_to?(:to_h) && !block.is_a?(Hash)
 
           block[:text] || block["text"] if block.is_a?(Hash)
         end.join("\n")
       end
 
-      # Renders a JSON-RPC error for the model. It is returned as tool content
-      # rather than raised: the model can often recover from a bad argument,
-      # and a raise here would surface as a failed generation instead.
+      # Wraps the error a failed call reports in an {ErrorResult} for the
+      # model, with a placeholder when the server gave no message. It is
+      # returned as the tool's result rather than raised: the model can often
+      # recover from a bad argument, and a raise here would surface as a failed
+      # generation instead.
       #
-      # @param error [Hash, String, nil]
-      # @return [String]
+      # @param error [Hash, String, nil] a JSON-RPC error object, or the text
+      #   describing the failure
+      # @return [ErrorResult]
       def error_message(error)
-        case error
-        when Hash then (error[:message] || error["message"] || error.inspect).to_s
-        when nil  then "The MCP server returned an empty error."
-        else error.to_s
-        end
+        message = error.is_a?(Hash) ? (error[:message] || error["message"] || error.inspect) : error
+
+        ErrorResult.new(message: message.to_s.presence || "The MCP server returned an empty error.")
       end
 
       # @param servers [Array<Hash>, Hash, nil]

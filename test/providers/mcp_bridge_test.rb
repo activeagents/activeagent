@@ -178,6 +178,17 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_equal structured, bridge.call("weather")
   end
 
+  # The real client raises on an error envelope rather than returning it.
+  test "returns a server's JSON-RPC error to the model instead of failing the generation" do
+    client = FakeClient.new(tools: [ tool("search") ])
+    client.define_singleton_method(:call_tool) do |name:, arguments:|
+      raise MCP::Client::ServerError.new("Invalid params: q must be a string", code: -32602)
+    end
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal failed_call("Invalid params: q must be a string"), bridge.call("search", q: 1)
+  end
+
   test "unwraps the JSON-RPC envelope the client returns" do
     client = FakeClient.new(tools: [ tool("one") ])
 
@@ -194,7 +205,61 @@ class MCPBridgeTest < ActiveSupport::TestCase
 
     bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
 
-    assert_equal "Unknown tool", bridge.call("one")
+    assert_equal failed_call("Unknown tool"), bridge.call("one")
+  end
+
+  # A tool's own failure is not a protocol error: it arrives as an ordinary
+  # result, marked `isError`, whose text describes what went wrong.
+  test "returns a result the tool marked isError as a failed call" do
+    client = FakeClient.new(
+      tools:   [ tool("search") ],
+      results: { "search" => { "content" => [ { "type" => "text", "text" => "Rate limit exceeded" } ],
+                               "isError" => true } }
+    )
+
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal failed_call("Rate limit exceeded"), bridge.call("search")
+  end
+
+  test "describes a failed call by its text even when it sends structured content" do
+    client = FakeClient.new(
+      tools:   [ tool("search") ],
+      results: { "search" => { "content" => [ { "type" => "text", "text" => "Rate limit exceeded" } ],
+                               "structuredContent" => { "retry_after" => 30 },
+                               "isError" => true } }
+    )
+
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal failed_call("Rate limit exceeded"), bridge.call("search")
+  end
+
+  # The `mcp` gem's own server sends `isError: false` on every result that
+  # succeeds.
+  test "treats a result marked isError false as a success" do
+    client = FakeClient.new(
+      tools:   [ tool("search") ],
+      results: { "search" => { "content" => [ { "type" => "text", "text" => "found" } ], "isError" => false } }
+    )
+
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal "found", bridge.call("search")
+  end
+
+  test "words a failed call that carries no description" do
+    client = FakeClient.new(tools: [ tool("search") ], results: { "search" => { "content" => [], "isError" => true } })
+
+    bridge = build_bridge({ name: "alpha", url: "https://alpha.test/mcp" }, { "alpha" => client })
+
+    assert_equal failed_call("The MCP server returned an empty error."), bridge.call("search")
+  end
+
+  # Providers send a tool's result to the model as JSON, and where the API has
+  # no error flag this is all that tells the model the call failed.
+  test "serializes a failed call as an error object" do
+    assert_equal({ "error" => "Unknown tool" }, JSON.parse(failed_call("Unknown tool").to_json))
   end
 
   # A tool is free to use `result` as a field name, so only the envelope's own
@@ -300,12 +365,26 @@ class MCPBridgeTest < ActiveSupport::TestCase
                        bridge.send(:transport_for, { command: "mcp-server", args: [ "--verbose" ] })
   end
 
-  test "requires a url or a command to connect to" do
+  # Spawning a process requires String environment keys and values; a declaration's keys are symbolized on
+  # the way in, and a value may be a number.
+  test "hands a stdio server its environment with String keys and values" do
+    bridge    = ActiveAgent::Providers::MCPBridge.new(nil)
+    transport = bridge.send(:transport_for, { command: "mcp-server", env: { TOKEN: "secret", PORT: 8080 } })
+
+    assert_equal({ "TOKEN" => "secret", "PORT" => "8080" }, transport.instance_variable_get(:@env))
+  end
+
+  test "requires a url or a command to connect to, without repeating the declaration's values" do
     bridge = ActiveAgent::Providers::MCPBridge.new([ { name: "alpha" } ])
 
-    error = assert_raises(ArgumentError) { bridge.send(:transport_for, { name: "alpha" }) }
+    error = assert_raises(ArgumentError) do
+      bridge.send(:transport_for, { name: "alpha", authorization: "sk-SECRET-123", env: { "TOKEN" => "hunter2" } })
+    end
 
     assert_includes error.message, "`url:` or a `command:`"
+    assert_includes error.message, ":authorization"
+    assert_not_includes error.message, "sk-SECRET-123"
+    assert_not_includes error.message, "hunter2"
   end
 
   # A stdio read blocks forever without a timeout, so a server that accepts a
@@ -579,6 +658,9 @@ class MCPBridgeTest < ActiveSupport::TestCase
   def tool(name, description: "#{name} tool", input_schema: { type: "object", properties: {} })
     MCP::Client::Tool.new(name:, description:, input_schema:)
   end
+
+  # A failed call, as the bridge hands it to the provider.
+  def failed_call(message) = ActiveAgent::Providers::MCPBridge::ErrorResult.new(message:)
 
   # Builds a bridge over the single standard server, for a test that replaces
   # `connect` itself.
