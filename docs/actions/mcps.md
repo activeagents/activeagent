@@ -37,7 +37,8 @@ A server uses either an HTTP `url:` or a local stdio `command:`.
 {
   name: "server_name",        # Optional: server identifier, defaults to the host
   url: "https://server.url",  # Required: MCP endpoint
-  authorization: "token"      # Optional: auth token
+  authorization: "token",     # Optional: auth token
+  read_timeout: 10            # Optional: seconds to wait for data
 }
 
 # Local server, over stdio
@@ -52,7 +53,12 @@ A server uses either an HTTP `url:` or a local stdio `command:`.
 
 `name:` defaults to the URL host or command executable. Set it explicitly when multiple servers share a host.
 
-For `command:` servers, `read_timeout:` sets the response deadline in seconds (30 by default). For HTTP servers, `max_reconnection_wait:` configures the transport's reconnection limit.
+`read_timeout:` sets how long ActiveAgent waits on a server it runs, in seconds (30 by default). It must be a positive, finite number; anything else raises `ArgumentError` when ActiveAgent connects to the server. What it bounds depends on the transport:
+
+- **`command:` servers:** the whole answer to each request — the handshake, the tool list, and each tool call. Notifications and pings the server sends meanwhile do not extend it. A server that misses it is stopped, and the generation fails with `ActiveAgent::Providers::MCPBridge::TimeoutError`, which names the server and the request. The handshake also allows the 5 seconds the `mcp` gem gives its `server/discover` probe, so a server that ignores the probe still has its full `read_timeout:` to answer.
+- **`url:` servers:** each wait for data from the server, so a streamed answer stays open for as long as it keeps sending events. Opening the connection is not covered; it keeps Net::HTTP's own timeout.
+
+For HTTP servers, `max_reconnection_wait:` configures the transport's reconnection limit.
 
 On a cache miss, ActiveAgent connects during prompt setup to list tools. On a cache hit, it connects only if the model calls a tool. Connections close when the generation ends, including on error.
 
