@@ -24,6 +24,9 @@ module ActiveAgent
     module MCPServing
       extend ActiveSupport::Concern
 
+      # The accepted `mcp_strategy:` values.
+      STRATEGIES = %i[auto client server].freeze
+
       included do
         # @return [MCPBridge, nil] bridge over the client-side declarations
         attr_internal :mcp_bridge
@@ -135,8 +138,12 @@ module ActiveAgent
       # @return [Symbol] how to serve `mcps:`: `:auto` (default, native where the
       #   provider can and client-side otherwise), `:client` to always run the
       #   servers here, or `:server` to require the provider to run them
+      # @raise [ArgumentError] for a value outside `STRATEGIES`
       def mcp_strategy
-        (context[:mcp_strategy] || :auto).to_sym
+        strategy = (context[:mcp_strategy] || :auto).to_sym
+        return strategy if STRATEGIES.include?(strategy)
+
+        fail ArgumentError, "`mcp_strategy:` must be one of #{STRATEGIES.map(&:inspect).join(', ')}, got #{strategy.inspect}."
       end
 
       # Removes the MCP options, which are instructions to this concern rather
@@ -153,9 +160,10 @@ module ActiveAgent
       def mcp_normalize_declarations(declarations)
         return [] if declarations.blank?
         # `Array(hash)` would split a lone declaration into pairs.
-        return [ declarations ] if declarations.is_a?(Hash)
+        declarations = [ declarations ] if declarations.is_a?(Hash)
 
-        Array(declarations)
+        # A declaration loaded from YAML or JSON arrives with String keys, and `mcp_transport` reads Symbols.
+        Array(declarations).map { |declaration| declaration.is_a?(Hash) ? declaration.deep_symbolize_keys : declaration }
       end
 
       # @param declaration [Hash]
