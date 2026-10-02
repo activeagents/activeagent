@@ -1383,6 +1383,14 @@ ActionAgent.configure do |config|
 end
 ```
 
+Every owned model reads and writes its owner by class. If you also set
+`config.user_class`, agents, sandboxes, recordings and code sessions are owned
+per user while keys and connections are owned per account; a platform that
+scopes everything by account re-declares `owned_by :account, :user` on the
+user-first models from `to_prepare` and sets `config.tenant_resolver` so a
+user maps to its account. The install generator's template shows both. An
+owner of another class than a model is owned by reads nothing.
+
 In multi-tenant mode the ingest API authenticates with
 `Authorization: Bearer <account.telemetry_api_key>` and processes traces
 asynchronously through `ActionAgent::ProcessTelemetryTracesJob`
