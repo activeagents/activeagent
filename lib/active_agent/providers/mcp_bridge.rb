@@ -178,7 +178,13 @@ module ActiveAgent
 
         server = ensure_connected(declaration)
 
-        flatten_result(server.client.call_tool(name: name.to_s, arguments: kwargs))
+        begin
+          flatten_result(server.client.call_tool(name: name.to_s, arguments: kwargs))
+        rescue MCP::Client::ServerError => e
+          # The client raises on a JSON-RPC error envelope. The message goes back to the model as the tool's
+          # answer, since it can often recover from a bad argument, where a raise would end the generation.
+          error_message(e.message)
+        end
       end
 
       # Loads the `mcp` gem, explaining the dependency if it is absent.
@@ -302,14 +308,25 @@ module ActiveAgent
           MCP::Client::Stdio.new(
             command:      declaration[:command],
             args:         Array(declaration[:args]),
-            env:          declaration[:env],
+            env:          spawn_env_for(declaration),
             read_timeout: read_timeout_for(declaration)
           )
         else
+          # The keys only: a declaration's values carry credentials, and this message reaches logs.
           fail ArgumentError,
-               "An entry in `mcps:` needs either a `url:` or a `command:` to connect to, " \
-               "got #{declaration.inspect}."
+               "An entry in `mcps:` needs either a `url:` or a `command:` to connect to; " \
+               "#{declaration[:name].inspect} declares only #{declaration.keys.inspect}."
         end
+      end
+
+      # The environment a stdio server's process is spawned with. Spawning requires String keys and values,
+      # while a declaration's keys are symbolized on the way in and its values may be numbers or symbols.
+      # A nil value is kept, which unsets the variable.
+      #
+      # @param declaration [Hash]
+      # @return [Hash{String => String, nil}, nil]
+      def spawn_env_for(declaration)
+        declaration[:env]&.to_h { |key, value| [ key.to_s, value&.to_s ] }
       end
 
       # The bounded wait for a server to answer.
