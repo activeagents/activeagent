@@ -35,6 +35,8 @@ module ActiveAgent
       # talks to many distinct servers from growing without bound.
       DEFAULT_MAX_ENTRIES = 100
 
+      @monitor = Monitor.new
+
       class << self
         # @return [Numeric] seconds an entry stays usable
         def ttl = @ttl ||= DEFAULT_TTL
@@ -211,10 +213,11 @@ module ActiveAgent
         # @return [Hash] insertion-ordered
         def entries = @entries ||= {}
 
-        # Reentrant, so a future caller can nest without deadlocking.
+        # Reentrant, so a future caller can nest without deadlocking. Created with the class, so two first
+        # callers cannot each build their own.
         #
         # @return [Monitor]
-        def monitor = @monitor ||= Monitor.new
+        def monitor = @monitor
 
         # The monotonic clock, so an entry's lifetime is not affected by the
         # wall clock moving.
