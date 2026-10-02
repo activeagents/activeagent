@@ -47,7 +47,28 @@ module ActionAgent
     # The release of the agent this trace came from (see #attach_agent_version!).
     belongs_to :agent_version, class_name: "ActionAgent::AgentVersion", optional: true
 
-    scope :for_account, ->(account) { where(account: account) if ActionAgent.multi_tenant? }
+    # The tenant's traces in multi-tenant mode; every trace otherwise. The
+    # account is matched by class, as Ownable.for_owner matches an owner: a
+    # user maps to its tenant through ActionAgent.tenant_for, and nil or any
+    # other class scopes to nothing.
+    scope :for_account, lambda { |account|
+      next unless ActionAgent.multi_tenant?
+
+      account = tenant_account(account)
+      account ? where(account_id: account.id) : none
+    }
+
+    # +account+ as an instance of the configured account class, or nil.
+    def self.tenant_account(account)
+      return nil if account.nil?
+
+      account_class = ActionAgent.account_class.presence&.safe_constantize
+      return nil if account_class.nil?
+      return account if account.is_a?(account_class)
+
+      tenant = ActionAgent.tenant_for(account)
+      tenant if tenant.is_a?(account_class)
+    end
 
     # Creates a TelemetryTrace from an ingested trace payload.
     #

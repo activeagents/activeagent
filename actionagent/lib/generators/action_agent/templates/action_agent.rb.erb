@@ -79,6 +79,24 @@ ActionAgent.configure do |config|
   # With an owner model configured, an owner that does not resolve sees
   # nothing rather than everything. An empty dashboard for a signed-in user
   # means the resolver above returned nil.
+  #
+  # Each model is owned by one class: agents, sandboxes, recordings and code
+  # sessions name the user first, keys and connections the account. With
+  # both classes configured, the dashboard still resolves the account as the
+  # owner, so a platform that scopes everything by account re-declares the
+  # user-first models from `to_prepare` and maps a user to its account:
+  #
+  # Rails.application.config.to_prepare do
+  #   [ActionAgent::Agent, ActionAgent::SandboxSession,
+  #    ActionAgent::SessionRecording, ActionAgent::CodeSession].each do |model|
+  #     model.owned_by :account, :user
+  #   end
+  # end
+  # config.tenant_resolver = ->(owner) { owner.is_a?(User) ? owner.account : owner }
+  #
+  # An owner of another class than the one a model is owned by reads nothing
+  # and is refused as a writer, so leaving this out shows an empty dashboard
+  # rather than another tenant's records.
 
   # ==========================================================================
   # Host integration
