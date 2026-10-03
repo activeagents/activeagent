@@ -297,7 +297,7 @@ module ActionAgent
       # requests, which the dashboard, or input_requests_answer for a text or
       # choice request, answers.
       def awaiting_input_result(run)
-        requests = run.input_requests.pending.order(:id).to_a
+        requests = run.pending_input_requests.to_a
         lines = requests.map { |request| "- input request #{request.id} (#{request.kind}): #{request.prompt}" }
 
         {

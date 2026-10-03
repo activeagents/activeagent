@@ -61,6 +61,9 @@ module ActionAgent
     scope :recent, -> { order(created_at: :desc, id: :desc) }
     # Pending requests past their `expires_at`.
     scope :overdue, -> { pending.where(expires_at: ..Time.current) }
+    # Every column but the answer and the checkpoint, which no listing shows
+    # and which hold a whole conversation.
+    scope :for_listing, -> { select(*(column_names - %w[answer checkpoint]).map { |name| arel_table[name] }) }
 
     # Stores the requests of one pause, sharing a pause key and the checkpoint
     # the run resumes from.
@@ -98,7 +101,7 @@ module ActionAgent
     # @param relation [ActiveRecord::Relation] the requests to look through
     # @return [Integer] how many requests it expired
     def self.expire_overdue!(relation = all)
-      relation.overdue.find_each.count(&:expire!)
+      relation.overdue.for_listing.find_each.count(&:expire!)
     end
 
     # The id of +user+ when it is a record of the configured user class, so

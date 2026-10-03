@@ -121,6 +121,26 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert_equal [ entry["id"] ], json.dig("run", "input_requests").map { |item| item["id"] }
   end
 
+  test "listing requests reads neither their answers nor their checkpoints" do
+    run = paused_run(ActiveAgent::InputRequest.text("Where to?"), ActiveAgent::InputRequest.text("When?"))
+    key = ActionAgent::ApiKey.create!(name: "Harness")
+    table = ActionAgent::InputRequest.quoted_table_name
+    reads = []
+    record = ->(*, payload) { reads << payload[:sql] if payload[:sql].start_with?("SELECT") && payload[:sql].include?("FROM #{table}") }
+
+    ActiveSupport::Notifications.subscribed(record, "sql.active_record") do
+      get "/activeagents/api/input_requests"
+      get "/activeagents/api/runs/#{run.id}"
+      get "/activeagents/api/runs"
+      mcp_tool("input_requests_list", {}, key)
+    end
+
+    assert_not_empty reads
+    columns = /#{Regexp.escape(table)}\.(\*|#{Regexp.escape(ActiveRecord::Base.connection.quote_column_name("checkpoint"))}|#{Regexp.escape(ActiveRecord::Base.connection.quote_column_name("answer"))})/
+    reads.each { |sql| assert_no_match columns, sql }
+    assert_equal 2, json.dig("result", "structuredContent", "input_requests").size
+  end
+
   test "a confirm request carries the paused call's arguments" do
     run = paused_run(ActiveAgent::InputRequest.confirm("Allow refund to run?", metadata: { arguments: { order_id: 7 } }))
 

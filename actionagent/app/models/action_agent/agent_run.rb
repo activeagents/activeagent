@@ -8,6 +8,8 @@ module ActionAgent
     belongs_to :agent_version, optional: true
     before_create { self.agent_version_id ||= agent&.latest_version&.id }
     has_many :input_requests, as: :subject, inverse_of: :subject, dependent: :destroy
+    has_many :pending_input_requests, -> { pending.for_listing.order(:id) },
+      class_name: "ActionAgent::InputRequest", as: :subject, inverse_of: :subject
 
     # Raised when a caller hands a run files to attach in a host app that
     # has nowhere to keep them.
