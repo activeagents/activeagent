@@ -234,6 +234,18 @@ module ActionAgent
     # @return [Hash, nil]
     attr_accessor :sandbox_limits
 
+    # Caps on the events a browser may post to a session recording, merged
+    # over RecordingEvent::DEFAULT_LIMITS. Keys:
+    #
+    #   batch_events      events in one batch
+    #   batch_bytes       bytes in one batch's request body
+    #   recording_events  events stored on one recording
+    #   recording_bytes   bytes of event JSON stored on one recording
+    #
+    # A batch over any of them is refused and counted on the recording.
+    # @return [Hash, nil]
+    attr_accessor :recording_limits
+
     # Storage service for screenshots/snapshots
     # @return [Object, nil] Object responding to #signed_url_for and #fetch_snapshot
     attr_accessor :storage_service
@@ -856,6 +868,7 @@ module ActionAgent
       @layout = nil
       @sandbox_service = :mock
       @sandbox_limits = nil
+      @recording_limits = nil
       @storage_service = nil
       @ingest_api_key = nil
       @base_controller_class = "ActionController::Base" # deprecated no-op
