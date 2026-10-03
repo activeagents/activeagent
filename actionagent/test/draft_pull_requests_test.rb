@@ -490,6 +490,25 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a publish carries at most MAX_TOTAL_BYTES, and a preview stops reading past twice that" do
+    sandbox = app_sandbox!
+    limit = ActionAgent::DraftPullRequestPublisher::MAX_FILE_BYTES - 1
+    files = (1..22).to_h { |n| [ format("data/%02d.txt", n), "x" * limit ] }
+    ActionAgent::MockSandboxBackend.stage_checkout(sandbox.session_id, base_commit: BASE, base: {}, working: files)
+    publisher = ActionAgent::DraftPullRequestPublisher.new(sandbox)
+
+    changes = publisher.changes
+
+    refusals = changes.files.map(&:refusal)
+    assert_equal [ nil ] * 21, refusals.first(21), "files are read until twice the publish limit is passed"
+    assert_equal [ "over_total" ], refusals.last(1)
+    error = assert_raises(ActionAgent::DraftPullRequestPublisher::Refused) do
+      publisher.select!(changes, changes.publishable.first(11).to_h { |file| [ file.path, file.digest ] })
+    end
+    assert_equal "too_large", error.code
+    assert_equal 10, publisher.select!(changes, changes.publishable.first(10).to_h { |file| [ file.path, file.digest ] }).size
+  end
+
   test "no publishing tool is offered to agents or over the MCP facade" do
     names = ActionAgent::AgentToolbox::DEFINITIONS.keys + ActionAgent::AgentToolbox::FUNCTIONS.keys + ActionAgent::Agent::AVAILABLE_TOOLS
     key = ActionAgent::ApiKey.create!(name: "Harness")
