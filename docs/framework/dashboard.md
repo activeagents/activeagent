@@ -82,6 +82,7 @@ agents point telemetry at an `endpoint:` instead (see below).
 | Metrics | `/activeagents/metrics` | The service overview: golden signals, six time series over 1h/24h/7d, and the top agents, models, actions, tools and error types (see below) |
 | Interactions | `/activeagents/interactions` | The conversations behind the traces: messages, tool calls, generations |
 | Evaluations | `/activeagents/evaluations` | Scored agent outputs, and scenario suites replayed across models (see below) |
+| Sessions | `/activeagents/sessions` | Every conversation, evaluation replay and agent browser recording, newest first, each one a click from its replay (see below) |
 | Console | `/activeagents/console/traces` | The same traces and metrics server-rendered, without JavaScript; span waterfall per trace at `/activeagents/console/traces/:id` |
 | Ingest API | `POST /activeagents/api/traces` | JSON trace ingestion from other apps and SDKs (`local_storage` writes through the model instead, no HTTP) |
 
@@ -1255,6 +1256,74 @@ checkout and run filesystem commands. Nobody is there to answer a permission
 prompt, so anything else that would ask is denied. `plan` keeps sessions
 read-only. Avoid `bypassPermissions`: it lets a session run any command as the
 dashboard's user.
+
+## Replaying a session
+
+**Sessions** lists what can be replayed, newest first by last activity:
+
+| Source | A session is |
+|---|---|
+| `dashboard` | a conversation with one of your agents |
+| `evaluation` | the run that replayed one evaluation scenario under one model |
+| `agent` | a browser recording that belongs to no conversation and to no evaluation replay. A recording made by a run that wrote to a conversation is replayed with that conversation. |
+
+An evaluation replay writes to its agent's conversation too, so a conversation
+that only evaluation replays wrote to is not listed: each replay appears once,
+as its scenario result.
+
+The filters run on the server, and the page keeps them in its URL. They are
+also the parameters of `GET /api/sessions`:
+
+| Parameter | Lists |
+|---|---|
+| `agent_id` | one agent's sessions |
+| `user=me` | sessions whose runs ran on behalf of you, and browser recordings you made. "You" is who a run records it ran on behalf of: what `ActionAgent.agent_actor_resolver` returns when the host sets one, else the signed-in user. |
+| `source` | `dashboard`, `evaluation` or `agent` |
+| `outcome` | `failed`: a failed or errored replay, a conversation with a failed run, a failed recording; `passed`: a passed replay |
+| `from`, `to` | last activity in `[from, to)`, as ISO 8601 times or dates |
+| `before` | the page after the previous response's `next_before` |
+| `per_page` | 25 by default, at most 100 |
+
+The response carries `sessions`, `has_more`, `next_before` and `total`. A
+conversation's runs are the runs that wrote a generation to it and the runs
+pinned to it, so a run that failed before its first model response still marks
+its conversation failed. A filter value the endpoint cannot read answers 422.
+
+A session opens at a URL that works on a full page load:
+
+| Path | Replays |
+|---|---|
+| `/activeagents/replay/:id` | a recording |
+| `/activeagents/replay/context/:id` | a conversation |
+| `/activeagents/replay/run/:id` | a run |
+| `/activeagents/replay/scenario_result/:id` | an evaluation scenario's replay |
+
+The Run Agent workbench has a **Replay** button for the conversation it has
+pinned. Interactions rows, the conversations and runs on an agent's
+interactions page, and each scenario result in an evaluation run link to their
+replays.
+
+The replay plays the session's [timeline](#session-timelines): its messages,
+model calls and tool calls on one axis, with a scrubber, stepping between
+entries and a speed control. Any stretch of more than ten seconds with nothing
+in it plays as one second, so a conversation whose turns are hours apart
+replays in moments. A session needs no recording to replay.
+
+When the session recorded a browser, the browser replays beneath the lanes and
+keeps in step with them. It plays in a frame the engine serves at
+`/activeagents/session_player`, with its own bundle, `action_agent_replay.js`,
+which the engine adds to the Sprockets precompile list (Propshaft serves it
+from the engine's asset path). The frame holds no data: the dashboard reads the
+recording's events over its own API and posts them in. The frame's
+`Content-Security-Policy` allows no script but that bundle and loads nothing
+from the network, so a replayed page runs none of its scripts and fetches none
+of its images, fonts or styles. rrweb rebuilds the page in an inner frame
+sandboxed to `allow-same-origin` alone, which inherits that policy. The
+dashboard frames the player with `sandbox="allow-scripts allow-same-origin"`:
+an iframe created inside an opaque-origin document gets an opaque origin of its
+own, which rrweb could not write into. The frame response sends
+`X-Frame-Options: SAMEORIGIN`; a host that forces `DENY` on every response
+has to exempt that path.
 
 ## Session timelines
 

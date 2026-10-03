@@ -131,8 +131,9 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
-    # The timeline of a conversation, a run or an evaluation scenario's
-    # replay, with or without a recording.
+    # The sessions a caller can replay, and the timeline of a conversation,
+    # a run or an evaluation scenario's replay, with or without a recording.
+    get "sessions", to: "sessions#index", as: :sessions
     get "sessions/:kind/:id/timeline", to: "sessions#timeline", as: :session_timeline,
       constraints: { kind: /context|run|scenario_result/ }
 
@@ -214,6 +215,10 @@ ActionAgent::Engine.routes.draw do
   # the catch-all below like any other client-side route.
   match "mcp", to: "api/mcp#unsupported", via: [ :get, :delete ],
     constraints: ->(request) { request.delete? || !ActionAgent::Engine.html_request?(request) }
+
+  # The frame the session player runs in, holding the replay bundle and no
+  # data. See SessionPlayerController.
+  get "session_player", to: "session_player#show", as: :session_player
 
   # Everything else under the mount is a client-side route: render the
   # dashboard and let the browser resolve it. Anchored last so it can only
