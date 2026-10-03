@@ -39,9 +39,10 @@ module ActionAgent
       #   { title:, body:, branch:, files: [{ path:, digest: }], allowlist: }
       #       publishes the files as a new branch and opens a draft pull
       #       request; each digest is the one the preview reported
-      #   { update: true, files:, title:, body: }
+      #   { update: true, files:, message:, allowlist: }
       #       publishes the files as a new commit on the branch of the latest
-      #       pull request
+      #       pull request, with +message+ as the commit's message; the pull
+      #       request's title and description stay as they are
       #   { regular: true }
       #       opens the latest branch GitHub refused a draft for as a regular
       #       pull request
@@ -101,8 +102,8 @@ module ActionAgent
             status: :unprocessable_entity
         end
 
-        record.assign_attributes(operation: "update", title: string_param(:title).presence&.strip || record.title,
-          body: params.key?(:body) ? string_param(:body) : record.body)
+        record.assign_attributes(operation: "update",
+          commit_message: string_param(:message).to_s.strip.presence || DraftPullRequest::DEFAULT_UPDATE_MESSAGE)
         assign_owner(record)
         return unless authorize_action!(:publish_pull_request, record)
 
