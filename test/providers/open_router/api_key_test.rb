@@ -18,8 +18,8 @@ module Providers
 
       ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
-      # Every variable OpenRouter::Options reads, plus the one the openai gem
-      # reads when the client is built without a key.
+      # Cleared around every test so a key in the developer's or the CI
+      # environment cannot decide the outcome.
       KEY_ENV = %w[
         OPENROUTER_API_KEY
         OPEN_ROUTER_API_KEY
