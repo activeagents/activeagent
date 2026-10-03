@@ -610,6 +610,7 @@ calls.
 | `evaluations_get` | One evaluation: its criteria, its scenarios and its 10 most recent runs |
 | `evaluations_create` | Creates an evaluation of one of the key's agents (`agent`, slug or id) named `name`, with optional `judge_kind`, `judge_model`, `criteria` and `compare_models`. Given scenarios it is a scenario suite; without them it scores the agent's recorded generations. Runs nothing |
 | `scenarios_merge` | Adds scenarios to an evaluation (`evaluation_id`) and updates the ones whose keys it already holds. Returns the `added`, `updated` and `unchanged` keys and the suite's size |
+| `explorations_submit` | Submits candidate scenarios for a person to review (see [Explorations](#explorations)) for a project (`project_id`) or an evaluation (`evaluation_id`), or adds them to an earlier submission (`exploration_id`). Returns each candidate's verdict and missing tools, and the review link. Writes nothing to the evaluation |
 | `evaluations_run` | Starts a run. Takes the same selection as `POST /api/evaluations/:id/run`: `scenario_ids`, `keys`, `group`, `models` and `sandbox_id`. A scenario suite runs in the background and comes back `pending` with its run id; a sampling evaluation finishes before the call returns |
 | `evaluation_runs_get` | One run (the latest by default): status, scores, usage, fix items and per-scenario, per-model results, each naming its telemetry trace when one was recorded. `failed_only` and `limit` narrow the results |
 | `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
@@ -691,6 +692,18 @@ An observed agent's suite is refused, as `evaluations_run` refuses it, unless
 a host adapter replays it. A duplicate name, unknown criteria, a scenario list
 that does not parse, or an agent or evaluation outside the key's reach comes
 back as a tool result with `isError`.
+
+### Submitting candidates for review
+
+`explorations_submit` is the reviewed form of the same path. The harness
+submits the questions it found as `candidates`, each
+`{ prompt, group, rubric, tools, contains, not_contains, provenance }`, and a
+person accepts the ones worth keeping on the dashboard. The result gives each
+candidate's verdict against the agent the project evaluates, so the harness
+can revise a candidate that needs a tool the agent does not have, and the
+`review_url` to send the person to. Storing candidates needs only the key;
+accepting them asks `:replace_scenarios` on the dashboard. An exploration
+holds at most 200 candidates.
 
 ## GitHub connections and checkout sandboxes
 
@@ -1658,6 +1671,90 @@ its sandbox. A sandbox that has expired is booted again first, and the run
 stays pending until it serves. A boot that fails, or that is still booting
 after an hour, fails the run with the reason.
 
+### Explorations
+
+An exploration is a walk through a project's running app and the candidate
+scenarios it proposed: the questions a user of the app would ask its agent,
+each with a rubric for a good answer. Candidates wait on the project's
+**Explorations** tab, and at `<mount>/explorations/:id`, until a person
+accepts or rejects them, so nothing reaches the evaluation unreviewed. An
+agent outside the dashboard, such as a coding agent driving a browser by
+hand, submits them with the [`explorations_submit`](#submitting-candidates-for-review)
+MCP tool or `POST /api/explorations`.
+
+A candidate looks like this:
+
+```json
+{
+  "id": 3,
+  "prompt": "Which of my orders shipped late last month?",
+  "group": "Orders",
+  "notes": "Lists each late order by number with its promised and actual ship dates; says so when there are none.",
+  "expectations": { "tools": ["find_orders"], "contains": [], "not_contains": [] },
+  "verdict": "answerable",
+  "missing_tools": [],
+  "state": "proposed",
+  "scenario_key": null,
+  "provenance": { "urls": ["/orders?status=late"], "steps": ["Opened Orders", "Filtered by Late"], "screenshots": [] }
+}
+```
+
+- **The rubric is the scenario's `notes`**, which the judge grades the answer
+  against. Steps, URLs, screenshots and the recording range stay in
+  `provenance`, which the reviewer sees and the judge never does.
+- **Every expected tool is checked against the tools the project's agent can
+  really call** (its toolbox tools and what the project's sandbox serves).
+  A candidate expecting a tool the agent lacks is `needs_tool`, with the tool
+  in `missing_tools`. When the tools cannot be read, because the sandbox is
+  not running or did not answer, the verdict is `unverified`.
+- **Candidate text is scrubbed before it is stored** of the project's secrets
+  (with their URL-encoded and Base64 forms), the owner's provider keys,
+  GitHub token and API keys, and the project's sandbox tokens. Strings are cut
+  to 4,000 characters and lists to 50 entries.
+- **A recording** in `provenance` is kept only when it is the exploration's
+  own, and the review links to that part of its replay. Without one there is
+  no Replay link.
+
+The review pre-selects the open, `answerable` candidates. A host can cap how
+many with `config.exploration_preselect_limit`, an Integer or a
+`->(owner) { ... }` returning one (`nil` for no cap); the reviewer can still
+select the rest. Before an accept-and-run the page shows how many executions
+the run will use (scenarios × models), and how many remain when
+`usage_resolver` reports `runs_remaining`.
+
+Accepting (`POST /api/explorations/:id/accept` with `candidate_ids` and
+optional `edits`) merges the candidates into the project's evaluation with
+[`merge_scenarios!`](/framework/evaluations#adding-to-a-suite), so it never touches a scenario
+it was not given:
+
+- Each candidate becomes the scenario `x<exploration id>_<candidate id>`, so
+  two explorations never share a key. Accepting it again updates that
+  scenario, keeping its results and whether it is enabled.
+- It is written the way the suite editor saves a suite: the prompt, group and
+  rubric folded onto one line with ` | ` written ` / `, and the prompt without
+  Markdown. A later Save in the suite editor leaves it unchanged. A pattern
+  containing `,`, `;` or ` | `, which the editor would split, is refused with
+  the reason, and so is a key a scenario from outside the exploration
+  already holds. A refused accept answers `422` with `problems` by candidate
+  id, and writes nothing.
+- It asks the [permission checker](#permissions) about `:replace_scenarios`,
+  with the evaluation as the subject.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/explorations` | The owner's explorations, newest first; `project_id` or `evaluation_id` filters |
+| `GET /api/explorations/:id` | One exploration with its candidates, the evaluation they merge into, the pre-selection cap and `runs_remaining` |
+| `POST /api/explorations` | Stores `candidates` for a `project_id` or `evaluation_id` as a new exploration, ready for review |
+| `PATCH /api/explorations/:id/candidates/:candidate_id` | Edits a candidate (`prompt`, `group`, `rubric`, `tools`, `contains`, `not_contains`), rejects it (`state: "rejected"`) or reconsiders a rejected one (`state: "proposed"`). An accepted candidate is not rejected here: disable its scenario in the evaluation |
+| `POST /api/explorations/:id/accept` | Accepts candidates, as above |
+| `POST /api/explorations/:id/stop` | Ends a running exploration and keeps what it found for review; `409` once it has stopped |
+
+An exploration's `status` is `pending`, `running`, `review` (candidates await
+a decision), `closed` (none does) or `failed`. Its `budget` and `usage` hold
+`minutes`, `steps` and `cost`, which the review shows as a meter. Another
+owner's exploration answers `404`. Deleting a project deletes its
+explorations.
+
 ## Authentication
 
 **The dashboard has no authentication by default.** Anyone who can reach
@@ -1736,7 +1833,7 @@ end
 | `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`) and deleting a project that has them (`DELETE /api/projects/:id`). Always asked about a `ProjectSecret` |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | reserved: viewing and deleting session recordings |
-| `:replace_scenarios` | creating an evaluation or merging scenarios into one over the MCP facade (`evaluations_create`, `scenarios_merge`), asked as the API key's user |
+| `:replace_scenarios` | creating an evaluation or merging scenarios into one over the MCP facade (`evaluations_create`, `scenarios_merge`), asked as the API key's user, and accepting an exploration's candidates into an evaluation (`POST /api/explorations/:id/accept`), asked about that evaluation |
 
 The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
 action, subject)` asks the checker the same way the endpoints do, and raises
@@ -1805,6 +1902,7 @@ on these streams:
 | `agent_run_<run id>`, `agent_runs_<agent id>` | `update` | the run's id |
 | `sandbox_<session id>` | `status_update` | the sandbox's session id |
 | `sandbox_<session id>` | `run_started`, `run_complete`, `run_error` | the `run_id` that `POST /api/sandboxes/:id/run` or `POST /api/sandboxes/compare` returned, which is not the `id` of the run stored on the sandbox |
+| `exploration_<id>` | `exploration` | the exploration's id. The review subscribes through a host `ExplorationChannel` with `exploration_id`, and polls while the exploration runs |
 
 Each message is `{ type, id, status }` and nothing else: a client reads the
 record back over the dashboard's JSON API, which scopes it to the signed-in
