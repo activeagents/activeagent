@@ -716,7 +716,10 @@ stays installed on GitHub.
 
 When GitHub refuses a token because the installation was removed or
 suspended, the dashboard marks the installation, and starting a sandbox from
-it asks for a reinstall.
+it asks for a reinstall. Once a suspended installation is unsuspended on
+GitHub, **Check again** on it lists its repositories, and the mark clears as
+soon as GitHub mints a token for it again. A removed installation stays
+removed: install the App again and unlink the old row.
 
 ### An OAuth connection
 

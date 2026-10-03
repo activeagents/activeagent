@@ -188,7 +188,8 @@ class GithubAppCheckoutTest < ActionDispatch::IntegrationTest
 
     assert retry_session.reload.failed?
     assert_match(/was removed/, retry_session.error_message)
-    # A marked installation is not asked again until it is linked again.
+    # A provision does not ask about a marked installation again; Settings'
+    # Check again or a relink does.
     assert_not_requested mint
   end
 
@@ -200,7 +201,7 @@ class GithubAppCheckoutTest < ActionDispatch::IntegrationTest
     ActionAgent::SandboxProvisionJob.perform_now(session.id)
 
     assert session.reload.failed?
-    assert_match(/is suspended/, session.error_message)
+    assert_match(/is suspended.*use Check again in Settings/m, session.error_message)
     assert installation.reload.suspended_at
     assert_nil installation.removed_at
   end
