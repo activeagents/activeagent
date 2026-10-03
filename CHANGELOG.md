@@ -86,17 +86,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evaluation scenario results link to their replays.
 - **Record the Run Agent workbench for its conversation's replay**
   (`actionagent`). While the workbench has a conversation open, the dashboard
-  records the page with rrweb into one recording per person and conversation
-  (`source: "dashboard"`), which replays as the conversation's browser lane,
+  records the page with rrweb, each visit into a recording of its own
+  (`source: "dashboard"`), which replays in the conversation's browser lane,
   and says so beside the conversation. It stops when you leave the workbench
   or switch conversation, and no other view is recorded. Field values are
-  masked, elements marked `data-aa-secret` (the dashboard's credential fields
-  and key displays) and the CSRF token are left out, and the server masks the
-  owner's stored credentials in every batch before storing it. The recorder
-  is a new bundle, `action_agent_recorder.js`, imported only while it records
-  and added to the Sprockets precompile list. `POST
-  <mount>/api/session_recordings` with `agent_context_id` starts or returns
-  the caller's recording of a conversation.
+  masked. Elements marked `data-aa-secret` (the dashboard's credential fields
+  and key displays), hidden inputs and the CSRF token are left out, and the
+  server masks the owner's stored credentials in every batch before storing
+  it. The recorder is a new bundle, `action_agent_recorder.js`, imported only
+  while it records and added to the Sprockets precompile list. `POST
+  <mount>/api/session_recordings` with `agent_context_id` starts the caller's
+  recording of a visit to a conversation.
   `ActionAgent.capture_dashboard_sessions = false` turns it off: no recorder
   loads, and that endpoint and dashboard-session batches answer 403.
 
@@ -113,7 +113,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recording ingest, which adds the owner's dashboard API keys and telemetry
   key to the provider keys, GitHub tokens and sandbox runtime tokens it
   already masked.
-
 - **Session Replay is now Sessions** (`actionagent`). The sidebar entry opens
   the Sessions list, and `<mount>/replay` without an id opens it too. The
   replay view plays a session's timeline and its rrweb recording instead of

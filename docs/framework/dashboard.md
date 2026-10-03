@@ -1340,22 +1340,26 @@ Recording starts when the workbench opens a conversation and stops when you
 leave the workbench or switch to another conversation. No other view is
 recorded.
 
-Each person gets one recording per conversation (`source: "dashboard"`,
-linked by its `agent_context_id`), and coming back to the conversation adds
-to it. The recorder is its own bundle, `action_agent_recorder.js`, which the
-dashboard imports only while it records, from the URL the dashboard page
+Each visit gets a recording of its own (`source: "dashboard"`, linked by its
+`agent_context_id`): opening the conversation again, or in a second tab,
+starts another, and the conversation's replay shows the visit each moment
+falls in. The recorder is its own bundle, `action_agent_recorder.js`, which
+the dashboard imports only while it records, from the URL the dashboard page
 names, so a host layout set with `ActionAgent.layout` needs no change. The
 engine adds it to the Sprockets precompile list.
 
 What a recording holds:
 
-- **Field values are masked.** rrweb records every input, textarea and select
-  value as asterisks (`maskAllInputs`).
+- **Field values are masked.** rrweb records what is typed or chosen in a
+  text-like input (text, password, email, number, date and the other typed
+  kinds), a textarea or a select as asterisks (`maskAllInputs`). Whether a
+  checkbox or radio button is checked is recorded.
 - **Elements marked `data-aa-secret` are left out.** They are recorded as
   empty boxes of the same size, with nothing inside. The dashboard marks its
   credential fields, a newly created API key and the telemetry key. Mark any
   element of your own that renders a credential inside the dashboard. The
-  page's CSRF token is left out the same way.
+  page's CSRF token and every hidden input, where a form such as the sign-out
+  form carries that token, are left out the same way.
 - **Stored credentials are masked on the server.** Every batch a dashboard
   session posts has the owner's provider keys, GitHub tokens, checkout
   sandbox runtime tokens, dashboard API keys and telemetry key replaced with
@@ -1369,12 +1373,13 @@ The dashboard page itself carries no credential, so a recording of it holds
 none. The Organization page reads the telemetry key from
 `GET /api/telemetry_key` when you show or copy it.
 
-The recorder asks `POST /api/session_recordings` with `agent_context_id` for
-its recording. It answers `{ recording: { id, agent_context_id, source,
-status } }`: 201 when it starts one, 200 for the one still recording, and 404
-for a conversation of an agent you cannot reach. Batches go to
+The recorder starts its recording with `POST /api/session_recordings` and
+`agent_context_id`. It answers 201 with `{ recording: { id, agent_context_id,
+source, status } }`, 400 without a conversation id, and 404 for a
+conversation of an agent you cannot reach. Batches go to
 `POST /api/session_recordings/:id/events` every five seconds. A batch over
-`ActionAgent.recording_limits` (413) ends the recording for that visit.
+`ActionAgent.recording_limits` (413) ends the recording of that visit, and the
+workbench then says **Recording stopped**. The next visit records again.
 
 To record nothing, set `config.capture_dashboard_sessions = false`. The
 dashboard then loads no recorder, and `POST /api/session_recordings` and every
