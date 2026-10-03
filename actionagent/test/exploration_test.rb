@@ -317,6 +317,18 @@ class ExplorationTest < ActiveSupport::TestCase
     assert_not exploration.stop!
   end
 
+  test "stopping an exploration with no candidate awaiting a decision closes it" do
+    empty = ActionAgent::Exploration.build_for(project: @project, source: "explorer", status: "running")
+    empty.save!
+    decided = explore(candidate("Where is order A-17?"))
+    decided.update_candidate!(1, "state" => "rejected")
+    decided.update!(status: "running")
+
+    assert empty.stop!
+    assert decided.stop!
+    assert_equal %w[closed closed], [ empty.reload.status, decided.reload.status ]
+  end
+
   test "candidates for the project's own evaluation are filed under the project and scrubbed of its secrets" do
     exploration = ActionAgent::Exploration.build_for(evaluation: @project.evaluation, source: "external", status: "review")
     exploration.save_with_candidates!([ candidate("Pay with #{SECRET}", tools: [ "lookup_order", "refund_order" ]) ])
