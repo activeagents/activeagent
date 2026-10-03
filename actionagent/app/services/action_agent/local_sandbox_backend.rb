@@ -72,6 +72,20 @@ module ActionAgent
     # truncation notice still shows.
     GIT_TIMEOUT = 60
     MAX_DIFF_BYTES = 1_000_000
+    # Bounds on what #changed_files lists and #read_file returns.
+    MAX_LISTING_BYTES = 4 * 1024 * 1024
+    MAX_CHANGED_FILES = 5_000
+    MAX_READ_BYTES = 1024 * 1024
+    # The environment of the git commands that read a checkout's changes.
+    # They take no lock on the index, read every path as a literal name
+    # rather than a pathspec, and ignore replace refs, which the checkout
+    # could have added to make its commit read as something else.
+    READ_ONLY_GIT_ENVIRONMENT = {
+      "GIT_OPTIONAL_LOCKS" => "0",
+      "GIT_LITERAL_PATHSPECS" => "1",
+      "GIT_NO_REPLACE_OBJECTS" => "1",
+      "GIT_TERMINAL_PROMPT" => "0"
+    }.freeze
     # How long a cancel that found no Claude Code process is remembered. The
     # session it names starts within seconds of being marked running, or
     # never; this only keeps old ones from piling up in state.json.
@@ -522,6 +536,83 @@ module ActionAgent
       true
     end
 
+    # The paths the sandbox's checkout changed since it was fetched: what
+    # `git diff` reports against the commit checked out, and the untracked
+    # files the repository does not ignore. Git runs as #capture_diff runs
+    # it, with no credential in its environment, and not at all when the
+    # checkout's git config defines filter drivers. Each path's mode and size
+    # come from lstat of the working tree, so a symlink is reported as one
+    # (120000) and a nested repository as a submodule (160000). Sockets,
+    # pipes and devices, which git does not track, are left out.
+    #
+    # @return [Hash] { base_commit:, files: [{ path:, status:, mode:, base_mode:, size: }] },
+    #   as SandboxOrchestrator#changed_files describes
+    # @raise [Error] when the checkout is gone, recorded no commit, defines
+    #   filter drivers, or changed more than MAX_CHANGED_FILES paths
+    def changed_files(sandbox)
+      workspace, app = checkout_workspace!(sandbox)
+      base = recorded_checkout_commit!(workspace)
+      env = read_only_git_environment
+      git = git_command(app)
+      if filter_drivers?(app, env, git)
+        raise Error, "The checkout's git config defines filter drivers, which would run commands, so its changes are not read"
+      end
+
+      diff = git_listing!(env, [ *git, "diff", "--raw", "-z", "--no-renames", "--no-abbrev", "--no-ext-diff", "--no-textconv",
+        "--ignore-submodules=none", base, "--" ], app)
+      untracked = git_listing!(env, [ *git, "ls-files", "-z", "--others", "--exclude-standard" ], app)
+
+      # ":<base mode> <mode> <base object> <object> <status>" per path.
+      base_modes = {}
+      listed = []
+      diff.each_slice(2) do |header, path|
+        next if path.nil?
+
+        fields = header.split(" ")
+        base_modes[path] = fields.first.delete_prefix(":") unless fields.last == "A"
+        listed << path
+      end
+      # A nested repository is listed as its directory, with a trailing slash.
+      listed.concat(untracked.map { |path| path.delete_suffix("/") })
+      listed.uniq!
+      raise Error, "The checkout changed more than #{MAX_CHANGED_FILES} files" if listed.size > MAX_CHANGED_FILES
+
+      files = listed.filter_map do |path|
+        next unless checkout_path?(path)
+
+        base_mode = base_modes[path]
+        stat = working_tree_stat(app, path)
+        next { path: path, status: "deleted", mode: nil, base_mode: base_mode, size: nil } if stat.nil? && base_mode
+        next if stat.nil?
+
+        mode = mode_for(stat) or next
+        {
+          path: path, status: base_mode ? "modified" : "added", mode: mode, base_mode: base_mode,
+          size: stat.directory? ? nil : stat.size
+        }
+      end
+
+      { base_commit: base, files: files.sort_by { |file| file[:path] } }
+    end
+
+    # +path+'s content in the sandbox's checkout, or with +base+ in the
+    # commit the checkout was fetched at. Nil when nothing is there.
+    #
+    # The working tree is read with lstat, one path component at a time, and
+    # never through a symlink: a symlink reads as its target path, and a path
+    # whose parent is a symlink or a file reads as nothing. The commit is
+    # read with `git ls-tree` and `git cat-file`, which run no filters.
+    #
+    # @raise [Error] for a directory, a submodule, a special file, or more
+    #   than MAX_READ_BYTES
+    # @return [String, nil] binary-encoded bytes
+    def read_file(sandbox, path, base: false)
+      workspace, app = checkout_workspace!(sandbox)
+      raise Error, "#{path.inspect} is not a path inside the checkout" unless checkout_path?(path)
+
+      base ? read_committed_file(workspace, app, path) : read_working_file(app, path)
+    end
+
     private
 
     def ensure_enabled!
@@ -529,6 +620,127 @@ module ActionAgent
 
       raise Error, "Local sandboxes are disabled. They run checkouts and Claude Code as processes on this machine; " \
         "set ActionAgent.local_sandboxes_enabled = true to allow them"
+    end
+
+    # --- Reading changes ----------------------------------------------------
+
+    # The workspace and checkout of +sandbox+, which must exist.
+    def checkout_workspace!(sandbox)
+      ensure_enabled!
+      workspace = workspace_for(session_id!(sandbox.session_id))
+      app = workspace.join("app")
+      raise Error, "Sandbox #{sandbox.session_id} has no local checkout" unless app.directory?
+
+      [ workspace, app ]
+    end
+
+    def recorded_checkout_commit!(workspace)
+      commit = read_state(workspace)["checkout_commit"]
+      return commit if commit.is_a?(String) && COMMIT_ID.match?(commit)
+
+      raise Error, "The sandbox did not record the commit it checked out"
+    end
+
+    def read_only_git_environment
+      self.class.sanitized_environment.merge(READ_ONLY_GIT_ENVIRONMENT)
+    end
+
+    # A filter driver in the checkout's git config (which a session could
+    # have written) runs its command whenever git reads the working tree, as
+    # the dashboard's user.
+    def filter_drivers?(app, env, git)
+      drivers, = capture(env, [ *git, "config", "--local", "--includes", "--name-only", "--get-regexp", "^filter\\." ],
+        chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
+      drivers.to_s.strip.present?
+    end
+
+    # The NUL-separated fields +argv+ prints.
+    def git_listing!(env, argv, app)
+      output, status = capture(env, argv, chdir: app, limit: MAX_LISTING_BYTES, timeout: GIT_TIMEOUT)
+      raise Error, "The checkout's changes are too many to list" if output.bytesize >= MAX_LISTING_BYTES
+      raise Error, "git could not list the checkout's changes (#{status ? describe(status) : 'timed out'})" unless status&.success?
+
+      output.force_encoding(Encoding::UTF_8).split("\0").reject(&:empty?)
+    end
+
+    # Relative, inside the checkout, and outside its .git directory.
+    def checkout_path?(path)
+      return false unless path.is_a?(String) && path.valid_encoding? && path.present? && !path.include?("\0")
+      return false if path.start_with?("/")
+
+      parts = path.split("/")
+      parts.none? { |part| part.empty? || part == "." || part == ".." } && !parts.first.casecmp?(".git")
+    end
+
+    # lstat of +path+ under +app+, or nil when nothing is there, which
+    # includes a path one of whose parents is a symlink or a file.
+    def working_tree_stat(app, path)
+      *parents, name = path.split("/")
+      directory = app
+      parents.each do |part|
+        directory = directory.join(part)
+        return nil unless File.lstat(directory).directory?
+      end
+      File.lstat(directory.join(name))
+    rescue Errno::ENOENT, Errno::ENOTDIR
+      nil
+    end
+
+    # git's mode for what +stat+ describes, or nil for a socket, a pipe or a
+    # device.
+    def mode_for(stat)
+      if stat.symlink? then "120000"
+      elsif stat.directory? then "160000"
+      elsif stat.file? then stat.mode.anybits?(0o111) ? "100755" : "100644"
+      end
+    end
+
+    def read_working_file(app, path)
+      stat = working_tree_stat(app, path)
+      return nil if stat.nil?
+
+      full = app.join(path)
+      return File.readlink(full).b if stat.symlink?
+      raise Error, "#{path} is a submodule or a directory, not a file" if stat.directory?
+      raise Error, "#{path} is not a regular file" unless stat.file?
+      raise Error, "#{path} is larger than #{MAX_READ_BYTES} bytes" if stat.size > MAX_READ_BYTES
+
+      File.open(full, File::RDONLY | File::NOFOLLOW) do |file|
+        # Whatever replaced the file since the lstat was not what was listed.
+        opened = file.stat
+        raise Error, "#{path} changed while it was read" unless opened.file? && opened.ino == stat.ino && opened.dev == stat.dev
+        raise Error, "#{path} is not inside the checkout" unless File.realpath(full).start_with?("#{File.realpath(app)}/")
+
+        content = file.read(MAX_READ_BYTES + 1) || String.new
+        raise Error, "#{path} is larger than #{MAX_READ_BYTES} bytes" if content.bytesize > MAX_READ_BYTES
+
+        content.b
+      end
+    rescue Errno::ELOOP
+      raise Error, "#{path} changed while it was read"
+    rescue Errno::ENOENT, Errno::ENOTDIR
+      nil
+    end
+
+    def read_committed_file(workspace, app, path)
+      commit = recorded_checkout_commit!(workspace)
+      env = read_only_git_environment
+      git = git_command(app)
+      entry = git_listing!(env, [ *git, "ls-tree", "-z", "--full-tree", commit, "--", path ], app).first
+      return nil if entry.nil?
+
+      meta, listed_path = entry.split("\t", 2)
+      return nil unless listed_path == path
+
+      _mode, type, object = meta.split(" ")
+      raise Error, "#{path} is a submodule in the checked-out commit" if type == "commit"
+      raise Error, "#{path} is a directory in the checked-out commit" unless type == "blob" && COMMIT_ID.match?(object.to_s)
+
+      content, status = capture(env, [ *git, "cat-file", "blob", object ], chdir: app, limit: MAX_READ_BYTES + 1, timeout: GIT_TIMEOUT)
+      raise Error, "#{path} is larger than #{MAX_READ_BYTES} bytes" if content.bytesize > MAX_READ_BYTES
+      raise Error, "git could not read #{path} from the checked-out commit" unless status&.success?
+
+      content.b
     end
 
     # --- Boot -------------------------------------------------------------
@@ -1252,12 +1464,8 @@ module ActionAgent
       app = workspace.join("app")
       env = self.class.sanitized_environment
       git = git_command(app)
-      # A filter driver in the checkout's git config (which the session could
-      # have written) runs its command on `git add` and `git diff`, as the
-      # dashboard's user. Rather than run it, report no diff.
-      drivers, = capture(env, [ *git, "config", "--local", "--includes", "--name-only", "--get-regexp", "^filter\\." ],
-        chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
-      if drivers.to_s.strip.present?
+      # `git add` and `git diff` would run a filter driver's command.
+      if filter_drivers?(app, env, git)
         return "(diff not recorded: the checkout's git config defines filter drivers, which would run commands)"
       end
       capture(env, [ *git, "add", "--intent-to-add", "--all" ], chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
