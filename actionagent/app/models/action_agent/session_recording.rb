@@ -13,7 +13,12 @@ module ActionAgent
 
     has_many :recording_actions, dependent: :destroy
     has_many :recording_snapshots, dependent: :destroy
-    has_many :recording_events, dependent: :destroy
+    # Deleted rather than destroyed: destroying an event looks up its
+    # attachment, and a host that loads Active Storage without migrating it
+    # has no table to look in. Attached payloads are purged first.
+    has_many :recording_events, dependent: :delete_all
+
+    before_destroy :purge_attached_event_payloads, prepend: true
 
     enum :status, { recording: 0, completed: 1, failed: 2 }
 
@@ -219,6 +224,15 @@ module ActionAgent
     end
 
     private
+
+    def purge_attached_event_payloads
+      return unless RecordingEvent.attachments_available?
+
+      ActiveStorage::Attachment
+        .where(record_type: RecordingEvent.polymorphic_name, name: "payload_file", record_id: recording_events.select(:id))
+        .includes(:blob)
+        .find_each(&:purge_later)
+    end
 
     def sandbox_live?
       live = SandboxSession.active.where(id: sandbox_session_id)
