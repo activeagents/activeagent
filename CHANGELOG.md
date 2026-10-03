@@ -34,16 +34,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`activeagent`). Keep only request-supported message fields.
 - **Name conflicting gems in provider load errors** (`activeagent`). Explain
   when another gem already defines `OpenAI` and show the Gemfile replacement.
-- **Fix Session Replay with nothing to play** (`actionagent`). With no
-  recordings, a failed list request, or a network error, the page showed a
-  spinner forever; it now shows the empty state, or an error when the list
-  could not load. The list returns only recordings the caller can open, so a
-  recording named `lander_demo` is no longer listed for every caller. The
-  replay pages through a recording's actions with `after_sequence`, up to
-  5,000, instead of stopping at the first 100. On
-  `GET /api/session_recordings/:id/actions`, `has_more` is exact and `limit`
-  is clamped to 1..500. Show timeline entries carry `action_type`, as
-  `/actions` entries do; `type` remains as an alias.
+- **Stop Session Replay spinning when there is nothing to play**
+  (`actionagent`). With no recordings, a failed list request or a network
+  error, the page shows the empty state, or an error when the list failed.
+- **List only the session recordings the caller can open** (`actionagent`).
+  The list uses the rule that opening a recording does, so a recording named
+  `lander_demo` is no longer listed for every caller.
+- **Replay every action of a long recording** (`actionagent`). Session Replay
+  pages through `GET /api/session_recordings/:id/actions` with
+  `after_sequence`, up to 5,000 actions, instead of stopping at the first 100.
+  That endpoint's `has_more` is exact and its `limit` is clamped to 1..500.
+- **Key show timeline entries `action_type`** (`actionagent`). They match
+  `/actions` entries; `type` remains as an alias.
 
 ## [1.8.1] - 2026-10-01
 
