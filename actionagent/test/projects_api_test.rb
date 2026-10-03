@@ -473,7 +473,8 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     get "#{BASE}/#{project.id}/secrets"
     listed = JSON.parse(response.body)["secrets"]
     assert_equal %w[PIN RAILS_MASTER_KEY STRIPE_SECRET_KEY], listed.map { |secret| secret["name"] }
-    assert_equal %w[name provider set_by source updated_at], listed.first.keys.sort
+    assert_equal %w[kind name provider set_by source updated_at], listed.first.keys.sort
+    assert_equal %w[env], listed.map { |secret| secret["kind"] }.uniq
     assert_no_secret_in(response.body)
     assert_not_includes response.body, "1234"
 

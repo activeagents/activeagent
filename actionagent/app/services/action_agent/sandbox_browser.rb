@@ -31,10 +31,58 @@ module ActionAgent
     # @param recording_url [#call, nil] given the browser's new
     #   SessionRecording, returns the absolute URL its events are posted to
     #   (the recording's events endpoint); nil records nothing
+    # @param storage_state [Hash, nil] a Playwright storage state the browser
+    #   starts with, such as a project's saved sign-in
     # @raise [Error] when the sandbox cannot run a browser now, a browser
     #   already runs, or the backend failed to start one
-    def self.start(sandbox, mode:, capabilities: [], recording_url: nil)
-      new(sandbox).start(mode.to_s, Array(capabilities).map(&:to_s).uniq, recording_url)
+    def self.start(sandbox, mode:, capabilities: [], recording_url: nil, storage_state: nil)
+      new(sandbox).start(mode.to_s, Array(capabilities).map(&:to_s).uniq, recording_url, storage_state)
+    end
+
+    # The sandbox, with a browser running: the one already running, or one
+    # started headless (see .start) with +capabilities+ and +storage_state+.
+    # Returns [sandbox, whether it started one].
+    #
+    # @raise [Error] as .start does
+    def self.ensure_running!(sandbox, capabilities: [], recording_url: nil, storage_state: nil)
+      sandbox.reload
+      return [ sandbox, false ] if sandbox.browser_running?
+
+      [ start(sandbox, mode: "headless", capabilities: capabilities, recording_url: recording_url, storage_state: storage_state), true ]
+    end
+
+    # A recording_url for .start that posts to the events endpoint of the
+    # dashboard mounted at +mount_url+ (its absolute URL, the request's base
+    # URL and script name), for a start outside a request. Nil without one.
+    #
+    # @return [Proc, nil]
+    def self.recording_url_for(mount_url)
+      return nil if mount_url.blank?
+
+      ->(recording) { "#{mount_url.to_s.chomp('/')}/api/session_recordings/#{recording.id}/events" }
+    end
+
+    # The running browser's cookies and localStorage for the sandbox's app,
+    # as a Playwright storage state, read from the sidecar's
+    # GET /storage-state next to its MCP endpoint.
+    #
+    # @raise [Error] when no browser runs or it does not answer
+    # @return [Hash]
+    def self.storage_state(sandbox)
+      entry = sandbox.browser_server_entry or raise Error, "The sandbox's browser is not running"
+
+      uri = URI.join(entry[:url], "storage-state")
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", open_timeout: 5, read_timeout: 30) do |http|
+        http.request(Net::HTTP::Get.new(uri, entry[:headers]))
+      end
+      raise Error, "The browser did not hand over its sign-in (HTTP #{response.code})" unless response.is_a?(Net::HTTPSuccess)
+
+      state = JSON.parse(response.body)["storage_state"]
+      raise Error, "The browser answered without a storage state" unless state.is_a?(Hash)
+
+      state
+    rescue JSON::ParserError, SystemCallError, IOError, Timeout::Error, Net::HTTPBadResponse, URI::Error => e
+      raise Error, "The browser did not hand over its sign-in: #{e.class}"
     end
 
     # Stops +sandbox+'s browser through its backend, then finishes it
@@ -108,7 +156,7 @@ module ActionAgent
       @sandbox = sandbox
     end
 
-    def start(mode, capabilities, recording_url)
+    def start(mode, capabilities, recording_url, storage_state = nil)
       validate!(mode, capabilities)
       orchestrator = self.class.orchestrator!
       unless orchestrator.supports?(:start_browser)
@@ -125,7 +173,7 @@ module ActionAgent
       begin
         recording, launch_recording = start_recording(recording_url)
         launch = { token: token, app_url: @sandbox.cloud_run_url, capabilities: capabilities, stop_at: @sandbox.browser_stops_at,
-                   recording: launch_recording }
+                   recording: launch_recording, storage_state: storage_state }.compact
         @sandbox.browser_launch = launch
         result = orchestrator.start_browser(@sandbox, mode: mode.to_sym)
         unless mark_running!(result, token)

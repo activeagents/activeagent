@@ -74,6 +74,8 @@ module ActionAgent
     #   stop_at       when the browser stops on its own (browser_stops_at)
     #   recording     where to post recorded events: { url:, token:,
     #                 batch_events:, batch_bytes: }, or nil to record nothing
+    #   storage_state a Playwright storage state to start signed in with,
+    #                 or absent
     #
     # @return [Hash, nil]
     attr_accessor :browser_launch
