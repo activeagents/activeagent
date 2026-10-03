@@ -1,0 +1,19 @@
+<%#
+  The session player's frame. It holds no data: the dashboard posts the
+  events to replay into it (see SessionPlayerController).
+%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Session player</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    #session-player { position: relative; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div id="session-player"></div>
+  <script src="<%= script_url %>"></script>
+</body>
+</html>

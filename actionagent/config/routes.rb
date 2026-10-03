@@ -216,6 +216,10 @@ ActionAgent::Engine.routes.draw do
   match "mcp", to: "api/mcp#unsupported", via: [ :get, :delete ],
     constraints: ->(request) { request.delete? || !ActionAgent::Engine.html_request?(request) }
 
+  # The frame the session player runs in, holding the replay bundle and no
+  # data. See SessionPlayerController.
+  get "session_player", to: "session_player#show", as: :session_player
+
   # Everything else under the mount is a client-side route: render the
   # dashboard and let the browser resolve it. Anchored last so it can only
   # ever catch what the routes above did not, and refuses /api paths so a
