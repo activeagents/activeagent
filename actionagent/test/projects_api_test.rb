@@ -615,6 +615,24 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_no_secret_in(response.body)
   end
 
+  test "the sandboxes API scrubs a project's secrets from its sandbox's boot status and logs too" do
+    project = create_project!(secrets: { "STRIPE_SECRET_KEY" => SECRET })
+    perform_enqueued_jobs { post "#{BASE}/#{project.id}/boot", as: :json }
+    sandbox = project.reload.current_sandbox_session
+    ProjectBackend.boot_state = { mode: "spec", kind: "bootstrap", failed_step: nil, kept: false,
+                                  steps: [ { name: "db_prepare", status: "succeeded", detail: "saw #{SECRET}" } ] }
+    ProjectBackend.log_pages = { "db_prepare" => "connecting with #{[ SECRET ].pack("m0")}\n" }
+
+    get "/activeagents/api/sandboxes/#{sandbox.session_id}/boot"
+    assert_response :success
+    assert_includes response.body, "saw [REDACTED]"
+    assert_no_secret_in(response.body)
+
+    get "/activeagents/api/sandboxes/#{sandbox.session_id}/boot_log", params: { step: "db_prepare" }
+    assert_response :success
+    assert_equal "connecting with [REDACTED]\n", JSON.parse(response.body)["text"]
+  end
+
   test "the first boot on :local asks for confirmation naming the repository, and later boots do not" do
     ActionAgent.sandbox_service = "local_project"
     project = create_project!
