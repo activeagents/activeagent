@@ -494,6 +494,40 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_match(/no longer stored/, error.message)
   end
 
+  test "using the organization's key also needs :manage_credentials, asked about the key it hands over" do
+    key = ActionAgent::ProviderKey.create!(provider: "openai", credential: "sk-org-openai-0123456789")
+    project = create_project!
+    asked = []
+    ActionAgent.permission_checker = lambda do |_user, action, subject|
+      asked << [ action, subject.class.name ]
+      action != :manage_credentials
+    end
+    organization_key = { name: "OPENAI_API_KEY", source: "organization_key", consent: true }
+
+    put "#{BASE}/#{project.id}/secrets", params: { secrets: [ organization_key ] }, as: :json
+    assert_response :forbidden
+    assert_equal "manage_credentials", JSON.parse(response.body)["permission"]
+    put "#{BASE}/#{project.id}/secrets/OPENAI_API_KEY", params: organization_key.except(:name), as: :json
+    assert_response :forbidden
+    stub_supported_repository
+    post BASE, params: { repository: "acme/shop", name: "Second", secrets: [ organization_key ] }, as: :json
+    assert_response :forbidden
+
+    assert_equal 0, ActionAgent::ProjectSecret.count
+    assert_equal 1, ActionAgent::Project.count
+    assert_equal [ [ :manage_project_secrets, "ActionAgent::ProjectSecret" ], [ :manage_credentials, "ActionAgent::ProviderKey" ] ],
+      asked.uniq
+
+    put "#{BASE}/#{project.id}/secrets", params: { secrets: [ { name: "OPENAI_API_KEY", value: "sk-project-own-0123456789" } ] },
+      as: :json
+    assert_response :success, "a value of the project's own needs no :manage_credentials"
+
+    ActionAgent.permission_checker = nil
+    put "#{BASE}/#{project.id}/secrets", params: { secrets: [ organization_key ] }, as: :json
+    assert_response :success
+    assert_equal({ "OPENAI_API_KEY" => key.credential }, project.reload.boot_spec.secrets)
+  end
+
   # --- ownership --------------------------------------------------------------
 
   test "projects and their secrets are out of reach of another account, also one whose id is the creator's user id" do

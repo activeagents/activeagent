@@ -12,6 +12,8 @@ module ActionAgent
     # the project here rather than through the sandboxes and agents APIs,
     # which scope to the signed-in user.
     class ProjectsController < BaseController
+      include ProjectSecretAuthorization
+
       LOG_TAIL_BYTES = 8 * 1024
       LOG_PAGE_BYTES = 64 * 1024
       LOG_MAX_PAGE_BYTES = 1024 * 1024
@@ -338,13 +340,22 @@ module ActionAgent
         project
       end
 
-      # Answers whether the caller may set +secrets+ on +project+; renders a
-      # 403 when not.
+      # Answers whether the caller may set +secrets+ on the unsaved +project+;
+      # renders a 403 when not.
       def authorize_secrets!(project, secrets)
-        return true if secrets.empty?
+        secrets.all? { |attributes| authorize_secret!(secret_subject(project, attributes)) }
+      end
 
-        subject = ProjectSecret.new(project: project, account_id: project.account_id, user_id: project.user_id)
-        authorize_action!(:manage_project_secrets, subject)
+      # The secret +attributes+ describe, for the permission checker only: it
+      # is not added to +project+'s secrets, which saving the project would
+      # save with it.
+      def secret_subject(project, attributes)
+        attributes = attributes.respond_to?(:permit) ? attributes.slice(:name, :source).permit(:name, :source).to_h : {}
+        name = attributes["name"].to_s
+        organization_key = attributes["source"].to_s == "organization_key"
+        ProjectSecret.new(project: project, account_id: project.account_id, user_id: project.user_id, name: name,
+          source: organization_key ? "organization_key" : "entered",
+          provider: organization_key ? ProjectSecret::ORGANIZATION_KEY_PROVIDERS[name] : nil)
       end
 
       def assign_secret_params(project, attributes)
