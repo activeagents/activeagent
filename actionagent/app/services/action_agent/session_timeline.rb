@@ -34,6 +34,8 @@ module ActionAgent
 
     TEXT_LIMIT = 4000
     LANE_LIMIT = 2000
+    # Recording event rows loaded per query while the browser lane is filled.
+    BROWSER_ROWS_PER_QUERY = 20
     RUN_LOG_KINDS = { "llm" => %w[llm], "tool" => %w[tool agent] }.freeze
     # What the llm lane reads from a generation; its raw response is not.
     GENERATION_COLUMNS = %i[id agent_context_id trace_id model provider finish_reason input_tokens output_tokens
@@ -344,15 +346,50 @@ module ActionAgent
 
     # --- browser lane --------------------------------------------------------
 
+    # The recordings' events and legacy actions in time order, read no further
+    # than the earliest LANE_LIMIT + 1 of each: enough to fill the lane and to
+    # tell whether it was cut short.
     def browser_lane
       return [] if @recordings.empty?
 
-      ids = @recordings.map(&:id)
-      events = RecordingEvent.where(session_recording_id: ids).where.not(kind: "rrweb").chronological
-        .flat_map { |row| recording_event_entries(row) }
-      actions = RecordingAction.where(session_recording_id: ids).includes(:session_recording).ordered
-        .map { |action| recording_action_entry(action) }
-      (events + actions).sort_by { |entry| entry[:start] }
+      (earliest_event_entries + earliest_action_entries).sort_by { |entry| entry[:start] }
+    end
+
+    # Each row holds at least one event, so the earliest LANE_LIMIT + 1 events
+    # are in the first LANE_LIMIT + 1 rows in RecordingEvent.chronological
+    # order. Those rows are decoded in that order until no unread row can
+    # start before the last entry kept.
+    def earliest_event_entries
+      wanted = LANE_LIMIT + 1
+      kept = []
+      starts = RecordingEvent.where(session_recording_id: @recordings.map(&:id)).where.not(kind: "rrweb")
+        .chronological.limit(wanted).pluck(:id, :occurred_from)
+
+      starts.each_slice(BROWSER_ROWS_PER_QUERY) do |slice|
+        rows = RecordingEvent.where(id: slice.map(&:first)).index_by(&:id)
+        slice.each do |id, occurred_from|
+          return kept if kept.size == wanted && timestamp(occurred_from) >= kept.last[:start]
+
+          recording_event_entries(rows.fetch(id)).each { |entry| keep_earliest(kept, entry, wanted) }
+        end
+      end
+      kept
+    end
+
+    # Adds +entry+ to +kept+, which stays in start order and holds at most
+    # +limit+ entries.
+    def keep_earliest(kept, entry, limit)
+      return if kept.size == limit && entry[:start] >= kept.last[:start]
+
+      index = kept.bsearch_index { |other| other[:start] > entry[:start] } || kept.size
+      kept.insert(index, entry)
+      kept.pop if kept.size > limit
+    end
+
+    def earliest_action_entries
+      @recordings.flat_map do |recording|
+        recording.recording_actions.ordered.limit(LANE_LIMIT + 1).map { |action| recording_action_entry(action, recording) }
+      end
     end
 
     def recording_event_entries(row)
@@ -373,13 +410,13 @@ module ActionAgent
       end
     end
 
-    def recording_action_entry(action)
+    def recording_action_entry(action, recording)
       {
         id: "recording-action-#{action.id}",
         lane: "browser",
         kind: "action",
         recording_id: action.session_recording_id,
-        start: timestamp(action.session_recording.created_at + (action.timestamp_ms.to_f / 1000)),
+        start: timestamp(recording.created_at + (action.timestamp_ms.to_f / 1000)),
         duration_ms: 0,
         data: {
           "action_type" => action.action_type,
@@ -392,7 +429,6 @@ module ActionAgent
     end
 
     def recording_summary(recording)
-      rrweb = RecordingEvent.where(session_recording_id: recording.id, kind: "rrweb")
       {
         id: recording.id,
         name: recording.name,
@@ -403,12 +439,20 @@ module ActionAgent
         event_count: recording.event_count,
         dropped_event_count: recording.dropped_event_count,
         rrweb: {
-          event_count: rrweb.sum(:event_count),
-          first_at: rrweb.minimum(:occurred_from)&.iso8601(3),
-          last_at: rrweb.maximum(:occurred_to)&.iso8601(3)
+          event_count: rrweb_totals[:event_count].fetch(recording.id, 0),
+          first_at: rrweb_totals[:first_at][recording.id]&.iso8601(3),
+          last_at: rrweb_totals[:last_at][recording.id]&.iso8601(3)
         },
         created_at: timestamp(recording.created_at)
       }
+    end
+
+    # The rrweb event count and time range of each recording, by recording id.
+    def rrweb_totals
+      @rrweb_totals ||= begin
+        rows = RecordingEvent.where(session_recording_id: @recordings.map(&:id), kind: "rrweb").group(:session_recording_id)
+        { event_count: rows.sum(:event_count), first_at: rows.minimum(:occurred_from), last_at: rows.maximum(:occurred_to) }
+      end
     end
 
     # --- lookups -------------------------------------------------------------
