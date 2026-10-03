@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented on the orchestrator and in the dashboard guide; the `:mock` and
   `:local` backends implement none of them. `read_file` refuses a path outside
   the checkout before the backend sees it.
+- **Generate scenario keys around keys already in use** (`activeagent`).
+  `ScenarioParser.parse` and `.scenarios` take `reserved_keys:`, which
+  generated keys skip, and `key_prefix:`, a namespace in front of every
+  generated key. Keys a paste names are unchanged.
 
 ### Changed
 

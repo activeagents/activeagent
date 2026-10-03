@@ -118,6 +118,42 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
     assert_equal [ "a_1", "a_2" ], scenarios.map { |s| s["key"] }
   end
 
+  def test_generated_keys_skip_reserved_keys_and_named_ones_are_kept
+    text = "# Orders\nWhere is my order?\nWhich orders shipped late? | key: orders_2\nCancel my last order"
+
+    scenarios = ActiveAgent::Evals::ScenarioParser.parse(text, reserved_keys: %w[orders_1 orders_2 orders_3])
+
+    assert_equal %w[orders_4 orders_2 orders_5], scenarios.map { |s| s["key"] }
+    assert_equal [ 0, 1, 2 ], scenarios.map { |s| s["position"] }, "position still numbers the paste"
+  end
+
+  def test_the_same_keyless_paste_twice_gets_distinct_keys_when_the_first_is_reserved
+    text = "# Orders\nWhere is my order?\nCancel my last order"
+    first = ActiveAgent::Evals::ScenarioParser.parse(text)
+
+    second = ActiveAgent::Evals::ScenarioParser.parse(text, reserved_keys: first.map { |s| s["key"] })
+
+    assert_equal %w[orders_1 orders_2], first.map { |s| s["key"] }
+    assert_equal %w[orders_3 orders_4], second.map { |s| s["key"] }
+  end
+
+  def test_a_key_prefix_namespaces_generated_keys_only
+    scenarios = ActiveAgent::Evals::ScenarioParser.parse(
+      "# Orders\nWhere is my order?\nWhich orders shipped late? | key: late_orders\nCancel my last order",
+      key_prefix: "Batch 2!"
+    )
+
+    assert_equal %w[batch_2_orders_1 late_orders batch_2_orders_2], scenarios.map { |s| s["key"] }
+    assert_equal "batch_2_scenario_1", ActiveAgent::Evals::ScenarioParser.parse("Anything?", key_prefix: "batch 2").first["key"]
+    assert_equal "scenario_1", ActiveAgent::Evals::ScenarioParser.parse("Anything?", key_prefix: "  ").first["key"]
+  end
+
+  def test_scenarios_passes_the_key_options_through
+    scenarios = ActiveAgent::Evals::ScenarioParser.scenarios("Anything?", reserved_keys: [ "x_scenario_1" ], key_prefix: "x")
+
+    assert_equal [ "x_scenario_2" ], scenarios.map(&:key)
+  end
+
   def test_a_named_key_that_repeats_an_earlier_line_is_reassigned
     scenarios = parse("# A\nfirst | key: a_1\nsecond | key: a_1\nthird")
 

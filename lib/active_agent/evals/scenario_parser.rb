@@ -21,6 +21,16 @@ module ActiveAgent
     # Every scenario gets a key unique within the paste, derived from its group
     # and position ("history_3"), unless the line names one. The result is an
     # array of string-keyed hashes; `Scenario.from_hash` builds the structs.
+    #
+    # Two options shape the generated keys, and leave named keys alone:
+    #
+    #   reserved_keys: keys already in use, such as the suite a paste is
+    #                  merged into. A generated key skips them, so a second
+    #                  paste's first "Orders" line becomes `orders_3` after a
+    #                  suite holding `orders_1` and `orders_2`.
+    #   key_prefix:    a namespace in front of every generated key:
+    #                  `key_prefix: "batch2"` turns `orders_1` into
+    #                  `batch2_orders_1`.
     class ScenarioParser
       class ParseError < ArgumentError; end
 
@@ -31,18 +41,22 @@ module ActiveAgent
       # that merely mentions `some_tool` is kept whole.
       BACKTICK_PROMPT = /\A`([^`]+)`/
       OPTION_KEYS = %w[tools contains not_contains key group notes].freeze
+      MAX_KEY_PREFIX = 40
 
-      def self.parse(text, include_production_only: true)
-        new(text).parse(include_production_only: include_production_only)
+      def self.parse(text, include_production_only: true, reserved_keys: [], key_prefix: nil)
+        new(text, reserved_keys: reserved_keys, key_prefix: key_prefix).parse(include_production_only: include_production_only)
       end
 
       # Parses and builds Scenario structs in one step.
-      def self.scenarios(text, include_production_only: true)
-        parse(text, include_production_only: include_production_only).map { |attrs| Scenario.from_hash(attrs) }
+      def self.scenarios(text, include_production_only: true, reserved_keys: [], key_prefix: nil)
+        parse(text, include_production_only: include_production_only, reserved_keys: reserved_keys, key_prefix: key_prefix)
+          .map { |attrs| Scenario.from_hash(attrs) }
       end
 
-      def initialize(text)
+      def initialize(text, reserved_keys: [], key_prefix: nil)
         @text = text.to_s
+        @reserved_keys = Array(reserved_keys).map(&:to_s).to_set
+        @key_prefix = key_prefix.to_s.parameterize(separator: "_").first(MAX_KEY_PREFIX).presence
       end
 
       # @return [Array<Hash>] scenario attributes with string keys
@@ -236,9 +250,10 @@ module ActiveAgent
         }
       end
 
-      # A key named on a line is kept; a generated one never collides with a
-      # named key anywhere in the paste; and a named key that repeats an
-      # earlier line's is treated as missing, so no two scenarios share one.
+      # A key named on a line is kept, even when it is reserved; a generated
+      # one never collides with a named key anywhere in the paste or with a
+      # reserved key; and a named key that repeats an earlier line's is
+      # treated as missing, so no two scenarios share one.
       def assign_keys(scenarios)
         named = scenarios.filter_map { |s| s["key"].presence }.to_set
         taken = Set.new
@@ -250,11 +265,11 @@ module ActiveAgent
           key = nil if key && taken.include?(key)
 
           unless key
-            base = scenario["group"].to_s.parameterize(separator: "_").first(30).presence || "scenario"
+            base = [ @key_prefix, scenario["group"].to_s.parameterize(separator: "_").first(30).presence || "scenario" ].compact.join("_")
             loop do
               counters[base] += 1
               key = "#{base}_#{counters[base]}"
-              break unless named.include?(key) || taken.include?(key)
+              break unless named.include?(key) || taken.include?(key) || @reserved_keys.include?(key)
             end
           end
 
