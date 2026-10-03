@@ -590,6 +590,13 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_equal %w[search delete_file], covered.({ read_only: true }), "a policy it cannot read covers every tool"
   end
 
+  test "approval_policy? is false for a policy that covers no tool" do
+    policy = ActiveAgent::Providers::MCPBridge.method(:approval_policy?)
+
+    assert_equal [ false, false, false, false ], [ nil, "never", { always: [] }, { "always" => { tool_names: [] } } ].map(&policy)
+    assert_equal [ true, true, true, true ], [ "always", { always: [ "delete_file" ] }, { always: [], never: [] }, { read_only: true } ].map(&policy)
+  end
+
   test "requires_approval? reads the policy of the server that offers the tool" do
     bridge = build_bridge(
       [ { name: "alpha", url: "https://alpha.test/mcp", require_approval: { never: [ "one" ] } },
