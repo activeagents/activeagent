@@ -62,6 +62,7 @@ other version.
 | `GET /health` | `{ "status": "ok", "version": "…" }` |
 | `POST /mcp` | one JSON-RPC message, answered as JSON |
 | `DELETE /mcp` | ends the session in `Mcp-Session-Id` |
+| `GET /storage-state` | `{ "storage_state": { "cookies": […], "origins": […] } }`: the browser's cookies and localStorage for the app, so a sign-in made in it can be kept |
 
 Every request, a WebSocket upgrade included, must:
 
@@ -112,7 +113,8 @@ browser, posts what it has recorded, and removes its directories.
     "token": "aarec_…",
     "batch_events": 1000,
     "batch_bytes": 1048576
-  }
+  },
+  "storage_state": { "cookies": [], "origins": [] }
 }
 ```
 
@@ -128,6 +130,7 @@ browser, posts what it has recorded, and removes its directories.
 | `stop_at` | when to stop on its own, as epoch milliseconds or ISO 8601 |
 | `chromium_sandbox` | `false` where Chromium's own sandbox cannot run, as in a container without the privileges it needs |
 | `recording` | where to post recorded events, and the batch limits the ingest enforces; nothing is recorded when unset |
+| `storage_state` | a Playwright storage state the browser starts with, such as a sign-in saved from `GET /storage-state`; only the cookies sent to the app's host and the localStorage of its origin are applied |
 
 ## The image
 

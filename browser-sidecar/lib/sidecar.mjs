@@ -9,6 +9,7 @@ import { McpGateway } from './mcp-gateway.mjs';
 import { NavigationGuard } from './navigation-guard.mjs';
 import { NetworkPolicy } from './network-policy.mjs';
 import { PAGE_FLUSH_MS, Recorder } from './recorder.mjs';
+import { exportStorageState } from './storage-state.mjs';
 import { VERSION } from './version.mjs';
 
 const VIEWPORT = { width: 1280, height: 800 };
@@ -148,6 +149,7 @@ export async function startSidecar(config, dependencies = {}) {
   }
 
   await installNetworkPolicy(context, policy);
+  if (config.storageState) await context.setStorageState(config.storageState);
   const guard = new NavigationGuard({ policy, log });
   guard.attach(context);
   const recorder = config.recording ? new Recorder({ recording: config.recording, log }) : null;
@@ -160,7 +162,12 @@ export async function startSidecar(config, dependencies = {}) {
     snapshotDir: await realpath(outputDir),
   });
   let hosts = new Set();
-  const server = createHttpServer({ rules: () => ({ token: config.token, hosts }), gateway, version: VERSION });
+  const server = createHttpServer({
+    rules: () => ({ token: config.token, hosts }),
+    gateway,
+    version: VERSION,
+    storageState: () => exportStorageState(context, config.appOrigin),
+  });
 
   let closing = null;
   let finished;
