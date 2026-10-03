@@ -1333,7 +1333,7 @@ end
 | `:answer_input_request` | reserved: answering a run's request for input |
 | `:manage_project_secrets` | reserved: setting a project's secrets |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
-| `:manage_recordings` | reserved: viewing and deleting session recordings |
+| `:manage_recordings` | deleting a session recording (`DELETE /api/session_recordings/:id`) |
 | `:replace_scenarios` | reserved: replacing an evaluation's scenarios |
 
 The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
