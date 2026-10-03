@@ -1595,8 +1595,11 @@ secrets:
 ```
 
 A project's secrets are `ActionAgent::ProjectSecret` records, encrypted at
-rest. The API returns their names, sources, who set them and when, never
-their values.
+rest. The API returns their names, kinds, sources, who set them and when,
+never their values. A secret's `kind` is `env`, an environment variable the
+boot hands the app (every secret on this tab), or one of the two the
+[test account step](#signing-in-to-the-app) keeps, which never reach the
+sandbox's environment.
 
 | Endpoint | What it does |
 |---|---|
@@ -1677,6 +1680,22 @@ its sandbox. A sandbox that has expired is booted again first, and the run
 stays pending until it serves. A boot that fails, or that is still booting
 after an hour, fails the run with the reason.
 
+Every replay of such a run also reaches the sandbox's
+[browser](./browser-sessions), so scenarios found by walking the app's pages
+can be replayed through them:
+
+- A browser already running is used as it is. Otherwise one is started
+  headless, with the project's [saved sign-in](#signing-in-to-the-app), before
+  the first replay, after the quota checker allows `:browser_minutes`. A
+  browser that cannot start fails the run before any replay.
+- Each replay's browser opens at the project's start URL.
+- The run's `selection` records the browser's `server_key` beside the
+  sandbox's, and the diagnosis roster lists the browser's tools.
+- On a backend that runs no browsers, the replays reach the sandbox alone.
+
+A run started another way, such as the Evaluations page or the
+`evaluations_run` MCP tool, reaches no browser.
+
 ### Explorations
 
 An exploration is a walk through a project's running app and the candidate
@@ -1709,7 +1728,9 @@ A candidate looks like this:
   against. Steps, URLs, screenshots and the recording range stay in
   `provenance`, which the reviewer sees and the judge never does.
 - **Every expected tool is checked against the tools the project's agent can
-  really call** (its toolbox tools and what the project's sandbox serves).
+  really call** (its toolbox tools, what the project's sandbox serves, and
+  the sandbox's browser while it runs, as the project's evaluation runs
+  reach it).
   A candidate expecting a tool the agent lacks is `needs_tool`, with the tool
   in `missing_tools`. When the tools cannot be read, because the sandbox is
   not running or did not answer, the verdict is `unverified`.
@@ -1770,6 +1791,119 @@ a decision), `closed` (none does) or `failed`. Its `budget` and `usage` hold
 `minutes`, `steps` and `cost`, which the review shows as a meter. Another
 owner's exploration answers `404`. Deleting a project deletes its
 explorations.
+
+### The explorer agent
+
+The engine can walk a project's app itself. **Explore the app** on the
+Explorations tab, or `POST /api/projects/:id/explorations` with an optional
+`budget`, starts its explorer:
+
+1. The quota checker is asked about `:exploration`. A denial answers `402`
+   and starts nothing.
+2. The project needs a target agent and a ready sandbox (`409` otherwise),
+   and only one explorer walks a project at a time (`409`).
+3. The sandbox gets a [browser](./browser-sessions): the one already running,
+   or one started headless with the `testing` tool group and the project's
+   saved sign-in, after the quota checker allows `:browser_minutes`. A
+   browser that cannot start answers `422`.
+4. The exploration is created with `source: "explorer"`, `:exploration` usage
+   is recorded once, and the walk is queued (`ExplorationJob`).
+
+The budget is `minutes`, browser `steps` and an optional `cost` in US
+dollars. It defaults to 15 minutes and 150 steps, and may be at most 120
+minutes, 1,000 steps and $100.
+
+The explorer runs as an agent run of a project-owned agent, **Explorer for
+<owner/repo>**, on the provider and model the project's agents use, with the
+owner's credentials. Its run is traced, and its browser actions are recorded
+on the browser's session recording. It is told the project's target agent
+and that agent's tools, and works in a loop: snapshot the page, choose a part
+of the app it has not explored, open it, and propose the questions a user of
+that page would ask the agent, each with a rubric for a good answer.
+
+| Tool | Does |
+|---|---|
+| browser tools | the browser's `browser_navigate`, `browser_navigate_back`, `browser_snapshot`, `browser_find`, `browser_click`, `browser_type`, `browser_fill_form`, `browser_select_option`, `browser_press_key`, `browser_hover`, `browser_wait_for`, `browser_tabs`, `browser_handle_dialog`, `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`, `browser_network_request`, `browser_generate_locator` and `browser_verify_*`, without their `filename` argument. Script evaluation, file uploads and cookie or storage tools are not offered, nor the toolbox's own browser tools |
+| `sign_in(secret_ref:)` | signs the browser in with the project's saved credentials of that name; see [Signing in](#signing-in-to-the-app) |
+| `read_last_email(to:)` | the newest email the app sent to an address; see [Mail](#mail-in-the-sandbox) |
+| `propose_candidate` | stores a candidate (`prompt`, `group`, `rubric`, `tools`, `contains`, `not_contains`) as `POST /api/explorations` does, and answers its verdict |
+| `finish(summary:)` | ends the walk |
+
+- **It stays on the app.** A navigation to anything but a path or the app's
+  own origin is refused before it reaches the browser, which is pinned to
+  the app as well.
+- **Provenance is filled in for it.** A candidate's `provenance` holds the
+  pages the explorer opened and the steps it took since the previous
+  candidate (an element's description, never typed text), the exploration's
+  recording, and that stretch of it as `range`, in milliseconds from the
+  recording's start.
+- **Browser results are scrubbed** of the project's secrets and the sandbox's
+  tokens before the model, the trace or the run's log sees them.
+- **The budget is checked after every tool call.** Once the minutes, steps
+  or cost are used up, or someone chooses **Stop and review**
+  (`POST /api/explorations/:id/stop`), every tool but `finish` answers that
+  the walk is over, and a model that keeps calling tools is cut short. The
+  exploration then moves to `review` with what it found, and `stop_reason`
+  says why: `finished`, `budget_minutes`, `budget_steps`, `budget_cost` or
+  `stopped`. A crash moves it to `failed` and keeps its candidates.
+- **A browser the start launched is stopped** when the walk ends, which
+  completes its recording and stops its minutes. One that was already
+  running is left running.
+
+### Signing in to the app
+
+Credentials typed into the explored app never pass through a model. The
+Explorations tab's **Sign-in** panel sets how the project's browser signs
+in, as one of these:
+
+- **An account the app's seeds create.** Enter its login URL, login and
+  password, with CSS selectors for the fields when they cannot be found on
+  their own. They are kept as the `sign_in` secret `APP_SIGN_IN`, and the
+  explorer is told to call `sign_in` with that name.
+- **Sign in by hand.** Start the project's browser headed (on `:local`, a
+  real window), sign in there, and choose **Save the browser's sign-in**. Its
+  cookies and localStorage for the app are kept as the `storage_state`
+  secret `APP_STORAGE_STATE`, and every browser the project starts later,
+  for an exploration or an evaluation run, starts with them.
+- **No sign-in.** The explorer explores what is reachable without one.
+
+`sign_in` is done in the Rails process: it opens the login URL through a
+second MCP session on the browser, finds the password field (and the login
+field and submit button near it), types the credentials and submits. It
+answers only `signed_in` (the browser left the login page), `failed` (it did
+not, and the password field is emptied, since a page snapshot shows what a
+password field holds) or `unsupported`, when the login page has no password
+field, as with sign-in through OAuth or SSO only, which the sandbox does not
+support. The values are never a tool argument or result, a log line, a span,
+a recorded action or candidate text, and each part of a sign-in secret is
+scrubbed on its own from everything the project's sandboxes and the explorer
+produce. The browser's own recording masks what is typed.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/projects/:id/sign_in` | What is set: the login URL, the login, whether a password and a saved sign-in are set, never the password |
+| `PUT /api/projects/:id/sign_in` | Sets `login_url`, `login`, `password`, `login_field`, `password_field` and `submit_field` |
+| `POST /api/projects/:id/sign_in/check` | Signs the project's browser in with them, starting the browser when none runs, and answers the `sign_in` result |
+| `POST /api/projects/:id/sign_in/save_browser` | Keeps the running browser's sign-in; `409` when no browser runs |
+| `DELETE /api/projects/:id/sign_in` | Removes both secrets |
+
+Changing them needs `:manage_project_secrets`, asked about the secret. An
+environment secret cannot take either name.
+
+### Mail in the sandbox
+
+A sandbox app writes its mail to files instead of sending it. Sandbox
+backends set `ACTION_AGENT_SANDBOX_MAIL_DIR` (`tmp/activeagents/mail` in the
+checkout) in the app's environment, and the engine, which every sandbox app
+bundles, then switches Action Mailer to file delivery into that directory.
+The setting lives in the sandbox's environment, never in the checkout.
+
+`read_last_email(to:)` reads the newest message for an address through the
+backend's `read_file` verb and answers its subject, sender, recipients,
+date, text and links, scrubbed like any browser result. Each link also comes
+as a path on the app, which the browser opens whatever host the mail named.
+With no mail for the address it answers an empty result, and on a backend
+without `read_file` it answers that the mail cannot be read.
 
 ## Session timelines
 
@@ -1970,7 +2104,7 @@ end
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | reserved: answering a run's request for input |
-| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`) and deleting a project that has them (`DELETE /api/projects/:id`). Always asked about a `ProjectSecret` |
+| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), its sign-in (`PUT` and `DELETE /api/projects/:id/sign_in`, `POST /api/projects/:id/sign_in/save_browser`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`) and deleting a project that has them (`DELETE /api/projects/:id`). Always asked about a `ProjectSecret` |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | deleting a session recording (`DELETE /api/session_recordings/:id`) |
 | `:replace_scenarios` | creating an evaluation or merging scenarios into one over the MCP facade (`evaluations_create`, `scenarios_merge`), asked as the API key's user, and accepting an exploration's candidates into an evaluation (`POST /api/explorations/:id/accept`), asked about that evaluation, or about the exploration when a project's first accept will create it |
