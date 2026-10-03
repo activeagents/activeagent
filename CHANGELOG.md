@@ -107,6 +107,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   again and waits for it. The first boot on `:local` asks for confirmation,
   and `quota_checker` is asked about `:project`. A boot spec that does not
   apply to a checkout now still hands it its `secrets`.
+- **Create evaluations and merge scenarios over MCP** (`actionagent`). The
+  facade's `evaluations_create` tool creates an evaluation of one of the key's
+  agents, with scenarios or criteria, and runs nothing. `scenarios_merge` adds
+  scenarios to an evaluation and updates the ones whose keys it holds, through
+  the new `Evaluation#merge_scenarios!`, which never removes, disables or
+  reorders a scenario it was not given. A scenario without a key gets the next
+  `<group>_<n>` the evaluation does not use, and `key_prefix` namespaces
+  generated keys. Both tools ask the permission checker about
+  `:replace_scenarios` as the key's user, refuse an observed agent's suite as
+  `evaluations_run` does, and are held to 100 evaluations per agent, 2,000
+  scenarios per evaluation, 2 MiB of scenarios per call, and 200-character
+  scenario keys, groups and judge models. A refused call writes nothing.
+- **Review explorations' candidate scenarios** (`actionagent`). An
+  `ActionAgent::Exploration` holds the scenarios a walk through a project's
+  app proposed, for a person to accept or reject on the project's
+  Explorations tab before any reaches the evaluation. Each candidate's
+  expected tools are checked against the tools the project's agent can call
+  (`answerable`, `needs_tool` with the missing tools, or `unverified` when the
+  sandbox did not answer), and its text is scrubbed of the project's secrets
+  and the owner's credentials before it is stored. A prompt or rubric over
+  4,000 characters, an expectation list over 50 entries, or a call or
+  exploration over 2 MiB of JSON is refused. Accepting merges into the
+  project's evaluation under `x<exploration id>_<candidate id>` keys with the
+  rubric as `notes`, never touches another scenario, asks the permission
+  checker about `:replace_scenarios`, and writes each scenario so that a Save
+  in the suite editor leaves it unchanged. The `/api/explorations` endpoints
+  list, show, submit, edit, accept and stop explorations, and the MCP
+  facade's `explorations_submit` tool lets an agent outside the dashboard
+  submit candidates and read back their verdicts. The review shows a budget
+  meter, Stop and review, and the executions an accept-and-run uses;
+  `config.exploration_preselect_limit` caps how many candidates it
+  pre-selects. Ships as migration template `021`.
+- **Generate scenario keys around keys already in use** (`activeagent`).
+  `ScenarioParser.parse` and `.scenarios` take `reserved_keys:`, which
+  generated keys skip ignoring case, and `key_prefix:`, a namespace in front
+  of every generated key. A prefix with no letters or digits a key can use
+  raises `ParseError`. Keys a paste names are unchanged.
 
 ### Changed
 

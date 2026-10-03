@@ -8,8 +8,8 @@ require "test_helper"
 class McpDashboardToolsTest < ActionDispatch::IntegrationTest
   RUNTIME_TOKEN = "aa_runtime_dashboard_tools_s3cret"
   DASHBOARD_TOOLS = %w[
-    evaluations_list evaluations_get evaluations_run evaluation_runs_get evaluation_runs_compare
-    traces_search traces_get
+    evaluations_list evaluations_get evaluations_create scenarios_merge explorations_submit evaluations_run
+    evaluation_runs_get evaluation_runs_compare traces_search traces_get
   ].freeze
 
   # A trace model whose tenant is its service name, so a multi-tenant scope

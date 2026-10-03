@@ -198,14 +198,16 @@ module ActionAgent
       ENV["USER"].presence || "the dashboard's user"
     end
 
-    # Deletes the project with its target agent (and so its evaluation), and
-    # stops its current sandbox.
+    # Deletes the project with its target agent (and so its evaluation) and
+    # its explorations, and stops its current sandbox.
     def discard!
       sandbox = current_sandbox_session
       transaction do
         agent = target_agent
         update_columns(target_agent_id: nil, evaluation_id: nil)
         agent&.destroy!
+        # A host that upgraded the engine before migrating has no table yet.
+        Exploration.where(project_id: id).delete_all if Exploration.table_exists?
         destroy!
       end
       sandbox.expire! if sandbox && !sandbox.expired?
@@ -240,6 +242,25 @@ module ActionAgent
     # Called by SandboxProvisionJob when +sandbox+'s boot failed.
     def sandbox_failed!(sandbox)
       settle!(sandbox) { { status: "failed" } }
+    end
+
+    # The project's evaluation on +agent+: the one it has, or a new one when
+    # the target agent changed or the evaluation was deleted.
+    #
+    # @return [Evaluation]
+    def scenario_evaluation!(agent = target_agent)
+      ensure_evaluation!(agent)
+    end
+
+    # The project whose target agent +evaluation+ belongs to, or nil. The
+    # agent carries the project's owner columns, so they must match too, and
+    # another owner's project is never returned.
+    #
+    # @return [Project, nil]
+    def self.for_evaluation(evaluation)
+      agent = evaluation&.agent or return nil
+
+      find_by(target_agent_id: agent.id, account_id: agent.account_id, user_id: agent.user_id)
     end
 
     # Whether the target agent is the App assistant, as opposed to a proxy

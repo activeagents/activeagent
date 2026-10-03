@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, MicroLabel, MONO, SegmentedControl } from '../primitives';
 import ProjectBootProgress from './ProjectBootProgress';
 import ProjectEnvironment from './ProjectEnvironment';
+import ProjectExplorations from './ProjectExplorations';
 import ProjectSecretsForm from './ProjectSecretsForm';
 import { useActionCable } from '../../../hooks/useActionCable';
 import { navigateTo } from '../../../utils/dashboardPath';
@@ -28,7 +29,8 @@ async function readJson(res) {
 }
 
 // A project's page: its boot (steps, elapsed time, log tail), the agent it
-// evaluates and Run evaluation, and its Environment tab. The boot is
+// evaluates and Run evaluation, its Explorations tab (candidate scenarios
+// to review) and its Environment tab. The boot is
 // followed through the sandbox's Action Cable stream and polled every
 // BOOT_POLL_INTERVAL_MS while it boots, so it updates without the cable.
 export default function ProjectDetail({ projectId, onBack, onDeleted }) {
@@ -246,7 +248,11 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
       )}
 
       <SegmentedControl
-        options={[{ value: 'overview', label: 'Overview' }, { value: 'environment', label: `Environment (${secrets.length})` }]}
+        options={[
+          { value: 'overview', label: 'Overview' },
+          { value: 'explorations', label: 'Explorations' },
+          { value: 'environment', label: `Environment (${secrets.length})` },
+        ]}
         value={tab}
         onChange={setTab}
       />
@@ -301,6 +307,8 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
           </div>
         </>
       )}
+
+      {tab === 'explorations' && <ProjectExplorations projectId={projectId} />}
 
       {tab === 'environment' && (
         <>
