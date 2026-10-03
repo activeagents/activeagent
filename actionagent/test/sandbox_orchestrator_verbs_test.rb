@@ -6,7 +6,9 @@ require "test_helper"
 # dispatched to, and one that does not reports it through #supports? and
 # refuses the call with UnsupportedBackendError.
 class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
-  OPTIONAL_VERBS = %i[changed_files read_file start_browser stop_browser resume_boot].freeze
+  OPTIONAL_VERBS = %i[changed_files read_file start_browser stop_browser resume_boot boot_status boot_log].freeze
+  # What :local implements of them.
+  LOCAL_VERBS = %i[resume_boot boot_status boot_log].freeze
 
   # Implements every optional verb and records how it was called.
   class FullBackend
@@ -46,6 +48,16 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
       { container_name: "full-#{session}", url: "http://app.test", mcp_url: "http://app.test/mcp", mcp_token: "t" }
     end
 
+    def boot_status(session)
+      record(:boot_status, session)
+      { mode: "spec", steps: [] }
+    end
+
+    def boot_log(session, step:, offset:, secrets:, limit: 10)
+      record(:boot_log, session, step, offset, limit, secrets)
+      { step: step, text: "" }
+    end
+
     private
 
     def record(*call)
@@ -63,12 +75,12 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     ActionAgent.sandbox_backends = @original_backends
   end
 
-  test "the engine's own backends support none of the optional verbs" do
-    %w[mock local].each do |backend|
+  test "the engine's own backends support only the boot verbs, and only :local" do
+    { "mock" => [], "local" => LOCAL_VERBS }.each do |backend, supported|
       orchestrator = ActionAgent::SandboxOrchestrator.new(backend: backend)
 
       OPTIONAL_VERBS.each do |verb|
-        assert_not orchestrator.supports?(verb), "#{backend} should not claim #{verb}"
+        assert_equal supported.include?(verb), orchestrator.supports?(verb), "#{backend} and #{verb}"
       end
     end
   end
@@ -96,11 +108,18 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     assert_equal "http://browser.test/mcp", orchestrator.start_browser("s1", mode: :headed)[:mcp_url]
     assert orchestrator.stop_browser("s1")
 
+    orchestrator.boot_status("s1")
+    orchestrator.boot_log("s1", step: "db_prepare", offset: 5)
+    orchestrator.boot_log("s1", step: "start", limit: 99, secrets: [ "s3cret-value" ])
+
     assert_equal [
       [ :changed_files, "s1" ],
       [ :read_file, "s1", "app/models/widget.rb" ],
       [ :start_browser, "s1", :headed ],
-      [ :stop_browser, "s1" ]
+      [ :stop_browser, "s1" ],
+      [ :boot_status, "s1" ],
+      [ :boot_log, "s1", "db_prepare", 5, 10, [] ],
+      [ :boot_log, "s1", "start", 0, 99, [ "s3cret-value" ] ]
     ], FullBackend.calls
   end
 
