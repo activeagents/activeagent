@@ -112,15 +112,15 @@ module ActiveAgent
 
       # Splits `mcps:` into what the provider serves and what the bridge serves.
       #
-      # A declaration whose calls need approval is always the bridge's, because
-      # a provider that serves a server itself runs its tool calls where the
-      # approval gate never sees them (see {#mcp_gated?}).
+      # A declaration whose calls may need approval is always the bridge's,
+      # because a provider that serves a server itself runs its tool calls where
+      # the approval gate never sees them (see {#mcp_gated?}).
       #
       # @param declarations [Array<Hash>, Hash, nil]
       # @return [Array<Array<Hash>>] the provider's declarations, then the
       #   bridge's
       # @raise [ArgumentError] when `mcp_strategy: :server` was asked for and the
-      #   provider cannot serve one of the declarations, or one needs approval
+      #   provider cannot serve one of the declarations, or one may need approval
       def mcp_partition_servers(declarations)
         declarations = mcp_normalize_declarations(declarations)
 
@@ -138,18 +138,48 @@ module ActiveAgent
         end
       end
 
-      # Whether some of a declaration's tool calls need approval: its
-      # `require_approval` is anything but `"never"`, or the
-      # `requires_approval:` prompt option names one of its `allowed_tools`.
+      # Whether some of a declaration's tool calls may need approval: its
+      # `require_approval` covers a tool, or its server may offer a tool the
+      # `requires_approval:` prompt option names (see
+      # {#mcp_approvals_served_by}).
       #
       # @param declaration [Hash]
       # @return [Boolean]
       def mcp_gated?(declaration)
         return false unless declaration.is_a?(Hash)
-        return true if MCPBridge.approval_policy?(declaration[:require_approval])
 
-        allowed = Array(declaration[:allowed_tools]).map { |tool| tool.is_a?(Hash) ? (tool[:name] || tool["name"]).to_s : tool.to_s }
-        allowed.intersect?(Array(tool_approvals))
+        MCPBridge.approval_policy?(declaration[:require_approval]) || mcp_approvals_served_by(declaration).any?
+      end
+
+      # Returns the names in the `requires_approval:` prompt option that a
+      # declaration's server may offer: those among its `allowed_tools`, or,
+      # when it lists none, every name that no tool in `tools:` has. The tools
+      # of a server without `allowed_tools` are unknown until it is connected
+      # to, so it is taken to offer any name.
+      #
+      # @param declaration [Hash]
+      # @return [Array<String>]
+      def mcp_approvals_served_by(declaration)
+        approvals = Array(tool_approvals)
+        return [] if approvals.empty?
+
+        allowed = Array(declaration[:allowed_tools]).map { |tool| mcp_tool_name(tool) }
+        return approvals & allowed if allowed.any?
+
+        approvals - Array(context[:tools]).map { |tool| mcp_tool_name(tool) }
+      end
+
+      # @param tool [Hash, String, Symbol] a tool definition, in the common
+      #   format or OpenAI Chat's `{ function: { name: } }`, or a tool name
+      # @return [String]
+      def mcp_tool_name(tool)
+        return tool.to_s unless tool.is_a?(Hash)
+
+        function = tool[:function] || tool["function"]
+        name     = tool[:name] || tool["name"]
+        name   ||= function[:name] || function["name"] if function.is_a?(Hash)
+
+        name.to_s
       end
 
       # @return [Symbol] how to serve `mcps:`: `:auto` (default, native where the
@@ -202,12 +232,27 @@ module ActiveAgent
                "Use `mcp_strategy: :auto` to run the rest client-side."
         end
 
-        if mcp_gated?(declaration)
+        if MCPBridge.approval_policy?(declaration[:require_approval])
           fail ArgumentError,
                "The #{declaration[:name].to_s.inspect} MCP server's tool calls need approval, which is asked for " \
                "only when ActiveAgent runs the server client-side, but `mcp_strategy: :server` hands it to " \
                "#{service_name}. Use `mcp_strategy: :auto` or `:client`, or set `require_approval: \"never\"`."
         end
+
+        approvals = mcp_approvals_served_by(declaration)
+        return if approvals.empty?
+
+        remedy = if declaration[:allowed_tools].present?
+          "Remove #{approvals.to_sentence} from its `allowed_tools:`"
+        else
+          "List the tools it may offer in `allowed_tools:`"
+        end
+
+        fail ArgumentError,
+             "`requires_approval:` names #{approvals.to_sentence}, which the #{declaration[:name].to_s.inspect} " \
+             "MCP server may offer, and approval is asked for only when ActiveAgent runs the server client-side, " \
+             "but `mcp_strategy: :server` hands it to #{service_name}. #{remedy}, or use `mcp_strategy: :auto` " \
+             "or `:client`."
       end
     end
   end
