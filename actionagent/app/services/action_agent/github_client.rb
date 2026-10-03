@@ -2,9 +2,9 @@
 
 module ActionAgent
   # The few GitHub calls the dashboard makes: the OAuth code exchange, the
-  # authenticated user, and the repositories that user can reach. Plain
-  # Net::HTTP, like the provider model lookups, so the engine carries no
-  # GitHub SDK.
+  # authenticated user, the repositories that user can reach, and reading a
+  # repository's files without cloning it. Plain Net::HTTP, like the provider
+  # model lookups, so the engine carries no GitHub SDK.
   class GithubClient
     API = "https://api.github.com"
     TOKEN_URL = "https://github.com/login/oauth/access_token"
@@ -14,9 +14,15 @@ module ActionAgent
     PER_PAGE = 100
     MAX_PAGES = 5
 
+    # Files larger than this are not read through the contents API.
+    MAX_FILE_BYTES = 512 * 1024
+
     class Error < StandardError; end
     # The token was revoked or expired: the owner has to connect again.
     class Unauthorized < Error; end
+    # GitHub answered 404: no such repository, ref or path, or one the token
+    # cannot see, which GitHub does not tell apart.
+    class NotFound < Error; end
 
     def self.authorize_url(redirect_uri:, state:)
       query = {
@@ -54,6 +60,7 @@ module ActionAgent
       ) { |http| http.request(request) }
 
       raise Unauthorized, "GitHub rejected the token" if response.code.to_i == 401
+      raise NotFound, "GitHub found nothing at #{uri.path}" if response.code.to_i == 404
       raise Error, "GitHub answered #{response.code}" unless response.code.to_i.between?(200, 299)
 
       JSON.parse(response.body.presence || "{}")
@@ -83,6 +90,41 @@ module ActionAgent
       end
     end
 
+    # One repository the token reaches, by owner/name, sliced like
+    # #repositories; nil when GitHub finds none. Reaches repositories past
+    # the listing's cap.
+    def repository(full_name)
+      self.class.slice_repository(get("/repos/#{repository_path(full_name)}"))
+    rescue NotFound
+      nil
+    end
+
+    # The content of +path+ in +full_name+ at +ref+, or nil when there is no
+    # file there or it is larger than MAX_FILE_BYTES.
+    #
+    # @return [String, nil] UTF-8, invalid bytes replaced
+    def file(full_name, path, ref: nil)
+      encoded = path.to_s.split("/").map { |segment| ERB::Util.url_encode(segment) }.join("/")
+      data = get("/repos/#{repository_path(full_name)}/contents/#{encoded}", ref.present? ? { ref: ref } : {})
+      return nil unless data.is_a?(Hash) && data["type"] == "file" && data["encoding"] == "base64"
+      return nil if data["size"].to_i > MAX_FILE_BYTES
+
+      data["content"].to_s.unpack1("m").force_encoding(Encoding::UTF_8).scrub
+    rescue NotFound
+      nil
+    end
+
+    # Every file path in +full_name+ at +ref+, with its size:
+    # { paths: [{ path:, size: }], truncated: }. GitHub truncates the
+    # listing of a very large repository.
+    def tree(full_name, ref:)
+      data = get("/repos/#{repository_path(full_name)}/git/trees/#{ERB::Util.url_encode(ref.to_s)}", recursive: 1)
+      paths = Array(data["tree"]).filter_map do |entry|
+        { path: entry["path"].to_s, size: entry["size"].to_i } if entry.is_a?(Hash) && entry["type"] == "blob"
+      end
+      { paths: paths, truncated: data["truncated"] == true }
+    end
+
     def self.slice_repository(repo)
       {
         "id" => repo["id"],
@@ -96,6 +138,13 @@ module ActionAgent
     end
 
     private
+
+    def repository_path(full_name)
+      owner, name = full_name.to_s.split("/", 2)
+      raise ArgumentError, "#{full_name.inspect} is not owner/name" if owner.blank? || name.blank? || name.include?("/")
+
+      "#{ERB::Util.url_encode(owner)}/#{ERB::Util.url_encode(name)}"
+    end
 
     def get(path, params = {})
       uri = URI.parse("#{API}#{path}")
