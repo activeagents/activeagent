@@ -35,7 +35,7 @@ module ActionAgent
   # `mount_url`, the dashboard's absolute mount URL, is where a browser
   # started here posts its recording. Each replay's browser opens at the
   # project's start URL. A browser that cannot start fails the run before
-  # any replay.
+  # any replay, and one started here is stopped once the run ends.
   class ScenarioEvaluationRunner < EvaluationRunnerService
     Evals = ActiveAgent::Evals
 
@@ -62,13 +62,14 @@ module ActionAgent
       run = @run || @evaluation.evaluation_runs.create!(status: :pending)
       run.update!(status: :running, selection: selection_summary(scenarios, specs))
       ensure_sandbox_live!
-      ensure_browser_live!
 
       if scenarios.empty?
         run.update!(status: :failed, error_message: "No scenarios selected — add scenarios to the evaluation or widen the selection",
           completed_at: Time.current)
         return run
       end
+
+      ensure_browser_live!
 
       records = scenarios.index_by(&:key)
       tasks = scenarios.map { |scenario| Evals::Scenario.from_hash(scenario.as_json_summary) }
@@ -121,6 +122,8 @@ module ActionAgent
     rescue StandardError => e
       run&.update!(status: :failed, error_message: e.message, completed_at: Time.current)
       raise
+    ensure
+      stop_started_browser
     end
 
     private
@@ -239,12 +242,25 @@ module ActionAgent
         denial = ActionAgent.quota_denial(sandbox.metering_owner, :browser_minutes)
         raise ArgumentError, "The sandbox's browser could not start: the plan allows no more browser minutes" if denial.present?
 
-        SandboxBrowser.ensure_running!(sandbox, recording_url: SandboxBrowser.recording_url_for(@selection[:mount_url]),
-          storage_state: sandbox_project&.saved_storage_state)
+        _, @started_browser = SandboxBrowser.ensure_running!(sandbox,
+          recording_url: SandboxBrowser.recording_url_for(@selection[:mount_url]), storage_state: sandbox_project&.saved_storage_state)
       end
       @sandbox_session = sandbox.reload
     rescue SandboxBrowser::Error => e
       raise ArgumentError, "The sandbox's browser could not start: #{e.message}"
+    end
+
+    # Stops the browser ensure_browser_live! started, which completes its
+    # recording and stops its minutes. One that was already running is left
+    # running.
+    def stop_started_browser
+      return unless @started_browser
+
+      @started_browser = false
+      sandbox = sandbox_session.reload
+      SandboxBrowser.stop(sandbox) if SandboxBrowser::STARTED.include?(sandbox.browser_status)
+    rescue SandboxBrowser::Error, ActiveRecord::RecordNotFound => e
+      Rails.logger.warn("[ActionAgent] evaluation #{@evaluation.id}: could not stop the browser it started: #{e.message}")
     end
 
     # Opens the project's start URL in the sandbox's browser, so each replay

@@ -135,4 +135,17 @@ class ProjectExplorationsApiTest < ActionDispatch::IntegrationTest
     get "/activeagents/api/explorations/#{exploration.id}"
     assert_equal "answerable", response.parsed_body["candidates"].sole["verdict"]
   end
+
+  test "a walk stopped before its job ran still stops the browser the start launched" do
+    start
+    exploration = ActionAgent::Exploration.find(response.parsed_body.dig("exploration", "id"))
+    post "/activeagents/api/explorations/#{exploration.id}/stop", as: :json
+    assert_response :success
+
+    walk(exploration, stop_browser: true)
+
+    assert_not_equal "running", exploration.status
+    assert_equal [ @sandbox.session_id ], ExplorerBackend.stops
+    assert_equal "stopped", @sandbox.reload.browser_status
+  end
 end

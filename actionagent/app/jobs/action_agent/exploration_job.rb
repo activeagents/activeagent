@@ -11,27 +11,35 @@ module ActionAgent
   #     exploration keeps the candidates it found
   #
   # A browser the start launched for the walk is stopped afterwards, which
-  # completes its recording and stops its minutes.
+  # completes its recording and stops its minutes. That includes a walk that
+  # never began, because it was stopped before the job ran or its run is
+  # gone.
   class ExplorationJob < ApplicationJob
     queue_as :agents
 
     def perform(exploration_id, stop_browser = false)
       exploration = Exploration.find_by(id: exploration_id)
-      return unless exploration&.source == "explorer" && exploration.status == "pending"
+      return unless exploration&.source == "explorer"
 
-      run = exploration.agent_run
-      return exploration.fail_walk!("The explorer's run is missing") if run.nil? || run.finished?
-
-      exploration.start_walk!
-      run.update!(status: :running, started_at: Time.current)
       begin
-        walk(exploration, run)
+        begin_walk(exploration)
       ensure
         stop(exploration) if stop_browser
       end
     end
 
     private
+
+    def begin_walk(exploration)
+      return unless exploration.status == "pending"
+
+      run = exploration.agent_run
+      return exploration.fail_walk!("The explorer's run is missing") if run.nil? || run.finished?
+
+      exploration.start_walk!
+      run.update!(status: :running, started_at: Time.current)
+      walk(exploration, run)
+    end
 
     def walk(exploration, run)
       result = ExplorerExecutionService.new(exploration, run).walk!
