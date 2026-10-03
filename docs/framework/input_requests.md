@@ -161,7 +161,7 @@ SupportAgent.with(ticket:).as(current_user).handle(ticket_id: ticket.id)
 
 The job runs the action again from its arguments, params and actor, as `generate_later` does, and calls `resume_now`. `resume_later` checks the answers before it enqueues anything and raises `ActiveAgent::InputRequest::ResumeError` for an incomplete answer, an answer that does not fit, or any answer to a `:secret` request: job arguments are stored by the queue backend. Resume a generation that waits on a secret inside your own job, reading the answer from where your app keeps it.
 
-The checkpoint becomes a job argument too, so `GenerationJob` does not log its arguments.
+The checkpoint becomes a job argument too, so `GenerationJob` does not log its arguments. The queue backend still stores the checkpoint as it is, without the encryption [Storing checkpoints](#storing-checkpoints) recommends. When conversations are sensitive, call `resume_now` from your own job that reads an encrypted checkpoint.
 
 Like `generate_later`, `resume_later` needs a generation whose agent has not run yet: call it on a new one built the same way, not on the generation that paused. An agent that sets its own `generation_job` receives the checkpoint and answers in a `resume:` keyword argument, which a subclass of `ActiveAgent::GenerationJob` already handles.
 

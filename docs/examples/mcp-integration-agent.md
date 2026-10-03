@@ -390,7 +390,7 @@ Raw `type: "mcp"` tools passed in `tools:` go to OpenAI as they are. ActiveAgent
 
 ### Implementing Approval UI
 
-A call that needs approval pauses the generation: the response is `awaiting_input?`, lists the `input_requests`, and carries a `checkpoint` to resume from. Store both, show the request, and resume with the user's answer:
+A call that needs approval pauses the generation: the response is `awaiting_input?`, lists the `input_requests`, and carries a `checkpoint` to resume from. One turn can pause on several calls at once, for example when the model makes two write calls in parallel, and resuming needs an answer for each. Store the checkpoint and every request, show the requests, and resume with one answer per `tool_call_id`:
 
 ```ruby
 class McpApprovalsController < ApplicationController
@@ -398,28 +398,22 @@ class McpApprovalsController < ApplicationController
     respond_to_generation(sensitive_operation(params[:operation]).generate_now, params[:operation])
   end
 
-  def approve
-    resume(approved: true)
-  end
-
-  def reject
-    resume(approved: false)
-  end
-
-  private
-
-  # `true` runs the tool on the server; `false` declines it
-  def resume(approved:)
+  # The form sends one decision per paused call, keyed by its tool_call_id:
+  #   decisions[call_1]=approve&decisions[call_2]=reject
+  # `true` runs the tool on the server; `false` declines it.
+  def update
     approval = PendingApproval.find(params[:id])
+    answers  = approval.requests.to_h do |request|
+      [ request["tool_call_id"], params.dig(:decisions, request["tool_call_id"]) == "approve" ]
+    end
 
-    response = sensitive_operation(approval.operation).resume_now(
-      checkpoint: approval.checkpoint,
-      answers: { approval.request["tool_call_id"] => approved }
-    )
+    response = sensitive_operation(approval.operation).resume_now(checkpoint: approval.checkpoint, answers:)
     approval.destroy!
 
     respond_to_generation(response, approval.operation)
   end
+
+  private
 
   # A resumed generation pauses again when the model makes another call that
   # needs approval.
@@ -427,8 +421,8 @@ class McpApprovalsController < ApplicationController
     if response.awaiting_input?
       approval = PendingApproval.create!(
         operation: operation,
-        checkpoint: response.checkpoint,             # store encrypted: it holds the conversation
-        request: response.input_requests.first.to_h  # tool_name, arguments, tool_call_id
+        checkpoint: response.checkpoint,              # store encrypted: it holds the conversation
+        requests: response.input_requests.map(&:to_h) # tool_name, arguments, tool_call_id of each call
       )
       redirect_to approval_path(approval)
     else
