@@ -44,13 +44,16 @@ module ActionAgent
       #       publishes the files as a new commit on the branch of the latest
       #       pull request, with +message+ as the commit's message; the pull
       #       request's title and description stay as they are
+      #   { open: true }
+      #       opens a draft pull request for the latest branch that was
+      #       published without one
       #   { regular: true }
-      #       opens the latest branch GitHub refused a draft for as a regular
-      #       pull request
+      #       opens a regular pull request for that branch instead
       #
       # Answers 202 with the queued record, which GET reports on.
       def create
-        return open_regular if boolean_param(:regular)
+        return open_branch(regular: true) if boolean_param(:regular)
+        return open_branch(regular: false) if boolean_param(:open)
         return update_latest if boolean_param(:update)
 
         record = @sandbox.draft_pull_requests.new(
@@ -93,10 +96,16 @@ module ActionAgent
         @publisher ||= DraftPullRequestPublisher.new(@sandbox, user: current_user)
       end
 
+      # A new commit goes only onto the branch of a pull request that is open
+      # on GitHub: a branch without one is opened first (see #open_branch).
       def update_latest
-        record = @sandbox.draft_pull_requests.recent.where(operation: %w[create update]).where.not(head_commit: nil).first
+        record = @sandbox.draft_pull_requests.recent.where.not(head_commit: nil).first
         if record.nil?
           return render json: { error: "Nothing was published from this sandbox yet", code: "nothing_published" }, status: :unprocessable_entity
+        end
+        unless record.opened?
+          return render json: { error: "The branch #{record.branch} has no pull request yet. Open one for it first", code: "not_opened" },
+            status: :unprocessable_entity
         end
         if record.state.in?(%w[closed merged])
           return render json: { error: "The pull request is #{record.state}. Open a new one instead", code: "pull_request_closed" },
@@ -111,14 +120,16 @@ module ActionAgent
         queue(record, allowlist: allowlist_param)
       end
 
-      def open_regular
+      # Opens a pull request for the branch of the latest publish, which was
+      # pushed without one: a draft, or with +regular+ a regular one.
+      def open_branch(regular:)
         record = @sandbox.draft_pull_requests.recent.first
-        unless record&.status == "draft_refused"
+        unless record&.branch_only?
           return render json: { error: "No branch of this sandbox is waiting to be opened as a pull request", code: "nothing_published" },
             status: :unprocessable_entity
         end
 
-        record.assign_attributes(operation: "open_regular")
+        record.assign_attributes(operation: regular ? "open_regular" : "open_draft")
         assign_owner(record)
         return unless authorize_action!(:publish_pull_request, record)
 

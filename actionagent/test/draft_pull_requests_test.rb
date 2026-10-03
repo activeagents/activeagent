@@ -584,6 +584,55 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a branch with no pull request is never updated: it is opened as a regular pull request when the draft was refused" do
+    sandbox = app_sandbox!
+    stage!(sandbox)
+    stub_github!(draft_refused: true)
+    publish!(sandbox, preview_files: preview!(sandbox), paths: [ "README.md" ])
+    perform_enqueued_jobs
+    record = ActionAgent::DraftPullRequest.sole
+    assert_equal [ "draft_refused", nil ], [ record.status, record.number ]
+
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request", params: { update: true, files: selection(preview!(sandbox), "README.md") }, as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal "not_opened", JSON.parse(response.body)["code"]
+    assert_equal [ "draft_refused", "create" ], [ record.reload.status, record.operation ]
+    assert_empty enqueued_jobs
+
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request", params: { regular: true }, as: :json
+    assert_response :accepted, response.body
+    perform_enqueued_jobs
+    assert_equal [ "published", 12, false, nil ], [ record.reload.status, record.number, record.draft, record.compare_url ]
+  end
+
+  test "a branch whose pull request failed to open keeps its compare link, and opening it again opens a draft" do
+    sandbox = app_sandbox!
+    stage!(sandbox)
+    stub_github!(pulls_failure: { status: 502, body: { message: "Server Error" } })
+    publish!(sandbox, preview_files: preview!(sandbox), paths: [ "README.md" ])
+    perform_enqueued_jobs
+    record = ActionAgent::DraftPullRequest.sole
+    assert_equal [ "failed", "github_error", "d" * 40, nil ], [ record.status, record.error_code, record.head_commit, record.number ]
+    assert_equal "https://github.com/acme/shop/compare/main...activeagent/gadgets?expand=1", record.compare_url
+
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request", params: { update: true, files: selection(preview!(sandbox), "README.md") }, as: :json
+    assert_equal "not_opened", JSON.parse(response.body)["code"]
+
+    @calls.clear
+    stub_github!
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request", params: { open: true }, as: :json
+    assert_response :accepted, response.body
+    perform_enqueued_jobs
+
+    record.reload
+    assert_equal [ "published", "open_draft", 12, true, nil ], [ record.status, record.operation, record.number, record.draft, record.compare_url ]
+    assert_equal %w[pulls], @calls.reject { |call| call[:method] == :get }.map { |call| call[:endpoint] }, "the branch is not pushed again"
+
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request", params: { open: true }, as: :json
+    assert_equal "nothing_published", JSON.parse(response.body)["code"], "a branch with a pull request is not opened twice"
+  end
+
   test "a draft is taken for refused only from GitHub's validation errors, never from a branch name in them" do
     sandbox = app_sandbox!
     stage!(sandbox)
