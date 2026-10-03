@@ -19,11 +19,10 @@ module ActionAgent
 
     # GET <mount>/session_player
     def show
-      script_url = bundle_url
-      response.headers["Content-Security-Policy"] = self.class.policy(script_url)
+      response.headers["Content-Security-Policy"] = self.class.policy(bundle_url)
       response.headers["X-Frame-Options"] = "SAMEORIGIN"
       response.headers["Referrer-Policy"] = "no-referrer"
-      render "action_agent/session_player/show", locals: { script_url: script_url }
+      render "action_agent/session_player/show", locals: { script_path: helpers.asset_path(BUNDLE) }
     end
 
     # The frame's Content-Security-Policy, allowing +script_url+ as its only
@@ -47,8 +46,11 @@ module ActionAgent
 
     private
 
-    # The bundle's absolute URL. A CSP source naming a single file needs its
-    # scheme and host, and an asset host may serve it from another origin.
+    # The bundle's absolute URL, for the policy: a CSP source naming a single
+    # file needs its scheme and host, and an asset host may serve it from
+    # another origin. The page loads the bundle by its asset path, so behind
+    # a proxy that does not report https the script keeps the page's scheme.
+    # An http source still matches the https URL.
     def bundle_url
       URI.join("#{request.base_url}/", helpers.asset_path(BUNDLE)).to_s
     end

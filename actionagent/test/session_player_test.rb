@@ -20,7 +20,13 @@ class SessionPlayerTest < ActionDispatch::IntegrationTest
     assert_includes policy, "script-src #{script}"
     assert_includes policy, "img-src data: blob:"
     assert_equal "SAMEORIGIN", response.headers["X-Frame-Options"]
-    assert_includes response.body, %(<script src="#{script}"></script>)
+  end
+
+  test "loads the bundle by its asset path, so the page's own scheme is kept" do
+    get "/activeagents/session_player"
+
+    assert_includes response.body, %(<script src="/action_agent_replay.js"></script>)
+    assert_includes response.headers["Content-Security-Policy"].split("; "), "script-src http://www.example.com/action_agent_replay.js"
   end
 
   test "the frame carries no data" do
