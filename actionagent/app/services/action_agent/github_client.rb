@@ -40,10 +40,15 @@ module ActionAgent
     class Error < StandardError
       # The HTTP status GitHub answered with, or nil when it was not reached.
       attr_reader :status
+      # The +errors+ of GitHub's answer, each a Hash such as { "resource" =>
+      # "PullRequest", "field" => "base", "code" => "invalid", "message" =>
+      # "…" }; empty when it carried none.
+      attr_reader :errors
 
-      def initialize(message = nil, status: nil)
+      def initialize(message = nil, status: nil, errors: [])
         super(message)
         @status = status
+        @errors = errors
       end
     end
     # The token was revoked or expired: the owner has to connect again.
@@ -145,7 +150,10 @@ module ActionAgent
 
         status = response.code.to_i
         raise Unauthorized.new("GitHub rejected the token", status: status) if status == 401
-        raise Error.new(refusal_message(response), status: status) unless status.between?(200, 299)
+        unless status.between?(200, 299)
+          body = error_body(response)
+          raise Error.new(refusal_message(response.code, body), status: status, errors: Array(body["errors"]).grep(Hash))
+        end
 
         JSON.parse(response.body.presence || "{}")
       rescue JSON::ParserError
@@ -210,17 +218,19 @@ module ActionAgent
       # the messages of a validation failure's errors after it:
       # "GitHub answered 404 (Not Found)", "GitHub answered 422 (Validation
       # Failed: A pull request already exists for acme:fix.)".
-      def refusal_message(response)
-        body = begin
-          JSON.parse(response.body.to_s)
-        rescue JSON::ParserError, TypeError
-          nil
-        end
-        body = {} unless body.is_a?(Hash)
+      def refusal_message(code, body)
         errors = Array(body["errors"]).filter_map { |error| error["message"] if error.is_a?(Hash) && error["message"].is_a?(String) }
         detail = [ body["message"].is_a?(String) ? body["message"] : nil, errors.join(" ").presence ].compact.join(": ")
         detail = detail.truncate(300).presence
-        detail ? "GitHub answered #{response.code} (#{detail})" : "GitHub answered #{response.code}"
+        detail ? "GitHub answered #{code} (#{detail})" : "GitHub answered #{code}"
+      end
+
+      # The JSON object GitHub answered a failed request with, or {}.
+      def error_body(response)
+        body = JSON.parse(response.body.to_s)
+        body.is_a?(Hash) ? body : {}
+      rescue JSON::ParserError, TypeError
+        {}
       end
 
       def base64url(bytes)

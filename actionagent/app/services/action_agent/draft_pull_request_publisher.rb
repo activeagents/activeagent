@@ -568,7 +568,7 @@ module ActionAgent
         draft: pull["draft"] == true, last_checked_at: Time.current, compare_url: nil, error_code: nil, error_message: nil
       )
     rescue GithubClient::Error => e
-      raise unless draft && e.status == 422 && e.message.match?(/draft/i)
+      raise unless draft && draft_refused?(e)
       return open_pull_request!(record, client, draft: false) if allow_non_draft
 
       record.update!(
@@ -576,6 +576,16 @@ module ActionAgent
         error_message: "GitHub does not open draft pull requests in #{record.repository}. The branch #{record.branch} is published: " \
           "open it as a regular pull request, or compare it on GitHub"
       )
+    end
+
+    # Whether GitHub refused to open a pull request because it was a draft,
+    # as its validation errors say, whatever the branch names in them.
+    def draft_refused?(error)
+      return false unless error.status == 422
+
+      error.errors.any? do |detail|
+        detail["field"] == "draft" || detail["message"].to_s.match?(/\Adraft pull requests are not (?:supported|available|enabled)/i)
+      end
     end
 
     def commit_message(record)
