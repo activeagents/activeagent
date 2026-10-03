@@ -116,23 +116,15 @@ class McpIntegrationAgent < ApplicationAgent
 
     prompt(
       message: "Perform operation: #{@operation}",
-      options: {
-        use_responses_api: true,
-        tools: [
-          {
-            type: "mcp",
-            server_label: @mcp_config[:label],
-            server_url: @mcp_config[:url],
-            authorization: @mcp_config[:auth],
-            require_approval: {
-              never: {
-                tool_names: ["read", "search"]  # Safe operations
-              }
-            }
-            # All other operations will require approval
-          }
-        ]
-      }
+      mcps: [
+        {
+          name: @mcp_config[:label],
+          url: @mcp_config[:url],
+          authorization: @mcp_config[:auth],
+          # Safe operations run straight away; every other call waits for approval
+          require_approval: { never: { tool_names: ["read", "search"] } }
+        }
+      ]
     )
   end
 
@@ -231,17 +223,22 @@ puts response.message.content
 Control which operations require user approval:
 
 ```ruby
-response = McpIntegrationAgent.with(
-  operation: "analyze sales data",
+generation = McpIntegrationAgent.with(
+  operation: "archive last year's orders",
   mcp_config: {
     label: "Company Database",
     url: "https://db.company.com/mcp",
     auth: database_token
   }
-).sensitive_operation.generate_now
+).sensitive_operation
 
-# Read operations execute automatically
-# Write/delete operations will require approval
+response = generation.generate_now
+
+# Read operations execute automatically.
+# A write or delete pauses the generation before it reaches the server:
+response.awaiting_input?                # => true
+response.input_requests.first.tool_name # => "archive_orders"
+response.input_requests.first.arguments # => { "year" => 2025 }
 ```
 
 ## Cloud Storage Connectors
@@ -360,10 +357,12 @@ end
 
 ### Approval Policies
 
-Control which operations require user approval:
+Set `require_approval:` on a server declared with `mcps:` to control which operations require user approval:
 
 ```ruby
 {
+  name: "Company Database",
+  url: "https://db.company.com/mcp",
   require_approval: {
     never: {
       tool_names: ["read", "search", "list"]  # Safe read-only operations
@@ -373,39 +372,87 @@ Control which operations require user approval:
 }
 ```
 
+A server that asks for approval is run by ActiveAgent rather than by the provider, on every provider, so its calls pass through the approval step. See [Approving tool calls](/actions/mcps#approving-tool-calls).
+
 ### Approval Options
 
 - **"never"** - All operations execute automatically (use with caution)
 - **"always"** - All operations require approval (safest)
-- **Custom** - Specify which tools don't require approval
+- **Custom** - `{ always: [...] }` names the tools that require approval; `{ never: [...] }` names the ones that don't
+
+The `requires_approval:` prompt option does the same for named tools, whether the agent or a server provides them:
+
+```ruby
+prompt(message: "Clean up the archive", mcps: [ database_server ], requires_approval: [ "delete_rows" ])
+```
+
+Raw `type: "mcp"` tools passed in `tools:` go to OpenAI as they are. ActiveAgent does not answer the approval requests OpenAI makes for them, so declare a server with `mcps:` when its calls need approval.
 
 ### Implementing Approval UI
 
+A call that needs approval pauses the generation: the response is `awaiting_input?`, lists the `input_requests`, and carries a `checkpoint` to resume from. Store both, show the request, and resume with the user's answer:
+
 ```ruby
 class McpApprovalsController < ApplicationController
-  def show
-    @approval_request = ApprovalRequest.find(params[:id])
+  def create
+    respond_to_generation(sensitive_operation(params[:operation]).generate_now, params[:operation])
   end
 
   def approve
-    approval = ApprovalRequest.find(params[:id])
-    approval.approve!
-
-    # Resume agent execution
-    agent = McpIntegrationAgent.new
-    response = agent.resume_with_approval(approval)
-
-    redirect_to chat_path, notice: "Operation approved"
+    resume(approved: true)
   end
 
   def reject
-    approval = ApprovalRequest.find(params[:id])
-    approval.reject!
+    resume(approved: false)
+  end
 
-    redirect_to chat_path, notice: "Operation rejected"
+  private
+
+  # `true` runs the tool on the server; `false` declines it
+  def resume(approved:)
+    approval = PendingApproval.find(params[:id])
+
+    response = sensitive_operation(approval.operation).resume_now(
+      checkpoint: approval.checkpoint,
+      answers: { approval.request["tool_call_id"] => approved }
+    )
+    approval.destroy!
+
+    respond_to_generation(response, approval.operation)
+  end
+
+  # A resumed generation pauses again when the model makes another call that
+  # needs approval.
+  def respond_to_generation(response, operation)
+    if response.awaiting_input?
+      approval = PendingApproval.create!(
+        operation: operation,
+        checkpoint: response.checkpoint,             # store encrypted: it holds the conversation
+        request: response.input_requests.first.to_h  # tool_name, arguments, tool_call_id
+      )
+      redirect_to approval_path(approval)
+    else
+      redirect_to chat_path, notice: response.message.content
+    end
+  end
+
+  # Resuming runs the action again, so the generation is built the same way
+  # both times. The server's token comes from credentials, not from the
+  # stored approval.
+  def sensitive_operation(operation)
+    McpIntegrationAgent.with(
+      operation: operation,
+      mcp_config: {
+        label: "Company Database",
+        url: "https://db.company.com/mcp",
+        auth: Rails.application.credentials.dig(:company_db, :mcp_token)
+      }
+    ).sensitive_operation
   end
 end
 ```
+
+`resume_later` resumes in a background job instead. Its params become job arguments, so pass a token through params only when your queue backend may hold it. See [Asking the User](/framework/input_requests) for answering several requests at once and for resuming later.
 
 ## Security Considerations
 

@@ -35,9 +35,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   results, telemetry tool spans and tool errors. Pauses publish
   `input_requested.active_agent` and run `on_input_request` callbacks; a
   delegated agent that pauses returns `{ error: "input_required" }` to its
-  caller instead, without announcing the pause. Supported by the Anthropic and
-  OpenAI Chat Completions tool loops; under OpenAI Responses and RubyLLM a tool
-  that asks raises `InputRequest::UnsupportedProviderError`.
+  caller instead, without announcing the pause, and raises
+  `Delegation::InputRequiredError` under `on_exceeded: :raise`. Supported by
+  every built-in tool loop, streamed or not: Anthropic, OpenAI Chat
+  Completions, OpenAI Responses (reasoning items included) and RubyLLM. Under a
+  custom provider that does not run its calls through `dispatch_tool_calls`, a
+  tool that asks raises `InputRequest::UnsupportedProviderError`.
+- **Require approval before a tool runs** (`activeagent`). The
+  `requires_approval:` prompt option lists tools whose calls pause with a
+  `:confirm` request carrying the tool name and arguments before the tool runs;
+  `true` runs it, `false` declines. It covers agent tools, delegations and
+  client-side MCP tools, and is never sent to the provider. An MCP declaration's
+  own `require_approval` (`"always"`, or a map of `always`/`never` tool lists)
+  gates its tools the same way. A paused call to an MCP tool its server no
+  longer offers returns an `{ error: }` result on resume.
+- **Resume a paused generation in a job** (`activeagent`).
+  `Generation#resume_later(checkpoint:, answers:, **job_options)` validates the
+  answers, refuses any answer to a `:secret` request, and enqueues
+  `GenerationJob` with a new `resume:` argument; params and actor travel as they
+  do for `generate_later`. `InputRequest#arguments` holds the arguments of the
+  paused call.
+
+### Changed
+
+- **`GenerationJob` no longer logs its arguments** (`activeagent`). They can
+  hold a paused generation's conversation and the user's answers.
+- **MCP declarations that set `require_approval` run client-side**
+  (`activeagent`). On Anthropic and OpenAI Responses, a `url:` declaration whose
+  `require_approval` is anything but `"never"` is served by ActiveAgent's MCP
+  bridge rather than handed to the provider, so its calls can pause for
+  approval; `mcp_strategy: :server` with one raises `ArgumentError`.
 
 ### Fixed
 
@@ -49,6 +76,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`activeagent`). Keep only request-supported message fields.
 - **Name conflicting gems in provider load errors** (`activeagent`). Explain
   when another gem already defines `OpenAI` and show the Gemfile replacement.
+- **Accept reasoning items in streamed OpenAI Responses** (`activeagent`). A
+  streamed response from a reasoning model raised `Unexpected Item Type`; its
+  reasoning items are now kept and sent back with the function calls they led to.
+- **Send each RubyLLM tool result as its own message** (`activeagent`). A turn
+  with several tool calls sent their results merged into one message, under the
+  first call's id.
 - **Fix a forced Anthropic `tool_choice` failing on a third turn**
   (`activeagent`). Once the forced tool was used, the next turn cleared
   `tool_choice`, and the turn after it raised `Anthropic::Errors::ConversionError`
