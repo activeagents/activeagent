@@ -173,6 +173,7 @@ module ActiveAgent
         self.instrumentation_enabled = kwargs.delete(:instrumentation) != false
         self.generation_action_name  = kwargs.delete(:action_name)
         self.input_request_resume    = kwargs.delete(:input_request_resume)
+        self.announce_input_requests = kwargs.delete(:announce_input_requests) != false
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context            = kwargs
         self.message_stack      = []

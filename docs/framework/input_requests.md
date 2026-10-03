@@ -160,12 +160,12 @@ end
 
 `only:` and `except:` name the generation's action, not the tool that paused it. `resuming?` is true inside callbacks and tools while a paused generation continues.
 
-Each pause also publishes `input_requested.active_agent`, with the requests in `payload[:input_requests]`, and telemetry marks the generation's root span with `agent.awaiting_input`.
+Each pause also publishes `input_requested.active_agent`, with the requests in `payload[:input_requests]`, and telemetry marks the generation's root span with `agent.awaiting_input`. A delegated agent's pause is the exception; see [Limitations](#limitations).
 
 ## Limitations
 
 - Pausing works in the Anthropic and OpenAI Chat Completions tool loops, streamed or not, and in the providers that share them (Bedrock, and the Chat Completions-compatible providers such as Azure, OpenRouter and Ollama). Under OpenAI Responses or RubyLLM, a tool that returns a request raises `ActiveAgent::InputRequest::UnsupportedProviderError`.
 - Only agent tool methods can ask. Tools served by an MCP server cannot return a request.
 - A pause ends the generation, so client-side MCP connections close. A `command:` server is started again on resume and loses any state it held.
-- A [delegated agent](/actions/delegation) cannot pause: nothing holds its checkpoint once the delegated call returns. Its questions go back to the calling model as `{ "error": "input_required", "questions": [...] }`.
+- A [delegated agent](/actions/delegation) cannot pause: nothing holds its checkpoint once the delegated call returns. Its questions go back to the calling model as `{ "error": "input_required", "questions": [...] }`, and the pause is neither published as `input_requested.active_agent` nor passed to the delegated agent's `on_input_request` callbacks. The other tool calls of the turn that paused have already run, and run again if the calling model retries the delegation.
 - There is no `resume_later` yet; resume inside your own job, reading the answers from where your app stored them.
