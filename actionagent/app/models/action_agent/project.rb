@@ -23,7 +23,9 @@ module ActionAgent
   # Either way the agent's mcp_servers name the current sandbox, in place of
   # any earlier sandbox, and keep the servers added in the agent editor.
   #
-  # A failed boot can start the project's setup assistant (ProjectSetup).
+  # A failed boot can start the project's setup assistant (ProjectSetup),
+  # and the App assistant can be given schema tools over the models a boot
+  # lists (#choose_schema_tools!).
   #
   # The sandbox, the agent and the evaluation carry the project's own owner
   # columns, whoever starts a boot, so the agent's runs always reach the
@@ -79,9 +81,12 @@ module ActionAgent
 
     # How +sandbox+ boots: a bootstrap for a checkout whose Gemfile.lock
     # lacks the engine, and the checkout's own sandbox.yml boot otherwise
-    # (the spec applies "without_engine"). Either way the project's secrets
-    # reach the steps that run the repository's code, and a failed boot
-    # keeps its workspace for SandboxOrchestrator#resume_boot.
+    # (the spec applies "without_engine").
+    #
+    # A spec boot also writes the schema tools chosen for the App assistant
+    # (#schema_tools). Either way the project's secrets reach the steps that
+    # run the repository's code, and a failed spec boot keeps its workspace
+    # for SandboxOrchestrator#resume_boot.
     #
     # Built in memory each time: the secrets' values are read here, from the
     # encrypted column, and never stored with the boot.
@@ -90,8 +95,9 @@ module ActionAgent
     # @raise [ActiveRecord::RecordNotFound] when a secret uses an
     #   organization key that is no longer stored
     def boot_spec(_sandbox = current_sandbox_session)
-      SandboxBootSpec.bootstrap(apply: "without_engine", start_url: start_url, keep_on_failure: true,
-        env: plain_environment, secrets: secret_environment)
+      steps = [ SandboxBootSpec.schema_tools_step(schema_tools) ].compact
+      SandboxBootSpec.bootstrap(apply: "without_engine", start_url: start_url, keep_on_failure: true, env: plain_environment,
+        secrets: secret_environment, steps: steps)
     end
 
     # The ref a new sandbox checks out: default_ref, nil for the
@@ -99,6 +105,53 @@ module ActionAgent
     def checkout_ref
       default_ref.presence
     end
+
+    # The models and columns the App assistant may read, as chosen with
+    # #choose_schema_tools!: [{ "model" =>, "filterable" =>, "returns" => }].
+    def schema_tools
+      Array(settings["schema_tools"]).select { |choice| choice.is_a?(Hash) }
+    end
+
+    # The app's models as the last boot's manifest listed them
+    # (SandboxManifest.app_models), or nil before a boot listed any.
+    def app_models
+      settings["app_models"].is_a?(Array) ? settings["app_models"] : nil
+    end
+
+    # Stores which models and columns the App assistant may read. Each boot
+    # after this writes app/agent_tools/<model>_tools.rb for them, exposing
+    # only those columns, and the assistant's sandbox server then lists
+    # their tools. A model with no column chosen is dropped, and an empty
+    # list removes every choice.
+    #
+    # @param choices [Array<Hash>] [{ model:, filterable: [], returns: [] }]
+    # @raise [SandboxBootSpec::Invalid] for a model or column a boot did not
+    #   list, or one SandboxBootSpec.schema_tools_step refuses
+    def choose_schema_tools!(choices)
+      known = app_models or raise SandboxBootSpec::Invalid, "Boot the project first: its models are listed by a boot"
+
+      columns_of = known.to_h { |model| [ model["name"], Array(model["columns"]).map { |column| column["name"] } ] }
+      normalized = Array(choices).map do |choice|
+        choice = choice.to_h.stringify_keys
+        model = choice["model"].to_s
+        raise SandboxBootSpec::Invalid, "#{model.truncate(60).inspect} is not one of the app's models" unless columns_of.key?(model)
+
+        entry = { "model" => model }
+        %w[filterable returns].each do |option|
+          picked = Array(choice[option]).map(&:to_s).uniq
+          unknown = picked - columns_of[model]
+          raise SandboxBootSpec::Invalid, "#{model} has no column #{unknown.first.truncate(60)} a tool may read" if unknown.any?
+
+          entry[option] = picked
+        end
+        entry
+      end
+      normalized.uniq! { |entry| entry["model"] }
+      normalized.reject! { |entry| entry["filterable"].empty? && entry["returns"].empty? }
+      SandboxBootSpec.schema_tools_step(normalized)
+      update!(settings: settings.merge("schema_tools" => normalized))
+    end
+
     # The setup assistant's state (see ProjectSetup):
     #
     #   agent_id         its dashboard Agent
@@ -153,7 +206,6 @@ module ActionAgent
     def plain_environment
       secrets.ordered.select(&:plain?).to_h { |secret| [ secret.name, secret.value.to_s ] }
     end
-
 
     # The project's secret +name+ set as asked, unsaved: a new secret, or the
     # existing one with its value or source replaced. +set_by+ is recorded
@@ -287,13 +339,16 @@ module ActionAgent
       LiveUpdates.broadcast(stream_name, type: "project", id: id, status: status)
     end
 
-    # Called by SandboxProvisionJob once +sandbox+ is serving. Ignored for a
-    # sandbox that is no longer the current one.
-    def sandbox_ready!(sandbox)
+    # Called by SandboxProvisionJob once +sandbox+ is serving, with the
+    # models its manifest listed when the backend reports them. Ignored for
+    # a sandbox that is no longer the current one.
+    def sandbox_ready!(sandbox, app_models: nil)
       settle!(sandbox) do
         attributes = { status: "ready" }
         attributes[:install_state] = "bootstrapped" if install_state == "detected"
-        attributes.merge(settings: settings.merge("setup" => setup_settings.merge("attempts" => 0)))
+        next_settings = settings.merge("setup" => setup_settings.merge("attempts" => 0))
+        next_settings["app_models"] = app_models if app_models.is_a?(Array)
+        attributes.merge(settings: next_settings)
       end
     end
 
@@ -420,6 +475,8 @@ module ActionAgent
         checkout_ref: checkout_ref,
         setup: setup_summary,
         pending_input_requests: pending_input_requests.count,
+        schema_tools: schema_tools,
+        app_models_listed: !app_models.nil?,
         created_at: created_at&.iso8601,
         updated_at: updated_at&.iso8601
       }

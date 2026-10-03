@@ -1124,6 +1124,7 @@ module ActionAgent
         container_ip: "127.0.0.1",
         mcp_url: "http://127.0.0.1:#{port}#{manifest["mcp_path"]}",
         mcp_token: manifest["mcp_token"],
+        app_models: manifest["models"],
         created_at: Time.current
       }
     end

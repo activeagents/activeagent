@@ -47,9 +47,9 @@ module ActionAgent
       project = sandbox.app_runtime? ? sandbox.project : nil
       result =
         if options["resume"].is_a?(Hash)
-          orchestrator.resume_boot(sandbox, from: options["resume"]["from"].presence, boot_config: project&.boot_spec)
+          orchestrator.resume_boot(sandbox, from: options["resume"]["from"].presence, boot_config: project&.boot_spec(sandbox))
         elsif project
-          orchestrator.create_sandbox(sandbox, boot_config: project.boot_spec)
+          orchestrator.create_sandbox(sandbox, boot_config: project.boot_spec(sandbox))
         elsif (spec = sandbox.app_runtime? && boot_spec(options["boot"]))
           orchestrator.create_sandbox(sandbox, boot_config: spec)
         else
@@ -68,7 +68,7 @@ module ActionAgent
         return
       end
 
-      project&.sandbox_ready!(sandbox)
+      project&.sandbox_ready!(sandbox, app_models: result[:app_models])
       # Broadcast status update
       broadcast_sandbox_update(sandbox)
     rescue StandardError => e
