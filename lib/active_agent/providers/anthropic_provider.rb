@@ -192,8 +192,9 @@ module ActiveAgent
 
           self.message_stack[-1] = api_message
 
-          # Once we are finished, close out and run tooling callbacks (Recursive)
-          process_prompt_finished if message_stack.last[:stop_reason]
+          # Completion, tool loop included, runs from stream_finished! once
+          # the stream has drained, so each turn's tool calls run once.
+          self.stream_completion_pending = true if message_stack.last[:stop_reason]
         when :ping
           # No-Op Keep Awake
         when :overloaded_error
