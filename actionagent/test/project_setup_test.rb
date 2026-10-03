@@ -278,6 +278,26 @@ class ProjectSetupTest < ActionDispatch::IntegrationTest
     assert_equal 3, ActionAgent::AgentRun.count, "switched off, a failed boot starts nothing"
   end
 
+  test "while a setup run waits on a person, neither a request nor a failed boot starts another" do
+    stub_anthropic(assistant_message(tool_use("toolu_1", "request_secret", { name: "STRIPE_API_KEY", prompt: "Needed" })))
+    waiting = start_setup!.reload
+    assert waiting.awaiting_input?, waiting.error_message
+
+    post "#{BASE}/#{@project.id}/setup", as: :json
+    assert_response :conflict
+    assert_match(/waiting for an answer/, JSON.parse(response.body)["error"])
+    perform_enqueued_jobs { @project.reload.sandbox_failed!(new_failed_sandbox!) }
+    assert_equal [ waiting.id ], ActionAgent::AgentRun.pluck(:id)
+
+    waiting.input_requests.sole.update!(expires_at: 1.minute.ago)
+    stub_anthropic(assistant_message(text_block("Looking again.")))
+    perform_enqueued_jobs { post "#{BASE}/#{@project.id}/setup", as: :json }
+
+    assert_response :accepted, response.body
+    assert waiting.reload.failed?, "the request expired, so the run it paused is over"
+    assert_equal 2, ActionAgent::AgentRun.count
+  end
+
   test "an automatic run is an execution: the host's quota can deny it, and it is counted" do
     stub_anthropic(assistant_message(text_block("I cannot fix this one.")))
     used = []

@@ -122,12 +122,16 @@ module ActionAgent
       # +trigger+ is "boot_failed" for an automatic run, "requested" for one
       # a person asked for.
       #
-      # @raise [Unavailable] when .availability says no, or the project has no
-      #   failed boot to help with
+      # @raise [Unavailable] when .availability says no, the project has no
+      #   failed boot to help with, or its last setup run is still at work
+      #   or waiting for a person (.active_run)
       # @return [AgentRun]
       def start!(project, trigger:)
         sandbox = project.current_sandbox_session
         raise Unavailable, "The project's sandbox has not failed to boot: there is nothing to set up" unless sandbox&.failed?
+        if active_run(project)
+          raise Unavailable, "The setup assistant is still working on the project, or waiting for an answer on its page"
+        end
 
         availability = self.availability(project)
         raise Unavailable, availability[:reason] unless availability[:available]
@@ -140,12 +144,13 @@ module ActionAgent
 
       # Starts an automatic setup run for +project+ after +sandbox+ failed to
       # boot, unless the project switched them off, MAX_AUTOMATIC_ATTEMPTS ran
-      # since its last good boot, or the host's quota denies an execution.
-      # Returns the run, or nil.
+      # since its last good boot, a setup run is still active (.active_run),
+      # or the host's quota denies an execution. Returns the run, or nil.
       def after_boot_failed(project, sandbox)
         return nil unless project.current_sandbox_session_id == sandbox.id
         return nil unless project.auto_setup?
         return nil if project.setup_settings["attempts"].to_i >= MAX_AUTOMATIC_ATTEMPTS
+        return nil if active_run(project)
         return nil unless availability(project)[:available]
         return nil if ActionAgent.quota_denial(project.owner, :execution).present?
 
@@ -153,6 +158,21 @@ module ActionAgent
       rescue Unavailable, ActiveRecord::RecordInvalid => e
         Rails.logger.info("[ActionAgent] project #{project.id}: no setup run: #{e.message}")
         nil
+      end
+
+      # The project's last setup run while it is pending, running, or
+      # waiting on a request for input that has not expired; otherwise nil.
+      #
+      # @return [AgentRun, nil]
+      def active_run(project)
+        id = project.setup_settings["last_run_id"]
+        run = id && AgentRun.find_by(id: id)
+        return nil if run.nil?
+        return run if run.in_progress?
+        return nil unless run.awaiting_input?
+
+        InputRequest.expire_overdue!(run.input_requests)
+        run.reload.awaiting_input? || run.in_progress? ? run : nil
       end
 
       # The project +run+ is a recorded setup run of, or nil.
