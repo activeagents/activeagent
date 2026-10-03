@@ -91,10 +91,11 @@ module ActionAgent
     #                   the engine, and the checkout's own sandbox.yml boot
     #                   otherwise (the spec applies "without_engine")
     #
-    # A spec boot also writes the schema tools chosen for the App assistant
-    # (#schema_tools). Either way the project's secrets reach the steps that
-    # run the repository's code, and a failed spec boot keeps its workspace
-    # for SandboxOrchestrator#resume_boot.
+    # Every boot writes the schema tools chosen for the App assistant
+    # (#schema_tools), a checkout booting from its own sandbox.yml after
+    # that file's setup. Either way the project's secrets reach the steps
+    # that run the repository's code, and a failed spec boot keeps its
+    # workspace for SandboxOrchestrator#resume_boot.
     #
     # Built in memory each time: the secrets' values are read here, from the
     # encrypted column, and never stored with the boot.
@@ -103,7 +104,7 @@ module ActionAgent
     # @raise [ActiveRecord::RecordNotFound] when a secret uses an
     #   organization key that is no longer stored
     def boot_spec(sandbox = current_sandbox_session)
-      steps = [ SandboxBootSpec.schema_tools_step(schema_tools) ].compact
+      steps = SandboxBootSpec.schema_tools_steps(settings.key?("schema_tools") ? schema_tools : nil)
       options = { start_url: start_url, keep_on_failure: true, env: plain_environment, secrets: secret_environment, steps: steps }
       return SandboxBootSpec.installed(**options) if sandbox&.repository_ref.present? && sandbox.repository_ref == install_branch
 
@@ -151,6 +152,13 @@ module ActionAgent
       Array(settings["schema_tools"]).select { |choice| choice.is_a?(Hash) }
     end
 
+    # Every model #choose_schema_tools! was ever given, the ones chosen now
+    # among them: their tools files are the ones a boot may have written or
+    # removed.
+    def schema_tools_models
+      Array(settings["schema_tools_models"]).map(&:to_s) | schema_tools.map { |choice| choice["model"].to_s }
+    end
+
     # The app's models as the last boot's manifest listed them
     # (SandboxManifest.app_models), or nil before a boot listed any.
     def app_models
@@ -159,13 +167,14 @@ module ActionAgent
 
     # Stores which models and columns the App assistant may read. Each boot
     # after this writes app/agent_tools/<model>_tools.rb for them, exposing
-    # only those columns, and the assistant's sandbox server then lists
-    # their tools. A model with no column chosen is dropped, and an empty
-    # list removes every choice.
+    # only those columns, and removes the files it wrote for models no
+    # longer chosen (SandboxBootSpec.schema_tools_steps). The assistant's
+    # sandbox server then lists their tools. A model with no column chosen
+    # is dropped, and an empty list removes every choice.
     #
     # @param choices [Array<Hash>] [{ model:, filterable: [], returns: [] }]
     # @raise [SandboxBootSpec::Invalid] for a model or column a boot did not
-    #   list, or one SandboxBootSpec.schema_tools_step refuses
+    #   list, or choices SandboxBootSpec.schema_tools_steps refuses
     def choose_schema_tools!(choices)
       known = app_models or raise SandboxBootSpec::Invalid, "Boot the project first: its models are listed by a boot"
 
@@ -187,8 +196,9 @@ module ActionAgent
       end
       normalized.uniq! { |entry| entry["model"] }
       normalized.reject! { |entry| entry["filterable"].empty? && entry["returns"].empty? }
-      SandboxBootSpec.schema_tools_step(normalized)
-      update!(settings: settings.merge("schema_tools" => normalized))
+      SandboxBootSpec.schema_tools_steps(normalized)
+      models = (schema_tools_models | normalized.map { |entry| entry["model"] }).last(SandboxManifest::MAX_MODELS)
+      update!(settings: settings.merge("schema_tools" => normalized, "schema_tools_models" => models))
     end
 
     # The setup assistant's state (see ProjectSetup):
