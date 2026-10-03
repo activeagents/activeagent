@@ -149,8 +149,9 @@ module ActionAgent
         end
 
         if files
-          changes = publisher.changes(allowlist: allowlist)
-          chosen = publisher.select!(changes, selection_param)
+          selection = selection_param
+          changes = publisher.changes(allowlist: allowlist, paths: selection.keys)
+          chosen = publisher.select!(changes, selection)
           record.base_commit = changes.base_commit
           record.files = chosen.map { |file| { "path" => file.path, "status" => file.status, "mode" => file.mode, "digest" => file.digest } }
         end
@@ -228,8 +229,10 @@ module ActionAgent
         render json: { error: error.message, code: error.code, patch_available: patch_offered?(error) }, status: status
       end
 
+      # A patch of the same files fails the same way when they were too
+      # many or too large.
       def patch_offered?(error)
-        !error.code.in?(%w[unsupported not_live unreadable]) && publisher.read_refusal.nil?
+        !error.code.in?(%w[unsupported not_live unreadable too_large]) && publisher.read_refusal.nil?
       end
     end
   end
