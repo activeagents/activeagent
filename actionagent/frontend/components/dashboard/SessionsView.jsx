@@ -3,8 +3,10 @@ import { Badge, Button, Card, Empty, MicroLabel, MONO } from './primitives';
 import { timeAgo } from '../../utils/format';
 import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
 import { sessionReplayPath } from '../../utils/dashboardRoutes.mjs';
+import { createRequestGate } from '../../utils/requestGate.mjs';
 import {
-  EMPTY_FILTERS, SESSION_OUTCOMES, SESSION_SOURCES, filtersFromSearch, filtersSearch, hasFilters, sessionsPath,
+  EMPTY_FILTERS, OPENED_FROM_SESSIONS, SESSION_OUTCOMES, SESSION_SOURCES, filtersFromSearch, filtersSearch, hasFilters,
+  sessionsPath,
 } from '../../utils/sessionsQuery.mjs';
 
 // The sessions a caller can replay (GET /api/sessions): dashboard
@@ -96,7 +98,7 @@ function SessionRow({ session }) {
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
-        navigateTo(path);
+        navigateTo(path, OPENED_FROM_SESSIONS);
       }}
       style={{
         display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', textDecoration: 'none',
@@ -133,40 +135,49 @@ export default function SessionsView({ agents = [], user = null }) {
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(null);
   const [reload, setReload] = useState(0);
+  const [gate] = useState(createRequestGate);
 
   useEffect(() => {
     window.history.replaceState(window.history.state, '', `${window.location.pathname}${filtersSearch(filters)}`);
 
-    let cancelled = false;
+    const isCurrent = gate.next();
     setStatus('loading');
+    setLoadingMore(false);
+    setLoadMoreError(null);
     fetchSessions(filters, null)
       .then((body) => {
-        if (cancelled) return;
+        if (!isCurrent()) return;
         setPage({ sessions: body.sessions || [], total: body.total || 0, nextBefore: body.next_before || null });
         setStatus('ready');
       })
       .catch((failure) => {
-        if (cancelled) return;
+        if (!isCurrent()) return;
         setError(failure.message);
         setStatus('error');
       });
-    return () => { cancelled = true; };
+    return () => { gate.next(); };
   }, [filters, reload]);
 
+  // A page that arrives after the filters changed belongs to the old list,
+  // so the gate drops it.
   const loadMore = async () => {
+    const isCurrent = gate.latest();
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       const body = await fetchSessions(filters, page.nextBefore);
+      if (!isCurrent()) return;
       setPage((current) => ({
         sessions: [...current.sessions, ...(body.sessions || [])],
         total: body.total ?? current.total,
         nextBefore: body.next_before || null,
       }));
     } catch (failure) {
-      setError(failure.message);
+      if (isCurrent()) setLoadMoreError(failure.message);
     } finally {
-      setLoadingMore(false);
+      if (isCurrent()) setLoadingMore(false);
     }
   };
 
@@ -219,9 +230,14 @@ export default function SessionsView({ agents = [], user = null }) {
       </Card>
 
       {status === 'ready' && page.nextBefore && (
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+          {loadMoreError && (
+            <span data-testid="sessions-load-more-error" role="alert" style={{ fontSize: 13, color: 'var(--color-error-text)' }}>
+              {loadMoreError}
+            </span>
+          )}
           <Button size="sm" testId="sessions-load-more" onClick={loadMore} disabled={loadingMore}>
-            {loadingMore ? 'Loading…' : 'Load more'}
+            {loadingMore ? 'Loading…' : loadMoreError ? 'Try again' : 'Load more'}
           </Button>
         </div>
       )}
