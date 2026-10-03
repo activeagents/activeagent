@@ -5,8 +5,8 @@ import test, { after, before } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 
-// The input request card, the Needs input lane and the sidebar badge, bundled
-// with esbuild and rendered to static markup. Effects do not run in a server
+// The input request card, the Needs input lane, the sidebar badge and the
+// runner's activity feed, bundled with esbuild and rendered to static markup. Effects do not run in a server
 // render, so each renders from its props alone and fetches nothing.
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -31,8 +31,14 @@ before(async () => {
         import { NeedsInputList } from './components/dashboard/NeedsInputLane.jsx';
         import Sidebar from './components/dashboard/Sidebar.jsx';
         import GenerativeUI from './components/dashboard/GenerativeUI.jsx';
+        import { ActivityFeed } from './components/dashboard/AgentRunner.jsx';
+        import { paletteFor } from './utils/dashboardTheme.js';
 
-        const views = { InputRequestCard, NeedsInputList, Sidebar, GenerativeUI };
+        function RunnerFeed({ run }) {
+          return React.createElement(ActivityFeed, { run, darkMode: false, colors: paletteFor(false), expanded: {}, onToggle() {} });
+        }
+
+        const views = { InputRequestCard, NeedsInputList, Sidebar, GenerativeUI, RunnerFeed };
         export const render = (name, props) =>
           renderToStaticMarkup(React.createElement(ThemeProvider, null, React.createElement(views[name], props)));
       `,
@@ -189,4 +195,20 @@ test('a render_ui form still renders a password field as plain text', () => {
   assert.ok(input, 'the field is rendered');
   assert.match(input, /type="text"/);
   assert.doesNotMatch(html, /type="password"/);
+});
+
+test('the runner feed shows a call that paused the run as waiting, not done', () => {
+  const html = render('RunnerFeed', {
+    run: {
+      logs: [
+        { eid: 1, kind: 'tool', label: 'ask_user', status: 'started', detail: '{"question":"Which account?"}' },
+        { eid: 1, kind: 'tool', label: 'ask_user', status: 'awaiting', detail: 'Which account?' },
+        { eid: 2, kind: 'tool', label: 'fetch_url', status: 'done', detail: 'ok' },
+      ],
+    },
+  });
+
+  assert.equal(count(html, 'data-testid="runner-activity-awaiting"'), 1);
+  assert.match(html, /waiting for input/);
+  assert.equal(count(html, '✓'), 1);
 });
