@@ -117,6 +117,7 @@ ActionAgent::Engine.routes.draw do
           constraints: ->(request) { request.authorization.to_s.match?(/\ABearer\s/i) }
         post :events, action: :create_events
         get :events
+        get :timeline
         get :actions
         get "snapshot/:action_id", action: :snapshot, as: :snapshot
         post :export
@@ -129,6 +130,11 @@ ActionAgent::Engine.routes.draw do
         post :start_user_session
       end
     end
+
+    # The timeline of a conversation, a run or an evaluation scenario's
+    # replay, with or without a recording.
+    get "sessions/:kind/:id/timeline", to: "sessions#timeline", as: :session_timeline,
+      constraints: { kind: /context|run|scenario_result/ }
 
     resource :analytics, only: [], controller: "analytics" do
       get "/", action: :index
