@@ -320,9 +320,10 @@ endpoints and never starts a run, and it reports a 409 as already answered,
 declined, expired or cancelled. In the runner, a paused run stays in flight:
 after each answer the runner polls the same run until its reply lands in the
 same conversation. A lane card links to the runner opened on its run
-(`/agents/:id/run?run=:run_id`). The dashboard polls for requests (the badge
-every 30 seconds and on every navigation), because the engine pushes no
-updates for them.
+(`/agents/:id/run?run=:run_id`). Opening another conversation in the runner
+while a run waits lets go of that run, which keeps waiting in the lane. The
+dashboard polls for requests (the badge every 30 seconds and whenever the
+view changes), because the engine pushes no updates for them.
 
 **Callers that wait for a result.**
 
