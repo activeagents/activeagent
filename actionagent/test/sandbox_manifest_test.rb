@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "open3"
 require "rake"
 
 # The runtime manifest a booted checkout hands its sandbox backend (#489):
@@ -73,6 +74,17 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
     assert_includes columns, "title"
     assert_equal "string", post["columns"].find { |entry| entry["name"] == "title" }["type"]
     assert_empty columns & %w[id api_token password_digest]
+  end
+
+  test "under a framework release without SchemaTools::SECRET_COLUMNS, the same columns are still left out" do
+    source = File.expand_path("../app/services/action_agent/sandbox_manifest.rb", __dir__)
+    script = "module ActiveAgent; end; module ActionAgent; end; load #{source.dump}; print ActionAgent::SandboxManifest::SECRET_COLUMNS.inspect"
+
+    output, status = Open3.capture2(RbConfig.ruby, "-e", script)
+
+    assert status.success?, output
+    assert_equal ActiveAgent::SchemaTools::SECRET_COLUMNS.inspect, output
+    assert_same ActiveAgent::SchemaTools::SECRET_COLUMNS, ActionAgent::SandboxManifest::SECRET_COLUMNS
   end
 
   test "parse keeps the models a manifest lists in that shape, and drops what is not" do
