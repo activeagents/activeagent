@@ -11,6 +11,11 @@ name: Release
 # — activeagent and actionagent — each pointing at this repository and this
 # workflow file (release.yml). Until that exists for a gem, its push step
 # fails with an authorization error and the other gem is unaffected.
+#
+# The browser sidecar (browser-sidecar/) is published at the dashboard's
+# version too: the npm package with the NPM_TOKEN secret, and the image to
+# ghcr.io/activeagents/browser-sidecar with the workflow's own token. Each is
+# skipped when that version is already published.
 on:
   push:
     tags: [ "v*" ]
@@ -100,3 +105,72 @@ jobs:
 
           publish "pkg/activeagent-*.gem"
           publish "pkg/actionagent-*.gem"
+
+  publish-browser-sidecar:
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    defaults:
+      run:
+        working-directory: browser-sidecar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Publish the package unless this version is on npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          engine="$(sed -nE 's/^ *VERSION = "([^"]+)".*/\1/p' ../actionagent/lib/action_agent/version.rb)"
+          if [ "$version" != "$engine" ]; then
+            echo "::error::browser-sidecar/package.json is $version and ActionAgent::VERSION is $engine; they must match."
+            exit 1
+          fi
+          if npm view "@activeagents/browser-sidecar@${version}" version > /dev/null 2>&1; then
+            echo "@activeagents/browser-sidecar ${version} is already on npm; skipping."
+            exit 0
+          fi
+          npm ci
+          npm publish --provenance --access public
+
+  publish-browser-sidecar-image:
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the version, and whether its image is published
+        id: version
+        run: |
+          version="$(node -p 'require("./browser-sidecar/package.json").version')"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if docker manifest inspect "ghcr.io/activeagents/browser-sidecar:${version}" > /dev/null 2>&1; then
+            echo "ghcr.io/activeagents/browser-sidecar:${version} is already published; skipping."
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/setup-qemu-action@v3
+        if: steps.version.outputs.published != 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.version.outputs.published != 'true'
+      - uses: docker/login-action@v3
+        if: steps.version.outputs.published != 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        if: steps.version.outputs.published != 'true'
+        with:
+          context: browser-sidecar
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/activeagents/browser-sidecar:${{ steps.version.outputs.version }}
