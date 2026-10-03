@@ -235,7 +235,11 @@ to the engine's handler for that agent. The model reads `{ "provided": true,
 "name": ... }`.
 
 **Approvals.** An agent's `approval_required_tools` names the tools whose calls
-wait for a person: toolbox tools, schema tools and its MCP servers' tools. A
+wait for a person: toolbox tools, schema tools and its MCP servers' tools. Set
+it with the **Approval** switch beside each enabled tool on the agent's Tools
+tab, or through the agents API. A capability's switch lists every function it
+exposes (`memory` holds both `save_memory` and `recall_memory`), and the tool
+roster endpoint returns those names as each row's `approval_names`. A
 call to a listed tool raises a `confirm` request that carries the call's
 arguments, before the tool runs. Approved, the tool runs once. Declined, it
 never runs, and the model reads an error. The list is part of the agent's
@@ -297,6 +301,28 @@ answer or a decline returns:
   other than `true` or `false`. A secret is scrubbed from the run's records
   wherever it appears inside a value, so a shorter one would also mask
   unrelated text.
+
+**Answering in the dashboard.** The Interactions item in the sidebar shows
+how many requests are waiting, and Interactions opens with a **Needs input**
+lane that lists them, newest first. The runner shows a paused run's requests
+inline. Each request is a card that says which agent is asking, which run it
+paused, who the run acts for, which tool asked, and when the request expires.
+The control depends on the kind:
+
+- `text`: a text field
+- `choice`: the option buttons
+- `confirm`: Approve and Decline, beside the call's arguments
+- `secret`: a password field with `autocomplete="off"` and `data-aa-secret`,
+  emptied as soon as it is sent
+
+Any request can also be declined. A card posts to the answer and decline
+endpoints and never starts a run, and it reports a 409 as already answered,
+declined, expired or cancelled. In the runner, a paused run stays in flight:
+after each answer the runner polls the same run until its reply lands in the
+same conversation. A lane card links to the runner opened on its run
+(`/agents/:id/run?run=:run_id`). The dashboard polls for requests (the badge
+every 30 seconds and on every navigation), because the engine pushes no
+updates for them.
 
 **Callers that wait for a result.**
 
