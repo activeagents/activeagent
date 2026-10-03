@@ -61,8 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   generated keys. Both tools ask the permission checker about
   `:replace_scenarios` as the key's user, refuse an observed agent's suite as
   `evaluations_run` does, and are held to 100 evaluations per agent, 2,000
-  scenarios per evaluation and 200-character scenario keys and groups. A
-  refused call writes nothing.
+  scenarios per evaluation, 2 MiB of scenarios per call, and 200-character
+  scenario keys, groups and judge models. A refused call writes nothing.
 - **Generate scenario keys around keys already in use** (`activeagent`).
   `ScenarioParser.parse` and `.scenarios` take `reserved_keys:`, which
   generated keys skip, and `key_prefix:`, a namespace in front of every

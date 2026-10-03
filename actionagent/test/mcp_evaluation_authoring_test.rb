@@ -249,6 +249,27 @@ class McpEvaluationAuthoringTest < ActionDispatch::IntegrationTest
     assert_equal [ suite.id ], ActionAgent::Evaluation.pluck(:id)
   end
 
+  test "a call whose scenarios total more than 2 MiB is refused and writes nothing" do
+    suite = create_suite
+    batch = Array.new(40) { |index| { prompt: "Question #{index}? #{'p' * 30_000}", notes: "n" * 30_000 } }
+
+    merged = tool_error(call_tool("scenarios_merge", { evaluation_id: suite.id, scenarios: batch }))
+    created = tool_error(call_tool("evaluations_create", { agent: "support", name: "Large", scenarios: batch }))
+    structured(call_tool("scenarios_merge", { evaluation_id: suite.id, scenarios: batch.first(30) }))
+
+    assert_match(/may total 2 MiB and these total 2\.3 MiB/, merged)
+    assert_match(/may total 2 MiB/, created)
+    assert_equal 31, suite.scenarios.count
+    assert_equal [ suite.id ], ActionAgent::Evaluation.pluck(:id)
+  end
+
+  test "a judge model longer than 200 characters is refused" do
+    error = tool_error(call_tool("evaluations_create", { agent: "support", name: "Judged", judge_kind: "llm", judge_model: "m" * 201 }))
+
+    assert_match(/judge_model is longer than 200 characters/, error)
+    assert_equal 0, ActionAgent::Evaluation.count
+  end
+
   test "through scenarios_merge another owner's evaluation reads as a nonexistent one" do
     ActionAgent.user_class = "User"
     me = User.create!(email: "me-#{SecureRandom.hex(3)}@example.com", name: "Me", age: 30)

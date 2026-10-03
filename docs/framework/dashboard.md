@@ -679,14 +679,17 @@ records no creator is refused without asking it. With no checker set, every
 key may use both tools, and a multi-tenant install logs a warning at boot.
 
 Each call is checked whole against the limits the report collector uses: 100
-evaluations per agent, 2,000 scenarios per evaluation, and 200 characters for
-a scenario's key or group. A prompt or notes larger than 65,535 bytes is
-refused too. A call that would pass any of these is refused and writes
-nothing. An observed agent's suite is refused, as `evaluations_run` refuses
-it, unless a host adapter replays it. A
-duplicate name, unknown criteria, a scenario list that does not parse, or an
-agent or evaluation outside the key's reach comes back as a tool result with
-`isError`.
+evaluations per agent, 2,000 scenarios per evaluation, 2 MiB of scenarios in
+one call (their keys, groups, prompts, notes and expectations as JSON), and
+200 characters for a scenario's key or group or the judge model. A prompt or
+notes larger than 65,535 bytes is refused too. A call that would pass any of
+these is refused and writes nothing. Split a larger suite over several
+`scenarios_merge` calls.
+
+An observed agent's suite is refused, as `evaluations_run` refuses it, unless
+a host adapter replays it. A duplicate name, unknown criteria, a scenario list
+that does not parse, or an agent or evaluation outside the key's reach comes
+back as a tool result with `isError`.
 
 ## GitHub connections and checkout sandboxes
 
