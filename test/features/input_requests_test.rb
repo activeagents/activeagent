@@ -437,6 +437,7 @@ class InputRequestsTest < ActiveSupport::TestCase
 
     def add_span(_name, span_type: nil) = SpanDouble.new.tap { children << _1 }
     def set_attribute(key, value) = attributes[key] = value
+    def set_tokens(**) = nil
     def set_status(*) = nil
     def record_error(error) = errors << error.message
     def finish = nil
@@ -466,6 +467,29 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_not_includes recorded.to_s, "tok-live-12345"
   ensure
     config.enabled, config.api_key, config.capture_bodies = saved if saved
+  end
+
+  test "telemetry marks the root span of a paused generation as awaiting input" do
+    config = ActiveAgent::Telemetry.configuration
+    saved  = [ config.enabled, config.api_key ]
+    config.enabled, config.api_key = true, "test-key"
+
+    agent_class = Class.new(RefundAgent) { def self.name = "TracedPauseRefundAgent" }
+    agent_class.prepend(ActiveAgent::Telemetry::Instrumentation::GenerationInstrumentation)
+    roots = []
+    trace = ->(_name, **_options, &block) { block.call(SpanDouble.new.tap { roots << _1 }) }
+
+    ActiveAgent::Telemetry.stub(:trace, trace) do
+      ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+      agent_class.triage(order_id: 7).generate_now
+
+      ScriptedProvider.script([ { type: "text", text: "Nothing to refund." } ])
+      agent_class.triage(order_id: 7).generate_now
+    end
+
+    assert_equal [ true, nil ], roots.map { _1.attributes["agent.awaiting_input"] }
+  ensure
+    config.enabled, config.api_key = saved if saved
   end
 
   ##### Refusals ############################################################
