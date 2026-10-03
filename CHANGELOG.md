@@ -41,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stores the signed-in user beside its owner, and an MCP call made with an
   account's key runs as that user. Keys created earlier have no creator and
   behave as before.
+- **Declare optional sandbox backend verbs** (`actionagent`).
+  `SandboxOrchestrator` dispatches `changed_files`, `read_file`,
+  `start_browser`, `stop_browser` and `resume_boot` to a backend that defines
+  them, and `supports?` is false for one that does not. Their signatures are
+  documented on the orchestrator and in the dashboard guide; the `:mock` and
+  `:local` backends implement none of them. `read_file` refuses a path outside
+  the checkout before the backend sees it.
 
 ### Fixed
 

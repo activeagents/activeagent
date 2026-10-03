@@ -47,8 +47,20 @@ module ActionAgent
       # Claude Code sessions inside an app_runtime checkout. Optional: a
       # backend without them simply cannot run sessions (see #supports?).
       code_session: %i[run_code_session],
-      cancel_code_session: %i[cancel_code_session]
+      cancel_code_session: %i[cancel_code_session],
+      # Optional too, each documented on the orchestrator method of the same
+      # name. A backend implements a verb by defining a public method with
+      # that name and signature.
+      changed_files: %i[changed_files],
+      read_file: %i[read_file],
+      start_browser: %i[start_browser],
+      stop_browser: %i[stop_browser],
+      resume_boot: %i[resume_boot]
     }.freeze
+
+    # What #start_browser may be asked for: a browser with no window, or one
+    # a person can watch where the backend can show one.
+    BROWSER_MODES = %i[headless headed].freeze
 
     class UnsupportedBackendError < StandardError; end
 
@@ -101,22 +113,7 @@ module ActionAgent
         @backend.public_send(method, sandbox_session)
       end
 
-      # Normalize response format across backends
-      {
-        sandbox_id: result[:container_name] || result[:pod_name] || result[:job_name],
-        url: result[:url],
-        ip: result[:container_ip] || result[:pod_ip],
-        backend: @backend_name,
-        instance_tier: result[:instance_tier] || tier&.id,
-        resources: result[:resources],
-        hourly_cost: result[:hourly_cost] || tier&.hourly_cost&.to_f,
-        created_at: result[:created_at] || Time.current,
-        # An app_runtime sandbox's backend clones sandbox_session.checkout_spec,
-        # boots the app, and reports where its MCP facade answers (and the
-        # bearer token it expects) so agents can use the checkout's tools.
-        mcp_url: result[:mcp_url],
-        mcp_token: result[:mcp_token]
-      }
+      normalize_created(result, tier)
     end
 
     # List available instance tiers
@@ -221,6 +218,69 @@ module ActionAgent
       @backend.public_send(adapter_method(:cancel_code_session), sandbox_session, code_session)
     end
 
+    # The files +sandbox_session+'s checkout has changed since it was cloned,
+    # read without running anything the checkout controls (no git hooks,
+    # filters or configuration from the checkout).
+    #
+    # @return [Hash] { base_commit:, files: }
+    #   base_commit: the commit the checkout was cloned at
+    #   files: one Hash per changed path, each
+    #     path:   relative to the checkout root
+    #     status: "added", "modified" or "deleted"
+    #     mode:   "100644", "100755" or "120000" (a symlink); nil when deleted
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def changed_files(sandbox_session)
+      @backend.public_send(adapter_method(:changed_files), sandbox_session)
+    end
+
+    # The current content of +path+ in +sandbox_session+'s checkout. A
+    # symlink is read as its target path, never followed.
+    #
+    # @param path [String] relative to the checkout root
+    # @return [String, nil] the bytes, binary-encoded; nil when nothing is
+    #   there
+    # @raise [ArgumentError] when +path+ is absolute or climbs out of the
+    #   checkout, before the backend is asked
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def read_file(sandbox_session, path)
+      unless checkout_relative?(path)
+        raise ArgumentError, "#{path.inspect} is not a path inside the checkout"
+      end
+
+      @backend.public_send(adapter_method(:read_file), sandbox_session, path)
+    end
+
+    # Starts a browser for +sandbox_session+, one per sandbox, and returns how
+    # an agent reaches it over MCP.
+    #
+    # @param mode [Symbol] one of BROWSER_MODES
+    # @return [Hash] at least { mcp_url:, mcp_token: }: where the browser's
+    #   MCP server answers, and the bearer token it expects (nil for none)
+    # @raise [ArgumentError] for a mode outside BROWSER_MODES
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def start_browser(sandbox_session, mode: :headless)
+      raise ArgumentError, "Unknown browser mode #{mode.inspect}" unless BROWSER_MODES.include?(mode)
+
+      @backend.public_send(adapter_method(:start_browser), sandbox_session, mode: mode)
+    end
+
+    # Stops +sandbox_session+'s browser. True, also when none was running.
+    #
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def stop_browser(sandbox_session)
+      @backend.public_send(adapter_method(:stop_browser), sandbox_session)
+    end
+
+    # Continues a boot of +sandbox_session+ that failed and kept its
+    # workspace, re-running from the step named +from+ with the session's
+    # current settings.
+    #
+    # @return [Hash] what #create_sandbox returns
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def resume_boot(sandbox_session, from:)
+      normalize_created(@backend.public_send(adapter_method(:resume_boot), sandbox_session, from: from), nil)
+    end
+
     # Check if the backend is healthy
     #
     # @return [Boolean] true if backend is reachable
@@ -254,6 +314,34 @@ module ActionAgent
       ADAPTER_METHODS.fetch(verb).find { |m| @backend.respond_to?(m) } ||
         raise(UnsupportedBackendError,
           "#{@backend.class} implements none of #{ADAPTER_METHODS.fetch(verb).join(', ')}")
+    end
+
+    # The backend's create result in one shape whichever backend produced it.
+    def normalize_created(result, tier)
+      {
+        sandbox_id: result[:container_name] || result[:pod_name] || result[:job_name],
+        url: result[:url],
+        ip: result[:container_ip] || result[:pod_ip],
+        backend: @backend_name,
+        instance_tier: result[:instance_tier] || tier&.id,
+        resources: result[:resources],
+        hourly_cost: result[:hourly_cost] || tier&.hourly_cost&.to_f,
+        created_at: result[:created_at] || Time.current,
+        # An app_runtime sandbox's backend clones sandbox_session.checkout_spec,
+        # boots the app, and reports where its MCP facade answers (and the
+        # bearer token it expects) so agents can use the checkout's tools.
+        mcp_url: result[:mcp_url],
+        mcp_token: result[:mcp_token]
+      }
+    end
+
+    # Whether +path+ names something inside a checkout: relative, and never
+    # climbing out through "..".
+    def checkout_relative?(path)
+      return false unless path.is_a?(String) && path.present? && !path.include?("\0")
+
+      pathname = Pathname.new(path)
+      pathname.relative? && pathname.each_filename.none?("..")
     end
 
     def accepts_instance_tier?(method)

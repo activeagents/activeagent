@@ -679,6 +679,29 @@ runs and evaluations of that agent call the checkout's own tools. The lookup
 is scoped to the agent's owner, so one tenant cannot name another tenant's
 sandbox.
 
+### What a sandbox backend implements
+
+A backend registered in `ActionAgent.sandbox_backends` is a plain class.
+`ActionAgent::SandboxOrchestrator` calls whichever of these public methods it
+defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
+
+| Method | Required | Returns |
+|---|---|---|
+| `create_sandbox(session)` | yes | `{ container_name:, url:, mcp_url:, mcp_token: }` |
+| `status(handle)`, `terminate(handle)`, `list_sandboxes`, `cleanup_expired` | yes | a status hash, true, an array of status hashes, a count |
+| `run_code_session(session, code_session, &on_event)`, `cancel_code_session(session, code_session)` | no | `{ exit_status:, diff: }`, true |
+| `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode: }] }`: what the checkout changed since it was cloned, read without running the checkout's git hooks, filters or configuration |
+| `read_file(session, path)` | no | the file's current bytes, or nil; a symlink reads as its target. `path` is always relative and inside the checkout |
+| `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
+| `stop_browser(session)` | no | true, also when none was running |
+| `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot from the step named `from` |
+
+`session` is the `ActionAgent::SandboxSession`, and `handle` is the
+`container_name` that `create_sandbox` returned. Calling a verb the backend
+does not define raises `SandboxOrchestrator::UnsupportedBackendError`. The
+engine's `:mock` and `:local` backends define none of the optional verbs from
+`changed_files` down.
+
 ### Running against a sandbox without editing the agent
 
 A checkout sandbox is where you try a change: boot a branch, perhaps have a
