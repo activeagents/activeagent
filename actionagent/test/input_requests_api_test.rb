@@ -225,6 +225,18 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "a secret shorter than the minimum length is unprocessable" do
+    request = paused_run(ActiveAgent::InputRequest.secret("Paste the token")).input_requests.sole
+
+    answer(request, "x" * (ActionAgent::InputRequest::SECRET_MIN_LENGTH - 1))
+    assert_response :unprocessable_entity
+    assert_match(/at least #{ActionAgent::InputRequest::SECRET_MIN_LENGTH} characters/, json["error"])
+    assert request.reload.pending?
+
+    answer(request, "x" * ActionAgent::InputRequest::SECRET_MIN_LENGTH)
+    assert_response :success
+  end
+
   test "a confirm request is approved by true or no answer, declined by false, and refuses anything else" do
     confirm = -> { paused_run(ActiveAgent::InputRequest.confirm("Allow refund to run?")).input_requests.sole }
 

@@ -292,7 +292,10 @@ answer or a decline returns:
 - **409** when the request is no longer pending or has expired. The body's
   `status` says which, and an expired request fails its run.
 - **422** for a blank answer, a `choice` answer that is not one of the
-  options, or a `confirm` answer other than `true` or `false`.
+  options, a `secret` answer shorter than 8 characters, or a `confirm` answer
+  other than `true` or `false`. A secret is scrubbed from the run's records
+  wherever it appears inside a value, so a shorter one would also mask
+  unrelated text.
 
 **Callers that wait for a result.**
 

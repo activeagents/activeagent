@@ -457,6 +457,24 @@ class InputRequestsExecutionTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a secret is scrubbed from span values, never from span keys or ids" do
+    secret = "parent_span_id"
+    ActionAgent::SecretRequests.register(PROBE_AGENT) { |**| nil }
+    stub_anthropic(
+      assistant_message(tool_use("toolu_1", "request_secret", { name: "PROBE_TOKEN", prompt: "Paste the probe token" })),
+      assistant_message(text_block("Stored."))
+    )
+    run = run_in_background(anthropic_agent(name: "Secret Probe", agent_class_name: PROBE_AGENT, tools: []), "Connect the probe")
+
+    answer(run.input_requests.sole, secret)
+
+    spans = ActionAgent::TelemetryTrace.find_by!(trace_id: run.reload.trace_id).spans
+    assert(spans.all? { |span| span.key?("span_id") && span.key?("parent_span_id") })
+    first_root, resumed_root = spans.select { |span| span["type"] == "root" }
+    assert_equal first_root["span_id"], resumed_root["parent_span_id"]
+    assert(spans.any? { |span| span["parent_span_id"] == resumed_root["span_id"] }, "the resumed segment's spans keep their parent")
+  end
+
   # --- synchronous callers --------------------------------------------------
 
   test "call_agent refuses a called agent that pauses, and cancels its requests" do

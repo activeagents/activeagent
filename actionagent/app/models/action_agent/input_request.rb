@@ -36,6 +36,10 @@ module ActionAgent
     # the answers that decline it.
     CONFIRM_APPROVALS = [ nil, true, "true" ].freeze
     CONFIRM_DECLINES = [ false, "false" ].freeze
+    # The shortest answer a `secret` request takes. A secret is scrubbed from
+    # what a run records wherever it appears inside a value, so a short one
+    # would also replace the same characters in unrelated values.
+    SECRET_MIN_LENGTH = 8
     # The only subjects a request is created for. Later subjects join this list.
     SUBJECT_TYPES = %w[ActionAgent::AgentRun].freeze
 
@@ -170,8 +174,9 @@ module ActionAgent
     # @param user [Object, nil] who answered
     # @raise [Conflict] when the request is no longer pending or has expired
     # @raise [InvalidAnswer] when the answer is blank, not text, not one of a
-    #   `choice` request's options, or neither `true` nor `false` for a
-    #   `confirm` request
+    #   `choice` request's options, shorter than SECRET_MIN_LENGTH for a
+    #   `secret` request, or neither `true` nor `false` for a `confirm`
+    #   request
     # @return [self]
     def answer!(value, user: nil)
       return decline!(user: user) if kind == "confirm" && CONFIRM_DECLINES.include?(value)
@@ -262,6 +267,7 @@ module ActionAgent
 
       return "Answer with text" unless value.is_a?(String) || value.is_a?(Numeric)
       return "An answer is required" if value.to_s.strip.empty?
+      return "A secret must be at least #{SECRET_MIN_LENGTH} characters" if kind == "secret" && value.to_s.length < SECRET_MIN_LENGTH
       return nil unless kind == "choice"
 
       "#{value.to_s.truncate(64).inspect} is not one of the options" unless choice_values.include?(value.to_s)
