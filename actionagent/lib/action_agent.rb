@@ -111,7 +111,9 @@ module ActionAgent
   #
   #   :manage_credentials     store, test or delete a provider credential
   #   :manage_github          connect, disconnect, or choose the repositories of
-  #                           the GitHub connection
+  #                           the GitHub connection or a GitHub App
+  #                           installation; link or unlink an installation;
+  #                           create a GitHub App from a manifest
   #   :manage_api_keys        create or revoke a dashboard API key
   #   :publish_pull_request   open a pull request from a sandbox's changes
   #   :answer_input_request   answer or decline a run's request for input
@@ -554,6 +556,22 @@ module ActionAgent
     # @return [String]
     attr_accessor :github_oauth_scopes
 
+    # The GitHub App checkout sandboxes get repository access through
+    # (Settings -> Integrations -> Install the GitHub App). Each falls back to
+    # the matching GITHUB_APP_* variable (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY,
+    # GITHUB_APP_SLUG, GITHUB_APP_CLIENT_ID, GITHUB_APP_CLIENT_SECRET), and the
+    # dashboard offers no installation until all five are present. Register
+    # the App with "Request user authorization (OAuth) during installation"
+    # and <mount>/api/github_installations/callback as its callback URL, or
+    # create it from Settings with the manifest flow.
+    #
+    # The private key is the PEM GitHub generated for the App. A key whose
+    # line breaks were written as "\n" (one line in an env file) is read with
+    # real line breaks.
+    # @return [String, nil]
+    attr_writer :github_app_id, :github_app_private_key, :github_app_slug,
+      :github_app_client_id, :github_app_client_secret
+
     # MCP servers the host app itself serves or connects, appended to the
     # built-in catalog (MCPCatalog) so the MCP Services view lists them and
     # telemetry traffic attributes to them. Each entry is a hash shaped like
@@ -633,6 +651,36 @@ module ActionAgent
     # @return [Boolean]
     def github_oauth_configured?
       github_client_id.present? && github_client_secret.present?
+    end
+
+    def github_app_id
+      (@github_app_id.presence || ENV["GITHUB_APP_ID"].presence)&.to_s
+    end
+
+    def github_app_private_key
+      key = @github_app_private_key.presence || ENV["GITHUB_APP_PRIVATE_KEY"].presence
+      return nil if key.nil?
+
+      key.include?("\n") ? key : key.gsub("\\n", "\n")
+    end
+
+    def github_app_slug
+      @github_app_slug.presence || ENV["GITHUB_APP_SLUG"].presence
+    end
+
+    def github_app_client_id
+      @github_app_client_id.presence || ENV["GITHUB_APP_CLIENT_ID"].presence
+    end
+
+    def github_app_client_secret
+      @github_app_client_secret.presence || ENV["GITHUB_APP_CLIENT_SECRET"].presence
+    end
+
+    # Whether the GitHub App installation flow can run on this install: every
+    # github_app_* setting is present.
+    # @return [Boolean]
+    def github_app_configured?
+      [ github_app_id, github_app_private_key, github_app_slug, github_app_client_id, github_app_client_secret ].all?(&:present?)
     end
 
     def multi_tenant?
@@ -886,6 +934,11 @@ module ActionAgent
       @github_client_id = nil
       @github_client_secret = nil
       @github_oauth_scopes = "repo read:user"
+      @github_app_id = nil
+      @github_app_private_key = nil
+      @github_app_slug = nil
+      @github_app_client_id = nil
+      @github_app_client_secret = nil
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil
