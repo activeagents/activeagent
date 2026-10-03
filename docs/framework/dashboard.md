@@ -1094,17 +1094,26 @@ except `ApplicationAgent` and abstract classes, and a re-run updates them in
 place. A class that cannot be synced (one with no provider or model, say) is
 reported on stderr, and the rest are synced.
 
-Who owns the key and the synced agents follows the app's owner model
-(`ActionAgent.owner_class`):
+The key and the synced agents each take an owner of the class their model is
+owned through. API keys are owned through `account_class` when it is set and
+`user_class` otherwise, and agents the other way round, so an app that
+configures both gives the key an account and the agents a user. For each of
+the two:
 
-- With no owner model, neither has an owner, and the key reaches every agent.
-- With exactly one record of the owner model, both belong to it. A key minted
-  earlier without an owner takes it.
-- With none or several, the sandbox cannot tell whose they would be. The key
-  has no owner and reaches no agents over MCP, no agents are synced, and the
-  task says so on stderr. In that case, and for an app that isn't Rails,
-  `manifest` can be any command that writes the JSON. `mcp_path` must start
-  with `/`, and `mcp_token` is a string or `null`.
+- With no owner class, it has no owner, and the key reaches every agent.
+- With exactly one record of its owner class, it belongs to that record. A key
+  minted earlier without an owner takes it.
+- With none or several, the sandbox cannot tell whose it would be. A key has
+  no owner and reaches no agents over MCP. No agents are synced, and the task
+  says so on stderr.
+
+The facade serves the key the agents `ActionAgent.agents_for` gives its
+owner, as the dashboard does. When keys and agents are owned through
+different classes, that takes the host's `agent_scope_resolver`.
+
+When the sandbox cannot give the agents an owner, and for an app that isn't
+Rails, `manifest` can be any command that writes the JSON. `mcp_path` must
+start with `/`, and `mcp_token` is a string or `null`.
 
 ### Bootstrapping a checkout without the engine
 
