@@ -82,6 +82,26 @@ class InputRequestTest < ActiveSupport::TestCase
     end
   end
 
+  test "approvals and client-side MCP calls are read only for paused calls" do
+    ids        = %w[call_1 call_2]
+    checkpoint = multi_item_checkpoint(approval_tool_calls: ids, approved_tool_calls: ids, mcp_tool_calls: ids)
+
+    resume = ActiveAgent::InputRequest::Resume.new(checkpoint:, answers: { "call_2" => true })
+
+    assert_equal [ false, true ], ids.map { resume.approval_given?(_1) }
+    assert_equal [ false, true ], ids.map { resume.approved?(_1) }
+    assert_equal [ false, true ], ids.map { resume.mcp_tool_call?(_1) }
+  end
+
+  test "a declined approval is not given" do
+    checkpoint = multi_item_checkpoint(approval_tool_calls: %w[call_2])
+
+    resume = ActiveAgent::InputRequest::Resume.new(checkpoint:, answers: { "call_2" => false })
+
+    assert_not resume.approval_given?("call_2")
+    assert resume.declined?("call_2")
+  end
+
   test "an answer is readable only for the call being dispatched" do
     ActiveAgent::InputRequest.dispatching("call_1", answer: "yes") do
       assert_equal "call_1", ActiveAgent::InputRequest.current_tool_call_id

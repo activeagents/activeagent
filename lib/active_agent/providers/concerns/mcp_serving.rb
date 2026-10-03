@@ -112,11 +112,15 @@ module ActiveAgent
 
       # Splits `mcps:` into what the provider serves and what the bridge serves.
       #
+      # A declaration whose calls need approval is always the bridge's, because
+      # a provider that serves a server itself runs its tool calls where the
+      # approval gate never sees them (see {#mcp_gated?}).
+      #
       # @param declarations [Array<Hash>, Hash, nil]
       # @return [Array<Array<Hash>>] the provider's declarations, then the
       #   bridge's
       # @raise [ArgumentError] when `mcp_strategy: :server` was asked for and the
-      #   provider cannot serve one of the declarations
+      #   provider cannot serve one of the declarations, or one needs approval
       def mcp_partition_servers(declarations)
         declarations = mcp_normalize_declarations(declarations)
 
@@ -128,8 +132,24 @@ module ActiveAgent
 
           [ declarations, [] ]
         else
-          declarations.partition { |declaration| mcp_native_transports.include?(mcp_transport(declaration)) }
+          declarations.partition do |declaration|
+            mcp_native_transports.include?(mcp_transport(declaration)) && !mcp_gated?(declaration)
+          end
         end
+      end
+
+      # Whether some of a declaration's tool calls need approval: its
+      # `require_approval` is anything but `"never"`, or the
+      # `requires_approval:` prompt option names one of its `allowed_tools`.
+      #
+      # @param declaration [Hash]
+      # @return [Boolean]
+      def mcp_gated?(declaration)
+        return false unless declaration.is_a?(Hash)
+        return true if MCPBridge.approval_policy?(declaration[:require_approval])
+
+        allowed = Array(declaration[:allowed_tools]).map { |tool| tool.is_a?(Hash) ? (tool[:name] || tool["name"]).to_s : tool.to_s }
+        allowed.intersect?(Array(tool_approvals))
       end
 
       # @return [Symbol] how to serve `mcps:`: `:auto` (default, native where the
@@ -180,6 +200,13 @@ module ActiveAgent
                "but `mcp_strategy: :server` requires it to. Servers it can serve: " \
                "#{mcp_native_transports.any? ? mcp_native_transports.inspect : "none"}. " \
                "Use `mcp_strategy: :auto` to run the rest client-side."
+        end
+
+        if mcp_gated?(declaration)
+          fail ArgumentError,
+               "The #{declaration[:name].to_s.inspect} MCP server's tool calls need approval, which is asked for " \
+               "only when ActiveAgent runs the server client-side, but `mcp_strategy: :server` hands it to " \
+               "#{service_name}. Use `mcp_strategy: :auto` or `:client`, or set `require_approval: \"never\"`."
         end
       end
     end
