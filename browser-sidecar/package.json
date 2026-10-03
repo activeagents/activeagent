@@ -1,0 +1,37 @@
+{
+  "name": "@activeagents/browser-sidecar",
+  "version": "1.8.1",
+  "description": "One sandbox's browser for the Active Agent dashboard: Chromium driven over Playwright MCP, recorded with rrweb.",
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://docs.activeagents.ai/framework/browser-sessions",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/activeagents/activeagent.git",
+    "directory": "browser-sidecar"
+  },
+  "bugs": "https://github.com/activeagents/activeagent/issues",
+  "bin": {
+    "activeagents-browser-sidecar": "bin/browser-sidecar.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --test-timeout=120000 test/*.test.mjs"
+  },
+  "dependencies": {
+    "@playwright/mcp": "0.0.83",
+    "@rrweb/record": "2.1.7",
+    "playwright": "1.64.0-alpha-1790635538000"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

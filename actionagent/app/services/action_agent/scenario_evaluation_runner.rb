@@ -342,12 +342,20 @@ module ActionAgent
       runtime_tools.discovery_errors
     end
 
+    # The sandbox's browser is on the roster while it runs, as each replay
+    # (Agent#test_execute) reaches it then.
     def mcp_dispatcher
       runtime_tools.dispatcher
     end
 
     def runtime_tools
-      @runtime_tools ||= RuntimeToolRoster.new(@evaluation.agent, extra_server_keys: [ sandbox_server_key ].compact)
+      @runtime_tools ||= RuntimeToolRoster.new(
+        @evaluation.agent, extra_server_keys: [ sandbox_server_key, sandbox_browser_key ].compact
+      )
+    end
+
+    def sandbox_browser_key
+      sandbox_session.browser_server_key if sandbox_session&.browser_running?
     end
 
     # A run whose every declared MCP server failed discovery scored an agent

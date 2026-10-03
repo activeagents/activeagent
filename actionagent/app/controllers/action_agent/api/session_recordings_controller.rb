@@ -11,13 +11,14 @@ module ActionAgent
       # own visitors should do so against its own endpoint, not one the
       # engine exposes on every host that mounts it.
 
-      before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff ]
+      before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff, :timeline, :events, :create_events ]
 
-      # Browser state that must never leave the server in a read response:
-      # the handoff state a recording carries is a copy of the visitor's
-      # cookies and web storage. Only #handoff returns it, to the owner, when
-      # they continue the session.
-      SENSITIVE_STATE_KEYS = %w[cookies session_storage local_storage].freeze
+      SENSITIVE_STATE_KEYS = SessionRecording::SENSITIVE_STATE_KEYS
+
+      # Recording event rows one page of #events returns at most, and the
+      # event bytes after which a page ends early.
+      EVENTS_PAGE_LIMIT = 100
+      EVENTS_PAGE_BYTES = 4.megabytes
 
       # GET /api/session_recordings
       # List recordings with optional filters
@@ -96,6 +97,46 @@ module ActionAgent
           has_more: actions.count == limit,
           total_actions: @recording.action_count
         }
+      end
+
+      # GET /api/session_recordings/:id/timeline
+      # The recording's browser lane with the message, llm and tool lanes of
+      # its conversation or run (SessionTimeline).
+      def timeline
+        render json: RecordingEvent.generate_json(timeline: SessionTimeline.for_recording(@recording, timeline_scope).as_json)
+      end
+
+      # GET /api/session_recordings/:id/events
+      # The recording's events in time order, a page of rows at a time, with
+      # their payloads. rrweb only unless +kind+ names others (comma
+      # separated). +after+ is the id of the last row already read.
+      def events
+        kinds = params[:kind].to_s.split(",").map(&:strip) & RecordingEvent::KINDS
+        rows = @recording.recording_events.where(kind: kinds.presence || "rrweb").chronological
+        if params[:after].present?
+          cursor = @recording.recording_events.find_by(id: integer_param(:after))
+          return render(json: { error: "Unknown cursor" }, status: :unprocessable_entity) unless cursor
+
+          rows = rows.where(after_row(cursor))
+        end
+        limit = clamped_param(:limit, default: 20, min: 1, max: EVENTS_PAGE_LIMIT)
+        fetched = rows.limit(limit + 1).to_a
+        page = page_of_rows(fetched, limit)
+
+        render json: RecordingEvent.generate_json(
+          events: page.map { |row| event_row_json(row) },
+          has_more: fetched.size > page.size,
+          next_after: page.last&.id
+        )
+      end
+
+      # POST /api/session_recordings/:id/events
+      # A batch of browser events (RecordingEventIngest) from a dashboard
+      # session. A recorder holding the recording's ingest token posts to the
+      # same path, and is answered by RecordingEventIngestController.
+      def create_events
+        result = RecordingEventIngest.call(@recording, request.raw_post)
+        render json: result.body, status: result.status
       end
 
       # GET /api/session_recordings/:id/snapshot/:action_id
@@ -270,6 +311,7 @@ module ActionAgent
           render json: { error: "Not authorized" }, status: :forbidden
           return
         end
+        return unless authorize_action!(:manage_recordings, @recording)
 
         @recording.destroy!
         render json: { message: "Recording deleted" }
@@ -288,19 +330,6 @@ module ActionAgent
         not_found
       end
 
-      # What the list shows: recordings the caller owns, plus recordings made
-      # inside a sandbox the caller owns — the same reachability
-      # can_manage_recording? grants to a direct read, so a recording never
-      # opens by id while missing from the list. The second clause is what
-      # keeps recordings created before the owner column was written
-      # reachable.
-      def reachable_recordings
-        scope = owned(SessionRecording)
-        return scope if SessionRecording.owner_association.nil?
-
-        scope.or(SessionRecording.where(sandbox_session_id: owned(SandboxSession).select(:id)))
-      end
-
       def can_manage_recording?(recording)
         # An install with no owner model owns everything it can see.
         return true if SessionRecording.owner_association.nil?
@@ -311,6 +340,41 @@ module ActionAgent
         return true if session && session.owner.present? && session.owner == current_owner
 
         false
+      end
+
+      # The rows that sort after +row+ in RecordingEvent.chronological order.
+      def after_row(row)
+        table = RecordingEvent.arel_table
+        later_in_batch = table[:batch_index].gt(row.batch_index)
+          .or(table[:batch_index].eq(row.batch_index).and(table[:id].gt(row.id)))
+        table[:occurred_from].gt(row.occurred_from)
+          .or(table[:occurred_from].eq(row.occurred_from).and(later_in_batch))
+      end
+
+      # The first +limit+ of +rows+, ending early once EVENTS_PAGE_BYTES of
+      # events are in the page. Always at least one row.
+      def page_of_rows(rows, limit)
+        bytes = 0
+        rows.first(limit).take_while do |row|
+          fits = bytes.zero? || bytes + row.byte_size <= EVENTS_PAGE_BYTES
+          bytes += row.byte_size
+          fits
+        end
+      end
+
+      # rrweb events are returned as recorded, since a DOM attribute may carry
+      # any name and a stripped snapshot would not replay. Other kinds lose
+      # SessionRecording::SENSITIVE_STATE_KEYS, as they do in a timeline.
+      def event_row_json(row)
+        {
+          id: row.id,
+          kind: row.kind,
+          occurred_from: row.occurred_from.utc.iso8601(3),
+          occurred_to: row.occurred_to.utc.iso8601(3),
+          clock_offset_ms: row.clock_offset_ms,
+          event_count: row.event_count,
+          events: row.kind == "rrweb" ? row.events : SessionRecording.without_sensitive_state(row.events)
+        }
       end
 
       def recording_summary(recording)
