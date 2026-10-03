@@ -1344,7 +1344,9 @@ are not checked. The connect and callback navigations return a refusal to
 Settings (`?github=forbidden`) rather than as JSON.
 
 Unset, anyone who passes authentication may perform every action, which
-suits a single-user install. With a checker set:
+suits a single-user install. In multi-tenant mode that is every member of
+every tenant, so the engine logs a warning at boot when `multi_tenant` is on
+and no checker is set. With a checker set:
 
 - An exception raised by the checker denies the action, and is logged.
 - In multi-tenant mode, a request with no signed-in user is denied without
