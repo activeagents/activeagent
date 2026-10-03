@@ -48,6 +48,13 @@ class EvaluationMergeScenariosTest < ActiveSupport::TestCase
     assert_equal 1, scenario.position
   end
 
+  test "an update that leaves out the group, notes and expectations clears them" do
+    @evaluation.merge_scenarios!([ { "key" => "orders_2", "prompt" => "Which orders shipped late?" } ])
+
+    scenario = @evaluation.scenarios.find_by!(key: "orders_2")
+    assert_equal [ nil, nil, {} ], [ scenario.group, scenario.notes, scenario.expectations ]
+  end
+
   test "an existing key moves or changes its enabled flag only when the attributes say so" do
     @evaluation.merge_scenarios!([
       { "key" => "orders_1", "prompt" => "Where is order ABC-123?", "group" => "Orders", "position" => 9, "enabled" => false }
