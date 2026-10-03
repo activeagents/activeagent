@@ -252,7 +252,7 @@ module ActiveAgent
       def call_tool_function(name, **kwargs)
         return mcp_call_tool(name, **kwargs) if mcp_owns_tool?(name)
 
-        result = tools_function.call(name, **kwargs)
+        result = isolate_undispatched_tool_call { tools_function.call(name, **kwargs) }
         assert_input_request_supported!(result)
         result
       end

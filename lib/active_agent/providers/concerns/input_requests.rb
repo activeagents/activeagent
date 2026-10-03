@@ -106,6 +106,18 @@ module ActiveAgent
         [ call[:id].to_s, call[:name].to_s ]
       end
 
+      # Runs a tool call made outside {#dispatch_tool_calls} with no tool call
+      # in execution state. Such a call can neither pause nor be answered, and
+      # it must not read the answer of an enclosing call that started this
+      # generation.
+      #
+      # @return [Object] the block's result
+      def isolate_undispatched_tool_call(&block)
+        return yield if @_dispatching_tool_call
+
+        ActiveAgent::InputRequest.dispatching(nil, &block)
+      end
+
       # @param result [Object] what a tool returned
       # @raise [ActiveAgent::InputRequest::UnsupportedProviderError] when the
       #   result is an InputRequest and the call was not dispatched through

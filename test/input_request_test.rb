@@ -45,6 +45,11 @@ class InputRequestTest < ActiveSupport::TestCase
         assert_nil ActiveAgent::InputRequest.answer_for("call_1"), "a nested generation's calls do not see the outer answer"
       end
 
+      ActiveAgent::InputRequest.dispatching(nil) do
+        assert_nil ActiveAgent::InputRequest.current_tool_call_id
+        assert_nil ActiveAgent::InputRequest.answer_for("call_1"), "a call run outside dispatch does not see the outer answer"
+      end
+
       assert_equal "yes", ActiveAgent::InputRequest.answer_for("call_1")
     end
 

@@ -41,6 +41,39 @@ class InputRequestsUnsupportedTest < ActiveSupport::TestCase
     assert_requested stub, times: 1
   end
 
+  test "a tool under a provider that cannot pause does not read the answer of the call that started it" do
+    stub_request(:post, "https://api.openai.com/v1/responses").to_return(
+      status: 200,
+      headers: { "Content-Type" => "application/json" },
+      body: {
+        id: "resp_1", object: "response", created_at: 1_761_502_994, status: "completed", model: "gpt-4o-mini",
+        output: [ { type: "function_call", id: "fc_1", call_id: "inner_call", name: "issue_refund", arguments: "{}", status: "completed" } ],
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }
+      }.to_json
+    )
+
+    seen = []
+    gated = lambda do |*, **|
+      call_id = ActiveAgent::InputRequest.current_tool_call_id
+      answer  = ActiveAgent::InputRequest.answer_for(call_id)
+      seen << [ call_id, answer ]
+      answer ? { refunded: 40 } : ActiveAgent::InputRequest.confirm("Refund 40?")
+    end
+
+    provider = ActiveAgent::Providers::OpenAI::ResponsesProvider.new(
+      service: "OpenAI", api_key: "test-key", model: "gpt-4o-mini",
+      messages: [ { role: "user", content: "Refund order 7" } ],
+      tools: [ { name: "issue_refund", description: "Refund an order", parameters: { type: "object", properties: {} } } ],
+      tools_function: gated
+    )
+
+    # An approved call of an outer generation starts this one.
+    assert_raises(ActiveAgent::InputRequest::UnsupportedProviderError) do
+      ActiveAgent::InputRequest.dispatching("outer_call", answer: true) { provider.prompt }
+    end
+    assert_equal [ [ nil, nil ] ], seen
+  end
+
   test "RubyLLM raises when a tool asks for input" do
     original_key = RubyLLM.config.openai_api_key
     original_protocol = RubyLLM.config.openai_protocol if RubyLLM.config.respond_to?(:openai_protocol)
