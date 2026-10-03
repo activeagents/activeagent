@@ -1,13 +1,20 @@
 # frozen_string_literal: true
 
 module ActionAgent
-  # Masks what a browser tool call typed: the `text` of `browser_type` and
-  # each field `value` of `browser_fill_form`. MCPRecordingMiddleware applies
-  # it before an agent's browser action is stored, and SessionTimeline before
-  # a tool call is shown.
+  # Masks what a browser tool call typed: the `text` of `browser_type`, the
+  # `promptText` of `browser_handle_dialog` and each field `value` of
+  # `browser_fill_form`. MCPRecordingMiddleware applies it before an agent's
+  # browser action is stored, and SessionTimeline before a tool call is
+  # shown.
+  #
+  # Masking is per call. A value one call typed is masked in that call's
+  # arguments and result, but not in another call's result that shows it,
+  # such as a later snapshot of the filled field.
   module BrowserToolRedaction
     MASK = "[REDACTED]"
-    TYPING_TOOLS = %w[browser_type browser_fill_form].freeze
+    # The argument that holds what each single-value typing tool typed.
+    TYPED_ARGUMENTS = { "browser_type" => "text", "browser_handle_dialog" => "promptText" }.freeze
+    TYPING_TOOLS = [ *TYPED_ARGUMENTS.keys, "browser_fill_form" ].freeze
     # Shorter typed values are masked in the arguments but not searched for
     # in other text, where they would mask unrelated characters.
     MIN_SEARCHED_LENGTH = 3
@@ -28,10 +35,10 @@ module ActionAgent
       parsed = parse(arguments)
       return MASK unless parsed.is_a?(Hash)
 
+      typed = TYPED_ARGUMENTS[tool_name.to_s]
       masked =
-        case tool_name.to_s
-        when "browser_type"
-          parsed.key?("text") ? parsed.merge("text" => MASK) : parsed
+        if typed
+          parsed.key?(typed) ? parsed.merge(typed => MASK) : parsed
         else
           parsed.merge("fields" => Array(parsed["fields"]).map { |field| mask_field(field) })
         end
@@ -55,11 +62,8 @@ module ActionAgent
 
     # The values a typing tool call typed, from its parsed arguments.
     def typed_values(tool_name, parsed)
-      values =
-        case tool_name.to_s
-        when "browser_type" then [ parsed["text"] ]
-        else Array(parsed["fields"]).map { |field| field["value"] if field.is_a?(Hash) }
-        end
+      typed = TYPED_ARGUMENTS[tool_name.to_s]
+      values = typed ? [ parsed[typed] ] : Array(parsed["fields"]).map { |field| field["value"] if field.is_a?(Hash) }
       values.compact.map(&:to_s).reject(&:empty?)
     end
 
