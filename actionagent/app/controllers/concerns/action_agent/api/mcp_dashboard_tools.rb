@@ -72,6 +72,11 @@ module ActionAgent
         }
       }.freeze
 
+      # An expectation list of an explorations_submit candidate.
+      EXPLORATION_EXPECTATION_LIST = {
+        type: "array", maxItems: Exploration::MAX_ITEMS, items: { type: "string", maxLength: Exploration::MAX_LABEL }
+      }.freeze
+
       # The scenarios evaluations_create and scenarios_merge accept, in the
       # forms POST /api/evaluations accepts them.
       SCENARIO_PROPERTIES = {
@@ -201,19 +206,23 @@ module ActionAgent
               exploration_id: { type: "integer", description: "An exploration this key submitted, to add these candidates to" },
               candidates: {
                 type: "array",
-                description: "At most #{Exploration::MAX_CANDIDATES} per exploration",
+                description: "At most #{Exploration::MAX_CANDIDATES} per exploration, and " \
+                             "#{Exploration::MAX_BYTES / 1.megabyte} MiB of JSON per call and per exploration",
                 items: {
                   type: "object",
                   properties: {
-                    prompt: { type: "string", description: "A question a user of the app would ask its agent" },
+                    prompt: {
+                      type: "string", maxLength: Exploration::MAX_STRING,
+                      description: "A question a user of the app would ask its agent"
+                    },
                     group: { type: "string", description: "The scenario group it belongs to" },
                     rubric: {
-                      type: "string",
+                      type: "string", maxLength: Exploration::MAX_STRING,
                       description: "What a good answer does; the judge grades the answer against it. Not click steps"
                     },
-                    tools: { type: "array", items: { type: "string" }, description: "Tools a good answer calls" },
-                    contains: { type: "array", items: { type: "string" }, description: "Patterns the answer must contain" },
-                    not_contains: { type: "array", items: { type: "string" }, description: "Patterns the answer must not contain" },
+                    tools: { **EXPLORATION_EXPECTATION_LIST, description: "Tools a good answer calls" },
+                    contains: { **EXPLORATION_EXPECTATION_LIST, description: "Patterns the answer must contain" },
+                    not_contains: { **EXPLORATION_EXPECTATION_LIST, description: "Patterns the answer must not contain" },
                     provenance: {
                       type: "object",
                       description: "How you found it, shown to the reviewer and never to the judge",

@@ -73,6 +73,16 @@ class McpExplorationsTest < ActionDispatch::IntegrationTest
     assert_not_includes exploration.read_attribute_before_type_cast(:candidates).to_s, SECRET
   end
 
+  test "a call over the byte limit is a tool error and stores nothing" do
+    steps = Array.new(ActionAgent::Exploration::MAX_BYTES / 4_000 + 1) { |index| "#{index} #{'s' * 4_000}" }
+
+    body = submit({ project_id: @project.id, candidates: [ candidate("Hello", provenance: { steps: steps }) ] })
+
+    assert_equal true, body.dig("result", "isError")
+    assert_match(/may total 2 MiB/, body.dig("result", "content", 0, "text"))
+    assert_equal 0, ActionAgent::Exploration.count
+  end
+
   test "exploration_id adds to an earlier submission, numbering on from it" do
     first = submit({ project_id: @project.id, candidates: [ candidate("Where is order A-17?") ] }).dig("result", "structuredContent")
     id = first.dig("exploration", "id")

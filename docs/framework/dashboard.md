@@ -703,8 +703,9 @@ candidate's verdict against the agent the project evaluates, so the harness
 can revise a candidate that needs a tool the agent does not have, and the
 `review_url` to send the person to. Storing candidates needs only the key;
 accepting them asks `:replace_scenarios` on the dashboard. An exploration
-holds at most 200 candidates. An `evaluation_id` that is a project's
-evaluation files the candidates under that project.
+holds at most 200 candidates, and one call and one exploration at most
+2 MiB of candidate JSON. An `evaluation_id` that is a project's evaluation
+files the candidates under that project.
 
 ## GitHub connections and checkout sandboxes
 
@@ -1713,8 +1714,13 @@ A candidate looks like this:
   GitHub token and API keys, and the project's sandbox tokens. Candidates
   submitted for an evaluation of the project's agent, by `evaluation_id`, are
   scrubbed of that project's secrets too, and those for the project's own
-  evaluation are filed under the project. Strings are cut to 4,000
-  characters and lists to 50 entries.
+  evaluation are filed under the project.
+- **Sizes are limited.** A prompt or rubric longer than 4,000 characters, an
+  expectation list of more than 50 entries, and a tool name or pattern longer
+  than 200 characters are refused, because accepting writes them into the
+  scenario as they are. A group is cut to 200 characters, and provenance to
+  2,048 characters per string and 50 entries per list. One call, and all of
+  an exploration's candidates, may total 2 MiB of JSON.
 - **A recording** in `provenance` is kept only when it is the exploration's
   own, and the review links to that part of its replay. Without one there is
   no Replay link.
