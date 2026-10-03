@@ -184,6 +184,25 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "a confirm request is approved by true or no answer, declined by false, and refuses anything else" do
+    confirm = -> { paused_run(ActiveAgent::InputRequest.confirm("Allow refund to run?")).input_requests.sole }
+
+    refused = confirm.call
+    [ "no", "yes", "", 0, { "approved" => true } ].each do |value|
+      answer(refused, value)
+      assert_response :unprocessable_entity, "#{value.inspect} must not settle a confirm request"
+    end
+    assert refused.reload.pending?
+
+    { true => "answered", "true" => "answered", nil => "answered", false => "declined", "false" => "declined" }.each do |value, status|
+      request = confirm.call
+      answer(request, value)
+      assert_response :success
+      assert_equal status, request.reload.status, "answering #{value.inspect}"
+      assert_equal status == "answered", request.resume_answer
+    end
+  end
+
   test "a request in another account's scope is not found" do
     me, account = sign_in_to_account
     stranger = User.create!(email: "stranger-#{SecureRandom.hex(3)}@example.com", name: "Stranger", age: 30)

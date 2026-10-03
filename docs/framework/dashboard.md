@@ -261,7 +261,7 @@ Cancelling the run cancels its pending requests. `config.input_request_ttl`
 | Endpoint | What it does |
 |---|---|
 | `GET /api/input_requests` | The caller's pending requests, newest first. `status` (a status, or `all`), `agent_id` and `run_id` filter them. Each entry has the id, kind, prompt, options, tool name, a `confirm` request's arguments, the agent, the run id, the run's actor, `created_at` and `expires_at`, and never the answer or the checkpoint |
-| `POST /api/input_requests/:id/answer` | Answers with `answer`. An answer to a `confirm` request approves it |
+| `POST /api/input_requests/:id/answer` | Answers with `answer`. A `confirm` request is approved by `true` or by no answer, and declined by `false` |
 | `POST /api/input_requests/:id/decline` | Declines: the paused tool does not run |
 
 `GET /api/runs/:id` lists the run's pending requests in the same shape. An
@@ -274,8 +274,8 @@ answer or a decline returns:
   actor when that is a user.
 - **409** when the request is no longer pending or has expired. The body's
   `status` says which, and an expired request fails its run.
-- **422** for a blank answer, or a `choice` answer that is not one of the
-  options.
+- **422** for a blank answer, a `choice` answer that is not one of the
+  options, or a `confirm` answer other than `true` or `false`.
 
 **Callers that wait for a result.**
 

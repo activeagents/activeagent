@@ -279,7 +279,7 @@ class InputRequestsExecutionTest < ActionDispatch::IntegrationTest
     assert_equal [ "confirm", "Refund order 7?", "issue_refund" ], [ request.kind, request.prompt, request.tool_name ]
     assert_empty HostRefundAgent.refunds
 
-    answer(request, "approve")
+    answer(request, true)
 
     assert run.reload.complete?, run.error_message
     assert_equal "Refunded.", run.output
@@ -313,7 +313,7 @@ class InputRequestsExecutionTest < ActionDispatch::IntegrationTest
       assert_equal [ "confirm", "calculate", { "expression" => "6 * 7" } ], [ request.kind, request.tool_name, request.arguments ]
       assert_empty calls, "the tool must not run before it is approved"
 
-      answer(request, "approve")
+      answer(request, true)
 
       assert run.reload.complete?, run.error_message
       assert_equal [ "6 * 7" ], calls
@@ -336,6 +336,23 @@ class InputRequestsExecutionTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "answering false declines a gated call, so the tool never runs" do
+    stub_anthropic(*calculate_turns)
+    calls = []
+
+    ActionAgent::AgentToolbox.stub(:calculate, counting_calculate(calls)) do
+      run = run_in_background(gated_agent, "What is six times seven?")
+      request = run.input_requests.sole
+
+      answer(request, false)
+
+      assert request.reload.declined?
+      assert run.reload.complete?, run.error_message
+      assert_empty calls
+      assert_includes anthropic_tool_results.fetch("toolu_1"), "declined by user"
+    end
+  end
+
   test "request_approval asks to approve what the model describes" do
     stub_anthropic(
       assistant_message(tool_use("toolu_1", "request_approval", { action: "Email the itinerary to the whole team" })),
@@ -346,7 +363,7 @@ class InputRequestsExecutionTest < ActionDispatch::IntegrationTest
     assert_equal [ "confirm", "Email the itinerary to the whole team" ], [ request.kind, request.prompt ]
     assert_equal({ "action" => "Email the itinerary to the whole team" }, request.arguments)
 
-    answer(request, "yes")
+    answer(request, true)
 
     assert run.reload.complete?, run.error_message
     assert_includes anthropic_tool_results.fetch("toolu_1"), "approved"
