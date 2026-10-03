@@ -562,8 +562,9 @@ module ActionAgent
     # GITHUB_APP_SLUG, GITHUB_APP_CLIENT_ID, GITHUB_APP_CLIENT_SECRET), and the
     # dashboard offers no installation until all five are present. Register
     # the App with "Request user authorization (OAuth) during installation"
-    # and <mount>/api/github_installations/callback as its callback URL, or
-    # create it from Settings with the manifest flow.
+    # and "Redirect on update" turned on and
+    # <mount>/api/github_installations/callback as its callback URL, or create
+    # it from Settings with the manifest flow.
     #
     # The private key is the PEM GitHub generated for the App. A key whose
     # line breaks were written as "\n" (one line in an env file) is read with
