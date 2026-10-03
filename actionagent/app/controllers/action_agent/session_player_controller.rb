@@ -28,12 +28,14 @@ module ActionAgent
 
     # The frame's Content-Security-Policy, allowing +script_url+ as its only
     # script. A host's own policy is not merged in: the frame needs nothing
-    # from it.
+    # from it. A source expression cannot carry a query, and matching
+    # ignores one, so the URL's query is left out.
     # @return [String]
     def self.policy(script_url)
+      source = URI(script_url).tap { |uri| uri.query = uri.fragment = nil }.to_s
       [
         "default-src 'none'",
-        "script-src #{script_url}",
+        "script-src #{source}",
         "style-src 'unsafe-inline'",
         "img-src data: blob:",
         "font-src data:",

@@ -40,11 +40,17 @@ class SessionPlayerTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
-  test "the bundle URL keeps the asset host's origin" do
+  test "the policy names a bundle on an asset host by its full URL" do
     assert_equal "default-src 'none'; script-src https://cdn.example.com/assets/action_agent_replay-1a2b.js; " \
       "style-src 'unsafe-inline'; img-src data: blob:; font-src data:; base-uri 'none'; form-action 'none'; " \
       "frame-ancestors 'self'",
       ActionAgent::SessionPlayerController.policy("https://cdn.example.com/assets/action_agent_replay-1a2b.js")
+  end
+
+  test "the policy names the bundle without its query" do
+    policy = ActionAgent::SessionPlayerController.policy("https://cdn.example.com/assets/action_agent_replay.js?v=3")
+
+    assert_includes policy.split("; "), "script-src https://cdn.example.com/assets/action_agent_replay.js"
   end
 
   test "a Sprockets host precompiles the replay bundle with the dashboard's" do
