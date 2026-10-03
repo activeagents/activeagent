@@ -42,6 +42,12 @@ module ActionAgent
     config.action_agent = ActiveSupport::OrderedOptions.new
     config.app_middleware.insert_before Rails::Rack::Logger, ActionAgent::AssistantRequestFilter
 
+    # After, not in, an initializer: the host configures multi_tenant and
+    # permission_checker in its own initializers, which run after the engine's.
+    config.after_initialize do
+      ActionAgent.warn_about_unchecked_permissions
+    end
+
     # Whether a request is a browser asking for a page, as opposed to an API
     # or MCP client: the routes use it to tell the dashboard's client-side
     # deep links apart from protocol traffic on the same path.

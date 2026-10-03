@@ -33,9 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before a provider credential is stored, tested or deleted
   (`:manage_credentials`), before GitHub is connected, its repositories chosen
   or it is disconnected (`:manage_github`), and before an API key is created or
-  revoked (`:manage_api_keys`). A denial answers 403. The remaining actions in
-  `ActionAgent::PERMISSION_ACTIONS` are reserved for features that need them.
-  Unset, every action is allowed as before. A checker that raises denies; in
+  revoked (`:manage_api_keys`). A denial answers 403, except that the GitHub
+  connect and callback navigations return to Settings instead. The remaining
+  actions in `ActionAgent::PERMISSION_ACTIONS` are reserved for features that
+  need them. Unset, every action is allowed as before, which in multi-tenant
+  mode means every member of a tenant may perform every action; the engine
+  logs a warning at boot in that case. A checker that raises denies; in
   multi-tenant mode a nil answer or a missing user also denies.
 - **Record who created an API key** (`actionagent`). A key created in Settings
   stores the signed-in user beside its owner, and an MCP call made with an

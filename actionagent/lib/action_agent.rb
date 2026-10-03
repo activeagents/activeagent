@@ -322,16 +322,19 @@ module ActionAgent
     #   subject the record the action applies to, unsaved when the action
     #           creates it, with its owner columns set
     #
-    # A truthy answer allows and false denies. What nil, an exception and a
-    # missing user mean is up to {.permitted?}. A denied dashboard request
-    # gets HTTP 403.
+    # A truthy answer allows and false denies. {.permitted?} describes how a
+    # nil answer, an exception and a missing user are treated. A denied API
+    # request gets HTTP 403, and a denied GitHub connect or callback returns
+    # to Settings.
     #
     #   config.permission_checker = ->(user, action, subject) {
     #     user.present? && (user.admin? || action == :answer_input_request)
     #   }
     #
     # Unset means everyone who can reach the dashboard may do everything,
-    # which is what a single-user install wants.
+    # which is what a single-user install wants. In multi-tenant mode it means
+    # every member of a tenant may do everything, and the engine logs a
+    # warning at boot (see {.warn_about_unchecked_permissions}).
     # @return [Proc, nil]
     attr_accessor :permission_checker
 
@@ -713,7 +716,8 @@ module ActionAgent
     end
 
     # Whether +user+ may perform +action+ on +subject+, as permission_checker
-    # answers. Always true when no checker is configured. Otherwise:
+    # answers. Always true when no checker is configured, in either mode.
+    # Otherwise:
     #
     #   - an exception from the checker denies, and is logged
     #   - in multi-tenant mode a nil +user+ denies without asking the checker,
@@ -738,6 +742,23 @@ module ActionAgent
       return !multi_tenant? if answer.nil?
 
       answer ? true : false
+    end
+
+    # Logs a warning when the install is multi-tenant and has no
+    # permission_checker, because every member of a tenant may then perform
+    # every privileged action. The engine calls it once the host's
+    # initializers have run.
+    #
+    # @return [Boolean] whether it warned
+    def warn_about_unchecked_permissions
+      return false unless multi_tenant? && permission_checker.nil?
+
+      Rails.logger&.warn(
+        "[ActionAgent] multi_tenant is on and no permission_checker is configured, so every member of a tenant " \
+        "may store provider credentials, connect GitHub and create API keys. Set config.permission_checker to " \
+        "restrict them."
+      )
+      true
     end
 
     # Provider options for +owner+, or {} when the host app has none and

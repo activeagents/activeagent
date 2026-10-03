@@ -43,6 +43,17 @@ class PermissionCheckerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a multi-tenant install with no checker is warned about" do
+    assert_not ActionAgent.warn_about_unchecked_permissions, "single-tenant"
+
+    ActionAgent.multi_tenant = true
+    logged = capture_log { assert ActionAgent.warn_about_unchecked_permissions }
+    assert_match(/multi_tenant is on and no permission_checker is configured/, logged)
+
+    ActionAgent.permission_checker = ->(*) { true }
+    assert_not ActionAgent.warn_about_unchecked_permissions, "multi-tenant with a checker"
+  end
+
   test "an unknown action raises, with or without a checker" do
     assert_raises(ArgumentError) { ActionAgent.permitted?(nil, :manage_everything) }
     assert_raises(ArgumentError) { ActionAgent.permitted?(nil, "manage_credentials") }
