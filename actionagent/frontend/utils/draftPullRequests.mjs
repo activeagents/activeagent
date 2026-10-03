@@ -4,6 +4,10 @@
 
 export const PULL_REQUEST_POLL_INTERVAL_MS = 2000;
 
+// The commit message an update suggests. The server uses the same one when
+// it is given none.
+export const DEFAULT_UPDATE_MESSAGE = 'Update from the sandbox';
+
 const IN_PROGRESS = new Set(['queued', 'publishing']);
 
 // Whether the last publish is still to run or running.
@@ -19,9 +23,10 @@ export function pullRequestStatus(pullRequest) {
     case 'queued': return { label: 'Queued', tone: 'progress' };
     case 'publishing': return { label: 'Publishing', tone: 'progress' };
     case 'draft_refused': return { label: 'Branch published', tone: 'neutral' };
-    case 'failed': return pullRequest.number
-      ? { label: `${stateLabel(pullRequest)} · update failed`, tone: 'error' }
-      : { label: 'Failed', tone: 'error' };
+    case 'failed':
+      if (pullRequest.number) return { label: `${stateLabel(pullRequest)} · update failed`, tone: 'error' };
+      if (pullRequest.head_commit) return { label: 'Branch published · pull request not opened', tone: 'error' };
+      return { label: 'Failed', tone: 'error' };
     default: return { label: stateLabel(pullRequest), tone: stateTone(pullRequest) };
   }
 }
@@ -38,12 +43,38 @@ function stateTone(pullRequest) {
   return pullRequest.draft ? 'neutral' : 'success';
 }
 
-// Whether a new commit can go onto the pull request's branch: it was
-// published and is not closed or merged.
+// Whether a new commit can go onto the pull request's branch: the pull
+// request is open on GitHub, not closed or merged.
 export function canUpdate(pullRequest) {
-  if (!pullRequest?.head_commit || isPublishInProgress(pullRequest)) return false;
-  if (!['create', 'update'].includes(pullRequest.operation)) return false;
+  if (!pullRequest?.head_commit || !pullRequest.number || isPublishInProgress(pullRequest)) return false;
   return !['closed', 'merged'].includes(pullRequest.state);
+}
+
+// Whether the branch is on GitHub with no pull request for it, so one can be
+// opened: GitHub refused the draft, or opening it failed.
+export function canOpenBranch(pullRequest) {
+  return Boolean(pullRequest?.head_commit && !pullRequest.number && !isPublishInProgress(pullRequest));
+}
+
+// The files on the pull request's branch that an update with +selection+
+// returns to the checkout commit, since the branch holds only the files of
+// its last publish: those not ticked, refused, or no longer changed.
+export function revertedFiles(pullRequest, files, selection) {
+  const chosen = new Set(selectedFiles(files, selection).map((file) => file.path));
+  return (pullRequest?.files || []).map((file) => file.path).filter((path) => !chosen.has(path));
+}
+
+// Whether the preview stopped reading before some file, which then needs
+// fewer paths to be read.
+export function hasUnreadFiles(files) {
+  return (files || []).some((file) => file.refusal === 'not_read');
+}
+
+// The path patterns typed in the dialog ("app/**, lib/*.rb"), or null for
+// none: separated by commas, spaces or new lines.
+export function parseAllowlist(text) {
+  const patterns = (text || '').split(/[\s,]+/).filter(Boolean);
+  return patterns.length ? patterns : null;
 }
 
 // Errors after which the dialog reads the sandbox again rather than
@@ -101,20 +132,23 @@ export function branchNameError(name) {
   return null;
 }
 
-// Why the dialog's publish button is off, or null.
-export function publishBlocker({ files, selection, title, branch, update = false }) {
+// Why the dialog's publish button is off, or null. An update needs a commit
+// message rather than a title and a branch.
+export function publishBlocker({ files, selection, title, branch, message, update = false }) {
   if (selectedFiles(files, selection).length === 0) return 'Choose at least one file.';
+  if (update) return (message || '').trim() ? null : 'Add a commit message.';
   if (!(title || '').trim()) return 'Add a title.';
-  if (!update) return branchNameError(branch);
-  return null;
+  return branchNameError(branch);
 }
 
 // The body of POST /api/sandboxes/:id/pull_request for the dialog's choices.
-export function publishRequestBody({ files, selection, title, body, branch, update = false }) {
+// +allowlist+ is sent when the preview was read with one.
+export function publishRequestBody({ files, selection, title, body, branch, message, allowlist = null, update = false }) {
   const chosen = selectedFiles(files, selection).map((file) => ({ path: file.path, digest: file.digest }));
-  const request = { files: chosen, title: (title || '').trim(), body: body || '' };
-  if (update) return { ...request, update: true };
-  return { ...request, branch: (branch || '').trim() };
+  const request = update
+    ? { files: chosen, message: (message || '').trim(), update: true }
+    : { files: chosen, title: (title || '').trim(), body: body || '', branch: (branch || '').trim() };
+  return allowlist ? { ...request, allowlist } : request;
 }
 
 // Where the patch of +paths+ downloads from, mount-relative.

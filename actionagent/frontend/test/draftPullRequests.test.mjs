@@ -6,16 +6,20 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import {
   branchNameError,
+  canOpenBranch,
   canUpdate,
   fileStatusLetter,
   formatBytes,
+  hasUnreadFiles,
   initialSelection,
   isPublishInProgress,
   needsReload,
+  parseAllowlist,
   patchPath,
   publishBlocker,
   publishRequestBody,
   pullRequestStatus,
+  revertedFiles,
   selectedFiles,
   selectionSummary,
   toggleSelection,
@@ -45,9 +49,10 @@ test('the publish request carries each chosen file with the digest the preview r
   assert.deepEqual(publishRequestBody({ files, selection, title: ' Add gadgets ', body: 'Why', branch: ' activeagent/x ' }), {
     files: [{ path: 'README.md', digest: 'd1' }], title: 'Add gadgets', body: 'Why', branch: 'activeagent/x',
   });
-  assert.deepEqual(publishRequestBody({ files, selection, title: 'T', body: '', branch: 'ignored', update: true }), {
-    files: [{ path: 'README.md', digest: 'd1' }], title: 'T', body: '', update: true,
-  });
+  assert.deepEqual(publishRequestBody({ files, selection, title: 'T', body: 'B', branch: 'ignored', message: ' Tidy ', update: true }), {
+    files: [{ path: 'README.md', digest: 'd1' }], message: 'Tidy', update: true,
+  }, 'an update carries a commit message, never the pull request\'s title or description');
+  assert.deepEqual(publishRequestBody({ files, selection, title: 'T', branch: 'b', allowlist: ['app/**'] }).allowlist, ['app/**']);
 });
 
 test('publishing waits for a file, a title and a valid branch', () => {
@@ -57,7 +62,8 @@ test('publishing waits for a file, a title and a valid branch', () => {
   assert.equal(publishBlocker({ files, selection, title: '  ', branch: 'b' }), 'Add a title.');
   assert.equal(publishBlocker({ files, selection, title: 'T', branch: '' }), 'Name the branch.');
   assert.equal(publishBlocker({ files, selection, title: 'T', branch: 'activeagent/gadgets' }), null);
-  assert.equal(publishBlocker({ files, selection, title: 'T', branch: '', update: true }), null, 'an update keeps its branch');
+  assert.equal(publishBlocker({ files, selection, title: '', branch: '', message: 'Tidy', update: true }), null, 'an update keeps its branch and title');
+  assert.equal(publishBlocker({ files, selection, title: 'T', message: ' ', update: true }), 'Add a commit message.');
 });
 
 test('branch names follow the rules the server checks', () => {
@@ -76,20 +82,44 @@ test('a pull request reads as its state, and a publish as its progress', () => {
   assert.deepEqual(pullRequestStatus({ status: 'draft_refused' }), { label: 'Branch published', tone: 'neutral' });
   assert.deepEqual(pullRequestStatus({ status: 'failed' }), { label: 'Failed', tone: 'error' });
   assert.deepEqual(pullRequestStatus({ status: 'failed', number: 3, state: 'open', draft: true }), { label: 'Draft · update failed', tone: 'error' });
+  assert.deepEqual(pullRequestStatus({ status: 'failed', head_commit: 'abc' }), { label: 'Branch published · pull request not opened', tone: 'error' });
   assert.ok(isPublishInProgress({ status: 'publishing' }));
   assert.ok(!isPublishInProgress({ status: 'published' }));
   assert.ok(!isPublishInProgress(null));
 });
 
-test('only a published, still open pull request can be updated', () => {
-  const published = { status: 'published', operation: 'create', head_commit: 'abc', state: 'open' };
+test('only an opened, still open pull request can be updated, and only a branch without one can be opened', () => {
+  const published = { status: 'published', operation: 'create', head_commit: 'abc', number: 12, state: 'open' };
 
   assert.ok(canUpdate(published));
   assert.ok(canUpdate({ ...published, status: 'failed', operation: 'update' }), 'a failed update can be tried again');
+  assert.ok(canUpdate({ ...published, operation: 'open_regular', draft: false }), 'a regular pull request opened later too');
   assert.ok(!canUpdate({ ...published, state: 'merged' }));
   assert.ok(!canUpdate({ ...published, head_commit: null }));
   assert.ok(!canUpdate({ ...published, status: 'queued' }));
-  assert.ok(!canUpdate({ ...published, operation: 'open_regular' }));
+  assert.ok(!canOpenBranch(published));
+
+  const branchOnly = { status: 'draft_refused', operation: 'create', head_commit: 'abc', number: null };
+  assert.ok(!canUpdate(branchOnly), 'a branch GitHub refused a draft for has no pull request to update');
+  assert.ok(canOpenBranch(branchOnly));
+  assert.ok(canOpenBranch({ ...branchOnly, status: 'failed' }), 'opening it failed after the branch was pushed');
+  assert.ok(!canOpenBranch({ ...branchOnly, status: 'queued' }));
+  assert.ok(!canOpenBranch({ ...branchOnly, head_commit: null }), 'nothing was pushed');
+});
+
+test('an update names the files on the branch it returns to the checkout commit', () => {
+  const pullRequest = { files: [{ path: 'README.md' }, { path: 'app/models/gadget.rb' }, { path: 'lib/gone.rb' }] };
+
+  assert.deepEqual(revertedFiles(pullRequest, files, new Set(['README.md'])), ['app/models/gadget.rb', 'lib/gone.rb']);
+  assert.deepEqual(revertedFiles(pullRequest, files, new Set(['README.md', 'app/models/gadget.rb'])), ['lib/gone.rb']);
+  assert.deepEqual(revertedFiles(null, files, new Set()), []);
+});
+
+test('the paths to read are typed as patterns, and a preview that stopped reading says so', () => {
+  assert.deepEqual(parseAllowlist(' app/**, lib/*.rb\nconfig/x.yml '), ['app/**', 'lib/*.rb', 'config/x.yml']);
+  assert.equal(parseAllowlist(' , '), null);
+  assert.ok(hasUnreadFiles([...files, { path: 'z.rb', refusal: 'not_read' }]));
+  assert.ok(!hasUnreadFiles(files));
 });
 
 test('the patch path names the chosen files and the title', () => {
@@ -159,9 +189,12 @@ const dialogProps = (overrides = {}) => ({
   publishing: { supported: true, available: true, patch_available: true },
   selection: new Set(['README.md']),
   onToggle: noop,
-  fields: { title: 'Add gadgets', body: '', branch: 'activeagent/gadgets' },
+  fields: { title: 'Add gadgets', body: '', branch: 'activeagent/gadgets', message: 'Update from the sandbox', allowlist: '' },
   onField: noop,
-  update: false,
+  allowlistApplied: false,
+  onApplyAllowlist: noop,
+  pullRequest: null,
+  mode: 'create',
   submitting: false,
   onSubmit: noop,
   onCancel: noop,
@@ -187,6 +220,8 @@ test('the dialog lists every file, ticks only chosen publishable ones, and shows
   assert.match(html, /href="\/activeagents\/api\/sandboxes\/abc12345-0000\/pull_request\/patch\?paths%5B%5D=README\.md&amp;title=Add\+gadgets"/);
   assert.match(html, />Open draft PR<\/button>/);
   assert.match(html, /value="activeagent\/gadgets"/);
+  assert.match(html, />Description</);
+  assert.doesNotMatch(html, /Only read paths matching/, 'the paths field shows only when the preview stopped reading');
 });
 
 test('the dialog offers only the patch where publishing is not available, and keeps the branch of an update', () => {
@@ -196,20 +231,38 @@ test('the dialog offers only the patch where publishing is not available, and ke
   assert.match(refused, /Only the user who connected GitHub/);
   assert.match(refused, /Download patch/);
   assert.doesNotMatch(refused, />Open draft PR<\/button>/);
+  assert.doesNotMatch(refused, />Branch</, 'a patch has no branch');
 
-  const update = render('DraftPullRequestDialogView', dialogProps({ update: true }));
+  const update = render('DraftPullRequestDialogView', dialogProps({
+    mode: 'update',
+    pullRequest: { title: 'Add gadgets', branch: 'activeagent/gadgets', files: [{ path: 'README.md' }, { path: 'app/models/gadget.rb' }] },
+  }));
   assert.match(update, />Update draft PR<\/button>/);
   assert.match(update, /<input type="text"[^>]*disabled=""[^>]*value="activeagent\/gadgets"|value="activeagent\/gadgets"[^>]*disabled=""/);
+  assert.match(update, />Commit message</);
+  assert.match(update, /value="Update from the sandbox"/);
+  assert.doesNotMatch(update, />Title</, 'an update does not retitle the pull request');
+  assert.doesNotMatch(update, />Description</);
+  assert.match(update, /returned to how they are in the checkout commit: <span class="font-mono">app\/models\/gadget\.rb</);
 });
 
-test('the card links the pull request, and offers a regular one after GitHub refused a draft', () => {
+test('a preview that stopped reading offers the paths to read instead', () => {
+  const html = render('DraftPullRequestDialogView', dialogProps({
+    preview: { files: [...files, { path: 'zz/late.rb', status: 'added', refusal: 'not_read', refusal_message: 'not read: a preview reads at most 300 files' }] },
+  }));
+
+  assert.match(html, /Only read paths matching/);
+  assert.match(html, />Read again</);
+  assert.match(html, /<input type="checkbox" aria-label="Publish zz\/late\.rb"[^>]*disabled=""/);
+});
+
+test('the card links the pull request, and offers to open a branch that has none', () => {
   const published = render('PullRequestCard', {
-    sandbox,
     pullRequest: { status: 'published', operation: 'create', head_commit: 'abc', state: 'open', draft: true, number: 12, title: 'Add gadgets',
       url: 'https://github.com/acme/shop/pull/12', branch: 'activeagent/gadgets', base_branch: 'main', files: [{ path: 'README.md' }] },
     publishing: { supported: true, available: true, patch_available: true },
     onOpenDialog: noop,
-    onOpenRegular: noop,
+    onOpenBranch: noop,
   });
   assert.match(published, /href="https:\/\/github\.com\/acme\/shop\/pull\/12"[^>]*>#12 Add gadgets</);
   assert.match(published, />Draft</);
@@ -217,26 +270,40 @@ test('the card links the pull request, and offers a regular one after GitHub ref
   assert.match(published, />Update draft PR</);
   assert.doesNotMatch(published, /Download patch/, 'the patch is the fallback, offered in the dialog');
 
+  const branchOnly = {
+    title: 'Add gadgets', branch: 'activeagent/gadgets', base_branch: 'main', head_commit: 'abc', number: null, operation: 'create',
+    compare_url: 'https://github.com/acme/shop/compare/main...activeagent/gadgets?expand=1',
+  };
   const refused = render('PullRequestCard', {
-    sandbox,
-    pullRequest: { status: 'draft_refused', title: 'Add gadgets', branch: 'activeagent/gadgets', base_branch: 'main', head_commit: 'abc',
-      operation: 'create', compare_url: 'https://github.com/acme/shop/compare/main...activeagent/gadgets?expand=1',
-      error_message: 'GitHub does not open draft pull requests in acme/shop.' },
+    pullRequest: { ...branchOnly, status: 'draft_refused', error_message: 'GitHub does not open draft pull requests in acme/shop.' },
     publishing: { supported: true, available: true, patch_available: true },
     onOpenDialog: noop,
-    onOpenRegular: noop,
+    onOpenBranch: noop,
   });
   assert.match(refused, /Compare on GitHub/);
   assert.match(refused, />Open as a regular pull request</);
+  assert.doesNotMatch(refused, /Update draft PR/, 'a branch without a pull request is not updated');
+  assert.doesNotMatch(refused, />Open</, 'no pull request is reported open');
+
+  const failed = render('PullRequestCard', {
+    pullRequest: { ...branchOnly, status: 'failed', error_code: 'github_error', error_message: 'GitHub refused the publish: GitHub answered 502' },
+    publishing: { supported: true, available: true, patch_available: true },
+    onOpenDialog: noop,
+    onOpenBranch: noop,
+  });
+  assert.match(failed, /Branch published · pull request not opened/);
+  assert.match(failed, /GitHub answered 502/);
+  assert.match(failed, /Compare on GitHub/);
+  assert.match(failed, />Open the draft PR again</);
+  assert.doesNotMatch(failed, /Update draft PR|regular pull request/);
 
   const unavailable = render('PullRequestCard', {
-    sandbox,
     pullRequest: null,
     publishing: { supported: true, available: false, patch_available: true, refusal: 'No GitHub App installation or OAuth connection of this workspace can write to acme/shop' },
     onOpenDialog: noop,
-    onOpenRegular: noop,
+    onOpenBranch: noop,
   });
   assert.match(unavailable, /can write to acme\/shop\. You can download its changes as a patch instead\./);
-  assert.match(unavailable, /href="\/activeagents\/api\/sandboxes\/abc12345-0000\/pull_request\/patch"[^>]*>Download patch/);
+  assert.match(unavailable, /<button type="button"[^>]*>Download patch…<\/button>/, 'the patch opens the dialog, to choose its files');
   assert.doesNotMatch(unavailable, /Open draft PR/);
 });
