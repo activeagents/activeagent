@@ -98,8 +98,7 @@ export default function ProjectInstallPullRequest({ project, onProjectChanged, o
 // The card as it renders from its props.
 export function InstallPullRequestCard({ project, pullRequest, publishing, allowlist, error, opening, onOpenDialog, onOpenBranch }) {
   const { label, tone } = installPullRequestStatus(pullRequest);
-  const { canOpen, canUpdate } = installPullRequestActions(pullRequest);
-  const branchOnly = pullRequest && !pullRequest.number && pullRequest.status === 'draft_refused';
+  const { canOpen, canUpdate, openBranch } = installPullRequestActions(pullRequest);
 
   return (
     <Card testId="project-install-pull-request">
@@ -116,8 +115,10 @@ export function InstallPullRequestCard({ project, pullRequest, publishing, allow
           {canOpen && project.install_state !== 'installed' && (
             <Button size="sm" variant="primary" onClick={() => onOpenDialog('create')} testId="open-install-pr">Open install PR</Button>
           )}
-          {branchOnly && (
-            <Button size="sm" onClick={() => onOpenBranch(true)} disabled={opening}>{opening ? 'Opening…' : 'Open as a regular pull request'}</Button>
+          {openBranch && (
+            <Button size="sm" onClick={() => onOpenBranch(openBranch === 'regular')} disabled={opening} testId="open-install-branch">
+              {opening ? 'Opening…' : openBranch === 'regular' ? 'Open as a regular pull request' : 'Open the draft PR again'}
+            </Button>
           )}
         </span>
       </div>

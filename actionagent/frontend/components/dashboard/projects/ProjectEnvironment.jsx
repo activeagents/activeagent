@@ -10,9 +10,10 @@ const SOURCE_LABELS = {
 };
 
 // A project's Environment tab: each secret's name, source, who set it and
-// when, from GET /api/projects/:id/secrets. Values are never shown; Replace
-// takes a new one. Replacing and deleting need :manage_project_secrets, and
-// the API's refusal comes back through `error`.
+// when, from GET /api/projects/:id/secrets. A secret's value is never shown,
+// and Replace takes a new one. A value the setup assistant set is not
+// secret, so it is shown for a person to check. Replacing and deleting need
+// :manage_project_secrets, and the API's refusal comes back through `error`.
 //
 // onReplace(name, value) and onDelete(name) return promises.
 export default function ProjectEnvironment({ secrets, onReplace, onDelete, error }) {
@@ -59,6 +60,11 @@ export default function ProjectEnvironment({ secrets, onReplace, onDelete, error
                 <Button size="sm" variant="danger" onClick={() => run(() => onDelete(secret.name))} disabled={busy}>Delete</Button>
               </span>
             </div>
+            {secret.source === 'setup_assistant' && typeof secret.value === 'string' && (
+              <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 12, color: 'var(--color-text-secondary)', wordBreak: 'break-all' }}>
+                {secret.name}={secret.value}
+              </div>
+            )}
             {replacing === secret.name && (
               <form
                 style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}
