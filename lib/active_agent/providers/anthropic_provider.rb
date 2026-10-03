@@ -211,13 +211,24 @@ module ActiveAgent
         end
       end
 
-      # Executes tool calls and appends user message with results to message_stack.
+      # Executes tool calls and appends one user message holding every result
+      # to message_stack. Pushes nothing when a tool asked the user for input.
       #
       # @param api_function_calls [Array<Hash>] with :name, :input, and :id keys
       # @return [void]
       def process_function_calls(api_function_calls)
-        content = api_function_calls.map do |api_function_call|
+        results = dispatch_tool_calls(api_function_calls) do |api_function_call|
           process_tool_call_function(api_function_call)
+        end
+        return unless results
+
+        content = api_function_calls.zip(results).map do |api_function_call, result|
+          ::Anthropic::Models::ToolResultBlockParam.new(
+            type:        "tool_result",
+            tool_use_id: api_function_call[:id],
+            content:     result.to_json,
+            is_error:    false
+          )
         end
 
         api_message = ::Anthropic::Models::MessageParam.new(role: "user", content:)
@@ -229,19 +240,10 @@ module ActiveAgent
       # Executes a single tool call via callback.
       #
       # @param api_function_call [Hash] with :name, :input, and :id keys
-      # @return [Anthropic::Models::ToolResultBlockParam]
+      # @return [Object] the tool's result
       def process_tool_call_function(api_function_call)
         instrument("tool_call.active_agent", tool_name: api_function_call[:name]) do
-          results = call_tool_function(
-            api_function_call[:name], **api_function_call[:input]
-          )
-
-          ::Anthropic::Models::ToolResultBlockParam.new(
-            type:        "tool_result",
-            tool_use_id: api_function_call[:id],
-            content:     results.to_json,
-            is_error:    false
-          )
+          call_tool_function(api_function_call[:name], **api_function_call[:input])
         end
       end
 
@@ -258,6 +260,7 @@ module ActiveAgent
         api_response_hash = api_response ? Anthropic::Transforms.gem_to_hash(api_response) : nil
 
         common_response = super(api_response_hash)
+        return common_response if common_response.awaiting_input?
 
         # If we failed to get the expected well formed JSON Object Response, recursively try again
         if request.response_format&.dig(:type) == "json_object" && common_response.message.parsed_json.nil? && json_format_retry_count > 0
