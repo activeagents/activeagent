@@ -25,10 +25,13 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     ActionAgent.input_request_ttl = 1.day
   end
 
-  # A run of +agent+ paused on +requests+, one InputRequest per
+  # A run of +agent+ for +actor+, paused on +requests+, one InputRequest per
   # ActiveAgent::InputRequest given.
-  def paused_run(*requests, agent: @agent)
-    run = agent.agent_runs.create!(trace_id: SecureRandom.uuid, status: :running, input_prompt: "Plan my trip", started_at: Time.current)
+  def paused_run(*requests, agent: @agent, actor: nil)
+    run = agent.agent_runs.create!(
+      trace_id: SecureRandom.uuid, status: :running, input_prompt: "Plan my trip", started_at: Time.current,
+      input_params: ActionAgent::AgentRun.params_with_actor({}, actor)
+    )
     requests = [ ActiveAgent::InputRequest.text("Where to?") ] if requests.empty?
     requests = requests.each_with_index.map { |request, index| request.for_tool_call(id: "toolu_#{index + 1}", name: "ask_user") }
     run.record_result!({ metadata: {}, usage: {}, input_requests: requests, checkpoint: CHECKPOINT }, segment_started_at: run.started_at)
@@ -247,6 +250,45 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     assert request.reload.pending?
+  end
+
+  test "in multi-tenant mode with no checker, only the run's actor answers its request" do
+    me, account = sign_in_to_account
+    @agent.update_columns(account_id: account.id)
+    teammate = User.create!(email: "teammate-#{SecureRandom.hex(3)}@example.com", name: "Teammate", age: 30)
+    request = paused_run(ActiveAgent::InputRequest.confirm("Allow refund to run?"), actor: teammate).input_requests.sole
+    assert_equal teammate.id, request.requested_by_id
+
+    answer(request, true)
+    assert_response :forbidden
+    post "/activeagents/api/input_requests/#{request.id}/decline", as: :json
+    assert_response :forbidden
+    text = paused_run(actor: teammate).input_requests.sole
+    key = ActionAgent::ApiKey.create!(name: "Harness", account_id: account.id, user_id: me.id)
+    assert mcp_tool("input_requests_answer", { input_request_id: text.id, answer: "Lisbon" }, key).dig("result", "isError")
+    assert [ request, text ].all? { |pending| pending.reload.pending? }
+
+    unattributed = paused_run.input_requests.sole
+    answer(unattributed, "Lisbon")
+    assert_response :success
+
+    ActionAgent.current_user_resolver = ->(_controller) { teammate }
+    answer(request, true)
+    assert_response :success
+    assert_equal teammate.id, request.reload.answered_by_id
+  end
+
+  test "a permission checker decides who answers, whoever the run's actor is" do
+    me, account = sign_in_to_account
+    @agent.update_columns(account_id: account.id)
+    teammate = User.create!(email: "teammate-#{SecureRandom.hex(3)}@example.com", name: "Teammate", age: 30)
+    request = paused_run(actor: teammate).input_requests.sole
+    ActionAgent.permission_checker = ->(_user, action, _subject) { action == :answer_input_request }
+
+    answer(request, "Lisbon")
+
+    assert_response :success
+    assert_equal me.id, request.reload.answered_by_id
   end
 
   test "answers are filtered from the request log" do
