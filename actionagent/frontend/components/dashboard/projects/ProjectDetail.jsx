@@ -252,7 +252,7 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
         options={[
           { value: 'overview', label: 'Overview' },
           { value: 'explorations', label: 'Explorations' },
-          { value: 'environment', label: `Environment (${secrets.length})` },
+          { value: 'environment', label: `Environment (${environmentSecrets(secrets).length})` },
         ]}
         value={tab}
         onChange={setTab}
