@@ -33,6 +33,9 @@ module ActionAgent
     JWT_LIFETIME_SECONDS = 540
     # A user or organization login, as GitHub allows them.
     LOGIN = /\A[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\z/
+    # "owner/name", as GitHub allows repository names ("." and ".." are not).
+    REPOSITORY = %r{\A[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/(?!\.{1,2}\z)[A-Za-z0-9._-]{1,100}\z}
+    OBJECT_ID = /\A\h{40}(?:\h{24})?\z/
 
     class Error < StandardError
       # The HTTP status GitHub answered with, or nil when it was not reached.
@@ -203,15 +206,20 @@ module ActionAgent
         end
       end
 
-      # The status, and GitHub's own message when the body carries one:
-      # "GitHub answered 404 (Not Found)".
+      # The status, and GitHub's own message when the body carries one, with
+      # the messages of a validation failure's errors after it:
+      # "GitHub answered 404 (Not Found)", "GitHub answered 422 (Validation
+      # Failed: A pull request already exists for acme:fix.)".
       def refusal_message(response)
-        detail = begin
-          JSON.parse(response.body.to_s)["message"]
-        rescue JSON::ParserError, TypeError, NoMethodError
+        body = begin
+          JSON.parse(response.body.to_s)
+        rescue JSON::ParserError, TypeError
           nil
         end
-        detail = detail.is_a?(String) ? detail.truncate(200).presence : nil
+        body = {} unless body.is_a?(Hash)
+        errors = Array(body["errors"]).filter_map { |error| error["message"] if error.is_a?(Hash) && error["message"].is_a?(String) }
+        detail = [ body["message"].is_a?(String) ? body["message"] : nil, errors.join(" ").presence ].compact.join(": ")
+        detail = detail.truncate(300).presence
         detail ? "GitHub answered #{response.code} (#{detail})" : "GitHub answered #{response.code}"
       end
 
@@ -266,7 +274,101 @@ module ActionAgent
       paginate { |page| Array(get("/installation/repositories", per_page: PER_PAGE, page: page)["repositories"]) }
     end
 
+    # --- Publishing through the Git Data API --------------------------------
+    #
+    # +repository+ is "owner/name". A branch is named without refs/heads/.
+
+    # The commit +branch+ points at, or nil when there is no such branch.
+    def branch_head(repository, branch)
+      data = get("#{repository_path(repository)}/git/ref/heads/#{branch_path(branch)}")
+      data.dig("object", "sha")
+    rescue Error => e
+      raise unless e.status == 404
+
+      nil
+    end
+
+    # The tree a commit records.
+    def commit_tree(repository, sha)
+      get("#{repository_path(repository)}/git/commits/#{object_id!(sha)}").dig("tree", "sha") or
+        raise Error, "GitHub returned no tree for #{sha}"
+    end
+
+    # Stores +content+ (bytes) as a blob and returns its sha.
+    def create_blob(repository, content)
+      created_sha(post("#{repository_path(repository)}/git/blobs", content: Base64.strict_encode64(content.b), encoding: "base64"))
+    end
+
+    # A tree of +entries+ on top of +base_tree+: each { path:, mode:, sha: },
+    # where a nil sha deletes the path. Returns its sha.
+    def create_tree(repository, base_tree:, entries:)
+      tree = entries.map { |entry| { path: entry[:path], mode: entry[:mode], type: "blob", sha: entry[:sha] } }
+      created_sha(post("#{repository_path(repository)}/git/trees", base_tree: object_id!(base_tree), tree: tree))
+    end
+
+    # A commit with no author or committer of its own, so GitHub records and
+    # signs it as the token's identity. Returns its sha.
+    def create_commit(repository, message:, tree:, parents:)
+      body = { message: message, tree: object_id!(tree), parents: parents.map { |parent| object_id!(parent) } }
+      created_sha(post("#{repository_path(repository)}/git/commits", body))
+    end
+
+    # Creates +branch+ at +sha+. GitHub refuses with 422 when it exists.
+    def create_branch(repository, branch, sha)
+      post("#{repository_path(repository)}/git/refs", ref: "refs/heads/#{branch}", sha: object_id!(sha))
+    end
+
+    # Moves +branch+ to +sha+, which GitHub accepts only as a fast-forward.
+    def fast_forward_branch(repository, branch, sha)
+      patch("#{repository_path(repository)}/git/refs/heads/#{branch_path(branch)}", sha: object_id!(sha), force: false)
+    end
+
+    # Opens a pull request of +head+ into +base+, and returns GitHub's
+    # description of it (number, html_url, state, draft, merged).
+    def create_pull_request(repository, title:, body:, head:, base:, draft:)
+      post("#{repository_path(repository)}/pulls", title: title, body: body.to_s, head: head, base: base, draft: draft)
+    end
+
+    def pull_request(repository, number)
+      get("#{repository_path(repository)}/pulls/#{Integer(number)}")
+    end
+
     private
+
+    def repository_path(repository)
+      raise Error, "#{repository.inspect} is not a GitHub repository name" unless repository.is_a?(String) && repository.match?(REPOSITORY)
+
+      "/repos/#{repository}"
+    end
+
+    def branch_path(branch)
+      branch.to_s.split("/").map { |part| ERB::Util.url_encode(part) }.join("/")
+    end
+
+    def object_id!(sha)
+      raise Error, "#{sha.inspect} is not a git object id" unless sha.is_a?(String) && sha.match?(OBJECT_ID)
+
+      sha
+    end
+
+    def created_sha(data)
+      data["sha"].presence or raise Error, "GitHub returned no sha"
+    end
+
+    def post(path, body)
+      write(Net::HTTP::Post, path, body)
+    end
+
+    def patch(path, body)
+      write(Net::HTTP::Patch, path, body)
+    end
+
+    def write(verb, path, body)
+      uri = URI.parse("#{API}#{path}")
+      request = verb.new(uri, self.class.api_headers("Bearer #{@access_token}").merge("Content-Type" => "application/json"))
+      request.body = body.to_json
+      self.class.perform(uri, request)
+    end
 
     def paginate
       (1..MAX_PAGES).each_with_object([]) do |page, all|
