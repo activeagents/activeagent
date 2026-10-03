@@ -149,7 +149,9 @@ component:
 
 Forms and choices are live: submitting a form or clicking a choice posts the
 answer back into the conversation as the next user message, so a model can
-ask for input and continue.
+ask for input and continue. To stop inside a tool call instead, and continue
+the same run with the answer, give the agent the `ask` tools (see
+[Input requests](#input-requests)).
 
 ![Generative UI: stats, a chart and a table rendered from a render_ui tool call](/dashboard/runner-generative-ui.png)
 
@@ -200,6 +202,116 @@ Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
 degrade gracefully without it; the React metrics page reads buckets the
 API already aggregated and needs nothing extra.
+
+## Input requests
+
+A dashboard agent can stop partway through a run to ask a person something,
+then continue the same run with the answer. This is the framework's
+[input requests](/framework/input_requests) feature, stored and answered by the
+engine. It differs from a Generative UI form or choice in four ways:
+
+- **The run stops inside a tool call.** The answer becomes that call's result
+  in the same run and trace, and the model continues from the turn that made
+  the call. A Generative UI answer starts a new run, and the model reads it as
+  the next user message.
+- **An approval can come before a side effect.** A Generative UI form can only
+  ask after the model has acted or stopped.
+- **A request is a stored record** with an owner, a status and an expiry. It
+  can be answered through the API or the MCP facade, and the paused run
+  survives a worker restart.
+- **A secret answer never reaches the model.** It goes to the tool without
+  passing through the conversation or telemetry.
+
+**Asking.** Enable the `ask` tools on the agent's Tools tab:
+
+| Tool | Request it raises | What the model reads |
+|---|---|---|
+| `ask_user(question:, options:)` | `text`, or `choice` when `options` are given | `{ "answer": ... }` |
+| `request_approval(action:)` | `confirm`, describing the action | `{ "approved": true }`, or an error when declined |
+
+`request_secret` raises a `secret` request. It is offered only to agents the
+engine defines itself, never through an agent's tools list, and the value goes
+to the engine's handler for that agent. The model reads `{ "provided": true,
+"name": ... }`.
+
+**Approvals.** An agent's `approval_required_tools` names the tools whose calls
+wait for a person: toolbox tools, schema tools and its MCP servers' tools. A
+call to a listed tool raises a `confirm` request that carries the call's
+arguments, before the tool runs. Approved, the tool runs once. Declined, it
+never runs, and the model reads an error. The list is part of the agent's
+versioned configuration, and changing it makes the agent's evaluations stale,
+because a replay that calls a listed tool pauses. An agent run from its host class uses the framework's
+own approval declarations instead.
+
+**While a run waits.** Its status is `awaiting_input`, with one request per
+paused tool call. The requests of one pause share the checkpoint the run
+resumes from, encrypted at rest like each `answer` when `encrypt_credentials`
+is on. Once every request of the pause is answered or declined,
+`ActionAgent::AgentResumeJob` continues the run:
+
+- It runs under the same trace id, and the resumed segment's spans join the
+  run's trace.
+- Its tokens and duration add to the run's.
+- The conversation keeps the run's user message once.
+
+The job's only argument is a request id. It reads and decrypts the answers
+itself, and clears a secret answer once the resume has run.
+Cancelling the run cancels its pending requests. `config.input_request_ttl`
+(one day by default, `nil` for no limit) sets how long a request waits. Past
+it, the request expires, the rest of its pause is cancelled, and the run
+fails. That happens when an answer arrives, when the request list or the
+run's page is read, or when `ActionAgent::InputRequestExpiryJob` runs. The job
+is not scheduled by default:
+
+```yaml
+# config/recurring.yml
+input_request_expiry:
+  class: ActionAgent::InputRequestExpiryJob
+  schedule: every 15 minutes
+```
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/input_requests` | The caller's pending requests, newest first. `status` (a status, or `all`), `agent_id` and `run_id` filter them. Each entry has the id, kind, prompt, options, tool name, a `confirm` request's arguments, the agent, the run id, the run's actor, `created_at` and `expires_at`, and never the answer or the checkpoint |
+| `POST /api/input_requests/:id/answer` | Answers with `answer`. A `confirm` request is approved by `true` or by no answer, and declined by `false` |
+| `POST /api/input_requests/:id/decline` | Declines: the paused tool does not run |
+
+`GET /api/runs/:id` lists the run's pending requests in the same shape. An
+answer or a decline returns:
+
+- **404** for a request of a run the caller cannot see. A request is found
+  through its run, so the list and `GET /api/runs/:id` show the same requests.
+- **403** when:
+  - `permission_checker` denies `:answer_input_request`. The checker receives
+    the request: its `subject` is the run, and its `requested_by_id` is the
+    run's actor when that is a user.
+  - no checker is set, the install is multi-tenant, and the signed-in user is
+    not the actor the request records, because the run acts as that actor.
+  - no user is signed in, in multi-tenant mode.
+  - `execution_enabled` is off, because settling a pause resumes the run. A
+    resume job that finds execution turned off fails the run.
+- **409** when the request is no longer pending or has expired. The body's
+  `status` says which, and an expired request fails its run.
+- **422** for a blank answer, a `choice` answer that is not one of the
+  options, a `secret` answer shorter than 8 characters, or a `confirm` answer
+  other than `true` or `false`. A secret is scrubbed from the run's records
+  wherever it appears inside a value, so a shorter one would also mask
+  unrelated text.
+
+**Callers that wait for a result.**
+
+- `POST /api/agents/:id/test` returns the paused run.
+- An MCP `run_<slug>` call returns the run id, the `awaiting_input` status and
+  the request ids.
+- `call_agent` returns `{ "error": "input_required", "questions": [...] }` to
+  the calling model and cancels the called agent's run.
+- An evaluation replay records "paused for input" as the scenario's error and
+  cancels the run.
+
+Pausing works on Anthropic and on the OpenAI Chat Completions-based providers.
+An `openai` agent uses the Responses API unless its credentials set
+`api_version: :chat`, and there a tool that asks fails the run with
+`ActiveAgent::InputRequest::UnsupportedProviderError`.
 
 ## Ask ActiveAgents
 
@@ -613,6 +725,8 @@ calls.
 | `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
 | `traces_search` | Summary rows of traces, newest first, filtered by `agent` (class name or dashboard slug), `status` (`error` or `ok`), `service`, `since_minutes`, `min_tokens` and `min_duration_ms`; at most 100 |
 | `traces_get` | One trace by id, OpenTelemetry trace id or its first 8 characters: spans, tool calls with their arguments and results, tokens, estimated cost and failed spans |
+| `input_requests_list` | The pending [input requests](#input-requests) of the key's runs, newest first, in the API's shape; `run_id` filters to one run |
+| `input_requests_answer` | Answers a `text` or `choice` request as the key's caller, under the same permission check as the API. A `confirm` or `secret` request is refused with an error that points to the dashboard |
 
 A typical loop: `evaluations_run`, poll `evaluation_runs_get` until the run is
 `complete`, read the fix items and a failing result's trace with
@@ -1330,7 +1444,7 @@ end
 | `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
-| `:answer_input_request` | reserved: answering a run's request for input |
+| `:answer_input_request` | answering or declining a paused run's request for input (`POST /api/input_requests/:id/answer` and `/decline`, and the MCP `input_requests_answer` tool) |
 | `:manage_project_secrets` | reserved: setting a project's secrets |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | reserved: viewing and deleting session recordings |
@@ -1346,7 +1460,8 @@ Settings (`?github=forbidden`) rather than as JSON.
 Unset, anyone who passes authentication may perform every action, which
 suits a single-user install. In multi-tenant mode that is every member of
 every tenant, so the engine logs a warning at boot when `multi_tenant` is on
-and no checker is set. With a checker set:
+and no checker is set. The one exception is a run's request for input that
+records the run's actor: in multi-tenant mode only that actor may answer it. With a checker set:
 
 - An exception raised by the checker denies the action, and is logged.
 - In multi-tenant mode, a request with no signed-in user is denied without

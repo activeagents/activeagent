@@ -38,6 +38,7 @@ module ActionAgent
             action_prompts: agent.action_prompts,
             instruction_sets: agent.instruction_sets,
             tools: agent.tools,
+            approval_required_tools: agent.approval_required_tools,
             mcp_servers: agent.mcp_servers,
             model_config: agent.model_config,
             response_format: agent.response_format,
