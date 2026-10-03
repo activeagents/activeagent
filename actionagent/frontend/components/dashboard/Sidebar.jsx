@@ -2,8 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
+import { dashboardNavSections } from '../../utils/dashboardRoutes.mjs';
 
-export default function Sidebar({ currentView, onNavigate, agentCount, account, user, gemVersion, assistantEnabled = true }) {
+// features: what the server enabled on this dashboard (dashboardFeatures);
+// a view it turned off has no nav item.
+export default function Sidebar({ currentView, onNavigate, agentCount, account, user, gemVersion, features = {} }) {
   const { darkMode } = useTheme();
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const menuRef = useRef(null);
@@ -22,29 +25,16 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const accountName = account?.name || 'My Workspace';
   const userName = user?.name || user?.email?.split('@')[0] || 'User';
 
-  const agentItems = [
-    // The assistant is a development and CI tool; the server decides whether
-    // this dashboard has one at all.
-    ...(assistantEnabled ? [{ id: 'assistant', label: 'Ask ActiveAgents', icon: '>' }] : []),
-    { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
-    { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
-    { id: 'sandbox', label: 'Run Agents', icon: ICONS.nav.demo, highlight: true },
-  ];
-
-  const observabilityItems = [
-    { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
-    { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
-    { id: 'tools', label: 'Tools', icon: ICONS.nav.tools },
-    { id: 'mcp', label: 'MCP Services', icon: ICONS.nav.mcp },
-    { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
-    { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
-    { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },
-  ];
-
-  const workspaceItems = [
-    { id: 'organization', label: 'Organization', icon: '🏢' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' },
-  ];
+  const badges = { agentCount };
+  const sections = dashboardNavSections(features).map((section) => ({
+    ...section,
+    items: section.items.map((item) => ({
+      id: item.view,
+      label: item.label,
+      icon: item.glyph ?? ICONS.nav[item.icon],
+      badge: item.badge ? badges[item.badge] : undefined,
+    })),
+  }));
 
   const NavButton = ({ item }) => (
     <button
@@ -208,40 +198,27 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-        {/* Agents Section */}
-        <div className="space-y-1">
-          {agentItems.map((item) => (
-            <NavButton key={item.id} item={item} />
-          ))}
-        </div>
-
-        {/* Observability Section */}
-        <div className="pt-4">
-          <div className="px-4 pb-2">
-            <span className={`text-xs font-semibold uppercase tracking-wide ${
-              darkMode ? 'text-gray-500' : 'text-gray-400'
-            }`}>Observability</span>
-          </div>
-          <div className="space-y-1">
-            {observabilityItems.map((item) => (
-              <NavButton key={item.id} item={item} />
-            ))}
-          </div>
-        </div>
-
-        {/* Workspace Section */}
-        <div className="pt-4">
-          <div className="px-4 pb-2">
-            <span className={`text-xs font-semibold uppercase tracking-wide ${
-              darkMode ? 'text-gray-500' : 'text-gray-400'
-            }`}>Workspace</span>
-          </div>
-          <div className="space-y-1">
-            {workspaceItems.map((item) => (
-              <NavButton key={item.id} item={item} />
-            ))}
-          </div>
-        </div>
+        {sections.map((section) => {
+          const items = (
+            <div className="space-y-1">
+              {section.items.map((item) => (
+                <NavButton key={item.id} item={item} />
+              ))}
+            </div>
+          );
+          // A section without a label has no heading and no top padding.
+          if (!section.label) return <React.Fragment key={section.id}>{items}</React.Fragment>;
+          return (
+            <div key={section.id} className="pt-4">
+              <div className="px-4 pb-2">
+                <span className={`text-xs font-semibold uppercase tracking-wide ${
+                  darkMode ? 'text-gray-500' : 'text-gray-400'
+                }`}>{section.label}</span>
+              </div>
+              {items}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Quick Links */}

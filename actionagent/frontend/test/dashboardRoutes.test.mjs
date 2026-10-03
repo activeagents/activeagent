@@ -1,134 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {
+  dashboardFeatures,
+  dashboardNavSections,
+  dashboardViewPath,
+  isDashboardViewEnabled,
+  matchDashboardRoute,
+} from '../utils/dashboardRoutes.mjs';
+import { mountedPath, mountRelativePath } from '../utils/mountPath.mjs';
+
 // The URLs the dashboard answers, the view each one opens, the URL each view
-// pushes, and the sidebar's nav lists. The tables below were recorded from
-// pages/Dashboard.jsx and Sidebar.jsx before routing moved into one table, so
-// they pin that move to no change in behaviour.
-
-// ---------------------------------------------------------------------------
-// Transcription of the routing in pages/Dashboard.jsx (applyPath and
-// navigateTo), Sidebar.jsx (agentItems, observabilityItems, workspaceItems)
-// and utils/dashboardPath.js, with the mount and features as arguments.
-
-function mountedPath(mountPath, path = '') {
-  const base = (mountPath || '').replace(/\/$/, '');
-  return `${base}${path}` || '/';
-}
-
-function mountRelativePath(mountPath, pathname) {
-  const base = (mountPath || '').replace(/\/$/, '');
-  if (base && (pathname === base || pathname.startsWith(`${base}/`))) {
-    return pathname.slice(base.length) || '/';
-  }
-  return pathname;
-}
-
-function matchDashboardRoute(path, { assistantEnabled = true } = {}) {
-  if (path === '/assistant' && assistantEnabled) {
-    return { view: 'assistant' };
-  } else if (path.startsWith('/traces')) {
-    return { view: 'traces' };
-  } else if (path.startsWith('/metrics')) {
-    return { view: 'metrics' };
-  } else if (path.startsWith('/interactions')) {
-    return { view: 'interactions' };
-  } else if (path.startsWith('/tools')) {
-    return { view: 'tools' };
-  } else if (path.startsWith('/mcp')) {
-    const key = path.match(/^\/mcp\/([^/?#]+)/)?.[1];
-    return key ? { view: 'mcp', focusServer: decodeURIComponent(key) } : { view: 'mcp' };
-  } else if (path.startsWith('/evaluations')) {
-    return { view: 'evaluations' };
-  } else if (path.startsWith('/analytics')) {
-    return { view: 'analytics' };
-  } else if (path.startsWith('/agents/new')) {
-    return { view: 'builder' };
-  } else if (path.match(/\/agents\/\d+\/(interactions|history)/)) {
-    const id = path.match(/\/agents\/(\d+)/)?.[1];
-    const route = { view: 'history', agentId: id };
-    if (path.includes('/history')) route.replacePath = path.replace('/history', '/interactions');
-    return route;
-  } else if (path.match(/\/agents\/\d+\/analytics/)) {
-    return { view: 'agent-analytics', agentId: path.match(/\/agents\/(\d+)/)?.[1] };
-  } else if (path.match(/\/agents\/\d+\/edit/)) {
-    return { view: 'editor', agentId: path.match(/\/agents\/(\d+)/)?.[1] };
-  } else if (path.match(/\/agents\/\d+\/run/)) {
-    return { view: 'runner', agentId: path.match(/\/agents\/(\d+)/)?.[1] };
-  } else if (path.match(/\/agents\/\d+\/?$/)) {
-    return { view: 'history', agentId: path.match(/\/agents\/(\d+)/)?.[1] };
-  } else if (path.startsWith('/replay')) {
-    return { view: 'replay' };
-  } else if (path.startsWith('/sandbox') || path.startsWith('/demo')) {
-    return { view: 'sandbox' };
-  } else if (path.startsWith('/organization')) {
-    return { view: 'organization' };
-  } else if (path.startsWith('/settings')) {
-    return { view: 'settings' };
-  }
-  return { view: 'list' };
-}
-
-function dashboardViewPath(view, { agent = null, features: { assistantEnabled = true } = {} } = {}) {
-  if (view === 'assistant' && !assistantEnabled) return null;
-  let path = '';
-  if (view === 'assistant') path = '/assistant';
-  else if (view === 'builder') path = '/agents/new';
-  else if (view === 'editor' && agent) path = `/agents/${agent.id}/edit`;
-  else if (view === 'runner' && agent) path = `/agents/${agent.id}/run`;
-  else if (view === 'agent-analytics' && agent) path = `/agents/${agent.id}/analytics`;
-  else if (view === 'history' && agent) path = `/agents/${agent.id}/interactions`;
-  else if (view === 'analytics') path = '/analytics';
-  else if (view === 'traces') path = '/traces';
-  else if (view === 'metrics') path = '/metrics';
-  else if (view === 'interactions') path = '/interactions';
-  else if (view === 'tools') path = '/tools';
-  else if (view === 'mcp') path = '/mcp';
-  else if (view === 'evaluations') path = '/evaluations';
-  else if (view === 'replay') path = '/replay';
-  else if (view === 'sandbox') path = '/sandbox';
-  else if (view === 'organization') path = '/organization';
-  else if (view === 'settings') path = '/settings';
-  return path;
-}
-
-function dashboardNavSections({ assistantEnabled = true } = {}) {
-  return [
-    {
-      id: 'agents',
-      label: null,
-      items: [
-        ...(assistantEnabled ? [{ view: 'assistant', label: 'Ask ActiveAgents', glyph: '>' }] : []),
-        { view: 'list', label: 'Agents', icon: 'agents', badge: 'agentCount' },
-        { view: 'builder', label: 'New Agent', icon: 'newAgent' },
-        { view: 'sandbox', label: 'Run Agents', icon: 'demo' },
-      ],
-    },
-    {
-      id: 'observability',
-      label: 'Observability',
-      items: [
-        { view: 'traces', label: 'Traces', icon: 'traces' },
-        { view: 'interactions', label: 'Interactions', icon: 'interactions' },
-        { view: 'tools', label: 'Tools', icon: 'tools' },
-        { view: 'mcp', label: 'MCP Services', icon: 'mcp' },
-        { view: 'metrics', label: 'Metrics', icon: 'metrics' },
-        { view: 'evaluations', label: 'Evaluations', icon: 'evaluations' },
-        { view: 'replay', label: 'Session Replay', icon: 'replay' },
-      ],
-    },
-    {
-      id: 'workspace',
-      label: 'Workspace',
-      items: [
-        { view: 'organization', label: 'Organization', glyph: '🏢' },
-        { view: 'settings', label: 'Settings', glyph: '⚙️' },
-      ],
-    },
-  ];
-}
-
-// ---------------------------------------------------------------------------
+// pushes, and the sidebar's sections. The expectations are written out
+// rather than derived from DASHBOARD_ROUTES, so an edit to the table that
+// changes what an existing URL opens fails here.
 
 const ON = { assistantEnabled: true };
 const OFF = { assistantEnabled: false };
@@ -364,4 +249,19 @@ test('every nav item pushes a path that opens its own view', () => {
       assert.equal(matchDashboardRoute(mountRelativePath('/dashboard', mountedPath('/dashboard', path)), ON).view, item.view, item.view);
     }
   }
+});
+
+test('the assistant is on unless the server turned it off', () => {
+  assert.deepEqual(dashboardFeatures({ assistantEnabled: false }), OFF);
+  assert.deepEqual(dashboardFeatures({ assistantEnabled: true }), ON);
+  assert.deepEqual(dashboardFeatures({}), ON);
+  assert.deepEqual(dashboardFeatures(), ON);
+});
+
+test('only a gated view can be missing from a dashboard', () => {
+  assert.equal(isDashboardViewEnabled('assistant', OFF), false);
+  assert.equal(isDashboardViewEnabled('assistant', ON), true);
+  assert.equal(isDashboardViewEnabled('history', OFF), true);
+  assert.equal(isDashboardViewEnabled('list', OFF), true);
+  assert.equal(isDashboardViewEnabled('unknown-view', OFF), true);
 });

@@ -1,3 +1,5 @@
+import { mountedPath, mountRelativePath } from './mountPath.mjs';
+
 // Client-side routes, resolved against wherever the engine is mounted.
 //
 // The dashboard can live at "/activeagents", "/dashboard", the root of a
@@ -5,8 +7,7 @@
 // be written as an absolute literal. The mount is published by the entry
 // point from the props the server rendered.
 export function dashboardPath(path = '') {
-  const base = (window.ACTIVE_AGENT_DASHBOARD?.mountPath || '').replace(/\/$/, '');
-  return `${base}${path}` || '/';
+  return mountedPath(window.ACTIVE_AGENT_DASHBOARD?.mountPath, path);
 }
 
 // Pushes a client-side route under the mount.
@@ -20,11 +21,7 @@ export function pushDashboardPath(path = '') {
 // README's own /admin/agents, or /demo) otherwise trips the keyword checks
 // and every deep link lands on the wrong view.
 export function dashboardRelativePath(pathname = window.location.pathname) {
-  const base = (window.ACTIVE_AGENT_DASHBOARD?.mountPath || '').replace(/\/$/, '');
-  if (base && (pathname === base || pathname.startsWith(`${base}/`))) {
-    return pathname.slice(base.length) || '/';
-  }
-  return pathname;
+  return mountRelativePath(window.ACTIVE_AGENT_DASHBOARD?.mountPath, pathname);
 }
 
 // In-app navigation to a dashboard route. Accepts a mount-relative path
