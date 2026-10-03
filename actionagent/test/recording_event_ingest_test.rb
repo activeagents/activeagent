@@ -43,6 +43,18 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
     (Time.current.to_r * 1000).floor
   end
 
+  # An rrweb full snapshot of a page whose elements nest +depth+ deep.
+  def full_snapshot(depth)
+    node = { "type" => 3, "textContent" => "leaf" }
+    depth.times { node = { "type" => 2, "tagName" => "div", "attributes" => {}, "childNodes" => [ node ] } }
+    { "kind" => "rrweb", "timestamp" => now_ms, "data" => { "type" => 2, "data" => { "node" => node } } }
+  end
+
+  # A batch generated as a browser would, at any depth.
+  def deep_batch(events)
+    JSON.generate({ "sent_at" => now_ms, "events" => events }, max_nesting: false)
+  end
+
   def post_with_token(body, token: @token, recording: @recording)
     post events_path(recording), params: body,
       headers: { "Authorization" => "Bearer #{token}", "Content-Type" => "application/json" }
@@ -162,6 +174,26 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
 
     post_with_token({ sent_at: now_ms, events: [] }.to_json)
     assert_response :unprocessable_entity
+  end
+
+  test "a full snapshot of a deeply nested page is stored and read back" do
+    snapshot = full_snapshot(150)
+
+    post_with_token deep_batch([ snapshot ])
+    assert_response :created
+
+    get events_path
+    assert_response :success
+    stored = JSON.parse(response.body, max_nesting: false)["events"].sole["events"].sole["data"]
+    assert_equal snapshot["data"], stored
+  end
+
+  test "a batch nested deeper than the limit is refused" do
+    post_with_token deep_batch([ full_snapshot(300) ])
+
+    assert_response :unprocessable_entity
+    assert_match(/nests deeper than #{ActionAgent::RecordingEvent::MAX_NESTING} levels/, response.parsed_body["error"])
+    assert_equal 0, @recording.recording_events.count
   end
 
   # --- caps ---------------------------------------------------------------

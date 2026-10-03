@@ -103,7 +103,7 @@ module ActionAgent
       # The recording's browser lane with the message, llm and tool lanes of
       # its conversation or run (SessionTimeline).
       def timeline
-        render json: { timeline: SessionTimeline.for_recording(@recording, timeline_scope).as_json }
+        render json: RecordingEvent.generate_json(timeline: SessionTimeline.for_recording(@recording, timeline_scope).as_json)
       end
 
       # GET /api/session_recordings/:id/events
@@ -123,11 +123,11 @@ module ActionAgent
         fetched = rows.limit(limit + 1).to_a
         page = page_of_rows(fetched, limit)
 
-        render json: {
+        render json: RecordingEvent.generate_json(
           events: page.map { |row| event_row_json(row) },
           has_more: fetched.size > page.size,
           next_after: page.last&.id
-        }
+        )
       end
 
       # POST /api/session_recordings/:id/events
