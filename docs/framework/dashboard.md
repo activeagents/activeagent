@@ -673,16 +673,17 @@ Neither tool runs anything, so neither needs `execution_enabled` or execution
 quota; start a run with `evaluations_run`. Both ask the host's
 [permission checker](#permissions) about `:replace_scenarios` as the key's
 user (the user who created the key), with the evaluation as the subject: the
-unsaved one for `evaluations_create`. On a multi-tenant install a key that
-records no creator is refused without asking the checker. A refusal answers as
-a JSON-RPC error (`-32003`) and writes nothing.
+unsaved one for `evaluations_create`. A refusal answers as a JSON-RPC error
+(`-32003`) and writes nothing. With a checker set, a multi-tenant key that
+records no creator is refused without asking it. With no checker set, every
+key may use both tools, and a multi-tenant install logs a warning at boot.
 
 Each call is checked whole against the limits the report collector uses: 100
 evaluations per agent, 2,000 scenarios per evaluation, and 200 characters for
 a scenario's key or group. A prompt or notes larger than 65,535 bytes is
 refused too. A call that would pass any of these is refused and writes
-nothing. An observed agent's suite is
-refused, as `evaluations_run` refuses it, unless a host adapter replays it. A
+nothing. An observed agent's suite is refused, as `evaluations_run` refuses
+it, unless a host adapter replays it. A
 duplicate name, unknown criteria, a scenario list that does not parse, or an
 agent or evaluation outside the key's reach comes back as a tool result with
 `isError`.
