@@ -9,10 +9,11 @@ async function readJson(res) {
   return res.json().catch(() => ({}));
 }
 
-// The requests for input waiting on a project's agents (its setup assistant
-// and the agent it evaluates), answered here through the input requests API.
-// Read again whenever `version` changes, and after each answer.
-export default function ProjectInputRequests({ projectId, version, onSettled }) {
+// The requests for input waiting on a project's agents (its setup assistant,
+// whose Agent id is `setupAgentId`, and the agent it evaluates), answered
+// here through the input requests API. Read again whenever `version`
+// changes, and after each answer.
+export default function ProjectInputRequests({ projectId, setupAgentId, version, onSettled }) {
   const [requests, setRequests] = useState(null);
   const [error, setError] = useState(null);
 
@@ -43,7 +44,8 @@ export default function ProjectInputRequests({ projectId, version, onSettled }) 
     <Panel title="Waiting for you" meta={`${requests?.length || 0}`} testId="project-input-requests">
       {error && <div style={{ padding: '8px 12px', fontSize: 13, color: 'var(--color-error-text)' }}>{error}</div>}
       {(requests || []).map((request) => (
-        <InputRequestCard key={request.id} request={request} onSettle={settle} />
+        <InputRequestCard key={request.id} request={request} onSettle={settle}
+          storesProjectSecret={setupAgentId != null && request.agent?.id === setupAgentId} />
       ))}
     </Panel>
   );
@@ -51,7 +53,7 @@ export default function ProjectInputRequests({ projectId, version, onSettled }) 
 
 // One request with the field its kind takes. The stateful half of
 // InputRequestCardView.
-function InputRequestCard({ request, onSettle }) {
+function InputRequestCard({ request, onSettle, storesProjectSecret }) {
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -72,6 +74,7 @@ function InputRequestCard({ request, onSettle }) {
   return (
     <InputRequestCardView
       request={request}
+      storesProjectSecret={storesProjectSecret}
       value={value}
       onChange={setValue}
       busy={busy}
@@ -84,7 +87,9 @@ function InputRequestCard({ request, onSettle }) {
 
 // A request as it renders from its props: who asks, the question, the field
 // its kind takes (a masked one for a secret), and Answer / Decline.
-export function InputRequestCardView({ request, value, onChange, busy, error, onAnswer, onDecline }) {
+// `storesProjectSecret` is true for the setup assistant's requests, whose
+// secret answers become project secrets.
+export function InputRequestCardView({ request, storesProjectSecret, value, onChange, busy, error, onAnswer, onDecline }) {
   const problem = answerProblem(request, value);
   const fieldId = `project-answer-${request.id}`;
 
@@ -128,7 +133,9 @@ export function InputRequestCardView({ request, value, onChange, busy, error, on
       )}
       {request.kind === 'secret' && (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-          The assistant never sees this value: it is stored as one of the project&apos;s secrets.
+          {storesProjectSecret
+            ? 'The assistant never sees this value: it is stored as one of the project\'s secrets.'
+            : 'The agent never sees this value.'}
         </p>
       )}
 

@@ -122,7 +122,11 @@ export function schemaToolsChanged(selection, choices = [], models = []) {
 export function installPullRequestStatus(pullRequest) {
   if (!pullRequest) return { label: 'not opened', tone: 'muted' };
   if (pullRequest.status === 'queued' || pullRequest.status === 'publishing') return { label: 'publishing…', tone: 'info' };
-  if (pullRequest.status === 'failed') return { label: 'failed', tone: 'error' };
+  if (pullRequest.status === 'failed') {
+    return pullRequest.head_commit && !pullRequest.number
+      ? { label: 'branch published, pull request not opened', tone: 'error' }
+      : { label: 'failed', tone: 'error' };
+  }
   if (pullRequest.state === 'merged') return { label: 'merged', tone: 'success' };
   if (pullRequest.state === 'closed') return { label: 'closed', tone: 'muted' };
   if (pullRequest.number) return { label: pullRequest.draft ? 'draft open' : 'open', tone: 'accent' };
@@ -138,14 +142,23 @@ export function installPollDelay(pullRequest) {
   return null;
 }
 
-// Whether the install pull request can be opened (none yet, or the last
-// one is closed or never got a branch) or updated (one is open).
+// What the install card offers:
+//   canOpen    a new install pull request: none yet, the last one is closed
+//              or merged, or its publish failed before the branch was pushed
+//   canUpdate  a new commit on the open pull request's branch
+//   openBranch for a branch on GitHub with no pull request: 'regular' after
+//              GitHub refused the draft, 'draft' after opening it failed;
+//              null otherwise
 export function installPullRequestActions(pullRequest) {
   const busy = pullRequest?.status === 'queued' || pullRequest?.status === 'publishing';
   const open = Boolean(pullRequest?.number) && !['merged', 'closed'].includes(pullRequest?.state);
   const startable = !pullRequest || ['merged', 'closed'].includes(pullRequest.state)
-    || (!pullRequest.number && pullRequest.status === 'failed');
-  return { canOpen: !busy && startable, canUpdate: !busy && open };
+    || (!pullRequest.number && !pullRequest.head_commit && pullRequest.status === 'failed');
+  let openBranch = null;
+  if (!busy && pullRequest?.head_commit && !pullRequest.number) {
+    openBranch = pullRequest.status === 'draft_refused' ? 'regular' : 'draft';
+  }
+  return { canOpen: !busy && startable, canUpdate: !busy && open, openBranch };
 }
 
 // The mount-relative path of the install patch for `paths`.

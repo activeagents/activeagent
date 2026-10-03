@@ -8,8 +8,8 @@ import { build } from 'esbuild';
 // The Project page's setup views that render from their props alone,
 // bundled with esbuild and rendered to static markup: a request for input
 // answered inline, the setup assistant card, the boot's "Waiting for you",
-// the chooser of what the App assistant may read, and the install pull
-// request card.
+// the chooser of what the App assistant may read, the install pull
+// request card, and the Environment tab.
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const bundlePath = fileURLToPath(new URL(`../node_modules/.cache/project-setup-views-${process.pid}.mjs`, import.meta.url));
@@ -31,8 +31,9 @@ before(async () => {
         import ProjectBootProgress from './components/dashboard/projects/ProjectBootProgress.jsx';
         import { AssistantReadsView } from './components/dashboard/projects/ProjectAssistantReads.jsx';
         import { InstallPullRequestCard } from './components/dashboard/projects/ProjectInstallPullRequest.jsx';
+        import ProjectEnvironment from './components/dashboard/projects/ProjectEnvironment.jsx';
 
-        const views = { InputRequestCardView, ProjectSetupCard, ProjectBootProgress, AssistantReadsView, InstallPullRequestCard };
+        const views = { InputRequestCardView, ProjectSetupCard, ProjectBootProgress, AssistantReadsView, InstallPullRequestCard, ProjectEnvironment };
         export const render = (name, props) =>
           renderToStaticMarkup(React.createElement(ThemeProvider, null, React.createElement(views[name], props)));
       `,
@@ -61,15 +62,25 @@ const secretRequest = {
 };
 
 test('a secret request names who asks and where the value goes, in a masked field', () => {
-  const html = render('InputRequestCardView', { request: secretRequest, value: '', onChange: noop, busy: false, onAnswer: noop, onDecline: noop });
+  const html = render('InputRequestCardView', {
+    request: secretRequest, storesProjectSecret: true, value: '', onChange: noop, busy: false, onAnswer: noop, onDecline: noop,
+  });
 
   assert.match(html, /Setup assistant for acme\/shop asks/);
   assert.match(html, /asks for STRIPE_API_KEY/);
   assert.match(html, /handed to acme\/shop&#x27;s code in its sandbox/);
   assert.match(html, /<input id="project-answer-9" type="password" autoComplete="new-password" data-aa-secret=""/);
-  assert.match(html, /The assistant never sees this value/);
+  assert.match(html, /The assistant never sees this value: it is stored as one of the project&#x27;s secrets/);
   assert.match(html, />Answer<\/button>/);
   assert.match(html, />Decline<\/button>/);
+});
+
+test('a secret the evaluated agent asks for is not said to become a project secret', () => {
+  const request = { ...secretRequest, agent: { id: 5, name: 'App assistant for acme/shop' }, prompt: 'Your API key, please.' };
+  const html = render('InputRequestCardView', { request, storesProjectSecret: false, value: '', onChange: noop, onAnswer: noop, onDecline: noop });
+
+  assert.match(html, /The agent never sees this value\./);
+  assert.doesNotMatch(html, /project&#x27;s secrets/);
 });
 
 test('a short secret cannot be sent yet, and says why', () => {
@@ -153,4 +164,30 @@ test('the install card offers Open install PR before one exists, and Update draf
   });
   assert.match(merged, /The pull request merged/);
   assert.doesNotMatch(merged, /Update draft PR|Open install PR/);
+});
+
+test('a branch pushed without its pull request offers to open the pull request again, not a new install', () => {
+  const html = render('InstallPullRequestCard', {
+    project: { install_state: 'bootstrapped' }, allowlist: [], onOpenDialog: noop, onOpenBranch: noop,
+    pullRequest: { status: 'failed', head_commit: 'a'.repeat(40), branch: 'activeagent/install-engine', error_message: 'GitHub refused the publish' },
+  });
+
+  assert.match(html, /data-testid="open-install-branch"[^>]*>Open the draft PR again</);
+  assert.doesNotMatch(html, /Open install PR/);
+  assert.match(html, /branch published, pull request not opened/);
+  assert.match(html, /GitHub refused the publish/);
+});
+
+test('the Environment tab shows what the setup assistant set, and never a secret\'s value', () => {
+  const html = render('ProjectEnvironment', {
+    secrets: [
+      { name: 'RAILS_LOG_LEVEL', source: 'setup_assistant', value: 'debug' },
+      { name: 'STRIPE_SECRET_KEY', source: 'entered' },
+    ],
+    onReplace: noop, onDelete: noop,
+  });
+
+  assert.match(html, /set by the setup assistant, not secret/);
+  assert.match(html, /RAILS_LOG_LEVEL=debug/);
+  assert.doesNotMatch(html, /STRIPE_SECRET_KEY=/);
 });

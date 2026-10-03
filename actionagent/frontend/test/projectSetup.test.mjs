@@ -91,11 +91,19 @@ test('the install pull request reads as published, open, merged or failed, and i
 });
 
 test('an install pull request is opened when there is none, and updated while it is open', () => {
-  assert.deepEqual(installPullRequestActions(null), { canOpen: true, canUpdate: false });
-  assert.deepEqual(installPullRequestActions({ status: 'published', number: 3, state: 'open' }), { canOpen: false, canUpdate: true });
-  assert.deepEqual(installPullRequestActions({ status: 'publishing', number: 3, state: 'open' }), { canOpen: false, canUpdate: false });
-  assert.deepEqual(installPullRequestActions({ status: 'failed' }), { canOpen: true, canUpdate: false });
-  assert.deepEqual(installPullRequestActions({ status: 'published', number: 3, state: 'closed' }), { canOpen: true, canUpdate: false });
+  assert.deepEqual(installPullRequestActions(null), { canOpen: true, canUpdate: false, openBranch: null });
+  assert.deepEqual(installPullRequestActions({ status: 'published', number: 3, state: 'open' }), { canOpen: false, canUpdate: true, openBranch: null });
+  assert.deepEqual(installPullRequestActions({ status: 'publishing', number: 3, state: 'open' }), { canOpen: false, canUpdate: false, openBranch: null });
+  assert.deepEqual(installPullRequestActions({ status: 'failed' }), { canOpen: true, canUpdate: false, openBranch: null });
+  assert.deepEqual(installPullRequestActions({ status: 'published', number: 3, state: 'closed' }), { canOpen: true, canUpdate: false, openBranch: null });
+});
+
+test('a branch pushed without its pull request is opened again rather than published again', () => {
+  const pushed = { status: 'failed', head_commit: 'a'.repeat(40), error_code: 'github_error' };
+  assert.deepEqual(installPullRequestActions(pushed), { canOpen: false, canUpdate: false, openBranch: 'draft' });
+  assert.deepEqual(installPullRequestStatus(pushed), { label: 'branch published, pull request not opened', tone: 'error' });
+  assert.equal(installPullRequestActions({ ...pushed, status: 'draft_refused' }).openBranch, 'regular');
+  assert.equal(installPullRequestActions({ ...pushed, status: 'publishing' }).openBranch, null);
 });
 
 test('the install patch path names each chosen file', () => {

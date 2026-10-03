@@ -288,6 +288,7 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
 
           <ProjectInputRequests
             projectId={projectId}
+            setupAgentId={project.setup?.agent_id}
             version={`${project.pending_input_requests}:${project.setup?.last_run?.id}:${project.setup?.last_run?.status}`}
             onSettled={() => loadBoot().catch(() => {})}
           />
