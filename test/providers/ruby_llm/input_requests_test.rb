@@ -189,6 +189,19 @@ module Providers
         assert_equal [ :lookup_order, :issue_refund ], RefundAgent.calls
         assert_resumed_wire_format(request_bodies.last)
       end
+
+      test "requires_approval pauses before the tool runs, and a decline never runs it" do
+        stub_completions(completion(tool_calls: [ LOOKUP ]), completion(content: "Not refunded."))
+
+        paused = RefundAgent.triage(requires_approval: [ :lookup_order ]).generate_now
+
+        assert_equal [ :confirm, "lookup_order" ], [ paused.input_requests.sole.kind, paused.input_requests.sole.tool_name ]
+
+        resume(paused, { "call_1" => false }, requires_approval: [ :lookup_order ])
+
+        assert_empty RefundAgent.calls
+        assert_equal ActiveAgent::InputRequest::DECLINED_RESULT.to_json, request_bodies.last["messages"].last["content"]
+      end
     end
   end
 end

@@ -272,6 +272,23 @@ module Providers
           assert_requested :post, ENDPOINT, times: 2
         end
 
+        test "requires_approval pauses before the tool runs, and an approval runs it" do
+          stub_responses(response_body(LOOKUP), response_body(ANSWER))
+
+          paused = RefundAgent.triage(requires_approval: [ :lookup_order ]).generate_now
+
+          assert paused.awaiting_input?
+          request = paused.input_requests.sole
+          assert_equal [ :confirm, "lookup_order", { "order_id" => 7 } ], [ request.kind, request.tool_name, request.arguments ]
+          assert_empty RefundAgent.calls
+          assert_not request_bodies.first.key?("requires_approval"), "the approval list is never sent to the API"
+
+          resume(paused, { "call_1" => true }, requires_approval: [ :lookup_order ])
+
+          assert_equal [ :lookup_order ], RefundAgent.calls
+          assert_requested :post, ENDPOINT, times: 2
+        end
+
         test "a checkpoint from Responses does not resume on Chat Completions" do
           stub_responses(response_body(LOOKUP, REFUND))
           paused = RefundAgent.triage.generate_now

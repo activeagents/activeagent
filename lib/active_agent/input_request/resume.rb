@@ -23,6 +23,11 @@ module ActiveAgent
     #                          Responses' reasoning and function_call items)
     #   - `completed_results`  each finished call's result in JSON form, by tool call id
     #   - `input_requests`     one {InputRequest#to_h} per paused call
+    #   - `approval_tool_calls` the paused calls that wait for approval before
+    #                          their tool runs
+    #   - `approved_tool_calls` the paused calls that were already approved to
+    #                          run and paused again on the tool's own request
+    #   - `mcp_tool_calls`     the paused calls a client-side MCP server serves
     #
     # @api private
     class Resume
@@ -93,6 +98,24 @@ module ActiveAgent
       # @return [Object, nil] the answer for a paused call; nil for any other call
       def answer(id) = pending?(id) ? @answers[id.to_s] : nil
 
+      # Whether a paused call was approved to run before it paused again on
+      # its tool's own request.
+      #
+      # @param id [String]
+      # @return [Boolean]
+      def approved?(id) = pending?(id) && approved_ids.include?(id.to_s)
+
+      # Whether the answers approve a paused call that waited for approval
+      # before its tool ran.
+      #
+      # @param id [String]
+      # @return [Boolean]
+      def approval_given?(id) = pending?(id) && approval_ids.include?(id.to_s) && @answers[id.to_s] == true
+
+      # @param id [String]
+      # @return [Boolean] whether a client-side MCP server served the paused call
+      def mcp_tool_call?(id) = pending?(id) && Array(@checkpoint[:mcp_tool_calls]).map(&:to_s).include?(id.to_s)
+
       # Returns the answers given to `:secret` requests, which must not reach
       # the model, telemetry or errors.
       #
@@ -141,6 +164,10 @@ module ActiveAgent
         size = tool_call_turn_size
         size.positive? && Array(@checkpoint[:messages]).size >= size && tool_call_turn.all?(Hash)
       end
+
+      def approval_ids = Array(@checkpoint[:approval_tool_calls]).map(&:to_s)
+
+      def approved_ids = Array(@checkpoint[:approved_tool_calls]).map(&:to_s)
 
       def pending_ids = input_requests.map(&:tool_call_id)
 

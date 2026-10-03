@@ -4,8 +4,9 @@ require "test_helper"
 require_relative "../../lib/active_agent/providers/open_ai/responses_provider"
 
 # A provider whose tool loop calls `call_tool_function` itself, rather than
-# through dispatch_tool_calls, cannot pause. A tool that asks for input
-# raises there rather than sending the request object to the model.
+# through dispatch_tool_calls, cannot pause. A tool that asks for input, or
+# one that needs approval, raises there rather than sending the request
+# object to the model or running without anyone's approval.
 class InputRequestsUnsupportedTest < ActiveSupport::TestCase
   include WebMock::API
 
@@ -54,6 +55,17 @@ class InputRequestsUnsupportedTest < ActiveSupport::TestCase
     end
 
     assert_match(/OpenAI::Responses cannot pause/, error.message)
+  end
+
+  test "a tool that needs approval raises before it runs" do
+    ran = []
+
+    error = assert_raises(ActiveAgent::InputRequest::UnsupportedProviderError) do
+      provider(->(*, **) { ran << :issue_refund }, requires_approval: [ :issue_refund ]).prompt
+    end
+
+    assert_match(/issue_refund, which needs approval/, error.message)
+    assert_empty ran
   end
 
   test "a tool does not read the answer of the call that started its generation" do

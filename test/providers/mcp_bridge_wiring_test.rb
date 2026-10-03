@@ -116,6 +116,49 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
     assert_includes error.message, "none"
   end
 
+  # The approval gate sits in the provider's tool loop, which never sees the
+  # calls of a server the provider runs itself.
+  test "Anthropic and OpenAI Responses run a remote server client-side when its calls need approval" do
+    [ AnthropicProvider, ResponsesProvider ].each do |klass|
+      [ "always", { never: { tool_names: [ "get_page" ] } }, { always: [ "get_page" ] } ].each do |policy|
+        with_bridge do
+          context = provider(klass, mcps: [ URL_SERVER.first.merge(require_approval: policy) ]).send(:prompt_context)
+
+          assert_not context.key?(:mcps), "#{klass.service_name} must not serve a server with require_approval #{policy.inspect}"
+          assert_equal [ "get_page" ], context[:tools].pluck(:name)
+        end
+      end
+    end
+  end
+
+  test "require_approval: never keeps a remote server native" do
+    [ AnthropicProvider, ResponsesProvider ].each do |klass|
+      declaration = URL_SERVER.first.merge(require_approval: "never")
+      context     = provider(klass, mcps: [ declaration ]).send(:prompt_context)
+
+      assert_equal [ declaration ], context[:mcps]
+    end
+  end
+
+  test "a remote server is run client-side when requires_approval: names one of its allowed_tools" do
+    declaration = URL_SERVER.first.merge(allowed_tools: [ "get_page" ])
+
+    with_bridge do
+      context = provider(AnthropicProvider, mcps: [ declaration ], requires_approval: [ :get_page ]).send(:prompt_context)
+
+      assert_not context.key?(:mcps)
+      assert_not context.key?(:requires_approval), "the approval list instructs us; no provider accepts it"
+    end
+  end
+
+  test "mcp_strategy: :server refuses a server whose calls need approval" do
+    error = assert_raises(ArgumentError) do
+      provider(ResponsesProvider, mcps: [ URL_SERVER.first.merge(require_approval: "always") ], mcp_strategy: :server).send(:prompt_context)
+    end
+
+    assert_includes error.message, "need approval"
+  end
+
   test "keeps the agent's own tools alongside the bridge's" do
     declared = { name: "local_tool", description: "Local", parameters: {} }
 

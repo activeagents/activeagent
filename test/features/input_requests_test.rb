@@ -403,6 +403,71 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_equal [ [ :issue_refund, true ] ], RefundAgent.calls, "the second turn's call is over the cap"
   end
 
+  ##### Approvals ###########################################################
+
+  # Lists tools in requires_approval:, so their calls wait for the user.
+  class GatedRefundAgent < RefundAgent
+    def self.name = "GatedRefundAgent"
+
+    def triage(order_id:)
+      super
+      prompt(requires_approval: %w[lookup_order deploy])
+    end
+  end
+
+  def gated_triage(*turns)
+    ScriptedProvider.script(*turns)
+    GatedRefundAgent.triage(order_id: 7).generate_now
+  end
+
+  def resume_gated(response, answers)
+    GatedRefundAgent.triage(order_id: 7).resume_now(checkpoint: JSON.parse(response.checkpoint.to_json), answers:)
+  end
+
+  test "requires_approval: pauses a listed tool before it runs, with the call's arguments" do
+    paused = gated_triage([ self.class.tool_use("call_1", "lookup_order", order_id: 7) ])
+
+    request = paused.input_requests.sole
+    assert_equal [ :confirm, "lookup_order", { "order_id" => 7 }, { "approval" => true } ],
+                 [ request.kind, request.tool_name, request.arguments, request.metadata ]
+    assert_empty RefundAgent.calls
+  end
+
+  test "an approved call runs once, and a declined one never runs" do
+    paused = gated_triage([ self.class.tool_use("call_1", "lookup_order", order_id: 7), self.class.tool_use("call_2", "close_ticket") ])
+    assert_equal [ [ :close_ticket ] ], RefundAgent.calls, "a tool that is not listed runs as usual"
+
+    resume_gated(paused, "call_1" => true)
+    assert_equal [ [ :close_ticket ], [ :lookup_order ] ], RefundAgent.calls
+
+    resume_gated(paused, "call_1" => false)
+    assert_equal [ [ :close_ticket ], [ :lookup_order ] ], RefundAgent.calls
+    assert_equal ActiveAgent::InputRequest::DECLINED_RESULT.to_json, ScriptedProvider.requests.last.last[:content].first[:content]
+  end
+
+  test "an approved tool asks its own question without being asked to approve it again" do
+    paused = gated_triage([ self.class.tool_use("call_1", "deploy", environment: "staging") ])
+
+    asking = resume_gated(paused, "call_1" => true)
+
+    assert_equal :secret, asking.input_requests.sole.kind, "the approval is not the tool's answer"
+    assert_equal [ "call_1" ], asking.checkpoint["approved_tool_calls"]
+
+    resume_gated(asking, "call_1" => "tok-live-12345")
+
+    assert_equal [ [ :deploy ] ], RefundAgent.calls
+  end
+
+  test "an approval answers the gate even when the resumed action no longer requires it" do
+    paused = gated_triage([ self.class.tool_use("call_1", "deploy", environment: "staging") ])
+    assert_equal [ "call_1" ], paused.checkpoint["approval_tool_calls"]
+
+    asking = resume(paused, "call_1" => true)
+
+    assert_equal :secret, asking.input_requests.sole.kind, "the approval is not handed to the tool as its answer"
+    assert_empty RefundAgent.calls
+  end
+
   ##### Secrets #############################################################
 
   test "a secret answer reaches the tool but never the model" do
