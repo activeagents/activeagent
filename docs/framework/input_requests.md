@@ -117,7 +117,11 @@ class DeployAgent < ApplicationAgent
 end
 ```
 
-For the rest of the resumed generation, the secret answer is replaced with `[FILTERED]` in every tool result before it reaches the model, in the arguments and results recorded on telemetry tool spans, and in the message of any error a tool raises. The value itself lives in execution state only while its tool call runs.
+For the rest of the resumed generation, the secret answer is replaced with `[FILTERED]` in every tool result before it reaches the model, in the arguments and results recorded on telemetry tool spans, and in the messages of any error a tool raises and of that error's causes. The value itself lives in execution state only while its tool call runs.
+
+A tool's error is raised again as a copy with the secret replaced. When the copy still reports the secret, because the error class builds its message from its own state, an `ActiveAgent::InputRequest::ScrubbedError` named after the original class is raised instead. A cause that holds the secret is replaced by a `ScrubbedError` in the same way, and the causes behind it are dropped.
+
+Secrets are matched as text. A number in a tool result is compared in its written form and becomes the string `"[FILTERED]"` when it matches. Every occurrence is replaced, so a short answer, such as a four-digit PIN, also replaces the same digits inside unrelated ids and amounts for the rest of the generation. Ask for secrets long enough not to collide.
 
 The answer still passes through your app on its way to `resume_now`. Keep it out of logs, job arguments and request parameters you record, and never store it with the checkpoint.
 

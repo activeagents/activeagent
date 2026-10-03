@@ -23,10 +23,7 @@ module ActiveAgent
         result = with_tool_call { process(action_name, *args, **kwargs) }
         scrub_input_request_secrets(result)
       rescue StandardError => error
-        scrubbed = scrub_input_request_secrets_error(error)
-        raise if scrubbed.equal?(error)
-
-        raise scrubbed, cause: error.cause
+        raise_without_input_request_secrets(error)
       end
     end
   end
