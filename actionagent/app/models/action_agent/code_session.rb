@@ -49,11 +49,13 @@ module ActionAgent
       finished_at.nil?
     end
 
-    # The values that must never be stored: the checkout token and the
-    # Claude Code credential this session ran with.
+    # The values that must never be stored: the checkout token, the Claude
+    # Code credential this session ran with, and the secrets of the project
+    # the checkout was booted for. The session itself never receives those.
     def secrets
       spec = sandbox_session.checkout_spec rescue nil
-      [ spec&.dig(:token), *sandbox_session.runtime_environment(runner: runner).values ].compact
+      [ spec&.dig(:token), *sandbox_session.runtime_environment(runner: runner).values,
+        *sandbox_session.project_scrub_values ].compact
     end
 
     # Appends one stream-json event, scrubbed and bounded. Past MAX_EVENTS

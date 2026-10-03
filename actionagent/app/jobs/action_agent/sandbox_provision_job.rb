@@ -39,9 +39,14 @@ module ActionAgent
 
       orchestrator = SandboxOrchestrator.new
       options = options.is_a?(Hash) ? options : {}
+      # A project's checkout boots from the project's spec, built here so its
+      # secrets' values are read in this process and never enqueued.
+      project = sandbox.app_runtime? ? sandbox.project : nil
       result =
         if options["resume"].is_a?(Hash)
-          orchestrator.resume_boot(sandbox, from: options["resume"]["from"].presence)
+          orchestrator.resume_boot(sandbox, from: options["resume"]["from"].presence, boot_config: project&.boot_spec)
+        elsif project
+          orchestrator.create_sandbox(sandbox, boot_config: project.boot_spec)
         elsif (spec = sandbox.app_runtime? && boot_spec(options["boot"]))
           orchestrator.create_sandbox(sandbox, boot_config: spec)
         else
@@ -60,6 +65,7 @@ module ActionAgent
         return
       end
 
+      project&.sandbox_ready!(sandbox)
       # Broadcast status update
       broadcast_sandbox_update(sandbox)
     rescue StandardError => e
@@ -163,13 +169,14 @@ module ActionAgent
       return unless sandbox.provisioning?
 
       sandbox.update!(status: :failed, error_message: message)
+      sandbox.project&.sandbox_failed!(sandbox)
       broadcast_sandbox_update(sandbox)
     rescue ActiveRecord::RecordNotFound
       nil
     end
 
-    # What must never reach error_message: the checkout token and the Claude
-    # Code credential this session boots with.
+    # What must never reach error_message: the checkout token, the Claude
+    # Code credential this session boots with, and its project's secrets.
     def secrets_for(sandbox)
       return [] if sandbox.nil?
 
@@ -178,7 +185,7 @@ module ActionAgent
       rescue StandardError
         nil
       end
-      [ spec&.dig(:token), *sandbox.runtime_environment.values ].compact
+      [ spec&.dig(:token), *sandbox.runtime_environment.values, *sandbox.project_scrub_values ].compact
     rescue StandardError
       []
     end
