@@ -4,7 +4,6 @@ import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
 import {
   RANGES,
   SOURCE_LABELS,
-  approvalNames,
   approvalState,
   changeCount,
   emptyToolsHint,
@@ -18,8 +17,8 @@ import {
   serviceRows,
   serviceState,
   toolGroups,
+  toggledApproval,
   toolsFor,
-  withApproval,
 } from '../../utils/toolRoster.mjs';
 
 // The agent's Tools tab: the MCP services it can be given and the tools it
@@ -115,14 +114,14 @@ function CheckBox({ on, dim = false }) {
 // The Approval column of a tool row: a switch for a row the approval list
 // can hold, nothing for one it cannot. A row whose names are only partly
 // listed (an approval list edited through the API) reads as on, and
-// switching it lists the rest. The row underneath toggles the tool itself,
-// so the click stops here.
+// switching it off takes all of its names off the list. The row underneath
+// toggles the tool itself, so the click stops here.
 function ApprovalSwitch({ tool, state, onToggle }) {
   if (!state) return <span />;
   const on = state !== 'off';
-  const title = on
-    ? `Each ${tool.name} call waits for approval${state === 'partial' ? ' (some of its functions only)' : ''}. Click to let it run without asking.`
-    : `Click to make each ${tool.name} call wait for a person to approve it`;
+  let title = `Click to make each ${tool.name} call wait for a person to approve it`;
+  if (state === 'on') title = `Each ${tool.name} call waits for approval. Click to let it run without asking.`;
+  if (state === 'partial') title = `Some ${tool.name} functions wait for approval. Click to let every ${tool.name} call run without asking.`;
   return (
     <span
       data-testid={`tool-approval-${tool.key}`}
@@ -261,9 +260,8 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
   }, [roster, selectedTools, updateField]);
 
   const toggleApproval = useCallback((tool) => {
-    const on = approvalState(tool, approvalList) !== 'on';
-    updateField('approval_required_tools', withApproval(approvalList, approvalNames(tool), on));
-  }, [approvalList, updateField]);
+    updateField('approval_required_tools', toggledApproval(approvalList, tool, agent.approval_required_tools || []));
+  }, [approvalList, agent, updateField]);
 
   const discard = useCallback(() => {
     updateField('tools', agent.tools || []);
