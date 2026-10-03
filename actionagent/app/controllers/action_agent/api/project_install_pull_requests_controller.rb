@@ -87,13 +87,15 @@ module ActionAgent
       end
 
       # GET /api/projects/:project_id/install_pull_request/patch?paths[]=…
+      # The files named, or every publishable one, each within the project's
+      # allowlist.
       def patch
         return unless live_sandbox!
 
         paths = params[:paths]
         paths = nil unless paths.is_a?(Array) && paths.all? { |path| path.is_a?(String) }
         paths ||= install.publisher(@sandbox).changes(allowlist: install.allowlist).publishable.map(&:path)
-        data = install.publisher(@sandbox).patch(paths: paths, title: string_param(:title) || "Install ActiveAgent")
+        data = install.publisher(@sandbox).patch(paths: paths, title: string_param(:title) || "Install ActiveAgent", allowlist: install.allowlist)
         send_data data, type: "text/x-diff", disposition: "attachment", filename: "#{@project.repository.tr('/', '-')}-install.patch"
       end
 
@@ -139,8 +141,12 @@ module ActionAgent
         current = @project.install_pull_request
         return true if current.nil? || (current.head_commit.blank? && !current.in_progress?) || current.state.in?(%w[closed merged])
 
-        render json: { error: "The project has an install pull request already. Update it instead", code: "already_opened",
-                       pull_request: current.summary }, status: :conflict
+        error = if current.branch_only?
+          "The install branch is published without a pull request. Open a pull request for it instead"
+        else
+          "The project has an install pull request already. Update it instead"
+        end
+        render json: { error: error, code: "already_opened", pull_request: current.summary }, status: :conflict
         false
       end
 
@@ -183,8 +189,10 @@ module ActionAgent
 
       # Checks the files against the preview and queues the publish, one at a
       # time per sandbox, then makes the record the project's install pull
-      # request. +on_branch+ is a record of a sandbox that checked out the
-      # pull request's branch, whose checkout commit is the head it updates.
+      # request. A choice that leaves out a file the branch's boots need
+      # (ProjectInstallPullRequest#missing_required_paths) is refused.
+      # +on_branch+ is a record of a sandbox that checked out the pull
+      # request's branch, whose checkout commit is the head it updates.
       def queue(record, on_branch: false, files: true)
         publisher = install.publisher(@sandbox)
         refusal = publisher.read_refusal
@@ -197,6 +205,12 @@ module ActionAgent
 
         if files
           selection = selection_param
+          missing = install.missing_required_paths(publisher, selection.keys)
+          if missing.any?
+            raise DraftPullRequestPublisher::Refused.new("Every boot of the branch needs #{missing.to_sentence}, which the sandbox " \
+              "changed: choose #{missing.one? ? "it" : "them"} too", code: "incomplete_install")
+          end
+
           changes = publisher.changes(allowlist: install.allowlist, paths: selection.keys)
           chosen = publisher.select!(changes, selection)
           record.base_commit = changes.base_commit
