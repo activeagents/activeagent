@@ -3,18 +3,23 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { dashboardPath } from '../../utils/dashboardPath';
 import { apiErrorMessage, diffLines } from '../../utils/codeSessions.mjs';
 import {
+  DEFAULT_UPDATE_MESSAGE,
   PULL_REQUEST_POLL_INTERVAL_MS,
+  canOpenBranch,
   canUpdate,
   defaultTitle,
   fileStatusLetter,
   formatBytes,
+  hasUnreadFiles,
   initialSelection,
   isPublishInProgress,
   needsReload,
+  parseAllowlist,
   patchPath,
   publishBlocker,
   publishRequestBody,
   pullRequestStatus,
+  revertedFiles,
   selectedFiles,
   selectionSummary,
   toggleSelection,
@@ -52,13 +57,13 @@ function useClasses() {
 
 // Settings -> Integrations: publishing a ready checkout sandbox's changes as
 // a draft pull request. Shows the pull request this sandbox opened (polled
-// while a publish runs), the button that opens the dialog, and the patch to
+// while a publish runs), the buttons that open the dialog, and the patch to
 // download when publishing is not available.
 export default function DraftPullRequestPanel({ sandbox }) {
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/pull_request`;
   const [status, setStatus] = useState(null); // { pull_request, publishing }
   const [error, setError] = useState(null);
-  const [dialog, setDialog] = useState(null); // { update } while the dialog is open
+  const [dialog, setDialog] = useState(null); // { mode: 'create' | 'update' | 'patch' } while the dialog is open
   const [tick, setTick] = useState(0);
   const [opening, setOpening] = useState(false);
 
@@ -87,14 +92,16 @@ export default function DraftPullRequestPanel({ sandbox }) {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [load, tick]);
 
-  const openRegular = async () => {
+  // Opens a pull request for a branch that was published without one: a
+  // draft, or a regular one after GitHub refused the draft.
+  const openBranch = async (regular) => {
     setOpening(true);
     setError(null);
     try {
       const res = await fetch(base, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ regular: true }),
+        body: JSON.stringify(regular ? { regular: true } : { open: true }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(data, `Could not open the pull request (HTTP ${res.status}).`));
@@ -113,20 +120,19 @@ export default function DraftPullRequestPanel({ sandbox }) {
   return (
     <>
       <PullRequestCard
-        sandbox={sandbox}
         pullRequest={pullRequest}
         publishing={publishing}
         error={error}
         opening={opening}
-        onOpenDialog={(update) => setDialog({ update })}
-        onOpenRegular={openRegular}
+        onOpenDialog={(mode) => setDialog({ mode })}
+        onOpenBranch={openBranch}
       />
       {dialog && (
         <DraftPullRequestDialog
           sandbox={sandbox}
           pullRequest={pullRequest}
           publishing={publishing}
-          update={dialog.update}
+          mode={dialog.mode}
           onClose={() => setDialog(null)}
           onPublished={() => { setDialog(null); setTick((value) => value + 1); }}
         />
@@ -136,13 +142,14 @@ export default function DraftPullRequestPanel({ sandbox }) {
 }
 
 // The pull request this sandbox opened, if any, and what can be done next.
-export function PullRequestCard({ sandbox, pullRequest, publishing, error, opening, onOpenDialog, onOpenRegular }) {
+export function PullRequestCard({ pullRequest, publishing, error, opening, onOpenDialog, onOpenBranch }) {
   const classes = useClasses();
   const { muted, strong, border, link, secondaryButton, primaryButton, errorBox } = classes;
   const { label, tone } = pullRequestStatus(pullRequest);
   const inProgress = isPublishInProgress(pullRequest);
   const available = Boolean(publishing?.available);
   const update = canUpdate(pullRequest);
+  const branchOnly = canOpenBranch(pullRequest);
 
   return (
     <div className={`mt-2 p-3 rounded-lg border space-y-2 ${border}`}>
@@ -150,15 +157,15 @@ export function PullRequestCard({ sandbox, pullRequest, publishing, error, openi
         <p className={`text-sm font-medium ${strong}`}>Pull request</p>
         <div className="flex items-center gap-2">
           {publishing?.patch_available && !available && (
-            <a href={dashboardPath(patchPath(sandbox.session_id))} className={`text-xs ${link}`}>Download patch</a>
+            <button type="button" onClick={() => onOpenDialog('patch')} className={secondaryButton}>Download patch…</button>
           )}
           {available && update && (
-            <button type="button" onClick={() => onOpenDialog(true)} disabled={inProgress} className={`${secondaryButton} disabled:opacity-50`}>
+            <button type="button" onClick={() => onOpenDialog('update')} disabled={inProgress} className={`${secondaryButton} disabled:opacity-50`}>
               Update draft PR
             </button>
           )}
           {available && (
-            <button type="button" onClick={() => onOpenDialog(false)} disabled={inProgress} className={primaryButton}>
+            <button type="button" onClick={() => onOpenDialog('create')} disabled={inProgress} className={primaryButton}>
               Open draft PR
             </button>
           )}
@@ -188,19 +195,27 @@ export function PullRequestCard({ sandbox, pullRequest, publishing, error, openi
             {pullRequest.branch}{pullRequest.base_branch ? ` → ${pullRequest.base_branch}` : ''}
             {pullRequest.files?.length ? ` · ${pullRequest.files.length} file${pullRequest.files.length === 1 ? '' : 's'}` : ''}
           </p>
-          {pullRequest.status === 'draft_refused' && (
+          {pullRequest.status === 'draft_refused' && <p className={`text-xs ${muted}`}>{pullRequest.error_message}</p>}
+          {pullRequest.status === 'failed' && pullRequest.error_message && (
+            <p className={errorBox}>{pullRequest.error_message}</p>
+          )}
+          {branchOnly && (
             <div className="flex flex-wrap items-center gap-3 text-xs">
-              <span className={muted}>{pullRequest.error_message}</span>
               {pullRequest.compare_url && (
                 <a href={pullRequest.compare_url} target="_blank" rel="noopener noreferrer" className={link}>Compare on GitHub</a>
               )}
-              <button type="button" onClick={onOpenRegular} disabled={opening} className={`${secondaryButton} disabled:opacity-50`}>
-                {opening ? 'Opening…' : 'Open as a regular pull request'}
-              </button>
+              {available && (
+                <button
+                  type="button"
+                  onClick={() => onOpenBranch(pullRequest.status === 'draft_refused')}
+                  disabled={opening}
+                  className={`${secondaryButton} disabled:opacity-50`}
+                >
+                  {opening && 'Opening…'}
+                  {!opening && (pullRequest.status === 'draft_refused' ? 'Open as a regular pull request' : 'Open the draft PR again')}
+                </button>
+              )}
             </div>
-          )}
-          {pullRequest.status === 'failed' && pullRequest.error_message && (
-            <p className={errorBox}>{pullRequest.error_message}</p>
           )}
         </div>
       )}
@@ -212,24 +227,33 @@ export function PullRequestCard({ sandbox, pullRequest, publishing, error, openi
 // Reads the preview, then publishes what the user chose: the stateful half
 // of the dialog. A publish the server refuses because a file changed since
 // the preview reads the preview again.
-function DraftPullRequestDialog({ sandbox, pullRequest, publishing, update, onClose, onPublished }) {
+function DraftPullRequestDialog({ sandbox, pullRequest, publishing, mode, onClose, onPublished }) {
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/pull_request`;
+  const update = mode === 'update';
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selection, setSelection] = useState(new Set());
   const [title, setTitle] = useState(update ? pullRequest?.title || '' : defaultTitle(sandbox));
-  const [body, setBody] = useState(update ? pullRequest?.body || '' : '');
+  const [body, setBody] = useState('');
   const [branch, setBranch] = useState(update ? pullRequest?.branch || '' : '');
+  const [message, setMessage] = useState(DEFAULT_UPDATE_MESSAGE);
+  const [allowlistText, setAllowlistText] = useState('');
+  const [allowlist, setAllowlist] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     (async () => {
       try {
-        const res = await fetch(`${base}/preview`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const res = await fetch(`${base}/preview`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(allowlist ? { allowlist } : {}),
+        });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (!res.ok) throw new Error(apiErrorMessage(data, `Could not read the sandbox's changes (HTTP ${res.status}).`));
@@ -243,7 +267,7 @@ function DraftPullRequestDialog({ sandbox, pullRequest, publishing, update, onCl
       }
     })();
     return () => { cancelled = true; };
-  }, [base, reloadTick]);
+  }, [base, reloadTick, allowlist]);
 
   const submit = async () => {
     setSubmitting(true);
@@ -252,7 +276,7 @@ function DraftPullRequestDialog({ sandbox, pullRequest, publishing, update, onCl
       const res = await fetch(base, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(publishRequestBody({ files: preview?.files, selection, title, body, branch, update })),
+        body: JSON.stringify(publishRequestBody({ files: preview?.files, selection, title, body, branch, message, allowlist, update })),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -274,11 +298,14 @@ function DraftPullRequestDialog({ sandbox, pullRequest, publishing, update, onCl
       loading={loading}
       error={error}
       publishing={publishing}
+      pullRequest={pullRequest}
       selection={selection}
       onToggle={(path) => setSelection((current) => toggleSelection(current, path))}
-      fields={{ title, body, branch }}
-      onField={(name, value) => ({ title: setTitle, body: setBody, branch: setBranch })[name](value)}
-      update={update}
+      fields={{ title, body, branch, message, allowlist: allowlistText }}
+      onField={(name, value) => ({ title: setTitle, body: setBody, branch: setBranch, message: setMessage, allowlist: setAllowlistText })[name](value)}
+      allowlistApplied={Boolean(allowlist)}
+      onApplyAllowlist={() => setAllowlist(parseAllowlist(allowlistText))}
+      mode={mode}
       submitting={submitting}
       onSubmit={submit}
       onCancel={onClose}
@@ -288,17 +315,36 @@ function DraftPullRequestDialog({ sandbox, pullRequest, publishing, update, onCl
 
 // The dialog as it renders from its props: the changed files with a box for
 // each one that may be published (and why the others may not), the exact
-// diff of the ticked ones, the branch, title and body, and the patch link.
+// diff of the ticked ones, the fields of the chosen mode and the patch link.
+//
+//   create  a new branch, with the pull request's title and description
+//   update  a commit on the pull request's branch, with its message; the
+//           files the branch holds and the update leaves out are named
+//   patch   the patch alone, also whenever publishing is not available
 export function DraftPullRequestDialogView({
-  sandbox, preview, loading, error, publishing, selection, onToggle, fields, onField, update, submitting, onSubmit, onCancel,
+  sandbox, preview, loading, error, publishing, pullRequest, selection, onToggle, fields, onField, allowlistApplied, onApplyAllowlist,
+  mode, submitting, onSubmit, onCancel,
 }) {
   const classes = useClasses();
   const { muted, strong, border, link, secondaryButton, primaryButton, input, errorBox, darkMode } = classes;
   const files = preview?.files || [];
   const chosen = useMemo(() => selectedFiles(files, selection), [files, selection]);
-  const blocker = preview ? publishBlocker({ files, selection, title: fields.title, branch: fields.branch, update }) : null;
   const available = Boolean(publishing?.available);
-  const verb = update ? 'Update draft PR' : 'Open draft PR';
+  const patchOnly = mode === 'patch' || !available;
+  const update = mode === 'update' && !patchOnly;
+  const blocker = preview && !patchOnly
+    ? publishBlocker({ files, selection, title: fields.title, branch: fields.branch, message: fields.message, update })
+    : null;
+  const reverted = update ? revertedFiles(pullRequest, files, selection) : [];
+  let verb = 'Open draft PR';
+  if (patchOnly) verb = 'Download patch';
+  else if (update) verb = 'Update draft PR';
+  let summary = `Publishes the files you tick from ${sandbox.repository}@${sandbox.repository_ref} through the GitHub API, as one commit on a new branch.`;
+  if (patchOnly) {
+    summary = `Downloads the files you tick from ${sandbox.repository}@${sandbox.repository_ref} as a patch for git am or git apply.`;
+  } else if (update) {
+    summary = 'Publishes the files you tick as one commit on the pull request\'s branch, which then holds the checkout commit with exactly these files changed.';
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-label={verb}>
@@ -306,10 +352,7 @@ export function DraftPullRequestDialogView({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className={`text-lg font-medium ${strong}`}>{verb}</p>
-            <p className={`text-xs ${muted}`}>
-              Publishes the files you tick from {sandbox.repository}@{sandbox.repository_ref} through the GitHub API, as one commit
-              on {update ? 'the pull request\'s branch' : 'a new branch'}. Nothing under .github/ is ever published.
-            </p>
+            <p className={`text-xs ${muted}`}>{summary} Nothing under .github/ is ever published.</p>
           </div>
           <button type="button" onClick={onCancel} className={secondaryButton}>Close</button>
         </div>
@@ -319,6 +362,25 @@ export function DraftPullRequestDialogView({
 
         {preview && (
           <>
+            {(hasUnreadFiles(files) || allowlistApplied) && (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className={`flex-1 min-w-[16rem] text-xs space-y-1 ${muted}`}>
+                  <span>Only read paths matching</span>
+                  <input
+                    type="text"
+                    value={fields.allowlist}
+                    onChange={(e) => onField('allowlist', e.target.value)}
+                    disabled={submitting || loading}
+                    placeholder="app/**, lib/*.rb"
+                    className={`${input} font-mono`}
+                  />
+                </label>
+                <button type="button" onClick={onApplyAllowlist} disabled={submitting || loading} className={`${secondaryButton} disabled:opacity-50`}>
+                  Read again
+                </button>
+              </div>
+            )}
+
             <div className="space-y-1">
               <p className={`text-xs font-medium uppercase tracking-wide ${muted}`}>Files · {selectionSummary(files, selection)}</p>
               {files.length === 0 && <p className={`text-sm ${muted}`}>The sandbox has no changes.</p>}
@@ -341,6 +403,12 @@ export function DraftPullRequestDialogView({
               </ul>
             </div>
 
+            {reverted.length > 0 && (
+              <p className={`text-xs ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>
+                Not ticked, so returned to how they are in the checkout commit: <span className="font-mono">{reverted.join(', ')}</span>
+              </p>
+            )}
+
             {chosen.length > 0 && (
               <div className="space-y-2">
                 <p className={`text-xs font-medium uppercase tracking-wide ${muted}`}>What will be published</p>
@@ -348,8 +416,8 @@ export function DraftPullRequestDialogView({
               </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className={`text-xs space-y-1 ${muted}`}>
+            {!patchOnly && (
+              <label className={`block text-xs space-y-1 ${muted}`}>
                 <span>Branch</span>
                 <input
                   type="text"
@@ -360,7 +428,20 @@ export function DraftPullRequestDialogView({
                   className={`${input} font-mono`}
                 />
               </label>
-              <label className={`text-xs space-y-1 ${muted}`}>
+            )}
+            {update ? (
+              <label className={`block text-xs space-y-1 ${muted}`}>
+                <span>Commit message</span>
+                <input
+                  type="text"
+                  value={fields.message}
+                  onChange={(e) => onField('message', e.target.value)}
+                  disabled={submitting}
+                  className={input}
+                />
+              </label>
+            ) : (
+              <label className={`block text-xs space-y-1 ${muted}`}>
                 <span>Title</span>
                 <input
                   type="text"
@@ -371,17 +452,19 @@ export function DraftPullRequestDialogView({
                   className={input}
                 />
               </label>
-            </div>
-            <label className={`block text-xs space-y-1 ${muted}`}>
-              <span>Description</span>
-              <textarea
-                value={fields.body}
-                onChange={(e) => onField('body', e.target.value)}
-                disabled={submitting}
-                rows={4}
-                className={input}
-              />
-            </label>
+            )}
+            {!patchOnly && !update && (
+              <label className={`block text-xs space-y-1 ${muted}`}>
+                <span>Description</span>
+                <textarea
+                  value={fields.body}
+                  onChange={(e) => onField('body', e.target.value)}
+                  disabled={submitting}
+                  rows={4}
+                  className={input}
+                />
+              </label>
+            )}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className={`text-xs ${muted}`}>
@@ -390,12 +473,15 @@ export function DraftPullRequestDialogView({
               </p>
               <div className="flex items-center gap-3">
                 {chosen.length > 0 && (
-                  <a href={dashboardPath(patchPath(sandbox.session_id, chosen.map((file) => file.path), fields.title))} className={`text-sm ${link}`}>
+                  <a
+                    href={dashboardPath(patchPath(sandbox.session_id, chosen.map((file) => file.path), update ? fields.message : fields.title))}
+                    className={`text-sm ${link}`}
+                  >
                     Download patch
                   </a>
                 )}
                 <button type="button" onClick={onCancel} className={secondaryButton}>Cancel</button>
-                {available && (
+                {!patchOnly && (
                   <button type="button" onClick={onSubmit} disabled={Boolean(blocker) || submitting} className={primaryButton}>
                     {submitting ? 'Publishing…' : verb}
                   </button>
