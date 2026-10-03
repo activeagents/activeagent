@@ -26,6 +26,7 @@ class ExplorationsApiTest < ActionDispatch::IntegrationTest
     ActionAgent.user_class = nil
     ActionAgent.current_user_resolver = nil
     ActionAgent.current_account_resolver = nil
+    ActionAgent.scenario_evaluation_adapter_resolver = nil
   end
 
   def submit(candidates, target = { project_id: @project.id })
@@ -68,6 +69,21 @@ class ExplorationsApiTest < ActionDispatch::IntegrationTest
     submit([ candidate("Hello") ], { evaluation_id: 0 })
     assert_response :not_found
     assert_equal 1, ActionAgent::Exploration.count
+  end
+
+  test "an observed agent's evaluation is refused unless a host adapter replays it" do
+    agent = ActionAgent::Agent.create!(name: "Reported", provider: "mock", model: "mock-model", status: :observed)
+    evaluation = agent.evaluations.create!(name: "Reported suite", judge_kind: "rules",
+      criteria: [ { "key" => "answered", "type" => "response_present", "config" => {} } ])
+
+    body = submit([ candidate("Hello") ], { evaluation_id: evaluation.id })
+    assert_response :unprocessable_entity
+    assert_match(/read-only/, body["error"])
+    assert_equal 0, ActionAgent::Exploration.count
+
+    ActionAgent.scenario_evaluation_adapter_resolver = ->(_evaluation) { ->(**) { } }
+    submit([ candidate("Hello") ], { evaluation_id: evaluation.id })
+    assert_response :created
   end
 
   test "show carries the preselect limit the host sets for the owner, and its runs remaining" do

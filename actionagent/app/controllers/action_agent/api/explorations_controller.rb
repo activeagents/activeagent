@@ -12,6 +12,8 @@ module ActionAgent
     # needs :replace_scenarios; storing and editing candidates changes only
     # the exploration.
     class ExplorationsController < BaseController
+      include EvaluationRunStarting
+
       LIST_LIMIT = 50
 
       before_action :require_owner!
@@ -37,7 +39,9 @@ module ActionAgent
 
       # POST /api/explorations { project_id: | evaluation_id:, candidates: [...] }
       # Stores candidates an agent outside the dashboard found, as a new
-      # exploration with source "external" that is ready for review.
+      # exploration with source "external" that is ready for review. An
+      # observed agent's evaluation is refused, as the MCP facade's
+      # `explorations_submit` refuses it, unless a host adapter replays it.
       def create
         project, evaluation = submission_target
         return if performed?
@@ -100,7 +104,14 @@ module ActionAgent
         if params[:project_id].present?
           [ owned(Project).find(params[:project_id].to_s), nil ]
         elsif params[:evaluation_id].present?
-          [ nil, Evaluation.joins(:agent).where(agent: owner_agents).find(params[:evaluation_id].to_s) ]
+          evaluation = Evaluation.joins(:agent).where(agent: owner_agents).find(params[:evaluation_id].to_s)
+          if unexecutable_scenario_run?(evaluation)
+            render json: { error: "Observed agents are read-only — duplicate this agent to create an executable copy" },
+              status: :unprocessable_entity
+            return nil
+          end
+
+          [ nil, evaluation ]
         else
           render json: { error: "Name the project_id or evaluation_id the candidates are for" }, status: :bad_request
           nil
