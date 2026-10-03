@@ -45,6 +45,7 @@ class GithubAppManifestTest < ActionDispatch::IntegrationTest
     assert_equal "http://www.example.com#{CALLBACK}", manifest["redirect_url"]
     assert_equal [ "http://www.example.com/activeagents/api/github_installations/callback" ], manifest["callback_urls"]
     assert_equal true, manifest["request_oauth_on_install"]
+    assert_equal true, manifest["setup_on_update"]
     assert_equal false, manifest["public"]
     assert_nil manifest["hook_attributes"], "the App gets no webhook"
     assert_equal({ "contents" => "write", "pull_requests" => "write", "metadata" => "read", "members" => "read" },
