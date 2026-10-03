@@ -7,13 +7,31 @@ module ActionAgent
 
     belongs_to :agent_run, optional: true
     belongs_to :sandbox_session, optional: true
+    # The conversation a recording belongs to. A recording of a conversation
+    # outlives any one of its runs.
+    belongs_to :agent_context, optional: true
 
     has_many :recording_actions, dependent: :destroy
     has_many :recording_snapshots, dependent: :destroy
+    has_many :recording_events, dependent: :destroy
 
     enum :status, { recording: 0, completed: 1, failed: 2 }
 
+    # Where a recording came from: an agent's browser, or a person using the
+    # dashboard. Recordings made before this was recorded have none.
+    SOURCES = %w[agent dashboard].freeze
+
+    # Browser state that must never leave the server in a read response: the
+    # handoff state a recording carries is a copy of the visitor's cookies
+    # and web storage. Only the handoff endpoint returns it, to the owner,
+    # when they continue the session.
+    SENSITIVE_STATE_KEYS = %w[cookies session_storage local_storage].freeze
+
+    INGEST_TOKEN_PREFIX = "aarec_"
+    INGEST_TOKEN_TTL = 2.hours
+
     validates :status, presence: true
+    validates :source, inclusion: { in: SOURCES }, allow_nil: true
     validate :must_have_parent, unless: -> { demo_recording? || user_session? }
 
     scope :recent, -> { order(created_at: :desc) }
@@ -36,18 +54,20 @@ module ActionAgent
     # The owner column is written here, at creation: the index and recent
     # endpoints scope through it, and a recording nothing ever stamped was
     # invisible in the list to the very person who made it. An explicit
-    # +owner+ wins; otherwise the recording inherits the owner of the sandbox
-    # or agent it records. Ownable#owner= is a no-op in a single-user
-    # install, where nothing is owned.
-    def self.start!(agent_run: nil, sandbox_session: nil, name: nil, owner: nil)
+    # +owner+ wins; otherwise the recording inherits the owner of the sandbox,
+    # agent or conversation it records. Ownable#owner= is a no-op in a
+    # single-user install, where nothing is owned.
+    def self.start!(agent_run: nil, sandbox_session: nil, agent_context: nil, source: nil, name: nil, owner: nil)
       recording = new(
         agent_run: agent_run,
         sandbox_session: sandbox_session,
-        name: name || generate_name(agent_run, sandbox_session),
+        agent_context: agent_context,
+        source: source,
+        name: name || generate_name(agent_run, sandbox_session, agent_context),
         status: :recording,
         metadata: { started_at: Time.current.iso8601 }
       )
-      recording.owner = owner || inherited_owner(agent_run, sandbox_session)
+      recording.owner = owner || inherited_owner(agent_run, sandbox_session, agent_context)
       recording.save!
       recording
     end
@@ -71,11 +91,58 @@ module ActionAgent
       recording
     end
 
-    # Whoever owns the sandbox or agent a recording is made against. Both
-    # models declare the same owner candidates as this one, so the record
-    # they hand back is of the class this install owns things through.
-    def self.inherited_owner(agent_run, sandbox_session)
-      sandbox_session&.owner || agent_run&.agent&.owner
+    # Whoever owns the sandbox, agent or conversation's agent a recording is
+    # made against. Both models declare the same owner candidates as this
+    # one, so the record they hand back is of the class this install owns
+    # things through.
+    def self.inherited_owner(agent_run, sandbox_session, agent_context = nil)
+      conversation_agent = agent_context&.contextable
+      sandbox_session&.owner || agent_run&.agent&.owner || (conversation_agent.owner if conversation_agent.is_a?(Agent))
+    end
+
+    # The digest an ingest token is stored and looked up as.
+    def self.ingest_token_digest(token)
+      Digest::SHA256.hexdigest(token.to_s)
+    end
+
+    # Issues the token a browser posts this recording's events with, and
+    # returns it. Only its digest is stored, and issuing another replaces it.
+    # The token expires after +expires_in+, or when the recording's sandbox
+    # does if that is sooner. See #ingest_token_valid? for when it is
+    # accepted.
+    # @return [String]
+    def issue_ingest_token!(expires_in: INGEST_TOKEN_TTL)
+      token = "#{INGEST_TOKEN_PREFIX}#{SecureRandom.base58(32)}"
+      expires_at = [ Time.current + expires_in, sandbox_session&.expires_at ].compact.min
+      update!(ingest_token_digest: self.class.ingest_token_digest(token), ingest_token_expires_at: expires_at)
+      token
+    end
+
+    # Whether +token+ may post events to this recording now: it is the token
+    # last issued for this recording, it has not expired, the recording is
+    # still recording, and the recording's sandbox, if it has one, is active.
+    def ingest_token_valid?(token)
+      return false if token.blank? || ingest_token_digest.blank?
+      return false unless recording? && ingest_token_expires_at&.future?
+      return false if sandbox_session_id && !sandbox_live?
+
+      ActiveSupport::SecurityUtils.secure_compare(ingest_token_digest, self.class.ingest_token_digest(token))
+    end
+
+    # Stores one event the server observed, such as an agent's browser
+    # action, and counts it. Unlike a browser's batches, server events are
+    # not capped.
+    # @param data [Hash] the event
+    # @param started_at [Time] when it began
+    # @param finished_at [Time] when it ended
+    # @return [RecordingEvent]
+    def record_server_event!(kind:, data:, started_at:, finished_at: started_at)
+      event = recording_events.new(kind: kind, clock_offset_ms: 0)
+      event.events = [ { "at" => RecordingEvent.milliseconds(started_at), "data" => data } ]
+      event.occurred_to = [ finished_at, event.occurred_from ].max
+      event.save!
+      self.class.update_counters(id, event_count: 1, event_bytes: event.byte_size)
+      event
     end
 
     # Record a browser action
@@ -153,17 +220,24 @@ module ActionAgent
 
     private
 
-    def must_have_parent
-      return if agent_run.present? || sandbox_session.present?
-
-      errors.add(:base, "must belong to an agent_run or sandbox_session")
+    def sandbox_live?
+      live = SandboxSession.active.where(id: sandbox_session_id)
+      live.where(expires_at: nil).or(live.where(expires_at: Time.current..)).exists?
     end
 
-    def self.generate_name(agent_run, sandbox_session)
+    def must_have_parent
+      return if agent_run.present? || sandbox_session.present? || agent_context.present?
+
+      errors.add(:base, "must belong to an agent_run, sandbox_session or agent_context")
+    end
+
+    def self.generate_name(agent_run, sandbox_session, agent_context = nil)
       prefix = if agent_run&.agent
         agent_run.agent.name.parameterize
       elsif sandbox_session&.agent_template
         sandbox_session.agent_template.name.parameterize
+      elsif agent_context&.agent_name.present?
+        agent_context.agent_name.parameterize
       else
         "session"
       end
