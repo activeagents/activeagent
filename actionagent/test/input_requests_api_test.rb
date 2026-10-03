@@ -141,6 +141,13 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert_equal 2, json.dig("result", "structuredContent", "input_requests").size
   end
 
+  test "an unknown status filter is a bad request" do
+    get "/activeagents/api/input_requests", params: { status: "bogus" }
+
+    assert_response :bad_request
+    assert_match(/Unknown status bogus/, json["error"])
+  end
+
   test "a confirm request carries the paused call's arguments" do
     run = paused_run(ActiveAgent::InputRequest.confirm("Allow refund to run?", metadata: { arguments: { order_id: 7 } }))
 
@@ -226,6 +233,18 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert overdue.input_requests.sole.expired?
     assert overdue.reload.failed?
     assert [ waiting, unlimited ].all? { |run| run.reload.awaiting_input? && run.input_requests.sole.pending? }
+  end
+
+  test "a decline after the request expired is a conflict, and the run fails" do
+    run = paused_run
+    request = run.input_requests.sole
+    request.update_columns(expires_at: 1.minute.ago)
+
+    assert_no_enqueued_jobs { post "/activeagents/api/input_requests/#{request.id}/decline", as: :json }
+
+    assert_response :conflict
+    assert_equal "expired", json["status"]
+    assert run.reload.failed?
   end
 
   test "a choice outside the options, or a blank answer, is unprocessable" do
@@ -456,6 +475,22 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert_equal CHECKPOINT, resumed.sole[:checkpoint]
     assert run.reload.complete?
     assert_equal "Booked.", run.output
+  end
+
+  test "the MCP answer tool asks the permission checker, as the key's user" do
+    me, account = sign_in_to_account
+    give(@agent, account.id)
+    request = paused_run.input_requests.sole
+    key = ActionAgent::ApiKey.create!(name: "Harness", account_id: account.id, user_id: me.id)
+    asked = []
+    ActionAgent.permission_checker = ->(user, action, subject) { asked << [ user, action, subject ] && false }
+
+    body = mcp_tool("input_requests_answer", { input_request_id: request.id, answer: "Lisbon" }, key)
+
+    assert body.dig("result", "isError")
+    assert_match(/do not have permission/, body.dig("result", "structuredContent", "error"))
+    assert_equal [ [ me, :answer_input_request, request ] ], asked
+    assert request.reload.pending?
   end
 
   test "with agent execution disabled, nothing settles a pause or resumes its run" do
