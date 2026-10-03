@@ -81,6 +81,25 @@ ActionAgent.configure do |config|
   # means the resolver above returned nil.
 
   # ==========================================================================
+  # Permissions
+  # ==========================================================================
+  #
+  # Who may perform the dashboard's privileged actions: storing provider
+  # credentials (:manage_credentials), connecting GitHub (:manage_github),
+  # creating and revoking API keys (:manage_api_keys), and the rest of
+  # ActionAgent::PERMISSION_ACTIONS. Called with the signed-in user, the
+  # action and the record it applies to; true allows, false denies with a
+  # 403. Unset, anyone who passes authentication may do all of them.
+  #
+  # An exception from the checker denies. In multi-tenant mode a nil answer,
+  # or no signed-in user, also denies; in single-tenant mode a nil answer
+  # allows.
+  #
+  # config.permission_checker = ->(user, action, subject) {
+  #   user.present? && user.admin?
+  # }
+
+  # ==========================================================================
   # Host integration
   # ==========================================================================
   #

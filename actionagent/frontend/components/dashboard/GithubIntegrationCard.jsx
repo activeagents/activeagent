@@ -25,6 +25,7 @@ const CALLBACK_MESSAGES = {
   invalid_state: { tone: 'error', text: 'That GitHub sign-in expired or was not started here. Try connecting again.' },
   missing_code: { tone: 'error', text: 'GitHub did not return an authorization code. Try connecting again.' },
   not_configured: { tone: 'error', text: 'GitHub OAuth is not configured on this dashboard.' },
+  forbidden: { tone: 'error', text: 'You do not have permission to change the GitHub connection.' },
   error: { tone: 'error', text: 'Could not finish connecting GitHub. Try again.' },
 };
 

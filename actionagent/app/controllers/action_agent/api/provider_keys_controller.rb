@@ -26,10 +26,10 @@ module ActionAgent
       # keeps the stored one, sending an empty string clears it.
       def create
         provider = params.require(:provider)
-        credential = params.require(:credential)
-
         record = owned(ProviderKey).find_or_initialize_by(provider: provider)
-        attributes = { credential: credential }
+        return unless authorize_action!(:manage_credentials, record)
+
+        attributes = { credential: params.require(:credential) }
         attributes[:api_key] = params[:api_key].presence if params.key?(:api_key) && record.host_based?
         record.update!(**attributes)
 
@@ -48,6 +48,8 @@ module ActionAgent
         end
 
         stored = owned(ProviderKey).find_by(provider: provider)
+        return unless authorize_action!(:manage_credentials, stored || owned(ProviderKey).new(provider: provider))
+
         host = params[:credential].presence || stored&.credential || platform_host(provider)
         api_key = params.key?(:api_key) ? params[:api_key].presence : stored&.api_key
 
@@ -60,7 +62,10 @@ module ActionAgent
 
       # DELETE /api/provider_keys/:provider
       def destroy
-        owned(ProviderKey).find_by!(provider: params[:provider]).destroy!
+        record = owned(ProviderKey).find_by!(provider: params[:provider])
+        return unless authorize_action!(:manage_credentials, record)
+
+        record.destroy!
         head :no_content
       end
 

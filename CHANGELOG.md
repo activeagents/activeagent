@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `templates/migrations/NNN_<name>.rb.erb` in the generator, in number order and
   after the other dashboard migrations, skipping any whose name `db/migrate`
   already holds. A new engine migration is one new template file.
+- **Ask the host before privileged dashboard actions** (`actionagent`).
+  `ActionAgent.permission_checker = ->(user, action, subject) { ... }` is asked
+  before a provider credential is stored, tested or deleted
+  (`:manage_credentials`), before GitHub is connected, its repositories chosen
+  or it is disconnected (`:manage_github`), and before an API key is created or
+  revoked (`:manage_api_keys`). A denial answers 403. The remaining actions in
+  `ActionAgent::PERMISSION_ACTIONS` are reserved for features that need them.
+  Unset, every action is allowed as before. A checker that raises denies; in
+  multi-tenant mode a nil answer or a missing user also denies.
 
 ### Fixed
 

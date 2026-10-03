@@ -16,7 +16,10 @@ module ActionAgent
 
       # POST /api/api_keys
       def create
-        api_key = owned(ApiKey).create!(name: params.require(:name))
+        api_key = owned(ApiKey).new(name: params.require(:name))
+        return unless authorize_action!(:manage_api_keys, api_key)
+
+        api_key.save!
 
         render json: {
           api_key: serialize(api_key).merge(token: api_key.token)
@@ -25,7 +28,10 @@ module ActionAgent
 
       # DELETE /api/api_keys/:id
       def destroy
-        owned(ApiKey).find(params[:id]).destroy!
+        api_key = owned(ApiKey).find(params[:id])
+        return unless authorize_action!(:manage_api_keys, api_key)
+
+        api_key.destroy!
         head :no_content
       end
 
