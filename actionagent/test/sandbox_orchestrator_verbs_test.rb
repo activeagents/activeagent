@@ -8,7 +8,7 @@ require "test_helper"
 class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
   OPTIONAL_VERBS = %i[changed_files read_file start_browser stop_browser resume_boot boot_status boot_log].freeze
   # What :local implements of them.
-  LOCAL_VERBS = %i[resume_boot boot_status boot_log].freeze
+  LOCAL_VERBS = %i[start_browser stop_browser resume_boot boot_status boot_log].freeze
 
   # Implements every optional verb and records how it was called.
   class FullBackend
@@ -75,14 +75,39 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     ActionAgent.sandbox_backends = @original_backends
   end
 
-  test "the engine's own backends support only the boot verbs, and only :local" do
-    { "mock" => [], "local" => LOCAL_VERBS }.each do |backend, supported|
-      orchestrator = ActionAgent::SandboxOrchestrator.new(backend: backend)
+  # Runs a browser without a window only.
+  class HeadlessOnlyBackend < FullBackend
+    def self.calls = FullBackend.calls
 
-      OPTIONAL_VERBS.each do |verb|
-        assert_equal supported.include?(verb), orchestrator.supports?(verb), "#{backend} and #{verb}"
-      end
+    def browser_modes = [ :headless ]
+  end
+
+  test "the engine's own backends support the optional verbs they implement" do
+    mock = ActionAgent::SandboxOrchestrator.new(backend: "mock")
+    OPTIONAL_VERBS.each { |verb| assert_not mock.supports?(verb), "mock should not claim #{verb}" }
+    assert_empty mock.browser_modes
+
+    local = ActionAgent::SandboxOrchestrator.new(backend: "local")
+    OPTIONAL_VERBS.each do |verb|
+      assert_equal LOCAL_VERBS.include?(verb), local.supports?(verb), "local and #{verb}"
     end
+    assert_includes local.browser_modes, :headless
+  end
+
+  test "a backend that does not say which browser modes it runs is asked for either" do
+    assert_equal %i[headless headed], ActionAgent::SandboxOrchestrator.new(backend: "full").browser_modes
+  end
+
+  test "a headed browser is refused on a backend that cannot show a window, before the backend is asked" do
+    ActionAgent.sandbox_backends = { "headless_only" => HeadlessOnlyBackend.name }
+    orchestrator = ActionAgent::SandboxOrchestrator.new(backend: "headless_only")
+
+    error = assert_raises(ActionAgent::SandboxOrchestrator::UnsupportedBackendError) { orchestrator.start_browser("s1", mode: :headed) }
+    assert_match(/cannot show a browser window; start the browser headless/, error.message)
+    assert_empty FullBackend.calls
+
+    orchestrator.start_browser("s1", mode: :headless)
+    assert_equal [ [ :start_browser, "s1", :headless ] ], FullBackend.calls
   end
 
   test "an unsupported verb is refused, naming the method a backend would implement" do

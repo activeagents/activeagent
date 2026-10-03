@@ -490,6 +490,8 @@ module ActionAgent
       input_params = AgentRun.params_with_actor(params, actor)
       if SandboxSession.runtime_server_key?(runtime_sandbox)
         input_params = input_params.merge(AgentRun::SANDBOX_PARAM => runtime_sandbox.to_s)
+        browser = running_browser_key(runtime_sandbox)
+        input_params = input_params.merge(AgentRun::BROWSER_PARAM => browser) if browser
       end
 
       run = agent_runs.create!(
@@ -578,6 +580,14 @@ module ActionAgent
         change_summary: "Updated: #{changed_fields.join(', ')}",
         configuration_snapshot: configuration_snapshot
       )
+    end
+
+    # The browser key of the sandbox +runtime_sandbox+ names, when that
+    # sandbox is this agent's owner's and its browser is running.
+    def running_browser_key(runtime_sandbox)
+      session_id = runtime_sandbox.to_s.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)
+      sandbox = SandboxSession.for_owner(owner).find_by(session_id: session_id)
+      sandbox.browser_server_key if sandbox&.browser_running?
     end
 
     # Unknown action names fall back to the default rather than failing the
