@@ -46,6 +46,9 @@ module ActionAgent
         assistantEnabled: ActionAgent.assistant_enabled?,
         multiTenant: ActionAgent.multi_tenant?,
         upgradeUrl: ActionAgent.upgrade_url,
+        memberInviteUrl: ActionAgent.member_invite_url,
+        providerKeyScope: ActionAgent.provider_key_scope,
+        personalProviderKeys: ProviderKey.personal_keys_enabled?,
         signOutPath: ActionAgent.sign_out_path
       }
     end
