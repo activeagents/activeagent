@@ -8,6 +8,7 @@ import {
   checkoutSourceLabel,
   installationLabel,
   installationProblem,
+  installationsSummary,
   submitManifest,
   validGithubLogin,
 } from '../utils/githubApp.mjs';
@@ -61,6 +62,25 @@ test('an installation reads as its account and kind, and says when GitHub stoppe
   assert.equal(installationProblem(installation()), null);
   assert.equal(installationProblem(installation({ status: 'removed' })).tone, 'error');
   assert.equal(installationProblem(installation({ status: 'suspended' })).tone, 'warning');
+});
+
+test('the header counts installations and says how many GitHub no longer serves', () => {
+  assert.deepEqual(installationsSummary([]), { text: null, active: 0 });
+  assert.deepEqual(installationsSummary(undefined), { text: null, active: 0 });
+  assert.deepEqual(installationsSummary([installation()]), { text: '1 GitHub App installation', active: 1 });
+  assert.deepEqual(
+    installationsSummary([installation({ id: 1 }), installation({ id: 2, status: 'suspended' })]),
+    { text: '2 GitHub App installations (1 needs attention)', active: 1 },
+  );
+  assert.deepEqual(
+    installationsSummary([installation({ id: 1, status: 'removed' }), installation({ id: 2, status: 'suspended' })]),
+    { text: '2 GitHub App installations (2 need attention)', active: 0 },
+  );
+});
+
+test('a requested install tells the requester an organization owner links it', () => {
+  assert.match(GITHUB_APP_CALLBACK_MESSAGES.pending.text, /owner of the organization .* link it/);
+  assert.doesNotMatch(GITHUB_APP_CALLBACK_MESSAGES.pending.text, /install again/);
 });
 
 test('every outcome the callbacks report has a message', () => {
