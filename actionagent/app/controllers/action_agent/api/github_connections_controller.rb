@@ -159,7 +159,9 @@ module ActionAgent
           slug: configured ? ActionAgent.github_app_slug : nil,
           callback_url: "#{request.base_url}#{request.script_name}/api/github_installations/callback",
           manifest_available: !ActionAgent.multi_tenant?,
-          installations: owned(GithubInstallation).order(:id).map(&:as_summary)
+          # Listed only while an App is configured: without one nothing can
+          # mint an installation's tokens, so its repositories cannot be used.
+          installations: configured ? owned(GithubInstallation).order(:id).map(&:as_summary) : []
         }
       end
 

@@ -28,6 +28,7 @@ class GithubInstallationsTest < ActionDispatch::IntegrationTest
   end
 
   test "with no App configured the connection reports none and the install flow is refused" do
+    link_installation!
     reset_github_app!
     skip "GITHUB_APP_* is set in this environment" if ActionAgent.github_app_configured?
 

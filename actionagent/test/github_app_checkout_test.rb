@@ -76,6 +76,18 @@ class GithubAppCheckoutTest < ActionDispatch::IntegrationTest
     assert_equal OAUTH_TOKEN, docs.checkout_spec[:token]
   end
 
+  test "installations are not used while no GitHub App is configured" do
+    connect_oauth!(repositories: [ repo_row(5, "acme/shop") ])
+    link_installation!(repositories: [ repo_row(5, "acme/shop") ])
+    reset_github_app!
+    skip "GITHUB_APP_* is set in this environment" if ActionAgent.github_app_configured?
+
+    session = ActionAgent::SandboxSession.create!(sandbox_type: "app_runtime", repository: "acme/shop")
+
+    assert_nil session.github_installation_id
+    assert_equal OAUTH_TOKEN, session.checkout_spec[:token]
+  end
+
   test "a removed or suspended installation is passed over when choosing how to check out" do
     link_installation!(repositories: [ repo_row(5, "acme/shop") ], suspended_at: Time.current)
 

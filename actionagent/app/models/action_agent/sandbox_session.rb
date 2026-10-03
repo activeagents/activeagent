@@ -358,10 +358,12 @@ module ActionAgent
     # A repository selected on one of the owner's GitHub App installations is
     # checked out through that installation, ahead of the OAuth connection,
     # so the checkout gets a short-lived token limited to that repository.
+    # Installations count only while a GitHub App is configured, since
+    # nothing else can mint their tokens.
     def repository_available
       return if repository.blank?
 
-      installations = owners_records(GithubInstallation).order(:id).to_a
+      installations = ActionAgent.github_app_configured? ? owners_records(GithubInstallation).order(:id).to_a : []
       installation = installations.find { |candidate| candidate.usable? && candidate.repository(repository) }
       connection = github_connection unless installation
       repo = installation&.repository(repository) || connection&.repository(repository)
