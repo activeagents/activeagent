@@ -95,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GitHub connection has not selected needs `:manage_github`. Secrets are encrypted,
   never returned, refused for names the sandbox sets or that change how code
   loads, and need `:manage_project_secrets`. A provider key variable can use
-  the organization's stored key, with consent and without copying it. Values
+  the organization's stored key, with consent and `:manage_credentials`, and
+  without copying it. Values
   reach only the steps that run the repository's code and are scrubbed, with
   their URL-encoded and Base64 forms, from errors, logs and code-session
   events. The project's agent is an App assistant over the sandbox's tools,

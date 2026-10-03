@@ -1525,7 +1525,10 @@ their values.
 | `PUT /api/projects/:id/secrets/:name` | Replaces one value |
 | `DELETE /api/projects/:id/secrets/:name` | Removes one |
 
-- Setting, replacing and removing need `:manage_project_secrets`.
+- Setting, replacing and removing need `:manage_project_secrets`. A secret
+  that uses the organization's provider key needs `:manage_credentials` as
+  well: the repository's code can read a key the provider keys API never
+  returns.
 - A secret may not take a name the sandbox sets or one that changes how code
   is loaded, the same names a [boot spec's](#boot-specs) `secrets` refuse.
   Such a name answers `422`.
@@ -1652,7 +1655,7 @@ end
 
 | Action | Asked by |
 |---|---|
-| `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`) |
+| `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and having a project's secret use the organization's provider key (asked about that `ProviderKey`) |
 | `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`), and reading or creating a project from a repository the connection has not selected (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |

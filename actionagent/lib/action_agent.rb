@@ -109,7 +109,8 @@ module ActionAgent
 
   # The privileged actions ActionAgent.permission_checker is asked about:
   #
-  #   :manage_credentials     store, test or delete a provider credential
+  #   :manage_credentials     store, test or delete a provider credential, or
+  #                           hand the organization's to a project's code
   #   :manage_github          connect, disconnect, or choose the repositories of
   #                           the GitHub connection, or read a repository it has
   #                           not selected

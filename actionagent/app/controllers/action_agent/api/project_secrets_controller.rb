@@ -4,9 +4,13 @@ module ActionAgent
   module Api
     # A project's secrets (the Environment tab): names, sources and who set
     # them, never values. Setting, replacing and removing one needs
-    # :manage_project_secrets. A name the sandbox sets itself, or one that
-    # changes how code is loaded, is refused with 422 (see ProjectSecret).
+    # :manage_project_secrets, and using the organization's provider key
+    # :manage_credentials as well (see ProjectSecretAuthorization). A name
+    # the sandbox sets itself, or one that changes how code is loaded, is
+    # refused with 422 (see ProjectSecret).
     class ProjectSecretsController < BaseController
+      include ProjectSecretAuthorization
+
       before_action :require_owner!
       before_action :set_project
 
@@ -27,7 +31,7 @@ module ActionAgent
         end
 
         records = entries.map { |entry| assign(entry) }
-        return unless records.all? { |record| authorize_action!(:manage_project_secrets, record) }
+        return unless records.all? { |record| authorize_secret!(record) }
 
         ProjectSecret.transaction { records.each(&:save!) }
         render json: { secrets: summaries, saved: records.map { |record| saved_json(record) } }
@@ -37,7 +41,7 @@ module ActionAgent
       # { source: "organization_key", consent: true }
       def update
         record = assign(params)
-        return unless authorize_action!(:manage_project_secrets, record)
+        return unless authorize_secret!(record)
 
         record.save!
         render json: { secret: saved_json(record) }
