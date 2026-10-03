@@ -139,9 +139,9 @@ module ActionAgent
 
       # The caller an MCP-invoked run executes on behalf of.
       #
-      # The key's owner is the identity that authenticated this request, so
-      # it is the default; a host issuing keys per end user overrides it
-      # with ActionAgent.agent_actor_resolver, which is handed this
+      # The default is the user who created the key when the key records
+      # one, else the key's owner. A host issuing keys per end user overrides
+      # it with ActionAgent.agent_actor_resolver, which is handed this
       # controller and can read the request however it likes.
       #
       # The agent's own callbacks decide what the actor may do — that is the

@@ -1402,7 +1402,7 @@ on these streams:
 |---|---|---|
 | `agent_run_<run id>`, `agent_runs_<agent id>` | `update` | the run's id |
 | `sandbox_<session id>` | `status_update` | the sandbox's session id |
-| `sandbox_<session id>` | `run_started`, `run_complete`, `run_error` | the sandbox run's id |
+| `sandbox_<session id>` | `run_started`, `run_complete`, `run_error` | the `run_id` that `POST /api/sandboxes/:id/run` or `POST /api/sandboxes/compare` returned, which is not the `id` of the run stored on the sandbox |
 
 Each message is `{ type, id, status }` and nothing else: a client reads the
 record back over the dashboard's JSON API, which scopes it to the signed-in
