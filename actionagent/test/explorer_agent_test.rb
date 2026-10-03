@@ -170,6 +170,27 @@ class ExplorerAgentTest < ActiveSupport::TestCase
       "the call after the last allowed refusal ends the generation"
   end
 
+  test "a browser result is cut, and a conversation that fills ends the walk in review" do
+    @browser.filler = "- text: #{'row ' * 10_000}\n"
+    ScriptedExplorer.script(
+      [ [ :browser_snapshot, {} ] ],
+      [ [ :propose_candidate, { prompt: "What is in the long list?", rubric: "Summarizes it." } ] ],
+      [ [ :browser_snapshot, {} ] ],
+      [ [ :browser_snapshot, {} ] ],
+      [ [ :finish, {} ] ]
+    )
+
+    exploration = stub_const(ActionAgent::ExplorerExecutionService, :CONVERSATION_LIMIT, 40_000) { walk(pending_exploration!) }
+
+    first = results_for("browser_snapshot").first[:text]
+    assert_operator first.length, :<, ActionAgent::ExplorerExecutionService::RESULT_TEXT_LIMIT + 100
+    assert_match(/cut, \d+ characters in all/, first)
+    assert_equal "budget_context", exploration.stop_reason
+    assert_equal "review", exploration.status
+    assert_equal 1, exploration.candidates.size
+    assert_match(/conversation is full/, results_for("browser_snapshot").last[:error])
+  end
+
   test "a crash fails the walk and keeps the candidates it found" do
     ScriptedExplorer.script(
       [ [ :propose_candidate, { prompt: "What did I order last week?", rubric: "Lists last week's orders." } ] ],

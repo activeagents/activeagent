@@ -123,7 +123,7 @@ module ExplorerSetup
         else
           "- heading \"Page #{path}\" [ref=e1]"
         end
-      "### Page\n- Page URL: #{APP_URL}#{path}\n- Page Title: Page\n### Snapshot\n```yaml\n#{text}\n```"
+      "### Page\n- Page URL: #{APP_URL}#{path}\n- Page Title: Page\n### Snapshot\n```yaml\n#{text}\n#{filler}```"
     end
 
     def evaluate(function)

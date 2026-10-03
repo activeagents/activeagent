@@ -48,6 +48,7 @@ const STOP_REASONS = {
   budget_minutes: 'Its time budget ran out.',
   budget_steps: 'Its browser step budget ran out.',
   budget_cost: 'Its cost budget ran out.',
+  budget_context: 'Its conversation grew too long for the model.',
   stopped: 'Stopped for review.',
   error: 'It failed.',
 };

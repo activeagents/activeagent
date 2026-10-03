@@ -33,6 +33,7 @@ test('a refused start says why', () => {
 
 test('a stop reason reads as words', () => {
   assert.equal(stopReasonText('budget_steps'), 'Its browser step budget ran out.');
+  assert.match(stopReasonText('budget_context'), /conversation grew too long/);
   assert.equal(stopReasonText('custom'), 'custom');
   assert.equal(stopReasonText(null), null);
 });
