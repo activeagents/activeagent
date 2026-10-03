@@ -264,8 +264,11 @@ module ActionAgent
           end
         end
       end
-      scenarios.reset
       merged
+    ensure
+      # create! adds each record to the association, and a rolled-back one
+      # stays there as a new record that the evaluation's next save writes.
+      scenarios.reset
     end
 
     def llm_criteria
