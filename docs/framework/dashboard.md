@@ -582,7 +582,8 @@ as a Bearer token. Connect a client with:
 | `run_<slug>` (one per agent the key can reach) | Runs that agent with `{ message }` and returns its answer; a named action marked *expose as tool* is `run_<slug>__<action>` |
 | `find_<records>`, `count_<records>`, `get_<record>` (one set per discovered [schema tools](/actions/tools#bounded-reads-over-a-model-schema-tools) class) | Reads the host's records directly, with the tool's own parameter schema, so a client that only needs the rows does not have to ask an agent for them |
 
-Every call runs as **the key's caller** — the key's owner, or whatever
+Every call runs as **the key's caller** — the user who created the key in
+Settings, else the key's owner, or whatever
 `ActionAgent.agent_actor_resolver` returns for the request — so a schema
 tool's `scope` sees the same actor it would inside an agent run, and an
 agent's own authorization callbacks decide against the same person. A

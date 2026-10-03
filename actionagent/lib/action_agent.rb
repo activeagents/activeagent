@@ -183,8 +183,9 @@ module ActionAgent
     #   config.agent_actor_resolver = ->(controller) { controller.current_user }
     #
     # Unset means the dashboard's signed-in user, and, for the MCP endpoint,
-    # the API key's owner — the identity that authenticated the call. A host
-    # whose keys are issued per end user overrides this to return that user.
+    # the user who created the API key, else the key's owner — the identity
+    # that authenticated the call. A host whose keys are issued per end user
+    # overrides this to return that user.
     #
     # Returning nil runs the agent unattributed, which a correctly written
     # host scope reads as "no access". That is the safe direction, and it is

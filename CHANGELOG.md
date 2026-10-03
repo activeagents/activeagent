@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ActionAgent::PERMISSION_ACTIONS` are reserved for features that need them.
   Unset, every action is allowed as before. A checker that raises denies; in
   multi-tenant mode a nil answer or a missing user also denies.
+- **Record who created an API key** (`actionagent`). A key created in Settings
+  stores the signed-in user beside its owner, and an MCP call made with an
+  account's key runs as that user. Keys created earlier have no creator and
+  behave as before.
 
 ### Fixed
 
