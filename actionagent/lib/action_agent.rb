@@ -113,7 +113,9 @@ module ActionAgent
   # The privileged actions ActionAgent.permission_checker is asked about:
   #
   #   :manage_credentials     store, test or delete an organization provider
-  #                           credential (a member's personal key needs none)
+  #                           credential, or store or test a member's personal
+  #                           Ollama host (the subject is that personal key);
+  #                           a member's other personal keys need none
   #   :manage_github          connect, disconnect, or choose the repositories of
   #                           the GitHub connection
   #   :manage_api_keys        create or revoke a dashboard API key
@@ -383,7 +385,9 @@ module ActionAgent
     # own provider account, so an install opts in. Without an account_class
     # there are no personal keys and the setting has no effect. The
     # evaluation judge, sandboxes, and Claude Code and Codex connections
-    # always use organization keys.
+    # always use organization keys. A personal Ollama host decides where the
+    # server sends requests, so storing one asks permission_checker for
+    # :manage_credentials.
     # @return [Symbol]
     attr_reader :provider_key_scope
 

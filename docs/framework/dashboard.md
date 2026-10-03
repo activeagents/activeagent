@@ -1326,7 +1326,7 @@ end
 
 | Action | Asked by |
 |---|---|
-| `:manage_credentials` | storing, testing and deleting an organization provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`); a member's own personal key needs no permission |
+| `:manage_credentials` | storing, testing and deleting an organization provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and storing or testing a member's personal Ollama host; a member's other personal keys need no permission |
 | `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
@@ -1407,9 +1407,16 @@ The provider keys endpoints take `scope=organization` (the default) or
 `:manage_credentials`; personal writes change only the signed-in user's own
 key, and are refused with 422 when personal keys are off. Claude Code and
 Codex keys cannot be personal. `GET /api/provider_keys` rows carry `scope`,
-`effective_source` (`personal`, `host_resolver`, `organization`, `config` or
-`none`, for the caller's own runs), `set_by` and `updated_at`.
+`editable`, `effective_source` (`personal`, `host_resolver`, `organization`,
+`config` or `none`, for the caller's own runs), `set_by` and `updated_at`.
 `POST /api/provider_keys/test` sends a stored key only to the stored host.
+
+A personal Ollama host decides where the server sends requests: the
+connection test, the model list and every run the member starts reach it. So
+storing or testing one asks `permission_checker` for `:manage_credentials`,
+with the personal key as the subject, and a checker that wants members to
+choose their own hosts allows it when `subject.personal?`. Removing one's own
+key never asks.
 
 The Organization page lists the members `config.members_resolver` returns,
 and links "+ Invite Member" to `config.member_invite_url`:

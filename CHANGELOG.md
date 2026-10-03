@@ -50,7 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   member saves personal keys in Settings → API Keys, and the runs they start,
   the dashboard assistant and the model pickers use them before the
   organization's; the judge, sandboxes, Claude Code and Codex use organization
-  keys only. Every lookup goes through
+  keys only. A personal Ollama host decides where the server sends requests,
+  so saving or testing one asks `permission_checker` for
+  `:manage_credentials`, with the personal key as the subject, as an
+  organization key does. Every lookup goes through
   `ActionAgent::ProviderCredentials.resolve(owner:, actor:, provider:)`: the
   actor's personal key, then `provider_credentials_resolver`, then the
   organization key, then `config/active_agent.yml`. A resolver that declares
