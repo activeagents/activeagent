@@ -30,6 +30,15 @@ class ProjectSecretTest < ActiveSupport::TestCase
     assert_not @project.assign_secret(name: "not a name", value: SECRET).valid?
   end
 
+  test "the sign-in's names are not environment variables" do
+    [ ActionAgent::Project::SIGN_IN_SECRET, ActionAgent::Project::STORAGE_STATE_SECRET ].each do |name|
+      secret = @project.assign_secret(name: name, value: SECRET)
+      assert_not secret.valid?, "#{name} is refused"
+      assert_includes secret.errors[:name].join, "keeps the project's sign-in"
+    end
+    assert @project.assign_sign_in({ password: "pw-0123456789" }).valid?
+  end
+
   test "the form warns about live keys, values too short to mask, and the master key" do
     warnings = ->(name, value) { ActionAgent::ProjectSecret.warnings_for(name, value).map { |warning| warning[:code] } }
 
@@ -64,19 +73,27 @@ class ProjectSecretTest < ActiveSupport::TestCase
     assert_equal [ "/", true, "without_engine" ], [ spec.start_url, spec.keep_on_failure?, spec.apply ]
   end
 
-  test "sign-in secrets stay out of the boot, and join the scrub lists part by part" do
+  test "sign-in secrets stay out of the boot, and join the scrub lists by their credentials" do
     @project.assign_secret(name: "STRIPE_SECRET_KEY", value: SECRET).save!
     @project.assign_sign_in({ login_url: "/users/sign_in", login: "dev@example.com", password: "sign-in-password-123",
       password_field: "#user_password" }).save!
-    @project.assign_storage_state({ "cookies" => [ { "name" => "sid", "value" => "cookie-value-456", "domain" => "127.0.0.1", "path" => "/" } ],
-      "origins" => [ { "origin" => "http://127.0.0.1:3000", "localStorage" => [ { "name" => "jwt", "value" => "stored-token-789" } ] } ] }).save!
+    cookies = [
+      { "name" => "sid", "value" => "cookie-value-456", "domain" => "127.0.0.1", "path" => "/", "httpOnly" => true },
+      { "name" => "remember", "value" => "remember-token-0123456789", "domain" => "127.0.0.1", "path" => "/" },
+      { "name" => "consent", "value" => "accepted", "domain" => "127.0.0.1", "path" => "/" }
+    ]
+    stored = [ { "name" => "jwt", "value" => "eyJhbGciOiJIUzI1NiJ9.stored-token-789" }, { "name" => "menu", "value" => "expanded" } ]
+    @project.assign_storage_state({ "cookies" => cookies, "origins" => [ { "origin" => "http://127.0.0.1:3000", "localStorage" => stored } ] }).save!
 
     assert_equal [ "STRIPE_SECRET_KEY" ], @project.boot_spec.secrets.keys
     assert_equal({ "login_url" => "/users/sign_in", "login" => "dev@example.com", "password" => "sign-in-password-123",
                    "password_field" => "#user_password" }, @project.secrets.sign_in.sole.sign_in_credentials)
-    %w[sign-in-password-123 dev@example.com cookie-value-456 stored-token-789].each do |value|
+    %w[sign-in-password-123 cookie-value-456 remember-token-0123456789 eyJhbGciOiJIUzI1NiJ9.stored-token-789].each do |value|
       assert_includes @project.scrub_values, value
     end
+    %w[dev@example.com accepted expanded].each { |value| assert_not_includes @project.scrub_values, value }
+    assert_equal "- button \"Menu\" [expanded]\n- text: Order accepted for dev@example.com",
+      ActionAgent::SecretScrubber.scrub("- button \"Menu\" [expanded]\n- text: Order accepted for dev@example.com", @project.scrub_values)
     assert_equal [ "APP_SIGN_IN" ], @project.sign_in_secret_names
     assert_equal "cookie-value-456", @project.saved_storage_state.dig("cookies", 0, "value")
   end

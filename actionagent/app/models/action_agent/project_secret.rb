@@ -38,6 +38,11 @@ module ActionAgent
     # fields cannot be found on their own.
     SIGN_IN_FIELDS = %w[login_url login password login_field password_field submit_field].freeze
     MAX_SELECTOR_LENGTH = 200
+    # A storage state's values are scrubbed only when they look like a
+    # credential: an httpOnly cookie's, or one at least this long. Shorter
+    # values are preferences such as "accepted" or "expanded", which ordinary
+    # page text also holds.
+    STORAGE_SECRET_MIN_LENGTH = 20
     # A storage state is kept in the value column (text), encrypted; its
     # ciphertext must still fit there.
     MAX_STORAGE_STATE_LENGTH = 40_000
@@ -140,22 +145,22 @@ module ActionAgent
     end
 
     # The values a sandbox's output, a candidate or a recording is scrubbed
-    # of for this secret: its value, and for a sign_in secret the login and
-    # password apart, and for a storage_state secret each cookie and
-    # localStorage value. A secret whose organization key is gone has none.
+    # of for this secret:
+    #
+    #   env            its value, the organization's key resolved; none
+    #                  once that key is gone
+    #   sign_in        its value and the password apart. The login is an
+    #                  account name the app shows and mails, so it is kept.
+    #   storage_state  its value, and each cookie and localStorage value
+    #                  that looks like a credential (STORAGE_SECRET_MIN_LENGTH)
     #
     # @return [Array<String>]
     def scrub_parts
       case kind
       when "sign_in"
-        [ value, *sign_in_credentials.values_at("login", "password") ].compact
+        [ value, sign_in_credentials["password"] ].compact
       when "storage_state"
-        state = storage_state_value || {}
-        cookies = Array(state["cookies"]).filter_map { |cookie| cookie["value"] if cookie.is_a?(Hash) }
-        stored = Array(state["origins"]).flat_map do |origin|
-          origin.is_a?(Hash) ? Array(origin["localStorage"]).filter_map { |item| item["value"] if item.is_a?(Hash) } : []
-        end
-        [ value, *cookies, *stored ].compact.map(&:to_s)
+        [ value, *storage_state_credentials ].compact.map(&:to_s)
       else
         [ resolved_value ].compact
       end
@@ -225,6 +230,8 @@ module ActionAgent
 
       if self.class.refused_name?(name)
         errors.add(:name, "#{name} is set by the sandbox or changes how code is loaded, so a project cannot set it")
+      elsif env? && [ Project::SIGN_IN_SECRET, Project::STORAGE_STATE_SECRET ].include?(name)
+        errors.add(:name, "#{name} keeps the project's sign-in, so an environment variable cannot take it")
       end
     end
 
@@ -282,6 +289,23 @@ module ActionAgent
           errors.add(:value, "#{field} must be a CSS selector of at most #{MAX_SELECTOR_LENGTH} characters")
         end
       end
+    end
+
+    def storage_state_credentials
+      state = storage_state_value || {}
+      cookies = Array(state["cookies"]).filter_map do |cookie|
+        next unless cookie.is_a?(Hash)
+
+        cookie["value"].to_s if cookie["httpOnly"] == true || cookie["value"].to_s.length >= STORAGE_SECRET_MIN_LENGTH
+      end
+      stored = Array(state["origins"]).flat_map do |origin|
+        next [] unless origin.is_a?(Hash)
+
+        Array(origin["localStorage"]).filter_map do |item|
+          item["value"].to_s if item.is_a?(Hash) && item["value"].to_s.length >= STORAGE_SECRET_MIN_LENGTH
+        end
+      end
+      cookies + stored
     end
 
     def kind_unchanged
