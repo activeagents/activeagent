@@ -45,8 +45,6 @@ module ActionAgent
       MAX_TRACE_SPANS = 100
       # Strings in a result row or a span, cut past this many characters.
       MAX_STRING = 1_000
-      # Owned credentials read for scrubbing, per kind.
-      SECRET_LOOKUP_LIMIT = 100
 
       SELECTION_PROPERTIES = {
         scenario_ids: { type: "array", items: { type: "integer" }, description: "Replay only these scenarios, by id" },
@@ -489,17 +487,12 @@ module ActionAgent
       end
 
       # Every credential the owner holds, masked out of each tool's output:
-      # this key's token, provider keys, the GitHub token, and each checkout
-      # sandbox's runtime token. None of them belongs in these payloads; this
-      # keeps one that leaked into a recorded output or a trace from being
-      # handed on. A failed lookup masks nothing rather than failing the call.
+      # this key's token and the #owner_credentials. None of them belongs in
+      # these payloads; this keeps one that leaked into a recorded output or a
+      # trace from being handed on. A failed lookup masks only this key's
+      # token rather than failing the call.
       def dashboard_tool_secrets
-        @dashboard_tool_secrets ||= [
-          @api_key&.token,
-          *owned(ProviderKey).limit(SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
-          *owned(GithubConnection).limit(SECRET_LOOKUP_LIMIT).pluck(:access_token),
-          *owned(SandboxSession).where.not(runtime_mcp_token: nil).order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:runtime_mcp_token)
-        ].compact
+        @dashboard_tool_secrets ||= [ @api_key&.token, *owner_credentials ].compact
       rescue StandardError => e
         Rails.logger.warn("[ActionAgent] MCP secret lookup failed: #{e.class}: #{e.message}")
         @dashboard_tool_secrets = [ @api_key&.token ].compact

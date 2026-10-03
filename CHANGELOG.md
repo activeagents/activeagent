@@ -87,6 +87,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Mask dashboard API keys and the telemetry key in MCP tool output**
+  (`actionagent`). The MCP facade masks the same owner credentials as session
+  recording ingest, which adds the owner's dashboard API keys and telemetry
+  key to the provider keys, GitHub tokens and sandbox runtime tokens it
+  already masked.
+
 - **Session Replay is now Sessions** (`actionagent`). The sidebar entry opens
   the Sessions list, and `<mount>/replay` without an id opens it too. The
   replay view plays a session's timeline and its rrweb recording instead of

@@ -259,6 +259,16 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, ollama_key
   end
 
+  test "the owner's other dashboard API keys are masked like the other credentials" do
+    other_key = ActionAgent::ApiKey.create!(name: "CI")
+    completed_run(output: "Order ABC-123 shipped. debug: #{other_key.token}")
+
+    result = structured(call_tool("evaluation_runs_get", { evaluation_id: @suite.id }))
+
+    assert_includes result["results"].find { |entry| entry["model"] == "mock/alpha" }["output"], ActionAgent::SecretScrubber::MASK
+    assert_not_includes response.body, other_key.token
+  end
+
   test "evaluation_runs_get pages results by limit and counts the rest" do
     run = @suite.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     scenario = @suite.scenarios.sole
