@@ -32,6 +32,38 @@ jobs:
       - name: Lint code for consistent style
         run: bin/rubocop -f github
 
+  # The dashboard's JavaScript and CSS are committed under
+  # actionagent/app/assets/builds so host apps never run a JavaScript build.
+  # This runs the frontend's tests, rebuilds the bundle from source, and fails
+  # when the committed bundle is not what the source builds.
+  frontend:
+    name: Dashboard frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: actionagent/frontend
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: actionagent/frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Check the committed bundle matches its source
+        run: git diff --exit-code ../app/assets/builds
+
   test:
     runs-on: ubuntu-latest
     env:

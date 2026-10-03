@@ -1,0 +1,3 @@
+# The dashboard bundle is built from actionagent/frontend and committed (CI
+# checks it matches its source), so diffs of it are noise.
+actionagent/app/assets/builds/* -diff linguist-generated=true
