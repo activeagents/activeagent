@@ -19,7 +19,9 @@ class ProviderCredentialsTest < ActionDispatch::IntegrationTest
     assert_resolution "organization", "sk-ant-organization", actor: @ada
 
     @organization_key.destroy!
-    assert_equal "none", resolve(actor: @ada).source
+    with_provider_config({}) do
+      assert_equal "none", resolve(actor: @ada).source
+    end
     with_provider_config(anthropic: { access_token: "sk-ant-config" }) do
       assert_equal [ "config", {} ], [ resolve(actor: @ada).source, resolve(actor: @ada).options ]
     end
