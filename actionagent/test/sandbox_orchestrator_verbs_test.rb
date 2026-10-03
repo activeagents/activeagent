@@ -26,8 +26,8 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
       { base_commit: "a" * 40, files: [ { path: "app/models/widget.rb", status: "modified", mode: "100644" } ] }
     end
 
-    def read_file(session, path)
-      record(:read_file, session, path)
+    def read_file(session, path, base: false)
+      record(:read_file, session, path, *(base ? [ :base ] : []))
       "class Widget; end\n".b
     end
 
@@ -53,6 +53,15 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     end
   end
 
+  # Implements only the required verbs.
+  class BareBackend
+    def create_sandbox(_session) = {}
+    def status(_handle) = {}
+    def terminate(_handle) = true
+    def list_sandboxes = []
+    def cleanup_expired = 0
+  end
+
   def setup
     @original_backends = ActionAgent.sandbox_backends
     ActionAgent.sandbox_backends = { "full" => FullBackend.name }
@@ -63,18 +72,21 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     ActionAgent.sandbox_backends = @original_backends
   end
 
-  test "the engine's own backends support none of the optional verbs" do
-    %w[mock local].each do |backend|
-      orchestrator = ActionAgent::SandboxOrchestrator.new(backend: backend)
-
-      OPTIONAL_VERBS.each do |verb|
-        assert_not orchestrator.supports?(verb), "#{backend} should not claim #{verb}"
-      end
+  test "the local backend reads checkouts, and the mock backend supports none of the optional verbs" do
+    local = ActionAgent::SandboxOrchestrator.new(backend: "local")
+    OPTIONAL_VERBS.each do |verb|
+      assert_equal verb.in?(%i[changed_files read_file]), local.supports?(verb), "local and #{verb}"
     end
+    assert local.reads_checkouts?
+
+    mock = ActionAgent::SandboxOrchestrator.new(backend: "mock")
+    OPTIONAL_VERBS.each { |verb| assert_not mock.supports?(verb), "mock should not claim #{verb}" }
+    assert_not mock.reads_checkouts?
   end
 
   test "an unsupported verb is refused, naming the method a backend would implement" do
-    orchestrator = ActionAgent::SandboxOrchestrator.new(backend: "mock")
+    ActionAgent.sandbox_backends = { "bare" => BareBackend.name }
+    orchestrator = ActionAgent::SandboxOrchestrator.new(backend: "bare")
 
     error = assert_raises(ActionAgent::SandboxOrchestrator::UnsupportedBackendError) { orchestrator.changed_files("s1") }
     assert_match(/implements none of changed_files/, error.message)
@@ -88,17 +100,20 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     orchestrator = ActionAgent::SandboxOrchestrator.new(backend: "full")
 
     OPTIONAL_VERBS.each { |verb| assert orchestrator.supports?(verb), verb }
+    assert orchestrator.reads_checkouts?
 
     changes = orchestrator.changed_files("s1")
     assert_equal "a" * 40, changes[:base_commit]
     assert_equal [ "app/models/widget.rb" ], changes[:files].map { |file| file[:path] }
     assert_equal Encoding::BINARY, orchestrator.read_file("s1", "app/models/widget.rb").encoding
+    orchestrator.read_file("s1", "app/models/widget.rb", base: true)
     assert_equal "http://browser.test/mcp", orchestrator.start_browser("s1", mode: :headed)[:mcp_url]
     assert orchestrator.stop_browser("s1")
 
     assert_equal [
       [ :changed_files, "s1" ],
       [ :read_file, "s1", "app/models/widget.rb" ],
+      [ :read_file, "s1", "app/models/widget.rb", :base ],
       [ :start_browser, "s1", :headed ],
       [ :stop_browser, "s1" ]
     ], FullBackend.calls
@@ -135,5 +150,44 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
 
     orchestrator.read_file("s1", "app/..hidden/file.rb")
     assert_equal [ [ :read_file, "s1", "app/..hidden/file.rb" ] ], FullBackend.calls
+  end
+
+  test "a backend whose read_file takes no base reads the working tree, and is refused the checkout commit" do
+    backend = Class.new(BareBackend) do
+      def changed_files(_session) = { base_commit: "a" * 40, files: [] }
+      def read_file(_session, path) = "now: #{path}".b
+    end
+    stub_const_backend(backend) do |orchestrator|
+      assert orchestrator.supports?(:read_file)
+      assert_not orchestrator.reads_checkout_commit?
+      assert_not orchestrator.reads_checkouts?
+      assert_equal "now: README.md", orchestrator.read_file("s1", "README.md")
+      error = assert_raises(ActionAgent::SandboxOrchestrator::UnsupportedBackendError) do
+        orchestrator.read_file("s1", "README.md", base: true)
+      end
+      assert_match(/takes no base:/, error.message)
+    end
+  end
+
+  test "a read_file that takes keyword arguments it does not name, or delegates them, reads the checkout commit" do
+    [
+      Class.new(BareBackend) { def read_file(_session, path, **options) = "#{path} #{options}".b },
+      Class.new(BareBackend) { def read_file(*args) = args.inspect.b }
+    ].each do |backend|
+      stub_const_backend(backend) do |orchestrator|
+        assert orchestrator.reads_checkout_commit?
+        assert_match(/base/, orchestrator.read_file("s1", "README.md", base: true))
+      end
+    end
+  end
+
+  private
+
+  def stub_const_backend(backend)
+    self.class.const_set(:OneOffBackend, backend)
+    ActionAgent.sandbox_backends = { "one_off" => "#{self.class.name}::OneOffBackend" }
+    yield ActionAgent::SandboxOrchestrator.new(backend: "one_off")
+  ensure
+    self.class.send(:remove_const, :OneOffBackend) if self.class.const_defined?(:OneOffBackend, false)
   end
 end

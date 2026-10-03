@@ -7,6 +7,7 @@ module ActionAgent
 
     belongs_to :agent_template, optional: true
     has_many :code_sessions, dependent: :destroy
+    has_many :draft_pull_requests, dependent: :destroy
 
     # Session statuses
     enum :status, {
@@ -202,6 +203,26 @@ module ActionAgent
       return {} unless ProviderKey::CONNECTION_PROVIDERS.include?(runner)
 
       owners_record(ProviderKey.where(provider: runner))&.runtime_environment || {}
+    end
+
+    # The values this session's sandbox holds that must never leave it: the
+    # checkout token where one is stored, the Claude Code and Codex
+    # credentials it hands its checkout, and its runtime's MCP token. Reads
+    # without minting.
+    #
+    # @return [Array<String>]
+    def secret_values
+      spec = begin
+        checkout_spec
+      rescue StandardError
+        nil
+      end
+      [
+        spec&.dig(:token),
+        *runtime_environment.values,
+        *runtime_environment(runner: "codex").values,
+        runtime_mcp_token
+      ].compact.map(&:to_s).uniq
     end
 
     # Check if session is still valid
