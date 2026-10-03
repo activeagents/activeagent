@@ -135,9 +135,10 @@ ActionAgent.configure do |config|
   # Through a GitHub App, each checkout gets a one-hour token limited to its
   # one repository. Settings -> Integrations -> Create GitHub App registers
   # one for you and shows these values once; otherwise register the App with
-  # "Request user authorization (OAuth) during installation" and the callback
-  # URL <mount>/api/github_installations/callback. Each setting falls back to
-  # its GITHUB_APP_* environment variable.
+  # "Request user authorization (OAuth) during installation" and "Redirect on
+  # update" turned on and the callback URL
+  # <mount>/api/github_installations/callback. Each setting falls back to its
+  # GITHUB_APP_* environment variable.
   #
   # config.github_app_id = Rails.application.credentials.dig(:github_app, :id)
   # config.github_app_slug = Rails.application.credentials.dig(:github_app, :slug)
