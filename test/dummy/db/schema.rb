@@ -156,6 +156,7 @@ ActiveRecord::Schema[8.0].define(version: 19) do
     t.json "action_prompts", default: [], null: false
     t.string "agent_class_name"
     t.json "appearance", default: {}
+    t.json "approval_required_tools"
     t.datetime "created_at", null: false
     t.text "description"
     t.datetime "first_observed_at"
@@ -310,6 +311,35 @@ ActiveRecord::Schema[8.0].define(version: 19) do
     t.bigint "user_id"
     t.index [ "account_id" ], name: "index_active_agent_github_connections_on_account_id"
     t.index [ "user_id" ], name: "index_active_agent_github_connections_on_user_id"
+  end
+
+  create_table "active_agent_input_requests", force: :cascade do |t|
+    t.bigint "account_id"
+    t.text "answer"
+    t.json "answer_schema"
+    t.datetime "answered_at"
+    t.bigint "answered_by_id"
+    t.json "arguments"
+    t.text "checkpoint"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "kind", null: false
+    t.json "options"
+    t.string "pause_key", null: false
+    t.text "prompt", null: false
+    t.bigint "requested_by_id"
+    t.integer "status", default: 0, null: false
+    t.bigint "subject_id", null: false
+    t.string "subject_type", null: false
+    t.string "tool_call_id"
+    t.string "tool_name"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_input_requests_on_account_id"
+    t.index [ "pause_key" ], name: "index_active_agent_input_requests_on_pause_key"
+    t.index [ "status", "expires_at" ], name: "index_active_agent_input_requests_on_status_and_expires_at"
+    t.index [ "subject_type", "subject_id" ], name: "idx_on_subject_type_subject_id_d502213c76"
+    t.index [ "user_id" ], name: "index_active_agent_input_requests_on_user_id"
   end
 
   create_table "active_agent_project_secrets", force: :cascade do |t|

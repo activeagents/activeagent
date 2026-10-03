@@ -29,8 +29,13 @@ module ActionAgent
 
       NAMES = %w[
         evaluations_list evaluations_get evaluations_run evaluation_runs_get evaluation_runs_compare
-        traces_search traces_get
+        traces_search traces_get input_requests_list input_requests_answer
       ].freeze
+
+      # The kinds input_requests_answer answers. An approval and a secret are
+      # answered in the dashboard only: a secret must not pass through the
+      # client's model, and an approval is a person's decision.
+      MCP_ANSWERABLE_KINDS = %w[text choice].freeze
 
       LIST_LIMIT = 20
       MAX_LIST_LIMIT = 50
@@ -153,6 +158,32 @@ module ActionAgent
             properties: { trace_id: { type: "string", description: "The trace's id, its OpenTelemetry trace id, or that id's first 8 characters" } },
             required: [ "trace_id" ]
           }
+        },
+        {
+          name: "input_requests_list",
+          description: "List the requests for input this key's paused agent runs are waiting on, newest first: each " \
+                       "request's id, kind (text, choice, confirm or secret), prompt, options, agent, run and expiry.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              run_id: { type: "integer", description: "Only this run's requests" },
+              limit: { type: "integer", description: "At most this many (default #{LIST_LIMIT}, max #{MAX_LIST_LIMIT})" }
+            }
+          }
+        },
+        {
+          name: "input_requests_answer",
+          description: "Answer a text or choice request for input, which resumes its run once every request of the " \
+                       "pause is answered. A choice answer must be one of the request's options. Confirm and secret " \
+                       "requests are answered in the dashboard only.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              input_request_id: { type: "integer", description: "The request's id" },
+              answer: { type: "string", description: "The answer" }
+            },
+            required: [ "input_request_id", "answer" ]
+          }
         }
       ].freeze
 
@@ -186,6 +217,8 @@ module ActionAgent
         when "evaluation_runs_compare" then evaluation_runs_compare_tool
         when "traces_search" then traces_search_tool
         when "traces_get" then traces_get_tool
+        when "input_requests_list" then input_requests_list_tool
+        when "input_requests_answer" then input_requests_answer_tool
         end
       end
 
@@ -378,6 +411,40 @@ module ActionAgent
           spans_omitted: [ spans.size - MAX_TRACE_SPANS, 0 ].max
         )
         PayloadBounds.bound(payload, max_string: MAX_STRING, max_items: MAX_TRACE_SPANS)
+      end
+
+      def input_requests_list_tool
+        InputRequest.expire_overdue!(owner_input_requests)
+        scope = owner_input_requests.pending.for_listing.includes(:subject).recent
+        if (run_id = tool_argument(:run_id)).present?
+          scope = scope.where(subject_type: AgentRun.polymorphic_name, subject_id: run_id.to_s)
+        end
+        limit = integer_argument(:limit, default: LIST_LIMIT, min: 1, max: MAX_LIST_LIMIT)
+
+        { input_requests: scope.limit(limit).map { |request| InputRequestSerializer.call(request) } }
+      end
+
+      # Answered as the key's user, under the permission check the dashboard
+      # applies.
+      def input_requests_answer_tool
+        id = tool_argument(:input_request_id)
+        raise MCPController::McpError.new("Missing required argument: input_request_id", MCPController::JSONRPC_INVALID_PARAMS) if id.blank?
+        raise MCPController::McpError.new("Agent execution is disabled on this dashboard") unless ActionAgent.execution_enabled?
+
+        request = owner_input_requests.find_by(id: id.to_s) or raise ToolError, "No input request #{id.to_s.truncate(32)} was found"
+        unless MCP_ANSWERABLE_KINDS.include?(request.kind)
+          raise ToolError, "Input request #{request.id} is a #{request.kind} request, which is answered in the dashboard, " \
+                           "not over MCP: open the run #{request.subject_id} there to answer it"
+        end
+        raise ToolError, "You do not have permission to answer input request #{request.id}" unless request.answerable_by?(current_user)
+
+        begin
+          request.answer!(tool_argument(:answer), user: current_user)
+        rescue InputRequest::Conflict, InputRequest::InvalidAnswer => e
+          raise ToolError, e.message
+        end
+
+        { input_request: InputRequestSerializer.call(request) }
       end
 
       # `trace_id` names the result's telemetry trace for traces_get, and is
