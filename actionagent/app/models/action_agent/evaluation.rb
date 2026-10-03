@@ -201,8 +201,10 @@ module ActionAgent
     # unlike #replace_scenarios!, which treats its input as the whole suite.
     #
     #   - An existing key gets the given prompt, group, notes and
-    #     expectations, and keeps its record, results, position and enabled
-    #     flag unless the attributes set "position" or "enabled".
+    #     expectations, and a group, notes or expectations the attributes
+    #     leave out clears the stored one. It keeps its record, results,
+    #     position and enabled flag unless the attributes set "position" or
+    #     "enabled".
     #   - A new key is appended after the suite's last position, in input
     #     order, enabled unless the attributes say otherwise.
     #

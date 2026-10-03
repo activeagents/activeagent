@@ -78,8 +78,9 @@ module ActionAgent
               prompt: { type: "string", description: "The message a user would send the agent" },
               key: {
                 type: "string",
-                description: "A stable key. A scenario whose key the evaluation holds is updated; one without a key " \
-                             "gets the next unused <group>_<n>"
+                description: "A stable key. A scenario whose key the evaluation holds is replaced by this one, " \
+                             "keeping its results, position and enabled flag; one without a key gets the next " \
+                             "unused <group>_<n>"
               },
               group: { type: "string", description: "The group of related scenarios this one belongs to" },
               notes: { type: "string", description: "What a good answer does: the judge grades the answer against it" },

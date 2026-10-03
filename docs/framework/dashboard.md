@@ -659,7 +659,8 @@ wrote by hand. For each scenario it is given:
 
 - **A key the evaluation holds** updates that scenario's prompt, group, notes
   and expectations in place. It keeps its results, its position and whether it
-  is enabled.
+  is enabled. A group, notes or expectations the call leaves out are cleared,
+  so send the whole scenario, not only the fields that change.
 - **A new key** is added after the suite's last scenario, in the order given.
 - **No key** gets the next `<group>_<n>` the evaluation does not use, so the
   same keyless batch merged twice is added twice, under distinct keys.

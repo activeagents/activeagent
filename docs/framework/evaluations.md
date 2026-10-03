@@ -389,7 +389,8 @@ evaluation.merge_scenarios!(attributes, limit: 2_000)
 
 - An existing key gets the given prompt, group, notes and expectations, and
   keeps its position and `enabled` flag unless the attributes set
-  `"position"` or `"enabled"`.
+  `"position"` or `"enabled"`. A group, notes or expectations the attributes
+  leave out are cleared.
 - A new key is appended after the suite's last position, in input order.
 - `limit:` refuses, with `Evaluation::ScenarioLimitExceeded`, a merge that
   would leave the suite holding more scenarios than that. A refused or failed
