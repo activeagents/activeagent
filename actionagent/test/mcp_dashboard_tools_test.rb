@@ -259,6 +259,25 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, ollama_key
   end
 
+  test "a member's personal provider key is masked like the organization's" do
+    ActionAgent::ProviderKey.delete_all
+    ActionAgent.user_class = "User"
+    ActionAgent.account_class = "User"
+    ActionAgent.multi_tenant = true
+    account = User.create!(email: "acme-#{SecureRandom.hex(3)}@example.com", name: "Acme", age: 30)
+    member = User.create!(email: "ada-#{SecureRandom.hex(3)}@example.com", name: "Ada", age: 30)
+    @key.update_columns(account_id: account.id)
+    @agent.update_columns(user_id: account.id)
+    personal = "sk-personal-dashboard-tools-s3cret"
+    ActionAgent::ProviderKey.create!(provider: "openai", credential: personal, account_id: account.id, scope_key: "user:#{member.id}")
+    completed_run(output: "Order ABC-123 shipped. debug: #{personal}")
+
+    result = structured(call_tool("evaluation_runs_get", { evaluation_id: @suite.id }))
+
+    assert_includes result["results"].find { |entry| entry["model"] == "mock/alpha" }["output"], ActionAgent::SecretScrubber::MASK
+    assert_not_includes response.body, personal
+  end
+
   test "evaluation_runs_get pages results by limit and counts the rest" do
     run = @suite.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     scenario = @suite.scenarios.sole

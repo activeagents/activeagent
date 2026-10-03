@@ -49,10 +49,11 @@ module ActionAgent
       new(agent_record, run).call
     end
 
-    # Returns the providers in Agent::PROVIDERS a run on +owner+'s behalf has
-    # credentials for, in that order (see #available_providers).
-    def self.available_providers(owner)
-      new(nil, nil, owner: owner).available_providers
+    # Returns the providers in Agent::PROVIDERS a run on +owner+'s behalf,
+    # started by +actor+, has credentials for, in that order (see
+    # #available_providers).
+    def self.available_providers(owner, actor: nil)
+      new(nil, nil, owner: owner, actor: actor).available_providers
     end
 
     # Tool-call keywords that name the caller. The model's arguments and the
@@ -63,20 +64,27 @@ module ActionAgent
     ACTOR_KEYWORDS = %i[actor current_user].freeze
 
     # +owner+ is whose provider credentials the run uses: the agent record's
-    # owner unless given.
-    def initialize(agent_record, run, owner: nil)
+    # owner unless given. +actor+ is who those credentials are resolved for
+    # (see ProviderCredentials): the run's actor unless given.
+    def initialize(agent_record, run, owner: nil, actor: nil)
       @agent_record = agent_record
       @run = run
       @owner = owner
+      @credentials_actor = actor
       @tool_invocations = []
       @event_sequence = 0
     end
 
     # Returns the providers in Agent::PROVIDERS the owner's credentials, or
-    # the host's config, let a run use: #provider_available? for each.
+    # the host's config, let a run use: #provider_available? for each. A
+    # provider whose credentials cannot be resolved is left out.
     # @return [Array<String>]
     def available_providers
-      Agent::PROVIDERS.select { |name| provider_available?(name) }
+      Agent::PROVIDERS.select do |name|
+        provider_available?(name)
+      rescue ProviderCredentials::Unresolved
+        false
+      end
     end
 
     # The caller this run executes on behalf of, or nil when it runs
@@ -744,6 +752,8 @@ module ActionAgent
       keyword ? { keyword.to_sym => user_text } : {}
     end
 
+    # Unresolved credentials propagate, so the run fails with that error
+    # rather than with ProviderNotConfiguredError.
     def provider_available?(name)
       # The gem's mock provider is a test double: accepted only in the test
       # environment so app runs can never store fabricated output.
@@ -758,18 +768,22 @@ module ActionAgent
       else
         config[:access_token].present?
       end
+    rescue ProviderCredentials::Unresolved
+      raise
     rescue StandardError
       false
     end
 
-    # Credential overrides for +name+: whatever the host app resolves for
-    # this owner first, then the dashboard's own stored ProviderKey.
+    # Credential overrides for +name+, as ProviderCredentials resolves them
+    # for this owner and actor.
     def owner_provider_options(name)
       @owner_provider_options ||= {}
-      @owner_provider_options[name.to_s] ||= begin
-        from_host = ActionAgent.provider_credentials(owner, name.to_s)
-        from_host.presence || ProviderKey.for_owner(owner).find_by(provider: name.to_s)&.generation_options || {}
-      end
+      @owner_provider_options[name.to_s] ||=
+        ProviderCredentials.resolve(owner: owner, actor: credentials_actor, provider: name).options
+    end
+
+    def credentials_actor
+      @credentials_actor || @run&.actor
     end
 
     def build_root_span

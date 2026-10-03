@@ -60,9 +60,11 @@ module ActionAgent
       # nothing owns) come back unfiltered.
       # An unresolved owner scopes to nothing rather than to
       # `where(id: nil)`, which would match every unowned row and leak them
-      # across tenants.
+      # across tenants. Only the rows the model's .owned_rows admits are
+      # returned, so a personal provider key never comes back from here.
       def owned(relation)
         klass = relation.respond_to?(:klass) ? relation.klass : relation
+        relation = relation.merge(klass.owned_rows) if klass.respond_to?(:owned_rows)
 
         case klass.owner_association
         when :account then current_account ? relation.where(account_id: current_account.id) : relation.none

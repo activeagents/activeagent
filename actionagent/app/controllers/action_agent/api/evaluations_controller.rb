@@ -69,7 +69,7 @@ module ActionAgent
           evaluations: evaluations.map { |evaluation| serialize(evaluation) },
           archived_count: archived_count,
           **judge_provider_fields(owner),
-          model_providers: AgentExecutionService.available_providers(owner)
+          model_providers: AgentExecutionService.available_providers(owner, actor: current_user)
         }
       end
 
