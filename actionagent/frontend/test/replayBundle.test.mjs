@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 // The dashboard bundle (index.jsx) must carry no rrweb code: the replayer
 // ships in its own bundle (replay/player.js), loaded only by the session
-// player's frame. Checked on the source import graph, so it holds before
-// the bundles are rebuilt.
+// player's frame, and the recorder in another (recorder/recorder.js), which
+// the dashboard imports by URL while the Run Agent workbench is open.
+// Checked on the source import graph, so it holds before the bundles are
+// rebuilt.
 
 const FRONTEND = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXTENSIONS = ['', '.jsx', '.js', '.mjs', '/index.js', '/index.jsx'];
@@ -46,4 +48,8 @@ test('the dashboard bundle imports no rrweb package', () => {
 
 test('the replay bundle imports the rrweb replayer', () => {
   assert.ok(packagesReachableFrom(join(FRONTEND, 'replay/player.js')).has('@rrweb/replay'));
+});
+
+test('the recorder bundle imports the rrweb recorder and nothing else', () => {
+  assert.deepEqual([...packagesReachableFrom(join(FRONTEND, 'recorder/recorder.js'))], ['@rrweb/record']);
 });
