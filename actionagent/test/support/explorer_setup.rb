@@ -17,14 +17,20 @@ module ExplorerSetup
 
   # A browser's MCP endpoint that keeps a page path, answers the sign-in
   # page functions BrowserSignIn evaluates, and records every call.
+  #
+  # A sign-in page (SIGN_IN_PAGES) shows a password field when
+  # login_has_password. Submitting it lands on lands_on when signs_in, and
+  # otherwise shows the form again, on fails_on when that is set. +filler+
+  # is added to every page snapshot.
   class FakeBrowser
     TOOLS = %w[
       browser_navigate browser_navigate_back browser_snapshot browser_click browser_type browser_evaluate
-      browser_file_upload browser_wait_for browser_verify_text_visible
+      browser_file_upload browser_wait_for browser_verify_text_visible browser_network_requests browser_network_request
     ].freeze
+    SIGN_IN_PAGES = %w[/users/sign_in /login].freeze
 
-    attr_reader :calls
-    attr_accessor :path, :login_has_password, :signs_in, :on_call
+    attr_reader :calls, :typed_password
+    attr_accessor :path, :login_has_password, :signs_in, :lands_on, :fails_on, :filler, :on_call
     attr_writer :tools
 
     def tools = @tools || TOOLS
@@ -34,7 +40,12 @@ module ExplorerSetup
       @path = "/"
       @login_has_password = true
       @signs_in = true
+      @lands_on = "/dashboard"
+      @fails_on = nil
+      @filler = ""
+      @form_shown = false
       @typed_password = nil
+      @requests = []
     end
 
     def tool_calls(name = nil)
@@ -77,22 +88,37 @@ module ExplorerSetup
       case name
       when "browser_navigate"
         self.path = URI.parse(arguments["url"].to_s).path.presence || "/"
+        @form_shown = login_has_password && SIGN_IN_PAGES.include?(path)
+        @requests = [ "[GET] #{APP_URL}#{path} => [200] OK" ]
         page
       when "browser_click"
-        self.path = "/dashboard" if arguments["target"] == ActionAgent::BrowserSignIn::SUBMIT_TARGET && signs_in
+        submit if arguments["target"] == ActionAgent::BrowserSignIn::SUBMIT_TARGET
         page
       when "browser_evaluate" then evaluate(arguments["function"].to_s)
       when "browser_type"
         @typed_password = arguments["text"] if arguments["target"] == ActionAgent::BrowserSignIn::PASSWORD_TARGET
         ""
+      when "browser_network_requests" then @requests.join("\n")
+      when "browser_network_request" then "user[password]=#{@typed_password}"
       else page
+      end
+    end
+
+    def submit
+      @requests << "[POST] #{APP_URL}#{path} => [302] Found"
+      if signs_in
+        self.path = lands_on
+        @form_shown = false
+      else
+        self.path = fails_on || path
+        @form_shown = true
       end
     end
 
     # A snapshot shows what a password field holds, as Playwright's does.
     def page
       text =
-        if path == "/users/sign_in"
+        if @form_shown
           "- textbox \"Password\" [ref=e2]#{": #{@typed_password}" if @typed_password}"
         else
           "- heading \"Page #{path}\" [ref=e1]"
@@ -103,7 +129,9 @@ module ExplorerSetup
     def evaluate(function)
       value =
         if function.include?("data-aa-sign-in")
-          login_has_password ? { password: true, login: true, submit: true, path: path } : { password: false, path: path }
+          @form_shown ? { password: true, login: true, submit: true, path: path } : { password: false, path: path }
+        elsif function.include?("passwordField")
+          { path: path, passwordField: @form_shown }
         elsif function.include?("location.pathname")
           path
         else

@@ -105,6 +105,12 @@ class ProjectSecretTest < ActiveSupport::TestCase
     assert_not_includes forms, ""
     text = "a #{SECRET} b #{[ SECRET ].pack("m0")} c #{ERB::Util.url_encode(SECRET)} d #{URI.encode_www_form_component(SECRET)}"
     assert_equal "a [REDACTED] b [REDACTED] c [REDACTED] d [REDACTED]", ActionAgent::SecretScrubber.scrub(text, forms)
+
+    quoted = 'pa"ss\\word<1>'
+    body = { user: { password: quoted } }
+    [ JSON.generate(body), body.to_json ].each do |json|
+      assert_equal '{"user":{"password":"[REDACTED]"}}', ActionAgent::SecretScrubber.scrub(json, ActionAgent::SecretScrubber.with_encodings([ quoted ]))
+    end
   end
 
   test "a project's sandboxes and their code sessions are scrubbed of its secrets" do

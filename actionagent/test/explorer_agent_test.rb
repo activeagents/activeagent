@@ -26,6 +26,17 @@ class ExplorerAgentTest < ActiveSupport::TestCase
     ScriptedExplorer.results.select { |called, _result| called.to_s == name }.map(&:last)
   end
 
+  # What Rails.logger wrote at debug level while the block ran.
+  def debug_log
+    io = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io).tap { |logger| logger.level = :debug }
+    yield
+    io.string
+  ensure
+    Rails.logger = original
+  end
+
   test "the explorer is offered the allowlisted browser tools and its own, and none of the toolbox's" do
     ScriptedExplorer.script([ [ :browser_snapshot, {} ] ], [ [ :finish, { summary: "Looked at the home page." } ] ])
 
@@ -183,7 +194,8 @@ class ExplorerAgentTest < ActiveSupport::TestCase
       [ [ :finish, { summary: "Signed in and looked at the dashboard." } ] ]
     )
 
-    exploration = walk(pending_exploration!)
+    exploration = nil
+    log = debug_log { exploration = walk(pending_exploration!) }
 
     assert_equal [ { status: "signed_in", signed_in: true, message: ActionAgent::BrowserSignIn::MESSAGES["signed_in"] } ],
       results_for("sign_in")
@@ -200,15 +212,17 @@ class ExplorerAgentTest < ActiveSupport::TestCase
       "the conversation" => ActionAgent::AgentMessage.all.map(&:attributes).to_json,
       "what the model saw" => ScriptedExplorer.requests.to_json + ScriptedExplorer.results.to_json,
       "the candidates" => exploration.reload.candidates.to_json,
-      "the scenarios" => @project.reload.evaluation.scenarios.map(&:attributes).to_json
+      "the scenarios" => @project.reload.evaluation.scenarios.map(&:attributes).to_json,
+      "the debug log" => log
     }
     stored.each { |where, text| assert_not_includes text, SENTINEL, "the password is in #{where}" }
     assert ActionAgent::TelemetryTrace.exists?, "the walk was traced"
   end
 
-  test "a failed sign-in empties the password field, and no snapshot shows the password" do
+  test "a failed sign-in empties the password field, so no snapshot shows a password too short to scrub" do
+    short = "Pw7#q2"
     @browser.signs_in = false
-    @project.assign_sign_in({ login_url: "/users/sign_in", login: "dev@example.com", password: SENTINEL }).save!
+    @project.assign_sign_in({ login_url: "/users/sign_in", login: "dev@example.com", password: short }).save!
     ScriptedExplorer.script(
       [ [ :sign_in, { secret_ref: ActionAgent::Project::SIGN_IN_SECRET } ] ],
       [ [ :browser_snapshot, {} ] ],
@@ -218,9 +232,45 @@ class ExplorerAgentTest < ActiveSupport::TestCase
     walk(pending_exploration!)
 
     assert_equal "failed", results_for("sign_in").sole[:status]
+    assert_nil @browser.typed_password, "the field was emptied"
+    functions = @browser.tool_calls("browser_evaluate").map { |call| call.dig("arguments", "function") }
+    assert_equal ActionAgent::BrowserSignIn::CLEAR_PASSWORDS, functions.last
     snapshot = results_for("browser_snapshot").sole[:text]
     assert_includes snapshot, "Page URL: #{APP_URL}/users/sign_in"
-    assert_not_includes snapshot, SENTINEL
+    assert_not_includes snapshot, short
+  end
+
+  test "the explorer cannot read the browser's network requests, which keep the sign-in form's body" do
+    short = "Pw7#q2"
+    @project.assign_sign_in({ login_url: "/users/sign_in", login: "dev@example.com", password: short }).save!
+    ScriptedExplorer.script(
+      [ [ :sign_in, { secret_ref: ActionAgent::Project::SIGN_IN_SECRET } ] ],
+      [ [ :browser_network_requests, {} ], [ :browser_network_request, { index: 1, part: "request-body" } ] ],
+      [ [ :finish, {} ] ]
+    )
+
+    walk(pending_exploration!)
+
+    assert_not_includes ScriptedExplorer.offered.first, "browser_network_request"
+    assert_not_includes ScriptedExplorer.offered.first, "browser_network_requests"
+    refused = results_for("browser_network_requests") + results_for("browser_network_request")
+    assert(refused.all? { |result| result[:error].to_s.include?("not one of the explorer's tools") }, refused.inspect)
+    assert_empty @browser.tool_calls("browser_network_request")
+    assert_not_includes ScriptedExplorer.results.to_json, short
+  end
+
+  test "sign-in is judged by the password field: a failure on another path fails, a success on the same path signs in" do
+    @project.assign_sign_in({ login_url: "/users/sign_in", login: "dev@example.com", password: SENTINEL }).save!
+    secret = @project.secrets.sign_in.sole
+
+    @browser.signs_in = false
+    @browser.fails_on = "/users/session"
+    assert_equal "failed", ActionAgent::BrowserSignIn.call(@sandbox.reload, secret).status
+    assert_nil @browser.typed_password
+
+    @browser.signs_in = true
+    @browser.lands_on = "/users/sign_in"
+    assert_equal "signed_in", ActionAgent::BrowserSignIn.call(@sandbox, secret).status
   end
 
   test "sign_in answers unsupported when the login page has no password field, and names a missing secret" do
