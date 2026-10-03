@@ -20,6 +20,11 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
   STATUS_TOKEN = "ghs_#{'S' * 36}"
   CLAUDE_KEY = "sk-ant-api03-draftPullRequestSecret_0123"
   OAUTH_TOKEN = "gho_#{'O' * 36}"
+  # What GitHub answers a draft pull request in a repository without them.
+  DRAFT_REFUSAL = {
+    message: "Validation Failed",
+    errors: [ { resource: "PullRequest", code: "custom", message: "Draft pull requests are not supported in this repository." } ]
+  }.freeze
   BASE_PATH = "/activeagents/api/sandboxes"
 
   def setup
@@ -574,6 +579,27 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a draft is taken for refused only from GitHub's validation errors, never from a branch name in them" do
+    sandbox = app_sandbox!
+    stage!(sandbox)
+    stub_github!(branch: "fix/draft-mode", pulls_failure: {
+      status: 422,
+      body: { message: "Validation Failed", errors: [ { resource: "PullRequest", code: "custom", message: "No commits between main and fix/draft-mode" } ] }
+    })
+    publish!(sandbox, preview_files: preview!(sandbox), paths: [ "README.md" ], branch: "fix/draft-mode")
+    perform_enqueued_jobs
+
+    record = ActionAgent::DraftPullRequest.sole
+    assert_equal [ "failed", "github_error" ], [ record.status, record.error_code ]
+    assert_match(/No commits between main and fix\/draft-mode/, record.error_message)
+
+    ActionAgent::DraftPullRequest.delete_all
+    stub_github!(draft_refused: { message: "Validation Failed", errors: [ { resource: "PullRequest", field: "draft", code: "invalid" } ] })
+    publish!(sandbox, preview_files: preview!(sandbox), paths: [ "README.md" ])
+    perform_enqueued_jobs
+    assert_equal "draft_refused", ActionAgent::DraftPullRequest.sole.status
+  end
+
   test "the mock backend offers no publishing" do
     ActionAgent.sandbox_service = :mock
     sandbox = app_sandbox!
@@ -673,18 +699,21 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
   end
 
   # Stubs every GitHub call a publish makes, recording each as
-  # { method:, endpoint:, token:, body: } in @calls.
-  def stub_github!(token: WRITE_TOKEN, branch_head: nil, commit_sha: "d" * 40, draft_refused: false, create_ref_status: 201,
-                   blob_status: 201)
+  # { method:, endpoint:, token:, body: } in @calls. +draft_refused+ is
+  # true for GitHub's usual refusal of a draft, or the body to refuse it
+  # with; +pulls_failure+ ({ status:, body: }) fails every POST /pulls.
+  def stub_github!(token: WRITE_TOKEN, branch: "activeagent/gadgets", branch_head: nil, commit_sha: "d" * 40, draft_refused: false,
+                   create_ref_status: 201, blob_status: 201, pulls_failure: nil)
     stub_mint(token: token) unless token == OAUTH_TOKEN
     api = "#{GithubAppTestHelper::API}/repos/#{REPO}"
+    draft_refusal = draft_refused == true ? DRAFT_REFUSAL : draft_refused
     blobs = 0
     record = lambda do |method, endpoint, request|
       @calls << { method: method, endpoint: endpoint, token: bearer(request), body: request.body.present? ? JSON.parse(request.body) : nil }
     end
 
     stub_request(:get, "#{api}/git/ref/heads/main").to_return(status: 200, body: { object: { sha: BASE } }.to_json)
-    stub_request(:get, "#{api}/git/ref/heads/activeagent/gadgets").to_return do |request|
+    stub_request(:get, "#{api}/git/ref/heads/#{branch}").to_return do |request|
       record.call(:get, "ref", request)
       branch_head ? { status: 200, body: { object: { sha: branch_head } }.to_json } : { status: 404, body: { message: "Not Found" }.to_json }
     end
@@ -708,15 +737,17 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
       record.call(:post, "refs", request)
       create_ref_status == 201 ? { status: 201, body: { ref: "refs/heads/x" }.to_json } : { status: 422, body: { message: "Reference already exists" }.to_json }
     end
-    stub_request(:patch, "#{api}/git/refs/heads/activeagent/gadgets").to_return do |request|
+    stub_request(:patch, "#{api}/git/refs/heads/#{branch}").to_return do |request|
       record.call(:patch, "refs", request)
-      { status: 200, body: { ref: "refs/heads/activeagent/gadgets" }.to_json }
+      { status: 200, body: { ref: "refs/heads/#{branch}" }.to_json }
     end
     stub_request(:post, "#{api}/pulls").to_return do |request|
       record.call(:post, "pulls", request)
       draft = JSON.parse(request.body)["draft"]
-      if draft && draft_refused
-        { status: 422, body: { message: "Validation Failed", errors: [ { message: "Draft pull requests are not supported in this repository." } ] }.to_json }
+      if pulls_failure
+        { status: pulls_failure.fetch(:status), body: pulls_failure.fetch(:body).to_json }
+      elsif draft && draft_refusal
+        { status: 422, body: draft_refusal.to_json }
       else
         { status: 201, body: { number: 12, html_url: "https://github.com/#{REPO}/pull/12", state: "open", draft: draft }.to_json }
       end

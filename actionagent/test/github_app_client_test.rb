@@ -141,6 +141,16 @@ class GithubAppClientTest < ActiveSupport::TestCase
     end
     assert_equal 422, error.status
     assert_equal "GitHub answered 422 (Validation Failed: A pull request already exists for acme:fix.)", error.message
+    assert_equal [ { "resource" => "PullRequest", "message" => "A pull request already exists for acme:fix." } ], error.errors
+  end
+
+  test "an error carries no validation errors when GitHub's answer has none" do
+    stub_request(:get, "https://api.github.com/repos/acme/shop/pulls/3").to_return(status: 502, body: "<html>Bad gateway</html>")
+
+    error = assert_raises(ActionAgent::GithubClient::Error) { ActionAgent::GithubClient.new("ghs_reader").pull_request("acme/shop", 3) }
+
+    assert_equal [ 502, [] ], [ error.status, error.errors ]
+    assert_equal "GitHub answered 502", error.message
   end
 
   test "Git Data API calls name only a repository, a branch and object ids GitHub could have issued" do
