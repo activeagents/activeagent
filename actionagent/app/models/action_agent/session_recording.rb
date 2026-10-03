@@ -136,10 +136,14 @@ module ActionAgent
     # same redaction the /actions endpoint applies: this is what #show
     # renders, and it used to hand back the cleartext password that
     # /actions had just redacted for the same action.
+    #
+    # Each entry names its action `action_type`, as /actions entries do.
+    # `type` carries the same value for readers of the older key.
     def timeline
       recording_actions.order(:sequence).map do |action|
         {
           id: action.id,
+          action_type: action.action_type,
           type: action.action_type,
           sequence: action.sequence,
           timestamp_ms: action.timestamp_ms,

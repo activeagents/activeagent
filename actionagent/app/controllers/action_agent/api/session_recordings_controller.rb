@@ -22,10 +22,7 @@ module ActionAgent
       # GET /api/session_recordings
       # List recordings with optional filters
       def index
-        # Recordings the caller can reach, plus the shared demo. Ownership is
-        # a real column rather than a JSON metadata key, so this works on
-        # every adapter.
-        recordings = reachable_recordings.or(SessionRecording.where(name: "lander_demo")).recent
+        recordings = reachable_recordings.recent
 
         # Filter by status
         recordings = recordings.where(status: params[:status]) if params[:status].present?
@@ -79,21 +76,23 @@ module ActionAgent
       end
 
       # GET /api/session_recordings/:id/actions
-      # Get the action timeline for playback
+      # One page of the action timeline, in sequence order. Pass the last
+      # sequence received as after_sequence to get the next page; has_more
+      # says whether one exists. limit is 1..500, default 100.
       def actions
         actions = @recording.recording_actions.ordered
 
-        # Support pagination for large recordings
-        if params[:after_sequence].present?
-          actions = actions.where("sequence > ?", integer_param(:after_sequence, default: 0))
-        end
+        after_sequence = integer_param(:after_sequence)
+        actions = actions.where("sequence > ?", after_sequence) if after_sequence
 
-        limit = [ integer_param(:limit, default: 100), 500 ].min
-        actions = actions.limit(limit)
+        limit = clamped_param(:limit, default: 100, min: 1, max: 500)
+        # One row past the page tells whether another page follows.
+        page = actions.limit(limit + 1).to_a
+        has_more = page.size > limit
 
         render json: {
-          actions: actions.map(&:as_json_for_api),
-          has_more: actions.count == limit,
+          actions: page.first(limit).map(&:as_json_for_api),
+          has_more: has_more,
           total_actions: @recording.action_count
         }
       end
@@ -277,10 +276,9 @@ module ActionAgent
 
       private
 
-      # Scoped through can_manage_recording? rather than owned(): nothing in
-      # the engine writes user_id/account_id onto a recording, so an
-      # ownership scope would hide it from the person who made it. 404 rather
-      # than 403 so ids stay unenumerable.
+      # Opens a recording only when can_manage_recording? allows it, the
+      # reachability reachable_recordings lists by. 404 rather than 403 so
+      # ids stay unenumerable.
       def set_recording
         @recording = SessionRecording.find(params[:id])
         return if can_manage_recording?(@recording)
