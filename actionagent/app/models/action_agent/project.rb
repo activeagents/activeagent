@@ -446,7 +446,7 @@ module ActionAgent
         evaluation: evaluation && { id: evaluation.id, name: evaluation.name },
         preflight: settings["preflight"],
         local_boot_confirmed_at: settings["local_boot_confirmed_at"],
-        secret_count: secrets.size,
+        secret_count: secrets.count(&:env?),
         created_at: created_at&.iso8601,
         updated_at: updated_at&.iso8601
       }
