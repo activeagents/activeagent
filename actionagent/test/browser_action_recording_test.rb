@@ -58,6 +58,18 @@ class BrowserActionRecordingTest < ActiveSupport::TestCase
     assert_equal %w[Email Password], fields.map { |field| field["name"] }
   end
 
+  test "browser_handle_dialog is recorded with its prompt text masked" do
+    with_tool_result({ text: "Dialog answered with s3cret-answer" }) do
+      @service.execute_tool("browser_handle_dialog", accept: true, promptText: "s3cret-answer")
+    end
+
+    action = recorded_actions.sole
+    assert_equal "dialog", action["action_type"]
+    assert_equal({ "accept" => true, "promptText" => "[REDACTED]" }, action["parameters"])
+    assert_equal "Dialog answered with [REDACTED]",
+      ActionAgent::BrowserToolRedaction.redact_text("browser_handle_dialog", "Dialog answered with s3cret-answer", { promptText: "s3cret-answer" })
+  end
+
   test "the owner's credentials are scrubbed from what is recorded" do
     ActionAgent::ProviderKey.create!(provider: "openai", credential: "sk-recorded-credential-1234")
 
