@@ -184,9 +184,11 @@ module ActionAgent
                "resource returns the agent's live scorecard."
         return text unless ActionAgent.mcp_dashboard_tools?
 
-        "#{text} The evaluations_, scenarios_, evaluation_runs_ and traces_ tools work on this account's evaluations " \
-          "and telemetry: create an evaluation with evaluations_create and add scenarios to it with scenarios_merge, " \
-          "which never removes or disables a scenario it was not given (neither tool runs anything), edit the agent " \
+        "#{text} The evaluations_, scenarios_, explorations_, evaluation_runs_ and traces_ tools work on this " \
+          "account's evaluations and telemetry: create an evaluation with evaluations_create and add scenarios to it " \
+          "with scenarios_merge, which never removes or disables a scenario it was not given (neither tool runs " \
+          "anything), or submit the questions you found by exploring a project's app with explorations_submit, for a " \
+          "person to review and accept on the dashboard (it returns each candidate's verdict), edit the agent " \
           "in your own checkout, start a run with evaluations_run (pass sandbox_id to run against a checkout " \
           "sandbox), poll evaluation_runs_get for its status, results and fix items, compare runs with " \
           "evaluation_runs_compare, and read a failing result's trace with traces_get (traces_search finds recent " \
