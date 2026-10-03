@@ -231,6 +231,24 @@ test('a call that changes the page is refused, naming who drives, when control i
   assert.equal(log.length, before, 'the browser never saw the call');
 });
 
+test('a call waiting for control when the browser stops is told so', async () => {
+  const lock = new ControlLock();
+  const { instance, log } = gateway({ gateway: { lock, agentWaitMs: 5000 } });
+  const id = await session(instance);
+  lock.acquire('viewer-1', { id: '1', name: 'Ada' });
+  const before = log.length;
+
+  const clicked = call(instance, id, 'browser_click', { target: 'e2' });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  lock.close();
+  const refused = await clicked;
+
+  assert.equal(refused.body.result.isError, true);
+  assert.match(refused.body.result.content[0].text, /The browser is stopping\. Nothing was done\./);
+  assert.equal(refused.body.result._meta, undefined, 'nobody is named as driving');
+  assert.equal(log.length, before, 'the browser never saw the call');
+});
+
 test('a successful call is reported once it is done', async () => {
   const calls = [];
   const { instance } = gateway({ gateway: { afterCall: (name, args) => calls.push([name, args]) } });

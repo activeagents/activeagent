@@ -137,26 +137,27 @@ export class ControlLock extends EventEmitter {
    * @param {string} name the tool
    * @param {object} args its arguments
    * @param {number} waitMs
-   * @returns {Promise<object|null>} null to run the call, or the holder it is refused for
+   * @returns {Promise<{ holder: object }|{ stopping: true }|null>} null to run the call; otherwise why it
+   *   is refused: the holder who kept control past `waitMs`, or `stopping` when the lock closed meanwhile
    */
   async admit(name, args, waitMs) {
     if (!this.holder || !changesPage(name, args)) return null;
 
     const wait = { tool: name, since: this.now() };
     const deadline = wait.since + waitMs;
-    let holder = this.holder;
     this.waiting.add(wait);
     this.emit('agent_waiting', wait);
     // Someone may take control again between its release and this call
     // going ahead, so the wait goes on until control is free at that moment.
     while (this.holder && !this.closed && deadline > this.now()) {
-      holder = this.holder;
       if (!(await this.waitUntilFree(deadline - this.now()))) break;
     }
-    const refused = this.holder || this.closed ? (this.holder ?? holder) : null;
+    let refusal = null;
+    if (this.closed) refusal = { stopping: true };
+    else if (this.holder) refusal = { holder: this.holder };
     this.waiting.delete(wait);
-    this.emit('agent_done', { tool: name, admitted: refused === null });
-    return refused;
+    this.emit('agent_done', { tool: name, admitted: refusal === null });
+    return refusal;
   }
 
   /**
