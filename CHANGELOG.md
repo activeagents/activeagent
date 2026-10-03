@@ -73,17 +73,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agent, and its answer and the pause's checkpoint are encrypted at rest. The
   `ask` tools (`ask_user`, `request_approval`) raise `text`, `choice` and
   `confirm` requests. An agent's `approval_required_tools` holds a listed
-  tool's call until a person approves it. `request_secret` is reserved for
-  agents the engine defines. `GET /api/input_requests` lists requests without
-  their answers. `POST /api/input_requests/:id/answer` and `/decline` check
-  `:answer_input_request`, and return 409 for a settled or expired request and
-  422 for an invalid answer. A `confirm` request is approved by `true` and
-  declined by `false`. Once a pause is settled, `AgentResumeJob` resumes
-  the same run under its trace id. MCP `run_<slug>` returns a paused run's
-  request ids, and `input_requests_list` and `input_requests_answer` (text and
-  choice only) join the MCP facade. `config.input_request_ttl` (one day by
-  default) bounds how long a request waits, and `InputRequestExpiryJob`,
-  which a host schedules, fails the runs whose requests expired unread.
+  tool's call until a person approves it, and changing the list makes the
+  agent's evaluations stale. `request_secret` is reserved for agents the
+  engine defines. `GET /api/input_requests` lists requests without their
+  answers. `POST /api/input_requests/:id/answer` and `/decline` check
+  `:answer_input_request` (with no checker, a multi-tenant install lets only
+  the run's actor answer), are refused while execution is disabled, and
+  return 409 for a settled or expired request and 422 for an invalid answer.
+  A `confirm` request is approved by `true` and declined by `false`. Once a
+  pause is settled, `AgentResumeJob` resumes the same run under its trace id.
+  MCP `run_<slug>` returns a paused run's request ids, and
+  `input_requests_list` and `input_requests_answer` (text and choice only)
+  join the MCP facade. `config.input_request_ttl` (one day by default) bounds
+  how long a request waits, and `InputRequestExpiryJob`, which a host
+  schedules, fails the runs whose requests expired unread.
 
 ### Changed
 
