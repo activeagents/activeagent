@@ -349,8 +349,9 @@ class GithubInstallationsTest < ActionDispatch::IntegrationTest
     assert ActionAgent::GithubInstallation.exists?(theirs.id)
   end
 
-  test "install, callback, selection and unlink answer a denied manage_github" do
+  test "install, callback, listing, selection and unlink answer a denied manage_github" do
     installation = link_installation!
+    mint = stub_mint
     ActionAgent.permission_checker = ->(_user, action, _subject) { action != :manage_github }
 
     get "/activeagents/api/github_installations/install"
@@ -358,6 +359,10 @@ class GithubInstallationsTest < ActionDispatch::IntegrationTest
 
     get CALLBACK, params: { installation_id: INSTALLATION_ID, code: "app-code", state: "any" }
     assert_redirected_to "/activeagents/settings?github_app=forbidden&tab=integrations"
+
+    get "/activeagents/api/github_installations/#{installation.id}/repositories"
+    assert_forbidden
+    assert_not_requested mint
 
     patch "/activeagents/api/github_installations/#{installation.id}", params: { repositories: [] }, as: :json
     assert_forbidden

@@ -16,7 +16,10 @@ module ActionAgent
       before_action :require_owner!
       before_action :require_github_app!, except: [ :index, :destroy ]
       before_action :set_installation, only: [ :repositories, :update, :destroy ]
-      before_action :authorize_github!, only: [ :install, :callback, :update, :destroy ]
+      # The repository listing too: an installation can reach repositories a
+      # member cannot see on GitHub, and the listing exists only to choose
+      # them.
+      before_action :authorize_github!, only: [ :install, :callback, :repositories, :update, :destroy ]
 
       # Later handlers win, so the subclasses are registered last.
       rescue_from GithubClient::Error, with: :github_unavailable
