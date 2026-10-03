@@ -64,6 +64,9 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     @saved.each { |name, value| ActionAgent.public_send("#{name}=", value) }
     ActionAgent.user_class = nil
     ActionAgent.current_user_resolver = nil
+    ActionAgent.account_class = nil
+    ActionAgent.current_account_resolver = nil
+    ActionAgent.multi_tenant = false
   end
 
   test "a browser starts headless on the backend, with a token and a recording of its own" do
@@ -303,6 +306,28 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_match(/expires too soon to start a browser/, response.parsed_body["error"])
     assert_empty BrowserBackend.calls
+  end
+
+  test "in a multi-tenant install the account asked about the quota is the one its minutes are recorded against" do
+    ActionAgent.user_class = "User"
+    ActionAgent.account_class = "User" # the dummy app has no Account
+    ActionAgent.multi_tenant = true
+    member = User.create!(email: "member-#{SecureRandom.hex(3)}@example.com", name: "Member", age: 30)
+    account = User.create!(email: "account-#{SecureRandom.hex(3)}@example.com", name: "Account", age: 30)
+    @sandbox.update_columns(user_id: member.id, account_id: account.id)
+    ActionAgent.current_user_resolver = ->(_controller) { member }
+    ActionAgent.current_account_resolver = ->(_controller) { account }
+    asked = []
+    recorded = []
+    ActionAgent.quota_checker = ->(owner, kind) { asked << [ owner, kind ] && nil }
+    ActionAgent.usage_recorder = ->(owner, kind, quantity) { recorded << [ owner, kind, quantity ] }
+
+    post browser_path, as: :json
+    assert_response :created, response.body
+    delete browser_path, as: :json
+
+    assert_equal [ [ account, :browser_minutes ] ], asked
+    assert_equal [ [ account, :browser_minutes, 1 ] ], recorded
   end
 
   test "a backend that fails to start the browser fails it, without its token in the message" do
