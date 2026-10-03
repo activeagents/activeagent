@@ -506,7 +506,7 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a publish carries at most MAX_TOTAL_BYTES, and a preview stops reading past twice that" do
+  test "a publish carries at most MAX_TOTAL_BYTES, and a read stops past READ_BUDGET_BYTES" do
     sandbox = app_sandbox!
     limit = ActionAgent::DraftPullRequestPublisher::MAX_FILE_BYTES - 1
     files = (1..22).to_h { |n| [ format("data/%02d.txt", n), "x" * limit ] }
@@ -516,13 +516,15 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     changes = publisher.changes
 
     refusals = changes.files.map(&:refusal)
-    assert_equal [ nil ] * 21, refusals.first(21), "files are read until twice the publish limit is passed"
-    assert_equal [ "over_total" ], refusals.last(1)
+    assert_equal [ nil ] * 21, refusals.first(21), "files are read until the read budget is spent"
+    assert_equal [ "not_read" ], refusals.last(1)
     error = assert_raises(ActionAgent::DraftPullRequestPublisher::Refused) do
       publisher.select!(changes, changes.publishable.first(11).to_h { |file| [ file.path, file.digest ] })
     end
     assert_equal "too_large", error.code
     assert_equal 10, publisher.select!(changes, changes.publishable.first(10).to_h { |file| [ file.path, file.digest ] }).size
+    assert_equal [ [ "data/22.txt", nil ] ], publisher.changes(paths: [ "data/22.txt" ]).files.map { |file| [ file.path, file.refusal ] },
+      "a file past the budget is read when it is asked for on its own"
   end
 
   test "no publishing tool is offered to agents or over the MCP facade" do
@@ -703,6 +705,45 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     ActionAgent::DraftPullRequestJob.perform_now(stalled.id)
     assert_equal [ "failed", "stalled" ], [ stalled.reload.status, stalled.error_code ], "the stalled publish's job no longer runs it"
     assert_not_requested :post, mint_url
+  end
+
+  test "more changed files than one read covers are all listed, and any of them can still be chosen, published or patched" do
+    sandbox = app_sandbox!
+    max = ActionAgent::DraftPullRequestPublisher::MAX_FILES
+    generated = (1..max + 1).to_h { |n| [ format("generated/%03d.rb", n), "N = #{n}\n" ] }
+    StagedCheckoutBackend.stage_checkout(sandbox.session_id, base_commit: BASE, base: { "README.md" => "# Shop\n" },
+      working: generated.merge("README.md" => "# Shop v2\n"))
+    stub_github!
+
+    preview = preview!(sandbox)
+
+    refusals = preview["files"].to_h { |file| [ file["path"], file["refusal"] ] }
+    assert_equal max + 2, refusals.size
+    assert_equal [ "generated/300.rb", "generated/301.rb" ], refusals.select { |_path, refusal| refusal == "not_read" }.keys
+    assert_match(/limit the paths/, preview["files"].last["refusal_message"])
+
+    narrowed = preview!(sandbox, allowlist: [ "generated/3*" ])
+    assert_equal({ "generated/300.rb" => nil, "generated/301.rb" => nil },
+      narrowed["files"].to_h { |file| [ file["path"], file["refusal"] ] }.slice("generated/300.rb", "generated/301.rb"))
+
+    get "#{BASE_PATH}/#{sandbox.session_id}/pull_request/patch", params: { paths: [ "generated/301.rb" ] }
+    assert_response :success
+    assert_equal [ "generated/301.rb" ], response.body.scan(%r{^diff --git a/(\S+)}).flatten
+
+    get "#{BASE_PATH}/#{sandbox.session_id}/pull_request/patch"
+    assert_response :unprocessable_entity
+    assert_equal [ "too_large", false ], JSON.parse(response.body).values_at("code", "patch_available")
+
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request",
+      params: { title: "Add one", branch: "activeagent/gadgets", files: generated.keys.map { |path| { path: path, digest: "0" * 64 } } }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "too_large", JSON.parse(response.body)["code"], "at most MAX_FILES files are chosen"
+
+    publish!(sandbox, preview_files: narrowed, paths: [ "generated/301.rb" ], allowlist: [ "generated/3*" ])
+    assert_response :accepted, response.body
+    perform_enqueued_jobs
+    assert_equal "published", ActionAgent::DraftPullRequest.sole.status
+    assert_equal [ "N = 301\n" ], @calls.select { |call| call[:endpoint] == "blobs" }.map { |call| Base64.decode64(call[:body]["content"]) }
   end
 
   test "the mock backend offers no publishing" do

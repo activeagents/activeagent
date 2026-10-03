@@ -15,17 +15,20 @@ module ActionAgent
   #
   # A preview, a publish and a patch all read the changes the same way:
   #
-  #   1. read: the backend's changed files since the checkout commit, with
-  #      their content now and in that commit
+  #   1. list: the backend's changed files since the checkout commit
   #   2. filter: a path outside the caller's allowlist or under .github/, a
   #      symlink, a submodule, or a file over MAX_FILE_BYTES is refused
-  #   3. scan: a file holding one of the sandbox's secrets, or anything shaped
+  #   3. read: each remaining file's content now and in that commit, up to
+  #      MAX_FILES files and READ_BUDGET_BYTES; a file past either is not
+  #      read, and cannot be chosen until fewer files are asked for
+  #   4. scan: a file holding one of the sandbox's secrets, or anything shaped
   #      like a GitHub token, is refused
   #
   # A refused file is named with the reason and never published. A publish
-  # then writes blobs, a tree on the checkout commit's tree, a commit with the
-  # checkout commit as its parent, a branch that did not exist, and a draft
-  # pull request (see DraftPullRequest for its operations).
+  # or a patch reads only the files it was asked for. A publish then writes
+  # blobs, a tree on the checkout commit's tree, a commit, and either a
+  # branch that did not exist and a draft pull request, or a fast-forward of
+  # the pull request's branch (see DraftPullRequest for its operations).
   #
   # The branch of a pull request always holds the checkout commit's tree with
   # the files of its last publish on top, so its diff on GitHub is the diff
@@ -42,7 +45,9 @@ module ActionAgent
     #   not_publishable        a chosen file is refused (see FILE_REFUSALS)
     #   secret                 a chosen file holds a secret
     #   changed_since_preview  a chosen file differs from its preview
-    #   too_large              the chosen files exceed MAX_TOTAL_BYTES
+    #   too_large              the chosen files exceed MAX_FILES or
+    #                          MAX_TOTAL_BYTES, or the changes asked for
+    #                          exceed what one read covers
     #   invalid_branch         the branch name is not one git allows
     #   branch_exists          the branch already exists on GitHub
     #   branch_moved           the branch to update has commits the dashboard
@@ -62,6 +67,9 @@ module ActionAgent
     MAX_FILE_BYTES = 1024 * 1024
     MAX_TOTAL_BYTES = 10 * 1024 * 1024
     MAX_FILES = 300
+    # What one preview, publish or patch reads, counting each file's content
+    # now and in the checkout commit.
+    READ_BUDGET_BYTES = MAX_TOTAL_BYTES * 2
     MAX_BRANCH_LENGTH = 200
     WRITE_PERMISSIONS = { contents: "write", pull_requests: "write" }.freeze
     STATUS_PERMISSIONS = { pull_requests: "read" }.freeze
@@ -76,7 +84,8 @@ module ActionAgent
       "too_large" => "larger than #{MAX_FILE_BYTES / 1024 / 1024} MB",
       "unreadable" => "could not be read",
       "secret" => "contains a secret of this sandbox or a GitHub token",
-      "over_total" => "the files before it already hold more than one publish can carry"
+      "not_read" => "not read: a preview reads at most #{MAX_FILES} files and #{READ_BUDGET_BYTES / 1024 / 1024} MB, " \
+        "so limit the paths to read it"
     }.freeze
 
     # A changed file, its content now and in the checkout commit, and why it
@@ -193,14 +202,18 @@ module ActionAgent
       Refused.new("The sandbox is #{state}. Publishing reads its live checkout, so start a new sandbox to publish", code: "not_live")
     end
 
-    # Every file the sandbox changed, each read, filtered and scanned.
+    # The files the sandbox changed, each filtered, read and scanned.
     # +allowlist+ holds the patterns a path must match to be published
     # (File.fnmatch patterns, where "dir/**" matches everything under dir);
-    # nil allows every path.
+    # nil allows every path. +paths+ names the only files to list and read;
+    # nil lists every changed file.
+    #
+    # Files are read in path order until MAX_FILES are read or
+    # READ_BUDGET_BYTES is spent, and those after are refused as not_read.
     #
     # @raise [Refused]
     # @return [Changes]
-    def changes(allowlist: nil)
+    def changes(allowlist: nil, paths: nil)
       refusal = read_refusal
       raise refusal if refusal
 
@@ -208,28 +221,28 @@ module ActionAgent
       base_commit = listing[:base_commit]
       raise Refused.new("The sandbox did not record the commit it checked out", code: "unsupported") unless commit_id?(base_commit)
 
-      files = Array(listing[:files]).map do |entry|
+      wanted = paths&.to_set
+      files = Array(listing[:files]).filter_map do |entry|
+        next if wanted && !wanted.include?(entry[:path].to_s)
+
         file = ChangedFile.new(
           path: entry[:path].to_s, status: entry[:status].to_s, mode: entry[:mode], base_mode: entry[:base_mode], size: entry[:size]
         )
         file.refusal = path_refusal(file.path, allowlist) || kind_refusal(file)
         file
       end
-      candidates = files.count(&:publishable?)
-      if candidates > MAX_FILES
-        raise Refused.new("The sandbox changed #{candidates} files that could be published; at most #{MAX_FILES} can be published at once",
-          code: "too_large")
-      end
 
       secrets = scan_values
-      budget = MAX_TOTAL_BYTES * 2
+      budget = READ_BUDGET_BYTES
+      read = 0
       files = files.filter_map do |file|
         next file unless file.publishable?
 
-        if budget.negative?
-          file.refusal = "over_total"
+        if read >= MAX_FILES || budget.negative?
+          file.refusal = "not_read"
           next file
         end
+        read += 1
         read_contents(file, secrets)&.tap { budget -= file.content.to_s.bytesize + file.base_content.to_s.bytesize }
       end
       Changes.new(base_commit: base_commit, files: files)
@@ -273,16 +286,24 @@ module ActionAgent
     # preview reported them) chose.
     #
     # @raise [Refused] when nothing is chosen, a chosen file is refused or
-    #   changed since the preview, or the files exceed MAX_TOTAL_BYTES
+    #   changed since the preview, or the files exceed MAX_FILES or
+    #   MAX_TOTAL_BYTES
     # @return [Array<ChangedFile>]
     def select!(changes, selection)
       raise Refused.new("Choose at least one file to publish", code: "nothing_selected") if selection.blank?
+      if selection.size > MAX_FILES
+        raise Refused.new("#{selection.size} files are chosen; at most #{MAX_FILES} can be published at once", code: "too_large")
+      end
 
       by_path = changes.files.index_by(&:path)
       files = selection.map do |path, digest|
         file = by_path[path]
         raise Refused.new("#{path} has no changes any more. Reload the preview", code: "changed_since_preview") if file.nil?
 
+        if file.refusal == "not_read"
+          raise Refused.new("The chosen files are more than one publish reads (#{MAX_FILES} files, " \
+            "#{READ_BUDGET_BYTES / 1024 / 1024} MB). Choose fewer", code: "too_large")
+        end
         unless file.publishable?
           code = file.refusal == "secret" ? "secret" : "not_publishable"
           raise Refused.new("#{path} cannot be published: #{FILE_REFUSALS[file.refusal]}", code: code)
@@ -303,11 +324,17 @@ module ActionAgent
     # nil), for `git am` or `git apply`. Built from the backend's reads,
     # with no GitHub token.
     #
-    # @raise [Refused] when a named file is refused or unchanged
+    # @raise [Refused] when a named file is refused or unchanged, or, without
+    #   +paths+, when the changes are more than one read covers
     # @return [String] binary-encoded
     def patch(paths: nil, title: nil, body: nil)
-      changes = self.changes
+      changes = self.changes(paths: paths)
       files = if paths.nil?
+        if changes.files.any? { |file| file.refusal == "not_read" }
+          raise Refused.new("The sandbox changed more files than one patch reads (#{MAX_FILES} files, " \
+            "#{READ_BUDGET_BYTES / 1024 / 1024} MB). Choose the files to download", code: "too_large")
+        end
+
         changes.publishable
       else
         unknown = paths - changes.files.map(&:path)
@@ -506,7 +533,7 @@ module ActionAgent
     # Writes the chosen files as a commit and points the branch at it: a new
     # branch for a create, a fast-forward for an update.
     def push!(record, client)
-      changes = self.changes
+      changes = self.changes(paths: record.files.map { |file| file["path"] })
       unless changes.base_commit == record.base_commit
         raise Refused.new("The sandbox's checkout commit is not the one previewed. Reload the preview", code: "changed_since_preview")
       end
