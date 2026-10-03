@@ -53,9 +53,10 @@ module ActionAgent
       MAX_STRING = 1_000
       # Owned credentials read for scrubbing, per kind.
       SECRET_LOOKUP_LIMIT = 100
-      # The longest scenario key or group a write tool accepts, as the report
-      # collector does. Both are string columns, VARCHAR(255) on MySQL.
-      MAX_SCENARIO_LABEL = 200
+      # The longest scenario key, scenario group or judge model a write tool
+      # accepts, as the report collector does. Each is a string column,
+      # VARCHAR(255) on MySQL.
+      MAX_LABEL = 200
 
       SELECTION_PROPERTIES = {
         scenario_ids: { type: "array", items: { type: "integer" }, description: "Replay only these scenarios, by id" },
@@ -343,6 +344,7 @@ module ActionAgent
         if name.length > EvaluationReportImport::MAX_EVALUATION_NAME
           raise ToolError, "name is longer than #{EvaluationReportImport::MAX_EVALUATION_NAME} characters"
         end
+        raise ToolError, "judge_model is longer than #{MAX_LABEL} characters" if tool_argument(:judge_model).to_s.length > MAX_LABEL
 
         attributes = tool_scenario_attributes
         if attributes.size > EvaluationReportImport::MAX_SCENARIOS_PER_EVALUATION
@@ -445,26 +447,38 @@ module ActionAgent
         raise ToolError, "No scenarios matched the import. Check the text or the include_production_only selection." if parsed.empty?
 
         parsed.each { |attrs| refuse_oversized_scenario!(attrs) }
+        refuse_oversized_batch!(parsed)
         parsed
       rescue ActiveAgent::Evals::ScenarioParser::ParseError => e
         raise ToolError, e.message
       end
 
-      # Raises for a scenario whose key or group is longer than
-      # MAX_SCENARIO_LABEL characters, or whose prompt or notes are larger
-      # than a MySQL TEXT column holds.
+      # Raises for a scenario whose key or group is longer than MAX_LABEL
+      # characters, or whose prompt or notes are larger than a MySQL TEXT
+      # column holds.
       def refuse_oversized_scenario!(attrs)
         label = attrs["key"].to_s.truncate(64)
         %w[key group].each do |field|
-          next if attrs[field].to_s.length <= MAX_SCENARIO_LABEL
+          next if attrs[field].to_s.length <= MAX_LABEL
 
-          raise ToolError, "Scenario #{label}: #{field} is longer than #{MAX_SCENARIO_LABEL} characters"
+          raise ToolError, "Scenario #{label}: #{field} is longer than #{MAX_LABEL} characters"
         end
         %w[prompt notes].each do |field|
           next if attrs[field].to_s.bytesize <= EvaluationReportImport::TEXT_BYTES
 
           raise ToolError, "Scenario #{label}: #{field} is larger than #{EvaluationReportImport::TEXT_BYTES} bytes"
         end
+      end
+
+      # Raises when the scenarios one call gives total more than the report
+      # collector accepts in one report, measured as the JSON of the fields
+      # a scenario stores.
+      def refuse_oversized_batch!(parsed)
+        bytes = parsed.sum { |attrs| attrs.slice("key", "group", "prompt", "notes", "expectations").to_json.bytesize }
+        return if bytes <= EvaluationReportImport::MAX_BYTES
+
+        raise ToolError, "The scenarios in one call may total #{EvaluationReportImport::MAX_BYTES / 1.megabyte} MiB and " \
+                         "these total #{(bytes.to_f / 1.megabyte).round(1)} MiB; give them over several scenarios_merge calls"
       end
 
       def tool_criteria
