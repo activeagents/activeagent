@@ -188,6 +188,24 @@ module ActionAgent
       ADAPTER_METHODS.fetch(verb).any? { |m| @backend.respond_to?(m) }
     end
 
+    # Whether the backend can list a checkout's changes and read each file
+    # now and in the commit the checkout was cloned at: #changed_files, and
+    # #read_file with +base+.
+    def reads_checkouts?
+      supports?(:changed_files) && reads_checkout_commit?
+    end
+
+    # Whether the backend's read_file takes +base:+. A backend written before
+    # +base:+ existed defines read_file(session, path) and cannot be asked
+    # for the commit cloned at.
+    def reads_checkout_commit?
+      return false unless supports?(:read_file)
+
+      @backend.method(adapter_method(:read_file)).parameters.any? do |type, name|
+        type == :keyrest || type == :rest || (type.in?(%i[key keyreq]) && name == :base)
+      end
+    end
+
     # Existing backends predate runner selection and support Claude only.
     # A backend must explicitly advertise Codex before accepting its keys.
     def supports_code_runner?(runner)
@@ -251,7 +269,9 @@ module ActionAgent
     #   there
     # @raise [ArgumentError] when +path+ is absolute or climbs out of the
     #   checkout, before the backend is asked
-    # @raise [UnsupportedBackendError] when the backend does not implement it
+    # @raise [UnsupportedBackendError] when the backend does not implement
+    #   it, or is asked for +base+ and its read_file takes no +base:+ (see
+    #   #reads_checkout_commit?)
     def read_file(sandbox_session, path, base: false)
       unless checkout_relative?(path)
         raise ArgumentError, "#{path.inspect} is not a path inside the checkout"
@@ -259,6 +279,11 @@ module ActionAgent
 
       method = adapter_method(:read_file)
       if base
+        unless reads_checkout_commit?
+          raise UnsupportedBackendError, "The #{backend_name} sandbox backend's read_file takes no base:, " \
+            "so it cannot read the commit a checkout was cloned at"
+        end
+
         @backend.public_send(method, sandbox_session, path, base: true)
       else
         @backend.public_send(method, sandbox_session, path)

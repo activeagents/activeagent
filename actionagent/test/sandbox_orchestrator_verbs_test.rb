@@ -72,18 +72,16 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     ActionAgent.sandbox_backends = @original_backends
   end
 
-  test "the engine's own backends read changed files, and support none of the other optional verbs" do
-    %w[mock local].each do |backend|
-      orchestrator = ActionAgent::SandboxOrchestrator.new(backend: backend)
-
-      OPTIONAL_VERBS.each do |verb|
-        if %i[changed_files read_file].include?(verb)
-          assert orchestrator.supports?(verb), "#{backend} should claim #{verb}"
-        else
-          assert_not orchestrator.supports?(verb), "#{backend} should not claim #{verb}"
-        end
-      end
+  test "the local backend reads checkouts, and the mock backend supports none of the optional verbs" do
+    local = ActionAgent::SandboxOrchestrator.new(backend: "local")
+    OPTIONAL_VERBS.each do |verb|
+      assert_equal verb.in?(%i[changed_files read_file]), local.supports?(verb), "local and #{verb}"
     end
+    assert local.reads_checkouts?
+
+    mock = ActionAgent::SandboxOrchestrator.new(backend: "mock")
+    OPTIONAL_VERBS.each { |verb| assert_not mock.supports?(verb), "mock should not claim #{verb}" }
+    assert_not mock.reads_checkouts?
   end
 
   test "an unsupported verb is refused, naming the method a backend would implement" do
@@ -102,6 +100,7 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     orchestrator = ActionAgent::SandboxOrchestrator.new(backend: "full")
 
     OPTIONAL_VERBS.each { |verb| assert orchestrator.supports?(verb), verb }
+    assert orchestrator.reads_checkouts?
 
     changes = orchestrator.changed_files("s1")
     assert_equal "a" * 40, changes[:base_commit]
@@ -153,38 +152,33 @@ class SandboxOrchestratorVerbsTest < ActiveSupport::TestCase
     assert_equal [ [ :read_file, "s1", "app/..hidden/file.rb" ] ], FullBackend.calls
   end
 
-  test "a backend whose read_file takes no base is still asked for the working tree" do
+  test "a backend whose read_file takes no base reads the working tree, and is refused the checkout commit" do
     backend = Class.new(BareBackend) do
+      def changed_files(_session) = { base_commit: "a" * 40, files: [] }
       def read_file(_session, path) = "now: #{path}".b
     end
     stub_const_backend(backend) do |orchestrator|
+      assert orchestrator.supports?(:read_file)
+      assert_not orchestrator.reads_checkout_commit?
+      assert_not orchestrator.reads_checkouts?
       assert_equal "now: README.md", orchestrator.read_file("s1", "README.md")
-      assert_raises(ArgumentError) { orchestrator.read_file("s1", "README.md", base: true) }
+      error = assert_raises(ActionAgent::SandboxOrchestrator::UnsupportedBackendError) do
+        orchestrator.read_file("s1", "README.md", base: true)
+      end
+      assert_match(/takes no base:/, error.message)
     end
   end
 
-  test "the mock backend reports the checkout a test staged, and nothing for one it did not" do
-    ActionAgent::MockSandboxBackend.reset_checkouts!
-    staged = Struct.new(:session_id).new("staged")
-    ActionAgent::MockSandboxBackend.stage_checkout(
-      "staged",
-      base_commit: "b" * 40,
-      base: { "README.md" => "old\n", "gone.rb" => "x\n", "same.rb" => "s\n" },
-      working: { "README.md" => "new\n", "same.rb" => "s\n", "bin/run" => { content: "#!/bin/sh\n", mode: "100755" } }
-    )
-    orchestrator = ActionAgent::SandboxOrchestrator.new(backend: "mock")
-
-    assert_equal({ base_commit: "b" * 40, files: [
-      { path: "README.md", status: "modified", mode: "100644", base_mode: "100644", size: 4 },
-      { path: "bin/run", status: "added", mode: "100755", base_mode: nil, size: 10 },
-      { path: "gone.rb", status: "deleted", mode: nil, base_mode: "100644", size: nil }
-    ] }, orchestrator.changed_files(staged))
-    assert_equal "new\n", orchestrator.read_file(staged, "README.md")
-    assert_equal "old\n", orchestrator.read_file(staged, "README.md", base: true)
-    assert_nil orchestrator.read_file(staged, "gone.rb")
-    assert_equal({ base_commit: nil, files: [] }, orchestrator.changed_files(Struct.new(:session_id).new("other")))
-  ensure
-    ActionAgent::MockSandboxBackend.reset_checkouts!
+  test "a read_file that takes keyword arguments it does not name, or delegates them, reads the checkout commit" do
+    [
+      Class.new(BareBackend) { def read_file(_session, path, **options) = "#{path} #{options}".b },
+      Class.new(BareBackend) { def read_file(*args) = args.inspect.b }
+    ].each do |backend|
+      stub_const_backend(backend) do |orchestrator|
+        assert orchestrator.reads_checkout_commit?
+        assert_match(/base/, orchestrator.read_file("s1", "README.md", base: true))
+      end
+    end
   end
 
   private

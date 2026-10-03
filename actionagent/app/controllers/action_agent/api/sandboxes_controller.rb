@@ -246,8 +246,7 @@ module ActionAgent
       # Whether the configured backend can read a checkout's changes, which
       # opening a pull request and downloading a patch both need.
       def pull_requests_supported?
-        orchestrator = SandboxOrchestrator.new
-        orchestrator.supports?(:changed_files) && orchestrator.supports?(:read_file)
+        SandboxOrchestrator.new.reads_checkouts?
       rescue StandardError, LoadError
         false
       end
