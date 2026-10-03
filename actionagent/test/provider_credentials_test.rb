@@ -102,6 +102,16 @@ class ProviderCredentialsTest < ActionDispatch::IntegrationTest
     assert_equal "sk-ant-organization", options[:access_token]
   end
 
+  test "the evaluation form offers only the providers a scenario replay can use" do
+    ActionAgent.provider_key_scope = :personal_override
+    key("openai", "sk-ada-openai", member: @ada)
+
+    with_provider_config({}) { get "/activeagents/api/evaluations" }
+
+    assert_response :success
+    assert_equal %w[anthropic], response.parsed_body["model_providers"], "Ada's personal OpenAI key reaches no replay"
+  end
+
   test "multi-tenant: a run whose credentials are unresolved fails without building a provider client" do
     ActionAgent.provider_credentials_resolver = ->(*) { raise "billing service down" }
     agent = anthropic_agent
