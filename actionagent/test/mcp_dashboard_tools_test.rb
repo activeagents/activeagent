@@ -259,6 +259,25 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, ollama_key
   end
 
+  test "a project's secret is masked with its encodings, like the other credentials" do
+    ActionAgent::Project.delete_all
+    ActionAgent::ProjectSecret.delete_all
+    secret = "sk_test_dashboard tools/project+0123"
+    project = ActionAgent::Project.create!(name: "Shop", repository: "acme/shop", install_state: "detected")
+    project.assign_secret(name: "STRIPE_SECRET_KEY", value: secret).save!
+    completed_run(output: "env: #{secret} #{[ secret ].pack("m0")} #{CGI.escape(secret)}")
+
+    result = structured(call_tool("evaluation_runs_get", { evaluation_id: @suite.id }))
+
+    assert_includes result["results"].find { |entry| entry["model"] == "mock/alpha" }["output"], ActionAgent::SecretScrubber::MASK
+    ActionAgent::SecretScrubber.with_encodings([ secret ]).each do |form|
+      assert_not_includes response.body, form
+    end
+  ensure
+    ActionAgent::Project.delete_all
+    ActionAgent::ProjectSecret.delete_all
+  end
+
   test "evaluation_runs_get pages results by limit and counts the rest" do
     run = @suite.evaluation_runs.create!(status: :complete, completed_at: Time.current)
     scenario = @suite.scenarios.sole
