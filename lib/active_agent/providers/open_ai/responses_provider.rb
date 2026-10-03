@@ -94,8 +94,10 @@ module ActiveAgent
         # - `:"response.output_text.done"` - complete text
         # - `:"response.function_call_arguments.delta"` - function argument updates
         # - `:"response.function_call_arguments.done"` - complete function arguments
+        # - `:"response.reasoning_summary_*"`, `:"response.reasoning_text.*"` -
+        #   reasoning progress, kept from the reasoning item once it is done
         # - `:"response.content_part.done"` - content part completed
-        # - `:"response.output_item.done"` - message or function call completed
+        # - `:"response.output_item.done"` - message, reasoning or function call completed
         # - `:"response.completed"` - response finished
         #
         # @param api_response_event [Hash] streaming chunk with :type key
@@ -132,6 +134,12 @@ module ActiveAgent
           when :"response.function_call_arguments.delta", :"response.function_call_arguments.done"
           # No-Op: Wait for FC to Land
 
+          # -> -> -> Reasoning Progress
+          when :"response.reasoning_summary_part.added", :"response.reasoning_summary_part.done",
+               :"response.reasoning_summary_text.delta", :"response.reasoning_summary_text.done",
+               :"response.reasoning_text.delta", :"response.reasoning_text.done"
+          # No-Op: Wait for the reasoning item to land
+
           # -> -> Content Part Completed [Full Part]
           when :"response.content_part.done"
 
@@ -141,8 +149,9 @@ module ActiveAgent
 
           # Response Completed
           when :"response.completed"
-            # Once we are finished, close out and run tooling callbacks (Recursive)
-            process_prompt_finished
+            # Completion, tool loop included, runs from stream_finished! once
+            # the stream has drained, so each turn's tool calls run once.
+            self.stream_completion_pending = true
           else
             raise "Unexpected Response Chunk Type: #{api_response_event.type}"
           end
@@ -150,8 +159,9 @@ module ActiveAgent
 
         # Processes output item added events from streaming response
         #
-        # Handles message and function_call item types. For messages, adds to stack
-        # with empty content. For function calls, waits for completion event.
+        # Handles message, reasoning and function_call item types. For messages,
+        # adds to stack with empty content. Reasoning items and function calls
+        # wait for their completion event.
         #
         # Required because API returns empty array instead of empty string for
         # initial message content due to serialization bug.
@@ -164,8 +174,8 @@ module ActiveAgent
             # PATCH: API returns an empty array instead of empty string due to a bug in their serialization
             item_hash = Responses::Transforms.gem_to_hash(api_response_event.item).compact_blank
             message_stack << { content: "" }.merge(item_hash)
-          when :function_call
-            # No-Op: Wait for FC to Land (-> response.output_item.done)
+          when :function_call, :reasoning
+            # No-Op: Wait for the item to land (-> response.output_item.done)
           else
             raise "Unexpected Item Type: #{api_response_event.item.type}"
           end
@@ -173,8 +183,10 @@ module ActiveAgent
 
         # Processes output item completion events from streaming response
         #
-        # For function calls, adds completed item to message stack.
-        # For messages, no action needed as content already updated via delta events.
+        # For function calls and reasoning items, adds the completed item to the
+        # message stack, so the next turn sends each reasoning item back with
+        # the function calls it led to. For messages, no action needed as
+        # content already updated via delta events.
         #
         # @param api_response_event [Hash] response chunk with completed :item
         # @return [void]
@@ -182,7 +194,7 @@ module ActiveAgent
           case api_response_event.item.type
           when :message
             # No-Op: Message Up to Date
-          when :function_call
+          when :function_call, :reasoning
             item_hash = Responses::Transforms.gem_to_hash(api_response_event.item)
             message_stack << item_hash
           else
