@@ -25,6 +25,9 @@ module ActiveAgent
 
         # The completed results and input requests of a turn that paused.
         attr_internal :paused_tool_turn
+
+        # Whether a pause publishes `input_requested.active_agent`.
+        attr_internal :announce_input_requests
       end
 
       # @return [Boolean] whether the last tool turn left calls waiting on the user
@@ -132,7 +135,8 @@ module ActiveAgent
       end
 
       # Builds the response for a generation that is waiting on the user, and
-      # announces it with `input_requested.active_agent`.
+      # announces it with `input_requested.active_agent` unless
+      # `announce_input_requests` is false.
       #
       # @param api_response [Hash, nil] the response that made the tool calls
       # @return [Common::PromptResponse]
@@ -140,7 +144,7 @@ module ActiveAgent
         broadcast_stream_close
 
         input_requests = paused_tool_turn[:input_requests]
-        instrument("input_requested.active_agent", input_requests:)
+        instrument("input_requested.active_agent", input_requests:) if announce_input_requests
 
         build_prompt_response(api_response, input_requests:, checkpoint:)
       end

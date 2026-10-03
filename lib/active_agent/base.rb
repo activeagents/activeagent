@@ -337,7 +337,8 @@ module ActiveAgent
         stream_broadcaster:,
         tools_function:,
         action_name: generation_action_name,
-        input_request_resume: @_input_request_resume
+        input_request_resume: @_input_request_resume,
+        announce_input_requests: !input_requests_silenced?
       )
 
       # Apply Templates

@@ -549,6 +549,10 @@ class InputRequestsTest < ActiveSupport::TestCase
     generate_with :mock, model: "mock-model"
     self._prompt_provider_klass = ScriptedProvider
 
+    class_attribute :paused, default: []
+
+    on_input_request { |response| paused << response.input_requests.map(&:tool_call_id) }
+
     delegation :approve, description: "Get a refund approved" do
       integer :amount, required: true
     end
@@ -585,5 +589,28 @@ class InputRequestsTest < ActiveSupport::TestCase
     result = JSON.parse(ScriptedProvider.requests.last.last[:content].sole[:content])
     assert_equal "input_required", result["error"]
     assert_equal [ "Refund 40?" ], result["questions"]
+  end
+
+  test "a delegated agent's pause is neither announced nor passed to its callbacks" do
+    ApprovalAgent.paused = []
+    events = []
+    subscription = ActiveSupport::Notifications.subscribe("input_requested.active_agent") { |*, payload| events << payload }
+    ScriptedProvider.script(
+      [ self.class.tool_use("call_parent", "approve", amount: 40) ],
+      [ self.class.tool_use("call_child", "issue_refund", amount: 40) ]
+    )
+
+    ManagerAgent.handle.generate_now
+
+    assert_empty events, "a delegated pause is not announced"
+    assert_empty ApprovalAgent.paused
+
+    ScriptedProvider.script([ self.class.tool_use("call_child", "issue_refund", amount: 40) ])
+    ApprovalAgent.approve(amount: 40).generate_now
+
+    assert_equal [ [ "call_child" ] ], ApprovalAgent.paused, "the same agent run on its own runs its callbacks"
+    assert_equal 1, events.size
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscription)
   end
 end

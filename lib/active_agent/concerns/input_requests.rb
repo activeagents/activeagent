@@ -53,6 +53,15 @@ module ActiveAgent
       end
     end
 
+    # Stops a pause of this generation from being announced with
+    # `input_requested.active_agent` or passed to on_input_request callbacks.
+    #
+    # @return [void]
+    # @api private
+    def silence_input_requests!
+      @_input_requests_silenced = true
+    end
+
     # Whether this generation continues one that paused for input.
     #
     # @return [Boolean]
@@ -109,6 +118,11 @@ module ActiveAgent
       @_generation_action_name
     end
 
+    # @return [Boolean] whether a pause is kept from the host
+    def input_requests_silenced?
+      @_input_requests_silenced == true
+    end
+
     # @return [Array<String>] the secret answers this generation has received
     def input_request_secrets
       @_input_request_secrets ||= []
@@ -145,6 +159,7 @@ module ActiveAgent
     # @param response [ActiveAgent::Providers::Common::PromptResponse]
     # @return [void]
     def run_input_request_callbacks(response)
+      return if input_requests_silenced?
       return unless response.respond_to?(:awaiting_input?) && response.awaiting_input?
 
       # `only:` and `except:` compare against action_name, which the tool

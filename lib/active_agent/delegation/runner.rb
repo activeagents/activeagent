@@ -123,6 +123,9 @@ module ActiveAgent
         definition.backend.apply(agent)
         apply_returns_format(agent)
         inherit_trace_id(agent)
+        # A pause becomes this call's result (see #input_required), and its
+        # checkpoint is dropped, so nothing outside the call may act on it.
+        agent.silence_input_requests!
 
         agent.process_prompt
       end
