@@ -68,14 +68,15 @@ export function signInResult(result) {
 }
 
 // The credentials form's request body, without empty fields, or { error }.
-// The login URL must be a path on the app.
-export function signInPayload(form = {}) {
+// The login URL must be a path on the app. With passwordSaved, an empty
+// password is left out and the engine keeps the saved one.
+export function signInPayload(form = {}, { passwordSaved = false } = {}) {
   const payload = {};
   for (const key of ['login_url', 'login', 'password', 'login_field', 'password_field', 'submit_field']) {
     const value = String(form[key] ?? '').trim();
     if (value) payload[key] = key === 'password' ? String(form[key]) : value;
   }
-  if (!payload.password) return { error: 'Enter the test account\'s password.' };
+  if (!payload.password && !passwordSaved) return { error: 'Enter the test account\'s password.' };
   if (payload.login_url && (!payload.login_url.startsWith('/') || payload.login_url.startsWith('//'))) {
     return { error: 'The login URL must be a path on the app, such as /users/sign_in.' };
   }
