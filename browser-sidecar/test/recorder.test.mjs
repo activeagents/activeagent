@@ -3,7 +3,7 @@ import http from 'node:http';
 import test from 'node:test';
 import { gunzipSync } from 'node:zlib';
 
-import { EventBatcher, initScript, Recorder, rrwebSource, Uploader } from '../lib/recorder.mjs';
+import { EDITABLE_TEXT, EventBatcher, initScript, Recorder, rrwebSource, Uploader } from '../lib/recorder.mjs';
 
 function collect(options = {}) {
   const batches = [];
@@ -113,10 +113,11 @@ test('only a main frame\'s well-formed rrweb events are kept', () => {
   assert.deepEqual(kept, [{ kind: 'rrweb', timestamp: 10, data: { type: 2, timestamp: 10, data: {}, tab: 1 } }]);
 });
 
-test('the init script records with masked inputs and defines no global of its own', () => {
+test('the init script records with masked inputs and editable text, and defines no global of its own', () => {
   const script = initScript({ binding: '__aa_test', rrweb: rrwebSource() });
 
   assert.match(script, /maskAllInputs: true/);
+  assert.ok(script.includes(`maskTextSelector: ${JSON.stringify(EDITABLE_TEXT)}`));
   assert.match(script, /window\["__aa_test"\]/);
   assert.match(script, /var module = \{ exports: \{\} \};/);
 });
