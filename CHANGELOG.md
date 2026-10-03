@@ -101,6 +101,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime token, never serialized, and masked in recordings and MCP tool
   output. The sidecar also builds as an OCI image. Adds migration
   `add_browser_to_active_agent_sandbox_sessions`.
+- **Watch a sandbox's browser live and take it over** (`actionagent`,
+  `@activeagents/browser-sidecar`). A ready checkout sandbox in Settings →
+  Integrations gets a Browser panel to start and stop its browser, and,
+  while it runs, a live view with "Watch live", "Take over" and "Hand back".
+  The sidecar streams the page on screen over a WebSocket (`/live`),
+  following new tabs and the tab the agent selects, and relays the input of
+  the one person in control. `POST <mount>/api/sandboxes/:id/browser/tickets`
+  issues a ticket, sent as the WebSocket's first message, that lives 30
+  seconds and opens once: `mode: "view"` needs access to the sandbox, and
+  `mode: "control"` also asks the permission checker about
+  `:take_over_browser`. The WebSocket also checks `Host` and the dashboard's
+  `Origin` (the one the browser was started from, plus
+  `ActionAgent.browser_live_origins`). While a person holds control, an
+  agent's browser call that would change the page waits for them to hand
+  back and then returns an error naming them; calls that only read the page
+  go ahead. Control is released 10 seconds after its holder's connection
+  drops. Relayed input is never logged or recorded; a takeover's start and
+  end are recorded as `marker` events with `source: "human"`. The sandbox
+  listing reports `browser_modes`.
 - **Report quantities to the usage recorder** (`actionagent`).
   `ActionAgent.record_usage(owner, kind, quantity)` passes the quantity to a
   `usage_recorder` that takes a third argument; one that takes two is still
