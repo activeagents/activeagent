@@ -44,6 +44,7 @@ module ActiveAgent
         resume = input_request_resume
         resume.assert_provider!(service: service_name, provider: tag_name, model: request.model)
 
+        clear_tool_choice if resume.tool_choice_cleared?
         message_stack.push(resume.tool_call_turn)
         tool_calls = Array(process_prompt_finished_extract_function_calls)
         resume.assert_tool_calls!(tool_calls.map { tool_call_reference(_1).first })
@@ -150,15 +151,16 @@ module ActiveAgent
       # @return [Hash{String => Object}]
       def checkpoint
         {
-          version:           ActiveAgent::InputRequest::Resume::VERSION,
-          service:           service_name,
-          provider:          tag_name,
-          model:             request.model&.to_s,
-          action_name:       generation_action_name,
+          version:             ActiveAgent::InputRequest::Resume::VERSION,
+          service:             service_name,
+          provider:            tag_name,
+          model:               request.model&.to_s,
+          action_name:         generation_action_name,
           tool_turns:,
-          messages:          checkpoint_messages,
-          completed_results: paused_tool_turn[:results],
-          input_requests:    paused_tool_turn[:input_requests].map(&:to_h)
+          tool_choice_cleared: tool_choice_cleared == true,
+          messages:            checkpoint_messages,
+          completed_results:   paused_tool_turn[:results],
+          input_requests:      paused_tool_turn[:input_requests].map(&:to_h)
         }.as_json
       end
 

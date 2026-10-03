@@ -164,6 +164,32 @@ module Providers
         assert_requested :post, ENDPOINT, times: 1
       end
 
+      test "resuming keeps a forced tool_choice cleared when a turn before the pause used the tool" do
+        stub_messages(assistant_message(LOOKUP), assistant_message(REFUND), assistant_message(ANSWER))
+        forced = { type: "tool", name: "lookup_order" }
+
+        paused = RefundAgent.triage(tool_choice: forced).generate_now
+
+        assert paused.awaiting_input?
+        assert_equal "tool", request_bodies.first.dig("tool_choice", "type")
+        assert_nil request_bodies.last["tool_choice"], "the turn that paused was sent without the forced choice"
+
+        resume(paused, { "toolu_2" => true }, tool_choice: forced)
+
+        assert_nil request_bodies.last["tool_choice"]
+        assert_equal [ :lookup_order, :issue_refund ], RefundAgent.calls, "lookup_order is not forced to run again"
+      end
+
+      test "a cleared tool_choice stays cleared through later turns of a loop that does not pause" do
+        stub_messages(assistant_message(LOOKUP), assistant_message(LOOKUP.merge(id: "toolu_3")), assistant_message(ANSWER))
+
+        response = RefundAgent.triage(tool_choice: { type: "tool", name: "lookup_order" }).generate_now
+
+        assert_equal "Refunded.", response.message.content
+        assert_nil request_bodies.last["tool_choice"]
+        assert_requested :post, ENDPOINT, times: 3
+      end
+
       test "resuming clears a tool_choice that forced the paused call" do
         stub_messages(assistant_message(REFUND), assistant_message(ANSWER))
         paused = RefundAgent.triage(tool_choice: "required").generate_now

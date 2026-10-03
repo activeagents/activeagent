@@ -93,7 +93,7 @@ The result is an ordinary response — or a paused one, if a tool asked again.
 - a `:confirm` answer is not `true` or `false`, or a `:choice` answer is not one of the options;
 - the checkpoint was taken by a different action, provider or model. The checkpoint holds the conversation in the provider's own message format, so it only resumes where it was taken.
 
-Calls that finished before the pause are not run again; their results come from the checkpoint. The tool-turn count carries over, so `max_tool_turns` covers the whole generation, pauses included. A forced `tool_choice` that the paused turn satisfied is cleared, as it would have been without the pause.
+Calls that finished before the pause are not run again; their results come from the checkpoint. The tool-turn count carries over, so `max_tool_turns` covers the whole generation, pauses included. A forced `tool_choice` stays forced only until the model has used the tool, as it would without the pause: the action sets it again on resume, and it is cleared again when the paused turn or any turn before it used the tool.
 
 ## Secrets
 
@@ -131,6 +131,7 @@ The answer still passes through your app on its way to `resume_now`. Keep it out
 | `service`, `provider`, `model` | Where the generation paused |
 | `action_name` | The agent action that paused |
 | `tool_turns` | Tool round-trips used so far |
+| `tool_choice_cleared` | Whether a forced `tool_choice` was already cleared |
 | `messages` | The conversation through the assistant turn that made the tool calls, in the provider's format, without the messages derived from instructions |
 | `completed_results` | The results of the calls that finished, by tool call id |
 | `input_requests` | One request per paused call |
