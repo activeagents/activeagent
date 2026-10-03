@@ -1555,12 +1555,13 @@ their values.
   scrubbed from provision errors, step logs, boot status and code-session
   events.
 - Whoever can push to the project's ref can read its secrets once it boots,
-  so changing the ref needs what setting each secret needs. `PATCH
-  /api/projects/:id` with a new `default_ref` (empty for the repository's
-  default branch) is preflighted like a new repository and refused when
-  unsupported. It stops the sandbox booted from the old ref, and the next
-  boot checks the new one out. A ref whose lock lacks the engine is evaluated
-  with the App assistant. Changing `name` or `start_url` needs nothing.
+  so changing the ref needs what setting each secret needs.
+  `PATCH /api/projects/:id` with a new `default_ref` (empty for the
+  repository's default branch) is preflighted like a new repository and
+  refused when unsupported. It stops the sandbox booted from the old ref, and
+  the next boot checks the new one out. A ref whose lock lacks the engine is
+  evaluated with the App assistant. Changing `name` or `start_url` needs
+  nothing.
 - Deleting a project that has secrets (`DELETE /api/projects/:id`) needs
   `:manage_project_secrets`.
 
@@ -1676,7 +1677,7 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and having a project's secret use the organization's provider key (asked about that `ProviderKey`) |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`), and reading or creating a project from a repository the connection has not selected (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`), and reading a repository the connection has not selected or creating a project from one (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | reserved: answering a run's request for input |
