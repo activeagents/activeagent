@@ -56,6 +56,22 @@ module ActionAgent
       raise Error, "The browser could not be stopped: #{e.message}"
     end
 
+    # Stops +sandbox+'s browser through its backend (stop) when one is
+    # starting or running and the sandbox is not yet past its expiry. Called
+    # before a sandbox is expired, so the browser's last recorded events are
+    # posted while its recording still accepts them. Past the expiry the
+    # recording would refuse them, and the browser has already stopped itself
+    # (SandboxSession#browser_stops_at), so this does nothing. Never raises:
+    # a browser it cannot stop is left to finish! and SandboxCleanupJob.
+    def self.stop_before_expiry(sandbox)
+      sandbox.reload
+      return unless STARTED.include?(sandbox.browser_status) && sandbox.expires_at&.future?
+
+      stop(sandbox)
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] could not stop the browser of sandbox #{sandbox.session_id} before expiring it: #{e.message}")
+    end
+
     # The configured sandbox backend, or Error when it cannot be loaded.
     def self.orchestrator!
       SandboxOrchestrator.new
@@ -107,7 +123,7 @@ module ActionAgent
       launch = nil
       begin
         recording, launch_recording = start_recording(recording_url)
-        launch = { token: token, app_url: @sandbox.cloud_run_url, capabilities: capabilities, stop_at: @sandbox.expires_at,
+        launch = { token: token, app_url: @sandbox.cloud_run_url, capabilities: capabilities, stop_at: @sandbox.browser_stops_at,
                    recording: launch_recording }
         @sandbox.browser_launch = launch
         result = orchestrator.start_browser(@sandbox, mode: mode.to_sym)
@@ -132,6 +148,7 @@ module ActionAgent
       unless @sandbox.active? && (@sandbox.ready? || @sandbox.running?)
         raise Error, "The sandbox is #{@sandbox.status}; start its browser once it is ready"
       end
+      raise Error, "The sandbox expires too soon to start a browser" unless @sandbox.browser_stops_at&.future?
       raise Error, "The sandbox has no app to open" if @sandbox.cloud_run_url.blank?
       unless SandboxSession::BROWSER_MODES.include?(mode)
         raise Error, "mode must be one of #{SandboxSession::BROWSER_MODES.join(', ')}"
