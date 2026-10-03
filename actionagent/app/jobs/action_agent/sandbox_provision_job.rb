@@ -7,7 +7,13 @@ module ActionAgent
 
     # Provision a Cloud Run sandbox for the session
     # Each sandbox is an instance of the ActiveAgents application running in sandbox mode
-    def perform(sandbox_session_id)
+    #
+    # @param options [Hash] for a checkout, at most one of
+    #   "boot"   => how to boot it, as SandboxBootSpec.request_options
+    #               returns it; without it, "auto"
+    #   "resume" => { "from" => a step name or nil }, to continue a failed
+    #               boot its backend kept (SandboxSession#resume_boot!)
+    def perform(sandbox_session_id, options = {})
       # Deleted before the job ran: nothing to provision. `find` raised here,
       # and the rescue below then called update! on nil.
       sandbox = SandboxSession.find_by(id: sandbox_session_id)
@@ -32,7 +38,15 @@ module ActionAgent
       ensure_checkout_available!(sandbox) if sandbox.app_runtime?
 
       orchestrator = SandboxOrchestrator.new
-      result = orchestrator.create_sandbox(sandbox)
+      options = options.is_a?(Hash) ? options : {}
+      result =
+        if options["resume"].is_a?(Hash)
+          orchestrator.resume_boot(sandbox, from: options["resume"]["from"].presence)
+        elsif (spec = sandbox.app_runtime? && boot_spec(options["boot"]))
+          orchestrator.create_sandbox(sandbox, boot_config: spec)
+        else
+          orchestrator.create_sandbox(sandbox)
+        end
       # From here on the backend runs a sandbox for this session: whatever
       # goes wrong below, the rescue releases it unless the session recorded
       # its handle.
@@ -64,6 +78,21 @@ module ActionAgent
     end
 
     private
+
+    # The boot spec a checkout's boot options ask for, or nil to boot it as
+    # its sandbox.yml says. A spec "auto" asked for that cannot be built
+    # (the engine's gems come from a git URL with credentials in it) is
+    # dropped with a warning, so a checkout that bundles the engine still
+    # boots. One asked for with "always" fails the boot with the reason.
+    def boot_spec(boot)
+      boot = boot.is_a?(Hash) ? boot : {}
+      SandboxBootSpec.for_request(boot)
+    rescue SandboxBootSpec::Invalid => e
+      raise "Sandbox boot spec is invalid: #{e.message}" if %w[always true].include?(boot["bootstrap"].to_s)
+
+      Rails.logger.warn("[ActionAgent] not bootstrapping checkouts without the engine: #{e.message}")
+      nil
+    end
 
     def simulate_provisioning(sandbox)
       # Simulate a small delay for provisioning

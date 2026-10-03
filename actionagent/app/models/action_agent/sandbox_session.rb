@@ -204,7 +204,11 @@ module ActionAgent
     end
 
     # Provision the Cloud Run sandbox
-    def provision!
+    #
+    # @param boot [Hash, nil] how a checkout boots, as
+    #   SandboxBootSpec.request_options returns it; nil for the default
+    #   ("auto"). Ignored for other sandbox types.
+    def provision!(boot: nil)
       return if provisioning? || ready?
 
       update!(status: :provisioning)
@@ -216,9 +220,30 @@ module ActionAgent
       # synchronously for immediate feedback.
       if !app_runtime? && (Rails.env.development? || Rails.env.test?)
         SandboxProvisionJob.perform_now(id)
+      elsif app_runtime? && boot
+        SandboxProvisionJob.perform_later(id, "boot" => boot)
       else
         SandboxProvisionJob.perform_later(id)
       end
+    end
+
+    # Continues a checkout whose boot failed and was kept (see
+    # SandboxOrchestrator#resume_boot), from the step named +from+, or from
+    # the one that failed. False, enqueuing nothing, unless the session is a
+    # failed checkout that has not expired.
+    def resume_boot!(from: nil)
+      resumed = with_lock do
+        next false unless app_runtime? && failed? && !past_expiry?
+
+        update!(status: :provisioning, error_message: nil)
+        true
+      end
+      SandboxProvisionJob.perform_later(id, "resume" => { "from" => from.presence&.to_s }) if resumed
+      resumed
+    end
+
+    def past_expiry?
+      expires_at.present? && expires_at <= Time.current
     end
 
     # Mark as ready with Cloud Run URL. A checkout sandbox's backend also
