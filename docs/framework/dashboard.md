@@ -1389,8 +1389,17 @@ The manifest tells the backend where the booted app's MCP facade answers and
 which bearer token opens it:
 
 ```json
-{ "mcp_path": "/activeagents/mcp", "mcp_token": "aa_..." }
+{ "mcp_path": "/activeagents/mcp", "mcp_token": "aa_...",
+  "models": [{ "name": "Reservation", "table": "reservations",
+               "columns": [{ "name": "status", "type": "string" }] }] }
 ```
+
+`models` lists the app's own models under `app/models` that have a table,
+with their columns but `id` and those that look like they hold a secret
+(`password`, `digest`, `token`, `secret`, `api_key`, `otp`, `encrypted`,
+`ssn`). A project offers them for [choosing what the App assistant may
+read](#choosing-what-the-app-assistant-may-read). A backend reports them as
+`app_models` beside the MCP endpoint; a manifest without the key lists none.
 
 The engine ships `bin/rails action_agent:sandbox:manifest`, so every app that
 mounts it has the task. The task finds the engine's mount in the app's routes
@@ -1533,7 +1542,7 @@ the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
 - With `"apply": "without_engine"` (what `bootstrap: "auto"` sends), a
   checkout that bundles the engine, names a `manifest` in its `sandbox.yml`,
   or has no `Gemfile.lock` boots as it would without a spec, except that the
-  spec's `secrets` are added to its `sandbox.yml` env. A backend whose
+  spec's `env` and `secrets` are added to its `sandbox.yml` env. A backend whose
   `create_sandbox` takes no `boot_config:` is not handed such a spec, and
   boots as it always has. One with `"apply": "always"` is refused for that
   backend instead.
@@ -1546,6 +1555,15 @@ the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
   that changes how Ruby, Bundler, Node or git load code: `RUBYOPT`,
   `RUBYLIB`, `LD_PRELOAD`, `DYLD_*`, `BUNDLE_*`, `GIT_*`, `PATH` and
   `NODE_OPTIONS`.
+- `SandboxBootSpec.bootstrap(steps: [...])` appends steps after
+  `db_prepare`. `SandboxBootSpec.installed` is the bootstrap without the
+  steps that install the engine (`bundle_config`, `add_framework`,
+  `add_engine`, `install_framework`, `install_engine`), applied always: a
+  project boots its install pull request's branch with it.
+- `SandboxBootSpec.schema_tools_step(choices)` is the `schema_tools` step
+  that runs `bin/rails generate active_agent:schema_tools <Model> --force
+  --filterable … --returns …` for each choice. It refuses a name that is not
+  a model or column name, and a column that looks like a secret.
 
 ### Following a boot
 
@@ -1886,7 +1904,11 @@ while it boots or serves, the current one resumed from the step that failed
 when its failed boot was kept, or a new one. A project boots from a
 `without_engine` bootstrap spec with `keep_on_failure`, carrying its secrets:
 a repository that lacks the engine is bootstrapped, and one that bundles it
-boots as its `sandbox.yml` says, with the secrets added to its env.
+boots as its `sandbox.yml` says, with the secrets added to its env. While the
+project's [install pull request](#the-install-pull-request) is open, a boot
+checks out its branch and runs `SandboxBootSpec.installed` instead, which
+installs nothing. Every spec boot also writes the schema tools chosen for the
+App assistant.
 
 On `:local`, the first boot of each project answers `409` with
 `"This runs <owner/repo>'s code on this machine as <user>."`. The same
@@ -1919,6 +1941,115 @@ instructions.
 its sandbox. A sandbox that has expired is booted again first, and the run
 stays pending until it serves. A boot that fails, or that is still booting
 after an hour, fails the run with the reason.
+
+### The setup assistant
+
+When a project's boot fails, the setup assistant tries to get it booting. It
+is a dashboard agent the engine defines for each project, and each run of it
+has exactly four tools, whatever its agent record names:
+
+| Tool | What it does |
+|---|---|
+| `read_step_log` | Without `step`, lists the failed boot's steps, the step that failed and the steps it can resume from. With `step`, returns a page of that step's log (at most 32 KB), scrubbed of the project's secrets |
+| `set_env` | Sets a variable whose value is not secret, as a project secret with the source `setup_assistant`. It refuses the names a project secret refuses, and a variable a person set |
+| `request_secret` | Asks a person for a secret, stored as the variable's project secret. The model never sees the value |
+| `retry_boot` | Boots again with the project's variables as they are now: resumes the kept boot from the step that failed (or from `from`), or boots a new sandbox. Once per run |
+
+It has no shell, reads no files and starts no code session, so a log the
+repository wrote can steer it no further than those tools. Only runs the
+project started count: the same agent run from the agents API gets none of
+them. Runs have no actor, so they use the organization's provider
+credentials rather than anyone's personal key.
+
+- A failed boot starts a run on its own, at most three times in a row before
+  a boot succeeds. `PATCH /api/projects/:id/setup` with `auto: false` turns
+  that off. `POST /api/projects/:id/setup` starts a run on demand, and needs
+  `:manage_project_secrets`, since its tools set the project's environment.
+- A run needs agent execution on and a provider the owner has credentials
+  for. Without one, the project's `setup` summary says why, and the
+  Environment tab stays the way to set what the boot needs.
+- Each run is an execution: `ActionAgent.quota_checker` is asked about
+  `:execution` first, and it is recorded as one.
+- A `request_secret` question names who asks, the repository and the
+  variable, and says the value is handed to that repository's code.
+  Answering it needs `:manage_project_secrets` on top of what answering any
+  request needs. The answer reaches the resumed boot as a project secret, and
+  never the transcript, telemetry or a job argument.
+- Values `set_env` stores are not secret: a boot passes them as `env`, and
+  they are neither masked in logs nor refused in a published file.
+
+### Requests for input on the Project page
+
+The Project page lists the requests for input waiting on runs of the
+project's setup assistant and of the agent it evaluates, and answers them in
+place through the [input requests API](#input-requests). The boot status
+reads "Waiting for you: N" while any wait.
+`GET /api/projects/:id/input_requests` lists them as `GET /api/input_requests`
+does, and the project summary counts them in `pending_input_requests`.
+
+### Choosing what the App assistant may read
+
+A project evaluated with the App assistant chooses which of the app's models
+the assistant may read, and which columns of each it may filter on and read
+back. Each boot's [manifest](#the-manifest-task) lists the models.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/projects/:id/app_models` | The models and columns the last boot listed, with the choices so far. `409` before a boot listed any |
+| `PUT /api/projects/:id/schema_tools` | Stores `schema_tools: [{ model:, filterable: [], returns: [] }]`, each a model and columns the boot listed. With `apply: true`, the running sandbox is replaced by a new boot now |
+
+Every boot after that writes `app/agent_tools/<model>_tools.rb` with
+`active_agent:schema_tools` (see [Boot specs](#boot-specs)), declaring only
+the chosen columns, so the choices survive a sandbox's expiry. The App
+assistant's sandbox server has no tool allowlist, so its tools are whatever
+the facade serves, the new schema tools among them. The generator's
+`--filterable` and `--returns` options write a declared list rather than
+the commented suggestions.
+
+### The install pull request
+
+A project whose sandbox installed the engine can publish that install as a
+draft pull request, through the same publisher as
+[Opening a draft pull request](#opening-a-draft-pull-request): from the
+dashboard's own process, with a token minted when it publishes, after the
+dialog shows the exact diff.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/projects/:id/install_pull_request` | The pull request, its state read from GitHub at most once a minute, and the allowlist |
+| `POST /api/projects/:id/install_pull_request/preview` | Every file the sandbox changed or the project generates, each with its refusal or its diff |
+| `POST /api/projects/:id/install_pull_request` | `{ title, body, branch, files }` opens it. `{ update: true, files, message }` adds a commit to its branch. `{ open: true }` or `{ regular: true }` opens a pull request for a branch published without one |
+| `GET /api/projects/:id/install_pull_request/patch` | The chosen files as a patch |
+
+Publishing needs `:publish_pull_request` and a live sandbox. A request made
+while none serves boots one and answers `202`. Only these paths are
+published:
+
+- `Gemfile` and `Gemfile.lock`
+- `config/initializers/action_agent.rb` and `config/routes.rb`
+- `config/active_agent.yml` and `app/agents/application_agent.rb`, when the
+  bootstrap generated them (the repository locked no `activeagent`)
+- the migrations `action_agent:install` emits, matched by their whole name
+  after the timestamp (`add_agent_releases`, `create_active_agent_projects`,
+  …)
+- `db/schema.rb` or `db/structure.sql`
+- `app/agent_tools/<model>_tools.rb` for the chosen models
+- `.activeagents/sandbox.yml`: the checkout's own, if it has one, with the
+  setup commands that booted the project and its variables' names under
+  `secrets:`, never their values
+- `.activeagents/evals/<project>.yml`: the project evaluation's enabled
+  scenarios, as a suite `ActiveAgent::Evals::Suite.load` reads
+
+The last two are generated by the dashboard. Anything else the sandbox
+changed, anything under `.github/`, and any file holding one of the
+project's secrets or a GitHub token is refused.
+
+Once the pull request exists, each boot checks out its branch and installs
+nothing. **Update draft PR** publishes from the sandbox running then: a
+sandbox of the branch adds its commit on top of the branch as it checked it
+out. When GitHub reports the pull request merged, the project counts as
+installed, and later boots check out its own branch, which bundles the
+engine now. A closed pull request leaves the project bootstrapping again.
 
 ## Authentication
 
@@ -1993,9 +2124,9 @@ end
 | `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and having a project's secret use the organization's provider key (asked about that `ProviderKey`) |
 | `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`); and reading a repository the connection has not selected or creating a project from one (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
-| `:publish_pull_request` | reserved: opening a pull request from a sandbox |
+| `:publish_pull_request` | opening and updating a pull request from a sandbox (`POST /api/sandboxes/:id/pull_request`) or a project's install pull request (`POST /api/projects/:id/install_pull_request`), asked again when the publish runs |
 | `:answer_input_request` | answering or declining a paused run's request for input (`POST /api/input_requests/:id/answer` and `/decline`, and the MCP `input_requests_answer` tool) |
-| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`) and deleting a project that has them (`DELETE /api/projects/:id`). Always asked about a `ProjectSecret` |
+| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`), deleting a project that has them (`DELETE /api/projects/:id`), starting the setup assistant or switching its automatic runs (`POST` and `PATCH /api/projects/:id/setup`), and answering its `request_secret`. Always asked about a `ProjectSecret` |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | reserved: viewing and deleting session recordings |
 | `:replace_scenarios` | reserved: replacing an evaluation's scenarios |
