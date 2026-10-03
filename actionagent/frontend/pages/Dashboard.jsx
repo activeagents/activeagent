@@ -22,6 +22,12 @@ import DashboardAssistant from '../components/dashboard/DashboardAssistant';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 import { dashboardPath, dashboardRelativePath } from '../utils/dashboardPath';
+import {
+  dashboardFeatures,
+  dashboardViewPath,
+  isDashboardViewEnabled,
+  matchDashboardRoute,
+} from '../utils/dashboardRoutes.mjs';
 
 /**
  * Dashboard - Main dashboard application
@@ -40,10 +46,10 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const [agentSort, setAgentSort] = useState('recent');
   const [assistantSession, setAssistantSession] = useState({ messages: [] });
   const [builderDraft, setBuilderDraft] = useState(null);
-  // The assistant is a development and CI tool. A dashboard without one has
-  // no nav item, no route and no view: the server is the authority, and the
-  // API refuses the same way.
-  const assistantEnabled = meta.assistantEnabled !== false;
+  // What the server enabled. A view it turned off (the assistant, a
+  // development and CI tool) has no nav item, no route and no view; the API
+  // refuses the same way.
+  const features = dashboardFeatures(meta);
   // Which MCP service the MCP view should open expanded — set when a tool
   // row links to the server that serves it, or from a /mcp/:server URL.
   const [focusServer, setFocusServer] = useState(null);
@@ -53,65 +59,14 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   // opening its agent) both land on the right view.
   useEffect(() => {
     const applyPath = () => {
-    // Relative to the mount, and anchored at its start: matched against the
-    // raw pathname, a mount like /admin/agents made '/agents/' true for
-    // every URL and a mount like /demo rendered the sandbox everywhere.
-    const path = dashboardRelativePath();
-    if (path === '/assistant' && assistantEnabled) {
-      setCurrentView('assistant');
-    } else if (path.startsWith('/traces')) {
-      setCurrentView('traces');
-    } else if (path.startsWith('/metrics')) {
-      setCurrentView('metrics');
-    } else if (path.startsWith('/interactions')) {
-      setCurrentView('interactions');
-    } else if (path.startsWith('/tools')) {
-      setCurrentView('tools');
-    } else if (path.startsWith('/mcp')) {
-      // <mount>/mcp/:server deep-links straight to one service.
-      const key = path.match(/^\/mcp\/([^/?#]+)/)?.[1];
-      if (key) setFocusServer(decodeURIComponent(key));
-      setCurrentView('mcp');
-    } else if (path.startsWith('/evaluations')) {
-      setCurrentView('evaluations');
-    } else if (path.startsWith('/analytics')) {
-      setCurrentView('analytics');
-    } else if (path.startsWith('/agents/new')) {
-      setCurrentView('builder');
-    } else if (path.match(/\/agents\/\d+\/(interactions|history)/)) {
-      const id = path.match(/\/agents\/(\d+)/)?.[1];
-      // Legacy /history URLs normalize to /interactions before the view
-      // mounts, so nested-path parsing sees the canonical form.
-      if (path.includes('/history')) {
-        window.history.replaceState({}, '', path.replace('/history', '/interactions'));
-      }
-      if (id) loadAgent(id, 'history');
-    } else if (path.match(/\/agents\/\d+\/analytics/)) {
-      const id = path.match(/\/agents\/(\d+)/)?.[1];
-      if (id) loadAgent(id, 'agent-analytics');
-    } else if (path.match(/\/agents\/\d+\/edit/)) {
-      const id = path.match(/\/agents\/(\d+)/)?.[1];
-      if (id) loadAgent(id, 'editor');
-    } else if (path.match(/\/agents\/\d+\/run/)) {
-      const id = path.match(/\/agents\/(\d+)/)?.[1];
-      if (id) loadAgent(id, 'runner');
-    } else if (path.match(/\/agents\/\d+\/?$/)) {
-      // Bare /dashboard/agents/:id — previously fell through to the agent
-      // list. Its detail view is the interactions/runs stream, which drills
-      // down into individual traces.
-      const id = path.match(/\/agents\/(\d+)/)?.[1];
-      if (id) loadAgent(id, 'history');
-    } else if (path.startsWith('/replay')) {
-      setCurrentView('replay');
-    } else if (path.startsWith('/sandbox') || path.startsWith('/demo')) {
-      setCurrentView('sandbox');
-    } else if (path.startsWith('/organization')) {
-      setCurrentView('organization');
-    } else if (path.startsWith('/settings')) {
-      setCurrentView('settings');
-    } else {
-      setCurrentView('list');
-    }
+      // Relative to the mount: matched against the raw pathname, a mount like
+      // /admin/agents made '/agents/' true for every URL and a mount like
+      // /demo rendered the sandbox everywhere.
+      const route = matchDashboardRoute(dashboardRelativePath(), features);
+      if (route.focusServer) setFocusServer(route.focusServer);
+      if (route.replacePath) window.history.replaceState({}, '', route.replacePath);
+      if (route.agentId) loadAgent(route.agentId, route.view);
+      else setCurrentView(route.view);
     };
 
     applyPath();
@@ -166,6 +121,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // Pushes the URL the view opens at; a view this dashboard does not have
+  // pushes nothing.
+  const pushViewPath = (view, agent = null) => {
+    const path = dashboardViewPath(view, { agent, features });
+    if (path !== null) window.history.pushState({}, '', dashboardPath(path));
+  };
+
   const handleCreateAgent = async (agentData) => {
     setIsLoading(true);
     try {
@@ -181,7 +143,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         setSelectedAgent(data.agent);
         setCurrentView('editor');
         showNotification('Agent created successfully!', 'success');
-        window.history.pushState({}, '', dashboardPath(`/agents/${data.agent.id}/edit`));
+        pushViewPath('editor', data.agent);
         return null;
       }
 
@@ -239,7 +201,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         setSelectedAgent(null);
         setCurrentView('list');
         showNotification('Agent deleted', 'success');
-        window.history.pushState({}, '', dashboardPath());
+        pushViewPath('list');
       }
     } catch (error) {
       showNotification('Failed to delete agent', 'error');
@@ -283,7 +245,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const AGENT_DETAIL_VIEWS = ['editor', 'runner', 'agent-analytics', 'history'];
 
   const navigateTo = (view, agent = null) => {
-    if (view === 'assistant' && !assistantEnabled) return;
+    if (!isDashboardViewEnabled(view, features)) return;
     if (view === 'builder') setBuilderDraft(null);
     if (agent?.id && AGENT_DETAIL_VIEWS.includes(view) && agent.instructions === undefined) {
       loadAgent(agent.id, view);
@@ -292,183 +254,151 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       setCurrentView(view);
     }
 
-    // Update URL
-    let path = dashboardPath();
-    if (view === 'assistant') path = dashboardPath('/assistant');
-    else if (view === 'builder') path = dashboardPath('/agents/new');
-    else if (view === 'editor' && agent) path = dashboardPath(`/agents/${agent.id}/edit`);
-    else if (view === 'runner' && agent) path = dashboardPath(`/agents/${agent.id}/run`);
-    else if (view === 'agent-analytics' && agent) path = dashboardPath(`/agents/${agent.id}/analytics`);
-    else if (view === 'history' && agent) path = dashboardPath(`/agents/${agent.id}/interactions`);
-    else if (view === 'analytics') path = dashboardPath('/analytics');
-    else if (view === 'traces') path = dashboardPath('/traces');
-    else if (view === 'metrics') path = dashboardPath('/metrics');
-    else if (view === 'interactions') path = dashboardPath('/interactions');
-    else if (view === 'tools') path = dashboardPath('/tools');
-    else if (view === 'mcp') path = dashboardPath('/mcp');
-    else if (view === 'evaluations') path = dashboardPath('/evaluations');
-    else if (view === 'replay') path = dashboardPath('/replay');
-    else if (view === 'sandbox') path = dashboardPath('/sandbox');
-    else if (view === 'organization') path = dashboardPath('/organization');
-    else if (view === 'settings') path = dashboardPath('/settings');
+    pushViewPath(view, agent);
+  };
 
-    window.history.pushState({}, '', path);
+  // One renderer per view in utils/dashboardRoutes.mjs; the agent list is
+  // also the fallback for a view without one.
+  const views = {
+    assistant: () => (
+      <DashboardAssistant
+        session={assistantSession}
+        onSessionChange={setAssistantSession}
+        executionEnabled={meta.executionEnabled !== false}
+        onOpenSettings={() => navigateTo('settings')}
+        onReviewDraft={draft => {
+          setBuilderDraft(draft);
+          setCurrentView('builder');
+          pushViewPath('builder');
+        }}
+      />
+    ),
+    builder: () => (
+      <AgentBuilder
+        key={builderDraft?.id || 'new-agent'}
+        initialDraft={builderDraft}
+        meta={meta}
+        onSave={handleCreateAgent}
+        onCancel={() => navigateTo(builderDraft ? 'assistant' : 'list')}
+        isLoading={isLoading}
+      />
+    ),
+    editor: () => (selectedAgent ? (
+      <AgentEditor
+        key={`editor-${selectedAgent.id}`}
+        agent={selectedAgent}
+        meta={meta}
+        onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
+        onDelete={() => handleDeleteAgent(selectedAgent.id)}
+        onRun={() => navigateTo('runner', selectedAgent)}
+        onDuplicate={() => handleDuplicateAgent(selectedAgent.id)}
+        onRunReport={() => navigateTo('history', selectedAgent)}
+        onBack={() => navigateTo('list')}
+        isLoading={isLoading}
+      />
+    ) : null),
+    runner: () => (selectedAgent ? (
+      <AgentRunner
+        agent={selectedAgent}
+        onBack={() => navigateTo('editor', selectedAgent)}
+      />
+    ) : null),
+    // Per-agent analytics is a tab on the agent page now, so the old
+    // /analytics deep link opens that page with the tab selected.
+    'agent-analytics': () => (selectedAgent ? (
+      <AgentEditor
+        key={`agent-analytics-${selectedAgent.id}`}
+        agent={selectedAgent}
+        meta={meta}
+        initialTab="metrics"
+        onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
+        onDelete={() => handleDeleteAgent(selectedAgent.id)}
+        onRun={() => navigateTo('runner', selectedAgent)}
+        onDuplicate={() => handleDuplicateAgent(selectedAgent.id)}
+        onRunReport={() => navigateTo('history', selectedAgent)}
+        onBack={() => navigateTo('list')}
+        isLoading={isLoading}
+      />
+    ) : null),
+    history: () => (selectedAgent ? (
+      <AgentInteractions
+        agent={selectedAgent}
+        onBack={() => navigateTo('editor', selectedAgent)}
+      />
+    ) : null),
+    analytics: () => (
+      <DashboardAnalytics
+        onSelectAgent={(agent) => {
+          loadAgent(agent.id, 'agent-analytics');
+        }}
+      />
+    ),
+    traces: () => <TracesView />,
+    metrics: () => <MetricsView />,
+    interactions: () => <InteractionsView />,
+    tools: () => (
+      <ToolsView
+        onOpenServer={(key) => {
+          setFocusServer(key);
+          navigateTo('mcp');
+        }}
+      />
+    ),
+    mcp: () => (
+      <McpServersView
+        focusServer={focusServer}
+        onOpenTools={() => {
+          setFocusServer(null);
+          navigateTo('tools');
+        }}
+      />
+    ),
+    evaluations: () => <EvaluationsView />,
+    replay: () => (
+      <SessionReplayView
+        onHandoff={(handoffData) => {
+          // When user takes over, navigate to sandbox with handoff state
+          showNotification('Taking over session...', 'info');
+          navigateTo('sandbox');
+        }}
+        onClose={() => navigateTo('list')}
+      />
+    ),
+    sandbox: () => (
+      <SandboxRunner
+        initialType="playwright_mcp"
+        onClose={() => navigateTo('list')}
+      />
+    ),
+    organization: () => (
+      <OrganizationView
+        user={user}
+        account={account}
+        subscription={subscription}
+        agentCount={agents.length}
+      />
+    ),
+    settings: () => <SettingsView user={user} />,
+    list: () => (
+      <AgentList
+        agents={agents}
+        meta={meta}
+        onSelect={(agent) => navigateTo('editor', agent)}
+        onNew={() => navigateTo('builder')}
+        onBrowseTemplates={() => setShowTemplateLibrary(true)}
+        onDuplicate={handleDuplicateAgent}
+        onDelete={handleDeleteAgent}
+        onRefresh={refreshAgents}
+        sort={agentSort}
+        onSortChange={changeAgentSort}
+        isLoading={isLoading}
+      />
+    ),
   };
 
   const renderContent = () => {
-    switch (currentView) {
-      case 'assistant':
-        if (!assistantEnabled) return null;
-        return <DashboardAssistant
-          session={assistantSession}
-          onSessionChange={setAssistantSession}
-          executionEnabled={meta.executionEnabled !== false}
-          onOpenSettings={() => navigateTo('settings')}
-          onReviewDraft={draft => {
-            setBuilderDraft(draft);
-            setCurrentView('builder');
-            window.history.pushState({}, '', dashboardPath('/agents/new'));
-          }}
-        />;
-      case 'builder':
-        return (
-          <AgentBuilder
-            key={builderDraft?.id || 'new-agent'}
-            initialDraft={builderDraft}
-            meta={meta}
-            onSave={handleCreateAgent}
-            onCancel={() => navigateTo(builderDraft ? 'assistant' : 'list')}
-            isLoading={isLoading}
-          />
-        );
-      case 'editor':
-        return selectedAgent ? (
-          <AgentEditor
-            key={`editor-${selectedAgent.id}`}
-            agent={selectedAgent}
-            meta={meta}
-            onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
-            onDelete={() => handleDeleteAgent(selectedAgent.id)}
-            onRun={() => navigateTo('runner', selectedAgent)}
-            onDuplicate={() => handleDuplicateAgent(selectedAgent.id)}
-            onRunReport={() => navigateTo('history', selectedAgent)}
-            onBack={() => navigateTo('list')}
-            isLoading={isLoading}
-          />
-        ) : null;
-      case 'runner':
-        return selectedAgent ? (
-          <AgentRunner
-            agent={selectedAgent}
-            onBack={() => navigateTo('editor', selectedAgent)}
-          />
-        ) : null;
-      // Per-agent analytics is a tab on the agent page now, so the old
-      // /analytics deep link opens that page with the tab selected.
-      case 'agent-analytics':
-        return selectedAgent ? (
-          <AgentEditor
-            key={`agent-analytics-${selectedAgent.id}`}
-            agent={selectedAgent}
-            meta={meta}
-            initialTab="metrics"
-            onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
-            onDelete={() => handleDeleteAgent(selectedAgent.id)}
-            onRun={() => navigateTo('runner', selectedAgent)}
-            onDuplicate={() => handleDuplicateAgent(selectedAgent.id)}
-            onRunReport={() => navigateTo('history', selectedAgent)}
-            onBack={() => navigateTo('list')}
-            isLoading={isLoading}
-          />
-        ) : null;
-      case 'history':
-        return selectedAgent ? (
-          <AgentInteractions
-            agent={selectedAgent}
-            onBack={() => navigateTo('editor', selectedAgent)}
-          />
-        ) : null;
-      case 'analytics':
-        return (
-          <DashboardAnalytics
-            onSelectAgent={(agent) => {
-              loadAgent(agent.id, 'agent-analytics');
-            }}
-          />
-        );
-      case 'traces':
-        return <TracesView />;
-      case 'metrics':
-        return <MetricsView />;
-      case 'interactions':
-        return <InteractionsView />;
-      case 'tools':
-        return (
-          <ToolsView
-            onOpenServer={(key) => {
-              setFocusServer(key);
-              navigateTo('mcp');
-            }}
-          />
-        );
-      case 'mcp':
-        return (
-          <McpServersView
-            focusServer={focusServer}
-            onOpenTools={() => {
-              setFocusServer(null);
-              navigateTo('tools');
-            }}
-          />
-        );
-      case 'evaluations':
-        return <EvaluationsView />;
-      case 'replay':
-        return (
-          <SessionReplayView
-            onHandoff={(handoffData) => {
-              // When user takes over, navigate to sandbox with handoff state
-              showNotification('Taking over session...', 'info');
-              navigateTo('sandbox');
-            }}
-            onClose={() => navigateTo('list')}
-          />
-        );
-      case 'sandbox':
-        return (
-          <SandboxRunner
-            initialType="playwright_mcp"
-            onClose={() => navigateTo('list')}
-          />
-        );
-      case 'organization':
-        return (
-          <OrganizationView
-            user={user}
-            account={account}
-            subscription={subscription}
-            agentCount={agents.length}
-          />
-        );
-      case 'settings':
-        return <SettingsView user={user} />;
-      default:
-        return (
-          <AgentList
-            agents={agents}
-            meta={meta}
-            onSelect={(agent) => navigateTo('editor', agent)}
-            onNew={() => navigateTo('builder')}
-            onBrowseTemplates={() => setShowTemplateLibrary(true)}
-            onDuplicate={handleDuplicateAgent}
-            onDelete={handleDeleteAgent}
-            onRefresh={refreshAgents}
-            sort={agentSort}
-            onSortChange={changeAgentSort}
-            isLoading={isLoading}
-          />
-        );
-    }
+    if (!isDashboardViewEnabled(currentView, features)) return null;
+    return (views[currentView] || views.list)();
   };
 
   return (
@@ -485,7 +415,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         account={account}
         user={user}
         gemVersion={meta.activeagentVersion}
-        assistantEnabled={assistantEnabled}
+        features={features}
       />
 
       {/* min-w-0: a flex item defaults to min-width:auto, so a view whose
