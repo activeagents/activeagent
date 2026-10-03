@@ -21,6 +21,7 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
 
   def teardown
     ENV[PATH_ENV] = @original_manifest_path
+    ActionAgent.user_class = nil
   end
 
   test "generate names the engine's MCP path under the app's mount and a key for it" do
@@ -120,6 +121,85 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "generate syncs the app's agent classes, and the facade serves them to the manifest's key" do
+    ActionAgent::Agent.delete_all
+
+    manifest = ActionAgent::SandboxManifest.generate(agent_classes: [ Overview::SupportAgent, Persistence::SupportAgent ])
+
+    agents = ActionAgent::Agent.order(:slug)
+    assert_equal %w[overview-support-agent persistence-support-agent], agents.map(&:slug)
+    assert agents.all? { |agent| agent.user_id.nil? && agent.account_id.nil? }, "an app with no owner model owns nothing"
+    tools = rpc(manifest["mcp_path"], "tools/list", token: manifest["mcp_token"]).dig("result", "tools").map { |tool| tool["name"] }
+    assert_includes tools, "run_overview-support-agent"
+    assert_includes tools, "run_persistence-support-agent"
+  end
+
+  test "generate syncs the classes under app/agents by default, ApplicationAgent aside" do
+    ActionAgent::Agent.delete_all
+
+    classes = ActionAgent::SandboxManifest.checkout_agent_classes
+    _out, err = capture_io { ActionAgent::SandboxManifest.generate }
+
+    assert_includes classes, Overview::SupportAgent
+    assert_includes classes, Providers::MockAgent
+    assert_not_includes classes, ApplicationAgent
+    assert classes.all? { |klass| Object.const_source_location(klass.name).first.start_with?(Rails.root.join("app/agents").to_s) }
+    assert ActionAgent::Agent.exists?(slug: "overview-support-agent")
+    assert_includes err, "skipped Providers::OpenAIAgent has no provider/model configured",
+      "a class that cannot be synced is reported, and the rest are synced"
+  end
+
+  test "a re-run manifest updates the synced agents in place" do
+    ActionAgent::Agent.delete_all
+    ActionAgent::SandboxManifest.generate(agent_classes: [ Overview::SupportAgent ])
+    ActionAgent::Agent.find_by!(slug: "overview-support-agent").update!(model: "chosen-in-the-dashboard")
+
+    ActionAgent::SandboxManifest.generate(agent_classes: [ Overview::SupportAgent ])
+
+    assert_equal [ "chosen-in-the-dashboard" ], ActionAgent::Agent.where(slug: "overview-support-agent").pluck(:model)
+  end
+
+  test "in an app with one owner, the manifest's key and the synced agents are that owner's" do
+    remove_users
+    ActionAgent.user_class = "User"
+    owner = User.create!(email: "owner@example.com", name: "Owner", age: 30)
+    ActionAgent::Agent.delete_all
+
+    manifest = ActionAgent::SandboxManifest.generate(agent_classes: [ Overview::SupportAgent ])
+
+    assert_equal owner, ActionAgent::ApiKey.find_by!(name: KEY_NAME).owner
+    assert_equal [ owner.id ], ActionAgent::Agent.pluck(:user_id)
+    tools = rpc(manifest["mcp_path"], "tools/list", token: manifest["mcp_token"]).dig("result", "tools").map { |tool| tool["name"] }
+    assert_includes tools, "run_overview-support-agent"
+  end
+
+  test "a key minted before the app had an owner takes the owner it has now" do
+    ActionAgent::SandboxManifest.generate(agent_classes: [])
+    remove_users
+    ActionAgent.user_class = "User"
+    owner = User.create!(email: "owner@example.com", name: "Owner", age: 30)
+
+    ActionAgent::SandboxManifest.generate(agent_classes: [])
+
+    assert_equal [ owner ], ActionAgent::ApiKey.where(name: KEY_NAME).map(&:owner)
+  end
+
+  test "in an app with several owners, the manifest's key has none and no agents are synced" do
+    remove_users
+    ActionAgent.user_class = "User"
+    User.create!(email: "one@example.com", name: "One", age: 30)
+    User.create!(email: "two@example.com", name: "Two", age: 30)
+    ActionAgent::Agent.delete_all
+
+    manifest = nil
+    _out, err = capture_io { manifest = ActionAgent::SandboxManifest.generate(agent_classes: [ Overview::SupportAgent ]) }
+
+    assert_nil ActionAgent::ApiKey.find_by!(name: KEY_NAME).owner
+    assert_not ActionAgent::Agent.exists?
+    assert_includes err, "no agents synced: the app owns agents by User and has no single owner for a sandbox to use"
+    assert_equal "/activeagents/mcp", manifest["mcp_path"], "the manifest is written regardless"
+  end
+
   test "the manifest task aborts with the reason when the engine is not mounted" do
     generate = ActionAgent::SandboxManifest.method(:generate)
     routes = unmounted_routes
@@ -202,6 +282,14 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
     ActionDispatch::Routing::RouteSet.new.tap do |routes|
       routes.draw { get "/up", to: ->(_env) { [ 200, {}, [ "ok" ] ] } }
     end
+  end
+
+  # The dummy app's users, and what refers to them, inside this test's
+  # transaction.
+  def remove_users
+    Post.delete_all
+    Profile.delete_all
+    User.delete_all
   end
 
   def rpc(path, method, token:)
