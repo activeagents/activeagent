@@ -5,9 +5,10 @@ require_relative "support/explorer_setup"
 
 # A run of a project's evaluation (ProjectEvaluationJob) gives every replay
 # the sandbox's browser beside the sandbox: started before the first replay
-# when none runs, opened at the project's start URL for each replay, listed
-# in the diagnosis roster and recorded in the run's selection. A browser
-# that cannot start fails the run before any replay.
+# when none runs and stopped once the run ends, opened at the project's
+# start URL for each replay, listed in the diagnosis roster and recorded in
+# the run's selection. A browser that cannot start fails the run before any
+# replay.
 class ProjectEvaluationBrowserTest < ActiveSupport::TestCase
   include ExplorerSetup
 
@@ -55,6 +56,34 @@ class ProjectEvaluationBrowserTest < ActiveSupport::TestCase
     assert_equal [ "/orders", "/orders" ], @browser.tool_calls("browser_navigate").map { |call| call.dig("arguments", "url") }
     assert_equal @sandbox.runtime_server_key, run.selection.dig("sandbox", "server_key")
     assert_equal @sandbox.browser_server_key, run.selection.dig("browser", "server_key")
+    assert_equal [ @sandbox.session_id ], ExplorerBackend.stops, "the browser the run started is stopped"
+    assert_equal "stopped", @sandbox.reload.browser_status
+    assert recording.reload.completed?
+  end
+
+  test "a browser already running is left running, and none starts for a run with no scenarios" do
+    start_fake_browser!
+
+    assert run_project_evaluation.complete?
+    assert_empty ExplorerBackend.stops
+    assert @sandbox.reload.browser_running?
+
+    @sandbox.update!(browser_status: "stopped", browser_mcp_url: nil, browser_token: nil)
+    @evaluation.scenarios.update_all(enabled: false)
+    @run = @evaluation.evaluation_runs.create!(status: :pending, selection: { "project_id" => @project.id, "sandbox_id" => @sandbox.session_id })
+
+    assert run_project_evaluation.failed?
+    assert_empty ExplorerBackend.launches
+  end
+
+  test "a run that fails after starting the browser still stops it" do
+    ActiveAgent::Evals::Runner.stub(:new, ->(**) { raise "the judge is unavailable" }) do
+      assert_raises(RuntimeError) { run_project_evaluation }
+    end
+
+    assert @run.reload.failed?
+    assert_equal 1, ExplorerBackend.launches.size
+    assert_equal [ @sandbox.session_id ], ExplorerBackend.stops
   end
 
   test "the diagnosis roster lists the browser's tools beside the app's" do
