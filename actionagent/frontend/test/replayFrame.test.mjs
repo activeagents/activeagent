@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { PLAYER_CHANNEL, fitScale, isPlayerMessage, playerMessage } from '../utils/replayFrame.mjs';
+import { PLAYER_CHANNEL, fitScale, holdOffset, isPlayerMessage, playerMessage } from '../utils/replayFrame.mjs';
 
 const ORIGIN = 'https://dashboard.example';
 const parent = { name: 'parent' };
@@ -53,4 +53,11 @@ test('keeps the recorded size when either size is unknown', () => {
   assert.equal(fitScale(null, { width: 640, height: 480 }), 1);
   assert.equal(fitScale({ width: 0, height: 720 }, { width: 640, height: 480 }), 1);
   assert.equal(fitScale({ width: 1280, height: 720 }, { width: 0, height: 0 }), 1);
+});
+
+test('holds just past a position, so the events at it are shown', () => {
+  assert.equal(holdOffset(1577), 1578);
+  assert.equal(holdOffset(0), 1);
+  assert.equal(holdOffset(-20), 1);
+  assert.equal(holdOffset(undefined), 1);
 });

@@ -5,7 +5,7 @@
 // utils/replayFrame.mjs for the messages).
 import { Replayer } from '@rrweb/replay';
 import replayerStyles from '@rrweb/replay/dist/style.css';
-import { fitScale, isPlayerMessage, playerMessage } from '../utils/replayFrame.mjs';
+import { fitScale, holdOffset, isPlayerMessage, playerMessage } from '../utils/replayFrame.mjs';
 
 const root = document.getElementById('session-player');
 let replayer = null;
@@ -26,7 +26,7 @@ function fit() {
   root.style.height = `${Math.floor(viewport.height * scale)}px`;
 }
 
-function load(events) {
+function load(events, token) {
   if (replayer) replayer.destroy();
   root.replaceChildren();
   viewport = null;
@@ -48,16 +48,16 @@ function load(events) {
   replayer.pause(0);
 
   const { startTime, endTime } = replayer.getMetaData();
-  post('loaded', { startTime, endTime });
+  post('loaded', { startTime, endTime, token });
 }
 
 const handlers = {
-  load: ({ events }) => load(events),
+  load: ({ events, token }) => load(events, token),
   append: ({ events }) => events.forEach((event) => replayer?.addEvent(event)),
   seek: ({ offset, playing }) => {
     if (!replayer) return;
     if (playing) replayer.play(offset);
-    else replayer.pause(offset);
+    else replayer.pause(holdOffset(offset));
   },
   speed: ({ speed }) => replayer?.setConfig({ speed }),
 };

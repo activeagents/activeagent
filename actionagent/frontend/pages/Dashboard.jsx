@@ -16,6 +16,7 @@ import McpServersView from '../components/dashboard/McpServersView';
 import EvaluationsView from '../components/dashboard/EvaluationsView';
 import SandboxRunner from '../components/dashboard/SandboxRunner';
 import SessionReplayView from '../components/dashboard/SessionReplayView';
+import SessionsView from '../components/dashboard/SessionsView';
 import OrganizationView from '../components/dashboard/OrganizationView';
 import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
@@ -27,6 +28,7 @@ import {
   dashboardViewPath,
   isDashboardViewEnabled,
   matchDashboardRoute,
+  navView,
 } from '../utils/dashboardRoutes.mjs';
 
 /**
@@ -53,6 +55,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   // Which MCP service the MCP view should open expanded — set when a tool
   // row links to the server that serves it, or from a /mcp/:server URL.
   const [focusServer, setFocusServer] = useState(null);
+  // The session a /replay URL opens (see sessionReplayPath).
+  const [replaySession, setReplaySession] = useState(null);
 
   // Parse the URL into a view. Runs on mount and on popstate, so browser
   // back/forward and in-app pushState navigation (e.g. a Traces agent card
@@ -64,6 +68,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       // /demo rendered the sandbox everywhere.
       const route = matchDashboardRoute(dashboardRelativePath(), features);
       if (route.focusServer) setFocusServer(route.focusServer);
+      if (route.sessionId) setReplaySession({ kind: route.sessionKind, id: route.sessionId });
       if (route.replacePath) window.history.replaceState({}, '', route.replacePath);
       if (route.agentId) loadAgent(route.agentId, route.view);
       else setCurrentView(route.view);
@@ -354,16 +359,19 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       />
     ),
     evaluations: () => <EvaluationsView />,
-    replay: () => (
+    sessions: () => <SessionsView agents={agents} user={user} />,
+    replay: () => (replaySession ? (
       <SessionReplayView
-        onHandoff={(handoffData) => {
-          // When user takes over, navigate to sandbox with handoff state
+        key={`${replaySession.kind}-${replaySession.id}`}
+        kind={replaySession.kind}
+        id={replaySession.id}
+        onHandoff={() => {
           showNotification('Taking over session...', 'info');
           navigateTo('sandbox');
         }}
-        onClose={() => navigateTo('list')}
+        onBack={() => navigateTo('sessions')}
       />
-    ),
+    ) : null),
     sandbox: () => (
       <SandboxRunner
         initialType="playwright_mcp"
@@ -409,7 +417,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       style={{ backgroundColor: darkMode ? '#0f0f0f' : '#f9fafb' }}
     >
       <Sidebar
-        currentView={currentView}
+        currentView={navView(currentView)}
         onNavigate={navigateTo}
         agentCount={agents.length}
         account={account}
