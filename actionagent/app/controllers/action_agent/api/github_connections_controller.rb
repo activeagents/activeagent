@@ -104,6 +104,9 @@ module ActionAgent
         # A different GitHub account starts with nothing selected: the old
         # selection was checked against the other account's access.
         connection.repositories = [] if connection.persisted? && connection.github_user_id != user["id"]
+        # The user who authorized, also where the account owns the
+        # connection: only they may publish pull requests with its token.
+        connection.user_id = current_user.id if ActionAgent.user_class.present? && current_user.respond_to?(:id)
         connection.update!(
           access_token: grant[:access_token],
           scopes: grant[:scope],
