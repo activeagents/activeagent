@@ -6,6 +6,8 @@ module ActionAgent
     owned_by :user, :account
 
     belongs_to :agent_template, optional: true
+    # The project this checkout was booted for, if any.
+    belongs_to :project, class_name: "ActionAgent::Project", optional: true
     has_many :code_sessions, dependent: :destroy
 
     # Session statuses
@@ -163,6 +165,21 @@ module ActionAgent
       return {} unless ProviderKey::CONNECTION_PROVIDERS.include?(runner)
 
       owners_record(ProviderKey.where(provider: runner))&.runtime_environment || {}
+    end
+
+    # The values of the secrets of the project this checkout was booted for,
+    # with their encodings (Project#scrub_values), for scrubbing whatever the
+    # sandbox outputs. Empty for a sandbox no project booted, and when the
+    # secrets cannot be read.
+    #
+    # @return [Array<String>]
+    def project_scrub_values
+      return [] unless app_runtime? && project_id
+
+      project&.scrub_values || []
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] sandbox #{session_id}: could not read its project's secrets: #{e.class}")
+      []
     end
 
     # Check if session is still valid
