@@ -157,6 +157,16 @@ test('opening another conversation from Recent Runs lets go of a paused run, and
   });
 });
 
+test('a ?run= link opens the run under its own action and conversation', async () => {
+  window.history.replaceState({}, '', '/agents/5/run?run=44');
+
+  await withRunner(async (container) => {
+    await waitFor(() => cards(container).length === 1, 'the linked run’s request');
+    await waitFor(() => container.querySelector('[data-testid="runner-action-select"]').value === 'summarize', 'the run’s action');
+    assert.equal(container.querySelector('[data-testid="runner-conversation-select"]').value, '3');
+  });
+});
+
 test('answering a request inline polls the same run to its end', async () => {
   responses['POST /api/input_requests/7/answer'] = { input_request: { id: 7, status: 'answered' } };
 

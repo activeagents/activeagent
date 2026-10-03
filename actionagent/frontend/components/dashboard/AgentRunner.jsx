@@ -23,7 +23,7 @@ import { pendingRequests, runIdFromSearch, runPollState } from '../../utils/inpu
 // A run that pauses for input stays in flight: polling stops, its requests
 // are answered inline, and polling picks up again after each answer until
 // the same run finishes. Opening another conversation while it waits lets go
-// of it. A `?run=` in the URL opens that run the same way.
+// of it. A `?run=` in the URL opens a run the way a Recent Runs row does.
 
 // Feed event kinds mapped onto the shared stream chip palette so streamed
 // run output matches the Interactions/Traces visual language.
@@ -657,6 +657,14 @@ export default function AgentRunner({ agent, onBack }) {
     else pollRun(run.id, contextIdOf(run));
   };
 
+  // Pins the conversation a run belongs to, under the action the run ran, so
+  // the next message continues that action's conversation.
+  const pinRunConversation = (contextId, runAction) => {
+    pinnedRef.current = contextId;
+    if (runAction && actionNames.includes(runAction) && runAction !== actionName) setActionName(runAction);
+    setConversationId(contextId);
+  };
+
   // The run a `?run=` link names, when it is one of this agent's.
   const attachLinkedRun = async (runId) => {
     try {
@@ -665,10 +673,7 @@ export default function AgentRunner({ agent, onBack }) {
       const data = await response.json();
       if (!mountedRef.current || !data.run || String(data.agent?.id) !== String(agent.id)) return;
       const contextId = contextIdOf(data.run);
-      if (contextId) {
-        pinnedRef.current = contextId;
-        setConversationId(contextId);
-      }
+      if (contextId) pinRunConversation(contextId, data.run.action_name);
       followRun(data.run);
     } catch (error) {
       console.error('Failed to open the linked run:', error);
@@ -769,10 +774,7 @@ export default function AgentRunner({ agent, onBack }) {
     if (contextId) {
       setInspectedRun(null);
       if (contextId !== conversationIdRef.current) clearRunPanel();
-      pinnedRef.current = contextId;
-      const runAction = detail.action_name || run.action_name;
-      if (runAction && actionNames.includes(runAction) && runAction !== actionName) setActionName(runAction);
-      setConversationId(contextId);
+      pinRunConversation(contextId, detail.action_name || run.action_name);
       followRun(detail);
     } else {
       setInspectedRun({
