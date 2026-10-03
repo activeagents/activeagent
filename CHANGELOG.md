@@ -48,8 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SandboxOrchestrator` dispatches `changed_files`, `read_file`,
   `start_browser`, `stop_browser` and `resume_boot` to a backend that defines
   them, and `supports?` is false for one that does not. Their signatures are
-  documented on the orchestrator and in the dashboard guide; the `:mock`
-  backend implements none of them. `read_file` refuses a path outside the
+  documented on the orchestrator and in the dashboard guide; the `:local`
+  backend implements `changed_files`, `read_file` and `resume_boot`, and the
+  `:mock` backend none of them. `read_file` refuses a path outside the
   checkout before the backend sees it.
 - **Boot a checkout that does not bundle the engine** (`actionagent`). An
   `app_runtime` sandbox of a Rails app whose `Gemfile.lock` locks no
@@ -143,6 +144,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   join the MCP facade. `config.input_request_ttl` (one day by default) bounds
   how long a request waits, and `InputRequestExpiryJob`, which a host
   schedules, fails the runs whose requests expired unread.
+- **Check out sandboxes through a GitHub App** (`actionagent`). Configure
+  `github_app_id`, `github_app_private_key`, `github_app_slug`,
+  `github_app_client_id` and `github_app_client_secret` (or the matching
+  `GITHUB_APP_*` variables), and Settings -> Integrations offers **Install
+  the GitHub App**. An installation is linked only after the App's user
+  authorization shows the user is the account it is installed on or an
+  active admin of its organization, and that user's token is then dropped.
+  An installation belongs to one owner at most. Its repositories are chosen
+  like the OAuth connection's, and a checkout of one of them mints a one-hour
+  token limited to that repository's contents, once per provision, held in
+  memory only. When a repository is reachable both ways, the installation
+  is used. The App's JWT is signed with OpenSSL, so there is no new
+  dependency. Run `rails g action_agent:install` and `rails db:migrate` for
+  the `github_installations` table and
+  `sandbox_sessions.github_installation_id`. The OAuth connection works as
+  before. Installing, linking, listing and choosing an installation's
+  repositories, and unlinking it ask `ActionAgent.permission_checker` for
+  `:manage_github`. An installation GitHub reports removed or suspended is
+  marked, and **Check again** clears the mark once GitHub serves it again.
+- **Create the GitHub App from Settings** (`actionagent`). On a
+  single-tenant dashboard, **Create GitHub App** posts a manifest to GitHub
+  and shows the new App's credentials once, with the configuration to add.
+  The dashboard stores none of them.
+- **Mask GitHub tokens in sandbox output by their shape** (`actionagent`).
+  `SecretScrubber` masks `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and
+  `github_pat_` tokens even when it is given no values, so a code session's
+  transcript masks a checkout token it never knew.
+- **Open a draft pull request from a sandbox** (`actionagent`). A ready
+  checkout's **Open draft PR** previews the exact diff of the files it would
+  publish, then publishes them from the dashboard's own process through
+  GitHub's Git Data API: a commit on the checkout commit, a new branch (an
+  existing one is refused, never overwritten) and a draft pull request. No
+  git process holds the token, which is minted at publish time for the one
+  repository, or is the OAuth connection's token when the user who connected
+  it publishes and its scopes allow writing. `.github/`, symlinks,
+  submodules, oversize files and files holding one of the sandbox's secrets
+  or a GitHub token are never published, and a file that changed since the
+  preview refuses the publish. One publish carries at most 300 files and
+  10 MB, chosen from every changed file. **Update draft PR** fast-forwards
+  the branch with a commit message of its own; a draft GitHub refuses keeps
+  the branch and offers a regular pull request as a second step. Where
+  nothing can write, **Download patch** offers the same files for `git am`.
+  Publishing asks `ActionAgent.permission_checker` for
+  `:publish_pull_request`, also when its job runs, needs a ready or running
+  sandbox, and runs one at a time per sandbox; a publish that never finishes
+  is failed as stalled after 15 minutes. The `:local` backend now implements
+  `changed_files` and `read_file`, which gains `base: true` (a backend whose
+  `read_file` takes no `base:` offers no publishing), and checks every object
+  of the checkout commit it reads against its id. The OAuth connect callback
+  records the user who connected. Run `rails g action_agent:install` and
+  `rails db:migrate` for the `draft_pull_requests` table.
 
 ### Changed
 

@@ -140,6 +140,32 @@ ActionAgent.configure do |config|
   # config.assistant_enabled = true
 
   # ==========================================================================
+  # GitHub
+  # ==========================================================================
+  #
+  # Checkout sandboxes clone repositories chosen in Settings -> Integrations.
+  # Through a GitHub App, each checkout gets a one-hour token limited to its
+  # one repository. Settings -> Integrations -> Create GitHub App registers
+  # one for you and shows these values once; otherwise register the App with
+  # "Request user authorization (OAuth) during installation" and "Redirect on
+  # update" turned on and the callback URL
+  # <mount>/api/github_installations/callback. Each setting falls back to its
+  # GITHUB_APP_* environment variable.
+  #
+  # config.github_app_id = Rails.application.credentials.dig(:github_app, :id)
+  # config.github_app_slug = Rails.application.credentials.dig(:github_app, :slug)
+  # config.github_app_client_id = Rails.application.credentials.dig(:github_app, :client_id)
+  # config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
+  # config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
+  #
+  # Or an OAuth App, connected per owner with the callback URL
+  # <mount>/api/github_connection/callback (GITHUB_CLIENT_ID and
+  # GITHUB_CLIENT_SECRET when unset).
+  #
+  # config.github_client_id = Rails.application.credentials.dig(:github, :client_id)
+  # config.github_client_secret = Rails.application.credentials.dig(:github, :client_secret)
+
+  # ==========================================================================
   # Sandboxes
   # ==========================================================================
   #
