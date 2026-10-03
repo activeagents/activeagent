@@ -117,7 +117,7 @@ module ActionAgent
   #   :answer_input_request   answer or decline a run's request for input
   #   :manage_project_secrets set or remove a project's secrets
   #   :take_over_browser      drive a run's browser by hand
-  #   :manage_recordings      view or delete a session recording
+  #   :manage_recordings      delete a session recording
   #   :replace_scenarios      replace or merge an evaluation's scenarios
   PERMISSION_ACTIONS = %i[
     manage_credentials
@@ -233,6 +233,18 @@ module ActionAgent
     # Custom sandbox limits (overrides defaults)
     # @return [Hash, nil]
     attr_accessor :sandbox_limits
+
+    # Caps on the events a browser may post to a session recording, merged
+    # over RecordingEvent::DEFAULT_LIMITS. Keys:
+    #
+    #   batch_events      events in one batch
+    #   batch_bytes       bytes in one batch's request body
+    #   recording_events  events stored on one recording
+    #   recording_bytes   bytes of event JSON stored on one recording
+    #
+    # A batch over any of them is refused and counted on the recording.
+    # @return [Hash, nil]
+    attr_accessor :recording_limits
 
     # Storage service for screenshots/snapshots
     # @return [Object, nil] Object responding to #signed_url_for and #fetch_snapshot
@@ -856,6 +868,7 @@ module ActionAgent
       @layout = nil
       @sandbox_service = :mock
       @sandbox_limits = nil
+      @recording_limits = nil
       @storage_service = nil
       @ingest_api_key = nil
       @base_controller_class = "ActionController::Base" # deprecated no-op
