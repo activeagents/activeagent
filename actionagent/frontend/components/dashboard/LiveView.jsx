@@ -7,10 +7,12 @@ import {
   controlLabel,
   initialLiveViewState,
   keyMessage,
+  leavesView,
   liveViewReducer,
   mouseMessage,
   pageLabel,
   releaseMessage,
+  takeOverButton,
   textMessage,
   wheelMessage,
 } from '../../utils/liveView.mjs';
@@ -34,10 +36,10 @@ const isPasteShortcut = (event) => (event.metaKey || event.ctrlKey) && event.key
 
 // A sandbox browser's live view: the page on screen, drawn from the frames
 // the browser streams, with "Watch live", "Take over" and "Hand back".
-// While this viewer holds control, the frame takes keyboard focus and its
-// mouse, wheel and keys go to the page; clicking outside it, or Hand back,
-// stops that. `headed` is whether the browser also has a window open on the
-// dashboard's machine.
+// While this viewer holds control, its mouse and wheel over the frame go to
+// the page, and so do its keys while the frame has keyboard focus. It holds
+// control, and the agent waits, until Hand back or Stop watching. `headed`
+// is whether the browser also has a window open on the dashboard's machine.
 export default function LiveView({ sessionId, headed = false }) {
   const { darkMode } = useTheme();
   const [state, dispatch] = useReducer(liveViewReducer, initialLiveViewState);
@@ -46,10 +48,16 @@ export default function LiveView({ sessionId, headed = false }) {
   const [taking, setTaking] = useState(false);
   const socketRef = useRef(null);
   const closingRef = useRef(false);
+  // Counts calls to watch and disconnect, so a watch whose ticket arrives
+  // after Stop watching, or after the view is gone, opens nothing.
+  const attemptRef = useRef(0);
+  const mineRef = useRef(false);
   const canvasRef = useRef(null);
+  const controlButtonRef = useRef(null);
   const frameQueue = useRef({ pending: null, decoding: false });
   const moveFrame = useRef({ message: null, scheduled: false });
   const lastPoint = useRef(null);
+  const lastEscape = useRef(null);
   const mine = state.control.mine;
 
   const send = useCallback((message) => {
@@ -88,9 +96,16 @@ export default function LiveView({ sessionId, headed = false }) {
     next();
   }, []);
 
+  // A holder hands back before closing, so the agent goes on at once rather
+  // than after the grace period the sidecar gives a dropped connection.
   const disconnect = useCallback(() => {
+    attemptRef.current += 1;
     const ws = socketRef.current;
-    if (!ws) return;
+    if (!ws) {
+      setConnection('idle');
+      return;
+    }
+    if (mineRef.current && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'hand_back' }));
     closingRef.current = true;
     ws.close(1000);
   }, []);
@@ -98,10 +113,14 @@ export default function LiveView({ sessionId, headed = false }) {
   useEffect(() => disconnect, [disconnect]);
 
   const watch = async () => {
+    attemptRef.current += 1;
+    const attempt = attemptRef.current;
     setNotice(null);
     setConnection('connecting');
     try {
       const { ticket, url } = await requestTicket(sessionId, 'view');
+      if (attemptRef.current !== attempt) return;
+
       const ws = new WebSocket(url);
       socketRef.current = ws;
       closingRef.current = false;
@@ -125,6 +144,7 @@ export default function LiveView({ sessionId, headed = false }) {
         setNotice(closeMessage(event.code, { requested: closingRef.current }));
       };
     } catch (e) {
+      if (attemptRef.current !== attempt) return;
       setConnection('idle');
       setNotice(e.message);
     }
@@ -151,6 +171,7 @@ export default function LiveView({ sessionId, headed = false }) {
   // Focus goes to the frame when this view takes control, and leaves it when
   // control is handed back or taken away.
   useEffect(() => {
+    mineRef.current = mine;
     if (mine) canvasRef.current?.focus();
     else canvasRef.current?.blur();
   }, [mine]);
@@ -196,7 +217,16 @@ export default function LiveView({ sessionId, headed = false }) {
       });
     },
     onContextMenu: (event) => event.preventDefault(),
+    // Every other key, Tab included, goes to the page, so a quick second
+    // Escape is the way out by keyboard. It moves focus to Hand back.
     onKeyDown: (event) => {
+      if (leavesView(event, lastEscape.current)) {
+        event.preventDefault();
+        lastEscape.current = null;
+        controlButtonRef.current?.focus();
+        return;
+      }
+      lastEscape.current = event.key === 'Escape' && !event.repeat ? event.timeStamp : null;
       if (isPasteShortcut(event)) return;
       const message = keyMessage('down', event);
       if (!message) return;
@@ -222,6 +252,7 @@ export default function LiveView({ sessionId, headed = false }) {
   const primaryButton = 'px-3 py-1 text-sm rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50';
   const banner = agentBanner(state);
   const holder = controlLabel(state);
+  const takeOverAction = takeOverButton(state, { taking });
   const page = pageLabel(state.page);
   const open = connection === 'open';
   const { frameSize } = state;
@@ -234,12 +265,14 @@ export default function LiveView({ sessionId, headed = false }) {
         ) : (
           <button type="button" onClick={disconnect} className={secondaryButton}>Stop watching</button>
         )}
-        {open && !mine && (
-          <button type="button" onClick={takeOver} disabled={taking || state.control.held} className={primaryButton}>
-            {taking ? 'Taking over…' : 'Take over'}
+        {/* One button that changes, so focus stays on it when control changes hands. */}
+        {open && (mine ? (
+          <button ref={controlButtonRef} type="button" onClick={handBack} className={primaryButton}>Hand back</button>
+        ) : (
+          <button ref={controlButtonRef} type="button" onClick={takeOver} disabled={takeOverAction.disabled} className={primaryButton}>
+            {takeOverAction.label}
           </button>
-        )}
-        {open && mine && <button type="button" onClick={handBack} className={primaryButton}>Hand back</button>}
+        ))}
         {holder && <span className={`text-xs font-medium ${strong}`}>{holder}</span>}
         {connection === 'connecting' && <span className={`text-xs ${muted}`}>Connecting…</span>}
       </div>
@@ -262,15 +295,16 @@ export default function LiveView({ sessionId, headed = false }) {
             ref={canvasRef}
             tabIndex={mine ? 0 : -1}
             role={mine ? 'application' : 'img'}
-            aria-label={mine ? "The sandbox's browser: your mouse and keys go to it" : "Live view of the sandbox's browser"}
+            aria-label={mine ? "The sandbox's browser: your mouse and keys go to it. Press Escape twice to leave it." : "Live view of the sandbox's browser"}
             className={`block w-full rounded border bg-black ${mine ? 'cursor-default outline-none focus:ring-2 focus:ring-blue-500' : ''} ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
             style={{ aspectRatio: frameSize ? `${frameSize.width} / ${frameSize.height}` : '16 / 10' }}
             {...pointer}
           />
           {mine && (
             <p className={`text-xs ${muted}`}>
-              While the view has focus, your mouse and keys go to the browser and the agent waits for you. Click outside it, or
-              Hand back, to stop.
+              Your mouse and keys go to the browser, and the agent waits until you hand back. Press Escape twice to move focus
+              out of the view. That, or clicking outside it, only stops your keys reaching the browser: the agent keeps waiting
+              until you press Hand back or Stop watching.
             </p>
           )}
         </div>

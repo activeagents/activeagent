@@ -10,11 +10,14 @@ import {
   initialLiveViewState,
   isBrowserActive,
   keyMessage,
+  LEAVE_VIEW_MS,
+  leavesView,
   liveViewReducer,
   modifierMask,
   mouseMessage,
   pageLabel,
   releaseMessage,
+  takeOverButton,
   textMessage,
   wheelMessage,
 } from '../utils/liveView.mjs';
@@ -91,13 +94,17 @@ test('the state follows what the sidecar says', () => {
     page: { url: 'http://127.0.0.1:4100/orders', tab: 1, tabs: 1 },
   });
   assert.equal(state.ready, true);
+  assert.equal(state.control.yours, false, 'a sidecar that does not say is taken to mean someone else');
   assert.equal(controlLabel(state), 'Held by Grace');
 
   state = liveViewReducer(state, { type: 'frame', data: 'x', width: 1280, height: 800 });
   assert.deepEqual(state.frameSize, { width: 1280, height: 800 });
   assert.equal(liveViewReducer(state, { type: 'frame', data: 'y', width: 1280, height: 800 }), state, 'a frame of the same size changes nothing');
 
-  state = liveViewReducer(state, { type: 'control', held: true, mine: true, by: 'Ada', since: 2 });
+  state = liveViewReducer(state, { type: 'control', held: true, mine: false, yours: true, by: 'Ada', since: 2 });
+  assert.equal(controlLabel(state), 'You are driving in another view');
+
+  state = liveViewReducer(state, { type: 'control', held: true, mine: true, yours: true, by: 'Ada', since: 2 });
   assert.equal(controlLabel(state), 'You are driving');
 
   state = liveViewReducer(state, { type: 'page', page: { url: 'http://127.0.0.1:4100/cart', tab: 2, tabs: 3 } });
@@ -115,11 +122,34 @@ test('a banner shows while an agent waits for the person driving', () => {
   const mine = { ...initialLiveViewState, control: { held: true, mine: true, by: 'Ada', since: 1 }, agent: waiting };
   assert.equal(agentBanner(mine), 'The agent is waiting for you to hand back control (browser_click).');
 
-  const theirs = { ...mine, control: { held: true, mine: false, by: 'Grace', since: 1 } };
+  const elsewhere = { ...mine, control: { held: true, mine: false, yours: true, by: 'Ada', since: 1 } };
+  assert.equal(agentBanner(elsewhere), 'The agent is waiting for you to hand back control in your other view (browser_click).');
+
+  const theirs = { ...mine, control: { held: true, mine: false, yours: false, by: 'Grace', since: 1 } };
   assert.equal(agentBanner(theirs), 'The agent is waiting for Grace to hand back control (browser_click).');
 
   assert.equal(agentBanner({ ...mine, agent: initialLiveViewState.agent }), null);
   assert.equal(agentBanner({ ...initialLiveViewState, agent: waiting }), null, 'nobody holds control any more');
+});
+
+test('Take over is offered when nobody drives, and as Continue driving here when the driver is you in another view', () => {
+  const control = (fields) => ({ ...initialLiveViewState, control: { ...initialLiveViewState.control, ...fields } });
+
+  assert.deepEqual(takeOverButton(control({})), { label: 'Take over', disabled: false });
+  assert.deepEqual(takeOverButton(control({ held: true, by: 'Grace' })), { label: 'Take over', disabled: true });
+  assert.deepEqual(takeOverButton(control({ held: true, yours: true, by: 'Ada' })), { label: 'Continue driving here', disabled: false });
+  assert.deepEqual(takeOverButton(control({}), { taking: true }), { label: 'Taking over…', disabled: true });
+});
+
+test('a second quick press of Escape leaves the view, and nothing else does', () => {
+  const escape = (timeStamp, extra = {}) => ({ key: 'Escape', repeat: false, timeStamp, ...extra });
+
+  assert.equal(leavesView(escape(1000), 700), true);
+  assert.equal(leavesView(escape(700 + LEAVE_VIEW_MS), 700), true);
+  assert.equal(leavesView(escape(701 + LEAVE_VIEW_MS), 700), false, 'too slow: it goes to the page');
+  assert.equal(leavesView(escape(1000), null), false, 'the first press goes to the page');
+  assert.equal(leavesView(escape(1000, { repeat: true }), 700), false, 'holding Escape down');
+  assert.equal(leavesView({ key: 'Tab', repeat: false, timeStamp: 1000 }, 700), false);
 });
 
 test('a page is labelled with its tab only when there are several', () => {

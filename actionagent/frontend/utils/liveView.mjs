@@ -61,22 +61,34 @@ export function wheelMessage(event, rect) {
 }
 
 // Returns the message for a key event (`action` "down" or "up"), or null for
-// one an input method is composing: its text arrives once composed
-// (textMessage).
+// a key an input method is composing, which is not sent.
 export function keyMessage(action, event) {
   if (event.isComposing || event.key === 'Process' || event.key === 'Unidentified' || !event.key) return null;
 
   return { type: 'key', action, key: event.key, code: event.code || '', keyCode: event.keyCode || undefined, modifiers: modifierMask(event) };
 }
 
-// Returns the message that types `text`, pasted or composed, or null for none.
+// Returns the message that types `text`, as a paste does, or null for none.
 export function textMessage(text) {
   return typeof text === 'string' && text !== '' ? { type: 'text', text: text.slice(0, 2000) } : null;
 }
 
+// How soon a second Escape has to follow the first to move focus out of the
+// view.
+export const LEAVE_VIEW_MS = 600;
+
+// Whether a keydown is the second of two quick presses of Escape, which
+// moves focus out of the view instead of reaching the page. `previousAt` is
+// the timeStamp of the keydown before it when that was a fresh press of
+// Escape, otherwise null. The first press reaches the page as usual.
+export function leavesView(event, previousAt) {
+  if (event.key !== 'Escape' || event.repeat || previousAt === null) return false;
+  return event.timeStamp - previousAt <= LEAVE_VIEW_MS;
+}
+
 export const initialLiveViewState = {
   ready: false,
-  control: { held: false, mine: false, by: null, since: null },
+  control: { held: false, mine: false, yours: false, by: null, since: null },
   agent: { waiting: false, tool: null, since: null },
   page: null,
   frameSize: null,
@@ -93,7 +105,7 @@ export function liveViewReducer(state, message) {
       return {
         ...state,
         ready: true,
-        control: message.control || initialLiveViewState.control,
+        control: { ...initialLiveViewState.control, ...message.control },
         agent: message.agent || initialLiveViewState.agent,
         page: message.page || null,
       };
@@ -101,7 +113,10 @@ export function liveViewReducer(state, message) {
       if (state.frameSize?.width === message.width && state.frameSize?.height === message.height) return state;
       return { ...state, frameSize: { width: message.width, height: message.height } };
     case 'control':
-      return { ...state, control: { held: message.held, mine: message.mine, by: message.by, since: message.since } };
+      return {
+        ...state,
+        control: { held: message.held, mine: message.mine, yours: message.yours === true, by: message.by, since: message.since },
+      };
     case 'agent':
       return { ...state, agent: { waiting: message.waiting, tool: message.tool, since: message.since } };
     case 'page':
@@ -124,6 +139,7 @@ export function agentBanner(state) {
 
   const tool = state.agent.tool ? ` (${state.agent.tool})` : '';
   if (state.control.mine) return `The agent is waiting for you to hand back control${tool}.`;
+  if (state.control.yours) return `The agent is waiting for you to hand back control in your other view${tool}.`;
   return `The agent is waiting for ${state.control.by || 'the person driving'} to hand back control${tool}.`;
 }
 
@@ -131,7 +147,20 @@ export function agentBanner(state) {
 export function controlLabel(state) {
   if (!state.control.held) return null;
   if (state.control.mine) return 'You are driving';
+  if (state.control.yours) return 'You are driving in another view';
   return `Held by ${state.control.by || 'someone else'}`;
+}
+
+// Returns the button that takes control for a view that does not hold it:
+// { label, disabled }. A person driving in another view of theirs, such as
+// the tab they had open before a reload, may carry on in this one.
+export function takeOverButton(state, { taking = false } = {}) {
+  const { held, yours } = state.control;
+  let label = 'Take over';
+  if (taking) label = 'Taking over…';
+  else if (held && yours) label = 'Continue driving here';
+
+  return { label, disabled: taking || (held && !yours) };
 }
 
 // Returns the page on screen as one line: its address, and which tab it is
