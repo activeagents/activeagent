@@ -129,4 +129,18 @@ class ActiveAgent::Generators::SchemaToolsGeneratorTest < Rails::Generators::Tes
       assert_match(/^\s+# filterable /, content)
     end
   end
+
+  test "--managed heads the file with the marker a dashboard project looks for" do
+    run_generator [ "post", "--managed", "--returns", "title" ]
+
+    assert_file "app/agent_tools/post_tools.rb" do |content|
+      assert_equal "# #{ActiveAgent::SchemaTools::MANAGED_MARKER}: a project's choice of what its", content.lines.first.chomp
+      assert_match(/^\s+returns :id, :title$/, content)
+    end
+
+    run_generator [ "post", "--returns", "title", "--force" ]
+    assert_file "app/agent_tools/post_tools.rb" do |content|
+      assert_no_match(/#{ActiveAgent::SchemaTools::MANAGED_MARKER}/, content, "only --managed writes the marker")
+    end
+  end
 end
