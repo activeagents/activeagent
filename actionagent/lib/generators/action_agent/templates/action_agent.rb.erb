@@ -120,6 +120,40 @@ ActionAgent.configure do |config|
   # }
 
   # ==========================================================================
+  # Provider keys and members
+  # ==========================================================================
+  #
+  # Agent runs, the evaluation judge and the assistant use the account's
+  # provider keys (Settings -> API Keys, or the Organization page) before
+  # config/active_agent.yml. With :personal_override, each member may also
+  # save a personal key per provider, which the runs they start use first.
+  # A personal key sends the organization's agent traffic to that member's
+  # own provider account, so it is off by default. It needs account_class;
+  # the judge, sandboxes, Claude Code and Codex always use the account's keys.
+  #
+  # config.provider_key_scope = :personal_override
+  #
+  # Credentials your app keeps elsewhere, tried after a personal key and
+  # before the account's stored key. Declare actor: to learn who is acting
+  # (nil for the judge and unattributed runs). With multi_tenant on, a
+  # resolver that raises fails the run rather than falling back to
+  # config/active_agent.yml. If it reads the provider_keys table, keep it
+  # to organization rows (ActionAgent::ProviderKey.for_owner does).
+  #
+  # config.provider_credentials_resolver = ->(owner, provider, actor: nil) {
+  #   owner.provider_credentials_for(provider)
+  # }
+  #
+  # The Organization page's Team Members table, as
+  # [{ id:, name:, email:, role: }], and where "+ Invite Member" links. Both
+  # unset, the table lists the signed-in user and the button is hidden.
+  #
+  # config.members_resolver = ->(account) {
+  #   account.members.map { |user| { id: user.id, name: user.name, email: user.email, role: user.role } }
+  # }
+  # config.member_invite_url = "/team/invitations/new"
+
+  # ==========================================================================
   # Host integration
   # ==========================================================================
   #

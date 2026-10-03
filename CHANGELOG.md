@@ -44,6 +44,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stores the signed-in user beside its owner, and an MCP call made with an
   account's key runs as that user. Keys created earlier have no creator and
   behave as before.
+- **Organization and personal provider keys** (`actionagent`). A provider
+  key is an organization key, shared by the account's members, or a member's
+  personal key. With `ActionAgent.provider_key_scope = :personal_override`, a
+  member saves personal keys in Settings → API Keys, and the runs they start,
+  the dashboard assistant and the model pickers use them before the
+  organization's; the judge, sandboxes, Claude Code and Codex use organization
+  keys only. Every lookup goes through
+  `ActionAgent::ProviderCredentials.resolve(owner:, actor:, provider:)`: the
+  actor's personal key, then `provider_credentials_resolver`, then the
+  organization key, then `config/active_agent.yml`. A resolver that declares
+  `actor:` is told who is acting. With `multi_tenant` on, an owner that does
+  not resolve to the configured owner class, or a resolver that raises, fails
+  the generation with `ProviderCredentials::Unresolved` instead of using the
+  platform's credentials. The provider keys API takes `scope=organization` or
+  `scope=personal` and returns `scope`, `effective_source`, `set_by` and
+  `updated_at`; `POST /api/provider_keys/test` no longer sends a stored key
+  to any host but the stored one. The Organization page manages the
+  organization's keys and lists the members `ActionAgent.members_resolver`
+  returns, with "+ Invite Member" linking to `ActionAgent.member_invite_url`
+  (`GET /api/members`). **Upgrading:** run the new `add_provider_key_scope`
+  migration (`rails g action_agent:install` emits it); it stops and lists the
+  keys if an account holds two for one provider. A host that keeps its own
+  `provider_keys` table with a unique `(account_id, provider)` index replaces
+  it with `(account_id, scope_key, provider)`. Before turning on
+  `:personal_override`, change any `provider_credentials_resolver` that reads
+  `provider_keys` by provider alone so it reads organization rows only
+  (`ProviderKey.for_owner`), or remove it.
 - **Declare optional sandbox backend verbs** (`actionagent`).
   `SandboxOrchestrator` dispatches `changed_files`, `read_file`,
   `start_browser`, `stop_browser` and `resume_boot` to a backend that defines
