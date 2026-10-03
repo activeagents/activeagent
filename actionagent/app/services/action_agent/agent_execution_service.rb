@@ -529,6 +529,29 @@ module ActionAgent
       @secrets.empty? ? value : ActiveAgent::InputRequest.scrub(value, @secrets)
     end
 
+    # Returns a flattened span with the secrets scrubbed from its attribute
+    # values, status message and events. Its ids, name and every key are kept
+    # whole, so a secret can never break the span's links to its parent.
+    def scrub_span(span)
+      return span if @secrets.empty?
+
+      span.merge(
+        "attributes" => scrub_values(span["attributes"]),
+        "status_message" => scrub_secrets(span["status_message"]),
+        "events" => scrub_values(span["events"])
+      )
+    end
+
+    # Returns +value+ with the secrets scrubbed from the values at any depth
+    # of a Hash or Array, and every Hash key as it is.
+    def scrub_values(value)
+      case value
+      when Hash then value.transform_values { |item| scrub_values(item) }
+      when Array then value.map { |item| scrub_values(item) }
+      else scrub_secrets(value)
+      end
+    end
+
     # Maximum agent-to-agent delegation depth for the call_agent tool. A
     # thread-local counter guards it because the sub-agent runs synchronously
     # on the same thread via Agent#test_execute.
@@ -1159,7 +1182,7 @@ module ActionAgent
         environment: Rails.env,
         timestamp: Time.current.iso8601(6),
         resource_attributes: { "platform.agent_id" => @agent_record.id, "platform.run_id" => @run.id },
-        spans: scrub_secrets(flatten_spans(root_span))
+        spans: flatten_spans(root_span).map { |span| scrub_span(span) }
       }.as_json
 
       sdk_info = {
