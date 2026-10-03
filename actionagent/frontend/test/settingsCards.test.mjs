@@ -31,9 +31,9 @@ before(async () => {
         import ProviderKeysCard, { useProviderKeyEditor } from './components/dashboard/ProviderKeysCard.jsx';
         import SettingsView from './components/dashboard/SettingsView.jsx';
 
-        function ProviderKeys({ providerKeys }) {
-          const editor = useProviderKeyEditor({ onKeysChanged: async () => {}, onError: () => {} });
-          return React.createElement(ProviderKeysCard, { providerKeys, editor });
+        function ProviderKeys({ providerKeys, scope, editable }) {
+          const editor = useProviderKeyEditor({ onKeysChanged: async () => {}, onError: () => {}, scope });
+          return React.createElement(ProviderKeysCard, { providerKeys, editor, scope, editable });
         }
 
         const views = { RepoPicker, ProviderKeys, SettingsView };
@@ -130,6 +130,45 @@ test('a host-based provider without a host offers the platform default', () => {
   assert.deepEqual(providerRows(render('ProviderKeys', { providerKeys: [ollama] })), [
     ['Ollama', 'Platform default: http://localhost:11434/v1', ['Test connection', 'Configure']],
   ]);
+});
+
+test('the organization card says who set each key and when, and its own heading', () => {
+  const rows = [
+    { ...providerKeys[0], set_by: { id: 3, name: 'Grace' }, updated_at: '2026-10-02T10:00:00Z', effective_source: 'organization' },
+    { ...providerKeys[1], set_by: null, updated_at: null, effective_source: 'none' },
+  ];
+  const html = render('ProviderKeys', { providerKeys: rows, scope: 'organization' });
+
+  assert.match(html, /<h3[^>]*>\s*Provider Keys\s*<\/h3>/);
+  assert.match(html, /Shared by everyone in this organization/);
+  assert.equal([...html.matchAll(/data-testid="provider-key-audit"[^>]*>Set by Grace · updated [^<]+</g)].length, 1);
+  assert.doesNotMatch(html, /data-testid="provider-key-source"/, 'the organization card shows no personal badge');
+  assert.match(html, />Remove</);
+});
+
+test('a read-only organization card shows its keys without the buttons that change them', () => {
+  const html = render('ProviderKeys', { providerKeys, scope: 'organization', editable: false });
+
+  assert.match(html, /Configured \(sk-…abcd\)/);
+  assert.match(html, /You can see these keys but not change them\./);
+  assert.doesNotMatch(html, /<button/);
+});
+
+test('the personal card badges the source each provider uses for the caller', () => {
+  const rows = [
+    { ...providerKeys[0], effective_source: 'personal' },
+    { ...providerKeys[1], effective_source: 'organization' },
+    { ...providerKeys[2], configured: false, hint: null, api_key_configured: false, effective_source: 'config' },
+    { ...providerKeys[4], effective_source: 'none' },
+  ];
+  const html = render('ProviderKeys', { providerKeys: rows, scope: 'personal' });
+
+  assert.match(html, /<h3[^>]*>\s*Your Provider Keys\s*<\/h3>/);
+  assert.deepEqual(
+    [...html.matchAll(/data-testid="provider-key-source"[^>]*>([^<]+)</g)].map(([, label]) => label),
+    ['Your key', 'Organization key', 'Platform default', 'Not configured'],
+  );
+  assert.doesNotMatch(html, /provider-key-audit/);
 });
 
 // The hosted application's browser tests open this tab by the 'API Keys'
