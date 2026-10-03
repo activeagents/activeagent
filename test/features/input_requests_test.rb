@@ -443,13 +443,20 @@ class InputRequestsTest < ActiveSupport::TestCase
     def finish = nil
   end
 
+  # Prepends the telemetry wrapper unless an earlier test installed it on
+  # ActiveAgent::Base, where a second copy would trace every call twice.
+  def traced(agent_class)
+    instrumentation = ActiveAgent::Telemetry::Instrumentation::GenerationInstrumentation
+    agent_class.prepend(instrumentation) unless agent_class <= instrumentation
+    agent_class
+  end
+
   test "a secret answer is scrubbed from the tool span's arguments, result and error" do
     config = ActiveAgent::Telemetry.configuration
     saved  = [ config.enabled, config.api_key, config.capture_bodies ]
     config.enabled, config.api_key, config.capture_bodies = true, "test-key", true
 
-    agent_class = Class.new(RefundAgent) { def self.name = "TracedRefundAgent" }
-    agent_class.prepend(ActiveAgent::Telemetry::Instrumentation::GenerationInstrumentation)
+    agent_class = traced(Class.new(RefundAgent) { def self.name = "TracedRefundAgent" })
     agent = agent_class.new
     agent.send(:input_request_secrets) << "tok-live-12345"
     parent = SpanDouble.new
@@ -474,8 +481,7 @@ class InputRequestsTest < ActiveSupport::TestCase
     saved  = [ config.enabled, config.api_key ]
     config.enabled, config.api_key = true, "test-key"
 
-    agent_class = Class.new(RefundAgent) { def self.name = "TracedPauseRefundAgent" }
-    agent_class.prepend(ActiveAgent::Telemetry::Instrumentation::GenerationInstrumentation)
+    agent_class = traced(Class.new(RefundAgent) { def self.name = "TracedPauseRefundAgent" })
     roots = []
     trace = ->(_name, **_options, &block) { block.call(SpanDouble.new.tap { roots << _1 }) }
 
