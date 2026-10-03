@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 17) do
+ActiveRecord::Schema[8.0].define(version: 18) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -391,6 +391,12 @@ ActiveRecord::Schema[8.0].define(version: 17) do
   create_table "active_agent_sandbox_sessions", force: :cascade do |t|
     t.bigint "account_id"
     t.bigint "agent_template_id"
+    t.string "browser_live_url"
+    t.string "browser_mcp_url"
+    t.string "browser_mode"
+    t.datetime "browser_started_at"
+    t.string "browser_status"
+    t.text "browser_token"
     t.string "cloud_run_job_id"
     t.string "cloud_run_url"
     t.datetime "created_at", null: false
