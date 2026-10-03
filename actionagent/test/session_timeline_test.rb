@@ -223,6 +223,36 @@ class SessionTimelineTest < ActionDispatch::IntegrationTest
     assert_includes body, "https://example.com/"
   end
 
+  test "a long recording fills the browser lane from its earliest rows without decoding the rest" do
+    recording = ActionAgent::SessionRecording.start!(agent_run: @traced_run, source: "agent")
+    add_console_row(recording, [ T0, T0 + 1.day ])
+    rows = 300
+    rows.times do |row|
+      add_console_row(recording, (0...10).map { |event| T0 + 1 + (row * 10) + event })
+    end
+    limit = ActionAgent::SessionTimeline::LANE_LIMIT
+    loaded = 0
+    counter = ->(*, payload) { loaded += payload[:record_count] if payload[:class_name] == "ActionAgent::RecordingEvent" }
+
+    session = ActiveSupport::Notifications.subscribed(counter, "instantiation.active_record") do
+      timeline("session_recordings/#{recording.id}/timeline")
+    end
+
+    browser = session.dig("lanes", "browser")
+    assert session.dig("session", "truncated")
+    assert_equal limit, browser.size
+    assert_equal (T0 + (limit - 1)).iso8601(3), browser.last["start"], "the lane holds the earliest events"
+    assert_not_includes starts(browser), (T0 + 1.day).iso8601(3)
+    assert_operator loaded, :<, rows, "rows past the lane's end are not loaded"
+  end
+
+  # A console row of one event at each of +times+.
+  def add_console_row(recording, times)
+    row = recording.recording_events.new(kind: "console")
+    row.events = times.map { |time| { "at" => ActionAgent::RecordingEvent.milliseconds(time), "data" => { "message" => "line" } } }
+    row.save!
+  end
+
   test "a recording with no run or conversation has only its browser lane" do
     recording = ActionAgent::SessionRecording.start_user_session!(page_url: "https://example.com/")
     recording.record_action!(action_type: "handoff", value: "User took over")
