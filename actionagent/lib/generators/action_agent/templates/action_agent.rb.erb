@@ -128,6 +128,21 @@ ActionAgent.configure do |config|
   # config.assistant_enabled = true
 
   # ==========================================================================
+  # Recording the Run Agent workbench
+  # ==========================================================================
+  #
+  # While the Run Agent workbench has a conversation open, the dashboard
+  # records the page with rrweb, and the recording replays as the
+  # conversation's browser lane. Field values are masked, elements marked
+  # data-aa-secret are left out, and the owner's stored credentials are
+  # masked in every batch; what the page shows otherwise, the conversation
+  # included, is recorded as shown. Set it to false to record nothing:
+  # conversations still replay from their messages, model calls and tool
+  # calls.
+  #
+  # config.capture_dashboard_sessions = false
+
+  # ==========================================================================
   # Sandboxes
   # ==========================================================================
   #
