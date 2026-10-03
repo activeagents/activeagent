@@ -61,8 +61,16 @@ jobs:
       - name: Build
         run: npm run build
 
+      # git status rather than git diff, so a file the build writes that was
+      # never committed fails too.
       - name: Check the committed bundle matches its source
-        run: git diff --exit-code ../app/assets/builds
+        run: |
+          changed="$(git status --porcelain -- ../app/assets/builds)"
+          if [ -n "$changed" ]; then
+            echo "::error::The committed bundle does not match its source. Run npm run build in actionagent/frontend and commit actionagent/app/assets/builds."
+            echo "$changed"
+            exit 1
+          fi
 
   test:
     runs-on: ubuntu-latest
