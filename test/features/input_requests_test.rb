@@ -540,6 +540,7 @@ class InputRequestsTest < ActiveSupport::TestCase
 
     error = assert_raises(ActiveAgent::InputRequest::UnsupportedProviderError) { agent_class.triage(order_id: 7).generate_now }
     assert_match(/cannot pause/, error.message)
+    assert_kind_of StandardError, error, "rescue_from handlers, telemetry and job retries rescue StandardError"
   end
 
   ##### Delegation ##########################################################

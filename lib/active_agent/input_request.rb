@@ -46,7 +46,7 @@ module ActiveAgent
 
     # Raised when a tool returns an InputRequest under a provider whose tool
     # loop cannot pause.
-    class UnsupportedProviderError < NotImplementedError; end
+    class UnsupportedProviderError < StandardError; end
 
     # Raised in place of an error whose message holds a secret that a copy of
     # the error cannot drop, because its class builds the message from its own
