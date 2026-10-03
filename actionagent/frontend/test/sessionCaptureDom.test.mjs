@@ -63,6 +63,10 @@ before(async () => {
     Object.defineProperty(globalThis, key, { value: window[key], configurable: true, writable: true });
   }
   window.localStorage.setItem('dashboard-theme', 'light');
+  window.ACTIVE_AGENT_DASHBOARD = { meta: { signOutPath: '/session' } };
+  // jsdom does not implement form submission. The sign-out test reads the form
+  // the header builds, not where it goes.
+  window.HTMLFormElement.prototype.submit = () => {};
   window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
   Object.defineProperty(window.navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -83,10 +87,11 @@ before(async () => {
         import AgentRunner from './components/dashboard/AgentRunner.jsx';
         import SettingsView from './components/dashboard/SettingsView.jsx';
         import OrganizationView from './components/dashboard/OrganizationView.jsx';
+        import Header from './components/dashboard/Header.jsx';
 
         export { act };
 
-        const VIEWS = { runner: AgentRunner, settings: SettingsView, organization: OrganizationView };
+        const VIEWS = { runner: AgentRunner, settings: SettingsView, organization: OrganizationView, header: Header };
 
         // Renders the named views, as the dashboard renders one view at a time.
         export function mount(container) {
@@ -227,5 +232,33 @@ test('a recording of the views that show credentials holds none of them', async 
     await capture.stop();
     await dashboard.act(async () => view.unmount());
     container.remove();
+  }
+});
+
+test('signing out while recording leaves the CSRF token out of the recording', async () => {
+  requests = [];
+  const container = document.body.appendChild(document.createElement('div'));
+  const view = dashboard.mount(container);
+  const { createSessionCapture } = await import('../utils/sessionCapture.mjs');
+  const capture = createSessionCapture({ contextId: 5, loadRecorder: () => import(recorderUrl), fetch: (path, init) => fetch(path, init) });
+
+  try {
+    await dashboard.act(async () => view.show(['header'], { user: { name: 'Ada' } }));
+    await capture.start();
+    assert.equal(capture.state, 'recording');
+
+    await click(buttonIn(container, 'A'));
+    await click(buttonIn(container, 'Sign out'));
+    assert.ok(document.querySelector('form[action="/session"] input[name="authenticity_token"]'), 'the sign-out form was added');
+    await capture.stop();
+
+    const recorded = batches().join('\n');
+    assert.match(recorded, /"tagName":"form"/, 'the sign-out form was recorded');
+    assert.ok(!recorded.includes(CSRF_TOKEN), 'the CSRF token is in the recording');
+  } finally {
+    await capture.stop();
+    await dashboard.act(async () => view.unmount());
+    container.remove();
+    document.querySelectorAll('form[action="/session"]').forEach((form) => form.remove());
   }
 });
