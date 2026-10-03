@@ -66,7 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dependency. Run `rails g action_agent:install` and `rails db:migrate` for
   the `github_installations` table and
   `sandbox_sessions.github_installation_id`. The OAuth connection works as
-  before.
+  before. Installing, linking, listing and choosing an installation's
+  repositories, and unlinking it ask `ActionAgent.permission_checker` for
+  `:manage_github`. An installation GitHub reports removed or suspended is
+  marked, and **Check again** clears the mark once GitHub serves it again.
 - **Create the GitHub App from Settings** (`actionagent`). On a
   single-tenant dashboard, **Create GitHub App** posts a manifest to GitHub
   and shows the new App's credentials once, with the configuration to add.
