@@ -133,9 +133,15 @@ module ActionAgent
       end
 
       # POST /api/session_recordings
-      # The caller's recording of conversation +agent_context_id+ in the Run
-      # Agent workbench (`source: "dashboard"`), which the dashboard posts its
-      # rrweb batches to. Returns the one still recording, or starts one (201).
+      # Starts the caller's recording of one visit to conversation
+      # +agent_context_id+ in the Run Agent workbench (`source: "dashboard"`),
+      # which the dashboard posts its rrweb batches to (201).
+      #
+      # Each visit gets a recording of its own. An rrweb stream replays only
+      # against the full snapshot it began with, so two tabs on one
+      # conversation need two recordings. The recording caps
+      # (ActionAgent.recording_limits) then bound one visit.
+      #
       # 400 without a conversation id, 404 for a conversation of an agent the
       # caller cannot reach. 401 when recordings have owners and the caller
       # resolves to none, since the caller could not reach the recording
@@ -150,15 +156,8 @@ module ActionAgent
           return render(json: { error: "Sign in to record this conversation" }, status: :unauthorized)
         end
 
-        created = false
-        recording = context.with_lock do
-          dashboard_recording_of(context) || begin
-            created = true
-            SessionRecording.start!(agent_context: context, source: "dashboard", owner: owner)
-          end
-        end
-
-        render json: { recording: dashboard_recording_json(recording) }, status: created ? :created : :ok
+        recording = SessionRecording.start!(agent_context: context, source: "dashboard", owner: owner)
+        render json: { recording: dashboard_recording_json(recording) }, status: :created
       end
 
       # POST /api/session_recordings/:id/events
@@ -380,11 +379,6 @@ module ActionAgent
         return if ActionAgent.capture_dashboard_sessions?
 
         render json: { error: "Session capture is turned off on this dashboard", code: "capture_disabled" }, status: :forbidden
-      end
-
-      # The caller's dashboard recording of +context+ that is still recording.
-      def dashboard_recording_of(context)
-        owned(SessionRecording).recording.where(source: "dashboard", agent_context_id: context.id).order(:id).last
       end
 
       # Whom a recording the caller starts belongs to: the record #owned

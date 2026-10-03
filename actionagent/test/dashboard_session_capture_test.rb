@@ -2,8 +2,8 @@
 
 require "test_helper"
 
-# The Run Agent workbench records a person's view of a conversation into the
-# conversation's dashboard recording. The owner's stored credentials are
+# The Run Agent workbench records each visit a person makes to a conversation
+# into a dashboard recording of its own. The owner's stored credentials are
 # masked in every batch a dashboard session posts, and a host can turn the
 # capture off. DashboardCredentialsTest covers the page carrying none.
 class DashboardSessionCaptureTest < ActionDispatch::IntegrationTest
@@ -22,6 +22,7 @@ class DashboardSessionCaptureTest < ActionDispatch::IntegrationTest
 
   def teardown
     ActionAgent.capture_dashboard_sessions = true
+    ActionAgent.recording_limits = nil
     ActionAgent.multi_tenant = false
     ActionAgent.user_class = nil
     ActionAgent.account_class = nil
@@ -118,23 +119,32 @@ class DashboardSessionCaptureTest < ActionDispatch::IntegrationTest
 
   # --- the workbench's recording ------------------------------------------
 
-  test "a conversation gets one dashboard recording while it records" do
+  test "each visit to a conversation gets a dashboard recording of its own" do
     sign_in
 
     id = start_recording
     assert_response :created
     recording = ActionAgent::SessionRecording.find(id)
-    assert_equal [ "dashboard", @context.id, @me.id ], [ recording.source, recording.agent_context_id, recording.user_id ]
+    assert_equal [ "dashboard", @context.id, @me.id, "recording" ],
+      [ recording.source, recording.agent_context_id, recording.user_id, recording.status ]
 
-    assert_equal id, start_recording
-    assert_response :ok
-
-    other = start_recording(create_context(@agent))
+    again = start_recording
     assert_response :created
-    assert_not_equal id, other, "another conversation gets a recording of its own"
+    assert_not_equal id, again, "a second visit, or a second tab, records into a recording of its own"
+    assert_equal [ @context.id ], ActionAgent::SessionRecording.where(id: [ id, again ]).distinct.pluck(:agent_context_id)
+  end
 
-    recording.complete!
-    assert_not_equal id, start_recording, "a completed recording takes no more batches, so another one starts"
+  test "a visit past the recording caps leaves the next visit recording" do
+    sign_in
+    full = start_recording
+    ActionAgent.recording_limits = { recording_events: 1 }
+
+    post_batch(full, [ snapshot("first visit") ])
+    assert_response :created
+    post_batch(full, [ text_mutation("over the cap") ])
+    assert_response 413
+
+    post_batch(start_recording, [ snapshot("next visit") ])
     assert_response :created
   end
 
