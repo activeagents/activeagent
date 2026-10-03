@@ -311,6 +311,7 @@ module ActionAgent
           render json: { error: "Not authorized" }, status: :forbidden
           return
         end
+        return unless authorize_action!(:manage_recordings, @recording)
 
         @recording.destroy!
         render json: { message: "Recording deleted" }

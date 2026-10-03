@@ -117,7 +117,7 @@ module ActionAgent
   #   :answer_input_request   answer or decline a run's request for input
   #   :manage_project_secrets set or remove a project's secrets
   #   :take_over_browser      drive a run's browser by hand
-  #   :manage_recordings      view or delete a session recording
+  #   :manage_recordings      delete a session recording
   #   :replace_scenarios      replace or merge an evaluation's scenarios
   PERMISSION_ACTIONS = %i[
     manage_credentials
