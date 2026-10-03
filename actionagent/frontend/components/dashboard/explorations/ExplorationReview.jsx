@@ -57,12 +57,13 @@ export default function ExplorationReview({ explorationId, onLoaded }) {
     setSelected((current) => (touched ? keepOpenSelection(current, candidates) : preselectedIds(candidates, detail.preselect_limit)));
   }, [detail, touched]);
 
+  // A fixed interval keeps polling after a failed load, so one error does not freeze the list.
   const active = isExplorationActive(detail?.exploration);
   useEffect(() => {
     if (!active) return undefined;
-    const timer = setTimeout(() => load().catch((e) => setError(e.message)), EXPLORATION_POLL_INTERVAL_MS);
-    return () => clearTimeout(timer);
-  }, [active, detail, load]);
+    const timer = setInterval(() => load().catch((e) => setError(e.message)), EXPLORATION_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [active, load]);
 
   useActionCable('ExplorationChannel', { exploration_id: explorationId }, (message) => {
     if (liveUpdate(message)) load().catch(() => {});
