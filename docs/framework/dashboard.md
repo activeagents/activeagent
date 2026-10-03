@@ -1538,11 +1538,13 @@ the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
 
 - A step with `unless_locked` is skipped when the checkout's lock, as checked
   out, locks that gem. One with `if_task` is skipped when the app defines no
-  such Rake task.
+  such Rake task. One with `"always": true` runs whether the spec applies or
+  not, so it cannot also have `unless_locked`.
 - With `"apply": "without_engine"` (what `bootstrap: "auto"` sends), a
   checkout that bundles the engine, names a `manifest` in its `sandbox.yml`,
   or has no `Gemfile.lock` boots as it would without a spec, except that the
-  spec's `env` and `secrets` are added to its `sandbox.yml` env. A backend whose
+  spec's `env` and `secrets` are added to its `sandbox.yml` env and its
+  `always` steps run after that file's `setup`. A backend whose
   `create_sandbox` takes no `boot_config:` is not handed such a spec, and
   boots as it always has. One with `"apply": "always"` is refused for that
   backend instead.
@@ -1560,10 +1562,15 @@ the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
   steps that install the engine (`bundle_config`, `add_framework`,
   `add_engine`, `install_framework`, `install_engine`), applied always: a
   project boots its install pull request's branch with it.
-- `SandboxBootSpec.schema_tools_step(choices)` is the `schema_tools` step
-  that runs `bin/rails generate active_agent:schema_tools <Model> --force
-  --filterable … --returns …` for each choice. It refuses a name that is not
-  a model or column name, and a column that looks like a secret.
+- `SandboxBootSpec.schema_tools_steps(choices)` are `always` steps,
+  `schema_tools` and, when the commands outgrow one step, `schema_tools_2`
+  and on. They first remove every `app/agent_tools` file headed by
+  `ActiveAgent::SchemaTools::MANAGED_MARKER`, then run `bin/rails generate
+  active_agent:schema_tools <Model> --force --managed --filterable …
+  --returns …` for each choice whose file is not there. A file without the
+  marker is the repository's own and is left as it is. They refuse a name
+  that is not a model or column name, a column that looks like a secret, and
+  choices that need more than 10 steps.
 
 ### Following a boot
 
@@ -1907,8 +1914,8 @@ a repository that lacks the engine is bootstrapped, and one that bundles it
 boots as its `sandbox.yml` says, with the secrets added to its env. While the
 project's [install pull request](#the-install-pull-request) is open, a boot
 checks out its branch and runs `SandboxBootSpec.installed` instead, which
-installs nothing. Every spec boot also writes the schema tools chosen for the
-App assistant.
+installs nothing. Every boot also writes the schema tools chosen for the
+App assistant, including a boot from the repository's own `sandbox.yml`.
 
 On `:local`, the first boot of each project answers `409` with
 `"This runs <owner/repo>'s code on this machine as <user>."`. The same
@@ -1965,6 +1972,9 @@ credentials rather than anyone's personal key.
   a boot succeeds. `PATCH /api/projects/:id/setup` with `auto: false` turns
   that off. `POST /api/projects/:id/setup` starts a run on demand, and needs
   `:manage_project_secrets`, since its tools set the project's environment.
+- No run starts, by hand or on its own, while the last one is pending,
+  running, or waiting for an answer that has not expired. Asking answers
+  `409`.
 - A run needs agent execution on and a provider the owner has credentials
   for. Without one, the project's `setup` summary says why, and the
   Environment tab stays the way to set what the boot needs.
@@ -1976,7 +1986,10 @@ credentials rather than anyone's personal key.
   request needs. The answer reaches the resumed boot as a project secret, and
   never the transcript, telemetry or a job argument.
 - Values `set_env` stores are not secret: a boot passes them as `env`, and
-  they are neither masked in logs nor refused in a published file.
+  they are neither masked in logs nor refused in a published file. The
+  secrets API lists them with their value, so a person can check what the
+  assistant set, and refuses the source `setup_assistant` from anyone else
+  (`422`).
 
 ### Requests for input on the Project page
 
@@ -2000,11 +2013,19 @@ back. Each boot's [manifest](#the-manifest-task) lists the models.
 
 Every boot after that writes `app/agent_tools/<model>_tools.rb` with
 `active_agent:schema_tools` (see [Boot specs](#boot-specs)), declaring only
-the chosen columns, so the choices survive a sandbox's expiry. The App
-assistant's sandbox server has no tool allowlist, so its tools are whatever
-the facade serves, the new schema tools among them. The generator's
-`--filterable` and `--returns` options write a declared list rather than
-the commented suggestions.
+the chosen columns, so the choices survive a sandbox's expiry. That holds
+once the repository bundles the engine too, when it boots from its own
+`sandbox.yml`. A model taken off the list loses the file a boot wrote for it.
+The App assistant's sandbox server has no tool allowlist, so its tools are
+whatever the facade serves, the new schema tools among them. The
+generator's `--filterable` and `--returns` options write a declared list
+rather than the commented suggestions.
+
+Each file the dashboard writes starts with a comment naming
+`ActiveAgent::SchemaTools::MANAGED_MARKER`. Boots rewrite and remove only
+files that carry it: a tools file the repository wrote itself is left as it
+is, even for a chosen model. Deleting the comment keeps a published file's
+edits from being overwritten.
 
 ### The install pull request
 
@@ -2033,16 +2054,24 @@ published:
   after the timestamp (`add_agent_releases`, `create_active_agent_projects`,
   …)
 - `db/schema.rb` or `db/structure.sql`
-- `app/agent_tools/<model>_tools.rb` for the chosen models
+- `app/agent_tools/<model>_tools.rb` for every model the App assistant was
+  given, so that a file a boot removed is removed on the branch too
 - `.activeagents/sandbox.yml`: the checkout's own, if it has one, with the
-  setup commands that booted the project and its variables' names under
-  `secrets:`, never their values
+  setup commands that booted the project and its secrets' names under
+  `secrets:`, never their values. Values the setup assistant set stay with
+  the project, which passes them to every boot
 - `.activeagents/evals/<project>.yml`: the project evaluation's enabled
   scenarios, as a suite `ActiveAgent::Evals::Suite.load` reads
 
 The last two are generated by the dashboard. Anything else the sandbox
 changed, anything under `.github/`, and any file holding one of the
 project's secrets or a GitHub token is refused.
+
+A publish has to take every one of the `Gemfile`, `Gemfile.lock`, the
+initializer, `config/routes.rb`, the schema and the engine migrations that
+the sandbox changed: boots of the branch install nothing, so they need them
+all. Leaving one out answers `422` with the code `incomplete_install`. The
+patch download is limited to the same paths.
 
 Once the pull request exists, each boot checks out its branch and installs
 nothing. **Update draft PR** publishes from the sandbox running then: a

@@ -115,10 +115,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no code session. At most three automatic runs follow each other before a
   boot succeeds; `PATCH /api/projects/:id/setup` with `auto: false` switches
   them off, and `POST /api/projects/:id/setup` (`:manage_project_secrets`)
-  starts one. Each run is an execution for `quota_checker`. `set_env` stores a
-  value that is not secret (source `setup_assistant`, passed as boot `env`,
-  never masked), refuses the names project secrets refuse and leaves values a
-  person set alone. A `request_secret` question names who asks, the
+  starts one. A new run waits until the last one is done or no longer waiting
+  for an answer. Each run is an execution for `quota_checker`. `set_env`
+  stores a value that is not secret (source `setup_assistant`, passed as boot
+  `env`, never masked, shown in the Environment tab), refuses the names
+  project secrets refuse and leaves values a person set alone. The secrets API
+  refuses that source. A `request_secret` question names who asks, the
   repository and the variable; answering it also needs
   `:manage_project_secrets`, and the answer becomes a project secret the
   resumed boot gets, never the transcript, telemetry or a job argument. The
@@ -128,22 +130,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   columns left out), and a project evaluated with the App assistant chooses
   which it may filter on and read (`GET /api/projects/:id/app_models`,
   `PUT /api/projects/:id/schema_tools`); every later boot writes
-  `app/agent_tools/<model>_tools.rb` with them. `POST
-  /api/projects/:id/install_pull_request` publishes the install through
-  `DraftPullRequestPublisher` with the project's allowlist: the Gemfile and
-  lock, the initializer and routes, the framework's config and application
-  agent when the bootstrap wrote them, the engine's migrations by name, the
-  schema, the chosen schema tools, and a generated `.activeagents/sandbox.yml`
-  (setup and secret names) and `.activeagents/evals/<project>.yml` (the
-  evaluation's enabled scenarios, as a suite `ActiveAgent::Evals::Suite.load`
-  reads). A file holding a project secret is refused. While the pull request
-  is open every boot checks out its branch without installing again, and once
-  GitHub reports it merged the project is installed.
+  `app/agent_tools/<model>_tools.rb` with them, also once the repository
+  bundles the engine and boots from its own `sandbox.yml`, and removes the
+  files it wrote for models taken off the list. A tools file the dashboard
+  did not write is left alone. `POST /api/projects/:id/install_pull_request`
+  publishes the install through `DraftPullRequestPublisher` with the
+  project's allowlist: the Gemfile and lock, the initializer and routes, the
+  framework's config and application agent when the bootstrap wrote them, the
+  engine's migrations by name, the schema, the chosen schema tools, and a
+  generated `.activeagents/sandbox.yml` (setup and secret names) and
+  `.activeagents/evals/<project>.yml` (the evaluation's enabled scenarios, as
+  a suite `ActiveAgent::Evals::Suite.load` reads). A publish must take every
+  one of those install files the sandbox changed, and a file holding a
+  project secret is refused. While the pull request is open every boot checks
+  out its branch without installing again, and once GitHub reports it merged
+  the project is installed. A boot spec step marked `always` runs whether the
+  spec applies or not: after a checkout's own `sandbox.yml` setup when it does
+  not.
 - **Declare schema tool columns from the generator** (`activeagent`).
   `bin/rails generate active_agent:schema_tools Model --filterable a --returns
   a b` writes those columns as the class's allowlist instead of commented
   suggestions, leaving out a column that looks like a secret or that the
   model lacks. `ActiveAgent::SchemaTools::SECRET_COLUMNS` names the pattern.
+  `--managed` heads the file with `ActiveAgent::SchemaTools::MANAGED_MARKER`,
+  which a dashboard project looks for before it rewrites or removes the file.
 - **Pause a generation to ask the user, and resume it with the answer**
   (`activeagent`). A tool returns an `ActiveAgent::InputRequest` (`:text`,
   `:choice`, `:confirm` or `:secret`); the turn's other calls finish, nothing
