@@ -80,6 +80,33 @@ class ProviderKeysApiTest < ActionDispatch::IntegrationTest
     assert_response :not_found, "Ada has no personal Anthropic key left; Grace's is not hers to delete"
   end
 
+  test "a save that loses a race for the same key updates the row the other request saved" do
+    ActionAgent.provider_key_scope = :personal_override
+    real = ActionAgent::ProviderKey.method(:personal_for)
+    other_request = -> { key("openai", "sk-ada-other-tab", member: @ada) }
+    raced = false
+    racing = lambda do |owner, actor|
+      relation = SimpleDelegator.new(real.call(owner, actor))
+      relation.define_singleton_method(:find_or_initialize_by) do |**attributes|
+        record = __getobj__.find_or_initialize_by(**attributes)
+        unless raced
+          raced = true
+          other_request.call
+          record.define_singleton_method(:update!) { |**| raise ActiveRecord::RecordNotUnique, "duplicate key" }
+        end
+        record
+      end
+      relation
+    end
+
+    ActionAgent::ProviderKey.stub(:personal_for, racing) do
+      post "/activeagents/api/provider_keys", params: { provider: "openai", credential: "sk-ada-this-tab", scope: "personal" }
+    end
+
+    assert_response :created, response.body
+    assert_equal [ "sk-ada-this-tab" ], ActionAgent::ProviderKey.personal_for(@account, @ada).where(provider: "openai").map(&:credential)
+  end
+
   test "a personal Claude Code or Codex key is refused" do
     ActionAgent.provider_key_scope = :personal_override
 

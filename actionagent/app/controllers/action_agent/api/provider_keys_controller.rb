@@ -55,12 +55,21 @@ module ActionAgent
       # keeps the stored one, sending an empty string clears it.
       def create
         provider = params.require(:provider)
-        record = scoped_keys.find_or_initialize_by(provider: provider)
-        return unless authorize_write!(record)
+        attempts = 0
+        begin
+          record = scoped_keys.find_or_initialize_by(provider: provider)
+          return unless authorize_write!(record)
 
-        attributes = { credential: params.require(:credential), set_by_id: signed_in_user&.id }
-        attributes[:api_key] = params[:api_key].presence if params.key?(:api_key) && record.host_based?
-        record.update!(**attributes)
+          attributes = { credential: params.require(:credential), set_by_id: signed_in_user&.id }
+          attributes[:api_key] = params[:api_key].presence if params.key?(:api_key) && record.host_based?
+          record.update!(**attributes)
+        rescue ActiveRecord::RecordNotUnique
+          # Another request saved this scope's key for the provider between
+          # the lookup and the insert. Looking again finds that row, and this
+          # request's credential replaces it, as a later save would.
+          retry if (attempts += 1) == 1
+          raise
+        end
 
         render json: { provider_key: serialize(provider, record, setters_for([ record ])) }, status: :created
       end
