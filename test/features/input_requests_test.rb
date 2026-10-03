@@ -761,6 +761,22 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_equal [ "Refund 40?" ], result["questions"]
   end
 
+  test "a delegated agent that pauses raises under the :raise budget policy" do
+    manager = Class.new(ManagerAgent) do
+      def self.name = "RaisingManagerAgent"
+
+      delegate_to ApprovalAgent, budget: { on_exceeded: :raise }
+    end
+    ScriptedProvider.script(
+      [ self.class.tool_use("call_parent", "approve", amount: 40) ],
+      [ self.class.tool_use("call_child", "issue_refund", amount: 40) ]
+    )
+
+    error = assert_raises(ActiveAgent::Delegation::InputRequiredError) { manager.handle.generate_now }
+
+    assert_match "issue_refund", error.message
+  end
+
   test "a delegated agent's pause is neither announced nor passed to its callbacks" do
     ApprovalAgent.paused = []
     events = []
