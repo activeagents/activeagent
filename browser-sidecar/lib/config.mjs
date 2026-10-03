@@ -87,6 +87,8 @@ function nonNegativeInteger(value, name, fallback, max) {
   return value;
 }
 
+// Returns `value` as the Origin header a browser sends for it:
+// "HTTP://127.1:3000/" is "http://127.0.0.1:3000".
 function origin(value) {
   let url;
   try {
@@ -94,7 +96,8 @@ function origin(value) {
   } catch {
     fail('live.origins must be a list of http(s) origins');
   }
-  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.origin !== value.replace(/\/$/, '').toLowerCase()) {
+  const bare = url.pathname === '/' && url.search === '' && url.hash === '' && url.username === '' && url.password === '';
+  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || !bare) {
     fail('live.origins must be a list of http(s) origins, such as http://localhost:3000');
   }
   return url.origin;
