@@ -107,7 +107,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one of the checkout's own agents; Run evaluation boots an expired sandbox
   again and waits for it. The first boot on `:local` asks for confirmation,
   and `quota_checker` is asked about `:project`. A boot spec that does not
-  apply to a checkout now still hands it its `secrets`.
+  apply to a checkout now still hands it its `env` and `secrets`.
+- **Interactive project setup and the install pull request** (`actionagent`).
+  A failed project boot starts the project's setup assistant, an agent the
+  engine defines whose runs have exactly `read_step_log`, `set_env`,
+  `request_secret` and `retry_boot` and nothing else: no shell, no file reads,
+  no code session. At most three automatic runs follow each other before a
+  boot succeeds; `PATCH /api/projects/:id/setup` with `auto: false` switches
+  them off, and `POST /api/projects/:id/setup` (`:manage_project_secrets`)
+  starts one. Each run is an execution for `quota_checker`. `set_env` stores a
+  value that is not secret (source `setup_assistant`, passed as boot `env`,
+  never masked), refuses the names project secrets refuse and leaves values a
+  person set alone. A `request_secret` question names who asks, the
+  repository and the variable; answering it also needs
+  `:manage_project_secrets`, and the answer becomes a project secret the
+  resumed boot gets, never the transcript, telemetry or a job argument. The
+  Project page answers the requests waiting on the project's agents in place
+  (`GET /api/projects/:id/input_requests`) and reads "Waiting for you: N".
+  The sandbox manifest lists the app's models and columns (secret-looking
+  columns left out), and a project evaluated with the App assistant chooses
+  which it may filter on and read (`GET /api/projects/:id/app_models`,
+  `PUT /api/projects/:id/schema_tools`); every later boot writes
+  `app/agent_tools/<model>_tools.rb` with them. `POST
+  /api/projects/:id/install_pull_request` publishes the install through
+  `DraftPullRequestPublisher` with the project's allowlist: the Gemfile and
+  lock, the initializer and routes, the framework's config and application
+  agent when the bootstrap wrote them, the engine's migrations by name, the
+  schema, the chosen schema tools, and a generated `.activeagents/sandbox.yml`
+  (setup and secret names) and `.activeagents/evals/<project>.yml` (the
+  evaluation's enabled scenarios, as a suite `ActiveAgent::Evals::Suite.load`
+  reads). A file holding a project secret is refused. While the pull request
+  is open every boot checks out its branch without installing again, and once
+  GitHub reports it merged the project is installed.
+- **Declare schema tool columns from the generator** (`activeagent`).
+  `bin/rails generate active_agent:schema_tools Model --filterable a --returns
+  a b` writes those columns as the class's allowlist instead of commented
+  suggestions, leaving out a column that looks like a secret or that the
+  model lacks. `ActiveAgent::SchemaTools::SECRET_COLUMNS` names the pattern.
 - **Pause a generation to ask the user, and resume it with the answer**
   (`activeagent`). A tool returns an `ActiveAgent::InputRequest` (`:text`,
   `:choice`, `:confirm` or `:secret`); the turn's other calls finish, nothing
